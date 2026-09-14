@@ -1,0 +1,2238 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-20:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-20",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-20:70f3983a0182"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:marla",
+      "label": "Marla",
+      "node_type": "character",
+      "description": "Bugbear woman who supervises workers in town and confronts Bonogo over Stuart harassing her daughter.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "anchor_quotes": [
+            "furious Bugbear woman",
+            "berate him for encouraging Stuart to harass her daughter"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "anchor_quotes": [
+            "Marla",
+            "she is in charge of the workers in town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:lysandra",
+      "label": "Lysandra",
+      "node_type": "character",
+      "description": "Person contacted by Caelynn through the rockie-talkie; later found near a wagon in a confused, spellbound state and treated with tea/antidote.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "anchor_quotes": [
+            "Lysandra",
+            "the familiar voice of Sara",
+            "Caelynn directly to Lysandra"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "Lysandra drawing in the dirt",
+            "after drinking the tea, Lysandra comes out of the spell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:edge-of-forest",
+      "label": "edge of the forest",
+      "node_type": "location",
+      "description": "The area at the forest edge where the party was battling the swarm of red gnats.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "anchor_quotes": [
+            "Back out near the edge of the forest",
+            "back into the forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:forest",
+      "label": "forest",
+      "node_type": "location",
+      "description": "The forest adjacent to town; it advances toward the fortifications and later the swarm retreats into it.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "anchor_quotes": [
+            "edge of the forest",
+            "back into the forest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "the forest comes within range of their plan",
+            "the forest finally reaches the fortifications"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:town",
+      "label": "town",
+      "node_type": "location",
+      "description": "The settlement where the group returns, speaks with the mayor and sheriff, and later departs from.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "anchor_quotes": [
+            "Back in town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "into town",
+            "The mayor and sheriff congratulate the heroes"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "The group sets off from the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:alley",
+      "label": "alley",
+      "node_type": "location",
+      "description": "A town alley where Bonogo is led to the burned building and where Stacey is later confronted.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "anchor_quotes": [
+            "guided by Stuart down an alley"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "anchor_quotes": [
+            "catches up to her in the next alley"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:half-burned-building",
+      "label": "half burned building",
+      "node_type": "location",
+      "description": "A damaged building in town that Stuart says is where they will find Stacey.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "anchor_quotes": [
+            "to a half burned building",
+            "this is where they will find Stacey"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:ditches",
+      "label": "ditches",
+      "node_type": "location",
+      "description": "Defensive ditches in and around the town where fires are lit as the forest approaches.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "anchor_quotes": [
+            "should get to work instead",
+            "the ditches"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "Cheers go up along the ditches"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:fortifications",
+      "label": "fortifications",
+      "node_type": "location",
+      "description": "The defensive perimeter protecting the town, reached by the approaching forest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "the forest finally reaches the fortifications"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:camp",
+      "label": "camp",
+      "node_type": "location",
+      "description": "The temporary camp where the group rests, sets up shelter, and prepares for the storm.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "make a camp and rest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "anchor_quotes": [
+            "setting in for a rest around the camp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:current-camp",
+      "label": "current camp",
+      "node_type": "location",
+      "description": "The specific resting camp where the party is waiting out the approaching storm.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "anchor_quotes": [
+            "Back outside, Karesmine is rounding up the horses"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "anchor_quotes": [
+            "the group is settling in for a rest around the camp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:unknown-tower",
+      "label": "tower",
+      "node_type": "location",
+      "description": "An unidentified tower described by Lysandra and sketched as a top-down blueprint.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "she says it is a tower where the voices are coming from",
+            "a top-down blueprint of a tower"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:next-alley",
+      "label": "next alley",
+      "node_type": "location",
+      "description": "The alley where Bonogo catches up to Stacey and threatens her.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "anchor_quotes": [
+            "catches up to her in the next alley"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:distance-from-town",
+      "label": "distance from town",
+      "node_type": "location",
+      "description": "An estimated travel zone used by Karesmine to infer where Lysandra may have gone.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "estimate the distance and direction that Lysandra may have traveled"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:east",
+      "label": "east",
+      "node_type": "location",
+      "description": "The direction the forest turns away from after the fires are lit.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "turn to the east, away from the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "organization:mirathorn-operators",
+      "label": "the operators in Mirathorn",
+      "node_type": "organization",
+      "description": "Operators based in Mirathorn who relay calls and connect Caelynn to Lysandra.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "anchor_quotes": [
+            "one half of the operators in Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:workers-of-town",
+      "label": "the workers",
+      "node_type": "group",
+      "description": "The laborers in town being directed in the field preparations.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "anchor_quotes": [
+            "the workers"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "anchor_quotes": [
+            "in charge of the workers in town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:cult-members",
+      "label": "the cult",
+      "node_type": "group",
+      "description": "A cult implied by the shimmery eyes observed on Lysandra.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "just like the members of the cult"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:rockie-talkie",
+      "label": "rockie-talkie",
+      "node_type": "item",
+      "description": "A communications device Caelynn uses to contact Lysandra and others in Mirathorn.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "anchor_quotes": [
+            "\u201crockie-talkie\u201d",
+            "Caelynn quickly pulls out the \u201crockie-talkie\u201d and attempts to call Lysandra."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:bracelet",
+      "label": "bracelet",
+      "node_type": "item",
+      "description": "An item Caelynn uses to diffuse Marla's aggression and restore order.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "anchor_quotes": [
+            "Using her bracelet she is able to diffuse the aggression"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:gold-pouch",
+      "label": "gold pouch",
+      "node_type": "item",
+      "description": "A pouch of gold Stacey throws at Stuart after he accuses her of theft.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "anchor_quotes": [
+            "gold pouch",
+            "throws her gold pouch at him"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:knife",
+      "label": "knife",
+      "node_type": "item",
+      "description": "A blade Bonogo uses to threaten Stacey in the alley.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "anchor_quotes": [
+            "knife",
+            "puts a knife to her throat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:bow",
+      "label": "bow",
+      "node_type": "item",
+      "description": "Thrin's ranged weapon used against the swarm of red gnats.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "anchor_quotes": [
+            "his bow",
+            "takes two more shots with his bow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:scimitar",
+      "label": "scimitar",
+      "node_type": "item",
+      "description": "Karsemine's melee weapon used in the fight with the swarm.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "anchor_quotes": [
+            "her scimitar and short sword",
+            "uses her scimitar and short sword"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:bacon",
+      "label": "bacon",
+      "node_type": "item",
+      "description": "An untouched food crate item found among the provisions.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "anchor_quotes": [
+            "the bacon untouched"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:jerky",
+      "label": "jerky",
+      "node_type": "item",
+      "description": "Food stored in crates, some of which is found to be contaminated.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "anchor_quotes": [
+            "crates of jerky",
+            "the other crates of jerky did not fare as well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:barrels",
+      "label": "barrels",
+      "node_type": "item",
+      "description": "Barrels arranged as a makeshift throne for Stafl.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "anchor_quotes": [
+            "makeshift throne of barrels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_candidate:crates",
+      "label": "crates",
+      "node_type": "item",
+      "description": "Crates associated with supplies and the later camp scene.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "a stack of crates"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "anchor_quotes": [
+            "the other crates of jerky"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-swarm-tactics",
+      "label": "Forest swarm repelled by ground-based tactics",
+      "node_type": "mystery",
+      "description": "The red gnats swarm backs off only after the team tests attacks and then changes the situation on the ground; the group concludes direct attacks on the trees are not the solution.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "anchor_quotes": [
+            "the swarm finally gives up and heads back into the forest",
+            "head back to tell the others what they discovered"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "anchor_quotes": [
+            "do not attack the trees directly, but the forest should respond to changes on the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-stacey-stuart-conflict",
+      "label": "Stacey and Stuart's conflict over bullying and stolen gold",
+      "node_type": "mystery",
+      "description": "Stacey is accused of being bossy and of stealing Stuart's gold; the confrontation escalates to a knife threat and leaves Stacey shaken.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "anchor_quotes": [
+            "they are accusing her of continuing to be too bossy",
+            "He sticks his hand out and demands his gold back",
+            "the dart and threatens her with it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "anchor_quotes": [
+            "he quickly grabs her and puts a knife to her throat",
+            "He tells her to stop bullying Stuart or he will come back",
+            "Clearly shaken, Stacey runs home"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-marla-worker-authority",
+      "label": "Marla appears to be the workers' authority in town",
+      "node_type": "mystery",
+      "description": "A bugbear woman named Marla publicly confronts Bonogo and is identified as the person in charge of the workers in town.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "anchor_quotes": [
+            "a furious Bugbear woman",
+            "begins to berate him for encouraging Stuart to harass her daughter"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "anchor_quotes": [
+            "Marla is not someone to mess with",
+            "They reveal that she is in charge of the workers in town and she means business"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-forest-fortification-response",
+      "label": "Forest responds to lit ditches and turns away from the town",
+      "node_type": "mystery",
+      "description": "When the fires in the ditches are lit, the trees pull back and then turn east, away from the town, suggesting the forest is being influenced or redirected by the fortifications and ground changes.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "the forest finally reaches the fortifications, the fires are lit in the ditches",
+            "the trees pull back and then start to turn to the east, away from the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-lysandra-missing-time",
+      "label": "Lysandra experienced memory loss, disorientation, and strange time effects",
+      "node_type": "mystery",
+      "description": "Lysandra reports losing memory after leaving the group, being unable to remember much, and hearing mumbling or voices while noting that something strange happened to time.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "anchor_quotes": [
+            "all she could hear was mumbling about the forest leaving and that something strange happened to the time",
+            "she can't remember much after the group left",
+            "she is exhausted and disoriented"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "drawing in the dirt",
+            "she knows where it is",
+            "All that she is able to remember is voices in the dark after the group left into the forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-lysandra-cult-signs",
+      "label": "Lysandra shows signs linked to the cult",
+      "node_type": "mystery",
+      "description": "Caelynn notices Lysandra's shimmery eyes, like cult members, before preparing an antidote from tea to break the effect.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "her eyes are shimmery, just like the members of the cult",
+            "she quickly begins to make the antidote from the tea in her bag",
+            "after drinking the tea, Lysandra comes out of the spell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-tower-blueprint-voices",
+      "label": "Lysandra's tower drawing and voices in the dark",
+      "node_type": "mystery",
+      "description": "Lysandra draws a detailed top-down blueprint of a tower and claims it is where the voices are coming from, implying a location tied to the haunting voices.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "it is a tower where the voices are coming from",
+            "a top-down blueprint of a tower and is very well done",
+            "voices in the dark"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-tainted-meat-sabotage",
+      "label": "Tainted meat was smuggled into Mirathorn's provisions",
+      "node_type": "mystery",
+      "description": "Stafl finds disguised tainted meat mixed into the jerky crates and concludes the whole batch must be burned, raising concern about deliberate contamination.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "anchor_quotes": [
+            "someone snuck in the tainted meat before leaving Mirathorn",
+            "cleverly disguised tainted meat",
+            "the whole thing will have to be burned"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-who-can-be-trusted",
+      "label": "Sara's concern about trust in the city",
+      "node_type": "mystery",
+      "description": "After hearing about the tainted meat, Sara worries about who she can now trust in the city, implying a broader suspicion or infiltration threat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "anchor_quotes": [
+            "Sara is very concerned about who she can now trust in the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session20-storm-shimmering-rain",
+      "label": "Approaching storm with magical shimmering rain",
+      "node_type": "mystery",
+      "description": "The storm is still building and is described as bringing magical shimmering rain, creating another unresolved environmental threat as the party rests.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "anchor_quotes": [
+            "the storm is approaching",
+            "it is bringing the magical shimmering rain"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-1",
+      "from_node_id": "npc:marla",
+      "to_node_id": "group:workers-of-town",
+      "label": "is in charge of",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "anchor_quotes": [
+            "she is in charge of the workers in town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-10",
+      "from_node_id": "loc:town",
+      "to_node_id": "loc:alley",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "anchor_quotes": [
+            "Back in town",
+            "down an alley"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "loc:town",
+      "to_node_id": "loc:fortifications",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "the forest finally reaches the fortifications",
+            "away from the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-12",
+      "from_node_id": "loc:fortifications",
+      "to_node_id": "loc:ditches",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "the fires are lit in the ditches"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "loc:forest",
+      "to_node_id": "loc:town",
+      "label": "turns away from",
+      "relationship_type": "west_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "turn to the east, away from the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-24",
+      "from_node_id": "npc:lysandra",
+      "to_node_id": "group:cult-members",
+      "label": "identified by shimmery eyes",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "her eyes are shimmery, just like the members of the cult"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-25",
+      "from_node_id": "npc:lysandra",
+      "to_node_id": "mystery-session20-tower-blueprint-voices",
+      "label": "refers to tower where voices are coming from",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "she says it is a tower where the voices are coming from"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-26",
+      "from_node_id": "npc:lysandra",
+      "to_node_id": "mystery-session20-lysandra-missing-time",
+      "label": "aware of memory loss and disorientation",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "anchor_quotes": [
+            "she can't remember much after the group left",
+            "she is exhausted and disoriented"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-27",
+      "from_node_id": "mystery-session20-forest-fortification-response",
+      "to_node_id": "loc:forest",
+      "label": "describes forest behavior",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "the trees pull back and then start to turn to the east, away from the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-28",
+      "from_node_id": "mystery-session20-tainted-meat-sabotage",
+      "to_node_id": "item_candidate:jerky",
+      "label": "concerns contaminated provisions",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "anchor_quotes": [
+            "the other crates of jerky did not fare as well",
+            "cleverly disguised tainted meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-01",
+      "order": 1,
+      "title": "Forest test succeeds against the red gnat swarm",
+      "summary": "The group fights a swarm near the forest edge, with multiple attacks landing, Caelynn taking minor damage, and the team concluding that the creatures have been tested enough and should head back with what they learned.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:14-14",
+          "anchor_quotes": [
+            "Back out near the edge of the forest",
+            "battle the swarm of red gnats"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "anchor_quotes": [
+            "Misty Step away",
+            "casts a powerful Thunderwave spell",
+            "The team decides they have enough \u201ctesting\u201d and should head back"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-02",
+      "order": 2,
+      "title": "Stacey is confronted in the warehouse and forced to give up her gold",
+      "summary": "Back in town, Stuart is led to Stacey, accuses her of stealing his gold, threatens her with a dart, and drives her off after she throws her gold pouch at him.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "anchor_quotes": [
+            "Back in town",
+            "a half burned building",
+            "they are looking for. She is in a heated argument",
+            "pulls out the dart and threatens her with it",
+            "throws her gold pouch at him"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-03",
+      "order": 3,
+      "title": "Bonogo intimidates Stacey to stop bullying Stuart",
+      "summary": "After the warehouse confrontation, Bonogo plays along with the children, then pursues Stacey into the alley, threatens her with a knife, and warns her to stop bullying Stuart before fleeing into the shadows.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "anchor_quotes": [
+            "He is intent on following Stacey",
+            "puts a knife to her throat",
+            "stop bullying Stuart"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-04",
+      "order": 4,
+      "title": "Field preparations and Marla's public confrontation with Bonogo",
+      "summary": "At the field fortifications, the team reports that the trees should not be attacked directly, Stafl oversees the workers, and Marla publicly confronts Bonogo before Caelynn calms everyone and the company rests briefly.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:22-22",
+          "anchor_quotes": [
+            "As the group approaches the preparations happening in the field",
+            "they find Stafl singing and directing the workers",
+            "do not attack the trees directly"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "anchor_quotes": [
+            "She stands up to her full Bugbear height",
+            "Marla then grapples Bonogo",
+            "united against the approaching forest",
+            "take a short rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-05",
+      "order": 5,
+      "title": "The forest turns away and the town thanks the heroes",
+      "summary": "When the fortifications are lit, the forest responds by pulling back and turning east, prompting cheers and formal thanks from the mayor and sheriff. Marla asks about Bonogo, and Caelynn also learns the town has never heard of Lysandra.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "the forest comes within range of their plan",
+            "the fires are lit in the ditches",
+            "the trees pull back and then start to turn to the east",
+            "The mayor and sheriff congratulate the heroes",
+            "never heard of her"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-06",
+      "order": 6,
+      "title": "Caelynn contacts Lysandra through Sara and confirms the trance-like condition",
+      "summary": "Caelynn uses the rockie-talkie to reach Sara in Mirathorn, who connects her to Lysandra. Lysandra is relieved but disoriented, remembers strange time loss and forest-related voices, and is told to camp and rest.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:28-28",
+          "anchor_quotes": [
+            "\u201crockie-talkie\u201d",
+            "Sara, one half of the operators in Mirathorn",
+            "something strange happened to the time",
+            "she could smell meat while trying to sleep"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:30-30",
+          "anchor_quotes": [
+            "Karesmine is able to estimate the distance and direction",
+            "she quickly begins to make the antidote from the tea in her bag",
+            "finally, after drinking the tea, Lysandra comes out of the spell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-07",
+      "order": 7,
+      "title": "Travel to Lysandra reveals tainted meat and a new lead for Tealeaf",
+      "summary": "The group tracks Lysandra to a wagon campsite, administers the tea-based antidote to break the spell, then discovers tainted meat in the provisions and escalates the concern to Sara and Professor Tealeaf.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:32-32",
+          "anchor_quotes": [
+            "sorting through the provisions",
+            "tainted meat",
+            "the whole thing will have to be burned",
+            "She transfers Caelynn to Professor Tealeaf"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:34-34",
+          "anchor_quotes": [
+            "a storm is still building in the distance",
+            "the magical shimmering rain",
+            "go back to town for new supplies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "candidate:city",
+      "label": "the city",
+      "reason": "Deterministic known entity mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "the town"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:forest",
+      "label": "the forest",
+      "reason": "Deterministic known entity mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:16-16",
+          "anchor_quotes": [
+            "the forest"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:questionable-company",
+      "label": "Questionable Company",
+      "reason": "Deterministic known faction mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:24-24",
+          "anchor_quotes": [
+            "Questionable Company"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "candidate:stacey",
+      "label": "Stacey",
+      "reason": "Known entity mention; not extracted as a new node, but her role in the bullying/possible theft conflict may merit relationship enrichment later.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "anchor_quotes": [
+            "Stacey, the bugbear girl they are looking for"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Link Stacey to Stuart, Bonogo, and Marla in a relationship-focused pass."
+    },
+    {
+      "item_id": "candidate:stuart",
+      "label": "Stuart",
+      "reason": "Known entity mention; not extracted as a new node, but his theft accusation and later threat-making are relationship-relevant.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:18-18",
+          "anchor_quotes": [
+            "demands his gold back",
+            "the dart and threatens her with it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:20-20",
+          "anchor_quotes": [
+            "puts a knife to her throat"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Capture Stuart's coercive actions and ties to Bonogo/Stacey in an edges pass."
+    },
+    {
+      "item_id": "candidate:mayor",
+      "label": "the mayor",
+      "reason": "Known entity mention; not extracted as a new node, but the mayor's response confirms the town's official support and may be useful in a civic relationship pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "label": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-20:70f3983a0182:span:70f3983a0182:26-26",
+          "anchor_quotes": [
+            "The mayor and sheriff congratulate the heroes"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Attach mayoral support/congratulation to the town defense event in an entities pass."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

@@ -1,0 +1,121 @@
+{
+  "schema": "dmb_source_span_index_v1",
+  "version": "1.0",
+  "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+  "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+  "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+  "spans": [
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:1-12",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 1,
+      "end_line": 12
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 14,
+      "end_line": 14
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 16,
+      "end_line": 16
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 18,
+      "end_line": 18
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 20,
+      "end_line": 20
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 22,
+      "end_line": 22
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 24,
+      "end_line": 24
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:26-26",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 26,
+      "end_line": 26
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 28,
+      "end_line": 28
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:30-30",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 30,
+      "end_line": 30
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 32,
+      "end_line": 32
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 34,
+      "end_line": 34
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 36,
+      "end_line": 36
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+      "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+      "content_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+      "start_line": 38,
+      "end_line": 38
+    }
+  ]
+}

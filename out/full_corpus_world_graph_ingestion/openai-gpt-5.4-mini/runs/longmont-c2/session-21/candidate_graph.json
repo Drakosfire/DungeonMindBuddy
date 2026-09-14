@@ -1,0 +1,1581 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-21:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-21",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-21:ad4ecd013dad"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:lysandra",
+      "label": "Lysandra",
+      "node_type": "character",
+      "description": "A non-party character traveling with the group, present during rest stops and conversations; reacts emotionally to news from the city and later tries contacting Mirathorn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "Stafl and Lysandra, both in need of a good rest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "anchor_quotes": [
+            "she approaches Lysandra",
+            "Lysandra doesn\u2019t appear to notice",
+            "Lysandra then notices Ephanna talking with her while she is brewing some tea"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "anchor_quotes": [
+            "Lysandra decides to make a call herself, but does not even get an answer"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_edge_of_the_world",
+      "label": "Edge of the World",
+      "node_type": "location",
+      "description": "A town to the north of the party\u2019s route, described as about a week away and associated with cultist rumors.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "The town, called Edge of the World, is about a one week trip to reach"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_mireward",
+      "label": "Mireward",
+      "node_type": "location",
+      "description": "A small town north along the road, estimated to be about five days away from the party\u2019s position.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "the next little town north along the road will be Mireward, about 5 days out"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_main_road_through_town",
+      "label": "main road through town",
+      "node_type": "location",
+      "description": "The road route the group intends to use to travel back up through town and continue north.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "head back up the main road through town and continue north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_conical_hill_camp",
+      "label": "conical hill camping spot",
+      "node_type": "location",
+      "description": "A camping place on top of a conical hill overlooking the plains, with water and trees nearby.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "a good camping spot on the top of a conical hill",
+            "a giant bowl of water surrounded by a grove of trees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_giant_bowl_hill",
+      "label": "giant bowl-shaped hill",
+      "node_type": "location",
+      "description": "A hilltop bowl-shaped depression or summit encountered twice, first with water and later with detritus and decay.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "a giant bowl of water"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "anchor_quotes": [
+            "The top of the hill is again shaped like a giant bowl"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_old_trail",
+      "label": "old trail",
+      "node_type": "location",
+      "description": "An old trail found at the bottom of the hill, covered in thick brush, leading upward toward the drake nest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "a very old trail covered in thick brush"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_bowl_floor",
+      "label": "bowl floor",
+      "node_type": "location",
+      "description": "The floor of the bowl-shaped hollow where drakes, corpses, and gear are found.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "anchor_quotes": [
+            "Down below on the floor of the bowl"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_next_hill_over",
+      "label": "next hill over",
+      "node_type": "location",
+      "description": "A nearby hill identified by Bonogo as the likely endpoint of the rainbow and a site worth detouring to.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "the next hill over where the rainbow appears to end"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "organization_mirathorn_city",
+      "label": "Mirathorn city authorities / city response",
+      "node_type": "organization",
+      "description": "The city-side social unit coordinating with Caelynn and receiving calls; the city appears to have resumed a festival and later stops responding.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "anchor_quotes": [
+            "Caelynn decides to call Mirathorn again",
+            "the city resumed the Festival"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "anchor_quotes": [
+            "Something seems wrong back at the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group_cultists_music_conversion",
+      "label": "cultists using music to convert others",
+      "node_type": "group",
+      "description": "A rumored group of cultists reported by the sheriff as operating from a town to the north.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "rumors coming from a town to the north about cultists using music to convert others"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group_young_drakes",
+      "label": "young drakes nest",
+      "node_type": "group",
+      "description": "A nest of young drakes, including elder drakes and several smaller nests, encountered on the trail.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "Karsemine is able to tell now that they are young drakes",
+            "nine young drakes remain, but he also discovers two large elder drakes and seven more sitting on smaller nests"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "organization_sheriff_response",
+      "label": "the sheriff",
+      "node_type": "organization",
+      "description": "Local law authority who approaches the party during the town celebration and warns them about northern cult rumors.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "He is quickly approached by the sheriff",
+            "He warns the group"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_boots_of_crowing_wings",
+      "label": "Boots of Crowing Wings",
+      "node_type": "item",
+      "description": "A pair of beat-up old boots discovered among the drakes' loot; they grant additional jumping distance.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "a pair of beat-up old boots",
+            "Boots of Crowing Wings",
+            "They allow him additional jumping distance"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_metal_slab_with_buttons",
+      "label": "metal slab with buttons",
+      "node_type": "item",
+      "description": "An unusual metal object found by Bonogo while sneaking near the drake nest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "a metal slab with buttons"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_iridescent_scale",
+      "label": "iridescent scale",
+      "node_type": "item",
+      "description": "A warm, iridescent scale picked up off the trail near the drake nest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "anchor_quotes": [
+            "an iridescent scale, still warm to the touch"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_flat_rock",
+      "label": "strangely flat rock",
+      "node_type": "item",
+      "description": "A flat rock found during watch and packed away by the group.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "anchor_quotes": [
+            "they find a strangely flat rock, which they put into their pack"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-1",
+      "label": "Approaching storm forces rapid sheltering decisions",
+      "node_type": "mystery",
+      "description": "The party repeatedly tracks a storm that is expected within hours, then gets caught at its edge and must improvise camping and shelter before continuing.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "the gathering storm will arrive in about seven hours",
+            "beat the storm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "they are able to see the sheen of magic as the rain pools up",
+            "the rain smells savory",
+            "a peaceful night\u2019s rest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "Caelynn can feel the storm starting to build",
+            "find a spot quickly where they can make any sort of shelter from the storm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-2",
+      "label": "Drake nest discovered on a hill trail",
+      "node_type": "mystery",
+      "description": "The party follows a rainbow-related detour to an overgrown trail and discovers an occupied bowl-like nest containing many winged reptiles later identified as young drakes, plus larger elders.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "huge double rainbow",
+            "old trail covered in thick brush"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "anchor_quotes": [
+            "iridescent scale",
+            "a very old trail covered in thick brush",
+            "something is definitely living here",
+            "a large amount of winged reptiles, between 40 and 50"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "they are young drakes",
+            "nine young drakes remain, but he also discovers two large elder drakes and seven more sitting on smaller nests"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-3",
+      "label": "Strange magic and sensory anomalies around the storm and rain",
+      "node_type": "mystery",
+      "description": "Multiple unusual effects accompany the weather: magical sheen in pooling rain, an unexpected savory smell instead of petrichor, and Ephanna sensing strange magic forming.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "sheen of magic as the rain pools up",
+            "instead of the usual petrichor the rain smells savory"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "Ephanna feels a strange magic forming"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-4",
+      "label": "Rumors of cultists using music to convert people",
+      "node_type": "mystery",
+      "description": "The sheriff warns the party about disturbing rumors from a northern town: cultists allegedly use music to convert others, suggesting a broader threat beyond the immediate storm.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "rumors coming from a town to the north about cultists using music to convert others"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-5",
+      "label": "Tainted meat warning and transformation signs",
+      "node_type": "mystery",
+      "description": "The party warns the sheriff about tainted meat and demonstrates what to look for when people begin to change, implying a spreading corruption or infection.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "They warn the sheriff about tainted meat",
+            "what to look for when people begin to change"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-6",
+      "label": "Mirathorn communication disruption and possible city trouble",
+      "node_type": "mystery",
+      "description": "Caelynn\u2019s renewed call to Mirathorn reaches Frank, but the city has resumed the festival and the call is abruptly cut off; a later call from Lysandra gets no answer, leaving the city\u2019s status uncertain.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "anchor_quotes": [
+            "Caelynn decides to call Mirathorn again",
+            "the city resumed the Festival and it was a long night",
+            "he abruptly hangs up on her"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "anchor_quotes": [
+            "Something seems wrong back at the city",
+            "Lysandra decides to make a call herself, but does not even get an answer"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-7",
+      "label": "Rainbow detour and old trail may indicate a Fey-related promise site",
+      "node_type": "mystery",
+      "description": "Bonogo becomes fixated on where a rainbow ends, and Ephanna recalls a Fey legend about making promises under a rainbow, suggesting a possibly enchanted or fated location tied to the detour.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "huge double rainbow",
+            "there is something on the next hill over where the rainbow appears to end",
+            "an old Fey legend about making promises under a rainbow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-8",
+      "label": "Unidentified relics and loot recovered from the nest",
+      "node_type": "mystery",
+      "description": "Bonogo finds a metal slab with buttons, strange boots that become identified as the Boots of Crowing Wings, and a flat rock later packed away, but their significance remains unclear.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "a metal slab with buttons",
+            "Boots of Crowing Wings"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "anchor_quotes": [
+            "they find a strangely flat rock, which they put into their pack"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-3",
+      "from_node_id": "group_cultists_music_conversion",
+      "to_node_id": "loc_edge_of_the_world",
+      "label": "located_in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "rumors coming from a town to the north about cultists using music to convert others"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "organization_sheriff_response",
+      "to_node_id": "group_cultists_music_conversion",
+      "label": "reports_threat_in",
+      "relationship_type": "reports_threat_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "He warns the group about rumors coming from a town to the north about cultists using music to convert others"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "loc_giant_bowl_hill",
+      "to_node_id": "loc_bowl_floor",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "anchor_quotes": [
+            "Down below on the floor of the bowl"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-12",
+      "from_node_id": "group_young_drakes",
+      "to_node_id": "loc_bowl_floor",
+      "label": "located_in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "anchor_quotes": [
+            "Down below on the floor of the bowl",
+            "a large amount of winged reptiles, between 40 and 50"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "group_young_drakes",
+      "to_node_id": "loc_old_trail",
+      "label": "located_in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "anchor_quotes": [
+            "as the group continues up the path the number of scales laying around continues to grow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-14",
+      "from_node_id": "group_young_drakes",
+      "to_node_id": "item_iridescent_scale",
+      "label": "carries",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "anchor_quotes": [
+            "an iridescent scale, still warm to the touch"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-16",
+      "from_node_id": "item_metal_slab_with_buttons",
+      "to_node_id": "group_young_drakes",
+      "label": "located_in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "He is able to find a few valuable things right away: a metal slab with buttons"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-18",
+      "from_node_id": "loc_mireward",
+      "to_node_id": "loc_main_road_through_town",
+      "label": "within",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "the next little town north along the road"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-21",
+      "from_node_id": "npc:lysandra",
+      "to_node_id": "organization_mirathorn_city",
+      "label": "aware_of",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "anchor_quotes": [
+            "Lysandra decides to make a call herself, but does not even get an answer",
+            "Something seems wrong back at the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Storm warning and town detour",
+      "summary": "The group waits on a response, reads an approaching storm, loads the wagon, and heads through town northward to warn the sheriff and Mossford while gathering supplies; Caelynn makes tea and the party camps after reaching the edge of the storm.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:14-14",
+          "anchor_quotes": [
+            "gathering storm",
+            "load up the wagon",
+            "head out in hopes of beating the storm",
+            "warn the Mossford",
+            "prepare some tea",
+            "approaches town",
+            "the sheriff"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "the edge of the storm",
+            "good camping spot",
+            "peaceful night\u2019s rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Rainbow omen leads to the hidden trail",
+      "summary": "After resting, the party spots a double rainbow, interprets it through a Fey legend, and detours toward where the rainbow seems to end. They find an overgrown old trail and begin forcing their way up it.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:16-16",
+          "anchor_quotes": [
+            "huge double rainbow",
+            "old Fey legend",
+            "make a short detour",
+            "an old trail covered in thick brush",
+            "slashes their way up the trail"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Drake nest discovered in the bowl",
+      "summary": "Karsemine notices scales and the group finds a bowl-shaped nest filled with decay, corpses, and many winged reptiles. Bonogo presses toward the loot despite the danger, while Karsemine warns that something is living there.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:18-18",
+          "anchor_quotes": [
+            "iridescent scale",
+            "something is definitely living here",
+            "large amount of winged reptiles",
+            "human corpses",
+            "the \u201ctreasure\u201d"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "young drakes",
+            "two large elder drakes",
+            "Boots of Crowing Wings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Storm pressure and improvised shelter",
+      "summary": "The group weighs whether to fight or flee, learns the nest is larger and more dangerous than expected, and then shifts to seeking shelter as the storm builds. Thrin helps fashion cover from the surrounding trees.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:20-20",
+          "anchor_quotes": [
+            "majority want to leave right away",
+            "five of these would be a tough battle",
+            "storm starting to build",
+            "find a spot quickly",
+            "make any sort of shelter",
+            "helping to create a shelter from the surrounding trees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Mirathorn calls, bad news, and emotional fallout",
+      "summary": "At sunrise Caelynn calls Mirathorn and reaches Frank, who says the city resumed the Festival and hangs up. The conversation leaves Caelynn devastated, triggers tears and awkward support from Lysandra, and surfaces mention of prior investigation back in the city.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "anchor_quotes": [
+            "call Mirathorn again",
+            "connected with Frank",
+            "the city resumed the Festival",
+            "Now she is devastated",
+            "brewing some tea",
+            "doing a little investigation into the person they spoke about back in the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Second call fails and the party chooses the swamp",
+      "summary": "Ephanna raises the earlier call with Lysandra, but a new attempt to contact Mirathorn gets no answer, suggesting trouble in the city. The party briefly debates turning back, then decides to continue on to the swamp.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "anchor_quotes": [
+            "make a call herself",
+            "does not even get an answer",
+            "Something seems wrong back at the city",
+            "continue on their mission to the swamp",
+            "they agree to press on to the swamp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored-1",
+      "label": "Party anchors for Questionable Company PCs",
+      "reason": "Deterministic party anchors were provided and should not be re-extracted as session-novel nodes.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored-2",
+      "label": "Known entity mentions from the deterministic entity list",
+      "reason": "These entities were explicitly supplied as canonical mentions and should only be used for enrichment/evidence, not recreated as nodes.",
+      "evidence_refs": [],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred-1",
+      "label": "Unclear identity of the person Caelynn investigated back in the city",
+      "reason": "Lysandra says she investigated 'the person they spoke about back in the city,' but the source packet does not identify who this person is.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:22-22",
+          "anchor_quotes": [
+            "the person they spoke about back in the city"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Resolve which prior city contact or person Lysandra investigated in earlier sessions."
+    },
+    {
+      "item_id": "deferred-2",
+      "label": "Cause of city communication failures",
+      "reason": "The call to Frank is cut short and the later call gets no answer, but the packet does not establish whether the issue is technical, political, magical, or otherwise.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "label": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad:span:ad4ecd013dad:24-24",
+          "anchor_quotes": [
+            "Something seems wrong back at the city",
+            "does not even get an answer"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track subsequent sessions for confirmation of city-wide disruption, festival effects, or targeted interference."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

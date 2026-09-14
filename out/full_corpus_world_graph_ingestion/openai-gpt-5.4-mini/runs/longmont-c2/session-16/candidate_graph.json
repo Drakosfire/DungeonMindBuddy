@@ -1,0 +1,1821 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-16:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-16",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-16:38fe100ba220"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "location:thinking-tree-clearing",
+      "label": "Thinking Tree clearing",
+      "node_type": "location",
+      "description": "A small clearing in the forest centered on a pure white tree with a bowl of roots at its base, associated with strong Fey magic and a peaceful, spell-like effect.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "anchor_quotes": [
+            "small clearing",
+            "a pure white tree",
+            "bowl of roots",
+            "Thinking Tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:root-bowl-water-clearing",
+      "label": "Root-bowl water clearing",
+      "node_type": "location",
+      "description": "A clearing containing an enormous web of roots forming a bowl of water, with a choice to cross directly or go around.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "sort of a clearing",
+            "an enormous web of roots acting as a bowl holding water",
+            "cross the water directly or take the longer path around"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:deadfall-wall",
+      "label": "Deadfall wall",
+      "node_type": "location",
+      "description": "A giant wall made from deadfall of huge trees that blocks the path and leads toward bridge-like canopy routes above.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "the path leads up to a giant wall",
+            "created by deadfall from huge trees",
+            "natural looking bridges in the canopy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:unnatural-forest-section",
+      "label": "Unnatural forest section",
+      "node_type": "location",
+      "description": "A later stretch of forest where time feels distorted, the trees are unnaturally groomed, and volcanic rock appears within the forest itself.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "time begins to feel distorted",
+            "The trees appear to be unnaturally groomed",
+            "covered in volcanic rock"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:ankylosaur-clearing",
+      "label": "Ankylosaur clearing",
+      "node_type": "location",
+      "description": "A clearing where a baby ankylosaurus is found surrounded by attacking canopy prowlers, later joined by larger ankylosaurs nearby.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "a clearing nearby",
+            "a small Ankylosaurus in the center of the clearing"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "anchor_quotes": [
+            "the two other, larger ankylosaurs standing just outside the clearing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:thinking-tree",
+      "label": "Thinking Tree",
+      "node_type": "item",
+      "description": "A pure white tree in a clearing whose roots hold the group; identified as the place where the forest gathers and absorbs its thoughts.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "anchor_quotes": [
+            "pure white tree standing alone",
+            "the Thinking Tree",
+            "the entire forest gathers all its thoughts and is absorbed by the Thinking Tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:root-bowl-water-clearing",
+      "label": "Root bowl of water",
+      "node_type": "item",
+      "description": "An enormous web of roots forming a bowl that holds deep water in a clearing.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "an enormous web of roots acting as a bowl holding water",
+            "very deep"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:spiked-lizards",
+      "label": "Little spiked lizards",
+      "node_type": "item",
+      "description": "Small spiked lizards found infesting the party's packs; some are killed and eaten.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "little spiked lizards",
+            "Everyone, except Caelynn, discovers the lizards in their packs as well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:volcanic-rock",
+      "label": "Volcanic rock",
+      "node_type": "item",
+      "description": "A patch that appears to be ground but is actually part of the forest itself.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "the ground is covered in volcanic rock",
+            "the rock is not actually the ground, but part of the forest itself"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:ankylosaurus-baby",
+      "label": "Small Ankylosaurus",
+      "node_type": "item",
+      "description": "A small ankylosaurus found in a clearing and later fed a Goodberry after being injured.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "a small Ankylosaurus in the center of the clearing"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "anchor_quotes": [
+            "feeds one to the injured ankylosaurus"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:canopy-prowlers",
+      "label": "Canopy Prowlers",
+      "node_type": "item",
+      "description": "The attacking reptilian predators that surround the baby ankylosaurus and are fought off by the group.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "5 large moss covered reptiles with large beaks, roughly resembling velociraptors"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "anchor_quotes": [
+            "attacking Canopy Prowlers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:vine-and-fallen-tree-bridges",
+      "label": "Natural canopy bridges",
+      "node_type": "item",
+      "description": "Natural-looking bridges in the canopy made from vines and fallen trees, some appearing to have footholds.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "natural looking bridges in the canopy created from vines and fallen trees",
+            "they appear to be made with footholds to climb"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:darkness-cloud",
+      "label": "Cloud of darkness",
+      "node_type": "item",
+      "description": "A darkness effect cast around the baby ankylosaurus during the fight.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "anchor_quotes": [
+            "casts a cloud of darkness around the baby ankylosaurus"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:light-on-torch",
+      "label": "Light on torch",
+      "node_type": "item",
+      "description": "A light spell cast on Stafl's torch before the group remembers they have darkvision.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "anchor_quotes": [
+            "casts Light on his torch"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:goodberry",
+      "label": "Goodberry",
+      "node_type": "item",
+      "description": "A conjured berry used to feed the injured ankylosaurus.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "anchor_quotes": [
+            "conjures a Goodberry"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session16-forest-unwelcome-presence",
+      "label": "Unwelcome presence in the dark forest",
+      "node_type": "mystery",
+      "description": "The party enters a dark, mysterious forest where the atmosphere feels hostile or exclusionary, with movement and activity just out of sight and sounds delayed or distorted.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "anchor_quotes": [
+            "dark and mysterious forest",
+            "There is no immediate threat, but there is a feeling they are unwelcome.",
+            "There is lots of movement and activity, just outside line of sight.",
+            "movements in the trees take much longer to hear after they are seen."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session16-thinking-tree",
+      "label": "Thinking Tree absorbs the forest's thoughts",
+      "node_type": "mystery",
+      "description": "A pure white tree in a clearing causes multiple party members to become calm or spellbound; it is identified as the place where the forest gathers its thoughts and absorbs them, with the effect breaking after about ten minutes.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "anchor_quotes": [
+            "a pure white tree standing alone",
+            "the Thinking Tree",
+            "This is the place where the entire forest gathers all its thoughts and is absorbed by the Thinking Tree.",
+            "after about 10 minutes the spell is broken."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session16-lizard-infested-packs",
+      "label": "Little spiked lizards infest the party's packs",
+      "node_type": "mystery",
+      "description": "The group's packs are suddenly infested with little spiked lizards; the infestation appears widespread, though Caelynn is the only one not to find them in her pack.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "infested with little spiked lizards",
+            "Everyone, except Caelynn, discovers the lizards in their packs as well."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session16-deep-water-predators",
+      "label": "Deep water with hidden predators",
+      "node_type": "mystery",
+      "description": "A clearing contains deep clear water above a swarm of dark shapes; throwing a lizard onto the surface reveals aggressive fish with teeth that rip it apart.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "they find an enormous web of roots acting as a bowl holding water",
+            "very deep",
+            "20 to 30 dark shapes all moving together in a swarm under the water",
+            "aggressive fish with teeth"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session16-unnatural-forest-bridges",
+      "label": "Unnatural canopy bridges and groomed trees",
+      "node_type": "mystery",
+      "description": "The path reaches a deadfall wall; beyond it are bridges in the canopy that look natural but seem intentionally made, with footholds and unnaturally groomed trees.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "giant wall created by deadfall from huge trees",
+            "natural looking bridges in the canopy created from vines and fallen trees",
+            "they appear to be made with footholds to climb",
+            "The trees appear to be unnaturally groomed."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session16-distorted-time-and-sky",
+      "label": "Distorted time and wrong sun position",
+      "node_type": "mystery",
+      "description": "Deeper in the forest, time becomes unreliable and the sun appears in the wrong place, suggesting a strong environmental or magical distortion.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "time begins to feel distorted",
+            "No one can agree on how much time has passed",
+            "even the sun seems to be in the wrong place."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session16-volcanic-rock-carried-into-forest",
+      "label": "Volcanic rock embedded in the forest",
+      "node_type": "mystery",
+      "description": "The forest floor becomes volcanic rock, but closer inspection shows it is part of the forest itself and was carried there rather than belonging naturally to the area.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "the ground is covered in volcanic rock",
+            "the rock is not actually the ground, but part of the forest itself",
+            "must have been carried by the forest."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session16-forest-carried-ankylosaurus-and-predators",
+      "label": "Baby ankylosaurus attacked by canopy prowlers",
+      "node_type": "mystery",
+      "description": "A small ankylosaurus is found in a clearing surrounded by five moss-covered reptiles; the group intervenes, kills the attackers, and later notices two larger ankylosaurs nearby.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "a small Ankylosaurus in the center of the clearing",
+            "surrounded by 5 large moss covered reptiles",
+            "resembling velociraptors"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "anchor_quotes": [
+            "the two other, larger ankylosaurs standing just outside the clearing."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-1",
+      "from_node_id": "location:thinking-tree-clearing",
+      "to_node_id": "obs:item:thinking-tree",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "anchor_quotes": [
+            "small clearing",
+            "a pure white tree standing alone",
+            "the Thinking Tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "obs:item:thinking-tree",
+      "to_node_id": "mystery:session16-thinking-tree",
+      "label": "identified_as",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "anchor_quotes": [
+            "This is the place where the entire forest gathers all its thoughts and is absorbed by the Thinking Tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-3",
+      "from_node_id": "location:root-bowl-water-clearing",
+      "to_node_id": "obs:item:root-bowl-water-clearing",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "an enormous web of roots acting as a bowl holding water"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "mystery:session16-deep-water-predators",
+      "to_node_id": "obs:item:root-bowl-water-clearing",
+      "label": "associated_with",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "they find an enormous web of roots acting as a bowl holding water",
+            "20 to 30 dark shapes all moving together in a swarm under the water",
+            "aggressive fish with teeth"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-5",
+      "from_node_id": "location:deadfall-wall",
+      "to_node_id": "obs:item:vine-and-fallen-tree-bridges",
+      "label": "near",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "the path leads up to a giant wall",
+            "natural looking bridges in the canopy created from vines and fallen trees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-6",
+      "from_node_id": "location:deadfall-wall",
+      "to_node_id": "mystery:session16-unnatural-forest-bridges",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "created by deadfall from huge trees",
+            "natural looking bridges in the canopy created from vines and fallen trees",
+            "The trees appear to be unnaturally groomed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-7",
+      "from_node_id": "mystery:session16-unnatural-forest-bridges",
+      "to_node_id": "obs:item:vine-and-fallen-tree-bridges",
+      "label": "identified_as",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "natural looking bridges in the canopy created from vines and fallen trees",
+            "they appear to be made with footholds to climb"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-8",
+      "from_node_id": "location:unnatural-forest-section",
+      "to_node_id": "mystery:session16-distorted-time-and-sky",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "time begins to feel distorted",
+            "No one can agree on how much time has passed",
+            "even the sun seems to be in the wrong place"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-9",
+      "from_node_id": "location:unnatural-forest-section",
+      "to_node_id": "obs:item:volcanic-rock",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "the ground is covered in volcanic rock",
+            "the rock is not actually the ground, but part of the forest itself"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-10",
+      "from_node_id": "mystery:session16-volcanic-rock-carried-into-forest",
+      "to_node_id": "obs:item:volcanic-rock",
+      "label": "identified_as",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "the rock is not actually the ground, but part of the forest itself",
+            "must have been carried by the forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "location:ankylosaur-clearing",
+      "to_node_id": "obs:item:ankylosaurus-baby",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "a small Ankylosaurus in the center of the clearing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-12",
+      "from_node_id": "location:ankylosaur-clearing",
+      "to_node_id": "obs:item:canopy-prowlers",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "surrounded by 5 large moss covered reptiles",
+            "resembling velociraptors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "mystery:session16-forest-carried-ankylosaurus-and-predators",
+      "to_node_id": "obs:item:ankylosaurus-baby",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "a small Ankylosaurus in the center of the clearing",
+            "surrounded by 5 large moss covered reptiles"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-14",
+      "from_node_id": "mystery:session16-forest-carried-ankylosaurus-and-predators",
+      "to_node_id": "obs:item:canopy-prowlers",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "surrounded by 5 large moss covered reptiles",
+            "resembling velociraptors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-15",
+      "from_node_id": "obs:item:darkness-cloud",
+      "to_node_id": "obs:item:ankylosaurus-baby",
+      "label": "associated_with",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "anchor_quotes": [
+            "casts a cloud of darkness around the baby ankylosaurus"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-16",
+      "from_node_id": "mystery:session16-lizard-infested-packs",
+      "to_node_id": "obs:item:spiked-lizards",
+      "label": "identified_as",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "infested with little spiked lizards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-17",
+      "from_node_id": "mystery:session16-forest-unwelcome-presence",
+      "to_node_id": "mystery:session16-thinking-tree",
+      "label": "linked_to",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "anchor_quotes": [
+            "dark and mysterious forest",
+            "There is no immediate threat, but there is a feeling they are unwelcome."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "anchor_quotes": [
+            "a pure white tree standing alone",
+            "This is the place where the entire forest gathers all its thoughts and is absorbed by the Thinking Tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-18",
+      "from_node_id": "mystery:session16-forest-carried-ankylosaurus-and-predators",
+      "to_node_id": "mystery:session16-unnatural-forest-bridges",
+      "label": "linked_to",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "The trees appear to be unnaturally groomed",
+            "natural looking bridges in the canopy created from vines and fallen trees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-19",
+      "from_node_id": "mystery:session16-forest-carried-ankylosaurus-and-predators",
+      "to_node_id": "mystery:session16-volcanic-rock-carried-into-forest",
+      "label": "linked_to",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "the ground is covered in volcanic rock",
+            "the rock is not actually the ground, but part of the forest itself, and must have been carried by the forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-20",
+      "from_node_id": "mystery:session16-deep-water-predators",
+      "to_node_id": "obs:item:canopy-prowlers",
+      "label": "associated_with",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "20 to 30 dark shapes all moving together in a swarm under the water",
+            "aggressive fish with teeth"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Entering the dark forest with Karsemine\u2019s guidance",
+      "summary": "The party decides to enter the forest together despite worsening light and difficult terrain, relying on Karsemine\u2019s ability to sneak through while sensing an uneasy, watchful presence in the woods.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "anchor_quotes": [
+            "getting late in the day and starting to get dark",
+            "the town of Mossford",
+            "using Karsemine\u2019s ability, sneak through to the other side",
+            "There is no immediate threat, but there is a feeling they are unwelcome"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "The Thinking Tree briefly enchants the group",
+      "summary": "Stafl uses Light on his torch but is reminded of darkvision; Ephanna detects Fey magic in the forest. The party reaches a white tree identified as the Thinking Tree, where Karsemine, Ephanna, and Bonogo are briefly spellbound until Stafl identifies it and the effect passes.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "anchor_quotes": [
+            "casts Light on his torch",
+            "a Fey presence",
+            "a pure white tree standing alone",
+            "This is the place where the entire forest gathers all its thoughts and is absorbed by the Thinking Tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Water bowl, lizard infestation, and the choice of the longer route",
+      "summary": "At a root-bowl filled with deep water, the party finds spiked lizards in their packs. Karsemine investigates the water, Ephanna demonstrates the danger beneath it, and the group abandons the direct crossing in favor of the longer path around.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:18-18",
+          "anchor_quotes": [
+            "an enormous web of roots acting as a bowl holding water",
+            "little spiked lizards",
+            "very deep",
+            "the group decides to take the longer way around"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_4",
+      "order": 4,
+      "title": "Deadfall wall, distorted time, and the unnatural forest ahead",
+      "summary": "Karsemine loses her sense of direction as the party reaches a giant wall of deadfall, climbs it, and observes an unnaturally groomed forest. Time then becomes distorted, the ground changes to volcanic rock, and the forest appears to have carried in material from elsewhere before Caelynn hears a nearby cry.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "lost her sense of direction",
+            "giant wall created by deadfall from huge trees",
+            "The trees appear to be unnaturally groomed",
+            "time begins to feel distorted",
+            "the ground is covered in volcanic rock",
+            "must have been carried by the forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_5",
+      "order": 5,
+      "title": "Ambush on the ankylosaurus by canopy prowlers",
+      "summary": "Caelynn reacts first to protect a baby ankylosaurus, and the party unleashes coordinated attacks. Bonogo, Ephanna and Ogonob use mobility, darkness, and spell support while Baergrom and Karsemine deal heavy damage to the Canopy Prowlers.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:22-22",
+          "anchor_quotes": [
+            "defend the baby",
+            "casts Dust Devil",
+            "launches an attack with his short bow",
+            "uses Misty Step and then casts a cloud of darkness",
+            "lands a hit with a crossbow",
+            "uses Blade Ward on himself"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:24-24",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:24-24",
+          "anchor_quotes": [
+            "casts Darkness again",
+            "The baby ankylosaurus backs up on the rock",
+            "Caelynn moves her Dust Devil",
+            "casts Snowball on the attackers",
+            "casts Magic Missile"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_6",
+      "order": 6,
+      "title": "The fight ends and the party tends the injured baby",
+      "summary": "The remaining prowler flees or is finished off, and Caelynn uses Goodberry to heal the injured ankylosaurus. Ephanna then notices two larger ankylosaurs watching from outside the clearing.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:24-24",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:24-24",
+          "anchor_quotes": [
+            "The remaining Prowler turns tail and makes a run for it",
+            "Caelynn easily takes it down with Magic Missile"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "anchor_quotes": [
+            "feeds one to the injured ankylosaurus",
+            "the two other, larger ankylosaurs standing just outside the clearing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [
+    {
+      "item_id": "thread:session16-forest-origin-and-purpose",
+      "label": "Origin and purpose of the forest's magical behaviors",
+      "reason": "Multiple anomalies appear related \u2014 moving trees, Thinking Tree, distorted time, groomed canopy paths, carried volcanic rock \u2014 but the recap does not resolve whether they share a single cause or mechanism.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:14-14",
+          "anchor_quotes": [
+            "the trees appear to be moving"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:16-16",
+          "anchor_quotes": [
+            "the forest also is made of Fey magic"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:20-20",
+          "anchor_quotes": [
+            "time begins to feel distorted",
+            "The trees appear to be unnaturally groomed."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track later sessions for explanation of the forest's Fey influence and whether the Thinking Tree is central to it."
+    },
+    {
+      "item_id": "thread:session16-ankylosaur-family-relationship",
+      "label": "Relationship between the baby ankylosaurus and the larger ankylosaurs",
+      "reason": "The recap ends with two larger ankylosaurs near the clearing, but does not confirm whether they are parents, herd members, or unrelated animals.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "label": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-16:38fe100ba220:span:38fe100ba220:26-26",
+          "anchor_quotes": [
+            "the two other, larger ankylosaurs standing just outside the clearing."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Look for follow-up narration or party interaction to determine the larger ankylosaurs' relationship to the injured baby."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

@@ -1,0 +1,1583 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-18:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-18",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-18:e920bb658a5b"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "obs:mother-forest-creature",
+      "label": "the Mother",
+      "node_type": "character",
+      "description": "Gigantic forest creature and main threat fought by the group; attacks from darkness, carries Bonogo and Karsemine, and is eventually killed.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:14-14",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:14-14",
+          "anchor_quotes": [
+            "the gigantic creature reorients itself in the darkness",
+            "the creature"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:16-16",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:16-16",
+          "anchor_quotes": [
+            "the Mother lunges out of the darkness",
+            "the Mother"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:20-20",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:20-20",
+          "anchor_quotes": [
+            "the Mother turns to the opening at the end of the tree",
+            "the Mother"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "the body begins to be absorbed by the forest itself"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:mother-baby",
+      "label": "one of the Mother\u2019s babies",
+      "node_type": "character",
+      "description": "A six-limbed creature spotted clinging to a tree near the forest edge, identified as one of the Mother\u2019s babies.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "a six limbed creature clinging to a tree, one of the Mother\u2019s babies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:dragonborn-family",
+      "label": "family of Dragonborn",
+      "node_type": "character",
+      "description": "A Dragonborn family seen outside their farmhouse near the forest edge, watching the moving forest; their father escorts the group toward town.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "an old farmhouse with a family of Dragonborn out front gawking at the moving forest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "Just like the Dragonborn family",
+            "the father of the family escorts the group into town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:townsfolk",
+      "label": "the townsfolk",
+      "node_type": "character",
+      "description": "Residents gathered outside town, watching the approaching forest and hearing the mayor discuss trench-building plans.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "all the townsfolk are out in front of the town looking up at the approaching forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:mayor",
+      "label": "the mayor",
+      "node_type": "character",
+      "description": "Town mayor who addresses the crowd, is wary of the newcomers, but agrees to any help that can save the town and provides a map.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "the mayor is speaking to the crowd",
+            "The mayor is wary of the newcomers, but willing to take any help to save the town",
+            "He quickly sketches a map of the town and the surrounding area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:lysandra",
+      "label": "Lysandra",
+      "node_type": "character",
+      "description": "Person contacted through the rocky-talkie by Ephanna; the overheard conversation suggests conflict and urgent boundary breach warnings.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "Ephanna uses the \u201crocky-talkie\u201d to contact Lysandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:forest-internal-attention",
+      "label": "something in the forest",
+      "node_type": "character",
+      "description": "An unspecified force or entity in the forest that Thrin says will move to take the Mother\u2019s place.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "something will move to take its place"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:forest-marching-front",
+      "label": "the forest",
+      "node_type": "location",
+      "description": "A moving forest area advancing toward Mossford and threatening the town; described as having a boundary and a void after the Mother's death.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "the forest has focused its attention on them",
+            "With only one more area to cross the group hurries to exit the forest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "the forest is set to arrive at the town in 4-5 hours",
+            "the approaching forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:canopy-crossing",
+      "label": "the canopy",
+      "node_type": "location",
+      "description": "Upper tree cover used as a route through the forest; also the place where the Mother lands before falling.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:20-20",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:20-20",
+          "anchor_quotes": [
+            "climbing up into the canopy"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "Thrin shows them a path up and across through the canopy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:shallow-swirl-pool",
+      "label": "a shallow swirling pool of water",
+      "node_type": "location",
+      "description": "A watery obstacle or landmark encountered while crossing out of the forest.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "They come across a shallow swirling pool of water"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:reservoir-bridge-river-mossford",
+      "label": "the reservoir and bridge over a river to Mossford",
+      "node_type": "location",
+      "description": "A route landmark showing the way from the forest edge toward Mossford across a river by bridge.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "they can see the reservoir and bridge over a river to Mossford"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:edge-of-forest-farmhouse",
+      "label": "an old farmhouse",
+      "node_type": "location",
+      "description": "A farmhouse near the edge of the forest where a Dragonborn family is gathered outside.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "they can see an old farmhouse with a family of Dragonborn out front gawking at the moving forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:town-outfront-crowd",
+      "label": "the town",
+      "node_type": "location",
+      "description": "A town near Mossford with townsfolk gathered outside; the mayor discusses defenses and the party seeks help there.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "the father of the family escorts the group into town to find help from the mayor",
+            "the townsfolk are all out in front of the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:town-front",
+      "label": "out in front of the town",
+      "node_type": "location",
+      "description": "The area outside the town where the townsfolk gather and the mayor speaks to the crowd.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "all the townsfolk are out in front of the town looking up at the approaching forest",
+            "as they approach the mayor is speaking to the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:forest-boundary",
+      "label": "boundary",
+      "node_type": "location",
+      "description": "A boundary associated with the forest; the recorded conversation warns not to cross it and says it has been breached.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "do not cross boundary",
+            "breached"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:faction:moss-farmers-of-mossford",
+      "label": "Moss farmers of Mossford",
+      "node_type": "group",
+      "description": "A farming collective in Mossford identified as moss farmers; they are part of the town community and are directly affected by the approaching forest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "they are moss farmers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:faction:mossford-townsfolk",
+      "label": "Mossford townsfolk",
+      "node_type": "group",
+      "description": "The gathered townspeople of Mossford who are out front watching the approaching forest and hearing the mayor speak about defenses.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "all the townsfolk are out in front of the town looking up at the approaching forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:faction:mossford-mayoral-authority",
+      "label": "Mossford mayoral authority",
+      "node_type": "organization",
+      "description": "The town leadership centered on the mayor, who is consulted for help and provides the town map.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "the mayor is speaking to the crowd"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "the mayor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session18-observed-15",
+      "label": "witness see",
+      "node_type": "item",
+      "description": "A transparent bubble with roots inside found on Thrin\u2019s shoulder.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "it is a \u201cwitness see\u201d"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "a transparent bubble with roots inside"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session18-observed-16",
+      "label": "map",
+      "node_type": "item",
+      "description": "A quick sketch of the town and surrounding area requested from the mayor for planning.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "He quickly sketches a map of the town and the surrounding area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:mother-forest-void",
+      "label": "Forest entity leaves a void after the Mother dies",
+      "node_type": "mystery",
+      "description": "After the Mother is killed, the forest is described as having a void, and Thrin warns that something will move in to take its place.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "with the Mother dead there is now a void in the forest",
+            "something will move to take its place"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:forest-attention",
+      "label": "The forest has focused its attention on the group",
+      "node_type": "mystery",
+      "description": "Thrin warns that the forest is now paying attention to the party, implying a broader supernatural threat beyond the defeated creature.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "the forest has focused its attention on them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:witness-see",
+      "label": "Thrin's 'witness see' on his shoulder",
+      "node_type": "mystery",
+      "description": "Bonogo notices tendrils under a bulge on Thrin's shoulder; Thrin identifies it as a 'witness see' but does not explain further.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "tendrils moving under a bulge",
+            "it is a \u201cwitness see\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:forest-breached-boundary",
+      "label": "Forest boundary breach and evacuation warning",
+      "node_type": "mystery",
+      "description": "Ephanna overhears warnings about fighting, a breach, evacuation, and instructions not to cross the boundary, suggesting an escalating emergency elsewhere.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "do not cross boundary",
+            "breached",
+            "evacuate",
+            "map not random"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:forest-timeline",
+      "label": "Forest is expected to reach town in 4-5 hours",
+      "node_type": "mystery",
+      "description": "The group learns the approaching forest is on a short timetable, forcing them to devise a plan quickly.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "the forest is set to arrive at the town in 4-5 hours",
+            "They must put together a plan before the forest gets too close"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:elder-tree-diversion-methods",
+      "label": "Fire, salt, or ice may direct the elder tree",
+      "node_type": "mystery",
+      "description": "Ephanna reports that fire, salt, or ice can be used to direct the elder tree, establishing a possible countermeasure but not yet a complete solution.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "using fire, salt or ice to direct the elder tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:forest-moves-over-trenches",
+      "label": "Old trench defense failed against the moving forest",
+      "node_type": "mystery",
+      "description": "The town's historical trench strategy did not work because the forest moved right over it, leaving the current defense plan unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "they attempted to dig trenches, but the forest moved right over them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:mother-baby-in-trees",
+      "label": "A surviving baby creature remains in the trees",
+      "node_type": "mystery",
+      "description": "As the party crosses the field, Karsemine spots a six-limbed baby creature clinging to a tree, indicating the threat may not be fully eliminated.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "a six limbed creature clinging to a tree, one of the Mother\u2019s babies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:rocky-talkie-frank-lysandra",
+      "label": "Muffled urgent conversation with Lysandra overheard via rocky-talkie",
+      "node_type": "mystery",
+      "description": "Ephanna connects with Frank and overhears a distressed exchange involving Lysandra, fighting, meat, a breach, evacuation, and a non-random map, suggesting a linked crisis.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "it\u2019s not sounding good",
+            "something about fighting, \u201cmeat\u201d and that she is not where she is meant to be",
+            "do not cross boundary",
+            "breached",
+            "evacuate",
+            "map not random"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-019",
+      "from_node_id": "obs:dragonborn-family",
+      "to_node_id": "loc:edge-of-forest-farmhouse",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "an old farmhouse with a family of Dragonborn out front"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-020",
+      "from_node_id": "obs:townsfolk",
+      "to_node_id": "loc:town-outfront-crowd",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "all the townsfolk are out in front of the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-021",
+      "from_node_id": "obs:mayor",
+      "to_node_id": "loc:town-front",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "as they approach the mayor is speaking to the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-022",
+      "from_node_id": "obs:mayor",
+      "to_node_id": "obs:faction:mossford-mayoral-authority",
+      "label": "governs",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "the mayor is speaking to the crowd",
+            "the mayor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-023",
+      "from_node_id": "obs:faction:moss-farmers-of-mossford",
+      "to_node_id": "loc:town-outfront-crowd",
+      "label": "part of",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "they are moss farmers",
+            "the family of Dragonborn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-024",
+      "from_node_id": "obs:mother-baby",
+      "to_node_id": "obs:mother-forest-creature",
+      "label": "child_of",
+      "relationship_type": "child_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "one of the Mother\u2019s babies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-026",
+      "from_node_id": "mystery:forest-timeline",
+      "to_node_id": "loc:town-outfront-crowd",
+      "label": "results in",
+      "relationship_type": "results_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "the forest is set to arrive at the town in 4-5 hours",
+            "They must put together a plan before the forest gets too close"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-027",
+      "from_node_id": "item:session18-observed-16",
+      "to_node_id": "obs:mayor",
+      "label": "owned by",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "He quickly sketches a map of the town and the surrounding area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-028",
+      "from_node_id": "mystery:forest-breached-boundary",
+      "to_node_id": "loc:forest-boundary",
+      "label": "refers to",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "do not cross boundary",
+            "breached"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Opening exchange of ranged attacks in the darkness",
+      "summary": "The giant creature takes cold damage, reorients in magical darkness, and begins a brutal assault on Bonogo while the party responds with a mix of missed shots and cold-based spell damage.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:14-14",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:14-14",
+          "anchor_quotes": [
+            "After taking cold damage from Ephanna\u2019s spell",
+            "reorients itself in the darkness",
+            "lunges out at Bonogo",
+            "Karsemine fires two arrows into the dark sphere",
+            "Stafl also takes a shot with his crossbow",
+            "Caelynn casts Snowball into the same spot"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "Bonogo nearly goes down; allies stabilize him",
+      "summary": "The Mother crushes Bonogo in its jaws, but the party interrupts the danger with damage mitigation and healing, restoring him to consciousness while a follow-up control spell fails.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:16-16",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:16-16",
+          "anchor_quotes": [
+            "crushing him in her massive jaws",
+            "Stafl use Cutting Words to reduce some of the damage",
+            "Stafl then casts Healing Word and Bonogo regains consciousness",
+            "misses his Hideous Laughter spell",
+            "swaps out his greataxe for his trusty sword and shield"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Bonogo is repositioned and the Mother is driven into the canopy",
+      "summary": "Under pressure, Caelynn teleports Bonogo out of danger and damages the Mother and Thrin, while repeated attacks force the creature to retreat across the clearing and up into the trees, where it is finally knocked down from the canopy.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:18-18",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:18-18",
+          "anchor_quotes": [
+            "uses Thunder Step to teleport Bonogo to safety",
+            "deal damage to the Mother as well as Thrin",
+            "Ephanna lands another hit with Eldritch Blast"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:20-20",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:20-20",
+          "anchor_quotes": [
+            "dashes toward the group of heroes standing on the platform",
+            "grabs Karsemine and glides off to the very far end of the clearing",
+            "lands on the trees at the edge of the clearing, 80 feet away",
+            "climbing up into the canopy",
+            "He launches an arrow; it flies true and lands",
+            "falls to the ground below"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_4",
+      "order": 4,
+      "title": "The Mother dies, the forest reacts, and the party learns of a looming breach",
+      "summary": "Karsemine lands the killing blow, the forest visibly responds, Thrin warns that something will take the Mother\u2019s place, and Ephanna\u2019s contact with Lysandra reveals troubling talk of fighting, evacuation, and a breached boundary.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "deals the final killing blow",
+            "A massive shiver runs through the forest",
+            "the forest has focused its attention on them",
+            "with the Mother dead there is now a void in the forest",
+            "something will move to take its place",
+            "a \u201cwitness see\u201d",
+            "the group hurries to exit the forest",
+            "they can see the reservoir and bridge over a river to Mossford"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:22-22",
+          "anchor_quotes": [
+            "uses the \u201crocky-talkie\u201d to contact Lysandra",
+            "it's not sounding good",
+            "\u201cdo not cross boundary\u201d",
+            "\u201cbreached\u201d",
+            "\u201cevacuate\u201d",
+            "\u201cmap not random\u201d"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [
+    {
+      "item_id": "thread:town-plan-needed",
+      "label": "Town defense plan against approaching forest",
+      "reason": "The recap ends before the party finalizes a strategy; this is an active unresolved thread rather than a completed event.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "label": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-18:e920bb658a5b:span:e920bb658a5b:24-24",
+          "anchor_quotes": [
+            "Now the heroes must come up with a proper plan to divert the town\u2019s impending doom"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track any future plan involving trenches, fire, salt, ice, or route diversion."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

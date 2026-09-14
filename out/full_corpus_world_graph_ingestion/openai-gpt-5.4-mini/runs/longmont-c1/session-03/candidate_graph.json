@@ -1,0 +1,2066 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-3:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-3",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:pippa",
+      "label": "Pippa",
+      "node_type": "character",
+      "description": "Bright, talkative gnome who owns or operates the wagon/barge setup and is associated with Bubbles; appears panicked during the flood when Bubbles goes missing.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "Pippa a bright and talkative Gnome obsessed with crafting and understanding beer"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "found Pippa, soaked and panicked"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:29-29",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:29-29",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:29-29",
+          "anchor_quotes": [
+            "Players heard Pippa yelling"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:kirfan",
+      "label": "Kirfan",
+      "node_type": "character",
+      "description": "Person the party helped by pulling up debris from the broken structure upriver.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "anchor_quotes": [
+            "Helped Kirfan pull up debris from the broken structure from upriver."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:elderly-fisherman",
+      "label": "elderly fisherman",
+      "node_type": "character",
+      "description": "An elderly fisherman whose net is stuck in the river; the party encounters him while traveling by river.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "they encountered an elderly fisherman, whose net was stuck"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:another-bard",
+      "label": "another bard",
+      "node_type": "character",
+      "description": "An unnamed bard present at the River\u2019s Edge Pub who jams with Stafl.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "another bard!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "creature:bubbles-the-float-goat",
+      "label": "Bubbles the Float Goat",
+      "node_type": "creature",
+      "description": "A panicked goat that is lashed to Pippa's wagon, becomes the focus of the flood rescue, and survives the ordeal.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "hitched up Bubbles the Float Goat to her wagon full of kegs"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "anchor_quotes": [
+            "Bubbles is too panicked and bites the mage hand"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "anchor_quotes": [
+            "Bonogo was rescued"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:float-goat-bubbles",
+      "label": "Bubbles the Float Goat",
+      "node_type": "item",
+      "description": "A goat named Bubbles, referred to as the Float Goat, central to the flood rescue and transported by Pippa's wagon and later across the river.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "Bubbles the Float Goat",
+            "hitched up Bubbles the Float Goat to her wagon full of kegs"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "Bubbles is found wildly bleating on a rock in the river",
+            "the Float Goat panics and bites"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "anchor_quotes": [
+            "the saviors of Bubbles the Float Goat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:river-edge-pub",
+      "label": "River\u2019s Edge Pub",
+      "node_type": "location",
+      "description": "Pub in Stone Bridge where the party stopped for drinks, music, and where the flood crisis escalated after Bubbles went missing.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "into the River\u2019s Edge Pub"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "Inside was the evening crew"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "River\u2019s Edge Pub"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "anchor_quotes": [
+            "the wet adventurers headed to the Pub"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:river",
+      "label": "river",
+      "node_type": "location",
+      "description": "The flooded river running through the scene; the party used boats, ropes, nets, and magic around it during the rescue.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "anchor_quotes": [
+            "River and Upriver town need a name"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "a dock and barge on the river"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "rushing water",
+            "the river frothing, rapids crashing all around"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:upriver-town",
+      "label": "Upriver town",
+      "node_type": "location",
+      "description": "Unnamed town upriver referenced as the place associated with the broken structure and debris pulled from the flood.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "anchor_quotes": [
+            "Upriver town need a name"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:stone-bridge-dock",
+      "label": "dock",
+      "node_type": "location",
+      "description": "Dock used for arrival/departure at Stone Bridge and as a rescue point during the flood.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "led the crew to a dock and barge on the river"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "anchor_quotes": [
+            "get her to the dock across the ice path and rushing river"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:stone-bridge-pub",
+      "label": "the Pub",
+      "node_type": "location",
+      "description": "The pub referred to as the safe, drying high-ground refuge where the town gathered after the flood.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "gather at the pub on high ground"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "anchor_quotes": [
+            "headed to the Pub"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:stone-bridge-rock",
+      "label": "the rock",
+      "node_type": "location",
+      "description": "River rock used as a perch/platform point for Bubbles during the flood rescue.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "anchor_quotes": [
+            "Bubbles on the rock"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:stone-bridge-bridge-flow-ways",
+      "label": "bridge flow ways",
+      "node_type": "location",
+      "description": "Flow channels across the bridge where nets were dropped to catch the floodwater and debris.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "anchor_quotes": [
+            "nets are dropped across the bridge flow ways"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:stone-bridge-townsfolk",
+      "label": "Stone Bridge townsfolk",
+      "node_type": "faction",
+      "description": "Local townsfolk gathered and sheltered during the flood, with town support organized to protect people and contain the river.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "anchor_quotes": [
+            "gathers town support",
+            "nets are dropped across the bridge flow ways"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "Stafl began banging on doors and assisting townfolk escape the flood and gather at the pub on high ground."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "anchor_quotes": [
+            "the most important question of all. What now? Sure they were heroes of Stone Bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "organization:rivers-edge-pub-regulars",
+      "label": "River's Edge Pub patrons and evening crew",
+      "node_type": "organization",
+      "description": "The pub\u2019s evening crowd present during the storm, including patrons and another bard in the room with Grishna.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "Inside was the evening crew, Grishna, patrons, and another bard!"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "the River\u2019s Edge Pub"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:stone-bridge-rescue-effort",
+      "label": "Stone Bridge rescue effort",
+      "node_type": "group",
+      "description": "Ad hoc collective of heroes and townsfolk responding to the flood, using ropes, nets, ice, boats, and door-to-door warning efforts.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "set nets across the river",
+            "desperately to save"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "anchor_quotes": [
+            "cut loose a dinghy and let the river take them after Bonogo"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "assisting townfolk escape the flood"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:town-support-networks",
+      "label": "Town support networks",
+      "node_type": "group",
+      "description": "The organized help mobilized in Stone Bridge, including nets, door-banging alerts, and gathering people at the pub on high ground.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "anchor_quotes": [
+            "Stafl gathers town support"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "Stafl began banging on doors and assisting townfolk escape the flood and gather at the pub on high ground."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:pippa-wagon-kegs",
+      "label": "Pippa's wagon full of kegs",
+      "node_type": "item",
+      "description": "A wagon loaded with kegs, used by Pippa to tow Bubbles and bring the party to Stone Bridge.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "her wagon full of kegs",
+            "hitched up Bubbles the Float Goat to her wagon full of kegs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:mage-hand-lasso-rope",
+      "label": "Mage hand lasso rope",
+      "node_type": "item",
+      "description": "A rope used with a mage hand to try to lasso Bubbles during the flood rescue.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "a lasso was made and handed to a mage hand Ephanna created",
+            "Sending the mage hand and rope out to Bubbles"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:nets-across-river",
+      "label": "Nets across the river",
+      "node_type": "item",
+      "description": "Nets set across the river as part of the effort to contain or aid during the flood.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "anchor_quotes": [
+            "nets are dropped across the bridge flow ways"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "Stafl runs for help, and gathers townfolk to set nets across the river"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:dinghy",
+      "label": "Dinghy",
+      "node_type": "item",
+      "description": "A small boat cut loose and sent after Bonogo in the flooding river.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "anchor_quotes": [
+            "Stafl and Caelynn cut loose a dinghy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:roof-corner-beams",
+      "label": "Corner beams of a roof",
+      "node_type": "item",
+      "description": "The object caught in the stuck net, revealed as the corner beams of a roof from upriver debris.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "it looked to be the corner beams of a roof"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "anchor_quotes": [
+            "pull up debris from the broken structure from upriver"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:pub-beer-and-board",
+      "label": "Comp'd beer and board",
+      "node_type": "item",
+      "description": "Complimentary beer and board given to the party by Grishna.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:23-23",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:23-23",
+          "anchor_quotes": [
+            "Got comp\u2019d beer and board from Grishna"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-stone-bridge-flood-storm",
+      "label": "Unseasonable torrential rains flood Stone Bridge area",
+      "node_type": "mystery",
+      "description": "A mysterious, worsening storm causes unseasonable torrential rains and flooding, creating a non-combat survival and rescue situation for the party and townsfolk.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "anchor_quotes": [
+            "Unseasonable torrential rains floods wherever the players are",
+            "They have to keep themselves alive, and save townsfolk."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:27-27",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:27-27",
+          "anchor_quotes": [
+            "Horrible storm kicks up and gets worse."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-bubbles-disappears-in-flood",
+      "label": "Bubbles the Float Goat is swept into the flood and nearly lost",
+      "node_type": "mystery",
+      "description": "Bubbles becomes panicked during the flood, bites through a mage hand attempt, and is carried into dangerous river conditions before being recovered.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "anchor_quotes": [
+            "Bubbles is too panicked and bites the mage hand."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "Bubbles is found wildly bleating on a rock in the river.",
+            "Bubbles, the Float Goat panics and bites, destroying the mage hand and dropping the rope into the water."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "anchor_quotes": [
+            "Bonogo was rescued"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-bonogo-lost-downstream",
+      "label": "Bonogo is pulled downstream and temporarily lost",
+      "node_type": "mystery",
+      "description": "Bonogo dives into the flood rescue attempt, loses the rope, and is carried away by the river before being rescued later.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:35-35",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:35-35",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:35-35",
+          "anchor_quotes": [
+            "Bonogo dives in the water, Baergrom loses the rope."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:37-37",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:37-37",
+          "anchor_quotes": [
+            "Bonogo flows downstream and has a wonderful zen underwater adventure."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "Bonogo dives into the river with full trust in Baergrom to hold the rope, which is immediately torn out of Baergrom\u2019s hand.",
+            "Bonogo are gone."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-stone-bridge-roof-debris",
+      "label": "River debris reveals roof corner beams upriver",
+      "node_type": "mystery",
+      "description": "An elderly fisherman's stuck net and subsequent retrieval reveal that the debris in the river may be part of a damaged roof structure from upriver, hinting at storm damage source or related destruction.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "anchor_quotes": [
+            "Helped Kirfan pull up debris from the broken structure from upriver."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "the damned net didn\u2019t have a fish, stupid useless net.",
+            "it looked to be the corner beams of a roof."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-grishna-pub-connection",
+      "label": "Grishna and the River's Edge Pub as a social anchor in the flood event",
+      "node_type": "mystery",
+      "description": "The party receives beer and board from Grishna, then later returns to the River's Edge Pub where Grishna is present among patrons during the storm; the pub functions as a key gathering and refuge point.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:23-23",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:23-23",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:23-23",
+          "anchor_quotes": [
+            "Got comp\u2019d beer and board from Grishna."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "Into the River\u2019s Edge Pub for a welcome round of beers",
+            "Inside was the evening crew, Grishna, patrons, and another bard!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-mirathorn-next-destination",
+      "label": "Mirathorn festival becomes the party's next unclear destination",
+      "node_type": "mystery",
+      "description": "After surviving the flood, the party questions what to do next and considers traveling to Mirathorn for a festival, but the plan remains open-ended.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "anchor_quotes": [
+            "What now?",
+            "What about that city Pippa was talking about, where they were having a festival? Mirathorn, that might be interesting\u2026"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-town-response-flood",
+      "label": "Townwide flood response: nets, doors, and evacuation to high ground",
+      "node_type": "mystery",
+      "description": "The town coordinates improvised flood response measures, including nets across the river, warning by door-to-door banging, and gathering people at the pub on high ground.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:39-39",
+          "anchor_quotes": [
+            "Stafl gathers town support, nets are dropped across the bridge flow ways."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "Stafl began banging on doors and assisting townfolk escape the flood and gather at the pub on high ground."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-another-bard-at-pub",
+      "label": "A second bard at the pub creates a new social thread",
+      "node_type": "mystery",
+      "description": "At the River's Edge Pub, an additional bard appears and jams with Stafl, implying a possible new relationship, rivalry, or future musical connection.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "and another bard!",
+            "Stafl immediately joined in a jam with that undoubtedly demonstrated his superior song craft and bardic talents."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-1",
+      "from_node_id": "npc:pippa",
+      "to_node_id": "creature:bubbles-the-float-goat",
+      "label": "has Goat",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "hitched up Bubbles the Float Goat to her wagon full of kegs"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "Hitching up Bubbles and the barge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "npc:pippa",
+      "to_node_id": "item:pippa-wagon-kegs",
+      "label": "uses wagon",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "her wagon full of kegs",
+            "hitched up Bubbles the Float Goat to her wagon full of kegs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-6",
+      "from_node_id": "loc:stone-bridge-dock",
+      "to_node_id": "loc:river",
+      "label": "dock on river",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "led the crew to a dock and barge on the river"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-7",
+      "from_node_id": "loc:stone-bridge-rock",
+      "to_node_id": "loc:river",
+      "label": "rock in river",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "Bubbles is found wildly bleating on a rock in the river"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "loc:upriver-town",
+      "to_node_id": "loc:river",
+      "label": "upriver town on river",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "anchor_quotes": [
+            "Helped Kirfan pull up debris from the broken structure from upriver. (River and Upriver town need a name)"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-12",
+      "from_node_id": "faction:stone-bridge-townsfolk",
+      "to_node_id": "loc:stone-bridge-pub",
+      "label": "gather at pub",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "gather at the pub on high ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "group:stone-bridge-rescue-effort",
+      "to_node_id": "faction:stone-bridge-townsfolk",
+      "label": "includes townsfolk",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "Stafl began banging on doors and assisting townfolk escape the flood and gather at the pub on high ground."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-23",
+      "from_node_id": "organization:rivers-edge-pub-regulars",
+      "to_node_id": "loc:river-edge-pub",
+      "label": "at River's Edge Pub",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "Inside was the evening crew, Grishna, patrons, and another bard!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-25",
+      "from_node_id": "mystery-stone-bridge-flood-storm",
+      "to_node_id": "group:stone-bridge-rescue-effort",
+      "label": "drives rescue effort",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "anchor_quotes": [
+            "Unseasonable torrential rains floods wherever the players are",
+            "They have to keep themselves alive, and save townsfolk."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:27-27",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:27-27",
+          "anchor_quotes": [
+            "Horrible storm kicks up and gets worse."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-26",
+      "from_node_id": "mystery-bubbles-disappears-in-flood",
+      "to_node_id": "creature:bubbles-the-float-goat",
+      "label": "concerns Bubbles",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:31-31",
+          "anchor_quotes": [
+            "Bubbles is too panicked and bites the mage hand."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "anchor_quotes": [
+            "the saviors of Bubbles the Float Goat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-27",
+      "from_node_id": "mystery-stone-bridge-roof-debris",
+      "to_node_id": "loc:upriver-town",
+      "label": "debris from upriver",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "anchor_quotes": [
+            "debris from the broken structure from upriver"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:45-45",
+          "anchor_quotes": [
+            "it looked to be the corner beams of a roof"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-28",
+      "from_node_id": "npc:another-bard",
+      "to_node_id": "loc:river-edge-pub",
+      "label": "at pub",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:47-47",
+          "anchor_quotes": [
+            "Inside was the evening crew, Grishna, patrons, and another bard!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-30",
+      "from_node_id": "npc:kirfan",
+      "to_node_id": "mystery-stone-bridge-roof-debris",
+      "label": "pulls up debris",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:21-21",
+          "anchor_quotes": [
+            "Helped Kirfan pull up debris from the broken structure from upriver."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Hook and flood crisis established",
+      "summary": "The session opens with an adventure hook around a mysterious artifact, then immediately pivots into an unseasonable torrential rain disaster that forces noncombat problem-solving and town-saving.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "anchor_quotes": [
+            "Adventure hook",
+            "Unseasonable torrential rains floods wherever the players are, non combat problem solving. They have to keep themselves alive, and save townsfolk."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Bubbles is rediscovered and the rescue becomes a full town mobilization",
+      "summary": "After Pippa\u2019s shout, the party finds Bubbles stranded in floodwaters and coordinates a large-scale rescue: magic, ropes, nets, ice, and townsfolk assistance all get deployed, but the rope and Bonogo are swept away.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:51-52",
+          "anchor_quotes": [
+            "BUBBLES!",
+            "rushing water",
+            "wildly bleating on a rock in the river",
+            "Stafl runs for help, and gathers townfolk to set nets across the river.",
+            "Caelynn desperately fires ice bolts to freeze a platform around Bubble\u2019s rock.",
+            "Bonogo dives into the river with full trust in Baergrom to hold the rope, which is immediately torn out of Baergrom\u2019s hand."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "party-relationship-beat-pippa-bubbles",
+      "label": "Party relationship beat: rode with Pippa and fell in love with Bubbles",
+      "reason": "This is a character beat / relationship moment rather than a mystery, clue, warning, or unresolved thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:19-19",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:19-19",
+          "anchor_quotes": [
+            "Rode with Pippa and fell in love with Bubbles."
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "resolved-rescue-bubbles",
+      "label": "Resolved rescue of Bubbles",
+      "reason": "The goat rescue is an event outcome rather than an unresolved phenomenon; the thread is mostly resolved by the end of the session.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:54-54",
+          "anchor_quotes": [
+            "Ephanna and the mage hand coaxed Bubbles to the lasso and were able to get her to the dock across the ice path and rushing river."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:56-56",
+          "anchor_quotes": [
+            "the wet adventurers headed to the Pub to find a damp, but generally relieved, safe, and drying town."
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "unclear-origin-storm",
+      "label": "Cause of the storm/flood remains unexplained",
+      "reason": "The recap describes the storm and flooding but does not explain what caused it, whether magical, environmental, or otherwise.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:14-15",
+          "anchor_quotes": [
+            "mysterious artifact",
+            "Unseasonable torrential rains"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:27-27",
+          "label": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:27-27",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b:span:f8b6c8bb7b7b:27-27",
+          "anchor_quotes": [
+            "Horrible storm kicks up and gets worse."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Look for later sessions or notes tying the flood to an artifact, weather magic, or other cause."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

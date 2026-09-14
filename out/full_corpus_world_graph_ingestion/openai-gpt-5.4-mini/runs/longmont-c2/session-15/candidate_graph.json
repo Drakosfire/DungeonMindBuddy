@@ -1,0 +1,1452 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-15:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-15",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-15:6fc1b7d1a193"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "obs:lysandra",
+      "label": "Lysandra",
+      "node_type": "character",
+      "description": "Leads the group on the mission, states she is in command, gives briefing and later stays back with supplies and horses while the others move through the forest.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "anchor_quotes": [
+            "Lysandra, now in her new uniform and sporting her new rank",
+            "Lysandra reminds the group that she is in command"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "anchor_quotes": [
+            "Lysandra is becoming uneasy"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "Lysandra will stay back with the supplies and horses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:fabio",
+      "label": "Sargent Fabio",
+      "node_type": "character",
+      "description": "Takes Bonogo back in to have his badge updated.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "anchor_quotes": [
+            "Sargent Fabio takes Bonogo back in to get his badge updated"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:valin",
+      "label": "Professor Valin",
+      "node_type": "character",
+      "description": "Academy contact reached by Caelynn through the rocky-talkie regarding the unusual forest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "anchor_quotes": [
+            "contact Professor Valin at the Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_1",
+      "label": "Mossford",
+      "node_type": "location",
+      "description": "A small town along a dammed river, known for moss-grown lumber and connected to the route north from Outtown.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "anchor_quotes": [
+            "Mossford",
+            "It's a small town along a river that has been dammed to create a reservoir.",
+            "The town is famous for growing lumber created from growing special moss."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "anchor_quotes": [
+            "head north until they get to the town of Mossford"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_6",
+      "label": "the Academy",
+      "node_type": "location",
+      "description": "An academic location contacted by magical communication for information about the unusual forest migration.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "anchor_quotes": [
+            "contact Professor Valin at the Academy"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "from the academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_7",
+      "label": "wandering forest",
+      "node_type": "location",
+      "description": "A migrating forest blocking the path north to Mossford and requiring the group to cross through rather than around it.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "anchor_quotes": [
+            "a wandering forest",
+            "blocking the path to Mossford"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "the forest is too wide to go around, but not too deep to cross directly"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:wandering-forest",
+      "label": "wandering forest",
+      "node_type": "item",
+      "description": "A migrating forest that blocks the path to Mossford and is unusually early and unusually directed.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "anchor_quotes": [
+            "discovered a wandering forest",
+            "The enormous trees all migrating together appear to be blocking the path to Mossford"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "The migration is about 2 years early"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_faction_guard_house",
+      "label": "guard house",
+      "node_type": "organization",
+      "description": "The guard-house base of operations where the potion cart is transferred and the badge update is handled.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "anchor_quotes": [
+            "guard house",
+            "Sargent Fabio takes Bonogo back in to get his badge updated"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_faction_feys",
+      "label": "Feys",
+      "node_type": "faction",
+      "description": "A summoned fey collective used for observation and possible distraction during the forest crossing plan.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "summoned Feys",
+            "will help if a distraction is needed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:potion-cart",
+      "label": "potion cart",
+      "node_type": "item",
+      "description": "A cart carrying potions that was transferred from Blizzy and loaded onto the wagon for the journey.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "anchor_quotes": [
+            "transfer of the potion cart from Blizzy",
+            "load up on the wagon"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:magical-picture",
+      "label": "magical picture",
+      "node_type": "item",
+      "description": "An image made using magic and burned onto a badge; its magic effect lasts for two weeks.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "anchor_quotes": [
+            "A \u201cpicture\u201d is taken using magic",
+            "This magic will last for two weeks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:wagon",
+      "label": "wagon",
+      "node_type": "item",
+      "description": "The group\u2019s wagon carried supplies including ale and was used to transport gathered items.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "anchor_quotes": [
+            "pull the cart",
+            "return with the 6 barrels of ale"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "anchor_quotes": [
+            "the wagon",
+            "two barrels of ale from the wagon"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:barrels-of-ale",
+      "label": "barrels of ale",
+      "node_type": "item",
+      "description": "A supply of ale carried on the wagon, including six barrels retrieved mid-trip and two barrels offered as a gift in Outtown.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "anchor_quotes": [
+            "the 6 barrels of ale"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "anchor_quotes": [
+            "two barrels of ale from the wagon"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:lumber",
+      "label": "lumber",
+      "node_type": "item",
+      "description": "Special moss-grown lumber associated with Mossford and used widely, including in Mirathorn.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "anchor_quotes": [
+            "growing lumber created from growing special moss",
+            "This lumber is used all over, including Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:rocky-talkie",
+      "label": "rocky-talkie",
+      "node_type": "item",
+      "description": "A communication device used by Caelynn to contact the Academy and Professor Tealeaf.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "anchor_quotes": [
+            "use the \u201crocky-talkie\u201d to contact Professor Valin at the Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:moss",
+      "label": "moss",
+      "node_type": "item",
+      "description": "Edible, mineral-rich moss that grows aggressively along the path and climbs the wagon.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "anchor_quotes": [
+            "moss aggressively growing all along the path",
+            "the moss begins to climb up the sides of the wagon"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "anchor_quotes": [
+            "it is rich in minerals and is even edible"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:tree-carapace",
+      "label": "tree carapace",
+      "node_type": "item",
+      "description": "A magical husk/shedded material from the trees, infused with the same magic linked to storms and cultists\u2019 oily eyes.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "anchor_quotes": [
+            "the husk is a sort of carapace infused with magic",
+            "the same magic causing the storms and the oily eyes in the cultists"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "anchor_quotes": [
+            "the trees are \u201cshedding\u201d something sparkly"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:fey-spirit",
+      "label": "fey spirit",
+      "node_type": "item",
+      "description": "A summoned fey spirit used to observe the forest\u2019s size and possible paths around it.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "Ephanna sends up a fey spirit to observe the size of the forest and any possible paths around"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-1",
+      "label": "Unscheduled wandering forest is blocking the route to Mossford",
+      "node_type": "mystery",
+      "description": "A migrating forest has moved into the party\u2019s path, blocking progress toward Mossford and behaving in an unusual way that does not match the expected schedule or route.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "anchor_quotes": [
+            "wandering forest",
+            "blocking the path to Mossford",
+            "no easy path around"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "anchor_quotes": [
+            "this is an unusual situation",
+            "the tree migration usually follows a schedule and a usual path, but this migration is following neither"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-2",
+      "label": "Forest migration is happening about two years early",
+      "node_type": "mystery",
+      "description": "The Academy reports the forest migration is significantly early, implying a broader ecological or magical anomaly affecting the area.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "The migration is about 2 years early"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-3",
+      "label": "Sparkly shedding on the trees appears tied to the same magic as storms and cultists",
+      "node_type": "mystery",
+      "description": "The migrating trees are shedding a sparkly magical material that identifies as a carapace infused with the same magic associated with Mirathorn storms and cultists' oily eyes.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "anchor_quotes": [
+            "the trees are \u201cshedding\u201d something sparkly",
+            "similar to what she has seen before during the magical storms in Mirathorn and Stone Bridge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "anchor_quotes": [
+            "the husk is a sort of carapace infused with magic; the same magic causing the storms and the oily eyes in the cultists"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-4",
+      "label": "The forest contains dangerous creatures and must be crossed carefully",
+      "node_type": "mystery",
+      "description": "The Academy warns that there are dangerous creatures inside the forest, but the forest is still shallow enough to cross directly rather than go around.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "the group must be careful of  the dangerous creatures inside the forest",
+            "not too deep to cross directly"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-5",
+      "label": "The forest may be steerable by reaching vanguard trees at its front",
+      "node_type": "mystery",
+      "description": "The Academy says the party can force the vanguard trees to change direction, which would cause the whole forest to follow.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "they will find vanguard trees that they can force to change direction and the forest will follow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-6",
+      "label": "Questionable Company leaves ale to pacify or thank the crowd at Outtown",
+      "node_type": "mystery",
+      "description": "The party gifts two barrels of ale to the crowd as they depart Outtown, suggesting a local social thread or goodwill gesture tied to their passage.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "anchor_quotes": [
+            "Stafl announces that the group will leave a gift: two barrels of ale from the wagon",
+            "The crowd cheers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-7",
+      "label": "Moss around the road is unusually aggressive and edible",
+      "node_type": "mystery",
+      "description": "The moss becomes so active that it climbs the wagon and chokes the path, yet it is also mineral-rich and edible, making it an odd environmental clue.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "anchor_quotes": [
+            "the moss aggressively growing all along the path",
+            "the moss begins to climb up the sides of the wagon and choke the path ahead",
+            "it is rich in minerals and is even edible"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-8",
+      "label": "Caelynn contacts the Academy for urgent forest intelligence",
+      "node_type": "mystery",
+      "description": "Caelynn uses the rocky-talkie to reach the Academy and Professor Tealeaf for information about the anomaly, indicating an active information-gathering thread.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "anchor_quotes": [
+            "Caelynn decides to use the \u201crocky-talkie\u201d to contact Professor Valin at the Academy",
+            "Professor Tealeaf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-6",
+      "from_node_id": "item:potion-cart",
+      "to_node_id": "item:wagon",
+      "label": "loaded onto wagon",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "anchor_quotes": [
+            "load up on the wagon"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Departing with the cart and updated insignia",
+      "summary": "The party transfers the potion cart, returns it to the guard house, updates Bonogo\u2019s badge with magic, and receives Lysandra\u2019s command and mission briefing.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "anchor_quotes": [
+            "After negotiating the transfer of the potion cart from Blizzy",
+            "Stafl and Baergrom quickly get the cart back to the guard house to load up on the wagon",
+            "Sargent Fabio takes Bonogo back in to get his badge updated",
+            "This magic will last for two weeks",
+            "Lysandra reminds the group that she is in command"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "Mission constraints and extra ale",
+      "summary": "The group is told to investigate only the swamp and head north to Mossford, but Stafl remembers the ale barrels, recruits Baergrom again, and returns with them before Lysandra grows annoyed.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:16-16",
+          "anchor_quotes": [
+            "only investigate the swamp",
+            "head north until they get to the town of Mossford",
+            "the barrels of ale",
+            "He conscripts Baergrom again to pull the cart",
+            "return with the 6 barrels of ale",
+            "threatens a long conversation with Stafl later"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Mossford briefing and awkward mounts",
+      "summary": "Lysandra describes Mossford\u2019s river, reservoir, and moss-lumber economy while the team struggles to mount their horses; Baergrom is kicked, and Stafl ends up walking beside his pony-like mount.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "anchor_quotes": [
+            "Lysandra describes Mossford",
+            "It's a small town along a river that has been dammed to create a reservoir",
+            "used all over, including Mirathorn",
+            "Baergrom is kicked in the head",
+            "Stafl also has trouble with his horse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_4",
+      "order": 4,
+      "title": "Outtown farewell and ale gift",
+      "summary": "The group passes through Mirathorn\u2019s walls, reaches Outtown, and offers two barrels of ale to the crowd as a farewell gift before continuing north.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:20-20",
+          "anchor_quotes": [
+            "10 foot thick walls",
+            "arrives at Outtown",
+            "the crowd begin to perk up at seeing Questionable Company",
+            "leave a gift: two barrels of ale from the wagon",
+            "The crowd cheers as the group leaves Outtown and heads north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_5",
+      "order": 5,
+      "title": "Moss-rich road and edible growth",
+      "summary": "As the road grows wilder and more humid, moss rapidly spreads over the path and wagon; Karsemine identifies it as mineral-rich and edible, and Caelynn stores some for later.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:22-22",
+          "anchor_quotes": [
+            "The land becomes more wild",
+            "the air is more humid",
+            "moss aggressively growing all along the path",
+            "rich in minerals and is even edible",
+            "adds it to the supplies in the wagon",
+            "adds some to a bottle in her bag"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_6",
+      "order": 6,
+      "title": "Wandering forest blocks the route",
+      "summary": "The party encounters an unusual wandering forest blocking the road to Mossford; Lysandra is uneasy, and the team realizes it cannot be bypassed easily.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:24-24",
+          "anchor_quotes": [
+            "this was not in any of the notes she was given",
+            "a sea of trees in the distance",
+            "she discovers a wandering forest",
+            "the wandering forest destroying parts of Mirathorn in the past",
+            "blocking the path to Mossford, with no easy path around them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_7",
+      "order": 7,
+      "title": "Academy consultation and magic-husk discovery",
+      "summary": "Caelynn contacts the Academy for help, learns the migration is abnormal and must be avoided, and the group determines the tree husks are magical carapaces linked to storms and cultists.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "anchor_quotes": [
+            "contact Professor Valin at the Academy",
+            "Professor Tealeaf",
+            "this event is very unusual",
+            "keep their distance",
+            "the forest makes an imposing sight",
+            "the trees are \u201cshedding\u201d something sparkly"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "anchor_quotes": [
+            "the sparkly outside is magic",
+            "the husk is a sort of carapace infused with magic",
+            "the same magic causing the storms and the oily eyes in the cultists"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_8",
+      "order": 8,
+      "title": "Plan to cross to the vanguard trees",
+      "summary": "The Academy callback says the migration is two years early and the party must cross quickly to force the vanguard trees to turn; Ephanna scouts with a fey spirit, and Stafl and Karsemine devise a stealthy crossing plan with Lysandra guarding the supplies and horses.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "the migration is about 2 years early",
+            "get to the other side as quickly as possible",
+            "they will find vanguard trees",
+            "the forest will follow",
+            "Ephanna sends up a fey spirit to observe the size of the forest",
+            "move quietly as a group through the trees until they reach the vanguard trees at the front",
+            "Lysandra will stay back with the supplies and horses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ign-1",
+      "label": "Potion cart transfer and badge update logistics",
+      "reason": "This is a travel/setup detail and not a mystery, warning, or unresolved phenomenon for this pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:14-14",
+          "anchor_quotes": [
+            "negotiating the transfer of the potion cart",
+            "badge updated",
+            "burned on to the blank badge"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ign-2",
+      "label": "Horse handling mishaps and Baergrom\u2019s head kick",
+      "reason": "Humorous movement beat without unresolved implications.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:18-18",
+          "anchor_quotes": [
+            "Baergrom is kicked in the head",
+            "Stafl also has trouble with his horse"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "def-1",
+      "label": "Origin of the magical storms in Mirathorn and Stone Bridge",
+      "reason": "The recap links the tree carapace magic to earlier storms and cultists, but does not explain the underlying source or mechanism.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:26-26",
+          "anchor_quotes": [
+            "magical storms in Mirathorn and Stone Bridge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:28-28",
+          "anchor_quotes": [
+            "the same magic causing the storms and the oily eyes in the cultists"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track earlier storm incidents and any cultist-linked magical sources for a shared cause."
+    },
+    {
+      "item_id": "def-2",
+      "label": "Nature of the dangerous creatures inside the forest",
+      "reason": "The Academy warns about creatures in the forest, but no specific species or encounter details are provided yet.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "label": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193:span:6fc1b7d1a193:30-30",
+          "anchor_quotes": [
+            "dangerous creatures inside the forest"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Look for later encounter notes or scouting reports describing threats within the migrating forest."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

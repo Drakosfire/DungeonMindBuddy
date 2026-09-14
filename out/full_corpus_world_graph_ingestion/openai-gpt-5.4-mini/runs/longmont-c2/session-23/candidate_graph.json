@@ -1,0 +1,2456 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-23:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-23",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-23:e08ce9c53189"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc_orik_tane",
+      "label": "Orik Tane",
+      "node_type": "character",
+      "description": "Mayor of Mireward who addresses the crowd and tries to assess the threat and available defenders.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "anchor_quotes": [
+            "As mayor, Orik Tane can easily command the room."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc_brin_holloway",
+      "label": "Brin Holloway",
+      "node_type": "character",
+      "description": "A cook from Edge who leads the arriving survivors and reports that the town was overrun by meat monsters.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "A clear leader of the group steps forward, Brin Holloway, a cook from Edge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc_edge_messenger",
+      "label": "Messenger from Edge",
+      "node_type": "character",
+      "description": "An unnamed messenger who brings the dire warning that Edge is under siege and that survivors are heading to Mireward Reach.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "a messenger arrived with a dire message from Edge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:edge",
+      "label": "Edge",
+      "node_type": "location",
+      "description": "Town to the north on the outskirts of the Swamp; reported to be under siege and a destination for survivors.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "Edge, the town to the north on the outskirts of the Swamp",
+            "a group of survivors were leaving for Mireward Reach"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:mireward-reach",
+      "label": "Mireward Reach",
+      "node_type": "location",
+      "description": "The broader reach associated with Mireward; named as a refuge destination for survivors and the likely site of the battle's outcome.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "Mireward Reach"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "anchor_quotes": [
+            "will Mireward Reach be overrun"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:inn",
+      "label": "Inn",
+      "node_type": "location",
+      "description": "Building in town where the leaders and the party gather and hear the alarm.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "anchor_quotes": [
+            "They all head to the Inn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "anchor_quotes": [
+            "coming from outside"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:north-gate",
+      "label": "north gate",
+      "node_type": "location",
+      "description": "Gate on the north side of the town where the attackers approach and the defense is organized.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "anchor_quotes": [
+            "the top of the north gate",
+            "shadows are coming from the Reach to the north gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:town-gate",
+      "label": "gate",
+      "node_type": "location",
+      "description": "The town's main gate used to admit the fleeing survivors and defended during the assault.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "open and close the gate so that the group of heroes can enter the town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "rushes to the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:city",
+      "label": "city",
+      "node_type": "location",
+      "description": "The settlement referred to as a city in routing instructions around the wall and toward the south gate.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "around the city",
+            "find the south gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:south-gate",
+      "label": "south gate",
+      "node_type": "location",
+      "description": "Secondary gate where the survivors are instructed to wait while the town is secured.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "find the south gate and wait there"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:road",
+      "label": "road",
+      "node_type": "location",
+      "description": "Road leading to the gate; used as the approach vector for shadows and the battlefield line of attack.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "anchor_quotes": [
+            "out onto the road coming to the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:route-to-mireward",
+      "label": "route to Mireward Reach",
+      "node_type": "location",
+      "description": "Travel route mentioned by the fleeing survivors as their intended destination.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "leaving for Mireward Reach"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:mireward-town-guards",
+      "label": "Mireward town guards",
+      "node_type": "faction",
+      "description": "Local guards stationed at Mireward\u2019s gate, being directed during the battle response.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "the other \u201cguards\u201d",
+            "organizing the town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "he tells the guards to watch the people"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "organization:mireward-town-leadership",
+      "label": "Mireward town leadership",
+      "node_type": "organization",
+      "description": "The civic leadership coordinating the town\u2019s response, including the mayor and the town leader role referenced in the inn meeting.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "anchor_quotes": [
+            "As mayor, Orik Tane can easily command the room"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "anchor_quotes": [
+            "speak with the town leader"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:edge-survivors",
+      "label": "Edge survivors",
+      "node_type": "group",
+      "description": "People escaping from Edge after it was overrun, moving toward Mireward Reach.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "around fifty people in this group",
+            "a group of survivors were leaving for Mireward Reach"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "the town was under siege from horrific monsters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:meat-monster-horde",
+      "label": "meat monster horde",
+      "node_type": "group",
+      "description": "The attacking collection of monsters approaching Mireward, including tripods, flying meatwings, sewer monsters, and hybrids.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "the group of large shadows",
+            "meat monsters"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+          "anchor_quotes": [
+            "The giant sewer creatures",
+            "The equally giant tripod creatures"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:meatwings",
+      "label": "meatwings",
+      "node_type": "group",
+      "description": "Flying meat creatures attacking the wall and later attempting a charm effect.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "flying meatwing monsters"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "anchor_quotes": [
+            "the other six remaining meatwings from the horde"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:mireward-reach-attackers",
+      "label": "Mireward Reach attackers",
+      "node_type": "group",
+      "description": "The broad set of shadows and attackers coming from the Reach toward the north gate.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "anchor_quotes": [
+            "shadows are coming from the Reach to the north gate"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "anchor_quotes": [
+            "a group of meatwings, a meat hybrid and one of the tripods"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_mireward_gate",
+      "label": "Mireward gate",
+      "node_type": "item",
+      "description": "The town gate being opened and defended during the battle at Mireward Reach.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "open and close the gate"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "anchor_quotes": [
+            "top of the north gate",
+            "banging on the gate below"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_old_military_coat",
+      "label": "Old worn military coat",
+      "node_type": "item",
+      "description": "A worn military coat over fine clothes, worn by the town leader's father as a sign of authority or improvised readiness.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "an old worn military coat over his fine clothes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_old_uniform",
+      "label": "Old uniform",
+      "node_type": "item",
+      "description": "The old uniform worn by Lysandra's father while helping organize the town.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "wearing the old uniform"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_message_from_the_north",
+      "label": "Message from the north",
+      "node_type": "item",
+      "description": "A dire warning delivered from the north about Edge being under siege.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "the message from the north",
+            "a messenger arrived with a dire message"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_dire_message",
+      "label": "Dire message",
+      "node_type": "item",
+      "description": "The urgent warning that prompted concern in town.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "a dire message from Edge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_bell",
+      "label": "Bell",
+      "node_type": "item",
+      "description": "A loud bell ringing outside the inn as the attack begins.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "anchor_quotes": [
+            "a loud bell ringing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_ball_bearings",
+      "label": "Ball bearings",
+      "node_type": "item",
+      "description": "Ball bearings thrown down in front of the gate as part of the defense plan.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "Bonogo throws some ball bearings down in front of the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_dark_vision",
+      "label": "Dark vision",
+      "node_type": "item",
+      "description": "Karsemine's dark vision used to spot approaching creatures.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "with her dark vision"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_bless",
+      "label": "Bless",
+      "node_type": "item",
+      "description": "A beneficial effect accompanying the potion Stafl gives to Bonogo.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+          "anchor_quotes": [
+            "a potion with Bless"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_bardic_inspiration",
+      "label": "Bardic Inspiration",
+      "node_type": "item",
+      "description": "Stafl's supportive magic applied to Karsemine during the battle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "anchor_quotes": [
+            "casts Bardic Inspiration on her"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_spike_growth",
+      "label": "Spike Growth",
+      "node_type": "item",
+      "description": "A magical area of thorns and difficult terrain laid down in front of the attackers.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "casts Spike Growth in a 20 foot area",
+            "large spiky thorns along the road"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_hunger_of_hadar",
+      "label": "Hunger of Hadar",
+      "node_type": "item",
+      "description": "A darkness sphere spell used to blind and damage creatures in the path of the horde.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:26-26",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:26-26",
+          "anchor_quotes": [
+            "casts Hunger of Hadar",
+            "sphere of darkness"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_fey_step",
+      "label": "Fey step",
+      "node_type": "item",
+      "description": "A movement or teleportation-like ability used by Ogonob after its attack.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+          "anchor_quotes": [
+            "using Fey step"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_23_01",
+      "label": "Edge sends a dire warning about a northern siege and missing evacuees",
+      "node_type": "mystery",
+      "description": "A messenger from Edge reports the town is under siege by horrific monsters and that survivors were leaving for Mireward Reach, but none have arrived, creating uncertainty about their fate.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "a messenger arrived with a dire message from Edge",
+            "the town was under siege from horrific monsters",
+            "a group of survivors were leaving for Mireward Reach, but no one had arrived"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_23_02",
+      "label": "The attack at Mireward matches the monsters seen in Mirathorn",
+      "node_type": "mystery",
+      "description": "The message from Edge describes creatures that closely resemble the earlier Mirathorn monsters, suggesting the same threat may be spreading or recurring across locations.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "anchor_quotes": [
+            "sounds exactly like the monsters they faced in Mirathorn",
+            "slimy monsters and flying meat creatures along with changes to people\u2019s eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_23_03",
+      "label": "Unclear whether the Edge refugees are trustworthy or infected",
+      "node_type": "mystery",
+      "description": "A surviving group from Edge arrives claiming they escaped a massacre, but the town still needs to inspect their eyes before allowing entry, implying possible contamination or disguise risk.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "Brin says he knows what they are looking for"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "they will need to see the eyes of each person before they can enter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_23_04",
+      "label": "Large hidden force approaches Mireward from the north while the refugees wait",
+      "node_type": "mystery",
+      "description": "Before the refugee screening can begin, the ground rumbles and multiple large forms approach the town, escalating the situation into a broader assault.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "the ground rumble, dirt vibrating as something big, or many things, approach the town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "multiple forms, some huge, slowly approaching"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_23_05",
+      "label": "The attacking horde includes several unfamiliar meat-based monster types",
+      "node_type": "mystery",
+      "description": "The defenders identify a mixed horde of giant tripod meat monsters, a golem-like creature, flying meatwing monsters, meat hybrids, and sewer monsters, indicating a coordinated and evolving threat.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "two giant tripod meat monsters, a golem like creature, a swarm of flying meatwing monsters, two meat hybrid monsters and two of the sewer monsters they fought in Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_23_06",
+      "label": "The tripod monsters create new creatures by ripping off parts of themselves",
+      "node_type": "mystery",
+      "description": "The towering tripod creatures can launch pieces of their bodies at the wall, and those pieces transform into smaller meat monsters or flying meatwings, revealing a strange reproduction or spawning mechanism.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+          "anchor_quotes": [
+            "rip off a part of their body and launch it at the wall",
+            "then transform into more small meat monsters"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+          "anchor_quotes": [
+            "hits the wall, then becomes a new flying meatwing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_23_07",
+      "label": "Some meatwings can cast a charm that suppresses attackers",
+      "node_type": "mystery",
+      "description": "Late in the battle, the remaining meatwings begin casting a charm that affects defenders, causing Bonogo and Ephanna to lose the urge to attack them.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "anchor_quotes": [
+            "begin to cast some sort of charm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "anchor_quotes": [
+            "Both Bonogo and Ephanna no longer feel compelled to attack the meatwings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_23_08",
+      "label": "Karsemine learns the horde has elemental weaknesses",
+      "node_type": "mystery",
+      "description": "Hunter\u2019s Mark reveals that at least the tripod creatures are resistant to poison but weak to fire, giving the defenders actionable intelligence about the enemy.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+          "anchor_quotes": [
+            "the creatures are resistant to poison, but weak to fire"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_23_09",
+      "label": "Mireward may be overrun despite heavy resistance",
+      "node_type": "mystery",
+      "description": "The recap ends with the battle still unresolved, and the narrator explicitly asks whether Mireward Reach will be overrun, leaving the outcome uncertain.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "anchor_quotes": [
+            "Will this be enough to turn the tide of battle, or will Mireward Reach be overrun?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:captain-lysandra-ironveil",
+      "label": "Captain Lysandra Ironveil",
+      "node_type": "character",
+      "description": "Lysandra returned to her hometown and was surprised to see her father in an old military coat helping direct the gate guards after a troubling message from the north. She read the warning aloud to the group, helped push the town toward speaking with the mayor, and then took command in the defense of the wall. In the fighting, she issued orders to allies and personally finished off one of the flying meat creatures after a dramatic leap from the half wall.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "Lysandra is surprised to see her father wearing the old uniform",
+            "He is instructing the other \u201cguards\u201d on how to open and close the gate so that the group of heroes can enter the town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "anchor_quotes": [
+            "Lysandra quickly reads the message to the group",
+            "she decides they need to speak with the town leader"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "anchor_quotes": [
+            "she quickly explains the mission they are on from Mirathorn",
+            "how the group has fought back these same monsters before"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:30-30",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:30-30",
+          "anchor_quotes": [
+            "Lysandra steps forward and uses her Commanding Shout",
+            "commands Karsemine, Bonogo and Baergrom to take another shot at the flying monsters"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:34-34",
+          "anchor_quotes": [
+            "Lysandra, leaping off the half wall and making an incredible jump straight up",
+            "kills the second monster with a swift slice"
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "captain_lysandra_ironveil",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Captain Lysandra Ironveil",
+        "Captain"
+      ],
+      "session_actions": [
+        "read the northward warning to the group",
+        "pressed to speak with the town leader",
+        "explained the Mirathorn mission to the crowd",
+        "used Commanding Shout to direct allies",
+        "leaped from the half wall and killed a flying monster"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-001",
+      "from_node_id": "npc_edge_messenger",
+      "to_node_id": "loc:edge",
+      "label": "brings warning from",
+      "relationship_type": "carries_report_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "a messenger arrived with a dire message from Edge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-002",
+      "from_node_id": "loc:edge",
+      "to_node_id": "group:edge-survivors",
+      "label": "has survivors leaving for",
+      "relationship_type": "displaced_from",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "a group of survivors were leaving for Mireward Reach"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-004",
+      "from_node_id": "npc_orik_tane",
+      "to_node_id": "organization:mireward-town-leadership",
+      "label": "serves as mayor in",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "anchor_quotes": [
+            "As mayor, Orik Tane can easily command the room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-005",
+      "from_node_id": "npc_orik_tane",
+      "to_node_id": "faction:mireward-town-guards",
+      "label": "commands the guards",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "anchor_quotes": [
+            "As mayor, Orik Tane can easily command the room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-006",
+      "from_node_id": "npc_brin_holloway",
+      "to_node_id": "group:edge-survivors",
+      "label": "leads arriving survivors",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "A clear leader of the group steps forward, Brin Holloway"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-007",
+      "from_node_id": "group:edge-survivors",
+      "to_node_id": "loc:mireward-reach",
+      "label": "travel to",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "a group of survivors were leaving for Mireward Reach"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-012",
+      "from_node_id": "loc:south-gate",
+      "to_node_id": "loc:city",
+      "label": "gate of the city",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "find the south gate and wait there"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-014",
+      "from_node_id": "loc:road",
+      "to_node_id": "loc:town-gate",
+      "label": "road coming to gate",
+      "relationship_type": "path_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "anchor_quotes": [
+            "out onto the road coming to the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-015",
+      "from_node_id": "faction:mireward-town-guards",
+      "to_node_id": "loc:town-gate",
+      "label": "defends gate",
+      "relationship_type": "defends_weakened_location",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "Inside he tells the guards to watch the people, but to not let them in until the town is secure."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-019",
+      "from_node_id": "item_spike_growth",
+      "to_node_id": "loc:road",
+      "label": "creates thorns along road",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "large spiky thorns along the road"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-021",
+      "from_node_id": "npc_brin_holloway",
+      "to_node_id": "group:edge-survivors",
+      "label": "speaks for escaped group",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "A clear leader of the group steps forward, Brin Holloway"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-022",
+      "from_node_id": "npc_edge_messenger",
+      "to_node_id": "item_message_from_the_north",
+      "label": "delivers message",
+      "relationship_type": "carries_report_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "a messenger arrived with a dire message from Edge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-023",
+      "from_node_id": "item_message_from_the_north",
+      "to_node_id": "loc:edge",
+      "label": "reports Edge under siege",
+      "relationship_type": "reports_threat_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "the town was under siege from horrific monsters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-024",
+      "from_node_id": "item_old_uniform",
+      "to_node_id": "npc_orik_tane",
+      "label": "worn by father organizing town",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "wearing the old uniform"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-025",
+      "from_node_id": "item_old_military_coat",
+      "to_node_id": "npc_orik_tane",
+      "label": "worn as coat",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "an old worn military coat over his fine clothes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_01",
+      "order": 1,
+      "title": "North gate briefing and warning from Edge",
+      "summary": "The session opens with the town gate being managed by an older, well-dressed man in a military coat. Lysandra recognizes him as her father, and he explains the town has been struggling to organize after a dire message from the north about Edge being under siege and survivors heading for Mireward Reach.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "well dressed man in his mid 50s with an old worn military coat",
+            "the group of heroes can enter the town",
+            "a messenger arrived with a dire message from Edge",
+            "the town to the north on the outskirts of the Swamp",
+            "a group of survivors were leaving for Mireward Reach"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_02",
+      "order": 2,
+      "title": "Town debate turns to the newcomers and the Edge threat",
+      "summary": "Lysandra reads the warning to the group and compares it to the monsters they faced in Mirathorn. The party goes to the inn, where the mayor addresses a crowded, skeptical room. The newcomers\u2019 arrival and Lysandra\u2019s explanation make the threat feel more urgent, though many still doubt it.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:16-16",
+          "anchor_quotes": [
+            "Lysandra quickly reads the message to the group",
+            "exactly like the monsters they faced in Mirathorn",
+            "They all head to the Inn",
+            "the common room packed with people"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "anchor_quotes": [
+            "As mayor, Orik Tane can easily command the room",
+            "six very experienced adventurers enter",
+            "how the group has fought back these same monsters before",
+            "most of the people here believed that the threat was overblown"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_03",
+      "order": 3,
+      "title": "Alarm at the north gate and first defensive magic",
+      "summary": "A frightened boy reports shadows coming from the Reach. Stafl immediately takes command with Celestial Revelation and Light, revealing a large force approaching the gate while the crowd realizes the newcomers are in control.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:20-20",
+          "anchor_quotes": [
+            "shadows are coming from the Reach to the north gate",
+            "Stafl casts Celestial Revelation",
+            "Stafl casts Light on a crossbow bolt",
+            "anywhere from twenty to one hundred",
+            "they're coming, let us in"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_04",
+      "order": 4,
+      "title": "Survivors from Edge arrive as the horde approaches",
+      "summary": "Ephanna blocks an immediate rush to open the gate while Brin Holloway identifies the incoming refugees as survivors from Edge. Before they can be processed, the ground shakes and large forms approach, forcing the party to prepare for a broader attack.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:22-22",
+          "anchor_quotes": [
+            "Ephanna rushes to the gate, but protests just letting the people in",
+            "around fifty people in this group",
+            "Brin Holloway, a cook from Edge",
+            "surrounded and overrun by horrible meat monsters",
+            "multiple forms, some huge, slowly approaching"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_05",
+      "order": 5,
+      "title": "Battle plan on the wall and enemy identification",
+      "summary": "Stafl organizes the defense by routing survivors around the city and holding the gate. The heroes set traps and magical terrain, then identify the enemy mix: tripod meat monsters, a golem-like creature, flying meatwing monsters, meat hybrids, and familiar sewer monsters.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:24-24",
+          "anchor_quotes": [
+            "follow the wall around the city",
+            "watch the people, but to not let them in until the town is secure",
+            "Bonogo throws some ball bearings down in front of the gate",
+            "Karsemine casts Spike Growth",
+            "two giant tripod meat monsters, a golem like creature, a swarm of flying meatwing monsters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_06",
+      "order": 6,
+      "title": "Opening volley: darkness, ranged fire, and targeted knowledge",
+      "summary": "Karsemine and Ephanna start the attack with bowfire and Hunger of Hadar, blinding enemies inside the sphere. The team holds and fires as openings appear, while Karsemine learns the tripod creatures\u2019 weaknesses and Ephanna kills multiple flying meatwings with Eldritch Blast.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:26-26",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:26-26",
+          "anchor_quotes": [
+            "steadies her bow",
+            "casts Hunger of Hadar",
+            "blinded and take cold and acid damage",
+            "the two sewer monsters are caught inside the sphere of darkness"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:32-32",
+          "anchor_quotes": [
+            "uses her Hunter\u2019s Mark",
+            "the creatures are resistant to poison, but weak to fire",
+            "Ephanna uses Eldritch Blast on two of the flying meatwings, killing both",
+            "using Fey step, creates a cube of darkness around itself"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_07",
+      "order": 7,
+      "title": "Counterattack on the wall and attrition against the horde",
+      "summary": "As the tripod monsters spawn smaller attackers, the defenders pick them off with bowshots, crossbow fire, a potion-backed boost, and a snowball spell. The heavy sewer and tripod creatures keep advancing, but the wall defense continues to thin the assault.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:28-28",
+          "anchor_quotes": [
+            "Both land just short, but then transform into more small meat monsters",
+            "Karsemine shoots one of them with her bow",
+            "Baergrom attempts to shoot the other with his crossbow",
+            "Stafl gives a potion with Bless to Bonogo",
+            "The golem moves closer to the wall"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:30-30",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:30-30",
+          "anchor_quotes": [
+            "Lysandra steps forward and uses her Commanding Shout",
+            "Caelynn, channeling magic, casts Snowball",
+            "the disgusting meat hybrid creatures trudge forward"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_08",
+      "order": 8,
+      "title": "Charm attempt and finishing lightning strike",
+      "summary": "The remaining meatwings try to charm the defenders, but the party resists long enough for Stafl to bolster Karsemine and put one tripod to sleep. The battle then peaks with Caelynn unleashing a devastating lightning bolt that tears through several attackers, leaving the outcome unresolved.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:36-36",
+          "anchor_quotes": [
+            "the other six remaining meatwings from the horde move within range of the wall and begin to cast some sort of charm",
+            "casts Bardic Inspiration on her, then casts Sleep on one of the tripod creatures"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:38-38",
+          "anchor_quotes": [
+            "unleashes a devastating lightning bolt along the line of attackers",
+            "Will this be enough to turn the tide of battle, or will Mireward Reach be overrun?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "candidate:lysandro",
+      "label": "Lysandro",
+      "reason": "Ambiguous surfaced name in the packet; listed as a deterministic known entity mention, so it should not be re-extracted as a new observation node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:14-14",
+          "anchor_quotes": [
+            "Lysandra is surprised to see her father"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "label": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-23:e08ce9c53189:span:e08ce9c53189:18-18",
+          "anchor_quotes": [
+            "more shocked to see \u201clittle\u201d Lysandra with them"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

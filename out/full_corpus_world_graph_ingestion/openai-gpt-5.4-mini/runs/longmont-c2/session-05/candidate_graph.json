@@ -1,0 +1,2202 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-5:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-5",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-5:40a1bbd868a3"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "obs:lysandra",
+      "label": "Lysandra",
+      "node_type": "character",
+      "description": "A military-affiliated figure who is anxious, exhausted, and asks the group to help infiltrate a guardhouse to investigate unusual guardhouse festival restrictions.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "Lysandra",
+            "very casual looking clothes",
+            "very uncomfortable and very anxious",
+            "needs help from the group again",
+            "help infiltrating a guardhouse"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Lysandra anxious",
+            "looks exhausted",
+            "has not been able to get any rest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "Lysandra, who is looking very nervous"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:elowyn-vireleaf",
+      "label": "Elowyn Vireleaf",
+      "node_type": "character",
+      "description": "An enthusiastic elf who leads the Evergreen Apothecary herbal tea workshop and impresses/teaches the group about brewing.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "a very enthusiastic elf named Elowyn Vireleaf",
+            "leading the workshop",
+            "explaining all about the leaves"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "impressing Vireleaf",
+            "asks for her to brew a tea",
+            "They exchange tips about teas and leaves"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:bramblewood",
+      "label": "Bramblewood",
+      "node_type": "character",
+      "description": "Vireleaf\u2019s apprentice, impressed by Karsemine\u2019s tea-making and offering her special mushrooms.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Vireleaf\u2019s apprentice Bramblewood",
+            "is very impressed with her skills",
+            "offers her some \u201cspecial\u201d mushrooms"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:volen",
+      "label": "Volen",
+      "node_type": "character",
+      "description": "A snooty elf owner of the Gilded Fold who initially dismisses Bonogo but then reveals paper provenance and sells enchanted paper.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the owner, a snooty Elf named Volen",
+            "demands that Bonogo leave",
+            "reluctantly tells Bonogo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:merella",
+      "label": "Merella",
+      "node_type": "character",
+      "description": "A tiefling connected to the cursed letter\u2019s creation, named by Volen as someone he worked with on the letter.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:glinter",
+      "label": "Glinter",
+      "node_type": "character",
+      "description": "The director of the Community Hall Unity Dance rehearsal, enthusiastic about new participants and the battle reenactment.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "the director - Glinter",
+            "Glinter is overjoyed to see new members",
+            "the dance is a reenactment of the battle for the city of Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:dustwalker",
+      "label": "Dustwalker",
+      "node_type": "character",
+      "description": "A performer on the rooftop guardhouse party entertainment stage.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "In the center the Dustwalker is performing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "observation:faction:dustwalker-performance-act",
+      "label": "Dustwalker",
+      "node_type": "group",
+      "description": "A performing act appearing on the rooftop at the guardhouse festival.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "In the center the Dustwalker is performing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:evergreen-apothecary",
+      "label": "Evergreen Apothecary",
+      "node_type": "location",
+      "description": "An apothecary with a courtyard used for the Herbal Tea Workshop.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "Evergreen Apothecary",
+            "the courtyard of the Evergreen Apothecary",
+            "Herbal Tea Workshop"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:apothecary-courtyard",
+      "label": "Apothecary courtyard",
+      "node_type": "location",
+      "description": "The courtyard area where the tea workshop takes place, with tables and brewing supplies set up.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "the courtyard of the Evergreen Apothecary",
+            "numerous tables set up around the courtyard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:artisans-quarter",
+      "label": "Artisans Quarter",
+      "node_type": "location",
+      "description": "A fancy part of town containing the Gilded Fold paper shop.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the Artisans Quarter",
+            "this fancy part of town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:community-hall",
+      "label": "Community Hall",
+      "node_type": "location",
+      "description": "A venue where the Unity Dance rehearsal is held.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "head to Community Hall for the Unity Dance rehearsal",
+            "As the group enters the outdoor amphitheater"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:outdoor-amphitheater",
+      "label": "outdoor amphitheater",
+      "node_type": "location",
+      "description": "An open-air performance space associated with the Community Hall rehearsal.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "As the group enters the outdoor amphitheater"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:rooftop",
+      "label": "rooftop",
+      "node_type": "location",
+      "description": "An elegant upper-level party area at the guardhouse with food and drink booths and performance space.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "the party on the rooftop",
+            "The rooftop is an elegant setup"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "observation:faction:guards-of-guardhouses",
+      "label": "guards of the guardhouses",
+      "node_type": "faction",
+      "description": "The guardhouse-held guard contingent referenced as hosting a special festival and restricting attendance.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "each guardhouse hosts a music festival",
+            "this time it is for guards only"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "the music festival at the guardhouse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "observation:faction:community-hall-unity-dance",
+      "label": "Community Hall Unity Dance",
+      "node_type": "organization",
+      "description": "The dance rehearsal group/event at Community Hall that stages a reenactment of the battle for the city of Mirathorn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "Community Hall for the Unity Dance rehearsal",
+            "the dance is a reenactment of the battle for the city of Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_blue_cap_mushrooms",
+      "label": "Blue Cap mushrooms",
+      "node_type": "item",
+      "description": "Mushrooms selected and brewed into tea during the workshop.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "She picks Blue Cap mushrooms and brews a pretty nice tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_stormbark_tea",
+      "label": "Stormbark Tea",
+      "node_type": "item",
+      "description": "A specialized tea that Caelynn successfully brewed after being asked to make it.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "asks for her to brew a tea that even she has been struggling to make - Stormbark Tea",
+            "Caelynn makes a perfect tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_rattle_leaf",
+      "label": "Rattle Leaf",
+      "node_type": "item",
+      "description": "Leaf ingredient Karsemine used for a later tea-brewing attempt.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "this time using Rattle Leaf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_traveling_tea_set",
+      "label": "traveling tea set",
+      "node_type": "item",
+      "description": "A portable tea set purchased by Caelynn after improving her brewing skills.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "she purchases a traveling tea set"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_special_mushrooms",
+      "label": "special mushrooms",
+      "node_type": "item",
+      "description": "Mushrooms offered by Bramblewood to Karsemine as a reward for her mortar-and-pestle skill.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "offers her some \u201cspecial\u201d mushrooms to take"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_cursed_letter",
+      "label": "cursed letter",
+      "node_type": "item",
+      "description": "A letter Bonogo brings to the paper shop seeking answers about its curse.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "in search of the Gilded Fold - the paper shop in the Artisans Quarter. This is where he hopes to find answers about his cursed letter",
+            "Bonogo informs him that the letter is cursed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_blank_badge",
+      "label": "blank badge",
+      "node_type": "item",
+      "description": "A blank city guard badge Bonogo presents to gain leverage in the paper shop.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "Bonogo produces the blank badge of the city guard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_origami_phoenix_scroll_sculpture",
+      "label": "origami phoenix over a scroll sculpture",
+      "node_type": "item",
+      "description": "A decorative sculpture displayed above the Gilded Fold shop door.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the sculpture of the origami phoenix over a scroll above the door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_paper",
+      "label": "paper",
+      "node_type": "item",
+      "description": "Paper sold by Volen after he identifies the material as handmade and enchanted to resist burning.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "he sells Bonogo some paper",
+            "the paper is enchanted to resist burning"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_human_looking_disguises",
+      "label": "human-looking disguises",
+      "node_type": "item",
+      "description": "Disguises made to help the party pass as human and enter the guardhouse.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "helping Karsemine and Baergrom with human-looking disguises to help get into the guardhouse later that evening"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_dried_boar_meat",
+      "label": "dried boar meat",
+      "node_type": "item",
+      "description": "Food item exchanged as part of the payment for paper.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "In exchange for gold and some dried boar meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_music_festival",
+      "label": "music festival",
+      "node_type": "item",
+      "description": "The guarded event Lysandra wants help investigating inside a guardhouse.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "each guardhouse hosts a music festival",
+            "only humans are invited"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_tea",
+      "label": "tea",
+      "node_type": "item",
+      "description": "Brewed tea used in the workshop and later to boost Insight before entering the guardhouse.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "brews a pretty nice tea",
+            "brews the perfect tea"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "Caelynn brews some tea to increase Insight for Lysandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-1",
+      "label": "Lysandra asks the group to infiltrate a guardhouse to investigate unusual guard-only, human-only festival access",
+      "node_type": "mystery",
+      "description": "Lysandra reveals an unexplained change in festival rules and requests help entering a guardhouse to determine what is happening.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "it is for guards only - something that has not happened before",
+            "only humans are invited",
+            "she needs help infiltrating a guardhouse to determine what is actually happening"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-2",
+      "label": "Lysandra appears anxious, uncomfortable, and exhausted, with no one she can trust",
+      "node_type": "mystery",
+      "description": "Her demeanor and stated inability to rest suggest an underlying problem beyond the guardhouse plan.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "very uncomfortable and very anxious"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "she looks exhausted",
+            "she has not been able to get any rest",
+            "there is no one else she can trust"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-3",
+      "label": "Guardhouse music festival appears to be a new and restricted event format",
+      "node_type": "mystery",
+      "description": "The recap flags the guardhouse festival as unusual because it is guards-only and human-only, implying a hidden purpose or selective access policy.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "each guardhouse hosts a music festival",
+            "this time it is for guards only",
+            "only humans are invited",
+            "something that has not happened before"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-4",
+      "label": "Bonogo seeks answers about a cursed letter at the Gilded Fold",
+      "node_type": "mystery",
+      "description": "Bonogo\u2019s side thread centers on a letter he believes is cursed, prompting a confrontation at the paper shop and a lead on its origin.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "in search of the Gilded Fold",
+            "answers about his cursed letter",
+            "the letter is cursed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-5",
+      "label": "The cursed letter was made by hand for an anonymous elf far away and involved a tiefling named Merella",
+      "node_type": "mystery",
+      "description": "The paper shop owner identifies the letter as handcrafted, says it was made for an unknown elf overseas, and names a tiefling collaborator, creating a provenance thread to investigate.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "made this paper for an anonymous elf in a land far away over the desert",
+            "the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-6",
+      "label": "The paper from the letter is enchanted to resist burning",
+      "node_type": "mystery",
+      "description": "A magical property of the paper is revealed, which may relate to the letter\u2019s curse or its intended use.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the paper is enchanted to resist burning"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-7",
+      "label": "Volen\u2019s shop recognizes Bonogo as unusual in the Artisans Quarter",
+      "node_type": "mystery",
+      "description": "The recap notes side-glances and a dismissal based on his being a bugbear, suggesting social friction or scrutiny tied to the shop visit.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "not very common for Bugbears to be seen in this fancy part of town",
+            "side-glances"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-8",
+      "label": "The group is preparing a guardhouse infiltration using human disguises and tea-based buffs",
+      "node_type": "mystery",
+      "description": "Ephanna makes disguises, Caelynn brews tea for Insight, and the group tests whether they can pass as humans before entering the guardhouse.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "help get into the guardhouse later that evening",
+            "human-looking disguises"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "the group easily pass the initial check as humans"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-9",
+      "label": "Unity Dance rehearsal reenacts the battle for the city of Mirathorn",
+      "node_type": "mystery",
+      "description": "The rehearsal may carry historical or political significance by staging a battle reenactment in a community performance context.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "the dance is a reenactment of the battle for the city of Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-10",
+      "label": "The guardhouse rooftop party is active with food, drink, and a performer called the Dustwalker",
+      "node_type": "mystery",
+      "description": "The infiltration reaches a social event on the rooftop, but the significance of the Dustwalker performance and the money booths remains unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "the party on the rooftop",
+            "more food and drink booths",
+            "In the center the Dustwalker is performing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs-11",
+      "label": "Bonogo searches for where the money is kept at the rooftop booths",
+      "node_type": "mystery",
+      "description": "Bonogo\u2019s invisible scouting indicates a possible theft, surveillance, or evidence-gathering thread tied to the guardhouse event.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "looks for places where the money is kept at the booths"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "location:apothecary-courtyard",
+      "to_node_id": "location:evergreen-apothecary",
+      "label": "courtyard of",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "the courtyard of the Evergreen Apothecary"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-3",
+      "from_node_id": "obs:bramblewood",
+      "to_node_id": "obs:elowyn-vireleaf",
+      "label": "apprentice of",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Vireleaf\u2019s apprentice Bramblewood"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "obs:bramblewood",
+      "to_node_id": "item_special_mushrooms",
+      "label": "offers",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "offers her some \u201cspecial\u201d mushrooms to take"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-8",
+      "from_node_id": "obs:merella",
+      "to_node_id": "item_cursed_letter",
+      "label": "worked with on letter",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "the name of the tiefling he worked with on the letter is named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-9",
+      "from_node_id": "item_paper",
+      "to_node_id": "obs:volen",
+      "label": "sold by",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "he sells Bonogo some paper"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-10",
+      "from_node_id": "item_paper",
+      "to_node_id": "obs:volen",
+      "label": "made by hand by",
+      "relationship_type": "caused_by",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "it is clearly something he made by hand"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "location:community-hall",
+      "to_node_id": "location:outdoor-amphitheater",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "As the group enters the outdoor amphitheater"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-12",
+      "from_node_id": "obs:glinter",
+      "to_node_id": "location:community-hall",
+      "label": "director at",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "the director - Glinter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "obs:glinter",
+      "to_node_id": "observation:faction:community-hall-unity-dance",
+      "label": "directs",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "the director - Glinter",
+            "Unity Dance rehearsal"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-14",
+      "from_node_id": "observation:faction:community-hall-unity-dance",
+      "to_node_id": "obs-9",
+      "label": "reenacts",
+      "relationship_type": "objective_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "the dance is a reenactment of the battle for the city of Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-15",
+      "from_node_id": "item_music_festival",
+      "to_node_id": "observation:faction:guards-of-guardhouses",
+      "label": "hosted by",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "each guardhouse hosts a music festival",
+            "for guards only"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-16",
+      "from_node_id": "obs:lysandra",
+      "to_node_id": "obs-1",
+      "label": "requests help for",
+      "relationship_type": "objective_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "she needs help infiltrating a guardhouse to determine what is actually happening"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-17",
+      "from_node_id": "obs:lysandra",
+      "to_node_id": "obs-2",
+      "label": "appears as",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "she looks exhausted",
+            "there is no one else she can trust"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-18",
+      "from_node_id": "obs:lysandra",
+      "to_node_id": "item_human_looking_disguises",
+      "label": "uses disguises for infiltration",
+      "relationship_type": "pursues",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "help get into the guardhouse later that evening",
+            "human-looking disguises"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-22",
+      "from_node_id": "obs:dustwalker",
+      "to_node_id": "location:rooftop",
+      "label": "performing at",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "In the center the Dustwalker is performing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-23",
+      "from_node_id": "observation:faction:dustwalker-performance-act",
+      "to_node_id": "location:rooftop",
+      "label": "at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "In the center the Dustwalker is performing",
+            "the party on the rooftop"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Lysandra recruits the group to investigate restrictive guardhouse festivals",
+      "summary": "After the arena, Lysandra approaches the party in casual clothes and anxiously asks for help infiltrating a guardhouse. She explains that the festival is now guards-only and human-only, which is unusual and suspicious. In parallel, Caelynn and Karsemine arrive at the Evergreen Apothecary for a tea workshop led by Elowyn Vireleaf.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:14-14",
+          "anchor_quotes": [
+            "approached by Lysandra",
+            "heads over to the Evergreen Apothecary",
+            "She reveals that she needs help from the group again",
+            "only humans are invited"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "Tea workshop success gives Caelynn new brewing skill and the party regroups",
+      "summary": "At the apothecary workshop, Karsemine and Caelynn brew teas for Vireleaf, with Caelynn achieving exceptional results and learning to extract bonuses from brewed teas. Bramblewood offers Karsemine special mushrooms, and the group later returns to Wolf\u2019s Manor so Lysandra can rest while they plan the guardhouse infiltration.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "brews the perfect tea",
+            "really impressing Vireleaf",
+            "Caelynn gains the ability to extract bonuses from brewed teas",
+            "head back to Wolf\u2019s Manor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Bonogo investigates the cursed letter and learns its origin",
+      "summary": "Bonogo leaves the manor for the Gilded Fold paper shop to find answers about his cursed letter. He uses the blank badge of the city guard to persuade the owner Volen, who reveals the paper was made by hand for an anonymous elf and identifies the tiefling collaborator Merella; Bonogo also buys paper enchanted to resist burning.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "search of the Gilded Fold",
+            "the blank badge of the city guard",
+            "the letter is cursed",
+            "named Merella"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_4",
+      "order": 4,
+      "title": "Disguises and rehearsal prepare the team for the guarded rooftop event",
+      "summary": "Back at the manor, Ephanna helps Karsemine and Baergrom make human-looking disguises so they can enter the guardhouse. The party then attends the Unity Dance rehearsal at Community Hall, learns the dance reenacts the battle for Mirathorn, and uses the rehearsal to blend in before heading to the guardhouse.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:18-18",
+          "anchor_quotes": [
+            "human-looking disguises",
+            "help get into the guardhouse later that evening",
+            "The group then heads to the library for a short rest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "Unity Dance rehearsal",
+            "the battle for the city of Mirathorn",
+            "blend right in",
+            "they all head to the guardhouse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_5",
+      "order": 5,
+      "title": "The group infiltrates the guardhouse rooftop festival and scouts for a target",
+      "summary": "With tea-enhanced Insight and disguises, the party passes the initial human check and reaches the guardhouse rooftop party. They find an elegant setup with food, drink, and the Dustwalker performing; Bonogo, invisible, searches for where the money is kept, then rejoins the group as they decide what to do next.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:20-20",
+          "anchor_quotes": [
+            "increase Insight for Lysandra",
+            "The group easily pass the initial check as humans",
+            "the rooftop is an elegant setup",
+            "looks for places where the money is kept"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [
+    {
+      "item_id": "def-1",
+      "label": "Lysandra\u2019s rest and recovery after exhaustion",
+      "reason": "Important character condition, but the recap treats it as a pause before the guardhouse plan rather than a standalone unresolved mystery in this thread pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "she looks exhausted",
+            "has not been able to get any rest"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track whether Lysandra\u2019s exhaustion worsens or connects to the guardhouse incident."
+    },
+    {
+      "item_id": "def-2",
+      "label": "Stafl requests a rough layout of the guard tower",
+      "reason": "This is a planning detail that supports the infiltration thread, but it is not itself an unresolved phenomenon.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "label": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3:span:40a1bbd868a3:16-16",
+          "anchor_quotes": [
+            "Stafl asks Lysandra for a rough layout of the guard tower"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Use the layout request as tactical context if the guardhouse investigation continues."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

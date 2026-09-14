@@ -1,0 +1,1358 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-10:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-10",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-10:202289dc3d5e"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:thraxx",
+      "label": "Thraxx",
+      "node_type": "character",
+      "description": "A massive bugbear who becomes a new ally after Stafl negotiates with the party owner; later fights alongside the group.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "a new ally: a massive Bugbear named Thraxx"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Thraxx and Baergrom are able to shatter the block",
+            "Thraxx"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Thraxx uses his massive mechanical arm to punch winged creatures to death"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:thraxx",
+      "label": "Thraxx",
+      "node_type": "group",
+      "description": "A massive bugbear ally who joins the party during the warehouse sequence and fights alongside them.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "the party now has a new ally: a massive Bugbear named Thraxx"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Thraxx and Baergrom are able to shatter the block"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_4",
+      "label": "water wheel",
+      "node_type": "location",
+      "description": "A landmark used to identify the area where the known warehouses are located.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "located near the water wheel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_5",
+      "label": "trap door",
+      "node_type": "location",
+      "description": "A concealed access point above the tunnel, reached by an old dusty ladder and used to enter the club and later another warehouse.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "another trap door"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "leading up to another trap door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_6",
+      "label": "ladder",
+      "node_type": "location",
+      "description": "An old dusty ladder in the tunnel leading upward to a trap door.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "an old dusty ladder"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_7",
+      "label": "last warehouse",
+      "node_type": "location",
+      "description": "The final warehouse reached through the tunnel, containing chilled storage, meat, cultists, and other winged creatures.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "the last warehouse"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Another chilled warehouse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_1",
+      "label": "portable battering ram",
+      "node_type": "item",
+      "description": "A portable battering ram used by Thraxx and Baergrom to break the blocking stone.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "With the use of a portable battering ram"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_2",
+      "label": "crowbar",
+      "node_type": "item",
+      "description": "A crowbar used in an attempt to lift the trapped block during the tunnel incident.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "even with the help of a crowbar"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_3",
+      "label": "darts trap",
+      "node_type": "item",
+      "description": "A trap in the tunnel that shoots darts at the party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "a trap that shoots darts into Bonogo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_4",
+      "label": "block trap",
+      "node_type": "item",
+      "description": "A trap that trapped Bonogo between two massive blocks.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "trapping Bonogo between two massive blocks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_5",
+      "label": "goo/gas mixture",
+      "node_type": "item",
+      "description": "A noxious goo or gas seeping up from broken bottles during the block trap.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "a goo/gas begins to creep up from broken bottles on the ground",
+            "noxious mixture"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_6",
+      "label": "health potion",
+      "node_type": "item",
+      "description": "A healing potion used on Caelynn after she was knocked unconscious.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "anchor_quotes": [
+            "uses a health potion on Caelynn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_7",
+      "label": "Sprite",
+      "node_type": "item",
+      "description": "Ephanna\u2019s Sprite companion, which helps in the tunnels and later is killed.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "Ephanna\u2019s Sprite helping"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "anchor_quotes": [
+            "the Sprite is killed"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_10",
+      "label": "alcohol",
+      "node_type": "item",
+      "description": "Alcohol thrown on monsters by Karsemine during the fight.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "throwing alcohol on the other monsters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session10:tunnel-trapdoor-club-connection",
+      "label": "Tunnel route leads from warehouse to a trapdoor above the Grit and Grime club",
+      "node_type": "mystery",
+      "description": "The party follows a tunnel from the warehouses, encounters traps and a ladder/trapdoor, and discovers that it opens into the Grit and Grime, a warehouse turned club. This suggests a hidden connection between the tunnel network and the club area.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "go to the last few known warehouses located near the water wheel",
+            "Bonogo takes the lead through the tunnels again"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "an old dusty ladder leading up to another trap door",
+            "rhythmic thumping; perhaps music"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "anchor_quotes": [
+            "a huge party happening at the Grit and Grime, a warehouse turned club"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session10:warehouse-content-threat",
+      "label": "Last warehouse contains cultists, meat mounds, and winged abominations",
+      "node_type": "mystery",
+      "description": "The final warehouse is chilled and contains rows of meat, cultists, meat mounds, and winged creatures called Abhorrent Meat Wings, implying a grotesque operation or experiment inside the warehouse network.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Bonogo immediately kills two Cultists"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session10:trap-network",
+      "label": "The warehouse/tunnel route is heavily trapped",
+      "node_type": "mystery",
+      "description": "Multiple traps are encountered in sequence, including darts, a block trap, and gas from broken bottles, indicating the route is intentionally defended or booby-trapped.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "The first steps reveal a trap that shoots darts into Bonogo"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "another trap is triggered",
+            "trapping Bonogo between two massive blocks",
+            "a goo/gas begins to creep up from broken bottles on the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session10:thraxx-bugbear-ally",
+      "label": "Thraxx the bugbear becomes a new ally after being recruited at the club",
+      "node_type": "mystery",
+      "description": "Stafl talks his way through an interruption at the party and secures a massive bugbear named Thraxx as an ally, who later assists in freeing Bonogo and fights alongside the party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "the party now has a new ally: a massive Bugbear named Thraxx"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block and free Bonogo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session10:quest-details-shared-with-thraxx",
+      "label": "Caelynn fills Thraxx in on the quest details before the final warehouse assault",
+      "node_type": "mystery",
+      "description": "The recap notes that Thraxx is brought up to speed on the quest while the group moves toward the last ladder, implying Thraxx may have relevant future involvement after joining.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Caelynn fills Thraxx in on the details of the quest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session10:charm-and-foe-control",
+      "label": "The fight includes widespread charm effects and control reversals",
+      "node_type": "mystery",
+      "description": "Several party members become Charmed, the sprite is killed, and members attack allies and each other before Ephanna breaks the charm, suggesting a dangerous enemy control effect or area condition.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "anchor_quotes": [
+            "Stafl gets Charmed"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "anchor_quotes": [
+            "Bonogo, Baergrom and Karsemine all become Charmed",
+            "Ephanna helps break the Charm on the group"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session10:caelynn-unconscious-multiple-times",
+      "label": "Caelynn is knocked unconscious more than once in the battle",
+      "node_type": "mystery",
+      "description": "Caelynn is knocked unconscious, revived with a potion, and then knocked unconscious again, indicating the fight was especially dangerous for her.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "anchor_quotes": [
+            "Caelynn is knocked unconscious",
+            "Bargrom uses a health potion on Caelynn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "anchor_quotes": [
+            "Bonogo attacks Caelynn, again knocking her unconscious"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session10:rest-after-chaos",
+      "label": "The party retreats for a short rest after the encounter",
+      "node_type": "mystery",
+      "description": "After the battle and status effects, the group returns to the party area to rest and plan, implying the encounter ended but left unresolved next steps.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "anchor_quotes": [
+            "In need of rest, the group heads back to the party to take a Short Rest and plan the next steps"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge_4",
+      "from_node_id": "loc_6",
+      "to_node_id": "loc_5",
+      "label": "ladder leads up to trap door",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "an old dusty ladder leading up to another trap door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_7",
+      "from_node_id": "obj_4",
+      "to_node_id": "obj_5",
+      "label": "gas creeps from broken bottles",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "a goo/gas begins to creep up from broken bottles on the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_11",
+      "from_node_id": "group:thraxx",
+      "to_node_id": "npc:thraxx",
+      "label": "group and individual same name",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "a massive Bugbear named Thraxx"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_13",
+      "from_node_id": "npc:thraxx",
+      "to_node_id": "obj_1",
+      "label": "uses battering ram",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "With the use of a portable battering ram Thraxx and Baergrom are able to shatter the block"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Approach via tunnels to the warehouse district",
+      "summary": "The group chooses the last known warehouses near the water wheel, travels through the tunnels, and encounters traps and signs that something like music is coming from above.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "The group decides to go to the last few known warehouses",
+            "through the tunnels again"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:30-30",
+          "anchor_quotes": [
+            "trap that shoots darts into Bonogo",
+            "rhythmic thumping; perhaps music",
+            "tracks continuing down the tunnel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "Discovery of the Grit and Grime club and a new ally",
+      "summary": "Lifting a trapdoor reveals a lively party at the Grit and Grime, a warehouse converted into a club. After Stafl talks with the owner, the party gains the help of a massive Bugbear named Thraxx.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:32-32",
+          "anchor_quotes": [
+            "a huge party happening at the Grit and Grime",
+            "a warehouse turned club for Goblins, Hobgoblins and Bugbears"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "a new ally: a massive Bugbear named Thraxx"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Trap rescue and entry toward the final warehouse",
+      "summary": "Another trap pins Bonogo between blocks, and the others struggle to free him using brute force and magic. Thraxx joins the effort with a portable battering ram, and the group proceeds toward the last warehouse.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:34-34",
+          "anchor_quotes": [
+            "trapping Bonogo between two massive blocks",
+            "Caelynn to freeze the noxious mixture at the bottom"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "use of a portable battering ram",
+            "Now it's a straight shot to the last warehouse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_4",
+      "order": 4,
+      "title": "Warehouse battle against cultists and meat monstrosities",
+      "summary": "Inside a chilled warehouse, the party fights Cultists and other meat-themed creatures, using magic, oil, a torch, and direct attacks while the combat escalates into heavy damage and status effects.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "a chilled warehouse with rows of meat and Cultists",
+            "Meat Mounds",
+            "Abhorrent Meat Wings"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:40-40",
+          "anchor_quotes": [
+            "Bonogo immediately kills two Cultists",
+            "Baergrom uses oil and a torch"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "anchor_quotes": [
+            "The Sprite is killed",
+            "Thraxx attacks Karsemine and knocks her unconscious",
+            "Ephanna helps break the Charm on the group"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_5",
+      "order": 5,
+      "title": "Aftermath and regrouping",
+      "summary": "The fight ends with the group bloodied, charmed, and unconscious in shifts, but Ephanna breaks the charm. They withdraw to rest and plan their next move.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:42-42",
+          "anchor_quotes": [
+            "Caelynn is knocked unconscious and Stafl gets Charmed",
+            "Bargrom uses a health potion on Caelynn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:46-46",
+          "anchor_quotes": [
+            "the group heads back to the party to take a Short Rest",
+            "plan the next steps"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:session10:party-npcs",
+      "label": "Named party members referenced in recap",
+      "reason": "These are deterministic party anchors or ambiguous surface mentions and should not be recreated as session-novel nodes.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:28-28",
+          "anchor_quotes": [
+            "Bonogo takes the lead through the tunnels again with Ephanna\u2019s Sprite helping"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:44-44",
+          "anchor_quotes": [
+            "Baergrom attacks Stafl",
+            "Karsemine attacks Thraxx"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:session10:cultist-origins",
+      "label": "Origin and purpose of the cultists/meat operation",
+      "reason": "The recap confirms cultists, meat mounds, and winged creatures in a chilled warehouse, but does not explain who controls them or what their broader purpose is.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:38-38",
+          "anchor_quotes": [
+            "Another chilled warehouse with rows of meat and Cultists, Meat Mounds, and other creatures with wings: Abhorrent Meat Wings"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Check later session recaps for the source of the cultists and the meat-creature production chain."
+    },
+    {
+      "item_id": "deferred:session10:thraxx-loyalties",
+      "label": "Thraxx's loyalties and future role",
+      "reason": "Thraxx becomes an ally, but the recap only shows immediate assistance and no lasting motivation or allegiance details.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "label": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-10:202289dc3d5e:span:202289dc3d5e:36-36",
+          "anchor_quotes": [
+            "the party now has a new ally: a massive Bugbear named Thraxx"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Look for subsequent sessions where Thraxx appears or is mentioned after the warehouse fight."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

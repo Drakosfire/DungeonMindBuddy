@@ -1,0 +1,2335 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-25:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-25",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-25:a3513d738fe0"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc_orik",
+      "label": "Orik",
+      "node_type": "character",
+      "description": "The mayor of the town who is encountered at the south gate and later leaves to find help.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "the mayor, Orik"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "After the mayor leaves to find some help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc_brin",
+      "label": "Brin",
+      "node_type": "character",
+      "description": "Leader of the refugees who organizes them into groups and coordinates housing in the warehouse.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "the leader of the refugees, Brin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "Then, they head back to the north wall."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc_hesta_bramblewood",
+      "label": "Hesta Bramblewood",
+      "node_type": "character",
+      "description": "An old halfling apothecary who is awakened at the Merchant\u2019s Crossroads and agrees to make sleep potions.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "Hesta Bramblewood was fast asleep"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "She agrees to make the sleep potions"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_merchant_crossroads",
+      "label": "Merchant\u2019s Crossroads",
+      "node_type": "location",
+      "description": "A named crossroads in town where the group finds the apothecary Hesta Bramblewood.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "Merchant\u2019s Crossroads",
+            "looking for the apothecary"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_crooked_retort",
+      "label": "the Crooked Retort",
+      "node_type": "location",
+      "description": "The local apothecary visited by the group to obtain sleep potions.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "the apothecary - the Crooked Retort"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "the apothecary"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_ironveil_warehouse",
+      "label": "Ironveil Warehouse",
+      "node_type": "location",
+      "description": "A warehouse suggested as a holding place for refugees entering town.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "the Ironveil Warehouse",
+            "a good place to hold the 55 people entering the town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Lysandro suggests the Ironveil Warehouse as a good place to hold the 55 people entering the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_north_wall",
+      "label": "north wall",
+      "node_type": "location",
+      "description": "The wall on the north side of town where Stafl and others are positioned during the battle.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "Back on the north wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_north_road",
+      "label": "north road",
+      "node_type": "location",
+      "description": "A road north of the gate that is briefly illuminated by Stafl's magic.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "illuminates a portion of the north road"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_town",
+      "label": "town",
+      "node_type": "location",
+      "description": "The settlement where the battle and refugee processing take place.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "back through town",
+            "entering the town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "the mayor leaves to find some help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_west_along_wall",
+      "label": "west along the wall",
+      "node_type": "location",
+      "description": "A stretch of wall to the west where screaming is heard during the fight.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "screaming coming from the west along the wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_area_north_of_gate",
+      "label": "area north of the gate",
+      "node_type": "location",
+      "description": "An area north of the gate that Ephanna wants Thrin to scout.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "the area north of the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:town-guards",
+      "label": "town guards",
+      "node_type": "group",
+      "description": "Guards stationed on the wall and in town, coordinating defense and firing arrows for illumination.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "the other town guards on the wall"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "Stafl directs the town guards along the wall to fire arrows out into the field to provide light"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "town guards gesturing over the wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:older-children",
+      "label": "older children",
+      "node_type": "group",
+      "description": "Older children selected to stand guard outside the warehouse doors.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "They pick some of the older children to stand guard outside the warehouse doors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "organization:apothecary",
+      "label": "local apothecary",
+      "node_type": "organization",
+      "description": "Local apothecary recommended as the place to get potions made.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "anchor_quotes": [
+            "Lysandro recommends the local apothecary for both potions"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:hybrid-creatures",
+      "label": "hybrid creatures",
+      "node_type": "group",
+      "description": "The hostile creatures encountered in the field and fighting near the wall.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "three new hybrid creatures wrapped around something"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "anchor_quotes": [
+            "the creatures"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "The third monster releases Thrin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_item_sleep_potions_001",
+      "label": "sleep potions",
+      "node_type": "item",
+      "description": "Potions on hand to put refugees to sleep and help keep the peace; five were given to the group by Hesta.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "sleep potion"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "the five sleep potions she has on hand"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_item_fire_bolt_001",
+      "label": "Fire Bolt",
+      "node_type": "item",
+      "description": "A spell attack used by Karsemine to kill the remaining monster by engulfing it in flames.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "cast Fire Bolt on the monster"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-mireward-gate-refugee-infection",
+      "label": "Refugees from Edge include an apparent eye-based infection or transformation risk",
+      "node_type": "mystery",
+      "description": "Refugees entering through the south gate are split into those with clear eyes and those that appear oily, suggesting an infection or corruption that may transform people. The group responds by planning sleep potions and containment to prevent violence or transformation inside the walls.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "those with clear eyes, and those that appear to be oily"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "anchor_quotes": [
+            "put them to sleep so they cannot transform"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "prioritize people with the infected eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-mireward-gate-hesta-tea-warning",
+      "label": "Hesta Bramblewood\u2019s tea is suspicious and she warns Caelynn not to drink it",
+      "node_type": "mystery",
+      "description": "The old apothecary Hesta Bramblewood pauses to brew tea during an urgent crisis, and after a moment of clarity explicitly tells Caelynn not to drink it. This strongly implies the tea or Hesta\u2019s state may have been altered or dangerous.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "brews some tea"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "Hesta snaps back to reality, immediately telling Caelynn not to drink the tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-mireward-gate-anti-mirathorn-festival",
+      "label": "The town was celebrating an anti-Mirathorn festival when the messenger arrived",
+      "node_type": "mystery",
+      "description": "Stafl learns that the town had been in the middle of a celebration described as a sort of anti-establishment, anti-Mirathorn festival when the horse messenger raced in. The purpose, scale, and current consequences of this event remain unclear.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "the town was in the midst of a celebration"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "a sort of anti-establishment, anti-Mirathorn, festival"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-mireward-gate-thrin-disappearance",
+      "label": "Thrin is taken underground by hybrid creatures and disappears",
+      "node_type": "mystery",
+      "description": "During the field fight, Thrin is repeatedly restrained and pulled down. After the creatures are defeated, he is still being dragged underground and then fully disappears out of sight, leaving his fate unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "a shrill call before it is abruptly cut off, followed by a crashing sound"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "Thrin is again pulled into the ground and fully disappears out of sight"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-mireward-gate-hybrid-creatures",
+      "label": "Three new hybrid creatures emerge in the field and burrow into the ground",
+      "node_type": "mystery",
+      "description": "The patrol spots three unfamiliar hybrid creatures wrapped around something and beginning to burrow into the ground. Their origin, what they were wrapping, and why they are tunneling remain unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "three new hybrid creatures wrapped around something and beginning to burrow into the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-mireward-gate-west-wall-screaming",
+      "label": "Screaming erupts from the west along the wall during the battle",
+      "node_type": "mystery",
+      "description": "While the group fights the creatures in the field, sudden screaming is heard from the west along the wall. The source and meaning of the disturbance are not explained in this recap.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "suddenly hears screaming coming from the west along the wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-mireward-gate-dark-shapes-below-wall",
+      "label": "Dark shapes are moving below the wall as the ground shakes",
+      "node_type": "mystery",
+      "description": "After the final monster dies, the ground begins to shake and guards point over the wall at dark shapes moving below. This suggests additional unseen threats or movement beneath the town defenses.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "the ground begin to shake"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "dark shapes moving below"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:captain-lysandra-ironveil",
+      "label": "Captain Lysandra Ironveil",
+      "node_type": "character",
+      "description": "Lysandra helped escort refugees back to town, proposed using the Ironveil Warehouse to house the 55 people entering the gate, then later fought on the wall against attacking monsters. She used Commanding Shout to direct allies, cast Leadership to boost Karsemine, and helped finish off the last monster before moving toward the source of screaming along the wall.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "head back through town toward the south gate",
+            "Lysandro suggests the Ironveil Warehouse as a good place to hold the 55 people entering the town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "house the refugees in the warehouse",
+            "With the refugees safely inside the warehouse, Caelynn, Karesmine, Bonogo and Lysandra head for the apothecary - the Crooked Retort"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "Baergom boosts temporary HP for Stafl, Ephanna, Caelynn and Lysandra"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "Lysandra uses her Commanding Shout and directs Karsmine, Stafl and Caelynn to attack or move.",
+            "Then Lysandra casts Leadership and gives Karsemine a boost to her next attack",
+            "Now she has a chance to head down the length of the wall to where she heard the screaming before."
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "captain_lysandra_ironveil",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Captain Lysandra Ironveil",
+        "Captain"
+      ],
+      "session_actions": [
+        "escorted refugees to the south gate",
+        "suggested the Ironveil Warehouse as shelter",
+        "headed to the Crooked Retort",
+        "used Commanding Shout to direct allies",
+        "cast Leadership to boost Karsemine",
+        "moved toward the screaming along the wall"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-1",
+      "from_node_id": "node:captain-lysandra-ironveil",
+      "to_node_id": "npc_orik",
+      "label": "Lysandra is with Orik at the south gate",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "When they arrive at the gate they find the mayor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "npc_orik",
+      "to_node_id": "loc_town",
+      "label": "Orik is the mayor of the town",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "the mayor, Orik"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-3",
+      "from_node_id": "npc_brin",
+      "to_node_id": "group:town-guards",
+      "label": "Brin coordinates with the guards at the gate",
+      "relationship_type": "works_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "they make their way to the warehouse and meet Brin out front"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "npc_brin",
+      "to_node_id": "group:older-children",
+      "label": "Brin has older children stand guard",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "They pick some of the older children to stand guard outside the warehouse doors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-5",
+      "from_node_id": "npc_brin",
+      "to_node_id": "group:hybrid-creatures",
+      "label": "Brin organizes refugees to avoid the threat",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Already knowing what to look for, Brin has separated the people into two groups"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-6",
+      "from_node_id": "loc_ironveil_warehouse",
+      "to_node_id": "loc_town",
+      "label": "Ironveil Warehouse is in the town",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "hold the 55 people entering the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-7",
+      "from_node_id": "group:older-children",
+      "to_node_id": "loc_ironveil_warehouse",
+      "label": "older children stand guard outside the warehouse",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "stand guard outside the warehouse doors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-8",
+      "from_node_id": "loc_north_wall",
+      "to_node_id": "loc_town",
+      "label": "north wall is part of the town",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "Back on the north wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "group:town-guards",
+      "to_node_id": "loc_north_wall",
+      "label": "town guards are on the north wall",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "the other town guards on the wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "group:town-guards",
+      "to_node_id": "group:hybrid-creatures",
+      "label": "town guards fire on the creatures",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "fire arrows out into the field"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-16",
+      "from_node_id": "node:captain-lysandra-ironveil",
+      "to_node_id": "npc_brin",
+      "label": "Lysandra meets Brin at the warehouse",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "they make their way to the warehouse and meet Brin out front"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-17",
+      "from_node_id": "npc_hesta_bramblewood",
+      "to_node_id": "loc_merchant_crossroads",
+      "label": "Hesta is at the Merchant's Crossroads",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "After knocking repeatedly, a very, very old halfling woman finally answers the door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-18",
+      "from_node_id": "npc_hesta_bramblewood",
+      "to_node_id": "loc_crooked_retort",
+      "label": "Hesta runs the apothecary",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "the apothecary - the Crooked Retort"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-19",
+      "from_node_id": "npc_hesta_bramblewood",
+      "to_node_id": "obs_item_sleep_potions_001",
+      "label": "Hesta has sleep potions on hand",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "the five sleep potions she has on hand"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-20",
+      "from_node_id": "node:captain-lysandra-ironveil",
+      "to_node_id": "loc_ironveil_warehouse",
+      "label": "Lysandra suggests the warehouse as holding place",
+      "relationship_type": "objective_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Lysandro suggests the Ironveil Warehouse as a good place to hold the 55 people entering the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-21",
+      "from_node_id": "npc_orik",
+      "to_node_id": "loc_ironveil_warehouse",
+      "label": "Orik agrees to house refugees in the warehouse",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "Orik and Brin agree with the plan to house the refugees in the warehouse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-22",
+      "from_node_id": "npc_brin",
+      "to_node_id": "obs_item_sleep_potions_001",
+      "label": "Brin agrees to use a sleeping potion plan",
+      "relationship_type": "pursues",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "use a sleeping potion to help keep the peace"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-23",
+      "from_node_id": "npc_orik",
+      "to_node_id": "group:older-children",
+      "label": "Orik and Brin assign older children to guard duty",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "They pick some of the older children to stand guard outside the warehouse doors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-24",
+      "from_node_id": "npc_orik",
+      "to_node_id": "organization:apothecary",
+      "label": "Orik seeks help from the apothecary",
+      "relationship_type": "works_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "After the mayor leaves to find some help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-25",
+      "from_node_id": "npc_brin",
+      "to_node_id": "mystery-mireward-gate-refugee-infection",
+      "label": "Brin recognizes infected-eye refugees",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "Already knowing what to look for"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-26",
+      "from_node_id": "node:captain-lysandra-ironveil",
+      "to_node_id": "group:town-guards",
+      "label": "Lysandra is present with the guards at the wall",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "town guards gesturing over the wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-27",
+      "from_node_id": "loc_west_along_wall",
+      "to_node_id": "loc_north_wall",
+      "label": "west along the wall is a stretch of the wall",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "screaming coming from the west along the wall"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-28",
+      "from_node_id": "group:hybrid-creatures",
+      "to_node_id": "mystery-mireward-gate-thrin-disappearance",
+      "label": "creatures cause Thrin's disappearance",
+      "relationship_type": "results_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "Thrin is again pulled into the ground and fully disappears out of sight"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Refugees are routed through the south gate and into warehouse housing",
+      "summary": "The group returns through town to the south gate to help refugees from Edge. The mayor and Brin are already organizing the arrivals, separating people by whether their eyes look clear or oily, and the Ironveil Warehouse is proposed as the holding site for the 55 newcomers.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "head back through town toward the south gate",
+            "refugees that fled from Edge",
+            "opening a side door and talking with the leader of the refugees",
+            "Lysandro suggests the Ironveil Warehouse as a good place to hold the 55 people entering the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "A sleeping potion plan is formed and Hesta Bramblewood is recruited",
+      "summary": "Karsemine and Caelynn work out how to keep potentially transforming refugees calm inside the walls, with a sleeping potion proposed as the safest approach. Lysandro points them to the local apothecary, and Caelynn calls Grobnok to reach Professor Tealeaf for information on the potion\u2019s creation.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "anchor_quotes": [
+            "put them to sleep",
+            "make more of the potion",
+            "Lysandro recommends the local apothecary for both potions",
+            "Caelynn makes a call to Grobnok"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:22-22",
+          "anchor_quotes": [
+            "Hesta Bramblewood was fast asleep",
+            "they need her help with some potions",
+            "brews some tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Refugees are secured and the apothecary provides sleep potions",
+      "summary": "Orik and Brin accept the warehouse-and-sleeping-potion plan, opting to put everyone to sleep and station older children as guards outside. The team then reaches Hesta Bramblewood at the Crooked Retort, persuades her with intimidation, receives five sleep potions, and decides to prioritize the infected rather than putting everyone down indefinitely.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:18-18",
+          "anchor_quotes": [
+            "agree with the plan to house the refugees in the warehouse",
+            "use a sleeping potion to help keep the peace",
+            "They pick some of the older children to stand guard outside the warehouse doors"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "uses intimidation and finally convinces Hesta",
+            "She agrees to make the sleep potions",
+            "Hesta gives the group the five sleep potions she has on hand",
+            "they will prioritize people with the infected eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "North wall defenders gather intelligence and prepare for the unseen threat",
+      "summary": "On the north wall, Stafl uses a crossbow bolt to cast light, talks with the guards, and learns the town had been celebrating an anti-Mirathorn festival when the messenger arrived. Meanwhile, Ephanna sends Thrin to scout the area north of the gate, keeping him hidden while the group waits and listens.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:20-20",
+          "anchor_quotes": [
+            "Back on the north wall",
+            "casts light on another crossbow bolt",
+            "anti-establishment, anti-Mirathorn, festival",
+            "Ephanna entrusts Thrin to scout out the area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Thrin is ambushed in the field by hybrid creatures",
+      "summary": "A scout call from Thrin is cut off by a crash, prompting Baergrom to raise shielding support and the others to push into the field under Pass without Trace. With town guards firing arrows to provide light, the team spots three new hybrid creatures wrapped around something and burrowing into the ground.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "a shrill call before it is abruptly cut off",
+            "beginning to boost the HP of the rest of the team",
+            "fire arrows out into the field to provide light",
+            "three new hybrid creatures wrapped around something"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "The field battle turns on Thrin\u2019s rescue and a monster push along the wall",
+      "summary": "The party fights the hybrid creatures at close range with daggers, Eldritch Blast, Snowball, Misty Step, and Charm, eventually killing two of the three. The last monster wounds Bonogo badly, the wall defenders are called on for more support, and Lysandra uses Commanding Shout and Leadership to coordinate the finishing strike before Thrin disappears underground.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "anchor_quotes": [
+            "Thrin attempts to break the grapple",
+            "Ephanna uses Eldritch Blast",
+            "Caelynn follows this up with a Snowball spell",
+            "Ogonob uses Misty Step"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "takes aim with his crossbow, landing a perfect shot",
+            "leaving behind festering wounds",
+            "screaming coming from the west along the wall",
+            "boosts temporary HP for Stafl, Ephanna, Caelynn and Lysandra"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "uses her Commanding Shout",
+            "casts Leadership",
+            "killing it by fully engulfing it in flames",
+            "Thrin is again pulled into the ground and fully disappears out of sight"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "candidate:arrows",
+      "label": "arrows",
+      "reason": "Deterministic known entity mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:26-26",
+          "anchor_quotes": [
+            "fire arrows out into the field"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:bow",
+      "label": "bow",
+      "reason": "Deterministic known entity mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "uses her bow"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:crossbow",
+      "label": "crossbow",
+      "reason": "Deterministic known entity mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:30-30",
+          "anchor_quotes": [
+            "crossbow"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:dagger",
+      "label": "dagger",
+      "reason": "Deterministic known entity mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "anchor_quotes": [
+            "dagger"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:eldritch-blast",
+      "label": "Eldritch Blast",
+      "reason": "Deterministic known entity mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:28-28",
+          "anchor_quotes": [
+            "Eldritch Blast"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:commanding-shout",
+      "label": "Commanding Shout",
+      "reason": "Deterministic known entity mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "Commanding Shout"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:leadership",
+      "label": "Leadership",
+      "reason": "Deterministic known entity mention; do not recreate as a node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:32-32",
+          "anchor_quotes": [
+            "Leadership"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "candidate:mayor",
+      "label": "the mayor / Orik",
+      "reason": "Ambiguous deterministic mention; identity is not fully resolved in the provided packet, so it is safer to defer entity-level extraction here.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:14-14",
+          "anchor_quotes": [
+            "the mayor, Orik"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:24-24",
+          "anchor_quotes": [
+            "After the mayor leaves"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Resolve whether Orik should be linked to the canonical mayor entity before adding relationship edges."
+    },
+    {
+      "item_id": "candidate:grobnok",
+      "label": "Grobnok",
+      "reason": "Mentioned only as the contact routed through to reach Professor Tealeaf; no separate mystery or relationship thread is established in this excerpt.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "anchor_quotes": [
+            "Caelynn makes a call to Grobnok"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "If later packets show repeated interaction, extract a communication/relay relationship."
+    },
+    {
+      "item_id": "candidate:tealeaf",
+      "label": "Professor Tealeaf",
+      "reason": "Referenced as a source for potion-making information, but the packet does not provide enough new thread detail beyond being contacted at night.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "label": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-25:a3513d738fe0:span:a3513d738fe0:16-16",
+          "anchor_quotes": [
+            "Professor Tealeaf"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Defer until additional material clarifies the potion recipe, availability, or role in the infection response."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

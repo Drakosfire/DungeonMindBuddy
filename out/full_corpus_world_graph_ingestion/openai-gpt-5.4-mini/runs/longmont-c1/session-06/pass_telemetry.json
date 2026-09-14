@@ -1,0 +1,89 @@
+{
+  "model_id": "gpt-5.4-mini",
+  "total_cost_usd": 0.070136,
+  "pass_telemetry": {
+    "actor_pass": {
+      "cost_usd": 0.006597,
+      "usage": {
+        "input_tokens": 4164,
+        "output_tokens": 772,
+        "cached_tokens": 0
+      },
+      "elapsed_ms": 4283.96,
+      "response_id": "resp_0c60d355fbd7480a006aa86daa69a087d1a99ab71d00a93c91",
+      "progress_label": "Extracting actors and NPCs"
+    },
+    "location_pass": {
+      "cost_usd": 0.00762675,
+      "usage": {
+        "input_tokens": 4151,
+        "output_tokens": 1003,
+        "cached_tokens": 0
+      },
+      "elapsed_ms": 5015.14,
+      "response_id": "resp_0723e59cdda84d87006aa86daa4fa487d1869bdc4ea7e12a76",
+      "progress_label": "Extracting locations"
+    },
+    "collective_pass": {
+      "cost_usd": 0.00782325,
+      "usage": {
+        "input_tokens": 4167,
+        "output_tokens": 1044,
+        "cached_tokens": 0
+      },
+      "elapsed_ms": 5023.16,
+      "response_id": "resp_0f7c731160e4372c006aa86daa4ec487d18fe24a7c1a05e7c2",
+      "progress_label": "Extracting factions and collectives"
+    },
+    "object_pass": {
+      "cost_usd": 0.00714375,
+      "usage": {
+        "input_tokens": 4149,
+        "output_tokens": 896,
+        "cached_tokens": 0
+      },
+      "elapsed_ms": 4498.96,
+      "response_id": "resp_03f0222a94b5ce9c006aa86daa4aac87d180dda6fdd2a83aa9",
+      "progress_label": "Extracting notable objects"
+    },
+    "thread_pass": {
+      "cost_usd": 0.01133025,
+      "usage": {
+        "input_tokens": 4391,
+        "output_tokens": 1786,
+        "cached_tokens": 0
+      },
+      "elapsed_ms": 8139.66,
+      "response_id": "resp_0acf6269972b644b006aa86daa376487d191afc093e2e69fe6",
+      "progress_label": "Extracting mysteries and threads"
+    },
+    "beat_pass": {
+      "cost_usd": 0.01004325,
+      "usage": {
+        "input_tokens": 3797,
+        "output_tokens": 1599,
+        "cached_tokens": 0
+      },
+      "elapsed_ms": 8215.58,
+      "response_id": "resp_076409a896d23568006aa86daa38e887d1a88e46d9d662924d",
+      "progress_label": "Extracting session beats"
+    },
+    "_independent_pass_concurrency": {
+      "workers": 6,
+      "pass_count": 6,
+      "wall_ms": 8467.21,
+      "sum_elapsed_ms": 35176.46
+    },
+    "edge_pass": {
+      "cost_usd": 0.019572,
+      "usage": {
+        "input_tokens": 11036,
+        "output_tokens": 2510,
+        "cached_tokens": 0
+      },
+      "elapsed_ms": 10392.21,
+      "response_id": "resp_0ab19a6bcffb8eea006aa86db28e8c87d189b4143dea2d60e7",
+      "progress_label": "Extracting relationship edges"
+    }
+  }
+}

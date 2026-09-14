@@ -1,0 +1,2210 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-14:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-14",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-14:e10679f7fe09"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:half-orc-survivor-session14",
+      "label": "Half-Orc survivor",
+      "node_type": "character",
+      "description": "A badly wounded half-orc found among the recent battle aftermath, revived by the party for information; he warns them not to trust anyone and heads back toward the Mage\u2019s tower.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "anchor_quotes": [
+            "She discovers a Half-Orc barely clinging to life.",
+            "Baergrom uses a health potion to revive him"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "anchor_quotes": [
+            "The Half-Orc is very relieved to see reinforcements",
+            "Before he goes back up the tunnel to the Mage\u2019s tower he has one final warning: trust no one."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc-into-the-sewer",
+      "label": "Into the Sewer",
+      "node_type": "location",
+      "description": "A sewer-route entry point or travel zone where the party begins its descent into the underground passages.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:26-26",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:26-26",
+          "anchor_quotes": [
+            "Into the Sewer"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "anchor_quotes": [
+            "starting their journey into the tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc-dark-tunnel",
+      "label": "dark tunnel",
+      "node_type": "location",
+      "description": "A tunnel segment entered by the group, initially described as dark and patrolled for traps.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "anchor_quotes": [
+            "The group enters a dark tunnel",
+            "long dark tunnel beyond"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc-large-cylindrical-room",
+      "label": "large cylindrical room",
+      "node_type": "location",
+      "description": "An underground chamber at the end of the tunnel with storage crates, water flow, and multiple bridges.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "anchor_quotes": [
+            "a large cylindrical room",
+            "old storage crates and supplies",
+            "There is a stone bridge over the water",
+            "an old wooden bridge near the fan"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc-wooden-bridge",
+      "label": "old wooden bridge",
+      "node_type": "location",
+      "description": "A wooden bridge near the fan end of the cylindrical room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "anchor_quotes": [
+            "an old wooden bridge near the fan"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc-mage-tower",
+      "label": "Mage\u2019s tower",
+      "node_type": "location",
+      "description": "A tower referenced as the destination the wounded half-orc returns toward after warning the party.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "anchor_quotes": [
+            "the Mage\u2019s tower"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc-opposite-end-of-the-bridge-door",
+      "label": "door on the opposite end of the bridge",
+      "node_type": "location",
+      "description": "A doorway at the far end of the bridge where enemies enter from an adjacent space.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "the door on the opposite end of the bridge opens"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc-large-circular-room",
+      "label": "large circular room",
+      "node_type": "location",
+      "description": "A larger chamber beyond a locked door where meat is loaded into carts and cult activity is taking place.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "a large circular room",
+            "meat is being loaded into carts"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc-center-platform",
+      "label": "center platform",
+      "node_type": "location",
+      "description": "The central platform in the circular room where the meat pile sits before transforming.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "anchor_quotes": [
+            "the meat in the center platform"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:head-clerk-mossglade-office",
+      "label": "Head Clerk Mossglade and her office",
+      "node_type": "organization",
+      "description": "Administrative office or workgroup associated with Head Clerk Mossglade, from which the party receives items and where leftover items are stored.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:28-28",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:28-28",
+          "anchor_quotes": [
+            "Mossglade comes with the leftover items",
+            "the covert ops groups already laying claims to literally every item in the building"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "anchor_quotes": [
+            "The party gathers together with Head Clerk Mossglade",
+            "Mossglade hands out some valuable potions, scrolls and oils"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:guards-of-the-sewer",
+      "label": "guards at the sewer facility",
+      "node_type": "faction",
+      "description": "Armed guards encountered in the tunnel and sewer complex, including the armored pair that retreats behind a locked door and later other guards armed with spears.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "Two guards in full armor enter",
+            "Then four enormous corrupted sewer rats climb out of the water on each side of the party"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "anchor_quotes": [
+            "Both guards attempt to throw spears at Karsemine"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "anchor_quotes": [
+            "Then she is hit by a spear from one of the guards",
+            "she is hit with a second spear thrown by another guard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:cultists-and-elite-guards",
+      "label": "cultists and Elite Guards",
+      "node_type": "faction",
+      "description": "The organized hostile force in the circular room loading meat into carts, guarded by Elite Guards and other guards.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "a line of cultists guarded by Elite Guards, several other guards and a couple of sewer meat monsters"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "Each of the Elite Guards take damage, the monsters take damage, all the Cultists in the room die"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-valuable-potions-scrolls-oils",
+      "label": "valuable potions, scrolls, and oils",
+      "node_type": "item",
+      "description": "A set of useful consumables distributed by Mossglade to the party early in the session.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "anchor_quotes": [
+            "valuable potions, scrolls and oils"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-old-dusty-items",
+      "label": "old dusty items",
+      "node_type": "item",
+      "description": "Dusty leftover items found after the promised important items were already given away; later described as legendary and incredibly useful.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "anchor_quotes": [
+            "old dusty items that may be useful"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "anchor_quotes": [
+            "The items are legendary.",
+            "these new items are incredible"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-new-items",
+      "label": "new items",
+      "node_type": "item",
+      "description": "A set of newly acquired gear the party selects before heading into the tunnels, later described as incredible and confidence-boosting.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "anchor_quotes": [
+            "the new items are incredible"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-scimitars",
+      "label": "Scimitars",
+      "node_type": "item",
+      "description": "Karsemine's new scimitars, which glow in response to nearby humanoids.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "anchor_quotes": [
+            "Karsemine\u2019s new Scimitars begin to glow"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "anchor_quotes": [
+            "using her new scimitars"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-thieves-tools",
+      "label": "thieves' tools",
+      "node_type": "item",
+      "description": "Tools used in attempts to pick locked doors during the dungeon crawl.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "anchor_quotes": [
+            "Karsemine also has thieves' tools"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-meat-flies",
+      "label": "Meat Flies",
+      "node_type": "item",
+      "description": "A swarm-like hazard or creature released when the central meat pile transforms into a monster.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "anchor_quotes": [
+            "releasing Meat Flies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-goo-glob",
+      "label": "glob of goo",
+      "node_type": "item",
+      "description": "A thrown acidic projectile launched by one of the flesh blobs at the party.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "anchor_quotes": [
+            "one of the blobs throws a glob of goo"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-bomb",
+      "label": "bomb",
+      "node_type": "item",
+      "description": "An explosive device attached beneath the bridge that the Sprite warns Ephanna about.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "a bomb attached to the underside of the bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-tripwire",
+      "label": "tripwire",
+      "node_type": "item",
+      "description": "A trap trigger found by the Sprite halfway across the bridge.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "anchor_quotes": [
+            "finding it halfway across the bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-scrolls-from-the-mages",
+      "label": "scrolls from the Mages",
+      "node_type": "item",
+      "description": "A supply of scrolls used by Karsemine to cast Fireball in the guarded room.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "using one of the scrolls from the Mages"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-fireball",
+      "label": "Fireball",
+      "node_type": "item",
+      "description": "The destructive spell cast by Karsemine to ignite the meat pile and damage enemies in the room.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "casts Fireball!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-magic-missile",
+      "label": "Magic Missile",
+      "node_type": "item",
+      "description": "A spell used by Caelynn against the flesh blobs and later to break charm effects.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "anchor_quotes": [
+            "casts Magic Missile at each of the blobs"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "anchor_quotes": [
+            "attack both of them with Magic Missle"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-eldritch-blast",
+      "label": "Eldritch Blast",
+      "node_type": "item",
+      "description": "A repeated attack spell used by Ephanna throughout the fight.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:45-45",
+          "anchor_quotes": [
+            "casts Eldritch Blast on the blob"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "anchor_quotes": [
+            "Ephanna casts Eldritch Blast"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-sleep",
+      "label": "Sleep",
+      "node_type": "item",
+      "description": "A spell cast on an Elite Guard to disable it during the fight.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "casts Sleep on the other Elite Guard"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-hellish-rebuke",
+      "label": "Hellish Rebuke",
+      "node_type": "item",
+      "description": "A retaliatory spell Karsemine uses while being thrown toward the rushing water.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "anchor_quotes": [
+            "she casts Hellish Rebuke"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session14-horde-breaker",
+      "label": "Horde Breaker",
+      "node_type": "item",
+      "description": "Karsemine's skill used to damage multiple meat flies.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "anchor_quotes": [
+            "uses her Horde Breaker skill"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session14-drumbeats-chanting",
+      "label": "Unidentified drumming and chanting beyond the tunnel",
+      "node_type": "mystery",
+      "description": "The party hears loud drumming and chanting behind a locked door, but cannot yet determine the source or direction of the sound.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "anchor_quotes": [
+            "Faintly, they can also hear drums and chanting, but they cannot pick out the direction."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "they can hear loud drumming and chanting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session14-trust-no-one-warning",
+      "label": "Half-Orc warning to trust no one",
+      "node_type": "mystery",
+      "description": "A rescued Half-Orc offers a cryptic warning after describing a massacre, implying betrayal, infiltration, or hidden danger ahead.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "anchor_quotes": [
+            "He tells the group that they had made their way down the tunnel, but had retreated to look for backup before they were attacked.",
+            "Before he goes back up the tunnel to the Mage\u2019s tower he has one final warning: trust no one."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session14-bomb-bridge",
+      "label": "Bomb attached under the bridge",
+      "node_type": "mystery",
+      "description": "The Sprite detects a bomb under the bridge, suggesting a hidden trap guarding the crossing and possibly tying into the hostile forces in the tunnel.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "The Sprite frantically returns to Ephanna to warn of a bomb attached to the underside of the bridge."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session14-corrupted-meat",
+      "label": "Corrupted meat and meat pile transformation",
+      "node_type": "mystery",
+      "description": "The room is full of glowing runes detecting corrupted meat, and later the central meat pile transforms into a monster that releases Meat Flies, indicating some corrupting force or ritual.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "anchor_quotes": [
+            "glowing runes detecting corrupted meat"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "anchor_quotes": [
+            "the meat in the center platform turns into a monster; sending out flaming tentacles and releasing Meat Flies."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session14-massacre-in-tunnel",
+      "label": "Prior tunnel expedition ended in a massacre",
+      "node_type": "mystery",
+      "description": "The Half-Orc reports that the earlier group was wiped out by a monster after retreating to seek backup, but the precise attacker and circumstances remain unclear.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "anchor_quotes": [
+            "He describes a terrible battle with a monster that killed everyone."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session14-loaded-meat-carts",
+      "label": "Meat being loaded into carts by cultists and guarded by elite forces",
+      "node_type": "mystery",
+      "description": "The party glimpses a circular room where meat is being transported by cultists under guard, implying an organized operation whose purpose is not yet known.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "they can see a large circular room where meat is being loaded into carts by a line of cultists guarded by Elite Guards, several other guards and a couple of sewer meat monsters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-1",
+      "from_node_id": "faction:head-clerk-mossglade-office",
+      "to_node_id": "item:session14-valuable-potions-scrolls-oils",
+      "label": "hands out",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "anchor_quotes": [
+            "Mossglade hands out some valuable potions, scrolls and oils"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "faction:head-clerk-mossglade-office",
+      "to_node_id": "item:session14-old-dusty-items",
+      "label": "has leftover items",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:28-28",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:28-28",
+          "anchor_quotes": [
+            "Mossglade comes with the leftover items"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "anchor_quotes": [
+            "she does discover some old dusty items that may be useful"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-3",
+      "from_node_id": "item:session14-old-dusty-items",
+      "to_node_id": "item:session14-new-items",
+      "label": "becomes new items",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "anchor_quotes": [
+            "After each of the party members looks over the items and picks one for themselves, they discover that these new items are incredible."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "loc-into-the-sewer",
+      "to_node_id": "loc-dark-tunnel",
+      "label": "leads to",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "anchor_quotes": [
+            "starting their journey into the tunnels"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "anchor_quotes": [
+            "The group enters a dark tunnel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-5",
+      "from_node_id": "loc-dark-tunnel",
+      "to_node_id": "loc-large-cylindrical-room",
+      "label": "leads to",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "anchor_quotes": [
+            "Looking through the keyhole he is able to see another long dark tunnel beyond"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "anchor_quotes": [
+            "What they find at the end of the tunnel is a large cylindrical room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-6",
+      "from_node_id": "loc-large-cylindrical-room",
+      "to_node_id": "loc-wooden-bridge",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "anchor_quotes": [
+            "an old wooden bridge near the fan"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-7",
+      "from_node_id": "loc-large-cylindrical-room",
+      "to_node_id": "loc-opposite-end-of-the-bridge-door",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "the door on the opposite end of the bridge opens"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-8",
+      "from_node_id": "loc-opposite-end-of-the-bridge-door",
+      "to_node_id": "faction:guards-of-the-sewer",
+      "label": "entrance used by",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "Two guards in full armor enter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-12",
+      "from_node_id": "item:session14-bomb",
+      "to_node_id": "loc-wooden-bridge",
+      "label": "attached under",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "a bomb attached to the underside of the bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "item:session14-tripwire",
+      "to_node_id": "loc-wooden-bridge",
+      "label": "found on",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "anchor_quotes": [
+            "finding it halfway across the bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-14",
+      "from_node_id": "mystery-session14-bomb-bridge",
+      "to_node_id": "loc-wooden-bridge",
+      "label": "located at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "The Sprite frantically returns to Ephanna to warn of a bomb attached to the underside of the bridge."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-15",
+      "from_node_id": "item:session14-scrolls-from-the-mages",
+      "to_node_id": "item:session14-fireball",
+      "label": "used to cast",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "using one of the scrolls from the Mages, casts Fireball!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-16",
+      "from_node_id": "faction:cultists-and-elite-guards",
+      "to_node_id": "item:session14-meat-flies",
+      "label": "includes",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "a couple of sewer meat monsters"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "anchor_quotes": [
+            "releasing Meat Flies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-17",
+      "from_node_id": "faction:cultists-and-elite-guards",
+      "to_node_id": "loc-large-circular-room",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "they can see a large circular room where meat is being loaded into carts by a line of cultists guarded by Elite Guards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-18",
+      "from_node_id": "loc-large-circular-room",
+      "to_node_id": "loc-center-platform",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "anchor_quotes": [
+            "the meat in the center platform"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Mossglade hands out lesser loot, but the promised items are gone",
+      "summary": "The party meets with Head Clerk Mossglade for supplies. She distributes useful consumables, but the important promised items have already been claimed by covert ops teams, leaving only older dusty gear that still turns out to be excellent for the party.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:30-31",
+          "anchor_quotes": [
+            "The party gathers together with Head Clerk Mossglade",
+            "Mossglade hands out some valuable potions, scrolls and oils",
+            "all the items have been given out to the covert ops teams"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:33-33",
+          "anchor_quotes": [
+            "The items are legendary",
+            "the team feels confident in starting their journey into the tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "The party enters the sewer tunnels and clears the first trapped section",
+      "summary": "The group heads into the tunnels with scouting support, spots an easy trap, then uses lockpicking and tools to open a locked door and push deeper inside.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:35-35",
+          "anchor_quotes": [
+            "The group enters a dark tunnel",
+            "look for traps",
+            "Bonogo picks the lock and the group continues on"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "A ruined chamber reveals a dead skirmish, a survivor, and warning signs",
+      "summary": "At the end of the tunnel the party finds a large cylindrical room full of rotting supplies, water, bridges, drumming, and chanting. They discover clues of recent violence, magical runes indicating corrupted meat, and a badly injured Half-Orc whom they revive for information.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "anchor_quotes": [
+            "large cylindrical room",
+            "There is a stone bridge over the water",
+            "they can also hear drums and chanting"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:39-39",
+          "anchor_quotes": [
+            "glowing runes detecting corrupted meat",
+            "Baergrom uses a health potion to revive him"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "anchor_quotes": [
+            "one final warning: trust no one"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Bridge ambush: guards, blobs, and rats attack",
+      "summary": "A bomb on the bridge is spotted just as enemies arrive from the far door. The party fights through flesh blobs, corrupted sewer rats, and armored guards; the guards retreat and lock themselves away after losing the exchange.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:43-43",
+          "anchor_quotes": [
+            "a bomb attached to the underside of the bridge",
+            "Two guards in full armor enter with two flesh blobs following",
+            "four enormous corrupted sewer rats climb out of the water"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:47-47",
+          "anchor_quotes": [
+            "the Sprite continues to look for the tripwire",
+            "Seeing the situation is not going their way, the guards quickly run back through the door and lock it behind them"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:49-49",
+          "anchor_quotes": [
+            "Karsemine also has thieves' tools",
+            "she is able to get the door unlocked",
+            "immediately casts Hunter\u2019s Mark on one of the guards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "The party breaches the cult chamber and unleashes a devastating opening blast",
+      "summary": "At another locked door the party hears drumming and chanting and sees a ritual-like loading operation with cultists, elite guards, and sewer meat monsters. Ephanna force-opens the lock at personal cost, then Karsemine uses a Fireball from the Mages\u2019 scrolls to wipe out the cultists and heavily damage the room.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "loud drumming and chanting",
+            "a large circular room where meat is being loaded into carts by a line of cultists guarded by Elite Guards",
+            "a couple of sewer meat monsters"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:53-53",
+          "anchor_quotes": [
+            "using one of the scrolls from the Mages, casts Fireball!",
+            "all the Cultists in the room die",
+            "the large pile of meat in the center catches on fire"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "The fight turns chaotic as meat mutates and the party struggles with charm effects",
+      "summary": "After the opening blast, the remaining sewer monster and guards press the attack. Karsemine is nearly thrown into the water, then the central meat pile transforms into a monster and spawns Meat Flies. The flies charm party members, forcing Caelynn to hit allies with Magic Missile to break the charm.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:55-55",
+          "anchor_quotes": [
+            "Karsemine, using her new scimitars, kills the first Elite Guard",
+            "she is hit with a second spear thrown by another guard",
+            "it grapples her and slams her to the ground"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:57-57",
+          "anchor_quotes": [
+            "the meat in the center platform turns into a monster",
+            "releasing Meat Flies",
+            "one Charms Baergrom"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:59-59",
+          "anchor_quotes": [
+            "Bonogo becomes Charmed",
+            "Caelynn, seeing the charmed allies, decides to attack both of them with Magic Missle to end the Charmed effect"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignore-session14-party-anchors",
+      "label": "Party member names",
+      "reason": "Deterministic party anchors were provided and should not be re-extracted as session-novel nodes.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignore-session14-known-entities",
+      "label": "Known entity mentions from the deterministic list",
+      "reason": "These entities are pre-canonicalized for this pass; enrich via evidence only and do not create new nodes for them.",
+      "evidence_refs": [],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "defer-session14-unresolved-identity-of-enemy",
+      "label": "Identity of the monster that killed the prior team",
+      "reason": "The source only says a monster killed everyone; it does not identify what kind.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:41-41",
+          "anchor_quotes": [
+            "a monster that killed everyone"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Defer until a later session names the monster or clarifies its nature."
+    },
+    {
+      "item_id": "defer-session14-purpose-of-meat-operation",
+      "label": "Purpose of the meat processing / transport operation",
+      "reason": "The room shows meat being moved by cultists and guarded by enemies, but the motive or destination is not explained.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:51-51",
+          "anchor_quotes": [
+            "meat is being loaded into carts by a line of cultists"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Look for later references to where the carts go or what the meat is used for."
+    },
+    {
+      "item_id": "defer-session14-source-of-drumming",
+      "label": "Source and direction of the drumming/chanting",
+      "reason": "The sound is heard clearly but its origin is not determined in this recap.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "label": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-14:e10679f7fe09:span:e10679f7fe09:37-37",
+          "anchor_quotes": [
+            "they cannot pick out the direction"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track future exploration deeper into the tunnels for the source of the ritual sounds."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

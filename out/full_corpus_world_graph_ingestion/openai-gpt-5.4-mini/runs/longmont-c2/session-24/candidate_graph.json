@@ -1,0 +1,1210 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-24:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-24",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-24:7fe085121d65"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "loc:wall",
+      "label": "the wall",
+      "node_type": "location",
+      "description": "The defensive wall being attacked during the encounter, including its top and edge.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "anchor_quotes": [
+            "Back on the wall"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "anchor_quotes": [
+            "reaches the wall",
+            "reach the top",
+            "on top"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "stand watch at the wall above the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:mireward-gate-defense",
+      "label": "Mireward Gate defense",
+      "node_type": "faction",
+      "description": "The collective force defending the wall and gate against the attacking monsters during the battle.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "anchor_quotes": [
+            "Seeing the team in danger"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "anchor_quotes": [
+            "the immediate danger on the wall"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:1-12",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:1-12",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:1-12",
+          "anchor_quotes": [
+            "Mireward Gate Battle"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:refugees-from-edge",
+      "label": "refugees from Edge",
+      "node_type": "group",
+      "description": "The displaced people from Edge who require a plan and attention after the battle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "Something needs to be done with the refugees from Edge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "The others will go check on the town and create a plan for the refugees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:wall-watch",
+      "label": "wall watch",
+      "node_type": "group",
+      "description": "The small watch detail assigned to stand above the gate and rest after the battle.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "Ephanna, Stafl and Baergorm will stand watch at the wall above the gate"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "taking a short rest and recovering"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session24-magic-dark-cube",
+      "label": "magically dark cube",
+      "node_type": "item",
+      "description": "A magically dark cube containing Ogonob, used as a source of cover or concealment during the battle.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "anchor_quotes": [
+            "the magically dark cube with Ogonob inside"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session24-crossbow-jam",
+      "label": "jammed crossbow",
+      "node_type": "item",
+      "description": "Baergrom\u2019s crossbow jammed before he switched to a short bow.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "anchor_quotes": [
+            "only for it to jam"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session24-firebolt",
+      "label": "Firebolt",
+      "node_type": "item",
+      "description": "A fire-based spell used repeatedly against monsters, including the tripod creature.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "anchor_quotes": [
+            "Karsemine launches a Firebolt at the tripod monster"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "anchor_quotes": [
+            "Karsemine again attacks the tripod monster with a Firebolt"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session24-commanding-shout",
+      "label": "Commanding Shout",
+      "node_type": "item",
+      "description": "Lysandra\u2019s battlefield command ability used to direct allied attacks.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "anchor_quotes": [
+            "recharges her Commanding Shout"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "She recharges her Commanding Shout"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session24-luck",
+      "label": "Luck",
+      "node_type": "item",
+      "description": "A resource or effect Stafl used to help the Sleep spell hold on the monster.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "Stafl uses Luck"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session24-bait-and-switch",
+      "label": "Bait and Switch",
+      "node_type": "item",
+      "description": "Baergrom\u2019s maneuver used to move Thrin out of danger and bolster his own defense.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "anchor_quotes": [
+            "uses his Bait and Switch ability"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session24-commanders-strike",
+      "label": "Commander\u2019s Strike",
+      "node_type": "item",
+      "description": "Baergrom\u2019s command maneuver directing Bonogo to attack the sewer monster.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "anchor_quotes": [
+            "uses Commander\u2019s Strike to direct him to attack"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session24:mireward-gate-aftermath-refugees-plan",
+      "label": "Aftermath at Mireward Gate: refugees require a plan",
+      "node_type": "mystery",
+      "description": "After the battle, the party identifies a need to deal with refugees from Edge and splits responsibilities between wall watch/rest and town planning.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "Something needs to be done with the refugees from Edge",
+            "the group decides to split up along those lines"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session24:goo-turns-to-goo-and-sucked-into-ground",
+      "label": "Remaining meat piles turn to goo and are sucked into the ground",
+      "node_type": "mystery",
+      "description": "After the fight, attempts to burn leftover piles of meat do not behave normally; the piles transform into goo and disappear underground.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "the remaining piles turn to goo and are sucked into the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session24:sticky-gel-from-sewer-monsters",
+      "label": "Sewer monsters ooze sticky gel that impedes movement",
+      "node_type": "mystery",
+      "description": "When the giant sewer monsters reach the wall, they ooze a sticky gel that makes it difficult to move away from them, creating a battlefield hazard.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "anchor_quotes": [
+            "both monsters ooze out a sticky gel",
+            "makes it difficult to move away from the creatures"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session24:magical-darkness-hides-hybrid",
+      "label": "Magical darkness obscures the hybrid monster",
+      "node_type": "mystery",
+      "description": "One remaining hybrid attacks within magical darkness, causing missed attacks and limiting targeting until it is killed.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:28-28",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:28-28",
+          "anchor_quotes": [
+            "blinded by the magical darkness",
+            "the first attack, but hits with the second"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "anchor_quotes": [
+            "All at once Caelynn, Ephanna and Ogonob attack"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session24:grobnok-frustrated-about-edge-and-mireward-reach",
+      "label": "Grobnok is frustrated and awaits a follow-up call",
+      "node_type": "mystery",
+      "description": "Caelynn reports Edge and Mireward Reach to Grobnok, who is frustrated by not being able to make a plan immediately and will call back the next day.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "anchor_quotes": [
+            "she tells him about both Edge and Mireward Reach",
+            "He will call them back the next day to check in"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:captain-lysandra-ironveil",
+      "label": "Captain Lysandra Ironveil",
+      "node_type": "character",
+      "description": "In this recap, Lysandra repeatedly took command in the fight against the sewer monsters and other threats. She recharged her Commanding Shout, ordered allies to focus their attacks, removed a charm from Caelynn, and later recognized the party had the advantage and pushed for a final assault. The party then continued with post-battle coordination, including an attempted communications link with Grobnok that would be handled later.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "anchor_quotes": [
+            "Lysandra recharges her Commanding Shout and commands Bonogo, Karesmine and Baergrom to all attack.",
+            "Lysnadra then removes the charm affecting Caelynn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "Lysandra can see that they have the advantage now and can push for a final assault on the remaining monsters.",
+            "She recharges her Commanding Shout and directs Bonogo, Baergrom and Karsemine to attack."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "anchor_quotes": [
+            "She attempts to get Grobnok\u2019s rockie-talkie connected with Lysandra\u2019s, but this will take some time."
+          ]
+        }
+      ],
+      "proposed_action": "anchor",
+      "confidence": "high",
+      "warnings": [
+        "known_entity_mention_evidence",
+        "pc_claimed_fill"
+      ],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "captain_lysandra_ironveil",
+        "resolution": "resolved"
+      },
+      "aliases": [
+        "Captain Lysandra Ironveil",
+        "Captain"
+      ],
+      "session_actions": [
+        "recharged Commanding Shout",
+        "commanded allies to attack",
+        "removed a charm from Caelynn",
+        "pushed for a final assault",
+        "worked on communications with Grobnok"
+      ],
+      "enriched_by": "pc_claimed_fill_pass"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "group:wall-watch",
+      "to_node_id": "loc:wall",
+      "label": "wall watch stands at the wall",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "Ephanna, Stafl and Baergorm will stand watch at the wall above the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-5",
+      "from_node_id": "mystery:session24:mireward-gate-aftermath-refugees-plan",
+      "to_node_id": "group:refugees-from-edge",
+      "label": "aftermath concerns refugees",
+      "relationship_type": "objective_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "Something needs to be done with the refugees from Edge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-6",
+      "from_node_id": "node:captain-lysandra-ironveil",
+      "to_node_id": "item:session24-commanding-shout",
+      "label": "Lysandra uses Commanding Shout",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "anchor_quotes": [
+            "recharges her Commanding Shout"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "She recharges her Commanding Shout"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Opening pressure at the wall and first spell exchanges",
+      "summary": "The battle opens with hybrid monsters pressing toward the wall while the party trades spell and weapon attacks. Ogonob is hit in the darkness, Karsemine scorches the tripod monster, Ephanna and Bonogo are forced toward the meatwings, and Ogonob uses Misty Step to close on the tripod.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:14-14",
+          "anchor_quotes": [
+            "continue their march toward the wall",
+            "magically dark cube with Ogonob inside",
+            "Karsemine launches a Firebolt",
+            "Ephanna and Bonogo both fail to resist the effect of the meatwings",
+            "Ogonob then uses Misty Step"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Ranged counterfire and the meatwing compulsion spreads",
+      "summary": "Bonogo, Thrin, and Baergrom answer with shots at the hybrid creature, while the sewer monsters keep advancing. One tripod hits Ogonob, the sleeping tripod remains under Stafl\u2019s spell, and the meatwings move toward the wall and begin charming multiple allies, drawing attacks onto Ephanna and Caelynn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:16-16",
+          "anchor_quotes": [
+            "Bonogo uses his Steady Aim ability",
+            "Thrin tries to steady himself",
+            "giant sewer monsters split up and head in different directions",
+            "his crossbow, it jam",
+            "short bow"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:18-18",
+          "anchor_quotes": [
+            "hits them all three times",
+            "The other tripod creature continues to be asleep",
+            "under the influence of Stafl\u2019s spell",
+            "The rest of the group create a wafting smell of meat",
+            "Two of the meatwings attack Ephanna and two attack Caelynn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Support magic and command abilities turn the tide",
+      "summary": "Stafl boosts Ephanna and disrupts the golem, Lysandra issues commands, and allies capitalize with weapon attacks. Karsemine, Bonogo, Baergrom, and Caelynn land heavy damage on meatwings and the tripod, including a removed charm and a boosted Magic Missile volley.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:20-20",
+          "anchor_quotes": [
+            "casts Bardic Inspiration on Ephanna",
+            "casts Enemies Abound",
+            "Lysandra recharges her Commanding Shout",
+            "removes the charm affecting Caelynn",
+            "uses a level 2 version of her spell Magic Missile"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Front line breaks the first major threats at the wall",
+      "summary": "A hybrid creature reaches the wall and begins damaging it, but Karsemine burns down the tripod, Ephanna and Ogonob damage the golem and meatwings, and Bonogo and Thrin help collapse the golem after knocking it prone. The battlefield shifts as the golem falls apart and the enemy line weakens.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:22-22",
+          "anchor_quotes": [
+            "finally reaches the wall",
+            "slowly chipping away the foundation",
+            "fully igniting the flesh",
+            "She then transfers her Hunter\u2019s Mark to the golem",
+            "uses Eldritch Blast twice on the golem",
+            "throws a dagger at its leg",
+            "the creature finally collapses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Sewer monsters breach the wall but are contained",
+      "summary": "One giant sewer monster climbs onto the wall into the middle of the party, while the other attacks through magical darkness and leaves a sticky gel behind. Baergrom uses mobility and protection maneuvers, then directs Bonogo, who kills the sewer monster attacking Ogonob with a dagger throw.",
+      "involved_node_ids": [
+        "node:captain-lysandra-ironveil"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:24-24",
+          "anchor_quotes": [
+            "finally reaches the wall",
+            "right in the middle of Lysandra, Thrin and Caelynn",
+            "moves in to attack Ogonob through the magical darkness",
+            "both monsters ooze out a sticky gel",
+            "uses his Bait and Switch ability",
+            "uses his warhammer",
+            "Commander\u2019s Strike"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Final cleanup: sleep, focus fire, and coordinated kill",
+      "summary": "The last tripod nearly drags Ephanna in, but Stafl puts it back to sleep. Lysandra then orchestrates a final push as Bonogo, Baergrom, Karsemine, Caelynn, Ephanna, and Ogonob finish the remaining monsters, despite a stray hit and poison splash during the exchange.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:26-26",
+          "anchor_quotes": [
+            "casts Sleep on the monster",
+            "Lysandra can see that they have the advantage now",
+            "directs Bonogo, Baergrom and Karsemine to attack",
+            "arrow from Karsemine flies past, impaling the monster",
+            "sprays poison on Baergrom, Thrin and herself"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:28-28",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:28-28",
+          "anchor_quotes": [
+            "The remaining hybrid moves in to attack Ephanna",
+            "taking aim at the hybrid monster",
+            "shoots again, this time landing a killing blow",
+            "With one monster left on the battlefield",
+            "holding their attack until the team coordinates an attack"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:30-30",
+          "anchor_quotes": [
+            "deals critical damage on the incapacitated creature",
+            "Caelynn\u2019s Magic Missile and Ephanna\u2019s Eldritch Blast",
+            "Thrin finishes off the writhing creature, ending the battle"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Aftermath, rest, and reporting to Grobnok",
+      "summary": "With the battle over, the group burns remaining meat piles, then splits responsibilities between watch/rest at the wall and checking on the town and refugees. Before leaving, Caelynn contacts Grobnok and updates him on Edge and Mireward Reach, with a plan to reconnect the next day.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:32-32",
+          "anchor_quotes": [
+            "burn as many remaining piles of meat as they can",
+            "With the battle over and full night upon them",
+            "Something needs to be done with the refugees from Edge",
+            "stand watch at the wall above the gate",
+            "The others will go check on the town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "anchor_quotes": [
+            "Caelynn makes a quick call to Grobnok",
+            "she tells him about both Edge and Mireward Reach",
+            "She attempts to get Grobnok\u2019s rockie-talkie connected with Lysandra\u2019s",
+            "He will call them back the next day to check in"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "party:questionable-company:baergrom",
+      "label": "Baergrom",
+      "reason": "Deterministic party anchor; do not recreate as a novel observation node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "party:questionable-company:bonogo",
+      "label": "Bonogo",
+      "reason": "Deterministic party anchor; do not recreate as a novel observation node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "party:questionable-company:caelynn",
+      "label": "Caelynn",
+      "reason": "Deterministic party anchor; do not recreate as a novel observation node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "party:questionable-company:ephanna",
+      "label": "Ephanna",
+      "reason": "Deterministic party anchor; do not recreate as a novel observation node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "party:questionable-company:karsemine",
+      "label": "Karsemine",
+      "reason": "Deterministic party anchor; do not recreate as a novel observation node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "party:questionable-company:stafl",
+      "label": "Stafl",
+      "reason": "Deterministic party anchor; do not recreate as a novel observation node.",
+      "evidence_refs": [],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "npc:candidate:grobnok",
+      "label": "Grobnok",
+      "reason": "Mentioned briefly in a closing logistics call, but the excerpt does not establish a deeper unresolved thread beyond a promised callback.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "label": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-24:7fe085121d65:span:7fe085121d65:34-34",
+          "anchor_quotes": [
+            "He will call them back the next day to check in"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Wait for the next session to see whether Grobnok follows up and whether Edge/Mireward Reach require action."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

@@ -1,0 +1,1367 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-13:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-13",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-13:3a1278d88978"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "obs:elara-mayor",
+      "label": "Elara",
+      "node_type": "character",
+      "description": "Mayor present in the council meeting who questions the group about the Bard incident and later agrees to work with them.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "Mayor Elara",
+            "why the group felt the need to kill the Bard during a competition",
+            "the mayor agrees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:lysandra",
+      "label": "Lysandra",
+      "node_type": "character",
+      "description": "Authority figure who is assigned to lead the group and is the direct reporting contact for the party.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "the mayor agrees and instructs the group to be added to the line of authority, reporting directly to Lysandra"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "anchor_quotes": [
+            "Lysandra has now been assigned to lead the group",
+            "finally takes charge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:torrin",
+      "label": "Torrin",
+      "node_type": "character",
+      "description": "Dragonborn smith who advises seeking an artificer to help with the city's runes.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "Torrin, the dragonborn smith",
+            "seeking help from an Artificer to work on the runes around the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:merril",
+      "label": "Merril",
+      "node_type": "character",
+      "description": "Council member who is worried about lingering tainted meat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "Merril is concerned about any lingering tainted meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:rurik",
+      "label": "Rurik",
+      "node_type": "character",
+      "description": "Council member who tells the group about trouble in nearby towns and points them toward Outtown for more details.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "anchor_quotes": [
+            "Rurik tells the group that there may have been trouble in the towns along the way and the best place to find details would be in Outtown"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:city-center",
+      "label": "city center",
+      "node_type": "location",
+      "description": "The central area where people were milling after the fight in the Glimmering Globe and where the curfew announcement reached the city.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "milling in the city center",
+            "after escaping the fight in the Glimmering Globe"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:city-square",
+      "label": "city square",
+      "node_type": "location",
+      "description": "The square across which the group traveled en route to the council building.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "across the city square to the council building"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:council-building",
+      "label": "council building",
+      "node_type": "location",
+      "description": "The building where the Mirathorn Council met the Questionable Company in a smaller guarded room.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "the council building",
+            "meeting in a much smaller room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:swamp",
+      "label": "swamp",
+      "node_type": "location",
+      "description": "The swamp to the north that the council wants the group to scout and assess.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "a giant swamp to the north"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "anchor_quotes": [
+            "head to the swamp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:north",
+      "label": "north",
+      "node_type": "location",
+      "description": "Directional travel zone used to describe the swamp\u2019s location relative to the city and outposts.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "to the north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:mirathorn-council",
+      "label": "Mirathorn Council",
+      "node_type": "faction",
+      "description": "The ruling council that institutes curfew, postpones the festival, meets with Questionable Company, and directs city response.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "The Mirathorn Council has instituted a curfew",
+            "the festival has been postponed",
+            "The Questionable Company is instructed to meet with the Council immediately"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "the mayor agrees and instructs the group to be added to the line of authority, reporting directly to Lysandra",
+            "the council to work together for a common goal"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:raven",
+      "label": "raven",
+      "node_type": "item",
+      "description": "Baergrom's raven is sent to search the crowd for Winna and lands near her.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "Baergrom helps out by instructing his raven to fly up and search for her.",
+            "They see the bird land off in the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:wanted-poster",
+      "label": "wanted poster",
+      "node_type": "item",
+      "description": "A wanted poster Bonogo shows to the council, apparently connected to the hooded individual they are discussing.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "Bonogo, suddenly remembering his wanted poster, shows it to the council."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:lines-of-authority",
+      "label": "line of authority",
+      "node_type": "item",
+      "description": "An administrative reporting structure the group is added to, with direct reporting to Lysandra.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "instructs the group to be added to the line of authority, reporting directly to Lysandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:provisions",
+      "label": "provisions",
+      "node_type": "item",
+      "description": "Supplies the group will gather before traveling to the swamp.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "anchor_quotes": [
+            "The group will gather provisions and head to the swamp."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_001",
+      "label": "Curfew and festival postponement in the city",
+      "node_type": "mystery",
+      "description": "The Mirathorn Council announces a citywide curfew and postpones the festival after the escape from the Glimmering Globe.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "The Mirathorn Council has instituted a curfew and the festival has been postponed."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_002",
+      "label": "Questionable Company summoned to meet the Council immediately",
+      "node_type": "mystery",
+      "description": "The group is ordered to report to the Council right away, indicating an urgent political response to the recent crisis.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "The Questionable Company is instructed to meet with the Council immediately."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_003",
+      "label": "Storm buildup and city defenses preparing",
+      "node_type": "mystery",
+      "description": "A storm is building again while sorcerers prepare to protect the city, suggesting an approaching external danger.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "they can hear a storm building again and sorcerers preparing to protect the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_004",
+      "label": "Dustwalker duplicity and a guard turning to goo",
+      "node_type": "mystery",
+      "description": "Bonogo and Karsemine report that a guard and another Dustwalker were involved, and that the other Dustwalker 'turned to goo,' implying shapeshifting or corruption.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "They tell the rest of the group about the guard and how the other Dustwalker also turned to goo."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_005",
+      "label": "Corrupt guard accusation unsettles Winna",
+      "node_type": "mystery",
+      "description": "Bonogo says the guard was corrupt, which frightens Winna and drives her back to the Academy to check on others there.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "Bonogo declares that the guard was corrupt, causing Winna to become upset and worried about the others at the Academy."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_006",
+      "label": "Council meeting in a smaller guarded room",
+      "node_type": "mystery",
+      "description": "The group finds the full council assembled in a smaller room that is still guarded, implying heightened security after the incident.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "This time they are meeting in a much smaller room, though still lined with guards."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_007",
+      "label": "Rumors and possible martial law after the Bard killing accusation",
+      "node_type": "mystery",
+      "description": "Mayor Elara confronts the group about killing the Bard during a competition, says rumors are spreading, and warns that martial law may need to be instituted.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "why the group felt the need to kill the Bard during a competition",
+            "that doesn't stop the rumors spreading throughout the city",
+            "she would have to institute martial law now"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_008",
+      "label": "Dustwalker in two places suggests a larger threat",
+      "node_type": "mystery",
+      "description": "The mayor treats the Dustwalker appearing in two places at once as evidence of a much bigger hidden danger requiring official attention.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "The Dustwalker being in two places at the same time hints at a much bigger threat."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_009",
+      "label": "Questionable Company placed under Lysandra's authority",
+      "node_type": "mystery",
+      "description": "The council adds the group to the line of authority so they report directly to Lysandra, establishing a formal chain of command.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "the group to be added to the line of authority, reporting directly to Lysandra."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_010",
+      "label": "Wanted poster and hooded individual pursuit",
+      "node_type": "mystery",
+      "description": "Bonogo presents a wanted poster, prompting Grobnok and the mayor to agree to help look for the hooded individual.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "Bonogo, suddenly remembering his wanted poster, shows it to the council",
+            "help look for the hooded individual"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_011",
+      "label": "Shepherd in a swamp and a wider northern marsh threat",
+      "node_type": "mystery",
+      "description": "Ephanna reports prior imprisonment and a Shepherd in a swamp, leading the council to reveal a giant swamp north of the city and request scouting.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "about the time they were locked up and about the Shepherd in a swamp",
+            "a giant swamp to the north surrounded by human outposts",
+            "help in scouting the area and reporting back on the scale of the problem in the area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_012",
+      "label": "Lysandra's breakdown before taking charge",
+      "node_type": "mystery",
+      "description": "Lysandra briefly breaks down under the pressure of recent events, then regains composure and leads the group onward.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "anchor_quotes": [
+            "Lysandra finally breaks down",
+            "she regains her composure and fully takes charge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_013",
+      "label": "Journey to the swamp will take two weeks and pass many towns",
+      "node_type": "mystery",
+      "description": "The group is provisioned for a long overland expedition to the swamp, with multiple towns along the route.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "anchor_quotes": [
+            "The journey will take about 2 weeks on horse and many towns await along the way."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge_001",
+      "from_node_id": "faction:mirathorn-council",
+      "to_node_id": "location:city-center",
+      "label": "institutes curfew in",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "The Mirathorn Council has instituted a curfew",
+            "the city center"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_003",
+      "from_node_id": "faction:mirathorn-council",
+      "to_node_id": "location:council-building",
+      "label": "meets in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "Back inside the council building",
+            "the council building"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_005",
+      "from_node_id": "location:city-square",
+      "to_node_id": "location:council-building",
+      "label": "route to",
+      "relationship_type": "path_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "across the city square to the council building"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_021",
+      "from_node_id": "location:swamp",
+      "to_node_id": "location:north",
+      "label": "is to the north",
+      "relationship_type": "north_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "a giant swamp to the north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "After the Globe fight, the Council imposes curfew and summons the Company",
+      "summary": "In the city center after escaping the fight at the Glimmering Globe, an announcement orders a curfew, postpones the festival, and summons the Questionable Company to the Mirathorn Council. The group heads toward the council building while trying to reunite with missing members, and Winna is persuaded to ignore the curfew and come along before she later returns to the Academy.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "As people are milling in the city center after escaping the fight in the Glimmering Globe",
+            "The Mirathorn Council has instituted a curfew and the festival has been postponed.",
+            "The Questionable Company is instructed to meet with the Council immediately.",
+            "Caelynn uses her badge to convince her that she should ignore the curfew and come with us to the council.",
+            "She hurries back to the academy with Karsemine following to help her."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "The Council meeting turns to rumors, martial law, and the swamp lead",
+      "summary": "Inside a smaller, guarded council room, the mayor questions the group about the bard incident and broader rumors. Caelynn calms the room, the group is assigned to report through Lysandra, Stafl uses Suggestion on Lysandra\u2019s status, Bonogo presents his wanted poster, and the council is briefed about the Shepherd and a swamp to the north as the next investigative lead.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "The first question from Mayor Elara: why the group felt the need to kill the Bard during a competition.",
+            "She explains that, even after all the trouble the group has handled in the city already, she would have to institute martial law now.",
+            "Caelynn whistles to get everyone\u2019s attention.",
+            "The mayor agrees and instructs the group to be added to the line of authority, reporting directly to Lysandra.",
+            "Stalf uses Suggestion to get Lysandra a promotion and increased pay.",
+            "Bonogo, suddenly remembering his wanted poster, shows it to the council.",
+            "Ephanna tells the council about the time they were locked up and about the Shepherd in a swamp.",
+            "The mayor requests help in scouting the area and reporting back on the scale of the problem in the area."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Lysandra takes command and the group prepares for a long trip to the swamp",
+      "summary": "Lysandra is formally placed in charge of the group. Rurik directs them to Outtown for information, Thalia is ordered to supply resources, and after a brief emotional breakdown Lysandra regains composure and commits the Company to gathering provisions and traveling to the swamp for a two-week journey by horse.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:18-18",
+          "anchor_quotes": [
+            "Lysandra has now been assigned to lead the group.",
+            "the best place to find details would be in Outtown.",
+            "Thalia, commander of the guard, is instructed to provide the group with all available resources.",
+            "The group will gather provisions and head to the swamp.",
+            "The journey will take about 2 weeks on horse and many towns await along the way."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ign_001",
+      "label": "Named council members and guards already in entity registry",
+      "reason": "These are known entity mentions supplied by the session packet and should not be recreated as observation nodes in this pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "the council, Elara, Barin, Grobnok, Tinkerbright, Thalia, Torrin, Merril, and Rurik"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ign_002",
+      "label": "Party anchors missing for session",
+      "reason": "The packet explicitly says no party anchors are registered; the named party should be registered from the recap rather than extracted as a novel node here.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "No party anchors registered for this session. Extract named actors from the recap; register anchors in Party Registry."
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "def_001",
+      "label": "Identity and nature of the hooded individual",
+      "reason": "The recap mentions a wanted poster and a hooded individual, but does not identify who they are or how they connect to other events.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "help look for the hooded individual"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Review prior and subsequent sessions for the wanted poster's target and any sightings of the hooded figure."
+    },
+    {
+      "item_id": "def_002",
+      "label": "Source of the Dustwalker duplication / goo transformation",
+      "reason": "The recap establishes the phenomenon but not its mechanism, origin, or whether it is magical, biological, or illusion-based.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:14-14",
+          "anchor_quotes": [
+            "the other Dustwalker also turned to goo"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "The Dustwalker being in two places at the same time hints at a much bigger threat."
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Look for follow-up investigation into the Dustwalker and any related magical or shapeshifting traces."
+    },
+    {
+      "item_id": "def_003",
+      "label": "Nature of the swamp threat north of the city",
+      "reason": "The council identifies a large swamp and requests scouting, but the specific enemy, hazard, or objective remains undefined.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "a giant swamp to the north surrounded by human outposts"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "label": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-13:3a1278d88978:span:3a1278d88978:16-16",
+          "anchor_quotes": [
+            "the scale of the problem in the area"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track the scouting mission and any reports from the northern outposts."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

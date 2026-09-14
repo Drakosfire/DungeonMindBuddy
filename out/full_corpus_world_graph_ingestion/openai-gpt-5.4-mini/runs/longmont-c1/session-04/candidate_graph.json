@@ -1,0 +1,1991 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-4:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-4",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-4:ed4a7535fe90"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:torvak-hempdealer",
+      "label": "Torvak Hempdealer",
+      "node_type": "character",
+      "description": "Hemp caravaner encountered on the road who tells the party about the monster tree in Hempholm.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "the hemp caravan led by Torvak Hempdealer",
+            "Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "anchor_quotes": [
+            "Met **Torvak **the hemp caravaner who tells of the monster tree in Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:torbin",
+      "label": "Torbin",
+      "node_type": "character",
+      "description": "A sad, beaten boy in Hempholm who is present while the party studies the tree.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "a sad, somewhat beaten boy named Torbin",
+            "chatting with Torbin and Jove"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:jove",
+      "label": "Jove",
+      "node_type": "character",
+      "description": "Torbin's father in Hempholm, described as irate while the party studies the tree.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "his rightfully irate father Jove",
+            "chatting with Torbin and Jove"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:steve-racist",
+      "label": "Steve the racist",
+      "node_type": "character",
+      "description": "A townsperson who makes racist remarks, is attacked, and falls into the fire during the revelry/night attack.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:28-28",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:28-28",
+          "anchor_quotes": [
+            "Steve the racist was attacked and fell into the fire, cannot be resurrected."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "some asshole human named Steve makes some shitty remarks about non-humans",
+            "Steve the racist is shredded and knocked into a fire"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_hempholm",
+      "label": "Hempholm",
+      "node_type": "location",
+      "description": "Town visited by the heroes; site of the grotesque moving tree incident and later revelry.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "anchor_quotes": [
+            "Hempholm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "the town of Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_mirathorn",
+      "label": "Mirathorn",
+      "node_type": "location",
+      "description": "Destination on the westward route the heroes begin traveling toward after leaving Stone Bridge.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+          "anchor_quotes": [
+            "The road to Mirathorn."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "toward Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_ominous_forest_south",
+      "label": "Ominous forest to the south",
+      "node_type": "location",
+      "description": "Forested area mentioned as lying south of the heroes' path during their walk toward Hempholm.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "an ominous forest to the south"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_fields_bucolic_walk",
+      "label": "Fields along the bucolic walk",
+      "node_type": "location",
+      "description": "Rural travel zone passed during the westward trek toward Hempholm and Mirathorn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "this bucolic walk past fields"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_road_to_mirathorn",
+      "label": "Road to Mirathorn",
+      "node_type": "location",
+      "description": "Named route referenced in the session's looking-ahead notes.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+          "anchor_quotes": [
+            "The road to Mirathorn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:hempholm-villagers",
+      "label": "Hempholm villagers",
+      "node_type": "faction",
+      "description": "The local townsfolk of Hempholm, including residents who gathered, drank, and later reacted to the tree's destruction and the caretaker attack.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:24-24",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:24-24",
+          "anchor_quotes": [
+            "Partied with the village"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "The town is overjoyed at the death of the tree and gathers for a drunken revelry"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:drunken-townsfolk",
+      "label": "drunken townsfolk",
+      "node_type": "group",
+      "description": "A subset of Hempholm residents who emerged from the shacks, drunk and intent on burning the tree before being talked out of it.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "a group of drunken townsfolk wander from the shacks",
+            "bolstered by drink and sick of the fear of the tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:caretakers",
+      "label": "Caretakers",
+      "node_type": "faction",
+      "description": "The Caretakers, an attacking hostile group associated with the aftermath of the Hempholm tree events and later burrowing up from the ground.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "anchor_quotes": [
+            "Caretakers attacked"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "anchor_quotes": [
+            "Caretakers burrow up from the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_torvak_hemp",
+      "label": "Torvak Hempdealer's hemp caravan stock",
+      "node_type": "item",
+      "description": "A caravan load of hemp being pitched by Torvak to the heroes, presented as something that could improve their lives.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "the hemp caravan led by Torvak Hempdealer",
+            "all the glorious ways hemp could improve the heroes lives",
+            "Torvak\u2019s incredible Hemp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_grotesque_tree_hempholm",
+      "label": "Grotesque arcane moving tree of Hempholm",
+      "node_type": "item",
+      "description": "A bizarre, grotesque, arcane tree in Hempholm that grew huge overnight, seemed to move, swatted at the party, and later grew larger again before being felled.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "a tree growing huge overnight and seeming to move"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "a tall tree",
+            "this bizarre and grotesque arcane moving tree with no leaves",
+            "the tree has a huge reach and swats Karsemine",
+            "the tree suddenly grows 10 additional feet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_precious_metal_leaves",
+      "label": "Precious metal leaves",
+      "node_type": "item",
+      "description": "Metallic leaves recovered after the tree was felled.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "a number of precious metal leaves are found"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_semi_organic_metal_branch",
+      "label": "Broken semi-organic metal branch",
+      "node_type": "item",
+      "description": "A broken branch from the tree described as semi-organic metal, later taken to the blacksmith to be refashioned.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "the broken semi organic metal branch",
+            "have it worked into spiked metal for his leather armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_spiked_metal_for_leather_armor",
+      "label": "Spiked metal for leather armor",
+      "node_type": "item",
+      "description": "A blacksmith-forged modification planned from the tree branch for use with Bonogo's leather armor.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "have it worked into spiked metal for his leather armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_bonfire_revelry",
+      "label": "Bonfires and drunken revelry",
+      "node_type": "item",
+      "description": "A communal revelry around bonfires that accompanied the town's celebration before the attack from underground.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "gathers for a drunken revelry",
+            "gathered around bonfires"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_session4_hempholm_tree",
+      "label": "Grotesque moving tree in Hempholm",
+      "node_type": "mystery",
+      "description": "A bizarre arcane tree in Hempholm grew huge overnight, seemed to move, swatted at the party, then was felled; its nature and origin remain unexplained.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "a story of a tree growing huge overnight and seeming to move",
+            "this bizarre tree"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "this bizarre and grotesque arcane moving tree with no leaves",
+            "the ground begins to shake and the tree suddenly grows 10 additional feet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_session4_caretakers",
+      "label": "Caretakers emerging from underground tunnels",
+      "node_type": "mystery",
+      "description": "After the tree is destroyed and the town celebrates, dozens of root-like beetles and 'Caretakers' begin to emerge from tunnels beneath Hempholm, attacking townsfolk. Their identity, motives, and connection to the tree are unresolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "anchor_quotes": [
+            "Caretakers attacked"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "anchor_quotes": [
+            "Caretakers burrow up from the ground"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "dozens on dozens of root like beatles crawl up from tunnels underneath the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_session4_precious_metal_leaves",
+      "label": "Precious metal leaves on the felled tree",
+      "node_type": "mystery",
+      "description": "The defeated tree yielded precious metal leaves, suggesting the tree was partly metallic or arcane in composition; the significance of these leaves is unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "a number of precious metal leaves are found",
+            "broken semi organic metal branch"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_session4_stone_bridge_departure",
+      "label": "Heroes leave Stone Bridge for Mirathorn",
+      "node_type": "thread",
+      "description": "The party shows no interest in rebuilding Stone Bridge and instead begins a multi-day trek west toward Mirathorn, opening a travel thread toward the next town.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "With little interest in being part of the rebuilding of Stone Bridge the heroes begin their ~5 day trek on foot to the West toward Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_session4_steve_fire_death",
+      "label": "Steve cannot be resurrected after falling into the fire",
+      "node_type": "warning",
+      "description": "A racist townsman named Steve dies after being attacked and falling into the fire; the recap explicitly notes he cannot be resurrected, marking a permanent consequence.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:28-28",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:28-28",
+          "anchor_quotes": [
+            "fell into the fire, cannot be resurrected"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "Steve the racist is shredded and knocked into a fire"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-1",
+      "from_node_id": "npc:torvak-hempdealer",
+      "to_node_id": "loc_hempholm",
+      "label": "tells of disaster in",
+      "relationship_type": "reports_threat_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "anchor_quotes": [
+            "the monster tree in Hempholm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "Torvak also mentioned that his crew felt they had left the town of Hempholm just ahead of disaster"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "npc:torvak-hempdealer",
+      "to_node_id": "item_torvak_hemp",
+      "label": "carries hemp caravan stock",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "the hemp caravan led by Torvak Hempdealer",
+            "Torvak\u2019s incredible Hemp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-3",
+      "from_node_id": "item_torvak_hemp",
+      "to_node_id": "npc:torvak-hempdealer",
+      "label": "belongs to Torvak",
+      "relationship_type": "belongs_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "the hemp caravan led by Torvak Hempdealer",
+            "Torvak\u2019s incredible Hemp"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "npc:torbin",
+      "to_node_id": "npc:jove",
+      "label": "child of Jove",
+      "relationship_type": "child_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "his rightfully irate father Jove",
+            "a sad, somewhat beaten boy named Torbin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-6",
+      "from_node_id": "npc:torbin",
+      "to_node_id": "loc_hempholm",
+      "label": "present in Hempholm",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "a sad, somewhat beaten boy named Torbin",
+            "make their way to Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-7",
+      "from_node_id": "npc:jove",
+      "to_node_id": "loc_hempholm",
+      "label": "present in Hempholm",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "his rightfully irate father Jove",
+            "make their way to Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "faction:hempholm-villagers",
+      "to_node_id": "loc_hempholm",
+      "label": "the village of Hempholm",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:24-24",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:24-24",
+          "anchor_quotes": [
+            "Partied with the village"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "The town is overjoyed at the death of the tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-12",
+      "from_node_id": "faction:drunken-townsfolk",
+      "to_node_id": "faction:hempholm-villagers",
+      "label": "subset of villagers",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "a group of drunken townsfolk wander from the shacks"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "The town is overjoyed at the death of the tree and gathers for a drunken revelry"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "faction:drunken-townsfolk",
+      "to_node_id": "item_grotesque_tree_hempholm",
+      "label": "intend to attack and burn",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "they began to set about attacking it and burning it to the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-17",
+      "from_node_id": "faction:caretakers",
+      "to_node_id": "item_grotesque_tree_hempholm",
+      "label": "attacked after tree events",
+      "relationship_type": "attacks",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "anchor_quotes": [
+            "Caretakers attacked"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "anchor_quotes": [
+            "Caretakers burrow up from the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-18",
+      "from_node_id": "faction:caretakers",
+      "to_node_id": "loc_hempholm",
+      "label": "burrow up in Hempholm",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "anchor_quotes": [
+            "Caretakers burrow up from the ground"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "dozens on dozens of root like beatles crawl up from tunnels underneath the town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-19",
+      "from_node_id": "mystery_session4_stone_bridge_departure",
+      "to_node_id": "loc_road_to_mirathorn",
+      "label": "follows road to Mirathorn",
+      "relationship_type": "path_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "begin their ~5 day trek on foot to the West toward Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-20",
+      "from_node_id": "loc_road_to_mirathorn",
+      "to_node_id": "loc_mirathorn",
+      "label": "leads to Mirathorn",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:32-32",
+          "anchor_quotes": [
+            "The road to Mirathorn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-21",
+      "from_node_id": "mystery_session4_stone_bridge_departure",
+      "to_node_id": "loc_mirathorn",
+      "label": "travels toward Mirathorn",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "the heroes begin their ~5 day trek on foot to the West toward Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-22",
+      "from_node_id": "loc_fields_bucolic_walk",
+      "to_node_id": "loc_hempholm",
+      "label": "on approach to Hempholm",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "this bucolic walk past fields"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-23",
+      "from_node_id": "loc_ominous_forest_south",
+      "to_node_id": "loc_hempholm",
+      "label": "south of route to Hempholm",
+      "relationship_type": "south_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "an ominous forest to the south"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-24",
+      "from_node_id": "item_semi_organic_metal_branch",
+      "to_node_id": "item_spiked_metal_for_leather_armor",
+      "label": "worked into",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "have it worked into spiked metal for his leather armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-27",
+      "from_node_id": "item_bonfire_revelry",
+      "to_node_id": "loc_hempholm",
+      "label": "takes place in town",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "The town is overjoyed at the death of the tree and gathers for a drunken revelry",
+            "gathered around bonfires"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-28",
+      "from_node_id": "item_grotesque_tree_hempholm",
+      "to_node_id": "loc_hempholm",
+      "label": "located in Hempholm",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "anchor_quotes": [
+            "the monster tree in Hempholm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "make their way to Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-29",
+      "from_node_id": "item_precious_metal_leaves",
+      "to_node_id": "item_grotesque_tree_hempholm",
+      "label": "found on felled tree",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "a number of precious metal leaves are found"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-30",
+      "from_node_id": "mystery_session4_caretakers",
+      "to_node_id": "faction:caretakers",
+      "label": "refers to Caretakers",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:26-26",
+          "anchor_quotes": [
+            "Caretakers attacked"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:30-30",
+          "anchor_quotes": [
+            "Caretakers burrow up from the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Departure for Mirathorn and Torvak\u2019s warning",
+      "summary": "The heroes leave Stone Bridge on foot toward Mirathorn and meet hemp caravaner Torvak Hempdealer, who pitches hemp while warning that Hempholm recently escaped a sudden disaster involving a giant, moving tree.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "little interest in being part of the rebuilding of Stone Bridge",
+            "their ~5 day trek on foot to the West toward Mirathorn",
+            "the hemp caravan led by Torvak Hempdealer",
+            "left the town of Hempholm just ahead of disaster",
+            "a tree growing huge overnight and seeming to move"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Arrival at Hempholm and first study of the grotesque tree",
+      "summary": "After camping and traveling to Hempholm, the party finds Torbin and his father Jove, examines the strange leafless arcane tree, and sees it lash out at Karsemine with its reach.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "they make their way to Hempholm",
+            "a sad, somewhat beaten boy named Torbin, his rightfully irate father Jove",
+            "study this bizarre and grotesque arcane moving tree with no leaves",
+            "the tree has a huge reach and swats Karsemine knocking her to the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Townsfolk nearly burn the tree; the party prevents it",
+      "summary": "Drunken townsfolk from the shacks try to attack and burn the tree, but Stafl talks them down and distracts them before the party is forced into escalating combat.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "a group of drunken townsfolk wander from the shacks",
+            "they began to set about attacking it and burning it to the ground",
+            "They are talked out of their insane plan by Stafl who makes friends and distracts them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "The tree grows, the party destroys it, and salvage is taken",
+      "summary": "The tree suddenly grows larger and attacks again, but Baergrom and Ephanna help bring it down. The party recovers precious metal leaves, and Bonogo takes a broken semi-organic branch to the blacksmith for reforging.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "the tree suddenly grows 10 additional feet",
+            "the tree sets about trying to pummel anyone it can reach",
+            "Baergrom is lifted off his feet",
+            "Ephanna making the decisive choice, starts blasting",
+            "the tree is felled and a number of precious metal leaves are found",
+            "Bonogo, always looking for something of value drags the broken semi organic metal branch to the blacksmith in town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Victory feast turns into a root-beetle catastrophe",
+      "summary": "The town celebrates the tree\u2019s death with heavy drinking and bonfires, but the mood collapses when root-like beetles surge from beneath Hempholm, kill townsfolk, and destroy Steve in the fire.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "The town is overjoyed at the death of the tree",
+            "a drunken revelry that stretches into the evening hours",
+            "the ground begins to rumble anew",
+            "dozens on dozens of root like beatles crawl up from tunnels underneath the town",
+            "Steve the racist is shredded and knocked into a fire",
+            "a night of revelry turns to nightmare"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored_party_anchors",
+      "label": "PC name mentions in recap",
+      "reason": "Deterministic party anchors were provided and should not be recreated as session-novel nodes.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "Karsemine",
+            "Baergrom",
+            "Ephanna",
+            "Bonogo",
+            "Stafl"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "Caelynn"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored_candidate_stone_bridge",
+      "label": "Stone Bridge",
+      "reason": "Known entity mention already normalized to canonical_entity_id candidate:stone-bridge; do not recreate as a new node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "Stone Bridge"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred_torvak",
+      "label": "Torvak Hempdealer",
+      "reason": "Named caravaner is mentioned as an encounter source, but the packet does not provide enough stable detail for a durable entity node in this pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:38-38",
+          "anchor_quotes": [
+            "the hemp caravan led by Torvak Hempdealer"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:16-16",
+          "anchor_quotes": [
+            "Met Torvak the hemp caravaner"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Revisit if later sessions establish recurring role, faction ties, or a stable identity spellings."
+    },
+    {
+      "item_id": "deferred_hempholm",
+      "label": "Hempholm town state",
+      "reason": "Hempholm is the scene of the attack and aftermath, but the packet mainly frames it as a setting rather than a standalone unresolved entity.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:40-41",
+          "anchor_quotes": [
+            "they make their way to Hempholm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "label": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90:span:ed4a7535fe90:43-43",
+          "anchor_quotes": [
+            "The town is overjoyed at the death of the tree"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Capture as a location/state node only if future packets make Hempholm politically or narratively consequential."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

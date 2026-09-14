@@ -61,6 +61,8 @@ def run_recap_production_extraction(
     context_vocabulary_packet: ContextVocabularyPacket | None = None,
     enable_node_vocabulary_packet: bool = False,
     enable_edge_vocabulary_packet: bool = False,
+    extra_known_entities: tuple[Any, ...] | None = None,
+    node_pass_workers: int = 1,
 ) -> ProductionExtractionResult:
     profile_id, profile_version = resolve_legacy_graph_extraction_profile(profile)
     artifact = create_recap_source_artifact(
@@ -83,6 +85,8 @@ def run_recap_production_extraction(
             context_vocabulary_packet=context_vocabulary_packet,
             enable_node_vocabulary_packet=enable_node_vocabulary_packet,
             enable_edge_vocabulary_packet=enable_edge_vocabulary_packet,
+            extra_known_entities=extra_known_entities,
+            node_pass_workers=node_pass_workers,
         )
     )
 

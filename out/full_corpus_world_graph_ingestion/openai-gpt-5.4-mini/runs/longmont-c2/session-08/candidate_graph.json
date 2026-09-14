@@ -1,0 +1,936 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-8:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-8",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-8:f62cfae78793"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "loc_1",
+      "label": "Mountain Iron Vale Gate",
+      "node_type": "location",
+      "description": "A gate the group returns to after escorting the goblin children back toward town.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "The group makes their way back to the Mountain Iron Vale Gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:faction:mountain-iron-vale-gate-guards",
+      "label": "Mountain Iron Vale Gate guards",
+      "node_type": "group",
+      "description": "The guards stationed at the Mountain Iron Vale Gate who are coordinated to care for the children and handle the fire burning.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "coordinate guards to take care of the children and the fire burning"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:organization:academy",
+      "label": "Academy",
+      "node_type": "organization",
+      "description": "Institution where Dustwalker was previously enrolled and where the group plans to hold him in a cell.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "kicked out of the Academy",
+            "take him back to the Academy to hold him there in a cell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:group:copper-and-quartz-party",
+      "label": "huge party",
+      "node_type": "group",
+      "description": "A large social gathering at Copper and Quartz where the group stops for the night.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "it is packed and there is a huge party"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_1",
+      "label": "Healing Word",
+      "node_type": "item",
+      "description": "A healing spell used by Stafl to save Caelynn from death.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "casts Healing Word on Caelynn",
+            "saving her from death"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_4",
+      "label": "Charming",
+      "node_type": "item",
+      "description": "A charm effect used by Ephanna against one of the monsters.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "Charming one of the monsters"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_5",
+      "label": "crossbow",
+      "node_type": "item",
+      "description": "Bonogo's weapon used with Steady Aim to attack the nearest space rip.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "uses Steady Aim with his crossbow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_6",
+      "label": "Sorcerer\u2019s Burst",
+      "node_type": "item",
+      "description": "A burst effect Caeylynn used to close the same space rip and sever the monstrous arms.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "uses Sorcerer\u2019s Burst on the same space rip"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_7",
+      "label": "sword and shield",
+      "node_type": "item",
+      "description": "Baergrom's paired weapons used during combat against the monsters.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "with his sword and shield"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_8",
+      "label": "Potion of Greater Healing",
+      "node_type": "item",
+      "description": "A healing potion Karsemine drank before finishing off the monster.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "drinks a Potion of Greater Healing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_13",
+      "label": "sitar",
+      "node_type": "item",
+      "description": "A custom sitar identified by Stafl, originally bronze and later stained red with hand-carved runes.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "Identify the sitar he took from the Dustwalker",
+            "a custom sitar created in the Mirathorn",
+            "Originally bronze in color, now stained red with runes hand carved by Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_15",
+      "label": "magical restraints",
+      "node_type": "item",
+      "description": "Restraints placed on Dustwalker by Zilla Cinderbranch before he was locked in a room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "She places magical restraints on Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_1",
+      "label": "Caelynn nearly dies in combat but is saved by Healing Word",
+      "node_type": "mystery",
+      "description": "A combat event where Caelynn was close to death until Stafl cast Healing Word to save her.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "casts Healing Word on Caelynn, thus saving her from death"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_2",
+      "label": "Space rip/portal is repeatedly damaged and closed",
+      "node_type": "mystery",
+      "description": "The party keeps targeting the rip in space; Karsemine destroys one portal, and Caelynn later closes the same kind of space rip again.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "turns her attacks on the nearby rip in space",
+            "she destroys the portal and severs the arms",
+            "uses Sorcerer\u2019s Burst on the same space rip, closing it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_3",
+      "label": "The Dustwalker remains dangerous after combat",
+      "node_type": "mystery",
+      "description": "The Dustwalker survives the combat scene prone and laughing, later gets tied up, restrained, and locked away rather than immediately resolved.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "Again the Dustwalker fails both saves and remains prone with laughter"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "Bonogo ties him up with the chain",
+            "She places magical restraints on Dustwalker and locks him in a room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_4",
+      "label": "Dustwalker is identified as Sorin Holdrom, expelled for extremist ideas and ripping space",
+      "node_type": "mystery",
+      "description": "Lysandra finds a file revealing Dustwalker\u2019s identity and a troubling history tied to the Academy and the space rips.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "discovers a file on someone named Sorin Holdrom, discovering the identity of Dustwalker",
+            "he was kicked out of the Academy for extremist ideas and creation of the rips in space"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_5",
+      "label": "The sitar is custom-made in Mirathorn and altered by Dustwalker",
+      "node_type": "mystery",
+      "description": "Stafl identifies a taken sitar as a custom Mirathorn-made instrument that has been stained red and carved with runes by Dustwalker.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "It appears to be a custom sitar created in the Mirathorn",
+            "now stained red with runes hand carved by Dustwalker"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_6",
+      "label": "Winna recognizes Dustwalker but does not understand his threat",
+      "node_type": "mystery",
+      "description": "Winna knows Dustwalker\u2019s identity but is unsure why he is dangerous, implying missing context about the threat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "She knows who Dustwalker is, but is not sure why he is dangerous"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_7",
+      "label": "Zilla Cinderbranch uses magical restraints and locks Dustwalker away",
+      "node_type": "mystery",
+      "description": "After being woken up, Zilla Cinderbranch restrains Dustwalker and secures him in a room with Winna guarding the door.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "She places magical restraints on Dustwalker and locks him in a room",
+            "Winna is placed in charge of the door"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_8",
+      "label": "The group's immediate next steps are social/political rather than investigative",
+      "node_type": "mystery",
+      "description": "After the conflict, the party focuses on returning to town, managing children and fires, and taking a long rest at Copper and Quartz.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "the group decides to take him back to town",
+            "Lysandra begins to coordinate guards to take care of the children and the fire burning"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "The group decides to head to Copper and Quartz for the night",
+            "the rest of the party head upstairs to take a long rest and prepare for another festival day"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Combat swing saves allies and destroys space rips",
+      "summary": "The fight turns as Stafl saves Caelynn, Karsemine destroys a portal, Ephanna and Fey kill monsters, and Bonogo and Caelynn close a space rip. The priest is persuaded not to attack, while Baergrom and the Dustwalker continue trading blows amid the chaos.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "Stafl moves within range and casts Healing Word on Caelynn",
+            "Karsemine turns her attacks on the nearby rip in space",
+            "Ephanna moves within range of the monster attacking Bonogo and hits it with two Eldritch Blast attacks",
+            "Ephanna\u2019s Fey attacks one of the remaining Cultists and lands a killing blow after using Misty Step",
+            "Caeylynn uses Sorcerer\u2019s Burst on the same space rip, closing it and again severing the monstrous arms",
+            "She then speaks directly to the priest and, through the power of friendship, convinces him not to attack us",
+            "Baergrom attacks multiple times with his sword and shield"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "Dustwalker is defeated and captured",
+      "summary": "After the priest falls and the remaining monster is eliminated, the party ends combat and decides to restrain the Dustwalker. They tie him up with a chain and decide to take him back to town along with the goblin children.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "Bonogo attacks and kills the priest",
+            "Baergrom uses multiple attacks on the final monster and kills it, ending combat",
+            "Everyone gathers around the Dustwalker, deciding what to do",
+            "Bonogo ties him up with the chain and the group decides to take him back to town",
+            "bringing the goblin children along"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Back in town, Dustwalker is identified and held for the Academy",
+      "summary": "At Mountain Iron Vale Gate and the guardhouse, Lysandra coordinates care for the children and fire, then finds a file identifying Dustwalker as Sorin Holdrom. The group decides to take him back to the Academy and keep him in a cell.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "The group makes their way back to the Mountain Iron Vale Gate",
+            "In the guardhouse she discovers a file on someone named Sorin Holdrom, discovering the identity of Dustwalker",
+            "He also discovers he was kicked out of the Academy for extremist ideas and creation of the rips in space",
+            "The group decides to take him back to the Academy to hold him there in a cell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_4",
+      "order": 4,
+      "title": "Dustwalker is restrained again and the party goes to Copper and Quartz",
+      "summary": "Winna confirms familiarity with Dustwalker, Zilla Cinderbranch applies magical restraints and locks him in a room, and Winna is put in charge of the door. The group then heads to Copper and Quartz, where Barin pulls Stafl into the festivities, drinks are shared, and the group settles in for a long rest.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "The group is greeted by Winna again",
+            "She knows who Dustwalker is",
+            "Winna returns with Zilla Cinderbranch",
+            "She places magical restraints on Dustwalker and locks him in a room",
+            "The group decides to head to Copper and Quartz for the night",
+            "they are greeted by a very drunk Barin who insists that Stafl keep the party going with some songs",
+            "Everyone grabs a drink while Stafl sings a song about the downfall of the Dustwalker",
+            "Karsemine asks for some caffeinated tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ign_1",
+      "label": "Detailed combat outcome by individual monster",
+      "reason": "These are combat resolution details, but not separate mystery threads beyond the broader space-rip/Dustwalker and rescue events.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:14-15",
+          "anchor_quotes": [
+            "Ephanna moves within range of the monster attacking Bonogo and hits it with two Eldritch Blast attacks, killing the monster and freeing Bonogo"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ign_2",
+      "label": "Barin\u2019s drunken party interaction",
+      "reason": "Colorful scene but not a notable unresolved thread or clue.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "they are greeted by a very drunk Barin who insists that Stafl keep the party going with some songs"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "def_1",
+      "label": "Cause and origin of the space rips",
+      "reason": "The recap confirms the rips exist and links Dustwalker to creating them, but does not explain how they work or why they began.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:17-17",
+          "anchor_quotes": [
+            "creation of the rips in space"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Look for pre-session or follow-up notes explaining the rips' source and mechanics."
+    },
+    {
+      "item_id": "def_2",
+      "label": "Why Dustwalker is dangerous to Winna and others",
+      "reason": "Winna acknowledges Dustwalker as a threat without understanding the reason, leaving the danger unresolved.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "label": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-8:f62cfae78793:span:f62cfae78793:19-19",
+          "anchor_quotes": [
+            "She knows who Dustwalker is, but is not sure why he is dangerous"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Check future dialogue or Academy records for the missing explanation."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

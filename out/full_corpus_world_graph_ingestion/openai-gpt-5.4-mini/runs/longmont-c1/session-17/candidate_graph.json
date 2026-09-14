@@ -1,0 +1,1017 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-17:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-17",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "loc_8",
+      "label": "street",
+      "node_type": "location",
+      "description": "The street above where the party returns after climbing out of the hole.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "back up on the street"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:session17-festival-crowd",
+      "label": "huge crowd",
+      "node_type": "faction",
+      "description": "A crowd that forms around the hole after the battle, containing cultists and including Lesandra at the front.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "A huge crowd begins to form around the hole"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "Lesandra at the front"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session17-seed",
+      "label": "Seed from the meat creature",
+      "node_type": "item",
+      "description": "A small seed extracted from inside the meat creature; it was shown to carry dark energy and tried to burrow into Stafl\u2019s skin before being stabbed.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "anchor_quotes": [
+            "a seed falls out and lands in his hand",
+            "dark energy emanating from it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "anchor_quotes": [
+            "Stafl decides to just stab it",
+            "an immediate crack of lightning"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session17-goo",
+      "label": "Goo pooled on the floor",
+      "node_type": "item",
+      "description": "A gathered mass of goo collected from the floor by Caelynn during the fight.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "anchor_quotes": [
+            "collects some of the goo that has pooled up on the floor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session17-blood",
+      "label": "Blood spilled onto the meat",
+      "node_type": "item",
+      "description": "Blood from a cultist was spilled onto the meat and absorbed, helping heal the large creature.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "anchor_quotes": [
+            "spill some of their blood onto the meat",
+            "it is absorbed and heals the large creature"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session17-greater-healing-potion",
+      "label": "Greater Healing Potion",
+      "node_type": "item",
+      "description": "A healing potion used by Ephanna to recover almost all hit points.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:28-28",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:28-28",
+          "anchor_quotes": [
+            "downs a Greater Healing Potion",
+            "recovering almost all hit points"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session17-dagger",
+      "label": "Dagger",
+      "node_type": "item",
+      "description": "Bonogo\u2019s dagger used to stab the Wolf\u2019s head and later strike the creature again.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "anchor_quotes": [
+            "stabs it right in the face with his dagger"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "anchor_quotes": [
+            "He follows up with a stab from his dagger"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session17-crossbow",
+      "label": "Crossbow bolt",
+      "node_type": "item",
+      "description": "A bolt fired from Stafl\u2019s crossbow during the final exchanges of the fight.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "anchor_quotes": [
+            "Stafl sends a bolt from his crossbow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:session17-frost",
+      "label": "Ray of Frost",
+      "node_type": "item",
+      "description": "Caelynn\u2019s cold spell used to slow the centipede-like creature.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "anchor_quotes": [
+            "casts Ray of Frost on the centipede"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-storm-flooding-repeats-stone-bridge-event",
+      "label": "Storm and flooding repeat the Stone Bridge incident",
+      "node_type": "mystery",
+      "description": "A sudden storm causes water to pour in from tunnels and ceiling cracks, and Caelynn identifies it as the same kind of storm previously seen at Stone Bridge when Bonogo and Bubbles were nearly swept away.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "anchor_quotes": [
+            "water starts pouring in from every tunnel and every crack in the ceiling above",
+            "exactly like the storm they encountered in Stone Bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-meat-creature-drains-heals-from-cult-ritual",
+      "label": "Cultist blood and meat absorption heal the creature",
+      "node_type": "mystery",
+      "description": "Cultists enter a trance, move to the center, and spill blood onto the meat, which is absorbed and appears to heal the large creature. This suggests a ritualized feeding or regeneration mechanism tied to the cultists and the meat mass.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "anchor_quotes": [
+            "begins to fall into a trance",
+            "spill some of their blood onto the meat where it is absorbed and heals the large creature"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-wolf-head-and-hard-object-inside-meat-creature",
+      "label": "Wolf\u2019s head is embedded in the creature, with something hard inside",
+      "node_type": "mystery",
+      "description": "The Wolf\u2019s head emerges from the meat creature, begs to be killed, and Bonogo feels a blade slide in but strike something hard inside. The creature also contains a rattling protrusion and a seed-like object that emits dark energy and attempts to burrow into skin.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "anchor_quotes": [
+            "revealing itself to be the Wolf and begging to be killed"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "anchor_quotes": [
+            "hitting something hard inside"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "anchor_quotes": [
+            "a seed falls out and lands in his hand",
+            "dark energy emanating from it as it tries to burrow into his skin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-dark-energy-pulses-through-room-and-creature",
+      "label": "Dark energy pulses through the room and the creature",
+      "node_type": "mystery",
+      "description": "The encounter includes a room-wide pulse of dark energy that affects the creature and appears tied to its regeneration or resistance, indicating an active supernatural force embedded in the scene.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "anchor_quotes": [
+            "Dark energy pulses through the room and along the creature"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-creature-nearly-breaks-through-ceiling",
+      "label": "Creature nearly breaks through the ceiling",
+      "node_type": "mystery",
+      "description": "The meat creature climbs the wall, grapples party members, and reaches the ceiling so closely that it is about to break through, implying a larger structural or escape threat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:30-30",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:30-30",
+          "anchor_quotes": [
+            "very close to reaching the ceiling and breaking through"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "anchor_quotes": [
+            "rips open a hole in the ceiling"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-final-battle-ends-on-ceiling-breach-and-water-release",
+      "label": "Final battle ends when the creature breaches upward and the storm fades",
+      "node_type": "mystery",
+      "description": "The creature\u2019s upper half rips a hole in the ceiling, the storm fades, the remaining meat creatures die, and the cultists lose their glazed state, marking the end of the battle and a possible release of whatever was contained overhead.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "anchor_quotes": [
+            "the top half rips open a hole in the ceiling",
+            "The storm starts to fade",
+            "the remaining meat creatures die",
+            "the glaze disappears from the eyes of the remaining Cultists"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-lesandra-orders-silence-about-night",
+      "label": "Lesandra suppresses disclosure of the night\u2019s events",
+      "node_type": "mystery",
+      "description": "After the battle, a crowd of cultists gathers and Lesandra orders everyone to keep quiet so the festival can continue as planned, suggesting deliberate containment of the incident.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "Lesandra orders everyone to keep quiet about the events of the night so the festival can continue as planned"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-loose-ends-shepherd-next-adventure",
+      "label": "Next destination remains unresolved, including the Shepherd",
+      "node_type": "mystery",
+      "description": "The recap explicitly ends by asking where the party will go next and whether they will continue hunting the Shepherd, pursue personal stories, or begin a new adventure.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "anchor_quotes": [
+            "Where will the party head next?",
+            "Will they continue to hunt down the Shepherd?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Creature in the chamber reveals hidden threats and storm-linked flooding begins",
+      "summary": "The fight opens with the centipede-like creature vibrating and shifting its victims, while a hidden head emerges from the mass and identifies itself as the Wolf. A sudden storm-driven flash sends water pouring in through tunnels and ceiling cracks, with Caelynn recognizing it as the same kind of storm from Stone Bridge.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:14-14",
+          "anchor_quotes": [
+            "begins to vibrate",
+            "center platform",
+            "the Wolf",
+            "begging to be killed"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "anchor_quotes": [
+            "sudden flash",
+            "water starts pouring in from every tunnel and every crack in the ceiling",
+            "Stone Bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Bonogo is blasted away, Ephanna is freed, and cultist blood feeds the creature",
+      "summary": "Bonogo stabs the Wolf\u2019s head, is thrown back by the creature, and is saved by Feather Fall before freeing Ephanna. Meanwhile Caelynn slows the beast and collects goo, while a nearby Cultist enters a trance and offers blood to the meat, which absorbs it and heals the large creature.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:18-18",
+          "anchor_quotes": [
+            "casts Feather Fall",
+            "saving Bonogo",
+            "cuts Ephanna free and pulls them out"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:20-20",
+          "anchor_quotes": [
+            "One of the nearby Cultists begins to fall into a trance",
+            "spill some of their blood onto the meat",
+            "it is absorbed and heals the large creature"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Party targets the meat construct\u2019s weak points and a seed-like core is exposed",
+      "summary": "The party pushes into the next phase by damaging nearby meat mounds, tentacles, and the creature\u2019s core structure. Stafl taunts the Wolf\u2019s head, grabs a protruding seed from the meat creature, and the seed reacts with dark energy before the group decides to stab it, causing lightning and screams throughout the connected meat.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:22-22",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:22-22",
+          "anchor_quotes": [
+            "Horde Breaker",
+            "Meat Mounds"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:24-24",
+          "anchor_quotes": [
+            "a seed falls out and lands in his hand",
+            "dark energy emanating from it"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:26-26",
+          "anchor_quotes": [
+            "an immediate crack of lightning",
+            "filled with screams coming from all the meat connected in the room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "The creature escalates by grappling climbers and threatening to breach the ceiling",
+      "summary": "As the fight intensifies, the creature reaches out with walls of meat to grapple Bonogo and Karsemine. Karsemine is crushed high on the wall, and the creature is described as being close to reaching and breaking through the ceiling.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:30-30",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:30-30",
+          "anchor_quotes": [
+            "the walls of meat reach out and grapple them",
+            "close to reaching the ceiling and breaking through"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Desperate healing and final blows collapse the meat creature",
+      "summary": "Caelynn fires Magic Missile to save Bonogo, he rescues Karsemine with a potion, and the group lands enough hits to leave the centipede-like creature near defeat. The Meat Mound then knocks Caelynn unconscious, Baergrom revives her with a potion, and Ephanna finishes the creature with Eldritch Blast, splitting it in two.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:32-32",
+          "anchor_quotes": [
+            "casts Magic Missile",
+            "healing her with a potion",
+            "The centipede-like creature looks to be finally on its last leg"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:34-34",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:34-34",
+          "anchor_quotes": [
+            "knocking her unconscious",
+            "revive her with a potion",
+            "severing it in two!"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Battle ends, cultist crowd emerges, and the festival resumes with new uncertainty",
+      "summary": "The creature\u2019s destruction ends the final battle: the storm fades, the meat stench disappears, remaining meat creatures die, and the Cultists lose their glazed state. A crowd of Cultists gathers above the hole, Lesandra orders silence, and the party transitions from despair to celebration before wondering what comes next.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:36-36",
+          "anchor_quotes": [
+            "The storm starts to fade",
+            "Thus ending the final battle!"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "A huge crowd begins to form around the hole",
+            "Lesandra orders everyone to keep quiet about the events of the night so the festival can continue as planned"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:40-40",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:40-40",
+          "anchor_quotes": [
+            "The feeling in the air quickly changes from despair to celebration"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "anchor_quotes": [
+            "Where will the party head next? Will they continue to hunt down the Shepherd?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "candidate:bubbles",
+      "label": "Bubbles",
+      "reason": "Deterministic party-adjacent mention already provided in the prompt; not re-extracted as a session-novel node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:16-16",
+          "anchor_quotes": [
+            "Bubbles"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "candidate:lesandra",
+      "label": "Lesandra",
+      "reason": "Known entity mention; enrich only via evidence, do not create a new node.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:38-38",
+          "anchor_quotes": [
+            "Lesandra"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "candidate:shepherd",
+      "label": "Shepherd",
+      "reason": "Mentioned as a future thread, but no substantive new detail beyond being a possible next objective.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "label": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3:span:0f4fb9ba1ef3:42-42",
+          "anchor_quotes": [
+            "Will they continue to hunt down the Shepherd?"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Revisit in a later recap or session for concrete actions, location, or motivations."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

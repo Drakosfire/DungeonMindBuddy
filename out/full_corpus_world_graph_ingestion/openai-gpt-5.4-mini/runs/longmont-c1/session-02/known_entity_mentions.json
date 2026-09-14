@@ -1,0 +1,82 @@
+{
+  "schema": "dmb_known_entity_mention_sidecar_v0",
+  "version": "0.1",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-2",
+  "registry_relpath": "Longmont Campaign/Campaign 1/_party_registry.json",
+  "roster_session_key": "1",
+  "roster_carry_forward": true,
+  "mentions": [
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+      "start_offset": 136,
+      "end_offset": 146,
+      "surface_text": "Glowkindle",
+      "canonical_entity_id": "candidate:glowkindle",
+      "entity_slug": "candidate:glowkindle",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Glowkindle",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+      "start_offset": 14,
+      "end_offset": 24,
+      "surface_text": "Glowkindle",
+      "canonical_entity_id": "candidate:glowkindle",
+      "entity_slug": "candidate:glowkindle",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Glowkindle",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+      "start_offset": 62,
+      "end_offset": 74,
+      "surface_text": "Stone Bridge",
+      "canonical_entity_id": "candidate:stone-bridge",
+      "entity_slug": "candidate:stone-bridge",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "Stone Bridge",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+      "start_offset": 88,
+      "end_offset": 95,
+      "surface_text": "Grishna",
+      "canonical_entity_id": "candidate:grishna",
+      "entity_slug": "candidate:grishna",
+      "entity_kind": "npc",
+      "match_method": "canonical",
+      "display_name": "Grishna",
+      "registry_version": "0.1"
+    },
+    {
+      "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+      "start_offset": 99,
+      "end_offset": 119,
+      "surface_text": "the River's Edge Pub",
+      "canonical_entity_id": "candidate:river-s-edge-pub",
+      "entity_slug": "candidate:river-s-edge-pub",
+      "entity_kind": "location",
+      "match_method": "canonical",
+      "display_name": "The River's Edge Pub",
+      "registry_version": "0.1"
+    }
+  ],
+  "ambiguous_surfaces": [],
+  "diagnostics": {
+    "spans_scanned": 7,
+    "mention_count": 5,
+    "entity_count": 34,
+    "ambiguous_term_count": 6,
+    "registry_warnings": [
+      "roster_carry_forward: session_pc_rosters['2'] using '1'",
+      "roster_carry_forward: session '2' using roster from '1'"
+    ]
+  }
+}

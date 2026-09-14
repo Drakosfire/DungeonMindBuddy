@@ -1,0 +1,2183 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-9:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-9",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-9:49ef13907bd8"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:miss-thistlebottom",
+      "label": "Miss Thistlebottom",
+      "node_type": "character",
+      "description": "Runs the costume contest at the emporium and approves participants; upset by Bonogo's question about the prize.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "Miss Thistlebottom on a raised platform",
+            "she reveals the prize is a custom cloak",
+            "she is approved to enter the contest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:blizzy",
+      "label": "Blizzy",
+      "node_type": "character",
+      "description": "A goblin alchemist at the Sputtering Flask who is experimenting with a potion made from tainted meat.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "a goblin, Blizzy, is running from pot to pot tasting each one before adding more ingredients",
+            "ask for Blizzy"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "Blizzy finally notices them and asks if they need any help",
+            "working on a potion using the tainted meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:fizzlewart",
+      "label": "Fizzlewart",
+      "node_type": "character",
+      "description": "A goblin helper at the Sputtering Flask who warns others not to interrupt Blizzy and handles billing to the Academy.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "Another goblin, Fizzlewart, tells them not to interrupt Blizzy",
+            "asks how he can help them"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "then has Fizzlewart bill it all to the Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:high-priest",
+      "label": "High Priest",
+      "node_type": "character",
+      "description": "Presides over the Cultural Ceremony at the Temple of Aspitome and performs the central illusion rite.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "the High Priest",
+            "after a banging of his staff, the High Priest conjures a complex illusion"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:blizzy-fizzlewart-goblin",
+      "label": "Blizzy and Fizzlewart",
+      "node_type": "character",
+      "description": "Goblin shop staff encountered at the Sputtering Flask.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "Inside a goblin, Blizzy",
+            "Another goblin, Fizzlewart"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:tiefling-feather-costume",
+      "label": "Tiefling with feather costume",
+      "node_type": "character",
+      "description": "A returning contest entrant who won last year's competition and encourages sabotage and mistrust.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "anchor_quotes": [
+            "In front of them is a Tiefling with an elaborate feather costume",
+            "they won last year\u2019s competition",
+            "They suggest not trusting anyone and make sure to sabotage anyone they can"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:small-gnome-glitter",
+      "label": "small gnome covered in glitter",
+      "node_type": "character",
+      "description": "A gnome contestant waiting in line behind the party who warns them not to trust the Tiefling.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "anchor_quotes": [
+            "Behind them is a small gnome covered in glitter",
+            "They tell them not to trust the Tiefling"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:miss-thistlebottom-emporium",
+      "label": "Miss Thistlebottom\u2019s Emporium",
+      "node_type": "location",
+      "description": "Venue where the costume contest sign-up and entry line take place.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "anchor_quotes": [
+            "Miss Thistlebottom\u2019s Emporium"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:medical-wing",
+      "label": "Medical Wing",
+      "node_type": "location",
+      "description": "Sublocation inside Stormspire Academy where Torbin is waiting and the sorcerer can be found near him.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "Medical Wing near Torbin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:goblin-part-of-town",
+      "label": "goblin part of town",
+      "node_type": "location",
+      "description": "District of town where the goblin-alchemy shop is located and where the characters are conspicuous while crossing through it.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "the goblin part of town"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "the goblin part of town",
+            "They get quite a few looks as they cross the goblin part of town"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:sputtering-flask",
+      "label": "Sputtering Flask",
+      "node_type": "location",
+      "description": "Alchemy shop in the goblin part of town, identified as the perfect store for potions.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "Sputtering Flask"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "the perfect store - Sputtering Flask",
+            "ask for Blizzy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:bar",
+      "label": "bar",
+      "node_type": "location",
+      "description": "Place where Stafl asks around for the best alchemy shop before heading to the goblin part of town.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "the bar"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:temple-of-aspitome",
+      "label": "Temple of Aspitome",
+      "node_type": "location",
+      "description": "Temple hosting the Cultural Ceremony and ceremonial illusion display about the country's history and the Dawn of the Empire.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "the Temple of Aspitome"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "heads to the Cultural Ceremony at the Temple of Aspitome",
+            "The long history of the country and city are depicted here"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "The High Priest",
+            "other mages begin to conjure as well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:country-and-city",
+      "label": "country and city",
+      "node_type": "location",
+      "description": "Named travel zone referenced in the temple's historical depiction.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "the long history of the country and city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:outer-ring",
+      "label": "outside ring",
+      "node_type": "location",
+      "description": "Ring around the temple where other mages conjure during the ceremony.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "Along the outside ring"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:dawn-of-the-empire",
+      "label": "Dawn of the Empire",
+      "node_type": "location",
+      "description": "Historical era or named travel zone referenced as the point when only one remaining place was left and shadows were filled with monsters.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "This was the Dawn of the Empire"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:miss-thistlebottom-emporium-contest-staff",
+      "label": "Miss Thistlebottom\u2019s Emporium costume contest staff",
+      "node_type": "organization",
+      "description": "The staff running the costume contest at Miss Thistlebottom\u2019s Emporium, including the assistant and Miss Thistlebottom herself.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "anchor_quotes": [
+            "Miss Thistlebottom\u2019s Emporium",
+            "sign up for the costume contest"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "an assistant",
+            "Miss Thistlebottom on a raised platform",
+            "the prize is a custom cloak"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:stormspire-academy-medical-wing",
+      "label": "Stormspire Academy Medical Wing",
+      "node_type": "organization",
+      "description": "The medical wing at Stormspire Academy where Torbin is being kept for recovery and schooling preparations.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "Stormspire Academy",
+            "Medical Wing near Torbin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "medical wing",
+            "waiting to be released to begin his schooling"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:academy-funding-billing",
+      "label": "the Academy",
+      "node_type": "faction",
+      "description": "The institutional entity that is billed for the potions purchase.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "has Fizzlewart bill it all to the Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_1",
+      "label": "custom cloak",
+      "node_type": "item",
+      "description": "A custom cloak offered as the prize for winning the costume contest at Miss Thistlebottom\u2019s Emporium.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "the prize is a custom cloak"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_2",
+      "label": "bag as a hat",
+      "node_type": "item",
+      "description": "Bonogo quickly turns his bag into a hat as part of his costume when asked what he is wearing.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "he quickly dons his bag as a hat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_3",
+      "label": "defensive magic spell book",
+      "node_type": "item",
+      "description": "A requested study item Torbin asks for while recovering in the medical wing.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "defensive magic spell book"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_4",
+      "label": "toys",
+      "node_type": "item",
+      "description": "One of the things Torbin asks for while he is cooped up in the medical wing.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "toys"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_5",
+      "label": "candy",
+      "node_type": "item",
+      "description": "Another item Torbin requests while waiting to be released from the medical wing.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "candy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_7",
+      "label": "Blizzy potion",
+      "node_type": "item",
+      "description": "A potion Blizzy is working on using tainted meat, later sampled by Baergrom.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "working on a potion using the tainted meat",
+            "her \u201cBlizzy\u201d potion"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_9",
+      "label": "ladle",
+      "node_type": "item",
+      "description": "A ladle Blizzy hands to Baergrom so he can try the potion.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "She hands a ladle to Baergrom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_10",
+      "label": "magical lanterns",
+      "node_type": "item",
+      "description": "Lanterns spread throughout the Temple of Aspitome during the Cultural Ceremony.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "magical lanterns"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_11",
+      "label": "candle",
+      "node_type": "item",
+      "description": "A candle given to each participant at the Cultural Ceremony.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "Everyone is giving a candle"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_12",
+      "label": "staff",
+      "node_type": "item",
+      "description": "The staff used by the High Priest to bang and begin the illusion at the ceremony.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "a banging of his staff"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_13",
+      "label": "crystal",
+      "node_type": "item",
+      "description": "A ceremonial crystal that responds to participants' magic with different flashes and visions.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "anchor_quotes": [
+            "everyone can come forward to the crystal",
+            "touch the crystal"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_14",
+      "label": "silver raven",
+      "node_type": "item",
+      "description": "A silver raven that appears in Baergrom's vision and leads him down a path.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "anchor_quotes": [
+            "a silver raven takes flight"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj_15",
+      "label": "old well",
+      "node_type": "item",
+      "description": "A well in Baergrom's vision from which the silver raven takes flight.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "anchor_quotes": [
+            "from the old well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_1",
+      "label": "Miss Thistlebottom\u2019s costume contest prize is a custom cloak",
+      "node_type": "mystery",
+      "description": "The contest prize is revealed to be a custom cloak, which changes Bonogo\u2019s interest in participating and leaves the group surprised.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "the prize is a custom cloak",
+            "leaving everyone in shocked disbelief"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_2",
+      "label": "Blizzy is experimenting with a potion made from tainted meat",
+      "node_type": "mystery",
+      "description": "At the goblin alchemy shop, Blizzy says she is working on a potion using tainted meat to learn what it does, suggesting an unresolved or risky experiment.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "working on a potion using the tainted meat - wanting to figure out what it does"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_3",
+      "label": "Baergrom\u2019s sample potion has immediate adverse and then altered effects",
+      "node_type": "mystery",
+      "description": "Baergrom becomes sick from Blizzy\u2019s potion, then after inspiration feels energetic and very thirsty, leaving the potion\u2019s full effects uncertain.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "begins to feel sick from the potion",
+            "Now he feels very energetic, but very thirsty"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_4",
+      "label": "The Cultural Ceremony centers on a historical illusion about the Dawn of the Empire",
+      "node_type": "mystery",
+      "description": "The ceremony presents a complex conjured history sequence ending with a lone remaining place outside the light filled with monsters, identified as the Dawn of the Empire.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "a complex illusion",
+            "This was the Dawn of the Empire"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_5",
+      "label": "The crystal reveals individualized magical visions with unsettling implications",
+      "node_type": "mystery",
+      "description": "Each participant\u2019s contact with the crystal produces a distinct color and vision, including discomfort, a faceless father, lost villagers, and a raven leading a path, implying the crystal is responding to personal histories or destinies.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "anchor_quotes": [
+            "the crystal flashes orange",
+            "the crystal flashes purple",
+            "feeling of discomfort",
+            "a faceless form of her father",
+            "the people and dwarves that were lost from his village",
+            "a silver raven takes flight from the old well and leads him down a path"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_6",
+      "label": "Bonogo\u2019s magic does not appear at first, then manifests as a memory-vision sequence",
+      "node_type": "mystery",
+      "description": "Bonogo initially seems unable to trigger the crystal because of a lack of magic, but then experiences a drumbeat, lost-village visions, and guidance from a silver raven.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "anchor_quotes": [
+            "At first nothing happens, possibly because of his lack of magic, but then he begins to feel a strong drumbeat",
+            "He sees a vision of the people and dwarves that were lost from his village",
+            "a silver raven takes flight from the old well and leads him down a path"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_7",
+      "label": "The people at the ceremony believe the crystal expands the known world",
+      "node_type": "mystery",
+      "description": "The ritual is framed as an annual communal act in which participants share magic with a crystal to expand the known world, but the mechanism and consequence remain unexplained.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "anchor_quotes": [
+            "everyone can come forward to the crystal and share their magic to help expand the known world"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery_8",
+      "label": "The sorcerer Caelynn rescued is hidden in the Medical Wing near Torbin",
+      "node_type": "mystery",
+      "description": "Caelynn is directed to find the rescued sorcerer in the Medical Wing near Torbin, but the sorcerer\u2019s identity and condition are not elaborated.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "looking for the sorcerer that she saved in the battle against the giant monster",
+            "find them in the Medical Wing near Torbin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge_1",
+      "from_node_id": "npc:miss-thistlebottom",
+      "to_node_id": "loc:miss-thistlebottom-emporium",
+      "label": "runs contest at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "anchor_quotes": [
+            "Miss Thistlebottom\u2019s Emporium"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_2",
+      "from_node_id": "faction:miss-thistlebottom-emporium-contest-staff",
+      "to_node_id": "loc:miss-thistlebottom-emporium",
+      "label": "operates at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "anchor_quotes": [
+            "Miss Thistlebottom\u2019s Emporium",
+            "sign up for the costume contest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_3",
+      "from_node_id": "npc:tiefling-feather-costume",
+      "to_node_id": "loc:miss-thistlebottom-emporium",
+      "label": "present at contest line",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "anchor_quotes": [
+            "In front of them is a Tiefling with an elaborate feather costume"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_4",
+      "from_node_id": "npc:small-gnome-glitter",
+      "to_node_id": "loc:miss-thistlebottom-emporium",
+      "label": "present at contest line",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "anchor_quotes": [
+            "Behind them is a small gnome covered in glitter"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_5",
+      "from_node_id": "npc:miss-thistlebottom",
+      "to_node_id": "obj_1",
+      "label": "offers prize",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "she reveals the prize is a custom cloak"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_17",
+      "from_node_id": "loc:sputtering-flask",
+      "to_node_id": "loc:goblin-part-of-town",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "the goblin part of town",
+            "Sputtering Flask"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_18",
+      "from_node_id": "npc:blizzy",
+      "to_node_id": "loc:sputtering-flask",
+      "label": "present at",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "Inside a goblin, Blizzy, is running from pot to pot"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_19",
+      "from_node_id": "npc:fizzlewart",
+      "to_node_id": "loc:sputtering-flask",
+      "label": "present at",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "Another goblin, Fizzlewart"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_20",
+      "from_node_id": "npc:fizzlewart",
+      "to_node_id": "faction:academy-funding-billing",
+      "label": "bills to",
+      "relationship_type": "carries_report_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "has Fizzlewart bill it all to the Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_21",
+      "from_node_id": "npc:blizzy",
+      "to_node_id": "obj_7",
+      "label": "works on potion",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "working on a potion using the tainted meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_24",
+      "from_node_id": "npc:high-priest",
+      "to_node_id": "loc:temple-of-aspitome",
+      "label": "presides at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "heads to the Cultural Ceremony at the Temple of Aspitome",
+            "the High Priest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_25",
+      "from_node_id": "loc:outer-ring",
+      "to_node_id": "loc:temple-of-aspitome",
+      "label": "part of temple",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "Along the outside ring"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_26",
+      "from_node_id": "obj_10",
+      "to_node_id": "loc:temple-of-aspitome",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "magical lanterns spread throughout the large magical space"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_28",
+      "from_node_id": "npc:high-priest",
+      "to_node_id": "obj_12",
+      "label": "uses staff",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "a banging of his staff"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_31",
+      "from_node_id": "obj_13",
+      "to_node_id": "mystery_7",
+      "label": "used to expand known world",
+      "relationship_type": "objective_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "anchor_quotes": [
+            "share their magic to help expand the known world"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_32",
+      "from_node_id": "obj_14",
+      "to_node_id": "obj_15",
+      "label": "flies from",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "anchor_quotes": [
+            "a silver raven takes flight from the old well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Costume contest signup and suspicious pregame chatter",
+      "summary": "Karsemine, Ephanna, and Bonogo go to sign up for the costume contest, wait in line, and hear warnings from the Tiefling in front and the glitter-covered gnome behind them. Bonogo and Karsemine also keep their costumes secret.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:14-14",
+          "anchor_quotes": [
+            "head to Miss Thistlebottom\u2019s Emporium to sign up for the costume contest",
+            "Wait in a long line to enter one at a time",
+            "everyone has heard of them - they won last year\u2019s competition",
+            "make sure to sabotage anyone they can",
+            "not to trust the Tiefling",
+            "their costume is a secret"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Contest check-in, prize rejection, and Academy errands",
+      "summary": "At the contest entrance, Miss Thistlebottom approves Karsemine\u2019s costume but Bonogo leaves after learning the prize is a custom cloak rather than money or gold. The scene then shifts to Stormspire Academy, where Caelynn is looking for the sorcerer she saved, Winna directs her to the Medical Wing near Torbin, and Caelynn leaves mushrooms for Professor Tealeaf.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:16-16",
+          "anchor_quotes": [
+            "open the velvet curtains",
+            "Miss Thistlebottom on a raised platform",
+            "the prize is a custom cloak",
+            "Because it is not money or gold Bonogo leaves without another word",
+            "Essence of Human",
+            "She is approved to enter the contest",
+            "headed there to check on Dustwalker and Torbin",
+            "headed to the Stormspire Academy",
+            "Winna is able to direct her to find them in the Medical Wing near Torbin",
+            "leaves some mushrooms with Professor Tealeaf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Medical wing check-in and goblin-market potion shopping",
+      "summary": "Karsemine and Ephanna check on Torbin, who is eager for supplies and unhappy about being stuck in the medical wing. Meanwhile, Stafl and Baergrom seek out potion ingredients in the goblin district, are directed to Sputtering Flask, and encounter Blizzy and Fizzlewart inside.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:18-18",
+          "anchor_quotes": [
+            "go up and check on Torbin",
+            "defensive magic spell book, toys, and of course, candy",
+            "not happy about being cooped up all day inside the medical wing",
+            "stocking up potions",
+            "directed to the goblin part of town",
+            "meet Grobnok who further directs them to the perfect store",
+            "Sputtering Flask",
+            "ask for Blizzy",
+            "Another goblin, Fizzlewart, tells them not to interrupt Blizzy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Potion experimentation and the Temple of Aspitome ceremony",
+      "summary": "Stafl orders a broad set of battle-useful potions, Baergrom samples an experimental Blizzy potion involving tainted meat, and the purchase is billed to the Academy. The group then attends the Cultural Ceremony at the Temple of Aspitome, where the High Priest and other mages create shadow-history illusions culminating in the Dawn of the Empire.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:20-20",
+          "anchor_quotes": [
+            "a long list of potions",
+            "a potion for Baergrom",
+            "working on a potion using the tainted meat",
+            "She hands a ladle to Baergrom to try some of her \u201cBlizzy\u201d potion",
+            "very energetic, but very thirsty",
+            "Fizzlewart bill it all to the Academy",
+            "The entire group meets back up again and heads to the Cultural Ceremony at the Temple of Aspitome",
+            "The long history of the country and city are depicted here",
+            "the High Priest",
+            "they create elaborate shadow figures",
+            "This was the Dawn of the Empire"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Crystal visions shared at the annual ceremony",
+      "summary": "At the yearly crystal event, each participant touches the crystal and receives a distinct magical vision or sensation. Stafl, Ephanna, Karsemine, Caelynn, and Baergrom all experience different flashes and impressions, while Bonogo does not participate.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "label": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-9:49ef13907bd8:span:49ef13907bd8:22-22",
+          "anchor_quotes": [
+            "everyone can come forward to the crystal and share their magic",
+            "The crystal flashes orange",
+            "the crystal flashes purple",
+            "the crystal flash silver-blue",
+            "a gray-purple flash of light",
+            "a faceless form of her father",
+            "Bonogo does not participate",
+            "he begins to feel a strong drumbeat",
+            "a silver raven takes flight from the old well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [
+    {
+      "item_id": "deferred_1",
+      "label": "Tiefling with feather costume and gnome covered in glitter",
+      "reason": "These are briefly described as contest-line characters, but the recap does not provide names or further consequences beyond advice about trust and sabotage.",
+      "evidence_refs": [],
+      "warnings": [],
+      "suggested_next_step": "Look for later recap lines or session notes that identify these contestants or show whether their rivalry matters."
+    },
+    {
+      "item_id": "deferred_2",
+      "label": "Winna\u2019s all-night watch over Dustwalker",
+      "reason": "The watch is noteworthy, but the recap says nothing eventful happened, so there is no concrete unresolved development to extract beyond a minor status update.",
+      "evidence_refs": [],
+      "warnings": [],
+      "suggested_next_step": "Defer until a later session introduces an actual incident involving Dustwalker or Winna's vigilance."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

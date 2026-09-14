@@ -1,0 +1,2575 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-7:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-7",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-7:cca895ea6c64"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:elara-greenleaf",
+      "label": "Elara Greenleaf",
+      "node_type": "character",
+      "description": "Elf druid who greets Caelynn and Baergrom at the herbal shop and provides information about glowing mushrooms.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "Elara Greenleaf, an Elf Druid, greets the new visitors",
+            "She then yells to the back and Talia, a half-elf, comes out to help as well",
+            "They soon discover that the mushrooms are very rare and extremely dangerous"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:talia",
+      "label": "Talia",
+      "node_type": "character",
+      "description": "Half-elf who comes out from the herbal shop to help Elara Greenleaf.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "Talia, a half-elf, comes out to help as well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:lyra",
+      "label": "Lyra",
+      "node_type": "character",
+      "description": "Leader of the crowd that protests the toll and departs with her followers to their base.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "Lyra, the leader of the crowd",
+            "her followers leave to go back to their base"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:berin-ironfoot",
+      "label": "Berin Ironfoot",
+      "node_type": "character",
+      "description": "Owner of the inn; a well-connected dwarf who negotiates lodging for the party and asks them to investigate the rebel group.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "anchor_quotes": [
+            "including the owner of the Inn, Berin Ironfoot",
+            "This dwarf clearly rubs elbows with the wealthy and could be just who our adventures need to speak with"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "Berin meets with Caelynn and Karsemine to tell them about the rebel group",
+            "His favor is to find out more about the rebel group and to stand out by the gates to dissuade any further trouble"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_mirathorn_gates",
+      "label": "Mirathorn Gates",
+      "node_type": "location",
+      "description": "City gates where the party arrives, pay tolls, and pass through into the city.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "anchor_quotes": [
+            "between guards",
+            "the gates",
+            "toll to enter the gates"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "anchor_quotes": [
+            "approach the Captain",
+            "enter the city gates",
+            "paying the toll"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "anchor_quotes": [
+            "Upon entering the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_mirathorn_city",
+      "label": "Mirathorn City",
+      "node_type": "location",
+      "description": "The city entered through the gates, with vendors, districts, an inn, and an herbal shop.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "anchor_quotes": [
+            "enter the city gates"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "anchor_quotes": [
+            "As we enter the gate",
+            "streets lined with vendors",
+            "other districts"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "the gates",
+            "in the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_shepherds_flock_base",
+      "label": "The Shepherds Flock base",
+      "node_type": "location",
+      "description": "Base of the crowd leader Lyra and her followers, where they return after the protest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "her followers leave to go back to their base",
+            "The Shepherds Flock"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_swamp_north",
+      "label": "the Swamp to the north",
+      "node_type": "location",
+      "description": "Northern swamp associated with The Shepherd and rumors about the rebel group.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "back in the Swamp to the north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_herbal_shop",
+      "label": "herbal shop",
+      "node_type": "location",
+      "description": "Shop in the city where Caelynn and Baergrom meet Elara Greenleaf and Talia and ask about glowing mushrooms.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "enter the herbal shop",
+            "the overwhelming scent of herbs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_stormspire_academy",
+      "label": "Stormspire Academy",
+      "node_type": "location",
+      "description": "Academy where the Head Alchemist can assess the glowing mushrooms for potion-making.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "Head Alchemist at Stormspire Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_city_vendors_street",
+      "label": "street of vendors",
+      "node_type": "location",
+      "description": "Vendor-lined street in the city where Stafl performs and Berin Ironfoot appears.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "anchor_quotes": [
+            "Back on the street of vendors",
+            "a large crowd gathers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_copper_and_quartz_inn",
+      "label": "Copper and Quartz Inn",
+      "node_type": "location",
+      "description": "Inn on the city street, noted as having no vacancy and later associated with Berin Ironfoot.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "anchor_quotes": [
+            "the Copper and Quartz Inn, no vacancy"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "anchor_quotes": [
+            "owner of the Inn, Berin Ironfoot"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_guard_cell",
+      "label": "cell",
+      "node_type": "location",
+      "description": "Dim prison cell where Ephanna is captured and later fights rebels and guards.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "anchor_quotes": [
+            "captured, in a cell",
+            "bound and gagged"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "anchor_quotes": [
+            "loosen the bonds",
+            "one rebel in a cell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:the-shepherds-flock",
+      "label": "The Shepherds Flock",
+      "node_type": "faction",
+      "description": "A group of followers encountered after the toll protest; they have a symbol, a base, and a leader called The Shepherd in the swamp to the north.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "the group is called The Shepherds Flock",
+            "Each is wearing a symbol of their group",
+            "their leader, The Shepherd, back in the Swamp to the north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:city-rebel-group",
+      "label": "City Rebel Group",
+      "node_type": "faction",
+      "description": "A human rebel group that stirred up trouble at the gates and distributed a suspicious flier; they feel unrepresented in the city and want to cause trouble.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "the rebel group that has been stirring up trouble",
+            "They are a group of humans that no longer feel represented in the city",
+            "the flier they passed out looks suspicious and not spontaneous for the protest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:the-empire",
+      "label": "Empire",
+      "node_type": "faction",
+      "description": "A political faction represented by black and gold ribbons during the gate celebration.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "anchor_quotes": [
+            "Black and Gold representing the Empire"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:the-city",
+      "label": "City",
+      "node_type": "faction",
+      "description": "A political faction represented by burgundy and teal ribbons during the gate celebration.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "anchor_quotes": [
+            "Burgundy and Teal representing the City"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_1",
+      "label": "magical ribbon",
+      "node_type": "item",
+      "description": "A celebratory magical ribbon chosen at the city gate, with faction-themed color options representing the Empire or the City.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "anchor_quotes": [
+            "a magical ribbon for the celebration",
+            "Black and Gold representing the Empire or Burgundy and Teal representing the City"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_2",
+      "label": "toy airship",
+      "node_type": "item",
+      "description": "A carnival-game prize that Bonogo wins after repeated attempts.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:36-36",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:36-36",
+          "anchor_quotes": [
+            "a chance to win a toy airship",
+            "wins his new prized possession"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_4",
+      "label": "mushroom card",
+      "node_type": "item",
+      "description": "A card with mushroom details hidden under a scratch-off area, given during the herbal-shop exchange.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "A very cool mushroom card is given with details hidden under a scratch off area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_5",
+      "label": "herbs",
+      "node_type": "item",
+      "description": "The herbal shop is described as being filled with herbs, emphasizing the setting's material stock.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "a shop full of herbs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_6",
+      "label": "torch",
+      "node_type": "item",
+      "description": "A flickering torch illuminating Ephanna's cell.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "anchor_quotes": [
+            "by the flickering of a torch"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_7",
+      "label": "fey familiar",
+      "node_type": "item",
+      "description": "A familiar used by Ephanna to loosen his bonds during the cell escape.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "anchor_quotes": [
+            "Ephanna uses the fey familiar to loosen the bonds"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_8",
+      "label": "weapons and gear",
+      "node_type": "item",
+      "description": "Equipment taken from Ephanna before the fight in the cell.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "anchor_quotes": [
+            "With weapons and gear taken"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-riot-at-gates",
+      "label": "Riot over toll at Mirathorn gates",
+      "node_type": "mystery",
+      "description": "A large crowd at the city gates was attempting to start a riot over the toll to enter, creating a public disturbance that the party had to manage.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "anchor_quotes": [
+            "between guards and a large crowd attempting to start a riot over the toll to enter the gates"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-shepherds-flock",
+      "label": "The Shepherds Flock and the Shepherd",
+      "node_type": "mystery",
+      "description": "Ephanna learned the protesting group is called The Shepherds Flock, that members wear a group symbol, and that their leader is called the Shepherd and is said to be back in the swamp to the north.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "the group is called The Shepherds Flock",
+            "there is talk of their leader, The Shepherd, back in the Swamp to the north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-rebel-group-motivation",
+      "label": "Rebel group of humans feels unrepresented",
+      "node_type": "mystery",
+      "description": "Berin describes the troublemakers as a rebel group of humans who no longer feel represented in the city and want to cause as much trouble as possible.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "a group of humans that no longer feel represented in the city and want to cause as much trouble as possible"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-suspicious-flier",
+      "label": "Suspicious flier tied to the protest",
+      "node_type": "mystery",
+      "description": "Berin believes the flier handed out during the protest was suspicious and did not appear to be spontaneous, implying organized agitation behind the unrest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "the flier they passed out looks suspicious and not spontaneous for the protest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-rumors-of-the-shepherd",
+      "label": "Rumors of the Shepherd in the city",
+      "node_type": "mystery",
+      "description": "Berin has heard rumors of the Shepherd, but does not know more, leaving the identity and role of that figure unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "He has also heard rumors of the Shepherd, but doesn't know much more than that"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-glowing-mushrooms-danger",
+      "label": "Glowing mushrooms are rare and extremely dangerous",
+      "node_type": "mystery",
+      "description": "Caelynn\u2019s inquiry revealed that the glowing mushrooms are very rare and extremely dangerous, making them a hazardous resource rather than a simple ingredient.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "the mushrooms are very rare and extremely dangerous"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-head-alchemist-stormspire",
+      "label": "Head Alchemist at Stormspire Academy needed for mushroom potion",
+      "node_type": "mystery",
+      "description": "Caelynn was told she will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion, establishing a follow-up route for the mushroom thread.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "Caelynn will need to take the mushrooms to the Head Alchemist at Stormspire Academy to see about making them into a potion"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-ephanna-captured-by-rebels",
+      "label": "Ephanna captured and held by rebels",
+      "node_type": "mystery",
+      "description": "Ephanna was found captured in a cell, bound and gagged, with rebels present and Torbin being forced to eat meat nearby.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "anchor_quotes": [
+            "we find him captured, in a cell, bound and gagged",
+            "someone standing over Torbin forcing him to eat some meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-berin-favor",
+      "label": "Berin's favor: investigate rebels and deter gate trouble",
+      "node_type": "mystery",
+      "description": "Berin asked the party to find out more about the rebel group and to stand out by the gates to dissuade further trouble, creating an active obligation and a continuing civic-security thread.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "His favor is to find out more about the rebel group and to stand out by the gates to dissuade any further trouble"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session7-berin-wealthy-connections",
+      "label": "Berin Ironfoot has wealthy connections",
+      "node_type": "mystery",
+      "description": "Stafl\u2019s performance attracted Berin Ironfoot, who is described as someone who 'rubs elbows with the wealthy,' implying useful social access and possible influence in the city.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "anchor_quotes": [
+            "This dwarf clearly rubs elbows with the wealthy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-001",
+      "from_node_id": "loc_mirathorn_gates",
+      "to_node_id": "loc_mirathorn_city",
+      "label": "gates are the entry to the city",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "anchor_quotes": [
+            "enter the city gates"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "anchor_quotes": [
+            "Upon entering the gate"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-002",
+      "from_node_id": "loc_city_vendors_street",
+      "to_node_id": "loc_mirathorn_city",
+      "label": "vendor street is in the city",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "anchor_quotes": [
+            "streets lined with vendors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-003",
+      "from_node_id": "loc_copper_and_quartz_inn",
+      "to_node_id": "loc_mirathorn_city",
+      "label": "inn is in the city",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "anchor_quotes": [
+            "Down the street is the Copper and Quartz Inn, no vacancy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-004",
+      "from_node_id": "loc_herbal_shop",
+      "to_node_id": "loc_mirathorn_city",
+      "label": "herbal shop is in the city",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "enter the herbal shop"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-005",
+      "from_node_id": "loc_guard_cell",
+      "to_node_id": "loc_mirathorn_city",
+      "label": "cell is in the city",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "anchor_quotes": [
+            "captured, in a cell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-006",
+      "from_node_id": "loc_shepherds_flock_base",
+      "to_node_id": "faction:the-shepherds-flock",
+      "label": "base belongs to the group",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "The Shepherds Flock",
+            "her followers leave to go back to their base"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-007",
+      "from_node_id": "npc:lyra",
+      "to_node_id": "faction:the-shepherds-flock",
+      "label": "Lyra leads the group",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "Lyra, the leader of the crowd",
+            "the group is called The Shepherds Flock"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-008",
+      "from_node_id": "npc:lyra",
+      "to_node_id": "loc_shepherds_flock_base",
+      "label": "Lyra and followers return to base",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "her followers leave to go back to their base"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-009",
+      "from_node_id": "faction:the-shepherds-flock",
+      "to_node_id": "loc_swamp_north",
+      "label": "leader is said to be back in swamp to the north",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "back in the Swamp to the north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-010",
+      "from_node_id": "faction:the-shepherds-flock",
+      "to_node_id": "mystery:session7-shepherds-flock",
+      "label": "faction identified in mystery",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "the group is called The Shepherds Flock"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-011",
+      "from_node_id": "faction:the-empire",
+      "to_node_id": "item_1",
+      "label": "Empire represented by ribbon option",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "anchor_quotes": [
+            "Black and Gold representing the Empire"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-012",
+      "from_node_id": "faction:the-city",
+      "to_node_id": "item_1",
+      "label": "City represented by ribbon option",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "anchor_quotes": [
+            "Burgundy and Teal representing the City"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-013",
+      "from_node_id": "item_5",
+      "to_node_id": "loc_herbal_shop",
+      "label": "herbs in the herbal shop",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "a shop full of herbs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-014",
+      "from_node_id": "npc:elara-greenleaf",
+      "to_node_id": "loc_herbal_shop",
+      "label": "Elara at the herbal shop",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "Elara Greenleaf, an Elf Druid, greets the new visitors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-015",
+      "from_node_id": "npc:talia",
+      "to_node_id": "loc_herbal_shop",
+      "label": "Talia at the herbal shop",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "Talia, a half-elf, comes out to help as well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-016",
+      "from_node_id": "npc:elara-greenleaf",
+      "to_node_id": "item_4",
+      "label": "Elara provides mushroom card information",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "A very cool mushroom card is given with details hidden under a scratch off area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-018",
+      "from_node_id": "mystery:session7-head-alchemist-stormspire",
+      "to_node_id": "loc_stormspire_academy",
+      "label": "Head Alchemist clue tied to academy",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "Head Alchemist at Stormspire Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-019",
+      "from_node_id": "mystery:session7-ephanna-captured-by-rebels",
+      "to_node_id": "loc_guard_cell",
+      "label": "Ephanna captured in cell",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "anchor_quotes": [
+            "captured, in a cell, bound and gagged"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-020",
+      "from_node_id": "mystery:session7-ephanna-captured-by-rebels",
+      "to_node_id": "faction:city-rebel-group",
+      "label": "capture attributed to rebels",
+      "relationship_type": "caused_by",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "anchor_quotes": [
+            "someone standing over Torbin forcing him to eat some meat"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "anchor_quotes": [
+            "Until 3 more rebels come down the stairs."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-022",
+      "from_node_id": "npc:berin-ironfoot",
+      "to_node_id": "loc_copper_and_quartz_inn",
+      "label": "Berin owns the inn",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "anchor_quotes": [
+            "including the owner of the Inn, Berin Ironfoot"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-023",
+      "from_node_id": "npc:berin-ironfoot",
+      "to_node_id": "mystery:session7-berin-favor",
+      "label": "Berin gives favor task",
+      "relationship_type": "objective_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "His favor is to find out more about the rebel group and to stand out by the gates to dissuade any further trouble"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-024",
+      "from_node_id": "mystery:session7-berin-favor",
+      "to_node_id": "faction:city-rebel-group",
+      "label": "favor concerns rebel group",
+      "relationship_type": "mission_targets",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "find out more about the rebel group"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-025",
+      "from_node_id": "mystery:session7-berin-favor",
+      "to_node_id": "loc_mirathorn_gates",
+      "label": "favor focuses on the gates",
+      "relationship_type": "mission_focus",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "stand out by the gates to dissuade any further trouble"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-026",
+      "from_node_id": "npc:berin-ironfoot",
+      "to_node_id": "mystery:session7-rumors-of-the-shepherd",
+      "label": "Berin has heard rumors",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "He has also heard rumors of the Shepherd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-027",
+      "from_node_id": "mystery:session7-rumors-of-the-shepherd",
+      "to_node_id": "npc:lyra",
+      "label": "rumors relate to protest leader",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "the leader of the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Crowd unrest at Mirathorn gates",
+      "summary": "The party arrives between guards and a large crowd trying to riot over the toll to enter the gates. Several attempts to calm or sway the crowd fail before Caelynn persuades them enough for access to the captain and the city gates.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "anchor_quotes": [
+            "between guards and a large crowd attempting to start a riot over the toll to enter the gates"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:24-24",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:24-24",
+          "anchor_quotes": [
+            "attempts to calm the crowd",
+            "the crowd is already too loud to hear him"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:26-26",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:26-26",
+          "anchor_quotes": [
+            "tells the crowd that we will talk to the Council about the fee if they settle down"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:28-28",
+          "anchor_quotes": [
+            "allows us to cut the line to enter the city gates, after paying the toll of course"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "The Shepherds Flock departs with Ephanna and Torbin",
+      "summary": "After the gate confrontation, the crowd leader Lyra and her followers head back to base. Ephanna goes with them along with Torbin, learns the group\u2019s name, and hears they have a leader called the Shepherd in the swamp to the north.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "Lyra, the leader of the crowd, and her followers leave to go back to their base",
+            "Ephanna decides to take Torbin and go along with them",
+            "the group is called The Shepherds Flock",
+            "their leader, The Shepherd, back in the Swamp to the north"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "City festival and the ribbon choices",
+      "summary": "Once inside, the party is made to choose celebratory ribbons aligned with either the Empire or the City. The group\u2019s individual choices signal different leanings during the festivities.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "anchor_quotes": [
+            "Upon entering the gate each member must choose a magical ribbon for the celebration",
+            "Black and Gold representing the Empire or Burgundy and Teal representing the City"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_4",
+      "order": 4,
+      "title": "Exploration of Mirathorn\u2019s market district",
+      "summary": "The party sees vendor-lined streets, an old guard tower, the Copper and Quartz Inn, and farther-off steampunk architecture and rings leading to other districts. With daylight remaining, they decide to explore shops and festivities.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:34-34",
+          "anchor_quotes": [
+            "streets lined with vendors and an old guard tower in the back",
+            "the Copper and Quartz Inn, no vacancy",
+            "Steampunk architecture and rings of streets to other districts",
+            "look around at the shops and festivities"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_5",
+      "order": 5,
+      "title": "Bonogo wins a carnival prize",
+      "summary": "Bonogo tries a carnival game repeatedly and, after early failures, finally succeeds and wins a toy airship.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:36-36",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:36-36",
+          "anchor_quotes": [
+            "a carnival game where he has a chance to win a toy airship",
+            "he walked right up and paid his silver to play",
+            "Finally, with some focus and skill, he hits all targets and wins his new prized possession"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_6",
+      "order": 6,
+      "title": "Herbal shop leads to glowing mushroom research",
+      "summary": "Caelynn and Baergrom visit an herbal shop where Elara Greenleaf and Talia help them. Caelynn asks specifically about glowing mushrooms, offers payment for information, and learns the mushrooms are rare, dangerous, and must be taken to the Head Alchemist at Stormspire Academy for potion work.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "enter the herbal shop and are met with the overwhelming scent of herbs",
+            "Caelynn is most interested in finding out information about the glowing mushrooms",
+            "They soon discover that the mushrooms are very rare and extremely dangerous",
+            "take the mushrooms to the Head Alchemist at Stormspire Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_7",
+      "order": 7,
+      "title": "Ephanna is captured in a rebel cell",
+      "summary": "The narrative cuts back to Ephanna, who is bound, gagged, and imprisoned in a dim cell. He can see multiple cages and Torbin being forced to eat meat, setting up a dangerous situation.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:40-40",
+          "anchor_quotes": [
+            "captured, in a cell, bound and gagged",
+            "there are three cages",
+            "someone standing over Torbin forcing him to eat some meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_8",
+      "order": 8,
+      "title": "Stafl secures lodging and attracts Berin Ironfoot",
+      "summary": "Stafl performs to gather a crowd, drawing in Berin Ironfoot, the inn owner. The performance earns the party a suite and included food, though Berin demands a future favor and continued performance work.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:42-42",
+          "anchor_quotes": [
+            "a large crowd gathers, including the owner of the Inn, Berin Ironfoot",
+            "swing the heroes a fantastic suite at the Inn and even gets food included",
+            "Stafl will need to perform for guests and there is a favor Berin has asked for"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_9",
+      "order": 9,
+      "title": "Berin explains the rebel trouble and asks for help",
+      "summary": "Berin tells Caelynn and Karsemine that a human rebel group has been stirring trouble over representation and the toll protest. He also notes the flier seems suspicious and asks them to investigate the group and help discourage further unrest at the gates.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:44-44",
+          "anchor_quotes": [
+            "the rebel group that has been stirring up trouble",
+            "a group of humans that no longer feel represented in the city",
+            "the flier they passed out looks suspicious and not spontaneous",
+            "find out more about the rebel group and to stand out by the gates to dissuade any further trouble"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_10",
+      "order": 10,
+      "title": "Ephanna fights his way out of captivity",
+      "summary": "Ephanna uses a fey familiar to loosen his bonds, kills one guard with a blast, burns another with Hellish Rebuke, and fights alongside Fear and Torbin before being overwhelmed and reduced to 1 HP.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "anchor_quotes": [
+            "uses the fey familiar to loosen the bonds",
+            "He hits the guard for 8 damage, plus 14 more and melts him on the spot",
+            "receives Hellish Rebuke for his effort",
+            "Even with Fear and Torbin helping where he can",
+            "is knocked to 1 HP"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:session7-party-members",
+      "label": "Named party members in recap",
+      "reason": "These are deterministic party anchors or ambiguous surfaces explicitly excluded from node extraction for this pass.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "anchor_quotes": [
+            "Stafl"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:24-24",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:24-24",
+          "anchor_quotes": [
+            "Ephanna"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:26-26",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:26-26",
+          "anchor_quotes": [
+            "Caelynn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:32-32",
+          "anchor_quotes": [
+            "Bonogo",
+            "Karsemine",
+            "Baergrom"
+          ]
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:session7-known-entities",
+      "label": "Known entity mentions: city, gates, gold, mushrooms, Torbin, Mirathorn",
+      "reason": "These were supplied as deterministic known entities and should not be recreated as session-novel observations; use them only as evidence context.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:22-22",
+          "anchor_quotes": [
+            "the City",
+            "the gates"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:38-38",
+          "anchor_quotes": [
+            "glowing mushrooms",
+            "gold"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "Torbin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:1-12",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:1-12",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:1-12",
+          "anchor_quotes": [
+            "Mirathorn"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:session7-lyra-followup",
+      "label": "Lyra and her followers' base and plans",
+      "reason": "The recap says Lyra and her followers return to their base and Ephanna goes with them, but the actual plans and base details are not yet specified.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:30-30",
+          "anchor_quotes": [
+            "Lyra, the leader of the crowd, and her followers leave to go back to their base"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Look for later sessions or linked notes that describe Lyra's base, objectives, or any interaction between Ephanna and The Shepherds Flock."
+    },
+    {
+      "item_id": "deferred:session7-ephanna-imprisonment-outcome",
+      "label": "Outcome of Ephanna's capture",
+      "reason": "The fight ends with Ephanna at 1 HP and the recap explicitly asks what happens next, so the resolution of the capture is unresolved here.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "label": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-7:cca895ea6c64:span:cca895ea6c64:46-46",
+          "anchor_quotes": [
+            "Ephanna is quickly overwhelmed and is knocked to 1 HP",
+            "Will this be the end of Ephanna?"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Check the next session recap for whether Ephanna escapes, is rescued, or remains imprisoned."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

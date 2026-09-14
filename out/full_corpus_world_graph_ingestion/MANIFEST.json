@@ -8,10 +8,25 @@
     "pc ≡ player_character identity kind normalization"
   ],
   "worldbuilding": "DEFER",
-  "status": "census_complete_before_paid_execution",
+  "status": "openai_arm_complete_deepseek_arm_pending",
+  "arms": {
+    "openai-gpt-5.4-mini": {
+      "provider": "openai",
+      "model": "gpt-5.4-mini",
+      "status": "complete_candidates_not_published",
+      "root": "openai-gpt-5.4-mini"
+    },
+    "deepseek-v4.1-flash": {
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-v4.1-flash",
+      "status": "pending",
+      "root": "deepseek-v4.1-flash"
+    }
+  },
   "artifacts": {
     "census": "CENSUS.json",
     "census_markdown": "CENSUS.md",
-    "worldbuilding_readiness": "worldbuilding/READINESS.md"
+    "worldbuilding_readiness": "worldbuilding/READINESS.md",
+    "openai_arm": "openai-gpt-5.4-mini/"
   }
 }

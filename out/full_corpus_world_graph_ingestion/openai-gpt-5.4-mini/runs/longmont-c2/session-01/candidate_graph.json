@@ -1,0 +1,1299 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-1:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-1",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-1:f1045adefbd6"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "loc:arcane-arena",
+      "label": "Arcane Arena",
+      "node_type": "location",
+      "description": "Arena outside Stormspire Academy where the Mage\u2019s Duel qualifiers take place.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "the Arcane Arena outside the Stormspire Academy"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "the Arcane Arena outside the Stormspire Academy",
+            "they can hear the boom of magic spells"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:center-of-the-city",
+      "label": "center of the city",
+      "node_type": "location",
+      "description": "Central area the group travels through while heading back to the inn and moving through the festival crowds.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "to the center of the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:forge-and-fire-district",
+      "label": "Forge and Fire district",
+      "node_type": "location",
+      "description": "District the group heads to in search of the Colosseum of the Storm.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "the Forge and Fire district"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:colosseum-of-the-storm",
+      "label": "Colosseum of the Storm",
+      "node_type": "location",
+      "description": "Combat arena in the Forge and Fire district where non-lethal combat qualifiers are held.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "the Colosseum of the Storm"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "the Colosseum of the Storm",
+            "This competition also has a qualifying round",
+            "All around the arena are seats for people to watch and bet on the action"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:qualifying-rounds",
+      "label": "qualifying rounds",
+      "node_type": "location",
+      "description": "Tournament qualifier area/process described for the Mage\u2019s Duel and Colosseum competition.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "the qualifying rounds"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "The Qualifiers consist of three rounds"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:faction:questionable-company",
+      "label": "Questionable Company",
+      "node_type": "faction",
+      "description": "The adventuring collective referred to as the party/group in the session recap.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "the group",
+            "the party",
+            "The adventurers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:organization:wizards-taking-notes",
+      "label": "other wizards taking notes",
+      "node_type": "organization",
+      "description": "A set of wizards observing and recording the Mage\u2019s Duel qualifiers.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "The other wizards taking notes during the qualifiers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:dragon-scale-001",
+      "label": "dragon scale",
+      "node_type": "item",
+      "description": "A real dragon scale identified by Stafl; it appears to come from an ancient, extinct dragon and gives off a sense of vast power and steady vibration.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "Stafl began casting Identify on a scale he had been carrying around for a long time",
+            "The dragon scale turned out to be a real dragon scale",
+            "it is possible the scale was from an ancient dragon that is long extinct",
+            "a steady vibration, almost like breathing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:name-tiles-001",
+      "label": "name tiles",
+      "node_type": "item",
+      "description": "Tournament entry tiles created by Head Clerk Mossglade after taking a drop of blood from Ephanna and Caelynn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "Mossglade finally agrees and, after taking a drop of blood from each, creates the name tiles for them both"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:fey-toy-stone-001",
+      "label": "mystical stone",
+      "node_type": "item",
+      "description": "A stone used in the qualifiers that Ephanna quickly recognizes as a Fey toy rather than a real magical puzzle object.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "The mystical stone, when held, turned out to be a Fey toy",
+            "something that Ephanna was very familiar with and took no time at all to solve"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:qualifier-ice-crystal-001",
+      "label": "special ice crystal",
+      "node_type": "item",
+      "description": "A special ice crystal used in the Duel qualifiers; holding it summons an Ice Elemental that attacks the participant while they maintain concentration.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "The second test is to hold a special ice crystal and summon an Ice Elemental",
+            "The Elemental will attack and they attempt to hold their Concentration on the spell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:stone-pattern-test-001",
+      "label": "special stone",
+      "node_type": "item",
+      "description": "A special stone used in the final qualifier test, requiring the participant to decipher the magic pattern within.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "the final test is, when given a special stone, can they decipher the magic pattern within"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:fake-porcelain-fossil-001",
+      "label": "old fossil",
+      "node_type": "item",
+      "description": "An old fossil carried by Ephanna that Stafl identifies as fake and made only of porcelain.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "Stafl again decided to use Identify on another object",
+            "this fossil is a fake",
+            "It is in fact only made of porcelain"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:small-pale-silver-key-001",
+      "label": "small pale silver key",
+      "node_type": "item",
+      "description": "A small pale silver key discovered rattling inside the fake fossil; it is cold to the touch, warms when held, and appears nonhuman, nondwarven, nonelven, noninfernal, and nonprimordial in origin.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "he discovers something rattling inside",
+            "Ephanna cracks it open to discover a small pale silver key",
+            "the key is cold to the touch, but always begins to warm up when held"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:seed-from-slayed-meat-monster-001",
+      "label": "seed from the slain meat monster",
+      "node_type": "item",
+      "description": "A referenced seed-like object used as a comparison for the rattling hidden in the porcelain fossil.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "just like the seed from the slain meat monster"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:prize-001",
+      "label": "prize",
+      "node_type": "item",
+      "description": "A prize offered to the winners of the Colosseum of the Storm qualifying competition.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "At the end the winners will receive a prize"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-1",
+      "label": "Festival crowds feel unusually uneasy and understaffed by guards",
+      "node_type": "mystery",
+      "description": "During the festival, people are joyful but also uneasy, and observers notice fewer guards patrolling than expected, suggesting an emerging security issue in the city.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "joy mixed with some unease",
+            "fewer guards were patrolling"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-2",
+      "label": "Stafl's dragon scale may come from an extinct ancient dragon",
+      "node_type": "mystery",
+      "description": "A scale Stafl has carried for a long time identifies as a real dragon scale, but not from any currently existing dragon; it may be from an ancient long-extinct dragon, and it radiates strange power and a breathing-like vibration.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "real dragon scale",
+            "not of a dragon that currently exists",
+            "ancient dragon that is long extinct",
+            "vast and unseen power",
+            "almost like breathing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-3",
+      "label": "Mossglade is wary of further trouble from the night before",
+      "node_type": "mystery",
+      "description": "Head Clerk Mossglade initially hesitates to help because she fears getting into more trouble related to prior events from the previous night.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "afraid of getting into further trouble from the night before"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-4",
+      "label": "The old fossil is a fake porcelain container hiding a warm silver key",
+      "node_type": "mystery",
+      "description": "An old fossil carried by Ephanna is identified as a fake made of porcelain, but it conceals a small pale silver key that is cold to the touch and warms when held; its origin and function are unknown.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "this fossil is a fake",
+            "only made of porcelain",
+            "a small pale silver key",
+            "cold to the touch",
+            "always begins to warm up when held"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-5",
+      "label": "The silver key is of unknown non-human origin",
+      "node_type": "mystery",
+      "description": "The party determines the key is not human, dwarven, elven, infernal, or primordial, leaving its exact provenance and purpose unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "not human, or dwarven, or elven",
+            "not infernal or primordial"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-6",
+      "label": "Qualifiers reveal unusual promise from Ephanna and Caelynn",
+      "node_type": "mystery",
+      "description": "Both Ephanna and Caelynn perform well in the Mage's Duel qualifiers, drawing excited attention from other wizards and suggesting they may be noteworthy entrants.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "excited whispers from the other wizards",
+            "very excited at this new participant"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-7",
+      "label": "Mystery challengers are expected for the Colosseum of the Storm",
+      "node_type": "mystery",
+      "description": "The non-lethal combat competition will later announce unknown challengers, implying a pending reveal or possible threat/opposition in the arena event.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "soon even some mystery challengers will be announced"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "loc:arcane-arena",
+      "to_node_id": "loc:qualifying-rounds",
+      "label": "hosts qualifiers",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "the qualifying rounds"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-7",
+      "from_node_id": "mystery-2",
+      "to_node_id": "item:dragon-scale-001",
+      "label": "describes possible origin of dragon scale",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "ancient dragon that is long extinct"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-18",
+      "from_node_id": "item:fake-porcelain-fossil-001",
+      "to_node_id": "item:small-pale-silver-key-001",
+      "label": "contains key",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "he discovers something rattling inside",
+            "Ephanna cracks it open to discover a small pale silver key"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-22",
+      "from_node_id": "loc:colosseum-of-the-storm",
+      "to_node_id": "loc:forge-and-fire-district",
+      "label": "located in Forge and Fire district",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "the Forge and Fire district in search of the Colosseum of the Storm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Festival arrival and uneasy rest",
+      "summary": "The party returns to the inn instead of immediately joining the festival, then later explores the city and notices signs of unease: fewer guards, fewer expected attendees, and crowded, noisy streets lined with tents.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "the group decided to head back to the Inn first",
+            "weaved their way through the crowd to the center of the city",
+            "fewer guards were patrolling",
+            "far fewer party-goers than expected"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Stafl identifies the dragon scale",
+      "summary": "After a long rest, Stafl inspects a long-carried scale and learns it is an ancient dragon scale from a dragon that no longer exists, radiating strange power and a breathing-like vibration.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "Stafl began casting Identify on a scale he had been carrying around for a long time",
+            "The dragon scale turned out to be a real dragon scale",
+            "not of a dragon that currently exists",
+            "long extinct",
+            "vast and unseen power",
+            "a steady vibration, almost like breathing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Ephanna and Caelynn enter the Mage\u2019s Duel qualifiers",
+      "summary": "Ephanna and Caelynn go to the Arcane Arena at Stormspire Academy, where they see duel memorabilia, an enthusiastic apprentice, and Head Clerk Mossglade organizing the tournament bracket.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "Ephanna and Caelynn decide to see if they can still make it into the Mage\u2019s Duel",
+            "the Arcane Arena outside the Stormspire Academy",
+            "Head Clerk Mossglade",
+            "forming a large tournament bracket"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Qualifiers, blood tiles, and the three tests",
+      "summary": "Mossglade eventually agrees to admit Ephanna and Caelynn after Stafl vouches for them via Karsemine, then creates their name tiles. The duel qualifiers test spell accuracy, concentration against an Ice Elemental, and interpretation of a magic stone pattern.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "Caelynn (with some Bardic Inspiration from Stafl)",
+            "Mossglade is afraid of getting into further trouble from the night before",
+            "Karsemine will take care of any past trouble",
+            "after taking a drop of blood from each, creates the name tiles",
+            "The Qualifiers consist of three rounds"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "The test is to hit a floating target with a spell",
+            "hold a special ice crystal and summon an Ice Elemental",
+            "can they decipher the magic pattern within"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Ephanna and Caelynn pass the qualifier challenges",
+      "summary": "Ephanna breezes through the rounds with Eldritch Blast, handles the Ice Elemental, and solves the stone as a familiar Fey toy. Caelynn uses Magic Missile, also gets through the second round, and ultimately succeeds on the final pattern test despite difficulty.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "First up: Ephanna",
+            "As a Warlock the spell choice was obvious: Eldritch Blast",
+            "The second test was not too difficult",
+            "a Fey toy",
+            "The other wizards taking notes during the qualifiers became very excited"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "Next up was Caeylnn",
+            "she chose the easiest spell she could think of for the first test: Magic Missile",
+            "The second test went easily for her as well",
+            "in the end she succeeded"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "A fake fossil hides a pale silver key",
+      "summary": "While the qualifiers continue, Stafl identifies Ephanna\u2019s fossil as porcelain, then discovers a rattling object inside. Ephanna opens it to reveal a small pale silver key that feels cold but warms in hand, and the group rules out several possible origins.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "Stafl again decided to use Identify on another object",
+            "this fossil is a fake",
+            "only made of porcelain",
+            "something rattling inside",
+            "small pale silver key",
+            "cold to the touch, but always begins to warm up when held"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "not human, or dwarven, or elven",
+            "not infernal or primordial"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "Bonogo and Baergrom head to the Colosseum of the Storm",
+      "summary": "The group, minus Karsemine, moves to the Forge and Fire district where Bonogo and Baergrom want to test themselves in non-lethal arena combat at the Colosseum of the Storm, which features spectators, betting, team qualifiers, prizes, and mystery challengers.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "Now the group (minus Karsemine) heads over to the Forge and Fire district",
+            "Bonogo and Baergrom are interested in testing their mettle in non-lethal combat",
+            "the Colosseum of the Storm",
+            "seats for people to watch and bet on the action",
+            "Teams of up to 6 fighters must beat the other team 2 out of 3 times",
+            "mystery challengers will be announced"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored-1",
+      "label": "Statues, tents, arena decor, and bracket setup",
+      "reason": "These are scene-setting details rather than standalone mysteries or unresolved threads.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+          "anchor_quotes": [
+            "colorful tents",
+            "statues of Mages from famous duels",
+            "an enormous desk placing name cards on a wall forming a large tournament bracket"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred-1",
+      "label": "Identify the purpose of the silver key",
+      "reason": "The key is clearly significant, but the recap does not yet provide enough evidence to determine what it opens or why it was hidden in the porcelain fossil.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "a small pale silver key",
+            "always begins to warm up when held"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track where the key is brought next and whether any locks, doors, or wards react to it."
+    },
+    {
+      "item_id": "deferred-2",
+      "label": "Meaning of the night-before trouble involving Mossglade",
+      "reason": "The recap says Mossglade fears trouble from the night before, but does not explain what happened or who was involved.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "label": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+          "anchor_quotes": [
+            "further trouble from the night before"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Find the earlier event that caused Mossglade's concern and note any related consequences or suspects."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

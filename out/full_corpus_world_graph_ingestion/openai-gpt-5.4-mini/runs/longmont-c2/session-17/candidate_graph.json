@@ -1,0 +1,2264 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-17:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-17",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-17:6f01fc518dea"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "obs:thrin",
+      "label": "Thrin",
+      "node_type": "character",
+      "description": "A woodland elf-like figure living in the trees; broke forest rules and wants to leave the forest with the group. He guides them through the forest, fixes bridges, warns about night dangers, and later fights the tracking wyvern.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "it is wearing a cloak of shimmering leaves",
+            "he begs for peace",
+            "his name is Thrin, he lives in the trees and wants to leave the forest with us because of some rules that he broke"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "Thrin shows the group handholds along the trees",
+            "Thrin fixes some of the bridges as they continue on to the next area",
+            "He tells the group that it is too dangerous at night with giant flying bugs"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "Thrin, seeing that the group intends to stand and fight, fires two arrows from his long bow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:mother-of-broken-branches",
+      "label": "Apex of the Canopy / Mother of Broken Branches",
+      "node_type": "character",
+      "description": "A gigantic wyvern that has been tracking the group; attacks Caelynn near the Fallen Spine and is described as the Apex of the Canopy or Mother of Broken Branches.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "the wyvern that has been tracking them emerges from the mist",
+            "The Apex of the Canopy, or the Mother of Broken Branches",
+            "launches herself at Caelynn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "is a gargantuan wyvern, the largest living creature any of them have seen"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:thrin-like-creature",
+      "label": "another creature like Thrin",
+      "node_type": "character",
+      "description": "An additional, unseen creature resembling Thrin, glimpsed briefly in the forest before the group sneaks onward.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "Caelynn can just make out another creature like Thrin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:woodland-elf-form",
+      "label": "humanoid woodland elf form",
+      "node_type": "character",
+      "description": "A wounded humanoid figure encountered in the trees, initially described as a woodland elf with leaf-like gear before being identified as Thrin.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "The rest of the group approach the humanoid form writhing on the ground",
+            "The figure looks like a woodland elf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:session17:broken-crossing",
+      "label": "Broken Crossing",
+      "node_type": "location",
+      "description": "A decaying and broken bridge section in the forest that the group reaches while traveling with Thrin.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "The group crosses into the next area of the forest called the Broken Crossing.",
+            "decaying and broken bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:session17:fallen-spine",
+      "label": "The Fallen Spine",
+      "node_type": "location",
+      "description": "A forest clearing dominated by a massive fallen tree used as a path across a low area.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "Pushing through some brush the group enters a new area: The Fallen Spine.",
+            "Dominating the clearing is a massive fallen tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:session17:forest-canopy-route",
+      "label": "canopy",
+      "node_type": "location",
+      "description": "The elevated forest route of handholds, branches, and natural bridges that the group uses to move through the forest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "up into the canopy",
+            "natural bridges"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:session17:forest-trees-route",
+      "label": "trees",
+      "node_type": "location",
+      "description": "The tree-based route through the forest, including climbing and moving among the trunks and branches.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "wandered back into the trees",
+            "climbing down a tree in the distance"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "climb down the trees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:session17:deadfall-section",
+      "label": "deadfall section",
+      "node_type": "location",
+      "description": "A forest section below the party's route, marked by piles of branches and bodies and watched over by a gargantuan wyvern.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "the deadfall section they crossed before",
+            "among the piles of branches and bodies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:session17:camping-spot",
+      "label": "camping spot",
+      "node_type": "location",
+      "description": "A clearing where the group discovers a place to camp, though Thrin urges them to stop there only briefly.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "They discover a camping spot in the next clearing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:session17:low-area",
+      "label": "low area",
+      "node_type": "location",
+      "description": "A lower section of the forest reached beyond the Fallen Spine, crossed by the fallen tree trunk.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "the trunk creating a path up and across a low area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:session17:pool-of-water",
+      "label": "giant swirling pool of water",
+      "node_type": "location",
+      "description": "A large swirling water feature below the bridge area that forces the group to choose a side path.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "a giant swirling pool of water below",
+            "the pool of water"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:giant-swirl-pool-water",
+      "label": "giant swirling pool of water",
+      "node_type": "item",
+      "description": "A giant swirling pool of water below the bridge area.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "a giant swirling pool of water below"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:session17:treeline",
+      "label": "treeline",
+      "node_type": "location",
+      "description": "The line of trees marking the edge of the area where the wyvern emerges from the mist.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "along the treeline"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:faction:thrin-group",
+      "label": "Thrin's group",
+      "node_type": "group",
+      "description": "The traveling party accompanying Thrin through the forest, including Caelynn, Bonogo, Stafl, Ephanna, Karsemine, Baergrom, and others.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "the group looks for the next path forward",
+            "the rest of the group approach the humanoid form"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "the group, including Baergrom",
+            "the group quickly comes up with a plan"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:plate-armor-broken-piece",
+      "label": "broken piece of plate armor",
+      "node_type": "item",
+      "description": "A broken piece of plate armor found on the baby dinosaur-like creature.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "broken piece of plate armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:cloak-shimmering-leaves",
+      "label": "cloak of shimmering leaves",
+      "node_type": "item",
+      "description": "A cloak made of shimmering leaves worn by the woodland elf-like figure Thrin.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "cloak of shimmering leaves"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:leaf-shaped-short-sword",
+      "label": "leaf shaped short sword",
+      "node_type": "item",
+      "description": "A leaf-shaped short sword carried by Thrin.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "leaf shaped short sword"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:natural-bridges",
+      "label": "natural bridges",
+      "node_type": "item",
+      "description": "Tree-based natural bridges used to move through the canopy.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "natural bridges into the next section of the forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:rope-bridge",
+      "label": "makeshift rope bridge",
+      "node_type": "item",
+      "description": "A rope bridge built to cross the broken gap in the forest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "build a makeshift rope bridge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "Baergrom tosses rope to create the bridge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:massive-fallen-tree-log",
+      "label": "massive fallen tree",
+      "node_type": "item",
+      "description": "A massive fallen tree with its roots ripped out, forming a log-like crossing at The Fallen Spine.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "a massive fallen tree"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "the trunk creating a path up and across a low area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:long-bow",
+      "label": "long bow",
+      "node_type": "item",
+      "description": "A long bow used by Karsemine and Thrin during the fight.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "Karsemine then fires off two shots from her long bow"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "Thrin, seeing that the group intends to stand and fight, fires two arrows from his long bow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:item:axe",
+      "label": "axe",
+      "node_type": "item",
+      "description": "Baergrom's weapon used to strike the wyvern.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "Baergrom attacks with three mighty swings of his axe"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-thrin-forest-outcast-and-guide",
+      "label": "Thrin is a forest-dweller who broke rules and wants to leave",
+      "node_type": "mystery",
+      "description": "A woodland elf named Thrin appears to live in the trees, knows the forest routes, and says he wants to leave the forest with the group because he broke some rules.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "his name is Thrin",
+            "he lives in the trees and wants to leave the forest with us because of some rules that he broke"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-shiny-rain-changed-the-forest",
+      "label": "A 'shiny rain' caused the forest to become wrong and begin moving",
+      "node_type": "mystery",
+      "description": "Thrin explains that the forest felt gross and needed to move after a 'shiny rain' fell over it, implying an unexplained environmental corruption or transformation.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "the forest felt \u201cgross\u201d and needed to move after a \u201cshiny rain\u201d fell over the forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-forest-feels-watched-and-hostile-at-night",
+      "label": "The forest becomes silent, watched, and too dangerous to travel at night",
+      "node_type": "mystery",
+      "description": "As the group moves through the canopy, the environment turns humid, colder, silent, and ominously watched, with Thrin warning that giant flying bugs at night attract even bigger creatures.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "it is very humid and the temperature decreases dramatically",
+            "completely silent with the feeling of being watched",
+            "it is too dangerous at night with giant flying bugs that, when killed, will attract even bigger creatures"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-giant-wyvern-tracks-the-party",
+      "label": "A gargantuan wyvern follows and later attacks the party",
+      "node_type": "mystery",
+      "description": "The party spots an enormous wyvern below the canopy, later hears it moving in the mist, and it emerges as the Apex of the Canopy/Mother of Broken Branches, attacking Caelynn and forcing a fight.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "a gargantuan wyvern, the largest living creature any of them have seen"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "the wyvern that has been tracking them emerges from the mist",
+            "The Apex of the Canopy, or the Mother of Broken Branches"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-mother-of-broken-branches-nest-linked-powers",
+      "label": "The wyvern's resistances and abilities are tied to its nest",
+      "node_type": "mystery",
+      "description": "Karsemine's Hunter\u2019s Mark reveals that the wyvern has resistances and abilities connected to being near her nest, suggesting a location-based power source or vulnerability.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "discovers resistances and abilities that are tied to her being near her nest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-broken-crossing-and-fallen-spine-are-danger-zones",
+      "label": "The Broken Crossing and Fallen Spine are unstable traversal points",
+      "node_type": "mystery",
+      "description": "The party encounters a decaying broken bridge, then a hollow fallen log called the Fallen Spine that partially collapses under Baergrom, indicating multiple structurally unsafe forest crossings.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "The group crosses into the next area of the forest called the Broken Crossing",
+            "the decaying and broken bridge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "The Fallen Spine",
+            "he takes a bad step and crashes through the trunk"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session17-water-below-and-mist-obscure-the-route",
+      "label": "A giant swirling pool of water blocks the route and the mist hides threats",
+      "node_type": "mystery",
+      "description": "The party reaches a bridge end overlooking a giant swirling pool of water, and later mist along the treeline conceals the wyvern's approach.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "there is no canopy above them and a giant swirling pool of water below"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "moving in the mist along the treeline"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-1",
+      "from_node_id": "obs:woodland-elf-form",
+      "to_node_id": "obs:thrin",
+      "label": "identified as",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "his name is Thrin",
+            "The figure looks like a woodland elf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "obs:thrin",
+      "to_node_id": "loc:session17:forest-trees-route",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "he lives in the trees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-3",
+      "from_node_id": "obs:thrin",
+      "to_node_id": "obs:faction:thrin-group",
+      "label": "belongs to group",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "his name is Thrin, he lives in the trees and wants to leave the forest with us"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "obs:thrin",
+      "to_node_id": "mystery:session17-thrin-forest-outcast-and-guide",
+      "label": "alias/role of outcast guide",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "his name is Thrin, he lives in the trees and wants to leave the forest with us because of some rules that he broke"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-5",
+      "from_node_id": "obs:thrin",
+      "to_node_id": "mystery:session17-shiny-rain-changed-the-forest",
+      "label": "knows about",
+      "relationship_type": "knows_about",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "He explains that the forest felt \u201cgross\u201d and needed to move after a \u201cshiny rain\u201d fell over the forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-6",
+      "from_node_id": "obs:thrin",
+      "to_node_id": "mystery:session17-forest-feels-watched-and-hostile-at-night",
+      "label": "aware of",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "it is too dangerous at night with giant flying bugs that, when killed, will attract even bigger creatures"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-7",
+      "from_node_id": "obs:thrin",
+      "to_node_id": "loc:session17:forest-canopy-route",
+      "label": "within",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "up into the canopy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-8",
+      "from_node_id": "obs:thrin",
+      "to_node_id": "loc:session17:broken-crossing",
+      "label": "within",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "The group crosses into the next area of the forest called the Broken Crossing."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-9",
+      "from_node_id": "obs:thrin",
+      "to_node_id": "loc:session17:camping-spot",
+      "label": "within",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "They discover a camping spot in the next clearing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-10",
+      "from_node_id": "obs:thrin",
+      "to_node_id": "loc:session17:fallen-spine",
+      "label": "within",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "Pushing through some brush the group enters a new area: The Fallen Spine."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "obs:mother-of-broken-branches",
+      "to_node_id": "mystery:session17-giant-wyvern-tracks-the-party",
+      "label": "same as tracked wyvern",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "the wyvern that has been tracking them emerges from the mist",
+            "The Apex of the Canopy, or the Mother of Broken Branches"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "obs:mother-of-broken-branches",
+      "to_node_id": "loc:session17:treeline",
+      "label": "near",
+      "relationship_type": "near",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "moving in the mist along the treeline"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-14",
+      "from_node_id": "obs:mother-of-broken-branches",
+      "to_node_id": "mystery:session17-mother-of-broken-branches-nest-linked-powers",
+      "label": "linked to nest-based powers",
+      "relationship_type": "linked_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "discovers resistances and abilities that are tied to her being near her nest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-15",
+      "from_node_id": "obs:faction:thrin-group",
+      "to_node_id": "loc:session17:forest-trees-route",
+      "label": "travels through trees",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "the group looks for the next path forward",
+            "wander back into the trees"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-16",
+      "from_node_id": "obs:faction:thrin-group",
+      "to_node_id": "loc:session17:forest-canopy-route",
+      "label": "travels through canopy",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "up into the canopy",
+            "natural bridges into the next section of the forest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-17",
+      "from_node_id": "obs:faction:thrin-group",
+      "to_node_id": "loc:session17:broken-crossing",
+      "label": "crosses into",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "The group crosses into the next area of the forest called the Broken Crossing."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-18",
+      "from_node_id": "obs:faction:thrin-group",
+      "to_node_id": "loc:session17:fallen-spine",
+      "label": "enters",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "Pushing through some brush the group enters a new area: The Fallen Spine."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-19",
+      "from_node_id": "obs:faction:thrin-group",
+      "to_node_id": "loc:session17:camping-spot",
+      "label": "discovers",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "They discover a camping spot in the next clearing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-20",
+      "from_node_id": "obs:faction:thrin-group",
+      "to_node_id": "loc:session17:pool-of-water",
+      "label": "routes around",
+      "relationship_type": "routes_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "a giant swirling pool of water below",
+            "the group picks a side path to take around the pool of water"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-21",
+      "from_node_id": "obs:faction:thrin-group",
+      "to_node_id": "mystery:session17-giant-wyvern-tracks-the-party",
+      "label": "is tracked by",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "the wyvern that has been tracking them emerges from the mist"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-22",
+      "from_node_id": "obs:faction:thrin-group",
+      "to_node_id": "mystery:session17-broken-crossing-and-fallen-spine-are-danger-zones",
+      "label": "faces dangerous crossings",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "The group crosses into the next area of the forest called the Broken Crossing",
+            "the decaying and broken bridge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "The Fallen Spine",
+            "he takes a bad step and crashes through the trunk"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-23",
+      "from_node_id": "obs:item:rope-bridge",
+      "to_node_id": "loc:session17:broken-crossing",
+      "label": "crosses",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "build a makeshift rope bridge",
+            "The group crosses into the next area of the forest called the Broken Crossing"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-24",
+      "from_node_id": "obs:item:massive-fallen-tree-log",
+      "to_node_id": "loc:session17:fallen-spine",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "Pushing through some brush the group enters a new area: The Fallen Spine.",
+            "Dominating the clearing is a massive fallen tree"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-25",
+      "from_node_id": "obs:item:massive-fallen-tree-log",
+      "to_node_id": "loc:session17:low-area",
+      "label": "creates path across",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "the trunk creating a path up and across a low area"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-26",
+      "from_node_id": "obs:item:long-bow",
+      "to_node_id": "obs:thrin",
+      "label": "held by",
+      "relationship_type": "holds",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "Thrin, seeing that the group intends to stand and fight, fires two arrows from his long bow"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-29",
+      "from_node_id": "obs:woodland-elf-form",
+      "to_node_id": "obs:item:cloak-shimmering-leaves",
+      "label": "carries",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "wearing a cloak of shimmering leaves"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-30",
+      "from_node_id": "obs:woodland-elf-form",
+      "to_node_id": "obs:item:leaf-shaped-short-sword",
+      "label": "carries",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "it also carries a short bow and a leaf shaped short sword"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Entering the forest and meeting Thrin",
+      "summary": "The party encounters dinosaur-like creatures near the forest edge, then shoots down a stealthy humanoid in the trees. The injured figure is revealed as Thrin, a woodland elf-like being who can speak some Common, wants peace, and asks the group to stop for the night, but they continue toward Mossford.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "Caelynn and Bonogo approach the large dinosaur-like creatures.",
+            "In one quick motion, Bonogo releases an arrow from his short bow.",
+            "With some broken words in Common he begs for peace and Stafl casts Healing Word to close the wound.",
+            "he wants to leave the forest with us because of some rules that he broke.",
+            "the group must keep moving if they are going to save Mossford."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "Thrin guides the party upward and warns about the forest",
+      "summary": "Thrin leads the group through handholds and natural bridges into a colder, more humid canopy route. He warns that night is dangerous because of giant flying bugs, and Ephanna's owl reveals they are about halfway through the forest even though dawn is breaking.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:16-16",
+          "anchor_quotes": [
+            "Thrin shows the group handholds along the trees",
+            "It is very humid and the temperature decreases dramatically.",
+            "He tells the group that it is too dangerous at night with giant flying bugs that, when killed, will attract even bigger creatures.",
+            "Ephanna sends up a magical owl to see over the forest and determine they are about half way through the forest.",
+            "the owl is able to see that dawn is breaking."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Forest movement, the Broken Crossing, and a careful bypass",
+      "summary": "Karesmine learns the forest moved after a 'shiny rain' and the party spots a gargantuan wyvern below. They sneak past it, cross into the Broken Crossing using a makeshift rope bridge, then avoid another Thrin-like creature when Thrin insists on stealth over fighting.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:18-18",
+          "anchor_quotes": [
+            "the forest felt \u201cgross\u201d and needed to move after a \u201cshiny rain\u201d fell over the forest.",
+            "among the piles of branches and bodies, is a gargantuan wyvern",
+            "The group crosses into the next area of the forest called the Broken Crossing.",
+            "Ephanna teleports across the gap and then Baergrom tosses rope to create the bridge.",
+            "Thrin motions for everyone to sneak by instead."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "Crossing the Fallen Spine under aerial threat",
+      "summary": "The group reaches a treeless area above a swirling pool of water, then follows Thrin down to a side path and into the Fallen Spine. Baergrom slips through the hollow log, triggering alarm as sounds move in the mist and Thrin panics.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:20-20",
+          "anchor_quotes": [
+            "there is no canopy above them and a giant swirling pool of water below.",
+            "Thrin tells the group to quickly and quietly climb down the trees.",
+            "The group sends Thrin out first to cross the giant log.",
+            "Baergrom follows, also attempting to be as quiet as possible.",
+            "He is able to grab the sides of the walls before falling completely inside the old log.",
+            "Karsemine then notices sounds and Thrin starts to panic."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Ambush by the apex wyvern and full combat engagement",
+      "summary": "The tracking wyvern reveals itself as the Apex of the Canopy, or Mother of Broken Branches, and attacks Caelynn. The party shifts from stealth to combat, using Lightning Bolt, Hunter's Mark, Hideous Laughter, Hunger of Hadar, arrows, and axe strikes to force the beast down and sever its tail.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:22-22",
+          "anchor_quotes": [
+            "the wyvern that has been tracking them emerges from the mist.",
+            "The Apex of the Canopy, or the Mother of Broken Branches, launches herself at Caelynn.",
+            "hit with a crackling Lighting Bolt as retaliation.",
+            "Karesmine casts Hunter\u2019s Mark on the beast",
+            "Stafl quickly casts Hideous Laughter, causing the Mother to go prone",
+            "Ephanna casts Hunger of Hadar, creating a terrible sphere of darkness over the creature",
+            "Baergrom attacks with three mighty swings of his axe, severing the tail"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [
+    {
+      "item_id": "thread:session17-thrin-language-unidentified",
+      "label": "Thrin's language remains unidentified",
+      "reason": "The group cannot determine the language Thrin is speaking, but this is a supporting detail rather than a standalone mystery thread.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "they can see it is wearing a cloak of shimmering leaves",
+            "Both Caelynn and Karesmine try to determine the language it is speaking, but cannot"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Carry forward as a language/contact barrier if Thrin returns or more elves are encountered."
+    },
+    {
+      "item_id": "thread:session17-fordward-motion-needed-to-save-mossford",
+      "label": "The party refuses to stop because Mossford still needs saving",
+      "reason": "This is an immediate party motivation rather than a mystery, but it affects why the group keeps moving despite warnings.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "label": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-17:6f01fc518dea:span:6f01fc518dea:14-14",
+          "anchor_quotes": [
+            "the group must keep moving if they are going to save Mossford"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track as mission pressure tied to the Mossford objective, not as a separate mystery."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

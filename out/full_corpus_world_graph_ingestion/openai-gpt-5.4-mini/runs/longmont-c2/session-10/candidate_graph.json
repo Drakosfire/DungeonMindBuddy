@@ -1,0 +1,2482 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:session-10:category",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-10",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c2:session-10:8482ee1639ec"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "obs:splitbark",
+      "label": "Splitbark",
+      "node_type": "character",
+      "description": "Elf-like booth runner teaching runic wood carving at the crafting sessions.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "The individual running the booth, Splitbark"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:knobs",
+      "label": "Knobs",
+      "node_type": "character",
+      "description": "Very old goblin who runs the jewelry crafting booth and teaches bone jewelry making.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "a very, very, old goblin named Knobs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs:dark-hooded-figure",
+      "label": "dark hooded figure",
+      "node_type": "character",
+      "description": "Unidentified watcher in the Coliseum stands who appears to be observing Bonogo.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "a dark hooded figure watching from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_1",
+      "label": "town square",
+      "node_type": "location",
+      "description": "The crafting sessions were originally set here before being moved because of a hole in the ground.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Originally set in the town square",
+            "the crafting sessions were moved due to the large hole still in the ground",
+            "all over the square"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_2",
+      "label": "goblin alchemy booth",
+      "node_type": "location",
+      "description": "A crafting booth for alchemy and poison-related instruction.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "goblin alchemy booth"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_3",
+      "label": "runic wood carving booth",
+      "node_type": "location",
+      "description": "A booth for runic wood carving and charm-making, crowded with sailors.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "a booth featuring runic wood carving",
+            "a very large crowd, mostly sailors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_4",
+      "label": "Fey themed candy tent",
+      "node_type": "location",
+      "description": "A crafting tent where participants create illusion lollipops and related candy magic.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "a Fey themed candy tent",
+            "Huge crowds are gathered around, lots of families with children"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_5",
+      "label": "mini forge",
+      "node_type": "location",
+      "description": "A crafting booth centered on metalwork and making medallions.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "the next booth features a mini forge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_6",
+      "label": "Druidic Carving booth",
+      "node_type": "location",
+      "description": "A booth where dryad charms are crafted and recognized as tied to the Grove.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "The next booth features Druidic Carving",
+            "the \u201cGrove\u201d appreciates all the help ending the abomination in Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_7",
+      "label": "Illusion Painting booth",
+      "node_type": "location",
+      "description": "A booth where illusion paintings of Council members are created.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Next, they head to the Illusion Painting booth",
+            "illusion paintings of members of the Council"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_8",
+      "label": "jewelry crafting booth",
+      "node_type": "location",
+      "description": "A booth for making jewelry from bones.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "jewelry crafting",
+            "showing how to make jewelry from bones"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_9",
+      "label": "Storm Magic booth",
+      "node_type": "location",
+      "description": "The final crafting booth, focused on storm magic and linked to an old human professor and the academy.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "the Storm Magic booth",
+            "the academy once had"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_10",
+      "label": "Coliseum",
+      "node_type": "location",
+      "description": "The finale arena where the remaining teams face summoned elementals while the crowd cheers.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "the finale at the Coliseum",
+            "the arena will shift during the fight",
+            "the crowd cheering"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obs_loc_11",
+      "label": "stands",
+      "node_type": "location",
+      "description": "The spectator area where a hooded figure is later seen watching from the crowd.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:grove",
+      "label": "the Grove",
+      "node_type": "faction",
+      "description": "A group recognized during the Druidic Carving booth and thanked for help ending the abomination in Hempholm.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "the \u201cGrove\u201d appreciates all the help ending the abomination in Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:rowdy-arena-fans",
+      "label": "rowdy group of fans from the fighting arena",
+      "node_type": "group",
+      "description": "A crowd of enthusiastic arena supporters present at the mini forge booth.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "a rowdy group of fans from the fighting arena"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:other-teams",
+      "label": "3 teams remaining",
+      "node_type": "group",
+      "description": "The remaining competing teams in the Coliseum finale.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "there are 3 teams remaining",
+            "The group can hear the other teams already fighting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:coliseum-crowd",
+      "label": "the crowd",
+      "node_type": "group",
+      "description": "The audience at the Coliseum finale, whose approval matters to scoring.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "make the crowd happy",
+            "The group can hear the other teams already fighting and the crowd cheering"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:illusion-lollipop",
+      "label": "Illusion Lollipop",
+      "node_type": "item",
+      "description": "A crafted candy that can change colors and flavors with a tap.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "Illusion Lollipop",
+            "with a tap, will change colors and flavors"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:everlasting-taffy",
+      "label": "Everlasting Taffy",
+      "node_type": "item",
+      "description": "A crafted sweet that keeps changing flavor.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "everlasting taffy",
+            "still changes flavor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:warding-rune",
+      "label": "Warding Rune",
+      "node_type": "item",
+      "description": "A rune earned from runic wood carving.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Warding Rune"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:metal-feather",
+      "label": "Metal Feather",
+      "node_type": "item",
+      "description": "A crafted metal object made at the mini forge booth.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "metal feather"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:copper-medallions",
+      "label": "Copper Medallions",
+      "node_type": "item",
+      "description": "Medallions being made as part of the forge booth crafting.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "copper medallions"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:dryad-charm",
+      "label": "Dryad Charm",
+      "node_type": "item",
+      "description": "An attempted druidic carving craft item.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "dryad charm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:heart-shaped-fairy-light",
+      "label": "Heart-Shaped Fairy Light",
+      "node_type": "item",
+      "description": "A heart-shaped fairy light created during druidic carving.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "heart shaped fairy light"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:illusion-painting",
+      "label": "Illusion Painting",
+      "node_type": "item",
+      "description": "An illusion painting crafted at the painting booth.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "illusion paintings"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:tooth-windchime",
+      "label": "Tooth Windchime",
+      "node_type": "item",
+      "description": "A bone-crafted windchime made for the manor.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "tooth windchime",
+            "for the manor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:jingle-charm",
+      "label": "Danger-Jingling Charm",
+      "node_type": "item",
+      "description": "A charm that jingles when danger is nearby.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "a charm that jingles when danger is nearby"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:bone-ring",
+      "label": "Bone Ring",
+      "node_type": "item",
+      "description": "A special bone ring that whispers compliments.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "bone ring that whispers compliments"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:glass-of-ale-elemental",
+      "label": "Glass of Ale Elemental",
+      "node_type": "item",
+      "description": "A huge foaming glass of ale summoned as an arena elemental.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "a huge foaming glass of ale"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:stone-wall",
+      "label": "Stone Wall",
+      "node_type": "item",
+      "description": "A wall created by the Stone Elemental to divide the fighters.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "stone wall between Baergrom and his allies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "obj:hair-monster",
+      "label": "Tiny Fur Monster",
+      "node_type": "item",
+      "description": "A tiny fur monster that escaped into the crowd after forming from trapped hair.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "tiny fur monster",
+            "escape into the crowd"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:hole-forced-crafting-relocation",
+      "label": "Crafting sessions relocated because of the large hole in the town square",
+      "node_type": "mystery",
+      "description": "The town square was unusable for the crafting event due to a large hole still in the ground, forcing the booths to move to a new location.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Originally set in the town square",
+            "the crafting sessions were moved due to the large hole still in the ground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bonogo-green-goo",
+      "label": "Bonogo created a sentient cleaning green goo instead of a poison potion",
+      "node_type": "mystery",
+      "description": "At the goblin alchemy booth, Bonogo's crafting result diverged from the expected poison lesson and became a self-directed cleaning goo.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "A middle aged goblin shows him how to craft a potion for endless bubbles",
+            "Bonogo ends up making something far more interesting: a green goo that has a mind of its own and is able to clean as it moves around"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bonogo-familiar-watched-feeling",
+      "label": "Bonogo felt someone or something behind him at the candy booth",
+      "node_type": "mystery",
+      "description": "After stealing a lollipop, Bonogo sensed a presence behind him, but when he turned around nothing was there.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "he feels like someone or something is standing behind him",
+            "but when he turns nothing is there"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:bonogo-stolen-lollipop-unresolved",
+      "label": "Bonogo stole a lollipop from a nearby child",
+      "node_type": "mystery",
+      "description": "Bonogo used sleight of hand to take one of the lollipops from a nearby child after his own crafting attempt went wrong.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "Bonogo steals one of the lollipops from a nearby child"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:stormbark-tea-taught",
+      "label": "Caelynn learned Stormbark Tea from the tea booth",
+      "node_type": "mystery",
+      "description": "Caelynn impressed the old tea maker and was taught how to create Stormbark Tea.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "She shows Caelynn how to create Stormbark Tea"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:academy-professor-nomadic",
+      "label": "A former academy professor reached a magic pinnacle, then vanished to protect others",
+      "node_type": "mystery",
+      "description": "A very old human at the storm magic booth described a human professor once associated with the academy who left after believing they had reached the pinnacle of magic. Their last known location was Bald Green Hill, and they were said to be highly nomadic.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "a human professor the academy once had",
+            "felt they had reached the pinnacle of magic and then left, to protect everyone else",
+            "Their last known location was Bald Green Hill in the mountains",
+            "he was very nomadic"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:abomination-in-hempholm",
+      "label": "A prior abomination in Hempholm was reportedly ended by the group",
+      "node_type": "mystery",
+      "description": "Booth staff and attendees recognized the group and thanked them for helping end an abomination in Hempholm, implying a significant unresolved-or-resolved past incident tied to that location.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "the \u201cGrove\u201d appreciates all the help ending the abomination in Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:dark-hooded-watcher",
+      "label": "A dark hooded figure was watching Bonogo from the stands",
+      "node_type": "mystery",
+      "description": "During the Coliseum finale, Bonogo again felt watched and identified a dark hooded figure in the crowd/stands observing him.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "Bonogo gets the now familiar feeling of being watched",
+            "lands on a dark hooded figure watching from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:arena-shifting-elemental-finale",
+      "label": "The Coliseum finale involved shifting arena conditions and three summoned elementals",
+      "node_type": "mystery",
+      "description": "The final arena challenge featured multiple teams, crowd-scoring pressure, and three summoned elementals while the battlefield itself shifted during combat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "the arena will shift during the fight",
+            "3 summoned Elementals",
+            "the team has fought yet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:1",
+      "from_node_id": "obs_loc_2",
+      "to_node_id": "obs_loc_1",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Originally set in the town square",
+            "goblin alchemy booth"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:2",
+      "from_node_id": "obs_loc_3",
+      "to_node_id": "obs_loc_1",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Originally set in the town square",
+            "a booth featuring runic wood carving"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:3",
+      "from_node_id": "obs_loc_4",
+      "to_node_id": "obs_loc_1",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "The next booth looks very inviting: a Fey themed candy tent"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:4",
+      "from_node_id": "obs_loc_5",
+      "to_node_id": "obs_loc_1",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "the next booth features a mini forge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:5",
+      "from_node_id": "obs_loc_6",
+      "to_node_id": "obs_loc_1",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "The next booth features Druidic Carving"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:6",
+      "from_node_id": "obs_loc_7",
+      "to_node_id": "obs_loc_1",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Next, they head to the Illusion Painting booth"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:7",
+      "from_node_id": "obs_loc_8",
+      "to_node_id": "obs_loc_1",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "jewelry crafting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:8",
+      "from_node_id": "obs_loc_9",
+      "to_node_id": "obs_loc_1",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "the Storm Magic booth"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:10",
+      "from_node_id": "obs_loc_11",
+      "to_node_id": "obs_loc_10",
+      "label": "located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "watching from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:12",
+      "from_node_id": "faction:grove",
+      "to_node_id": "mystery:abomination-in-hempholm",
+      "label": "associated with",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "the \u201cGrove\u201d appreciates all the help ending the abomination in Hempholm"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:13",
+      "from_node_id": "group:rowdy-arena-fans",
+      "to_node_id": "obs_loc_5",
+      "label": "present at",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "a rowdy group of fans from the fighting arena"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:14",
+      "from_node_id": "group:other-teams",
+      "to_node_id": "obs_loc_10",
+      "label": "present at",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "the finale at the Coliseum",
+            "there are 3 teams remaining"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:15",
+      "from_node_id": "group:coliseum-crowd",
+      "to_node_id": "obs_loc_10",
+      "label": "present at",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "the crowd cheering",
+            "make the crowd happy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:16",
+      "from_node_id": "obj:illusion-lollipop",
+      "to_node_id": "obs_loc_4",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "Illusion Lollipop",
+            "a Fey themed candy tent"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:17",
+      "from_node_id": "obj:everlasting-taffy",
+      "to_node_id": "obs_loc_4",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "everlasting taffy",
+            "a Fey themed candy tent"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:18",
+      "from_node_id": "obj:warding-rune",
+      "to_node_id": "obs_loc_3",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Warding Rune",
+            "a booth featuring runic wood carving"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:19",
+      "from_node_id": "obj:metal-feather",
+      "to_node_id": "obs_loc_5",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "metal feather",
+            "the next booth features a mini forge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:20",
+      "from_node_id": "obj:copper-medallions",
+      "to_node_id": "obs_loc_5",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "copper medallions",
+            "the next booth features a mini forge"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:21",
+      "from_node_id": "obj:dryad-charm",
+      "to_node_id": "obs_loc_6",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "dryad charm",
+            "The next booth features Druidic Carving"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:22",
+      "from_node_id": "obj:illusion-painting",
+      "to_node_id": "obs_loc_7",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "illusion paintings",
+            "Next, they head to the Illusion Painting booth"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:23",
+      "from_node_id": "obj:tooth-windchime",
+      "to_node_id": "obs_loc_8",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "tooth windchime",
+            "jewelry crafting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:24",
+      "from_node_id": "obj:jingle-charm",
+      "to_node_id": "obs_loc_8",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "a charm that jingles when danger is nearby",
+            "jewelry crafting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:25",
+      "from_node_id": "obj:bone-ring",
+      "to_node_id": "obs_loc_8",
+      "label": "made at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "bone ring that whispers compliments",
+            "jewelry crafting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:26",
+      "from_node_id": "obj:glass-of-ale-elemental",
+      "to_node_id": "obs_loc_10",
+      "label": "present at",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "a huge foaming glass of ale",
+            "the finale at the Coliseum"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:27",
+      "from_node_id": "obs:dark-hooded-figure",
+      "to_node_id": "obs_loc_11",
+      "label": "present at",
+      "relationship_type": "present_at",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "a dark hooded figure watching from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Crafting is relocated and begins with alchemy and runic wood carving",
+      "summary": "The recap opens with the crafting sessions moved from the town square because of a large hole. The group starts moving through booths, beginning with goblin alchemy where Bonogo learns a basic poison lesson but crafts an autonomous green cleaning goo instead. Ephanna, Karsemine, and Caelynn then take on runic wood carving, where Ephanna excels and earns a Warding Rune while Caelynn does well and Karsemine struggles.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "crafting sessions were moved",
+            "the large hole still in the ground",
+            "Bonogo is first to head to the goblin alchemy booth",
+            "green goo that has a mind of its own",
+            "runic wood carving",
+            "Ephanna, Karsemine and Caelynn all join in",
+            "Warding Rune"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "Fey candy, teas, and forge crafting produce mixed results",
+      "summary": "The next booths focus on whimsy and utility. At a Fey-themed candy tent, Karsemine makes everlasting taffy for Torbin, Caelynn creates sour flavors, Ephanna performs well, and Bonogo accidentally creates a tiny fur monster before stealing a lollipop and sensing someone behind him. The group then visits a tea booth where Caelynn impresses the old lady enough to learn Stormbark Tea. Finally, they hit a forge booth where Baergrom excels at metalworking, is asked to help with a job, and spends the rest of the time making copper medallions.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "Fey themed candy tent",
+            "Karsemine is determined to get one for Torbin",
+            "everlasting taffy",
+            "Caelynn does a great job",
+            "tiny fur monster",
+            "someone or something is standing behind him",
+            "how to create Stormbark Tea",
+            "Baergrom does an excellent job",
+            "help with a job",
+            "copper medallions"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Druidic, illusion, jewelry, and storm booths deepen the group's crafting rewards and lore",
+      "summary": "The crafting tour continues with booths that recognize the group and branch into more specialized creations. In Druidic Carving, the group is thanked for helping end the abomination in Hempholm while attempting dryad charms. Next, at Illusion Painting, Ephanna earns praise for an exact copy of a Council member. Jewelry crafting with Knobs produces a tooth windchime, a danger-jingling charm, and a bone ring that whispers compliments. The final storm magic booth gives Caelynn lore about a vanished human professor once affiliated with the academy, who last was seen at Bald Green Hill and was described as highly nomadic.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Druidic Carving",
+            "ending the abomination in Hempholm",
+            "illusions paintings of members of the Council",
+            "exact copy",
+            "very, very, old goblin named Knobs",
+            "tooth windchime",
+            "charm that jingles when danger is nearby",
+            "bone ring that whispers compliments",
+            "Storm Magic booth",
+            "the academy once had",
+            "Bald Green Hill in the mountains",
+            "he was very nomadic"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_4",
+      "order": 4,
+      "title": "The finale pits the team against multiple elementals in a shifting arena",
+      "summary": "Crafting gives way to the Coliseum finale, where three teams remain and success depends on both victory and crowd approval. Bonogo, Ogonob, and Baergrom take the center as Lightning, Stone, and a bizarre glass-of-ale elemental appear. The fight swings through splash damage, crowd cheering, teleportation, blindness, commander tactics, and a conjured stone wall that separates Baergrom from allies before the stone elemental lands a heavy blow.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:20-20",
+          "anchor_quotes": [
+            "time for the finale at the Coliseum",
+            "3 teams remaining",
+            "win, but you must also earn points making the crowd happy",
+            "3 summoned Elementals",
+            "Lightning, Stone, and strangest of all, a huge foaming glass of ale",
+            "Bonogo strikes first",
+            "The crowd, spurred by Karsemine, begin to cheer",
+            "uses his shield to avoid any damage",
+            "shatters the glass",
+            "blinded",
+            "stone wall between Baergrom and his allies"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_5",
+      "order": 5,
+      "title": "Bonogo notices a hooded watcher in the crowd",
+      "summary": "After the battle beat, Bonogo again feels watched and identifies a dark hooded figure in the stands, establishing a recurring surveillance or stalking motif at the end of the session.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "now familiar feeling of being watched",
+            "dark hooded figure watching from the stands"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignore:booth-crafting-granularity",
+      "label": "Most individual booth results and minor crafted items",
+      "reason": "These are numerous craft-session outcomes and rewards rather than central mysteries/clues; they are better handled as event detail or inventory enrichment if needed.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:1-14",
+          "anchor_quotes": [
+            "Ephanna does extremely well and is rewarded with a Warding Rune",
+            "Caelynn also does well, while Karsemine has some trouble getting the rune just right"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:16-16",
+          "anchor_quotes": [
+            "She shows Caelynn how to create Stormbark Tea",
+            "Baergrom then spends the rest of the crafting time helping make copper medallions"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "Ephanna uses their ability to create an exact copy, and earns high praise for their \u201cgift\u201d at painting",
+            "Bonogo is able to make a special bone ring that whispers compliments"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "defer:hooded-figure-identity",
+      "label": "Identity and motive of the dark hooded figure",
+      "reason": "The source establishes a watcher but gives no identifying details or motive beyond the visual description.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:22-22",
+          "anchor_quotes": [
+            "a dark hooded figure watching from the stands"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Track subsequent sightings, reactions, or any connection to Bonogo or the arena event."
+    },
+    {
+      "item_id": "defer:academy-professor-identity",
+      "label": "Identity of the former academy professor",
+      "reason": "The professor is described only by status, beliefs, and last known location; no name is provided here.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:text",
+          "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "label": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c2:session-10:8482ee1639ec:span:8482ee1639ec:18-18",
+          "anchor_quotes": [
+            "a human professor the academy once had",
+            "Their last known location was Bald Green Hill in the mountains"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Search future recaps for a named professor or follow-up leads at Bald Green Hill."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

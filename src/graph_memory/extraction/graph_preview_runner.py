@@ -61,6 +61,8 @@ class ProductionExtractionRequest:
     context_vocabulary_packet: ContextVocabularyPacket | None = None
     enable_node_vocabulary_packet: bool = False
     enable_edge_vocabulary_packet: bool = False
+    extra_known_entities: tuple[Any, ...] | None = None
+    node_pass_workers: int = 1
 
 
 @dataclass
@@ -74,6 +76,8 @@ class ProductionExtractionResult:
     model_id: str | None = None
     profile_id: str | None = None
     profile_version: str | None = None
+    pass_telemetry: Mapping[str, Any] | None = None
+    total_cost_usd: float = 0.0
 
 
 def _now_iso() -> str:
@@ -339,6 +343,8 @@ def run_production_extraction(
             if request.enable_edge_vocabulary_packet
             else None
         ),
+        extra_known_entities=request.extra_known_entities,
+        node_pass_workers=request.node_pass_workers,
     )
 
     try:
@@ -632,4 +638,6 @@ def run_production_extraction(
         model_id=model_id,
         profile_id=profile.profile_id,
         profile_version=profile.profile_version,
+        pass_telemetry=extraction.pass_telemetry,
+        total_cost_usd=extraction.total_cost_usd,
     )

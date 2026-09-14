@@ -1,0 +1,33 @@
+{
+  "schema": "dmb_source_span_index_v1",
+  "version": "1.0",
+  "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+  "content_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+  "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+  "spans": [
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:1-13",
+      "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+      "content_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+      "start_line": 1,
+      "end_line": 13
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:15-15",
+      "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+      "content_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+      "start_line": 15,
+      "end_line": 15
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:span:f1045adefbd6:17-17",
+      "source_ref_id": "full-corpus:longmont-c2:session-1:f1045adefbd6:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+      "content_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+      "start_line": 17,
+      "end_line": 17
+    }
+  ]
+}

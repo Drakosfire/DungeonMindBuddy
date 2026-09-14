@@ -1,0 +1,2213 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-13:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-13",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-13:55b65ec5dcec"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:head-clerk-mossglade",
+      "label": "Head Clerk Mossglade",
+      "node_type": "character",
+      "description": "A Half-Elf Head Clerk at Stormspire Academy who helps the party and mentions the study room and Torbin's condition.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "anchor_quotes": [
+            "Head Clerk Mossglade",
+            "With a huff of impatience she asks how she can help."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "Mossglade also tells the group about the \u201cstudy room\u201d",
+            "Torbin is in the infirmary under Professor Tealeaf\u2019s care."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:professor-cinderbranch",
+      "label": "Professor Cinderbranch",
+      "node_type": "character",
+      "description": "A professor at Stormspire Academy who is interested in Wolf's head and later leaves the ritual room.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "anchor_quotes": [
+            "Professor Cinderbranch is very interested in the events that led to Wolf\u2019s head ending up with the group."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "After the ritual Professor Cinderbranch leaves the room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:professor-tealeaf",
+      "label": "Professor Tealeaf",
+      "node_type": "character",
+      "description": "A professor caring for Torbin in the infirmary, but unable to help him or work on potions.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "Torbin is in the infirmary under Professor Tealeaf\u2019s care."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "anchor_quotes": [
+            "Tealeaf has been unable to help Torbin and has not been able to help work on potions."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:necromancer",
+      "label": "Necromancer",
+      "node_type": "character",
+      "description": "An unnamed necromancer at Stormspire Academy who performs a Speak with Dead ritual and questions Wolf's head.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "anchor_quotes": [
+            "meet with the Necromancer"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "anchor_quotes": [
+            "The rest of the group meet with the Necromancer."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "anchor_quotes": [
+            "the ritual about to begin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:draven",
+      "label": "Draven",
+      "node_type": "character",
+      "description": "A hostile figure who monologues, casts Fear, and is then put to sleep and killed by the party.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "anchor_quotes": [
+            "Draven begins to monologue about cooking and eating Stafl and Bonogo",
+            "casts Fear on Bonogo"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "anchor_quotes": [
+            "Bonogo sneak attacks the sleeping necromancer and deals massive damage resulting in a killing blow."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:lira",
+      "label": "Lira",
+      "node_type": "character",
+      "description": "A named conspirator associated with the meat-storage plot who is expected to finish the plot before dying.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "anchor_quotes": [
+            "Lira will finish the plot before she dies."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc:shepherd",
+      "label": "Shepherd",
+      "node_type": "character",
+      "description": "A central hidden leader or influence behind the plot, described as being in the minds of the people and rising from below.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "anchor_quotes": [
+            "Where is the Shepherd? Everywhere! In all the minds of the people."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "anchor_quotes": [
+            "led by the Shepherd",
+            "the Shepherd rises from below"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "creature:sewer-meat-monster",
+      "label": "Sewer Meat Monster",
+      "node_type": "character",
+      "description": "A disgusting monster introduced with elite guards during the ritual-room confrontation.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "2 Elite Guards enter with a large and disgusting Sewer Meat Monster",
+            "The disgusting monster moves to the center of the room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_council_chambers",
+      "label": "Council Chambers",
+      "node_type": "location",
+      "description": "Disheveled chambers the party exits before being stopped by guards.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "the disheveled Council Chambers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_study_room",
+      "label": "Study Room",
+      "node_type": "location",
+      "description": "A room at the academy used for rest and a magical short rest.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "the \u201cstudy room\u201d",
+            "rest and recharge"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "anchor_quotes": [
+            "the \u201cStudy Room\u201d",
+            "magical short rest"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_infirmary",
+      "label": "Infirmary",
+      "node_type": "location",
+      "description": "Academy infirmary where Torbin is being treated under Professor Tealeaf.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "in the infirmary under Professor Tealeaf\u2019s care"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "anchor_quotes": [
+            "head to the Infirmary"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_basement_morgue",
+      "label": "basement morgue",
+      "node_type": "location",
+      "description": "Sublevel morgue where Wolf\u2019s head is placed for the Speak with Dead ritual.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "anchor_quotes": [
+            "enter a basement morgue",
+            "the ritual about to begin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_sewers",
+      "label": "sewers",
+      "node_type": "location",
+      "description": "Underground sewer network connected to the corrupted invasion and meat storage strongholds.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "anchor_quotes": [
+            "Corrupted invasion from the sewers"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "underground"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_street_outside",
+      "label": "street outside",
+      "node_type": "location",
+      "description": "Busy street outside the council chambers where the party is confronted over carrying meat.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "the street outside",
+            "it busy with activity"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_guardhouses",
+      "label": "guardhouses",
+      "node_type": "location",
+      "description": "Stronghold locations for meat storage identified during the Speak with Dead ritual.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "the guardhouses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_walls",
+      "label": "walls",
+      "node_type": "location",
+      "description": "Hidden stronghold locations for meat storage.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "Hidden in the walls"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "group:covert-ops-groups",
+      "label": "covert ops groups",
+      "node_type": "group",
+      "description": "Multiple covert operations groups claiming items in the building and using a light to identify the party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "anchor_quotes": [
+            "covert ops groups already laying claims to literally every item in the building"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "one of the covert ops groups shines a light on the group"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:elite-guards",
+      "label": "Elite Guards",
+      "node_type": "faction",
+      "description": "An armed elite guard force that enters the ritual room with the Sewer Meat Monster and fights the party.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "2 Elite Guards enter"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "anchor_quotes": [
+            "One Elite Guard attacks Stafl"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:the-mages",
+      "label": "the Mages",
+      "node_type": "faction",
+      "description": "Mage support at the academy who help the party and burn up the tainted meat.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "the guards are quick to jump into action. As the group continues on to the academy the tainted meat is burned up by one of the mages"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "With the help of the Mages the party can stock up on items"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:the-party",
+      "label": "the party",
+      "node_type": "faction",
+      "description": "The player party acting together across the session, including splitting up and regrouping for different tasks.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:40-40",
+          "anchor_quotes": [
+            "The group decides to do both by splitting up"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "the party can stock up on items"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_1",
+      "label": "Wolf\u2019s head",
+      "node_type": "item",
+      "description": "The severed head of Wolf that the party brings to Stormspire Academy for a Speak with Dead ritual.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "removes the Wolf\u2019s head to take to the academy"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "anchor_quotes": [
+            "the head of Wolf in the center"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_2",
+      "label": "Rune alarms",
+      "node_type": "item",
+      "description": "Alarmed runes that triggered the guards\u2019 response outside the Council Chambers.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "alerted to the Rune alarms"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_3",
+      "label": "Oily-eyed suspicion marker",
+      "node_type": "item",
+      "description": "A telltale condition the guards are told to watch for when looking for suspects.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "anyone with oily eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_4",
+      "label": "Light used to spotlight the party",
+      "node_type": "item",
+      "description": "A light shone by one of the covert ops groups to stop and inspect the party on the street.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "shines a light on the group"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_5",
+      "label": "Hundreds of pounds of meat",
+      "node_type": "item",
+      "description": "A large quantity of meat dumped into the street to satisfy the inspection and reveal the tainted cargo.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "dump out hundreds of pounds of meat on the street"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_6",
+      "label": "Tainted meat",
+      "node_type": "item",
+      "description": "Contaminated meat associated with the corruption, later burned away by a mage.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "the tainted meat is burned up by one of the mages"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_7",
+      "label": "Potions",
+      "node_type": "item",
+      "description": "Magical potions being worked on at Stormspire Academy, and later obstructed by events around Torbin.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "anchor_quotes": [
+            "making potions"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "anchor_quotes": [
+            "has not been able to help work on potions"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_9",
+      "label": "Wards",
+      "node_type": "item",
+      "description": "Protective wards being worked on at Stormspire Academy.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:36-36",
+          "anchor_quotes": [
+            "working on wards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_10",
+      "label": "Mother\u2019s pan flute",
+      "node_type": "item",
+      "description": "Caelynn\u2019s pan flute used during the short rest.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:44-44",
+          "anchor_quotes": [
+            "Caelynn plays a wonderful song on her mother\u2019s pan flute"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_11",
+      "label": "Piece of meat from Caelynn\u2019s bag",
+      "node_type": "item",
+      "description": "A stray piece of meat that escapes Caelynn\u2019s bag and becomes a loose problem in the academy.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "anchor_quotes": [
+            "a piece of meat from Caelynn\u2019s bag escaped"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_12",
+      "label": "Large and disgusting Sewer Meat Monster",
+      "node_type": "item",
+      "description": "A sewer-born meat monster brought in by the Elite Guards during the ritual confrontation.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "a large and disgusting Sewer Meat Monster"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "oozes goo in a 10 foot radius"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-shepherd-plan",
+      "label": "The Shepherd-led citywide plan is imminent and will culminate at dawn",
+      "node_type": "mystery",
+      "description": "The Speak with Dead exchange indicates an ongoing plot that is actively gathering, will erupt into something new, and will be complete by the break of dawn when the Shepherd rises from below.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "anchor_quotes": [
+            "There is no stopping it!",
+            "They are gathering now and will soon erupt as something new, led by the Shepherd.",
+            "You will know at the break of dawn as the Shepherd rises from below."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-meat-storage-network",
+      "label": "Meat storage strongholds are hidden across city infrastructure",
+      "node_type": "mystery",
+      "description": "Wolf reveals that the meat storage network is concealed in multiple hard-to-find places: inside walls, in guardhouses, and underground.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "Where are the strongholds for the meat storage? Hidden in the walls, the guardhouses and underground."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-lira-timeline",
+      "label": "Lira is expected to finish the plot before dying",
+      "node_type": "mystery",
+      "description": "The dead witness identifies Lira as a key actor whose death appears tied to the completion of the plot, but the sequencing and meaning remain unclear.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "anchor_quotes": [
+            "Lira will finish the plot before she dies."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-shepherd-in-minds",
+      "label": "The Shepherd is present in the minds of the people",
+      "node_type": "mystery",
+      "description": "Wolf's answer suggests the Shepherd is not merely a physical figure but an influence or presence distributed across people's minds.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:56-56",
+          "anchor_quotes": [
+            "Everywhere! In all the minds of the people."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-sewer-meat-monster",
+      "label": "A Sewer Meat Monster and elite guards emerge from hidden walls in the academy",
+      "node_type": "mystery",
+      "description": "Immediately after the ritual, a concealed wall opens and elite guards escort a disgusting Sewer Meat Monster into the ritual room, suggesting an organized hidden response or ambush within the Academy.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "one of the walls opens up",
+            "2 Elite Guards enter with a large and disgusting Sewer Meat Monster",
+            "oozes goo in a 10 foot radius"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-captured-wolf-knowledge",
+      "label": "Wolf's corpse/head holds critical intelligence about the invasion",
+      "node_type": "mystery",
+      "description": "The party takes Wolf's head to obtain information about the plans Wolf had, implying Wolf possessed firsthand knowledge of the corruption and invasion.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "take the Wolf to Stormspire Academy",
+            "see if someone can help cast Speak with Dead so they can learn more about the plans Wolf had"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:20-20",
+          "anchor_quotes": [
+            "Corrupted invasion from the sewers"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-rune-alarms-alert",
+      "label": "Rune alarms triggered a guard response after the group left Council Chambers",
+      "node_type": "mystery",
+      "description": "The party is intercepted outside the Council Chambers because the guards were alerted to rune alarms, implying a security breach or magical detection event tied to the chamber incident.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "they are stopped by guards who were alerted to the Rune alarms",
+            "Thalia is there to explain the situation"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-oily-eyes-warning",
+      "label": "Guards were instructed to watch for anyone with oily eyes",
+      "node_type": "mystery",
+      "description": "Thalia warns the guards to be alert for 'anyone with oily eyes,' implying a suspicious trait associated with infiltrators, corruption, or possession.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "set the guard on alert for anyone with oily eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-caelynn-meat-escape",
+      "label": "A piece of meat escaped from Caelynn's bag inside the Academy",
+      "node_type": "mystery",
+      "description": "The recap notes an escaped piece of meat that is loose in the Academy, introducing an unresolved hazard that the party splits to hunt down.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:46-46",
+          "anchor_quotes": [
+            "a piece of meat from Caelynn\u2019s bag escaped and is now on the loose in the Academy"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session13-torbin-unresolved",
+      "label": "Torbin remains unhelped in the infirmary under Professor Tealeaf",
+      "node_type": "mystery",
+      "description": "Torbin is still in the infirmary, and Tealeaf has been unable to help him or continue potion work, leaving Torbin's condition unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "Torbin is in the infirmary under Professor Tealeaf\u2019s care"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "anchor_quotes": [
+            "Tealeaf has been unable to help Torbin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-012",
+      "from_node_id": "npc:professor-tealeaf",
+      "to_node_id": "loc_infirmary",
+      "label": "Tealeaf cares for Torbin in the infirmary",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:38-38",
+          "anchor_quotes": [
+            "Torbin is in the infirmary under Professor Tealeaf\u2019s care"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-013",
+      "from_node_id": "npc:necromancer",
+      "to_node_id": "loc_basement_morgue",
+      "label": "Necromancer in basement morgue",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:48-48",
+          "anchor_quotes": [
+            "enter a basement morgue",
+            "the ritual about to begin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-015",
+      "from_node_id": "group:covert-ops-groups",
+      "to_node_id": "item_4",
+      "label": "covert ops groups use a light",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "one of the covert ops groups shines a light on the group"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-016",
+      "from_node_id": "faction:elite-guards",
+      "to_node_id": "creature:sewer-meat-monster",
+      "label": "Elite Guards enter with Sewer Meat Monster",
+      "relationship_type": "allied_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:60-60",
+          "anchor_quotes": [
+            "2 Elite Guards enter with a large and disgusting Sewer Meat Monster"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-022",
+      "from_node_id": "npc:draven",
+      "to_node_id": "npc:necromancer",
+      "label": "Draven is the necromancer",
+      "relationship_type": "same_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:62-62",
+          "anchor_quotes": [
+            "Bonogo sneak attacks the sleeping necromancer"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-023",
+      "from_node_id": "npc:shepherd",
+      "to_node_id": "mystery-session13-shepherd-plan",
+      "label": "Shepherd leads the citywide plan",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "anchor_quotes": [
+            "led by the Shepherd"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:58-58",
+          "anchor_quotes": [
+            "the Shepherd rises from below"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-024",
+      "from_node_id": "npc:lira",
+      "to_node_id": "mystery-session13-lira-timeline",
+      "label": "Lira is tied to plot completion",
+      "relationship_type": "objective_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:54-54",
+          "anchor_quotes": [
+            "Lira will finish the plot before she dies."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-025",
+      "from_node_id": "mystery-session13-meat-storage-network",
+      "to_node_id": "loc_walls",
+      "label": "meat storage hidden in walls",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "Hidden in the walls"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-026",
+      "from_node_id": "mystery-session13-meat-storage-network",
+      "to_node_id": "loc_guardhouses",
+      "label": "meat storage in guardhouses",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "the guardhouses"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-027",
+      "from_node_id": "mystery-session13-meat-storage-network",
+      "to_node_id": "loc_sewers",
+      "label": "meat storage underground",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:52-52",
+          "anchor_quotes": [
+            "and underground."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Torbin and the Wolf become the session's initial focus",
+      "summary": "The recap opens by framing Torbin and the dead Wolf as the major story thread: the group plans to use Speak with Dead at Stormspire Academy to learn more about Wolf's plans, while the recap also identifies a sewer-based corruption threat as the broader problem.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "take the Wolf to Stormspire Academy",
+            "see if someone can help cast Speak with Dead"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "Guard interception outside the Council Chambers",
+      "summary": "After leaving the Council Chambers, the group is stopped by guards responding to rune alarms. Thalia defuses the situation by explaining matters and warning the guards to watch for oily eyes, and Bonogo removes Wolf's head to carry it onward.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:32-32",
+          "anchor_quotes": [
+            "step outside the disheveled Council Chambers",
+            "stopped by guards who were alerted to the Rune alarms",
+            "Thalia is there to explain the situation"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Meat search triggers public alarm and cleanup",
+      "summary": "In the street, one covert ops group shines a light on the party and demands to know whether they are carrying meat. After the party dumps out hundreds of pounds of meat, the guards intervene and a mage burns the tainted meat as the group continues to the academy.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:34-34",
+          "anchor_quotes": [
+            "shines a light on the group",
+            "tell them if we carry any meat with us",
+            "hundreds of pounds of meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_5",
+      "order": 5,
+      "title": "Torbin remains unresolved while the academy provides refuge",
+      "summary": "Ephanna and Baergrom learn that Tealeaf cannot help Torbin or continue potion work, so they stay with him while Tealeaf moves on to another room. This beat reinforces Torbin's fragile condition and the academy's ongoing support efforts.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:42-42",
+          "anchor_quotes": [
+            "Tealeaf has been unable to help Torbin",
+            "They decide to stay with Torbin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_8",
+      "order": 8,
+      "title": "Aftermath: the ritual room is empty and the party prepares to descend",
+      "summary": "Once the fight ends, the group learns the ritual room has been emptied, which is treated as a bad omen. With mage assistance they restock on items and head down the tunnel toward whatever is waiting below.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "the ritual room empty, a bad sign of what is to come",
+            "head down the tunnel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored-party-anchor-bonogo",
+      "label": "Bonogo",
+      "reason": "Deterministic party anchor; do not re-extract as a session-novel node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored-party-anchor-baergrom",
+      "label": "Baergrom",
+      "reason": "Deterministic party anchor; do not re-extract as a session-novel node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored-party-anchor-karsemine",
+      "label": "Karsemine",
+      "reason": "Deterministic party anchor; do not re-extract as a session-novel node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored-party-anchor-caelynn",
+      "label": "Caelynn",
+      "reason": "Deterministic party anchor; do not re-extract as a session-novel node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored-party-anchor-ephanna",
+      "label": "Ephanna",
+      "reason": "Deterministic party anchor; do not re-extract as a session-novel node.",
+      "evidence_refs": [],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored-party-anchor-stafl",
+      "label": "Stafl",
+      "reason": "Deterministic party anchor; do not re-extract as a session-novel node.",
+      "evidence_refs": [],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred-session13-mages-items",
+      "label": "Custom items from Mossglade and the mages",
+      "reason": "The recap foreshadows reward items and stocking up, but does not specify what the items are in this packet.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:28-28",
+          "anchor_quotes": [
+            "rewarded for asking for help with custom items",
+            "Mossglade comes with the leftover items"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "the party can stock up on items"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Check follow-up session notes or item inventories for the specific rewards and who received them."
+    },
+    {
+      "item_id": "deferred-session13-tunnel-what-awaits",
+      "label": "What awaits down the tunnel",
+      "reason": "The session ends with the party heading into the tunnel, but the actual destination or encounter is not described in this packet.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "label": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec:span:55b65ec5dcec:68-68",
+          "anchor_quotes": [
+            "head down the tunnel to see what awaits\u2026"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Inspect the next session recap or encounter notes for the tunnel destination and contents."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

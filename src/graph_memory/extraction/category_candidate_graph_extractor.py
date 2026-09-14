@@ -5,7 +5,9 @@ import json
 import logging
 import os
 import re
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Mapping, Protocol, Sequence
@@ -285,6 +287,9 @@ class CategoryGraphExtractionOptions:
     # deterministic registry after party-roster construction; party wins
     # id/slug collisions. Default None preserves party-only behavior.
     extra_known_entities: tuple[Any, ...] | None = None
+    # Independent node/beat passes share an immutable source snapshot.
+    # 1 keeps the historical serial contract; >1 is intra-document only.
+    node_pass_workers: int = 1
 
 
 def resolve_source_identity(
@@ -1715,13 +1720,16 @@ def run_category_pipeline(
     node_vocabulary_pass_diagnostics: dict[str, Any] = {}
     effective_node_vocabulary_packet, dynamic_node_vocabulary_diag = resolve_node_vocabulary_packet_for_options(options)
 
+    notify_lock = threading.Lock()
+
     def _notify(pass_name: str, state: str) -> None:
         if progress_callback is not None:
-            progress_callback(pass_name, state)
+            with notify_lock:
+                progress_callback(pass_name, state)
 
+    independent_jobs: list[tuple[ExtractionPassSpec, str]] = []
     for pass_spec in active_profile.node_passes:
         pass_name = pass_spec.pass_id
-        _notify(pass_name, "running")
         node_prompt, node_vocabulary_diag = build_node_pass_prompt(
             pass_name,
             prompts[_prompt_key(pass_name)],
@@ -1729,44 +1737,60 @@ def run_category_pipeline(
             node_vocabulary_packet_override=effective_node_vocabulary_packet,
         )
         node_vocabulary_pass_diagnostics[pass_name] = node_vocabulary_diag
+        independent_jobs.append((pass_spec, node_prompt))
+    if active_profile.beat_pass is not None:
+        beat = active_profile.beat_pass
+        independent_jobs.append((beat, prompts[_prompt_key(beat.pass_id)]))
+
+    def _execute_independent_pass(
+        pass_spec: ExtractionPassSpec, user_content: str
+    ) -> tuple[str, dict[str, Any], dict[str, Any]]:
+        pass_name = pass_spec.pass_id
+        _notify(pass_name, "running")
         result = client.run_pass(
             pass_name,
             model_id=model_id,
             instructions=system,
-            user_content=node_prompt,
+            user_content=user_content,
             pass_spec=pass_spec,
         )
-        pass_outputs[pass_name] = result["parsed"]
-        pass_telemetry[pass_name] = {
+        telemetry = {
             "cost_usd": result["cost_usd"],
             "usage": result["usage"],
             "elapsed_ms": result["elapsed_ms"],
             "response_id": result["response_id"],
             "progress_label": pass_spec.progress_label,
         }
-        total_cost += result["cost_usd"]
         _notify(pass_name, "complete")
+        return pass_name, result["parsed"], telemetry
 
-    if active_profile.beat_pass is not None:
-        beat = active_profile.beat_pass
-        _notify(beat.pass_id, "running")
-        beat_result = client.run_pass(
-            beat.pass_id,
-            model_id=model_id,
-            instructions=system,
-            user_content=prompts[_prompt_key(beat.pass_id)],
-            pass_spec=beat,
-        )
-        pass_outputs[beat.pass_id] = beat_result["parsed"]
-        pass_telemetry[beat.pass_id] = {
-            "cost_usd": beat_result["cost_usd"],
-            "usage": beat_result["usage"],
-            "elapsed_ms": beat_result["elapsed_ms"],
-            "response_id": beat_result["response_id"],
-            "progress_label": beat.progress_label,
-        }
-        total_cost += beat_result["cost_usd"]
-        _notify(beat.pass_id, "complete")
+    def _run_independent_job(
+        job: tuple[ExtractionPassSpec, str],
+    ) -> tuple[str, dict[str, Any], dict[str, Any]]:
+        return _execute_independent_pass(job[0], job[1])
+
+    workers = max(1, int(options.node_pass_workers or 1))
+    independent_started = time.perf_counter()
+    if workers == 1 or len(independent_jobs) <= 1:
+        independent_results = [
+            _execute_independent_pass(spec, prompt) for spec, prompt in independent_jobs
+        ]
+    else:
+        with ThreadPoolExecutor(max_workers=min(workers, len(independent_jobs))) as pool:
+            independent_results = list(pool.map(_run_independent_job, independent_jobs))
+    independent_wall_ms = round((time.perf_counter() - independent_started) * 1000.0, 2)
+    independent_sum_ms = 0.0
+    for pass_name, parsed, telemetry in independent_results:
+        pass_outputs[pass_name] = parsed
+        pass_telemetry[pass_name] = telemetry
+        total_cost += float(telemetry.get("cost_usd") or 0.0)
+        independent_sum_ms += float(telemetry.get("elapsed_ms") or 0.0)
+    pass_telemetry["_independent_pass_concurrency"] = {
+        "workers": min(workers, max(len(independent_jobs), 1)),
+        "pass_count": len(independent_jobs),
+        "wall_ms": independent_wall_ms,
+        "sum_elapsed_ms": round(independent_sum_ms, 2),
+    }
 
     consolidated = consolidate_category_outputs(
         pass_outputs,

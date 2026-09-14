@@ -1,0 +1,49 @@
+{
+  "schema": "dmb_source_span_index_v1",
+  "version": "1.0",
+  "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+  "content_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+  "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+  "spans": [
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:1-12",
+      "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+      "content_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+      "start_line": 1,
+      "end_line": 12
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:14-14",
+      "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+      "content_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+      "start_line": 14,
+      "end_line": 14
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:16-16",
+      "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+      "content_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+      "start_line": 16,
+      "end_line": 16
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:18-18",
+      "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+      "content_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+      "start_line": 18,
+      "end_line": 18
+    },
+    {
+      "source_span_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:span:c702e71fdf13:20-20",
+      "source_ref_id": "full-corpus:longmont-c2:session-12:c702e71fdf13:text",
+      "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+      "content_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+      "start_line": 20,
+      "end_line": 20
+    }
+  ]
+}

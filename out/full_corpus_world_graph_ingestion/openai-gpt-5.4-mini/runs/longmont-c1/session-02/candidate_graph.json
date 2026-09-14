@@ -1,0 +1,1178 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-2:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-2",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-2:12aac2b0f386"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "loc:wizard-s-tower",
+      "label": "Wizard's Tower",
+      "node_type": "location",
+      "description": "A wizard's tower with a basement that was cleared during the session; it also has an implied hidden alchemy room and may have more to explore.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "wizards tower basement",
+            "a room full of healing potions and alchemical tools and ingredients"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "anchor_quotes": [
+            "the Wizard's Tower"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc:hidden-alchemy-room",
+      "label": "hidden alchemy room",
+      "node_type": "location",
+      "description": "A concealed room revealed by bashing down a wall, containing healing potions and alchemical tools and ingredients.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "bashing down a wall to reveal a room full of healing potions and alchemical tools and ingredients"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "anchor_quotes": [
+            "this room",
+            "the hidden alchemy room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:hidden-alchemy-room",
+      "label": "hidden alchemy room",
+      "node_type": "item",
+      "description": "A hidden room revealed by bashing down a wall in the wizard's tower basement; later used as a place to stash gear.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "bashing down a wall to reveal a room"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "anchor_quotes": [
+            "stash gear in the hidden alchemy room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:the-gang",
+      "label": "the gang",
+      "node_type": "faction",
+      "description": "The adventuring party referred to collectively as 'the gang' in the session recap; they survived the dungeon work and decided to stay together.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:14-14",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:14-14",
+          "anchor_quotes": [
+            "The gang survived",
+            "they kinda even thrived"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "anchor_quotes": [
+            "the group decided to stick together"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:sack-of-gems-session2",
+      "label": "sack of gems",
+      "node_type": "item",
+      "description": "A sack of gems found during the clearing of the wizard's tower basement.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "Finding a sack of gems"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:mystery-potions-session2",
+      "label": "mystery potions",
+      "node_type": "item",
+      "description": "Unidentified potions recovered from corpses in the well.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "some mystery potions on corpses in the well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:healing-potions-hidden-alchemy-room",
+      "label": "healing potions",
+      "node_type": "item",
+      "description": "A room full of healing potions discovered behind a bashed-down wall in the wizard's tower basement.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "a room full of healing potions"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:alchemical-tools-ingredients",
+      "label": "alchemical tools and ingredients",
+      "node_type": "item",
+      "description": "Ancient, incredible-design alchemical tools and ingredients found alongside the healing potions.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "alchemical tools and ingredients of and ancient and incredible design"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:stash-gear-right",
+      "label": "right to stash gear",
+      "node_type": "item",
+      "description": "A negotiated permission to store gear in the hidden alchemy room.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "anchor_quotes": [
+            "they negotiated with Glowkindle for the right to stash gear in the hidden alchemy room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item:25-gp-each",
+      "label": "25 gp each",
+      "node_type": "item",
+      "description": "The group's monetary reward for the session's work.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "anchor_quotes": [
+            "25 gp each"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session2-hidden-alchemy-room-function",
+      "label": "Hidden alchemy room\u2019s purpose and future use",
+      "node_type": "mystery",
+      "description": "The party discovered a concealed room in the wizard\u2019s tower basement containing healing potions, alchemical tools, and unusual ingredients, but they do not know how to use them. The room may be an important resource or lead.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "bashing down a wall to reveal a room full of healing potions and alchemical tools and ingredients of and ancient and incredible design",
+            "They unfortunately haven't the first clue how to use them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session2-more-to-wizards-tower",
+      "label": "Whether the Wizard's Tower contains more unexplored content",
+      "node_type": "mystery",
+      "description": "The recap explicitly raises the possibility that the Wizard's Tower has additional secrets or unfinished business beyond the cleared basement.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "anchor_quotes": [
+            "what if there is more to the Wizard's Tower"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session2-next-job-direction",
+      "label": "The party\u2019s next destination and employer",
+      "node_type": "mystery",
+      "description": "After finishing the job and deciding to stay together, the group has no settled next step and is considering future work with Glowkindle or other travel and contacts.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "anchor_quotes": [
+            "the group decided to stick together and see where the winds take them"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "anchor_quotes": [
+            "Will they ask Glowkindle for more work?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session2-stone-bridge-followup",
+      "label": "Possible return to Stone Bridge and Grishna",
+      "node_type": "mystery",
+      "description": "The session ends with an unresolved possibility that the party may return to Stone Bridge to visit Grishna at the River's Edge Pub.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "anchor_quotes": [
+            "Will they had back to Stone Bridge to say hi to Grishna at the River's Edge Pub?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session2-basement-hazards",
+      "label": "Basement hazards and mutated creatures",
+      "node_type": "mystery",
+      "description": "The basement contained multiple threats, including rats, a Giant Flaming Spider, a Giant Centipede from the well, and a rat that was feared to mutate, indicating lingering danger in the area.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:14-14",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:14-14",
+          "anchor_quotes": [
+            "Compared to the rats, the Giant Flaming Spider, the Giant Centipede that crawled out of the well, and the rat that absolutely was NOT about to mutate were no big deal."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-1",
+      "from_node_id": "faction:the-gang",
+      "to_node_id": "loc:wizard-s-tower",
+      "label": "worked in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "wizards tower basement"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "loc:hidden-alchemy-room",
+      "to_node_id": "loc:wizard-s-tower",
+      "label": "within",
+      "relationship_type": "within",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "anchor_quotes": [
+            "the hidden alchemy room"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "bashing down a wall to reveal a room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-3",
+      "from_node_id": "item:hidden-alchemy-room",
+      "to_node_id": "loc:hidden-alchemy-room",
+      "label": "is located in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "anchor_quotes": [
+            "stash gear in the hidden alchemy room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "item:healing-potions-hidden-alchemy-room",
+      "to_node_id": "loc:hidden-alchemy-room",
+      "label": "found in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "a room full of healing potions"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-5",
+      "from_node_id": "item:alchemical-tools-ingredients",
+      "to_node_id": "loc:hidden-alchemy-room",
+      "label": "found in",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "alchemical tools and ingredients"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-6",
+      "from_node_id": "item:sack-of-gems-session2",
+      "to_node_id": "faction:the-gang",
+      "label": "recovered by",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "came away richly rewarded",
+            "Finding a sack of gems"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-7",
+      "from_node_id": "item:mystery-potions-session2",
+      "to_node_id": "faction:the-gang",
+      "label": "recovered by",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "some mystery potions on corpses in the well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-8",
+      "from_node_id": "item:healing-potions-hidden-alchemy-room",
+      "to_node_id": "faction:the-gang",
+      "label": "recovered by",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "a room full of healing potions"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-9",
+      "from_node_id": "item:alchemical-tools-ingredients",
+      "to_node_id": "faction:the-gang",
+      "label": "recovered by",
+      "relationship_type": "participates_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "alchemical tools and ingredients"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "faction:the-gang",
+      "to_node_id": "item:stash-gear-right",
+      "label": "secured right to",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "anchor_quotes": [
+            "for the right to stash gear in the hidden alchemy room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-12",
+      "from_node_id": "faction:the-gang",
+      "to_node_id": "item:25-gp-each",
+      "label": "received",
+      "relationship_type": "possesses",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "anchor_quotes": [
+            "25 gp each"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "faction:the-gang",
+      "to_node_id": "mystery:session2-next-job-direction",
+      "label": "faces unresolved next step",
+      "relationship_type": "objective_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "anchor_quotes": [
+            "the group decided to stick together and see where the winds take them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-14",
+      "from_node_id": "mystery:session2-more-to-wizards-tower",
+      "to_node_id": "loc:wizard-s-tower",
+      "label": "concerns",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "anchor_quotes": [
+            "what if there is more to the Wizard's Tower"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "The gang survives the basement threats",
+      "summary": "The party makes it through the basement encounter sequence, with the recap emphasizing that even the rats and larger creatures were not especially dangerous to them.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:14-14",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:14-14",
+          "anchor_quotes": [
+            "The gang survived, they kinda even thrived.",
+            "the Giant Flaming Spider, the Giant Centipede that crawled out of the well"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "The basement yields loot and a hidden alchemy room",
+      "summary": "After clearing the wizard tower basement, the group finds valuable loot and uncovers a secret room filled with healing potions and alchemical supplies, though they do not know how to use them yet.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:16-16",
+          "anchor_quotes": [
+            "After clearing the rest of the wizards tower basement they came away richly rewarded.",
+            "bashing down a wall to reveal a room full of healing potions and alchemical tools and ingredients"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Glowkindle negotiates storage rights for the hidden room",
+      "summary": "Because the hidden alchemy room was outside the original contract, the group negotiates with Glowkindle for permission to stash gear there, establishing a small practical arrangement.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:18-18",
+          "anchor_quotes": [
+            "Since this room was not part of the original contract",
+            "they negotiated with Glowkindle for the right to stash gear in the hidden alchemy room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "The party profits and decides to stay together",
+      "summary": "The group earns money and loot, learns from the rat-clearing job, and chooses to keep adventuring together rather than split up.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "anchor_quotes": [
+            "After making pretty good money, 25 gp each, a bit of loot",
+            "the group decided to stick together and see where the winds take them"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "Future leads are left open",
+      "summary": "The recap closes by posing follow-up possibilities: more work from Glowkindle, a return to Stone Bridge to visit Grishna at the River's Edge Pub, or a deeper investigation of the Wizard's Tower.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:22-22",
+          "anchor_quotes": [
+            "Will they ask Glowkindle for more work?",
+            "Will they had back to Stone Bridge to say hi to Grishna at the River's Edge Pub?",
+            "Will they follow up on the errant thought of what if there is more to the Wizard's Tower?"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [],
+  "deferred_items": [
+    {
+      "item_id": "deferred:session2-party-anchor-characters",
+      "label": "Individual party member state changes",
+      "reason": "The prompt specifies deterministic party anchors and instructs not to re-extract them as session-novel nodes; this recap does not provide distinct character-specific mysteries beyond the group-level direction.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "label": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-2:12aac2b0f386:span:12aac2b0f386:20-20",
+          "anchor_quotes": [
+            "the group decided to stick together"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Handle any PC-specific changes in their dedicated character hubs or later session packets if explicit evidence appears."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

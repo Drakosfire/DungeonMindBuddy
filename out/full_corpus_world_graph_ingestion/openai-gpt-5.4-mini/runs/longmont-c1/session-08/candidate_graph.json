@@ -1,0 +1,2116 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-8:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-8",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-8:a5a1a534941b"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc:captain-lysandra",
+      "label": "Captain Lysandra",
+      "node_type": "character",
+      "description": "City guard captain who asks the party for help investigating suspicious guards, a locked storeroom, and a tunnel of corrupted meat; later appears imprisoned and fighting to survive.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards enter the Inn",
+            "She seems anxious",
+            "she feels there is something wrong happening in the city"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "Lysandra tells us they were used in the past for military movements",
+            "She will take 3-4 guards she trusts to meet us in the Warehouse District"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "anchor_quotes": [
+            "Captain Lysandra, barely able to hold off the giant meat maw trying to consume her, screams for help while fighting for her life"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:copper-and-quartz",
+      "label": "Copper and Quartz",
+      "node_type": "location",
+      "description": "An inn in town where the party meets with Captain Lysandra and later regroups.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "the Copper and Quartz",
+            "the Inn"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "anchor_quotes": [
+            "back to the Copper and Quartz"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:guardhouse",
+      "label": "guardhouse",
+      "node_type": "location",
+      "description": "A guarded municipal building with a jail, office, barracks, storeroom, hallway, and underground access.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "under the jail and office of the guardhouse",
+            "A hallway passes by the barracks and ends at the storeroom"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "back to the guard house",
+            "down the tunnel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:storeroom",
+      "label": "storeroom",
+      "node_type": "location",
+      "description": "The guardhouse storeroom accessed by a locked door and monitored by a rotating guard.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "locked door",
+            "storeroom",
+            "There is a guard here at a small desk"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "anchor_quotes": [
+            "enter the storeroom",
+            "a normal storeroom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:warehouse-district",
+      "label": "Warehouse District",
+      "node_type": "location",
+      "description": "A city district where Lysandra expects the tunnel to emerge and where she plans to meet the party.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "Warehouse District",
+            "where she believes the tunnel comes up"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:tunnel",
+      "label": "tunnel",
+      "node_type": "location",
+      "description": "An underground passage linking the guardhouse area to the warehouse, described as trapped and extending to a trap door.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "A hallway passes by the barracks and ends at the storeroom"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "anchor_quotes": [
+            "a long tunnel"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "down the tunnel",
+            "past all manner of traps",
+            "At the end of the tunnel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "location:warehouse",
+      "label": "warehouse",
+      "node_type": "location",
+      "description": "A large warehouse filled with stacks of meat and containing captives in cages.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "a large warehouse with stacks and stacks of meat"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "5 Cultists sitting in a circle with cages"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "faction:captain-lysandra-guards",
+      "label": "Captain Lysandra's guards",
+      "node_type": "faction",
+      "description": "The guards brought by Captain Lysandra, some of whom are trusted by her and some of whom appear compromised by oily eyes and cultist influence.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards",
+            "something happening to her own guards"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "anchor_quotes": [
+            "one of the guards (Bill)",
+            "something is happening between some guards and the cultists"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "3-4 guards she trusts"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "Inside are Lysandra and her guards"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "anchor_quotes": [
+            "the guards in cages"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "organization:city-guard",
+      "label": "City guard",
+      "node_type": "organization",
+      "description": "The city guard organization associated with a storeroom, guardhouse, barracks, and rotating guards; some members appear compromised.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "anchor_quotes": [
+            "city guard's store room"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "the guardhouse",
+            "There is a guard here at a small desk",
+            "The guard rotates"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "used in the past for military movements"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "organization:berin-network",
+      "label": "Berin's network of connections in the city",
+      "node_type": "organization",
+      "description": "The city connections Lysandra can offer through Berin or her own influence, mentioned as leverage and assistance.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "connections in the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "organization:wolf-higher-up",
+      "label": "Wolf's higher-up chain",
+      "node_type": "organization",
+      "description": "A higher-ranking authority referenced by the guard as part of next-morning preparations.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "anchor_quotes": [
+            "when Wolf (the higher up)"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_session8_captain_lysandra_map",
+      "label": "map to the guardhouse storeroom and tunnel",
+      "node_type": "item",
+      "description": "A map Captain Lysandra draws showing the locked route under the guardhouse, including the hallway, barracks, storeroom, and a tunnel leading onward.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "She draws us a map",
+            "locked door she will open",
+            "leads under the jail and office of the guardhouse",
+            "ends at the storeroom",
+            "A hallway passes by the barracks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_session8_lock_picking_spell",
+      "label": "lock picking spell",
+      "node_type": "item",
+      "description": "A spell taught by the Fey to Ephanna in exchange for a dangerous cost to life when casting it.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:22-22",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:22-22",
+          "anchor_quotes": [
+            "teach a lock picking spell",
+            "it will cost 1d10 life to cast it",
+            "receives the new spell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_session8_unlocked_chest",
+      "label": "unlocked chest",
+      "node_type": "item",
+      "description": "A chest beside Ephanna's cell that contains his gear, though not his gold.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "anchor_quotes": [
+            "all his gear (minus any gold) are in an unlocked chest next to the cell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_session8_torbin_cell_key",
+      "label": "key to Torbin's cell",
+      "node_type": "item",
+      "description": "A key hanging above Ephanna's chest, used for opening Torbin's cell.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "anchor_quotes": [
+            "Hanging above the chest is the key to Torbin's cell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_session8_artifact",
+      "label": "artifact",
+      "node_type": "item",
+      "description": "An unspecified artifact that Karsemine brings to add to the storeroom as part of the infiltration plan.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:26-26",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:26-26",
+          "anchor_quotes": [
+            "he will have brought his artifact to add to the storeroom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_session8_meat",
+      "label": "meat",
+      "node_type": "item",
+      "description": "Large quantities of abnormal meat found in the hidden cold room and warehouse, later identified as coming from another plane of existence.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "anchor_quotes": [
+            "The room is filled with meat",
+            "the meat does not look normal"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "the meat to be from another plane of existence"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "a large warehouse with stacks and stacks of meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_session8_hidden_wall_tunnel",
+      "label": "hidden wall and tunnel",
+      "node_type": "item",
+      "description": "A concealed wall in the cold room opens onto a long tunnel used to move through the guardhouse area and reach the warehouse.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "anchor_quotes": [
+            "a hidden wall that leads to a long tunnel"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "tunnel they found"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_session8_meat_sample",
+      "label": "sample of meat",
+      "node_type": "item",
+      "description": "A meat sample taken for analysis at Stormspire Academy.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "take a sample of the meat to Stormspire Academy for analysis"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session8:guardhouse-oily-eyes",
+      "label": "Oily-eyed guardhouse infiltration",
+      "node_type": "mystery",
+      "description": "The city guardhouse appears to have compromised guards with oily eyes, suggesting covert influence or corruption linked to the cultists.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "anchor_quotes": [
+            "something is happening between some guards and the cultists",
+            "slight oily sheen"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "all seem to have the same oily eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session8:under-guardhouse-tunnel",
+      "label": "Hidden tunnel beneath the guardhouse",
+      "node_type": "mystery",
+      "description": "A concealed route runs from the guardhouse storeroom down under the jail and office, through a cold room and into a long tunnel, with unclear purpose and origins.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "locked door she will open that leads under the jail and office of the guardhouse",
+            "A hallway passes by the barracks and ends at the storeroom"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "anchor_quotes": [
+            "a staircase heading down into a cold room",
+            "a hidden wall that leads to a long tunnel"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "used in the past for military movements",
+            "the tunnel comes up"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session8:plane-touched-meat",
+      "label": "Meat from another plane of existence",
+      "node_type": "mystery",
+      "description": "The meat stored beneath the guardhouse is abnormal and arcane inspection identifies it as originating from another plane of existence, raising questions about its source and intended use.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "anchor_quotes": [
+            "the meat does not look normal"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "the meat to be from another plane of existence"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "stacks and stacks of meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session8:cultist-cages-lyssandra",
+      "label": "Cultists imprisoning and feeding Captain Lysandra",
+      "node_type": "mystery",
+      "description": "At the tunnel's end, cultists are found forcing Lysandra and her guards to eat the meat, then later the cultists reveal monstrous forms and begin merging with the captive guards.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "5 Cultists sitting in a circle with cages",
+            "They are being forced to eat the meat"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "anchor_quotes": [
+            "split open to reveal huge mouths full of teeth",
+            "merging with the guards in cages something corrupted and fleshy is born"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session8:bbq-meat-source",
+      "label": "Unclear source of citywide barbecue meat",
+      "node_type": "mystery",
+      "description": "Lysandra is worried about where the meat for the next day's citywide barbeque is being stored, implying the corrupted meat supply may reach the broader city.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "the next day is supposed to be a city wide barbeque",
+            "she is unsure where all the meat may have been stored"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session8:fey-prison-deal",
+      "label": "The Fey bargain in Ephanna's cell",
+      "node_type": "mystery",
+      "description": "A Fey appears to Ephanna in prison, shows flash memories, and offers a life-or-death bargain with unsettling consequences involving escape, Torbin, and a life-costly lockpicking spell.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:20-20",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:20-20",
+          "anchor_quotes": [
+            "a Fey appears to Ephanna",
+            "The Fey is not happy with him",
+            "certain death awaits"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:22-22",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:22-22",
+          "anchor_quotes": [
+            "Torbin will be turned over to the Fey and raised by them",
+            "it will cost 1d10 life to cast it"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session8:torbin-oily-eyes",
+      "label": "Torbin showing signs of oily corruption",
+      "node_type": "mystery",
+      "description": "Torbin begins to exhibit the same oily-eye symptoms seen in the compromised guards, implying the corruption is spreading beyond the guardhouse.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:26-26",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:26-26",
+          "anchor_quotes": [
+            "Torbin (who also started to show signs of the oily eyes)"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery:session8:trapdoor-warehouse-meat",
+      "label": "Warehouse full of meat and cult activity",
+      "node_type": "mystery",
+      "description": "The tunnel opens into a warehouse stacked with meat and guarded by cultists, but the larger purpose of the warehouse stockpile and its link to the corruption remains unresolved.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "a large warehouse with stacks and stacks of meat",
+            "5 Cultists sitting in a circle with cages"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge-1",
+      "from_node_id": "npc:captain-lysandra",
+      "to_node_id": "location:copper-and-quartz",
+      "label": "meets at",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards enter the Inn",
+            "the Copper and Quartz"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-2",
+      "from_node_id": "npc:captain-lysandra",
+      "to_node_id": "mystery:session8:guardhouse-oily-eyes",
+      "label": "aware of",
+      "relationship_type": "aware_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards enter the Inn",
+            "She seems anxious",
+            "she feels there is something wrong happening in the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-3",
+      "from_node_id": "npc:captain-lysandra",
+      "to_node_id": "organization:city-guard",
+      "label": "member of",
+      "relationship_type": "serves",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards enter the Inn",
+            "She seems anxious",
+            "she feels there is something wrong happening in the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-4",
+      "from_node_id": "faction:captain-lysandra-guards",
+      "to_node_id": "organization:city-guard",
+      "label": "part of",
+      "relationship_type": "part_of_group",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards",
+            "something happening to her own guards"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-7",
+      "from_node_id": "location:guardhouse",
+      "to_node_id": "location:storeroom",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "ends at the storeroom",
+            "the guardhouse"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-8",
+      "from_node_id": "location:guardhouse",
+      "to_node_id": "location:tunnel",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "leads under the jail and office of the guardhouse"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "anchor_quotes": [
+            "a hidden wall that leads to a long tunnel"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-9",
+      "from_node_id": "location:guardhouse",
+      "to_node_id": "location:warehouse-district",
+      "label": "routes to",
+      "relationship_type": "routes_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "under the jail and office of the guardhouse",
+            "A hallway passes by the barracks and ends at the storeroom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-10",
+      "from_node_id": "location:tunnel",
+      "to_node_id": "location:warehouse",
+      "label": "leads to",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "A hallway passes by the barracks and ends at the storeroom"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-11",
+      "from_node_id": "location:warehouse",
+      "to_node_id": "item_session8_meat",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "a large warehouse with stacks and stacks of meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-12",
+      "from_node_id": "location:warehouse",
+      "to_node_id": "mystery:session8:trapdoor-warehouse-meat",
+      "label": "contains",
+      "relationship_type": "contains",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "a large warehouse with stacks and stacks of meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-13",
+      "from_node_id": "npc:captain-lysandra",
+      "to_node_id": "faction:captain-lysandra-guards",
+      "label": "leads",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards enter the Inn",
+            "She seems anxious",
+            "she feels there is something wrong happening in the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-14",
+      "from_node_id": "npc:captain-lysandra",
+      "to_node_id": "organization:city-guard",
+      "label": "commands",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards enter the Inn",
+            "She seems anxious",
+            "she feels there is something wrong happening in the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-15",
+      "from_node_id": "npc:captain-lysandra",
+      "to_node_id": "item_session8_captain_lysandra_map",
+      "label": "owns",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards enter the Inn",
+            "She seems anxious",
+            "she feels there is something wrong happening in the city"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-16",
+      "from_node_id": "item_session8_captain_lysandra_map",
+      "to_node_id": "location:guardhouse",
+      "label": "leads to",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "She draws us a map",
+            "locked door she will open",
+            "leads under the jail and office of the guardhouse",
+            "ends at the storeroom",
+            "A hallway passes by the barracks"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge-25",
+      "from_node_id": "organization:city-guard",
+      "to_node_id": "mystery:session8:guardhouse-oily-eyes",
+      "label": "associated with",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "anchor_quotes": [
+            "city guard's store room"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat-1",
+      "order": 1,
+      "title": "Lysandra recruits the party to investigate compromised guards",
+      "summary": "At the Copper and Quartz, Captain Lysandra privately asks the party to help her investigate strange activity in the city and among her guards. The group notices one guard with an oily sheen in his eyes, and Lysandra explains she has been blocked from the guard storeroom for the first time.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:14-14",
+          "anchor_quotes": [
+            "Captain Lysandra and a few of her guards enter the Inn",
+            "something wrong happening in the city",
+            "something happening to her own guards"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:16-16",
+          "anchor_quotes": [
+            "one of the guards (Bill)",
+            "slight oily sheen",
+            "kept out of the city guard's store room",
+            "guards and the cultists"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-2",
+      "order": 2,
+      "title": "A covert plan is set to breach the guard storeroom",
+      "summary": "Lysandra proposes a discreet break-in plan: she will unlock the door without being seen, offer funds and connections, and provide a route under the guardhouse that leads to the storeroom. The party is warned that the guards on rotation all seem to share the same oily eyes.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:18-18",
+          "anchor_quotes": [
+            "break into the storeroom",
+            "she will help us get into the locked door",
+            "50 gold and connections in the city",
+            "a map that shows us the locked door",
+            "under the jail and office of the guardhouse",
+            "all seem to have the same oily eyes"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-3",
+      "order": 3,
+      "title": "Ephanna bargains with a Fey and escapes custody with Torbin",
+      "summary": "The recap shifts to Ephanna in a cell, where a Fey confronts him with disturbing memories and offers a choice between escape at Torbin's expense or learning a dangerous lock-picking spell. Ephanna chooses the spell, then uses his gear and the key nearby to free Torbin and flee the building back to Outtown.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:20-20",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:20-20",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:20-20",
+          "anchor_quotes": [
+            "back in a cell",
+            "Faintly Torbin can be heard a few cells over",
+            "a Fey appears to Ephanna",
+            "certain death awaits"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:22-22",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:22-22",
+          "anchor_quotes": [
+            "Torbin will be turned over to the Fey",
+            "teach a lock picking spell",
+            "cost 1d10 life to cast it",
+            "Ephanna chooses option 2"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:24-24",
+          "anchor_quotes": [
+            "all his gear (minus any gold) are in an unlocked chest",
+            "the key to Torbin's cell",
+            "they quickly exit the front door and find themselves back in Outtown",
+            "Torbin does a masterful job of acting"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-4",
+      "order": 4,
+      "title": "The party regroups and prepares an infiltration using disguises and distractions",
+      "summary": "Back together at the Copper and Quartz, the party drafts a coordinated infiltration plan. Stafl and Karsemine will enter openly using a magical eye disguise and an artifact, Ephanna will watch the street and Torbin from across the way, and the others will cover the back door and create a diversion.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:26-26",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:26-26",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:26-26",
+          "anchor_quotes": [
+            "the party is back together",
+            "walk right in with Karsemine",
+            "Thaumaturgy spell to change her eyes",
+            "Ephanna will start in our room across the street",
+            "Torbin (who also started to show signs of the oily eyes)",
+            "Bonogo will guard the back door",
+            "Baergrom and Caelynn will create a minor distraction in the street"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-5",
+      "order": 5,
+      "title": "The storeroom hides a cold meat chamber and a tunnel",
+      "summary": "The infiltration succeeds, revealing a normal-looking storeroom that conceals a staircase to a cold room full of abnormal meat and a hidden wall leading to a long tunnel. The party takes some of the meat and withdraws, but the street distraction turns into real violence on the way out.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:28-28",
+          "anchor_quotes": [
+            "they all enter the storeroom",
+            "a staircase heading down into a cold room",
+            "the meat does not look normal",
+            "a hidden wall that leads to a long tunnel",
+            "grab some of the meat and head back"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:30-30",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:30-30",
+          "anchor_quotes": [
+            "distraction is not going according to plan",
+            "turned to insults and then violence",
+            "discuss further plans with Captain Lysandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-6",
+      "order": 6,
+      "title": "Lysandra confirms military tunnels and plans a warehouse-district meet",
+      "summary": "Lysandra and Berin compare notes about the tunnel and meat. Lysandra says the tunnels were used for military movements, worries about the upcoming city barbecue, and arranges to meet the party in the Warehouse District with trusted guards while Berin sends meat to Stormspire Academy for analysis.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "the meat and the tunnel they found",
+            "used in the past for military movements",
+            "city wide barbeque",
+            "meet us in the Warehouse District",
+            "Stormspire Academy for analysis"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-7",
+      "order": 7,
+      "title": "The tunnel leads to a warehouse of meat and a cult ritual over captives",
+      "summary": "The party launches a more direct assault, moving through traps to a warehouse stacked with meat where cultists sit in a circle around cages containing Lysandra and her guards. The captives are being forced to eat the meat, confirming the broader corruption behind the operation.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:34-34",
+          "anchor_quotes": [
+            "past all manner of traps",
+            "a large warehouse with stacks and stacks of meat",
+            "5 Cultists sitting in a circle with cages",
+            "Inside are Lysandra and her guards",
+            "forced to eat the meat"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat-8",
+      "order": 8,
+      "title": "Cultists mutate into a fleshy horror and attack Lysandra",
+      "summary": "Combat breaks open the situation: two cultists fall easily, but the remaining ones split into tooth-filled mouths, lunge at the caged guards, and merge with them into a corrupted fleshy creature. Lysandra is left barely holding off the giant meat maw and calls for help.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:36-36",
+          "anchor_quotes": [
+            "The party quickly jumps into battle",
+            "The remaining Cultists split open to reveal huge mouths full of teeth",
+            "merging with the guards in cages",
+            "something corrupted and fleshy is born",
+            "Captain Lysandra, barely able to hold off the giant meat maw",
+            "screams for help"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored:pc-ambiguous-mentions",
+      "label": "Ambiguous PC name mentions",
+      "reason": "These surfaces were explicitly marked ambiguous in the packet and should not be recreated as session-novel nodes.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:1-12",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:1-12",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:1-12",
+          "anchor_quotes": [
+            "Ambiguous surfaces (ignored): 'Ephanna', 'Stafl', 'Baergrom', 'Bonogo', 'Karsemine', 'Caelynn'"
+          ]
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:berin-analysis",
+      "label": "Stormspire Academy analysis of meat sample",
+      "reason": "The sample is sent away for analysis, but the result is not present in this session packet.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "label": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-8:a5a1a534941b:span:a5a1a534941b:32-32",
+          "anchor_quotes": [
+            "Berin will have the orc bartender take a sample of the meat to Stormspire Academy for analysis"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Look for a later session or recap that reports Stormspire Academy's findings."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

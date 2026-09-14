@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import threading
+import time
 from typing import Any
 
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
@@ -148,6 +150,114 @@ def test_recap_profile_still_runs_full_pass_set() -> None:
         "thread_pass",
     ]
     assert "beat_pass" in client.passes
+    assert client.passes[-1] == "edge_pass"
+
+
+class OverlapRecordingClient(RecordingClient):
+    def __init__(self, *, hold_s: float = 0.04) -> None:
+        super().__init__()
+        self.hold_s = hold_s
+        self._lock = threading.Lock()
+        self.active = 0
+        self.max_active = 0
+
+    def run_pass(
+        self,
+        pass_name: str,
+        *,
+        model_id: str,
+        instructions: str,
+        user_content: str,
+        pass_spec=None,
+    ) -> dict[str, Any]:
+        independent = pass_name != "edge_pass" and pass_name != "party_claimed_fill"
+        started = time.perf_counter()
+        if independent:
+            with self._lock:
+                self.active += 1
+                self.max_active = max(self.max_active, self.active)
+            time.sleep(self.hold_s)
+            with self._lock:
+                self.active -= 1
+        result = super().run_pass(
+            pass_name,
+            model_id=model_id,
+            instructions=instructions,
+            user_content=user_content,
+            pass_spec=pass_spec,
+        )
+        result["elapsed_ms"] = round((time.perf_counter() - started) * 1000.0, 2)
+        return result
+
+
+def test_node_pass_workers_keep_edge_after_independent_passes() -> None:
+    client = RecordingClient()
+    result = extract_category_candidate_graph(
+        CategoryGraphExtractionOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            session_number=24,
+            source_span_index=_span_index(session_id="session-24"),
+            profile=RECAP_EXTRACTION_PROFILE,
+            node_pass_workers=6,
+        ),
+        client=client,
+    )
+    independent = {
+        "actor_pass",
+        "location_pass",
+        "collective_pass",
+        "object_pass",
+        "thread_pass",
+        "beat_pass",
+    }
+    assert independent.issubset(set(client.passes))
+    assert client.passes[-1] == "edge_pass"
+    concurrency = result.pass_telemetry["_independent_pass_concurrency"]
+    assert concurrency["workers"] == 6
+    assert concurrency["pass_count"] == 6
+
+
+def test_node_pass_workers_overlap_independent_passes_only() -> None:
+    client = OverlapRecordingClient()
+    result = extract_category_candidate_graph(
+        CategoryGraphExtractionOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            session_number=24,
+            source_span_index=_span_index(session_id="session-24"),
+            profile=RECAP_EXTRACTION_PROFILE,
+            node_pass_workers=6,
+        ),
+        client=client,
+    )
+    concurrency = result.pass_telemetry["_independent_pass_concurrency"]
+    assert client.max_active > 1
+    assert client.passes[-1] == "edge_pass"
+    assert concurrency["wall_ms"] < concurrency["sum_elapsed_ms"] * 0.75
+
+
+def test_node_pass_workers_default_stays_serial() -> None:
+    client = OverlapRecordingClient()
+    extract_category_candidate_graph(
+        CategoryGraphExtractionOptions(
+            campaign_id="longmont-c2",
+            session_id="session-24",
+            session_number=24,
+            source_span_index=_span_index(session_id="session-24"),
+            profile=RECAP_EXTRACTION_PROFILE,
+        ),
+        client=client,
+    )
+    assert client.max_active == 1
+    assert client.passes[:6] == [
+        "actor_pass",
+        "location_pass",
+        "collective_pass",
+        "object_pass",
+        "thread_pass",
+        "beat_pass",
+    ]
     assert client.passes[-1] == "edge_pass"
 
 

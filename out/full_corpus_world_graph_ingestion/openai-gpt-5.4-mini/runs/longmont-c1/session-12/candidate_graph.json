@@ -1,0 +1,1618 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c1:session-12:category",
+  "campaign_id": "longmont-c1",
+  "session_id": "session-12",
+  "source_artifact_ids": [
+    "full-corpus:longmont-c1:session-12:26abfa1c2dba"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "npc_thalia",
+      "label": "Thalia",
+      "node_type": "character",
+      "description": "Named non-party character who warns about the runes, directs allies in combat, and later is instructed to deliver a potion.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "anchor_quotes": [
+            "Now Thalia has a chance to warn the group that the Runes are a protection against spells for the Council.",
+            "She then attacks a guard and then uses Commander\u2019s Strike to direct Karsemine to kill one of the guards."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:44-44",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:44-44",
+          "anchor_quotes": [
+            "Just then the Wolf speaks directly to Thalia, reminding her who she serves and instructing her to attack the group.",
+            "She then attacks Caelynn, knocking her unconscious."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:48-48",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:48-48",
+          "anchor_quotes": [
+            "Stafl takes the chance to attack Thalia, thus ending her Charmed status."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "anchor_quotes": [
+            "Finally, Caelynn instructs Thalia to bring a potion to Lesandra at the Wizard\u2019s College.",
+            "Thalia creates a plan to make sure each guard in the city also receives a potion."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "npc_wolf",
+      "label": "The Wolf",
+      "node_type": "character",
+      "description": "Named hostile creature/NPC fought by the party, escapes invisibly, and is later killed after a chase.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:16-16",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:16-16",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:16-16",
+          "anchor_quotes": [
+            "Battle with The Wolf"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:18-18",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:18-18",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:18-18",
+          "anchor_quotes": [
+            "Wolf escapes"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "anchor_quotes": [
+            "The Wolf, sensing danger, downs an Invisibility Potion and disappears."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "the Wolf attempting to escape through a secret passage while still invisible.",
+            "Bonogo throws down some caltrops to stop the Wolf"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "anchor_quotes": [
+            "the Wolf\u2019s eyes and is replaced with only regret at betraying the city of Mirathorn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_1",
+      "label": "sewer",
+      "node_type": "location",
+      "description": "A sewer route or destination mentioned as the place all roads lead to.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:24-24",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:24-24",
+          "anchor_quotes": [
+            "All roads lead to the sewer"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_2",
+      "label": "tunnels",
+      "node_type": "location",
+      "description": "A set of tunnels the party is expected to explore next.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:28-28",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:28-28",
+          "anchor_quotes": [
+            "Explore tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_3",
+      "label": "hallway",
+      "node_type": "location",
+      "description": "A hallway reached after the Wolf\u2019s secret passage escape route.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "a hallway leading to stairs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_4",
+      "label": "stairs",
+      "node_type": "location",
+      "description": "A stair area at the end of the hallway during the chase after the Wolf.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "finds him at the top of the stairs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_5",
+      "label": "secret passage",
+      "node_type": "location",
+      "description": "A hidden passage behind a tapestry used by the Wolf to try to escape.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "through a secret passage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "loc_6",
+      "label": "city of Mirathorn",
+      "node_type": "location",
+      "description": "The city referenced as the place the Wolf betrayed.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "anchor_quotes": [
+            "betraying the city of Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "node:session12-council-protection-runes",
+      "label": "Rune protection against spells",
+      "node_type": "organization",
+      "description": "A protective rune-based warding system tied to the Council that targets those not wearing an amulet.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "anchor_quotes": [
+            "the Runes are a protection against spells for the Council",
+            "They are set to target anyone not wearing an amulet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_ob_1",
+      "label": "giant chandelier",
+      "node_type": "item",
+      "description": "A giant chandelier fell from the ceiling during the fight, crashing near Caelynn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "anchor_quotes": [
+            "the giant chandelier",
+            "fall from the ceiling",
+            "crashing right next to her"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_ob_2",
+      "label": "Runes",
+      "node_type": "item",
+      "description": "Runes along the room's walls activated as a magical protection against spells, producing force and paralysis effects.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "anchor_quotes": [
+            "Runes begin to glow all along the walls around the room"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "anchor_quotes": [
+            "The Runes are a protection against spells",
+            "They are set to target anyone not wearing an amulet"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "anchor_quotes": [
+            "The purple runes create a force attack",
+            "The red runes create a paralysis spell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_ob_3",
+      "label": "amulet",
+      "node_type": "item",
+      "description": "An amulet is required to avoid being targeted by the protective runes.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "anchor_quotes": [
+            "They are set to target anyone not wearing an amulet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_ob_4",
+      "label": "Invisibility Potion",
+      "node_type": "item",
+      "description": "The Wolf used an invisibility potion to disappear during the battle.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "anchor_quotes": [
+            "downs an Invisibility Potion and disappears"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_ob_6",
+      "label": "stone-on-stone grinding sound",
+      "node_type": "item",
+      "description": "A hidden mechanism behind a tapestry produced a stone-on-stone grinding sound, revealing a secret passage.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "stone-on-stone grinding sound",
+            "behind a tapestry",
+            "secret passage"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_ob_7",
+      "label": "caltrops",
+      "node_type": "item",
+      "description": "Bonogo threw caltrops to try to stop the Wolf during the pursuit.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "throws down some caltrops to stop the Wolf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_ob_8",
+      "label": "Wolf\u2019s armor",
+      "node_type": "item",
+      "description": "Bonogo found only a pile of the Wolf\u2019s armor after the Wolf escaped his grasp.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "a pile of the Wolf\u2019s armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "item_ob_10",
+      "label": "potion",
+      "node_type": "item",
+      "description": "A potion was used to revive Caelynn and later another potion was used to revive Stafl; another potion is also being carried to Lesandra.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:46-46",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:46-46",
+          "anchor_quotes": [
+            "revives Caelynn with a potion"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:48-48",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:48-48",
+          "anchor_quotes": [
+            "revive Stafl with her potion"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "anchor_quotes": [
+            "bring a potion to Lesandra"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session12-runic-protection",
+      "label": "Runes activate as spell-protection for the Council",
+      "node_type": "mystery",
+      "description": "The room\u2019s runes begin glowing after Caelynn\u2019s Thunderwave, and Thalia warns that they are a protection against spells for the Council and target anyone not wearing an amulet.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "anchor_quotes": [
+            "Runes begin to glow all along the walls around the room"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "anchor_quotes": [
+            "the Runes are a protection against spells for the Council",
+            "They are set to target anyone not wearing an amulet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session12-rune-effects",
+      "label": "Purple and red runes unleash escalating attacks",
+      "node_type": "mystery",
+      "description": "When the runes trigger, purple runes create force attacks and red runes create paralysis spells, producing a dangerous escalating hazard in the fight.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "anchor_quotes": [
+            "the Runes begin to glow, first purple then red",
+            "The purple runes create a force attack",
+            "The red runes create a paralysis spell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session12-wolf-escape-route",
+      "label": "The Wolf escapes through a secret passage behind a tapestry",
+      "node_type": "mystery",
+      "description": "After the battle, Bonogo discovers that the Wolf was trying to escape invisibly through a hidden route behind a tapestry and down a stairway corridor.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "stone-on-stone grinding sound coming from behind a tapestry",
+            "the Wolf attempting to escape through a secret passage while still invisible",
+            "a hallway leading to stairs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session12-wolf-regret-betrayal",
+      "label": "The Wolf is tied to betrayal of Mirathorn",
+      "node_type": "mystery",
+      "description": "The Wolf\u2019s death reveals regret specifically for betraying the city of Mirathorn, implying a deeper prior relationship or secret allegiance.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "anchor_quotes": [
+            "the oily sheen fades from the Wolf\u2019s eyes",
+            "replaced with only regret at betraying the city of Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session12-potion-delivery-task",
+      "label": "Potion delivery to Lesandra and the city guards remains pending",
+      "node_type": "mystery",
+      "description": "After the fight, the party is told to deliver a potion to Lesandra at the Wizard\u2019s College, and Thalia proposes getting a potion to every guard in the city as well.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "anchor_quotes": [
+            "bring a potion to Lesandra at the Wizard\u2019s College",
+            "each guard in the city also receives a potion",
+            "Now the group must decide what to do with the Wolf"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    },
+    {
+      "node_id": "mystery-session12-torbin-thread",
+      "label": "What to do about Torbin remains an open thread",
+      "node_type": "mystery",
+      "description": "The recap flags Torbin as a next beat, but gives no resolution, leaving his role or situation unresolved in this session recap.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:22-22",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:22-22",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:22-22",
+          "anchor_quotes": [
+            "What to do about Torbin"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:30-30",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:30-30",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:30-30",
+          "anchor_quotes": [
+            "## Torbin"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": null
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge_001",
+      "from_node_id": "npc_wolf",
+      "to_node_id": "npc_thalia",
+      "label": "speaks directly to / instructs",
+      "relationship_type": "commands",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:44-44",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:44-44",
+          "anchor_quotes": [
+            "The Wolf speaks directly to Thalia, reminding her who she serves and instructing her to attack the group."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_004",
+      "from_node_id": "mystery-session12-rune-effects",
+      "to_node_id": "item_ob_2",
+      "label": "runes create attack effects",
+      "relationship_type": "causes",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "anchor_quotes": [
+            "The purple runes create a force attack",
+            "The red runes create a paralysis spell"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_005",
+      "from_node_id": "item_ob_2",
+      "to_node_id": "node:session12-council-protection-runes",
+      "label": "protection against spells for the Council",
+      "relationship_type": "identified_as",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "anchor_quotes": [
+            "the Runes are a protection against spells for the Council"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_006",
+      "from_node_id": "item_ob_2",
+      "to_node_id": "item_ob_3",
+      "label": "targets anyone not wearing an amulet",
+      "relationship_type": "threatens",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "anchor_quotes": [
+            "They are set to target anyone not wearing an amulet"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_007",
+      "from_node_id": "loc_1",
+      "to_node_id": "loc_2",
+      "label": "road / route leads to tunnels",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:24-24",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:24-24",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:24-24",
+          "anchor_quotes": [
+            "All roads lead to the sewer"
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:28-28",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:28-28",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:28-28",
+          "anchor_quotes": [
+            "Explore tunnels"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_008",
+      "from_node_id": "loc_5",
+      "to_node_id": "loc_3",
+      "label": "secret passage opens into hallway",
+      "relationship_type": "path_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "the Wolf attempting to escape through a secret passage",
+            "a hallway leading to stairs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_009",
+      "from_node_id": "loc_3",
+      "to_node_id": "loc_4",
+      "label": "hallway leads to stairs",
+      "relationship_type": "leads_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "a hallway leading to stairs",
+            "finds him at the top of the stairs"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_010",
+      "from_node_id": "npc_wolf",
+      "to_node_id": "loc_5",
+      "label": "attempts escape through secret passage",
+      "relationship_type": "travels_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "the Wolf attempting to escape through a secret passage while still invisible"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_011",
+      "from_node_id": "npc_wolf",
+      "to_node_id": "loc_6",
+      "label": "betrays city of Mirathorn",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "anchor_quotes": [
+            "betraying the city of Mirathorn"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_018",
+      "from_node_id": "npc_wolf",
+      "to_node_id": "item_ob_4",
+      "label": "uses invisibility potion",
+      "relationship_type": "carries",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "anchor_quotes": [
+            "downs an Invisibility Potion and disappears"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge_019",
+      "from_node_id": "npc_wolf",
+      "to_node_id": "item_ob_8",
+      "label": "leaves armor behind",
+      "relationship_type": "owns",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "a pile of the Wolf\u2019s armor"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat_1",
+      "order": 1,
+      "title": "Opening fight with the guards begins under ominous runes",
+      "summary": "The session opens in a combat scene where the party engages guards and the first spell triggers a dangerous environmental response. A surprise round starts, Thunderwave damages a group of guards, a chandelier falls, and glowing runes appear on the walls.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:36-36",
+          "anchor_quotes": [
+            "The attack by Bonogo on the Wolf sets up a surprise round.",
+            "Caelynn is first to attack, casting Thunderwave on one of the groups of 8 guards.",
+            "Runes begin to glow all along the walls around the room."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:38-38",
+          "anchor_quotes": [
+            "The Wolf, sensing danger, downs an Invisibility Potion and disappears.",
+            "Kasrsemine quickly uses Hunter\u2019s Mark and deals a major blow to a guard."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_2",
+      "order": 2,
+      "title": "Runes are revealed as Council-linked anti-spell defenses",
+      "summary": "The party learns the runes are a protection against spells for the Council and that they target anyone not wearing an amulet. This reframes the fight as a magical defense mechanism tied to the Council.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:40-40",
+          "anchor_quotes": [
+            "the Runes are a protection against spells for the Council.",
+            "They are set to target anyone not wearing an amulet."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_3",
+      "order": 3,
+      "title": "Rune attacks escalate and the party suffers heavy losses",
+      "summary": "The runes cycle into force and paralysis effects, knocking characters out of the fight. Caelynn is paralyzed, Thalia is turned against the group, and Stafl is blasted upward and rendered unconscious.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:42-42",
+          "anchor_quotes": [
+            "The purple runes create a force attack",
+            "The red runes create a paralysis spell."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:44-44",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:44-44",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:44-44",
+          "anchor_quotes": [
+            "Just then the Wolf speaks directly to Thalia",
+            "She then attacks Caelynn, knocking her unconscious.",
+            "Stafl is next to be knocked unconscious"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_4",
+      "order": 4,
+      "title": "The battle ends with the last guards and elite guard defeated",
+      "summary": "The combat swings back in the party\u2019s favor as healing, damage, and finishing strikes wipe out the remaining guards and elite guard. Thalia\u2019s charmed status is broken and the battle ends.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:46-46",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:46-46",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:46-46",
+          "anchor_quotes": [
+            "Baergrom revives Caelynn with a potion",
+            "Caelynn casts Thunderwave again on the remaining three guards, killing each of them."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:48-48",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:48-48",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:48-48",
+          "anchor_quotes": [
+            "Karsemine performs an impressive stunt to revive Stafl with her potion",
+            "Stafl takes the chance to attack Thalia, thus ending her Charmed status.",
+            "And with that, the battle is over\u2026"
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_5",
+      "order": 5,
+      "title": "Wolf flees through a secret passage and Bonogo gives chase",
+      "summary": "While the main fight is happening, Bonogo notices the Wolf escaping invisibly through a secret passage. He pursues through hidden corridors and stairs, tries to stop the Wolf with caltrops and a dagger, but only finds the Wolf\u2019s armor.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:50-50",
+          "anchor_quotes": [
+            "Bonogo noticed a stone-on-stone grinding sound coming from behind a tapestry.",
+            "it was the Wolf attempting to escape through a secret passage while still invisible.",
+            "he finds him at the top of the stairs."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_6",
+      "order": 6,
+      "title": "Bonogo corners and kills the Wolf, exposing betrayal of Mirathorn",
+      "summary": "Bonogo continues the pursuit, uses fire and close-quarters attacks to keep the Wolf from escaping, and lands the killing blow. The Wolf\u2019s last moment reveals regret for betraying Mirathorn.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:52-52",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:52-52",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:52-52",
+          "anchor_quotes": [
+            "Bonogo rushes down the stairs and then throws oil on the ceiling of the next hallway; which he then lights on fire.",
+            "Bonogo plunges his knife into the Wolf once again.",
+            "Bonogo won't let him escape again."
+          ]
+        },
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:54-54",
+          "anchor_quotes": [
+            "As Bonogo deals the killing blow",
+            "betraying the city of Mirathorn."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat_7",
+      "order": 7,
+      "title": "Aftermath assigns potion delivery and sets the next decision",
+      "summary": "In the aftermath, Caelynn directs Thalia to bring a potion to Lesandra at the Wizard\u2019s College and Thalia proposes giving potions to all city guards. The group is left deciding what to do with the Wolf\u2019s fate.",
+      "involved_node_ids": [],
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:56-56",
+          "anchor_quotes": [
+            "Caelynn instructs Thalia to bring a potion to Lesandra at the Wizard\u2019s College.",
+            "Thalia creates a plan to make sure each guard in the city also receives a potion.",
+            "Now the group must decide what to do with the Wolf."
+          ]
+        }
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [],
+  "ignored_items": [
+    {
+      "item_id": "ignored-party-anchors",
+      "label": "Party anchor names already provided",
+      "reason": "Deterministic party anchors were supplied by the prompt and should not be re-extracted as session-novel nodes.",
+      "evidence_refs": [],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "defer-bugbear-title",
+      "label": "Session title reference to bugbear",
+      "reason": "The title mentions a bugbear, but the body of the recap does not develop it as a distinct thread in the provided excerpt.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:text",
+          "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+          "source_anchor_id": "anchor:full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:1-12",
+          "label": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:1-12",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true,
+          "source_span_ref_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba:span:26abfa1c2dba:1-12",
+          "anchor_quotes": [
+            "One Persistent Bugbear or Sneaky Fucking Bugbear"
+          ]
+        }
+      ],
+      "warnings": [],
+      "suggested_next_step": "Check fuller session notes or adjacent recaps for the bugbear thread."
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}
