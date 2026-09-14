@@ -35,6 +35,18 @@ class _FakeChatResponse:
         self.usage = _FakeUsage()
 
 
+class _FakeOpenRouterUsage:
+    prompt_tokens = 123
+    completion_tokens = 45
+    cost = 0.0123
+
+
+class _FakeOpenRouterResponse(_FakeChatResponse):
+    def __init__(self, *, content: str) -> None:
+        super().__init__(content=content)
+        self.usage = _FakeOpenRouterUsage()
+
+
 class _FakeCompletions:
     def __init__(self, responses: list[Any]) -> None:
         self._responses = list(responses)
@@ -87,6 +99,30 @@ def test_run_pass_success(monkeypatch: pytest.MonkeyPatch) -> None:
     assert client._sdk_client.chat.completions.calls[0]["response_format"] == {
         "type": "json_object"
     }
+
+
+def test_openrouter_chat_usage_and_provider_cost_are_preserved(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
+    client = DeepSeekCategoryGraphPassClient(
+        sdk_client=_FakeSDKClient(
+            [_FakeOpenRouterResponse(content=_valid_actor_payload())]
+        )
+    )
+    result = client.run_pass(
+        "actor_pass",
+        model_id="deepseek/deepseek-v4.1-flash",
+        instructions="Extract actors.",
+        user_content="source packet",
+    )
+    assert result["usage"] == {
+        "input_tokens": 123,
+        "output_tokens": 45,
+        "cached_tokens": 0,
+    }
+    assert result["cost_usd"] == 0.0123
+    assert result["cost_info"]["pricing_source"] == "openrouter_response_usage"
 
 
 def test_run_pass_retries_then_succeeds(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -121,7 +121,7 @@ class DeepSeekCategoryGraphPassClient:
                 raw_text = str(getattr(message, "content", "") or "").strip()
             last_raw_text = raw_text
 
-            usage = _usage_from_response(response)
+            usage = _chat_usage_from_response(response)
             for key in ("input_tokens", "output_tokens", "cached_tokens"):
                 total_usage[key] = int(total_usage.get(key, 0) or 0) + int(
                     usage.get(key, 0) or 0
@@ -271,6 +271,34 @@ def _provider_cost_usd(response: Any) -> float | None:
         return float(value) if value is not None else None
     except (TypeError, ValueError):
         return None
+
+
+def _chat_usage_from_response(response: Any) -> dict[str, int]:
+    """Accept Responses-style and Chat-Completions/OpenRouter usage names."""
+    parsed = _usage_from_response(response)
+    usage = getattr(response, "usage", None)
+    if usage is None:
+        return parsed
+
+    def value(*names: str) -> int:
+        for name in names:
+            raw = getattr(usage, name, None)
+            if raw is None and isinstance(usage, Mapping):
+                raw = usage.get(name)
+            if raw is not None:
+                return int(raw or 0)
+        return 0
+
+    parsed["input_tokens"] = parsed["input_tokens"] or value(
+        "prompt_tokens", "input_tokens"
+    )
+    parsed["output_tokens"] = parsed["output_tokens"] or value(
+        "completion_tokens", "output_tokens"
+    )
+    details = getattr(usage, "prompt_tokens_details", None)
+    if details is not None and not parsed["cached_tokens"]:
+        parsed["cached_tokens"] = int(getattr(details, "cached_tokens", 0) or 0)
+    return parsed
 
 
 def _validate_required_keys(
