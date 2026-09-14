@@ -1,0 +1,1975 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:longmont-c2:s22:mireward-road-and-lysandro:gold-v0",
+  "campaign_id": "longmont-c2",
+  "session_id": "session-22",
+  "source_artifact_ids": [
+    "source-artifact:session-22-normalized-recap"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "node:mireward-reach",
+      "label": "Mireward Reach / Golden Fields",
+      "node_type": "location",
+      "description": "The northern Reach and Golden Fields travel region between Mirathorn and Mireward.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-private-hester-report",
+          "label": "Mireward Reach / Golden Fields",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "region",
+        "ref_id": "mireward_reach",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:mirathorn",
+      "label": "Mirathorn",
+      "node_type": "location",
+      "description": "City the party cannot reliably contact; later reported to be in another corruption outbreak.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-frank-sara",
+          "label": "Mirathorn",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "mirathorn",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:mireward",
+      "label": "Mireward",
+      "node_type": "location",
+      "description": "Northern destination and walled town reached at the session cliffhanger.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-arrival-lysandro",
+          "label": "Mireward",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "mireward",
+        "resolution": "resolved",
+        "hub_path": "Elderwyld/Cities and Towns/Mireward/README.md"
+      }
+    },
+    {
+      "node_id": "node:swamp",
+      "label": "The swamp / cult source",
+      "node_type": "location",
+      "description": "The believed origin of the corruption problem and the party mission target.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-swamp-evening",
+          "label": "The swamp / cult source",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "swamp_cult_source",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:captain-lysandra",
+      "label": "Lysandra",
+      "node_type": "character",
+      "description": "Lieutenant and party ally trying to keep the team focused on reaching the swamp and destroying the cult source.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-stafl-suggestion",
+          "label": "Lysandra",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "captain_lysandra_ironveil",
+        "resolution": "resolved",
+        "hub_path": "Longmont Campaign/Campaign 2/NPCs/captain_lysandra_ironveil/README.md"
+      }
+    },
+    {
+      "node_id": "node:lysandro",
+      "label": "Lysandro",
+      "node_type": "character",
+      "description": "Lysandra's father, revealed at the Mireward wall.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-arrival-lysandro",
+          "label": "Lysandro",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "lysandro_ironveil",
+        "resolution": "resolved",
+        "hub_path": "Elderwyld/Cities and Towns/Mireward/NPCs/lysandro_ironveil/README.md"
+      }
+    },
+    {
+      "node_id": "node:private-hester",
+      "label": "Private Hester",
+      "node_type": "character",
+      "description": "Young Elderwild Reach rider carrying sealed reports for Mirathorn and warning about swamp music.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-private-hester-report",
+          "label": "Private Hester",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "private_hester",
+        "resolution": "resolved",
+        "hub_path": "Elderwyld/Cities and Towns/Mireward/NPCs/private_hester/README.md"
+      }
+    },
+    {
+      "node_id": "node:commander-vale",
+      "label": "Commander Vale",
+      "node_type": "character",
+      "description": "Commander Hester tells Lysandra to speak with before entering the swamp.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-hester-commander-vale",
+          "label": "Commander Vale",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "commander_vale",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:grobnok",
+      "label": "Grobnok",
+      "node_type": "character",
+      "description": "Mirathorn contact who takes over the rockie-talkie and becomes the sole evening caller.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-frank-sara",
+          "label": "Grobnok",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "grobnok",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:professor-tealeaf",
+      "label": "Professor Tealeaf",
+      "node_type": "character",
+      "description": "Trusted Wizard's College contact the party tries to message; later works with Grobnok to regain control.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-mirathorn-silver-raven",
+          "label": "Professor Tealeaf",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "professor_tealeaf",
+        "resolution": "resolved",
+        "hub_path": "Longmont Campaign/Campaign 1/NPCs/professor_tealeaf/README.md"
+      }
+    },
+    {
+      "node_id": "node:frank",
+      "label": "Frank",
+      "node_type": "character",
+      "description": "Former rockie-talkie holder Grobnok says appears compromised.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-frank-sara",
+          "label": "Frank",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "frank",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:sara",
+      "label": "Sara",
+      "node_type": "character",
+      "description": "Mirathorn operator Grobnok has not seen recently.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-frank-sara",
+          "label": "Sara",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "sara_mirathorn_operator",
+        "resolution": "resolved",
+        "hub_path": "Longmont Campaign/Campaign 2/NPCs/sara_mirathorn_operator/README.md"
+      }
+    },
+    {
+      "node_id": "node:mirathorn-council",
+      "label": "Mirathorn council",
+      "node_type": "organization",
+      "description": "City authority that hires mercenaries and instructs the party to continue to the swamp.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-mirathorn-outbreak-mercs",
+          "label": "Mirathorn council",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "mirathorn_council",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:city-guard",
+      "label": "Mirathorn city guard",
+      "node_type": "organization",
+      "description": "Decimated guard further reduced by corruption during the renewed outbreak.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-mirathorn-outbreak-mercs",
+          "label": "Mirathorn city guard",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "mirathorn_city_guard",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:mercenaries",
+      "label": "Mirathorn hired mercenaries",
+      "node_type": "group",
+      "description": "Mercenaries hired by the council because the city guard is reduced.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-mirathorn-outbreak-mercs",
+          "label": "Mirathorn hired mercenaries",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "mirathorn_hired_mercenaries",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:meat-heads",
+      "label": "Meat heads",
+      "node_type": "faction",
+      "description": "Corrupted faction in Mirathorn recruiting openly for the Shepherd.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-second-call",
+          "label": "Meat heads",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "meat_heads",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:shepherd",
+      "label": "The Shepherd",
+      "node_type": "character",
+      "description": "Cult figure for whom the meat heads recruit.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-second-call",
+          "label": "The Shepherd",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "shepherd",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:dustwalker",
+      "label": "Dustwalker",
+      "node_type": "character",
+      "description": "Festival performer whose song the party recognizes in the shared humming.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-shared-song-dustwalker",
+          "label": "Dustwalker",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "dustwalker",
+        "resolution": "resolved",
+        "hub_path": "Longmont Campaign/Campaign 2/NPCs/dustwalker/README.md"
+      }
+    },
+    {
+      "node_id": "node:thrin",
+      "label": "Thrin",
+      "node_type": "character",
+      "description": "Party member who asks Ephanna whether the forest can lie and is spared by the gnats.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-delayed-puddles",
+          "label": "Thrin",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "thrin_branchborn",
+        "resolution": "resolved",
+        "hub_path": "Longmont Campaign/Campaign 2/NPCs/thrin_branchborn/README.md"
+      }
+    },
+    {
+      "node_id": "node:delayed-puddles",
+      "label": "Delayed puddle reflections",
+      "node_type": "mystery",
+      "description": "Magical puddles whose reflections lag behind reality.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-delayed-puddles",
+          "label": "Delayed puddle reflections",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "item",
+        "ref_id": "delayed_puddles",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:planar-bleed",
+      "label": "Conjuration planar bleed",
+      "node_type": "mystery",
+      "description": "Puddle magic that appears to be bleed from another plane, conjured by an unknown source.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-puddle-conjuration",
+          "label": "Conjuration planar bleed",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "item",
+        "ref_id": "conjuration_planar_bleed",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:northern-song",
+      "label": "Northern rhythm / shared song",
+      "node_type": "mystery",
+      "description": "A rhythm from the north that becomes a shared humming recognized as the Dustwalker festival song.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-shared-song-dustwalker",
+          "label": "Northern rhythm / shared song",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "item",
+        "ref_id": "northern_shared_song",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:abandoned-meat-restaurant",
+      "label": "Abandoned meat-on-a-stick restaurant",
+      "node_type": "location",
+      "description": "Recently abandoned roadside restaurant where the party shelters from hail; the sign reads headed south, north wrong.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-abandoned-restaurant",
+          "label": "Abandoned meat-on-a-stick restaurant",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "sublocation",
+        "ref_id": "abandoned_meat_on_a_stick_restaurant",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    },
+    {
+      "node_id": "node:storm-hail",
+      "label": "Converging hail storm",
+      "node_type": "event",
+      "description": "Major storm/hail wall that forces the party to shelter.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-storm-hail-coming",
+          "label": "Converging hail storm",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "node_id": "node:knocking-door-thread",
+      "label": "Unseen knocking door",
+      "node_type": "mystery",
+      "description": "Karsemine hears knocking where she cannot find any door.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-knocking-door",
+          "label": "Unseen knocking door",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "item",
+        "ref_id": "unseen_knocking_door",
+        "resolution": "proposed",
+        "hub_path": null
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:mireward-in-reach",
+      "from_node_id": "node:mireward",
+      "to_node_id": "node:mireward-reach",
+      "label": "Mireward is in the Reach",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-arrival-lysandro",
+          "label": "Mireward is in the Reach",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:reach-north-of-mirathorn",
+      "from_node_id": "node:mireward-reach",
+      "to_node_id": "node:mirathorn",
+      "label": "Reach lies north of Mirathorn",
+      "relationship_type": "north_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-mirathorn-silver-raven",
+          "label": "Reach lies north of Mirathorn",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandra-focuses-party",
+      "from_node_id": "node:captain-lysandra",
+      "to_node_id": "node:swamp",
+      "label": "Lysandra wants team focused on swamp source",
+      "relationship_type": "mission_focus",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-stafl-suggestion",
+          "label": "Lysandra wants team focused on swamp source",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:lysandro-parent-of-lysandra",
+      "from_node_id": "node:lysandro",
+      "to_node_id": "node:captain-lysandra",
+      "label": "Lysandro is Lysandra father",
+      "relationship_type": "parent_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-arrival-lysandro",
+          "label": "Lysandro is Lysandra father",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:hester-reports-to-mirathorn",
+      "from_node_id": "node:private-hester",
+      "to_node_id": "node:mirathorn",
+      "label": "Hester carries reports for Mirathorn",
+      "relationship_type": "carries_report_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-private-hester-report",
+          "label": "Hester carries reports for Mirathorn",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:hester-points-to-vale",
+      "from_node_id": "node:private-hester",
+      "to_node_id": "node:commander-vale",
+      "label": "Hester directs Lysandra to Commander Vale",
+      "relationship_type": "refers_to",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-hester-commander-vale",
+          "label": "Hester directs Lysandra to Commander Vale",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:hester-reports-swamp-music",
+      "from_node_id": "node:private-hester",
+      "to_node_id": "node:swamp",
+      "label": "Hester reports music drawing people into swamp",
+      "relationship_type": "reports_threat_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-hester-swamp-music",
+          "label": "Hester reports music drawing people into swamp",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:grobnok-took-from-frank",
+      "from_node_id": "node:grobnok",
+      "to_node_id": "node:frank",
+      "label": "Grobnok took the rockie-talkie from Frank",
+      "relationship_type": "replaced_contact",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-frank-sara",
+          "label": "Grobnok took the rockie-talkie from Frank",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:grobnok-missing-sara",
+      "from_node_id": "node:grobnok",
+      "to_node_id": "node:sara",
+      "label": "Grobnok has not seen Sara recently",
+      "relationship_type": "missing_contact",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-frank-sara",
+          "label": "Grobnok has not seen Sara recently",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:grobnok-works-with-tealeaf",
+      "from_node_id": "node:grobnok",
+      "to_node_id": "node:professor-tealeaf",
+      "label": "Grobnok and Tealeaf work together to regain control",
+      "relationship_type": "works_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-tealeaf-control",
+          "label": "Grobnok and Tealeaf work together to regain control",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:council-hires-mercs",
+      "from_node_id": "node:mirathorn-council",
+      "to_node_id": "node:mercenaries",
+      "label": "Council hires mercenaries",
+      "relationship_type": "hires",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-mirathorn-outbreak-mercs",
+          "label": "Council hires mercenaries",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:city-guard-reduced",
+      "from_node_id": "node:city-guard",
+      "to_node_id": "node:mirathorn",
+      "label": "City guard reduced by corruption",
+      "relationship_type": "defends_weakened_location",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-mirathorn-outbreak-mercs",
+          "label": "City guard reduced by corruption",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:meat-heads-recruit-shepherd",
+      "from_node_id": "node:meat-heads",
+      "to_node_id": "node:shepherd",
+      "label": "Meat heads recruit for the Shepherd",
+      "relationship_type": "recruits_for",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-second-call",
+          "label": "Meat heads recruit for the Shepherd",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:dustwalker-linked-song",
+      "from_node_id": "node:dustwalker",
+      "to_node_id": "node:northern-song",
+      "label": "Shared humming matches Dustwalker festival song",
+      "relationship_type": "associated_with",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-shared-song-dustwalker",
+          "label": "Shared humming matches Dustwalker festival song",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:delayed-puddles-part-of-bleed",
+      "from_node_id": "node:delayed-puddles",
+      "to_node_id": "node:planar-bleed",
+      "label": "Puddle delay appears tied to conjuration planar bleed",
+      "relationship_type": "part_of",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-puddle-conjuration",
+          "label": "Puddle delay appears tied to conjuration planar bleed",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:restaurant-located-in-reach",
+      "from_node_id": "node:abandoned-meat-restaurant",
+      "to_node_id": "node:mireward-reach",
+      "label": "Restaurant is on the Mireward road in the Reach",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "played_canon",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "system_derived",
+        "visibility_state": "gm_private"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-abandoned-restaurant",
+          "label": "Restaurant is on the Mireward road in the Reach",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": []
+    }
+  ],
+  "beats": [
+    {
+      "beat_id": "beat:s22-01-mirathorn-message-plan",
+      "order": 1,
+      "title": "Party sends silver raven to Mirathorn",
+      "summary": "After failed rockie-talkie contact, the group sends Tealeaf and Grobnok a spoken/written message by silver raven.",
+      "involved_node_ids": [
+        "node:mirathorn",
+        "node:professor-tealeaf",
+        "node:grobnok"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-mirathorn-silver-raven",
+          "label": "Party sends silver raven to Mirathorn",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:s22-02-hester-warning",
+      "order": 2,
+      "title": "Private Hester warns of swamp music",
+      "summary": "Hester carries reports for Mirathorn and reports mysterious music, swamp-walkers, glassy eyes, and Commander Vale.",
+      "involved_node_ids": [
+        "node:private-hester",
+        "node:captain-lysandra",
+        "node:commander-vale",
+        "node:swamp"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-hester-swamp-music",
+          "label": "Private Hester warns of swamp music",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:s22-03-puddle-magic",
+      "order": 3,
+      "title": "Delayed puddles reveal conjuration bleed",
+      "summary": "Karsemine notices delayed reflections; Caelynn detects conjuration and the party worries about planar bleed.",
+      "involved_node_ids": [
+        "node:delayed-puddles",
+        "node:planar-bleed"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-puddle-conjuration",
+          "label": "Delayed puddles reveal conjuration bleed",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:delayed-puddles",
+        "node:planar-bleed"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:s22-04-grobnok-city-update",
+      "order": 4,
+      "title": "Grobnok reports renewed Mirathorn outbreak",
+      "summary": "Grobnok says Frank appears compromised, Sara is unseen, corruption returned, mercenaries were hired, and the council orders the party onward.",
+      "involved_node_ids": [
+        "node:grobnok",
+        "node:frank",
+        "node:sara",
+        "node:mirathorn-council",
+        "node:mercenaries",
+        "node:swamp"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-swamp-evening",
+          "label": "Grobnok reports renewed Mirathorn outbreak",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:s22-05-night-rhythm-and-mist",
+      "order": 5,
+      "title": "Night watch brings northern rhythm and savory mist",
+      "summary": "Karsemine hears rhythm from the north, Ephanna sees savory mist at dawn, and no Grobnok call comes.",
+      "involved_node_ids": [
+        "node:northern-song",
+        "node:grobnok"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-savory-mist-no-call",
+          "label": "Night watch brings northern rhythm and savory mist",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:northern-song"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:s22-06-shared-song-recognition",
+      "order": 6,
+      "title": "Party hums the Dustwalker song",
+      "summary": "The group realizes everyone is humming the same song, identified as the Dustwalker festival song.",
+      "involved_node_ids": [
+        "node:northern-song",
+        "node:dustwalker"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-shared-song-dustwalker",
+          "label": "Party hums the Dustwalker song",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:northern-song"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:s22-07-roadside-shelter",
+      "order": 7,
+      "title": "Party shelters at abandoned meat restaurant",
+      "summary": "The party finds a recently abandoned meat-on-a-stick restaurant with a north-wrong warning and shelters from a major hail storm.",
+      "involved_node_ids": [
+        "node:abandoned-meat-restaurant",
+        "node:storm-hail"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-abandoned-restaurant",
+          "label": "Party shelters at abandoned meat restaurant",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:s22-08-unseen-door",
+      "order": 8,
+      "title": "Karsemine hears an unseen door knocking",
+      "summary": "After the hail storm, Karsemine hears knocking but cannot find anything that could have a door.",
+      "involved_node_ids": [
+        "node:knocking-door-thread"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-knocking-door",
+          "label": "Karsemine hears an unseen door knocking",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [
+        "node:knocking-door-thread"
+      ],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:s22-09-second-grobnok-call",
+      "order": 9,
+      "title": "Grobnok reports meat-head recruitment",
+      "summary": "Grobnok reports an uneasy truce, open meat-head recruitment for the Shepherd, and a gnome with shimmering eyes.",
+      "involved_node_ids": [
+        "node:grobnok",
+        "node:meat-heads",
+        "node:shepherd",
+        "node:mirathorn"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-second-call",
+          "label": "Grobnok reports meat-head recruitment",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    },
+    {
+      "beat_id": "beat:s22-10-suggestion-and-wall-arrival",
+      "order": 10,
+      "title": "Stafl tests Lysandra before Mireward wall reveal",
+      "summary": "Stafl casts Suggestion on Lysandra; the party reaches the wall and meets her father Lysandro.",
+      "involved_node_ids": [
+        "node:captain-lysandra",
+        "node:mireward",
+        "node:lysandro"
+      ],
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-arrival-lysandro",
+          "label": "Stafl tests Lysandra before Mireward wall reveal",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "unresolved_thread_node_ids": [],
+      "proposed_action": "create",
+      "warnings": []
+    }
+  ],
+  "proposed_writes": [
+    {
+      "write_id": "write:s22-create-private-hester",
+      "write_type": "create_node",
+      "target_id": "node:private-hester",
+      "label": "Create Private Hester node",
+      "reason": "Named messenger with durable warning role and resolved hub.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-private-hester-report",
+          "label": "Create Private Hester node",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-create-commander-vale",
+      "write_type": "create_node",
+      "target_id": "node:commander-vale",
+      "label": "Create Commander Vale placeholder",
+      "reason": "Named authority Hester directs Lysandra toward; identity needs later corpus grounding.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-hester-commander-vale",
+          "label": "Create Commander Vale placeholder",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-update-lysandra-mission",
+      "write_type": "attach_fact",
+      "target_id": "node:captain-lysandra",
+      "label": "Attach Lysandra mission focus",
+      "reason": "Suggestion answer states her intention to keep the team focused on the swamp source.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-stafl-suggestion",
+          "label": "Attach Lysandra mission focus",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-create-lysandro",
+      "write_type": "create_node",
+      "target_id": "node:lysandro",
+      "label": "Create Lysandro node",
+      "reason": "Session 22 reveals Lysandro as Lysandra father at the wall.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-arrival-lysandro",
+          "label": "Create Lysandro node",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-attach-lysandro-parent-edge",
+      "write_type": "create_edge",
+      "target_id": "edge:lysandro-parent-of-lysandra",
+      "label": "Create Lysandro parent edge",
+      "reason": "Durable family relationship should be graphable.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-arrival-lysandro",
+          "label": "Create Lysandro parent edge",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-create-grobnok-contact",
+      "write_type": "create_node",
+      "target_id": "node:grobnok",
+      "label": "Create Grobnok contact node",
+      "reason": "Grobnok becomes sole party comms contact.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-swamp-evening",
+          "label": "Create Grobnok contact node",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-attach-grobnok-tealeaf",
+      "write_type": "create_edge",
+      "target_id": "edge:grobnok-works-with-tealeaf",
+      "label": "Attach Grobnok-Tealeaf cooperation",
+      "reason": "They are working together to regain control in Mirathorn.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-tealeaf-control",
+          "label": "Attach Grobnok-Tealeaf cooperation",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-create-meat-heads",
+      "write_type": "create_node",
+      "target_id": "node:meat-heads",
+      "label": "Create meat heads faction node",
+      "reason": "Group is openly recruiting for the Shepherd.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-second-call",
+          "label": "Create meat heads faction node",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-create-northern-song-thread",
+      "write_type": "create_node",
+      "target_id": "node:northern-song",
+      "label": "Create northern song thread",
+      "reason": "Rhythm and shared humming recur across watch and travel.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-shared-song-dustwalker",
+          "label": "Create northern song thread",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-create-delayed-puddles-thread",
+      "write_type": "create_node",
+      "target_id": "node:delayed-puddles",
+      "label": "Create delayed puddles mystery",
+      "reason": "Delayed reflections and conjuration evidence are a durable anomaly.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-delayed-puddles",
+          "label": "Create delayed puddles mystery",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-create-abandoned-restaurant",
+      "write_type": "create_node",
+      "target_id": "node:abandoned-meat-restaurant",
+      "label": "Create abandoned roadside restaurant node",
+      "reason": "Location carries north-wrong warning and shelter beat.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-abandoned-restaurant",
+          "label": "Create abandoned roadside restaurant node",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:s22-create-knocking-door-thread",
+      "write_type": "create_node",
+      "target_id": "node:knocking-door-thread",
+      "label": "Create unseen knocking door thread",
+      "reason": "A repeated-sound anomaly with no visible door remains unresolved.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-knocking-door",
+          "label": "Create unseen knocking door thread",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    }
+  ],
+  "ignored_items": [
+    {
+      "item_id": "ignored:s22-goodberry-horse",
+      "label": "Good Berry and water for Hester horse",
+      "reason": "Useful moment but not durable graph memory unless horse logistics recur.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-private-hester-report",
+          "label": "Good Berry for horse",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:s22-bonogo-puddle-splash",
+      "label": "Bonogo splashes in puddle",
+      "reason": "Momentary comic/action beat; no observed durable consequence in this source.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-puddle-conjuration",
+          "label": "Bonogo puddle splash",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
+    },
+    {
+      "item_id": "ignored:s22-fox-watch",
+      "label": "Fox eyes during Stafl watch",
+      "reason": "Resolved immediately as a fox and not a durable threat.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-north-rhythm-watch",
+          "label": "watch fox",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:s22-commander-vale-identity",
+      "label": "Commander Vale identity and authority",
+      "reason": "Named as a key swamp contact but not otherwise described in Session 22.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-hester-commander-vale",
+          "label": "Commander Vale",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Resolve from Mireward/Reach prep or later recap before creating detailed dossier facts.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:s22-swamp-music-agent",
+      "label": "Agent behind swamp music",
+      "reason": "Hester reports music and swamp-walkers, but the source is not identified in this recap.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-hester-swamp-music",
+          "label": "swamp music",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Do not bind to Dustwalker or Raucous Saints without later source evidence.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:s22-planar-bleed-cause",
+      "label": "Cause of conjuration planar bleed",
+      "reason": "The party infers planar bleed and conjuration, but not the conjurer or mechanism.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-puddle-conjuration",
+          "label": "planar bleed cause",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Track as mystery until a later source identifies the conjuring source.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:s22-shimmering-gnome",
+      "label": "Gnome with shimmering eyes",
+      "reason": "Important outbreak evolution, but the gnome is unnamed and only reported secondhand.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-grobnok-second-call",
+          "label": "gnome shimmering eyes",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Create a named node only if a later source identifies the gnome.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:s22-knocking-door-source",
+      "label": "Source of unseen knocking door",
+      "reason": "The knocking is heard but no door or source is found.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-knocking-door",
+          "label": "knocking source",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Keep as mystery/thread rather than resolving the source.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:s22-lysandra-trust-state",
+      "label": "Lysandra trust and leadership state",
+      "reason": "Stafl tests her with Suggestion and the wall arrival spotlights her leadership, but long-term party trust state needs more evidence.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:session-22-normalized-recap",
+          "source_artifact_id": "source-artifact:session-22-normalized-recap",
+          "source_anchor_id": "anchor:s22-stafl-suggestion",
+          "label": "Lysandra trust",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Attach the mission-focus fact now; defer stronger trust/leadership conclusions until later sessions.",
+      "warnings": []
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 0
+  }
+}

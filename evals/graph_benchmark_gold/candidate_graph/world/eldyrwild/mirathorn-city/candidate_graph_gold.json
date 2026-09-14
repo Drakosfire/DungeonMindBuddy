@@ -1,0 +1,1892 @@
+{
+  "schema": "dmb_candidate_graph_preview_v0",
+  "version": "0.1",
+  "preview_id": "candidate-preview:elderwyld:mirathorn-city:world-gold-v0",
+  "campaign_id": null,
+  "session_id": null,
+  "source_artifact_ids": [
+    "source-artifact:mirathorn-city-world-doc"
+  ],
+  "status": "preview",
+  "nodes": [
+    {
+      "node_id": "node:mirathorn",
+      "label": "Mirathorn",
+      "node_type": "location",
+      "description": "Democratic city-state at the base of the Stormspire Peaks, founded by Lundayell settlers.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-origin-lundayell",
+          "label": "origin-lundayell",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-location-peaks-lake",
+          "label": "location-peaks-lake",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-governance-council",
+          "label": "governance-council",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "mirathorn",
+        "resolution": "resolved",
+        "hub_path": "Elderwyld/Cities and Towns/Mirathorn/README.md"
+      }
+    },
+    {
+      "node_id": "node:elderwyld",
+      "label": "The Elderwyld",
+      "node_type": "location",
+      "description": "World reference entity: The Elderwyld.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-elderwyld-continent",
+          "label": "elderwyld-continent",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "region",
+        "ref_id": "elderwyld",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:lundayell-empire",
+      "label": "the Lundayell Empire",
+      "node_type": "faction",
+      "description": "World reference entity: the Lundayell Empire.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-origin-lundayell",
+          "label": "origin-lundayell",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-temple-goddess",
+          "label": "temple-goddess",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "lundayell_empire",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:ancient-airship",
+      "label": "an ancient airship",
+      "node_type": "item",
+      "description": "World reference entity: an ancient airship.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-airship",
+          "label": "airship",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "item",
+        "ref_id": "ancient_airship",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:stormspire-peaks",
+      "label": "the Stormspire Peaks",
+      "node_type": "location",
+      "description": "World reference entity: the Stormspire Peaks.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-location-peaks-lake",
+          "label": "location-peaks-lake",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "region",
+        "ref_id": "stormspire_peaks",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:lake-mirathorn",
+      "label": "Lake Mirathorn",
+      "node_type": "location",
+      "description": "World reference entity: Lake Mirathorn.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-location-peaks-lake",
+          "label": "location-peaks-lake",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-key-locations",
+          "label": "key-locations",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "lake_mirathorn",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:stormspire-academy",
+      "label": "Stormspire Academy",
+      "node_type": "location",
+      "description": "World reference entity: Stormspire Academy.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-key-locations",
+          "label": "key-locations",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "ambiguous: may be the same institution as `node:wizards-college`; do-not-auto-merge until source confirms"
+      ],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "stormspire_academy",
+        "resolution": "resolved",
+        "hub_path": "Elderwyld/Cities and Towns/Mirathorn/Stormspire Academy/README.md"
+      }
+    },
+    {
+      "node_id": "node:wizards-college",
+      "label": "the Wizard's College",
+      "node_type": "organization",
+      "description": "World reference entity: the Wizard's College.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-tinkerbright-college",
+          "label": "tinkerbright-college",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "ambiguous: may run Stormspire Academy; needs review, do-not-auto-merge with `node:stormspire-academy`"
+      ],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "wizards_college",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:wizards-tower-brewing-co",
+      "label": "Wizard's Tower Brewing Co",
+      "node_type": "organization",
+      "description": "World reference entity: Wizard's Tower Brewing Co.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-brewing-co",
+          "label": "brewing-co",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "SAME entity as the C1S1 `node:wizards-tower-brewing-co` — cross-document identity link (generalization probe)"
+      ],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "wizards_tower_brewing_co",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:shepherds-flock",
+      "label": "Shepherd's Flock",
+      "node_type": "faction",
+      "description": "World reference entity: Shepherd's Flock.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-shepherds-flock",
+          "label": "shepherds-flock",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [
+        "cross-arc cult; appears as a contamination probe in other beds — here it is legitimate world canon"
+      ],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "shepherds_flock",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:temple-nameless-goddess",
+      "label": "Temple of the Nameless Goddess",
+      "node_type": "location",
+      "description": "World reference entity: Temple of the Nameless Goddess.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-key-locations",
+          "label": "key-locations",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-temple-goddess",
+          "label": "temple-goddess",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "temple_nameless_goddess",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:nameless-goddess",
+      "label": "the Nameless Goddess",
+      "node_type": "character",
+      "description": "World reference entity: the Nameless Goddess.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-cosmology-goddess",
+          "label": "cosmology-goddess",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-temple-goddess",
+          "label": "temple-goddess",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "deity / cosmology figure"
+      ],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "nameless_goddess",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:festival-of-expansion",
+      "label": "the Festival of Expansion",
+      "node_type": "event",
+      "description": "Evergreen recurring festival commemorating the Goddess's sacrifice and the city's growth.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-festival-expansion",
+          "label": "festival-expansion",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "node_id": "node:mirathorn-city-council",
+      "label": "the city council",
+      "node_type": "organization",
+      "description": "World reference entity: the city council.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-governance-council",
+          "label": "governance-council",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [
+        "cross-class: governance body vs the city/place `node:mirathorn`"
+      ],
+      "corpus_ref": {
+        "type": "faction",
+        "ref_id": "mirathorn_city_council",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:elara-swiftwind",
+      "label": "Mayor Elara Swiftwind",
+      "node_type": "character",
+      "description": "World reference entity: Mayor Elara Swiftwind.",
+      "importance": "high",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-mayor-elara",
+          "label": "mayor-elara",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "high",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "elara_swiftwind",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:tinkerbright",
+      "label": "Headmaster Tinkerbright",
+      "node_type": "character",
+      "description": "World reference entity: Headmaster Tinkerbright.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-tinkerbright-college",
+          "label": "tinkerbright-college",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "tinkerbright",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:thalia-ashenvale",
+      "label": "Commander Thalia Ashenvale",
+      "node_type": "character",
+      "description": "World reference entity: Commander Thalia Ashenvale.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "spoiler_sensitive"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-thalia-commander",
+          "label": "thalia-commander",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-thalia-wolf",
+          "label": "thalia-wolf",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "spoiler: secretly ensorcelled by the Wolf"
+      ],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "thalia_ashenvale",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:the-wolf",
+      "label": "the Wolf",
+      "node_type": "character",
+      "description": "World reference entity: the Wolf.",
+      "importance": "medium",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "spoiler_sensitive"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-thalia-wolf",
+          "label": "thalia-wolf",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": [
+        "spoiler: hidden antagonist controlling the Guard"
+      ],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "the_wolf",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:torrin-flamescale",
+      "label": "Torrin Flamescale",
+      "node_type": "character",
+      "description": "World reference entity: Torrin Flamescale.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-torrin-guilds",
+          "label": "torrin-guilds",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "torrin_flamescale",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:merril-tealeaf",
+      "label": "Merril Tealeaf",
+      "node_type": "character",
+      "description": "World reference entity: Merril Tealeaf.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-merril-agri",
+          "label": "merril-agri",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "merril_tealeaf",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:rurik-stonehammer",
+      "label": "Rurik Stonehammer",
+      "node_type": "character",
+      "description": "World reference entity: Rurik Stonehammer.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-rurik-architect",
+          "label": "rurik-architect",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "rurik_stonehammer",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:grobnok",
+      "label": "Grobnok the Goblin",
+      "node_type": "character",
+      "description": "World reference entity: Grobnok the Goblin.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-grobnok",
+          "label": "grobnok",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "grobnok",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:barin-stonefoot",
+      "label": "Barin Stonefoot",
+      "node_type": "character",
+      "description": "World reference entity: Barin Stonefoot.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-barin-inn",
+          "label": "barin-inn",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "npc",
+        "ref_id": "barin_stonefoot",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:copper-quartz-inn",
+      "label": "the Copper and Quartz Inn",
+      "node_type": "location",
+      "description": "World reference entity: the Copper and Quartz Inn.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-barin-inn",
+          "label": "barin-inn",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "copper_quartz_inn",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:grit-and-grime",
+      "label": "Grit and Grime",
+      "node_type": "location",
+      "description": "World reference entity: Grit and Grime.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-grobnok",
+          "label": "grobnok",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "location",
+        "ref_id": "grit_and_grime",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:luminox-sheep",
+      "label": "Luminox Sheep",
+      "node_type": "unknown_important",
+      "description": "World reference entity: Luminox Sheep.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-luminox-sheep",
+          "label": "luminox-sheep",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "creature",
+        "ref_id": "luminox_sheep",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:float-goats",
+      "label": "Float Goats",
+      "node_type": "unknown_important",
+      "description": "World reference entity: Float Goats.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-float-goats",
+          "label": "float-goats",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "creature",
+        "ref_id": "float_goats",
+        "resolution": "proposed"
+      }
+    },
+    {
+      "node_id": "node:mirathorn-main-gates",
+      "label": "the main gates of Mirathorn",
+      "node_type": "location",
+      "description": "World reference entity: the main gates of Mirathorn.",
+      "importance": "low",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-walls-gates",
+          "label": "walls-gates",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "low",
+      "warnings": [],
+      "corpus_ref": {
+        "type": "sublocation",
+        "ref_id": "mirathorn_main_gates",
+        "resolution": "proposed"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge:mirathorn-in-elderwyld",
+      "from_node_id": "node:mirathorn",
+      "to_node_id": "node:elderwyld",
+      "label": "node:mirathorn located_in node:elderwyld",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-elderwyld-continent",
+          "label": "elderwyld-continent",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:mirathorn-near-peaks",
+      "from_node_id": "node:mirathorn",
+      "to_node_id": "node:stormspire-peaks",
+      "label": "node:mirathorn located_near node:stormspire-peaks",
+      "relationship_type": "located_near",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-location-peaks-lake",
+          "label": "location-peaks-lake",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:mirathorn-by-lake",
+      "from_node_id": "node:mirathorn",
+      "to_node_id": "node:lake-mirathorn",
+      "label": "node:mirathorn adjacent_to node:lake-mirathorn",
+      "relationship_type": "adjacent_to",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-location-peaks-lake",
+          "label": "location-peaks-lake",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:mirathorn-founded-from-lundayell",
+      "from_node_id": "node:mirathorn",
+      "to_node_id": "node:lundayell-empire",
+      "label": "node:mirathorn founded_by_settlers_from node:lundayell-empire",
+      "relationship_type": "founded_by_settlers_from",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-origin-lundayell",
+          "label": "origin-lundayell",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:mirathorn-settled-via-airship",
+      "from_node_id": "node:mirathorn",
+      "to_node_id": "node:ancient-airship",
+      "label": "node:mirathorn founded_using node:ancient-airship",
+      "relationship_type": "founded_using",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-airship",
+          "label": "airship",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:academy-in-mirathorn",
+      "from_node_id": "node:stormspire-academy",
+      "to_node_id": "node:mirathorn",
+      "label": "node:stormspire-academy located_in node:mirathorn",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-key-locations",
+          "label": "key-locations",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:temple-in-mirathorn",
+      "from_node_id": "node:temple-nameless-goddess",
+      "to_node_id": "node:mirathorn",
+      "label": "node:temple-nameless-goddess located_in node:mirathorn",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-key-locations",
+          "label": "key-locations",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:copperquartz-in-mirathorn",
+      "from_node_id": "node:copper-quartz-inn",
+      "to_node_id": "node:mirathorn",
+      "label": "node:copper-quartz-inn located_in node:mirathorn",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-barin-inn",
+          "label": "barin-inn",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:gritgrime-in-mirathorn",
+      "from_node_id": "node:grit-and-grime",
+      "to_node_id": "node:mirathorn",
+      "label": "node:grit-and-grime located_in node:mirathorn",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-grobnok",
+          "label": "grobnok",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:gates-part-of-mirathorn",
+      "from_node_id": "node:mirathorn-main-gates",
+      "to_node_id": "node:mirathorn",
+      "label": "node:mirathorn-main-gates located_in node:mirathorn",
+      "relationship_type": "located_in",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-walls-gates",
+          "label": "walls-gates",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:festival-commemorates-goddess",
+      "from_node_id": "node:festival-of-expansion",
+      "to_node_id": "node:nameless-goddess",
+      "label": "node:festival-of-expansion commemorates node:nameless-goddess",
+      "relationship_type": "commemorates",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-festival-expansion",
+          "label": "festival-expansion",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:temple-dedicated-to-goddess",
+      "from_node_id": "node:temple-nameless-goddess",
+      "to_node_id": "node:nameless-goddess",
+      "label": "node:temple-nameless-goddess dedicated_to node:nameless-goddess",
+      "relationship_type": "dedicated_to",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-temple-goddess",
+          "label": "temple-goddess",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:temple-built-from-lundayell",
+      "from_node_id": "node:temple-nameless-goddess",
+      "to_node_id": "node:lundayell-empire",
+      "label": "node:temple-nameless-goddess murals_sourced_from node:lundayell-empire",
+      "relationship_type": "murals_sourced_from",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-temple-goddess",
+          "label": "temple-goddess",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:council-governs-mirathorn",
+      "from_node_id": "node:mirathorn-city-council",
+      "to_node_id": "node:mirathorn",
+      "label": "node:mirathorn-city-council governs node:mirathorn",
+      "relationship_type": "governs",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-governance-council",
+          "label": "governance-council",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:elara-leads-council",
+      "from_node_id": "node:elara-swiftwind",
+      "to_node_id": "node:mirathorn-city-council",
+      "label": "node:elara-swiftwind leads node:mirathorn-city-council",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-mayor-elara",
+          "label": "mayor-elara",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:tinkerbright-leads-college",
+      "from_node_id": "node:tinkerbright",
+      "to_node_id": "node:wizards-college",
+      "label": "node:tinkerbright leads node:wizards-college",
+      "relationship_type": "leads",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-tinkerbright-college",
+          "label": "tinkerbright-college",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:tinkerbright-member-council",
+      "from_node_id": "node:tinkerbright",
+      "to_node_id": "node:mirathorn-city-council",
+      "label": "node:tinkerbright member_of node:mirathorn-city-council",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-tinkerbright-college",
+          "label": "tinkerbright-college",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:thalia-member-council",
+      "from_node_id": "node:thalia-ashenvale",
+      "to_node_id": "node:mirathorn-city-council",
+      "label": "node:thalia-ashenvale member_of node:mirathorn-city-council",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-thalia-commander",
+          "label": "thalia-commander",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:torrin-member-council",
+      "from_node_id": "node:torrin-flamescale",
+      "to_node_id": "node:mirathorn-city-council",
+      "label": "node:torrin-flamescale member_of node:mirathorn-city-council",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-torrin-guilds",
+          "label": "torrin-guilds",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:merril-member-council",
+      "from_node_id": "node:merril-tealeaf",
+      "to_node_id": "node:mirathorn-city-council",
+      "label": "node:merril-tealeaf member_of node:mirathorn-city-council",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-merril-agri",
+          "label": "merril-agri",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:rurik-member-council",
+      "from_node_id": "node:rurik-stonehammer",
+      "to_node_id": "node:mirathorn-city-council",
+      "label": "node:rurik-stonehammer member_of node:mirathorn-city-council",
+      "relationship_type": "member_of",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-rurik-architect",
+          "label": "rurik-architect",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:grobnok-operates-gritgrime",
+      "from_node_id": "node:grobnok",
+      "to_node_id": "node:grit-and-grime",
+      "label": "node:grobnok operates node:grit-and-grime",
+      "relationship_type": "operates",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-grobnok",
+          "label": "grobnok",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:barin-operates-inn",
+      "from_node_id": "node:barin-stonefoot",
+      "to_node_id": "node:copper-quartz-inn",
+      "label": "node:barin-stonefoot operates node:copper-quartz-inn",
+      "relationship_type": "operates",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-barin-inn",
+          "label": "barin-inn",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:wolf-controls-thalia",
+      "from_node_id": "node:the-wolf",
+      "to_node_id": "node:thalia-ashenvale",
+      "label": "node:the-wolf controls node:thalia-ashenvale",
+      "relationship_type": "controls",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "spoiler_sensitive"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-thalia-wolf",
+          "label": "thalia-wolf",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:flock-protests-mirathorn",
+      "from_node_id": "node:shepherds-flock",
+      "to_node_id": "node:mirathorn",
+      "label": "node:shepherds-flock protests_at node:mirathorn",
+      "relationship_type": "protests_at",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-shepherds-flock",
+          "label": "shepherds-flock",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    },
+    {
+      "edge_id": "edge:brewery-near-mirathorn",
+      "from_node_id": "node:wizards-tower-brewing-co",
+      "to_node_id": "node:mirathorn",
+      "label": "node:wizards-tower-brewing-co located_near node:mirathorn",
+      "relationship_type": "located_near",
+      "semantic_state": {
+        "canon_state": "unknown",
+        "lifecycle_state": "candidate",
+        "evidence_role": "source_evidence",
+        "authority_state": "gm_prep",
+        "visibility_state": "player_visible"
+      },
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-brewing-co",
+          "label": "brewing-co",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "proposed_action": "create",
+      "confidence": "medium",
+      "warnings": []
+    }
+  ],
+  "beats": [],
+  "proposed_writes": [
+    {
+      "write_id": "write:create-mirathorn",
+      "write_type": "create_node",
+      "target_id": "node:mirathorn",
+      "label": "Create Mirathorn location node",
+      "reason": "Mirathorn is the primary world-reference location anchor for this evergreen city doc.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-origin-lundayell",
+          "label": "origin-lundayell",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-governance-council",
+          "label": "governance-council",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    },
+    {
+      "write_id": "write:create-shepherds-flock",
+      "write_type": "create_node",
+      "target_id": "node:shepherds-flock",
+      "label": "Create Shepherd's Flock faction node",
+      "reason": "Shepherd's Flock is a cross-arc cult faction with legitimate world-canon presence in Mirathorn.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-shepherds-flock",
+          "label": "shepherds-flock",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "status": "pending"
+    }
+  ],
+  "ignored_items": [
+    {
+      "item_id": "ignored:fantastic-livestock-catalog",
+      "label": "Fantastic livestock catalog beyond sampled creatures",
+      "reason": "The fantastic-livestock bestiary tangent (Tidal Turtles, Starling Cows, Sunflower Ducks, Flutter Ferrets) is out of scope for this gold slice; only Luminox Sheep and Float Goats are sampled.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-luminox-sheep",
+          "label": "luminox-sheep",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "warnings": []
+    }
+  ],
+  "deferred_items": [
+    {
+      "item_id": "deferred:stormspire-vs-wizards-college",
+      "label": "Stormspire Academy vs Wizard's College same-institution ambiguity",
+      "reason": "Stormspire Academy and the Wizard's College may name the same institution; do-not-auto-merge until source confirms.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-key-locations",
+          "label": "key-locations",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        },
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-tinkerbright-college",
+          "label": "tinkerbright-college",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Review corpus hub structure and source doc for whether Stormspire Academy and Wizard's College are one institution or distinct entities.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:brewery-cross-document-identity",
+      "label": "Wizard's Tower Brewing Co cross-document identity link",
+      "reason": "Wizard's Tower Brewing Co appears in both this world doc and the C1S1 session gold; cross-document identity must be verified before merge.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-brewing-co",
+          "label": "brewing-co",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Compare node:wizards-tower-brewing-co across mirathorn-city and session-1 gold fixtures in vocabulary ablation runs.",
+      "warnings": []
+    },
+    {
+      "item_id": "deferred:wolf-thalia-spoiler-control",
+      "label": "Wolf/Thalia spoiler control relationship",
+      "reason": "The Wolf secretly controls Commander Thalia Ashenvale; this is a player-hidden relationship requiring spoiler-sensitive visibility.",
+      "evidence_refs": [
+        {
+          "source_ref_id": "source-ref:mirathorn-city-world-doc",
+          "source_artifact_id": "source-artifact:mirathorn-city-world-doc",
+          "source_anchor_id": "anchor:mira-thalia-wolf",
+          "label": "thalia-wolf",
+          "evidence_role": "source_evidence",
+          "can_open_source": true,
+          "can_highlight_span": true
+        }
+      ],
+      "suggested_next_step": "Keep visibility_state=spoiler_sensitive on node:the-wolf, node:thalia-ashenvale, and edge:wolf-controls-thalia until table reveal.",
+      "warnings": []
+    }
+  ],
+  "diagnostics": {
+    "preview_only": true,
+    "extraction_performed": false,
+    "llm_used": false,
+    "runtime_connected": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "corpus_scanned": false,
+    "corpus_mutated": false,
+    "facts_promoted": false,
+    "canon_promoted": false,
+    "unresolved_evidence_refs": 0,
+    "missing_evidence_objects": 0,
+    "warning_count": 8
+  }
+}

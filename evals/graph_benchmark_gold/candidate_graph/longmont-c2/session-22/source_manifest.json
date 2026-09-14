@@ -1,0 +1,35 @@
+{
+  "schema": "dmb_session_22_candidate_graph_gold_manifest_v0",
+  "version": "0.1",
+  "fixture_id": "graph-memory:session-22-candidate-graph-gold:v0",
+  "campaign_id": "longmont-c2",
+  "session": 22,
+  "input_mode": "explicit_fixture_dependency",
+  "source_fixture_id": "graph-memory:session-22-recap-ingest:v0",
+  "source_manifest_path": "evals/graph_memory_layer/examples/session_22_recap_ingest/session_22_recap_ingest_manifest.json",
+  "source_span_seed_refs_path": "evals/graph_memory_layer/examples/session_22_recap_ingest/source_span_seed_refs.json",
+  "candidate_graph_gold_path": "evals/graph_memory_layer/examples/session_22_candidate_graph_gold/candidate_graph_gold.json",
+  "authoring_mode": "hand_authored_gold",
+  "notes": [
+    "Gold is hand-authored from the played normalized Session 22 recap only, not the prior staging-only/mis-promoted S22 artifact noted in Backlog.md.",
+    "The graph emphasizes durable graph memory: named people/factions/locations, mission/contact relationships, family relationship, unresolved recurring mysteries, and pending review writes.",
+    "Momentary actions such as Good Berry for Hester horse, Bonogo splashing in a puddle, and the fox on watch are ignored rather than promoted to relationship edges.",
+    "Music attribution remains deliberately deferred: Session 22 supports Dustwalker song recognition but does not identify the current northern/swamp music source.",
+    "Player characters (Stafl, Ephanna, Caelynn, Karsemine, Bonogo) and the adventuring-party node are deliberately NOT reified as candidate graph nodes: PCs are already canonical hub entities, and merely being present/acting in a session is not new durable graph memory. Edges that only expressed party-level travel/mission/comms (party-travels-to-mireward, party-targets-swamp, grobnok-controls-party-comms, stafl-distrusts-lysandra) were dropped with them; PC participation in beats is pruned from involved_node_ids. Recurring companion NPC Thrin is retained as an NPC node. This aligns the gold with the gpt-5.4 extractor, which omits PCs by design."
+  ],
+  "diagnostics": {
+    "manual_gold_fixture": true,
+    "extraction_performed": false,
+    "llm_required": false,
+    "live_planner_required": false,
+    "runtime_required": false,
+    "corpus_scan_required": false,
+    "corpus_mutation_required": false,
+    "graph_write_required": false,
+    "approval_required": false,
+    "query_execution_required": false,
+    "plan_connected": false,
+    "agent_interaction_connected": false,
+    "production_behavior_changed": false
+  }
+}
