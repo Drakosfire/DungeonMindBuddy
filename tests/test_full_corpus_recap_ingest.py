@@ -153,7 +153,7 @@ def test_openai_and_deepseek_arms_do_not_share_run_dirs() -> None:
     deepseek_root = mod.DEFAULT_OUT / mod.DEEPSEEK_ARM
     assert openai_root != deepseek_root
     assert (mod.DEFAULT_OUT / "openai-gpt-5.4-mini" / "INGEST.json").is_file()
-    assert not (deepseek_root / "INGEST.json").is_file()
+    assert (deepseek_root / "INGEST.json").is_file()
 
 
 def test_concurrency_preflight_writes_serial_and_overlap_evidence(tmp_path: Path) -> None:

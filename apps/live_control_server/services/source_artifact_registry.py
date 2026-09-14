@@ -560,6 +560,7 @@ def create_recap_source_artifact(
     recap_path: Path | None = None,
     recap_text: str | None = None,
     expected_content_sha256: str | None = None,
+    source_artifact_id: str | None = None,
 ) -> GraphMemorySourceArtifact:
     """Create an immutable recap SourceArtifact from committed recap bytes.
 
@@ -626,14 +627,20 @@ def create_recap_source_artifact(
                 status_code=409,
             )
 
-    source_artifact_id = build_recap_source_artifact_id(
+    derived_source_artifact_id = build_recap_source_artifact_id(
         campaign_id=cleaned_campaign,
         session_id=cleaned_session,
         content_sha256=content_sha256,
     )
+    # A sealed candidate graph may already have a deterministic artifact
+    # identity. Preserve that identity after independently verifying its bytes;
+    # otherwise evidence references would be rewritten during governed replay.
+    artifact_id = (source_artifact_id or derived_source_artifact_id).strip()
+    if not artifact_id:
+        raise SourceArtifactRegistryError("source_artifact_id must not be empty", status_code=422)
     now = _utc_now_iso()
     candidate = GraphMemorySourceArtifact(
-        source_artifact_id=source_artifact_id,
+        source_artifact_id=artifact_id,
         source_domain="recap",
         campaign_id=cleaned_campaign,
         session_id=cleaned_session,
