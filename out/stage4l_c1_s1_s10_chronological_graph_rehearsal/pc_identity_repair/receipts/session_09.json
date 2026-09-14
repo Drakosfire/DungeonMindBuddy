@@ -1,0 +1,28 @@
+{
+  "candidate_edges": 22,
+  "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_09/a0cd5aed-e001-472e-a8bd-dce4369b4787/candidate_graph.json",
+  "candidate_nodes": 46,
+  "candidate_sha256": "922d7c1ab92f081150e4990218a4937b22a757e6a7216e2ec27a4cabccb17311",
+  "committed_revision_id": "rev:494e5dd86f1e58498b4f582a7b2e71fd",
+  "cost_usd": 0.0,
+  "edge_funnel": {
+    "admitted_predicates": 21,
+    "canonical_endpoints": 22,
+    "extracted": 22,
+    "publishable": 15,
+    "published": 15
+  },
+  "generated_at": "2026-09-14T20:03:19Z",
+  "lineage": "zero_model_relationship_replay",
+  "model_calls": 0,
+  "parent_revision_id": "rev:2d30359fbe9d014caa7517bc31fa9f03",
+  "publication_mode": "edge_selective",
+  "schema": "dmb_stage4l_rechain_receipt_v1",
+  "session": 9,
+  "source": {
+    "bytes": 6294,
+    "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 9 - Battle with the Meat Monsters.md",
+    "sha256": "ee4c45abbc94269adf0c5d3de90d92b27c4d77f46fa3a8e8259ae9327e8a31f7"
+  },
+  "wall_seconds": 5.454
+}

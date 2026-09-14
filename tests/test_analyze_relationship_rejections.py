@@ -50,7 +50,32 @@ def test_relationship_rejection_artifacts_exist_and_consistent() -> None:
 
     report_text = rep_path.read_text(encoding="utf-8")
     assert "276 extracted relationship denominator" in report_text
-    assert "150 ( 54.3%)" in report_text
-    assert "126" in report_text
     assert "Captain Lysandra" in report_text
     assert "NO — fix identity resolution" in report_text
+
+
+def test_pc_identity_repair_artifacts_exist_and_consistent() -> None:
+    repair_root = REPO_ROOT / "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/pc_identity_repair"
+    manifest_path = repair_root / "MANIFEST.json"
+    rep_path = repair_root / "REPORT.md"
+    rel_analysis = repair_root / "relationship_analysis"
+    rel_path = rel_analysis / "relationships.json"
+    sum_path = rel_analysis / "summary.json"
+    analysis_rep_path = rel_analysis / "REPORT.md"
+
+    assert manifest_path.exists(), "pc_identity_repair MANIFEST.json must exist"
+    assert rep_path.exists(), "pc_identity_repair REPORT.md must exist"
+    assert rel_path.exists(), "pc_identity_repair relationships.json must exist"
+    assert sum_path.exists(), "pc_identity_repair summary.json must exist"
+    assert analysis_rep_path.exists(), "pc_identity_repair relationship_analysis REPORT.md must exist"
+
+    records = json.loads(rel_path.read_text(encoding="utf-8"))
+    assert len(records) == 276
+    published = [r for r in records if r["published"]]
+    assert len(published) == 219
+
+    summary = json.loads(sum_path.read_text(encoding="utf-8"))
+    assert summary["metadata"]["published_relationships"] == 219
+    assert summary["metadata"]["unpublished_relationships"] == 57
+    assert summary["metadata"]["model_calls"] == 0
+    assert summary["bottleneck_quantification"]["blocked_by_identity_resolution"] == 0

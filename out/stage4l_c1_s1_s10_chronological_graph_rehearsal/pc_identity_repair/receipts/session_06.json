@@ -1,0 +1,28 @@
+{
+  "candidate_edges": 36,
+  "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_06/401d0159-6247-450c-a0a6-3c9842e99670/candidate_graph.json",
+  "candidate_nodes": 39,
+  "candidate_sha256": "b43d6e728db2c3e325436a55d7db0e8e7eee94131de7de7ab5d61397cdae5f78",
+  "committed_revision_id": "rev:d597b5fca1e7e19212439c52f89e567c",
+  "cost_usd": 0.0,
+  "edge_funnel": {
+    "admitted_predicates": 36,
+    "canonical_endpoints": 36,
+    "extracted": 36,
+    "publishable": 34,
+    "published": 34
+  },
+  "generated_at": "2026-09-14T20:03:04Z",
+  "lineage": "zero_model_relationship_replay",
+  "model_calls": 0,
+  "parent_revision_id": "rev:491d14cec5cd102e7be728a571556d4a",
+  "publication_mode": "edge_selective",
+  "schema": "dmb_stage4l_rechain_receipt_v1",
+  "session": 6,
+  "source": {
+    "bytes": 4481,
+    "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 6 - The Road to Miraholm.md",
+    "sha256": "a6849dbc9bad2045f728d7514deae3fb99fca38495281dfa126806d7087b5bf8"
+  },
+  "wall_seconds": 4.799
+}

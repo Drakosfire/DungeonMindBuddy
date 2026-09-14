@@ -1,0 +1,28 @@
+{
+  "candidate_edges": 32,
+  "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_07/ec299031-7c58-4cdd-b4ca-b4b5246e5025/candidate_graph.json",
+  "candidate_nodes": 36,
+  "candidate_sha256": "99b7576abe371140263098861508c9c5fd2c3a1bee4d6d850ed45b7ff8650069",
+  "committed_revision_id": "rev:a5aee4b86bce86956b55c0e6a2166190",
+  "cost_usd": 0.0,
+  "edge_funnel": {
+    "admitted_predicates": 29,
+    "canonical_endpoints": 32,
+    "extracted": 32,
+    "publishable": 24,
+    "published": 24
+  },
+  "generated_at": "2026-09-14T20:03:08Z",
+  "lineage": "zero_model_relationship_replay",
+  "model_calls": 0,
+  "parent_revision_id": "rev:d597b5fca1e7e19212439c52f89e567c",
+  "publication_mode": "edge_selective",
+  "schema": "dmb_stage4l_rechain_receipt_v1",
+  "session": 7,
+  "source": {
+    "bytes": 5502,
+    "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 7 - Passing Mirathorn Gates.md",
+    "sha256": "cca895ea6c64d72d248cf40e50de48ad3f710d3681237a749cc689efad9ec365"
+  },
+  "wall_seconds": 4.176
+}

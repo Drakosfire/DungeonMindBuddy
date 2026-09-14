@@ -1,0 +1,28 @@
+{
+  "candidate_edges": 37,
+  "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_03/e86cacb6-c8c8-463e-890c-6c5c7b39f6f5/candidate_graph.json",
+  "candidate_nodes": 34,
+  "candidate_sha256": "c7dac6f601d8fd17b1bd326267f5dc3752f8cc1db4058f1a5c3e2d5a96d7f8fa",
+  "committed_revision_id": "rev:f028f280fffa0e55eb09287c8c67a350",
+  "cost_usd": 0.0,
+  "edge_funnel": {
+    "admitted_predicates": 34,
+    "canonical_endpoints": 37,
+    "extracted": 37,
+    "publishable": 25,
+    "published": 25
+  },
+  "generated_at": "2026-09-14T20:02:52Z",
+  "lineage": "zero_model_relationship_replay",
+  "model_calls": 0,
+  "parent_revision_id": "rev:13958eaf6090590aadab1557860f85b4",
+  "publication_mode": "edge_selective",
+  "schema": "dmb_stage4l_rechain_receipt_v1",
+  "session": 3,
+  "source": {
+    "bytes": 5439,
+    "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 3 - The Stone Bridge Flood.md",
+    "sha256": "f8b6c8bb7b7be185fb4372df708f7e5ef5c6fde4152c84e5b56b24cf71ab3a4d"
+  },
+  "wall_seconds": 3.295
+}

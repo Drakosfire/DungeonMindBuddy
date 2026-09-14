@@ -1,0 +1,28 @@
+{
+  "candidate_edges": 7,
+  "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_02/afafaf05-05a6-403d-a321-eda1bc8c009d/candidate_graph.json",
+  "candidate_nodes": 12,
+  "candidate_sha256": "1b104e3b0129d1b25b34e5ef8add464da5fab1758d57a25e874535460b05c47b",
+  "committed_revision_id": "rev:13958eaf6090590aadab1557860f85b4",
+  "cost_usd": 0.0,
+  "edge_funnel": {
+    "admitted_predicates": 7,
+    "canonical_endpoints": 7,
+    "extracted": 7,
+    "publishable": 7,
+    "published": 7
+  },
+  "generated_at": "2026-09-14T20:02:49Z",
+  "lineage": "zero_model_relationship_replay",
+  "model_calls": 0,
+  "parent_revision_id": "rev:b5f21874667aba61786c70e04db507c3",
+  "publication_mode": "all",
+  "schema": "dmb_stage4l_rechain_receipt_v1",
+  "session": 2,
+  "source": {
+    "bytes": 1548,
+    "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 2 - Finishing the Job.md",
+    "sha256": "12aac2b0f386248deb4928a4b629d207338bd48c3c52dd69355e1235f4a11355"
+  },
+  "wall_seconds": 1.948
+}

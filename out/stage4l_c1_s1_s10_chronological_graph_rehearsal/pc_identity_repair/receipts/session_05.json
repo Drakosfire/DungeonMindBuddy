@@ -1,0 +1,28 @@
+{
+  "candidate_edges": 27,
+  "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_05/cfc93f9b-1b38-4501-a3d7-ad4012cb45f6/candidate_graph.json",
+  "candidate_nodes": 31,
+  "candidate_sha256": "caa79bf0745c47b95cc20062e9159181d1fcc027d7c1f37838355519808c8e1b",
+  "committed_revision_id": "rev:491d14cec5cd102e7be728a571556d4a",
+  "cost_usd": 0.0,
+  "edge_funnel": {
+    "admitted_predicates": 25,
+    "canonical_endpoints": 27,
+    "extracted": 27,
+    "publishable": 22,
+    "published": 22
+  },
+  "generated_at": "2026-09-14T20:02:59Z",
+  "lineage": "zero_model_relationship_replay",
+  "model_calls": 0,
+  "parent_revision_id": "rev:805502327249e70fc7572575999d17f5",
+  "publication_mode": "edge_selective",
+  "schema": "dmb_stage4l_rechain_receipt_v1",
+  "session": 5,
+  "source": {
+    "bytes": 3569,
+    "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 5 - Underneath Hempholm.md",
+    "sha256": "2e5ad974e07d071a2f545d0503b3d09e9d4d1c211ad7fd6c048f69c05a0b351b"
+  },
+  "wall_seconds": 3.398
+}

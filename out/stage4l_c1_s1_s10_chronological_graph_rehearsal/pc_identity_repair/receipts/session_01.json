@@ -1,0 +1,28 @@
+{
+  "candidate_edges": 31,
+  "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_01/5f3f15ae-34d7-4aaf-a179-2ffa22262fc2/candidate_graph.json",
+  "candidate_nodes": 33,
+  "candidate_sha256": "de0adfae0ae6f359ebbd2d6777b67080620794a384b46b78c71c71bcbd8ecf1d",
+  "committed_revision_id": "rev:b5f21874667aba61786c70e04db507c3",
+  "cost_usd": 0.0,
+  "edge_funnel": {
+    "admitted_predicates": 30,
+    "canonical_endpoints": 31,
+    "extracted": 31,
+    "publishable": 25,
+    "published": 25
+  },
+  "generated_at": "2026-09-14T20:02:47Z",
+  "lineage": "zero_model_relationship_replay",
+  "model_calls": 0,
+  "parent_revision_id": "rev:d5c54ab8569139e400f0cce9ede4e60d",
+  "publication_mode": "edge_selective",
+  "schema": "dmb_stage4l_rechain_receipt_v1",
+  "session": 1,
+  "source": {
+    "bytes": 2917,
+    "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 1 - Recap 3-27-24.md",
+    "sha256": "8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc"
+  },
+  "wall_seconds": 3.088
+}

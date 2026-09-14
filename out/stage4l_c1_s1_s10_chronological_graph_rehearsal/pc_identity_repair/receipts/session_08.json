@@ -1,0 +1,28 @@
+{
+  "candidate_edges": 29,
+  "candidate_graph_path": "out/stage4l_c1_s1_s10_chronological_graph_rehearsal/session_08/9c8a8088-2a53-4bb5-97a1-df4fed10bbc7/candidate_graph.json",
+  "candidate_nodes": 38,
+  "candidate_sha256": "e2b065c81bb4f59fc097f98c30dc91a67f294fadb88d3664bb35915230a96ca1",
+  "committed_revision_id": "rev:2d30359fbe9d014caa7517bc31fa9f03",
+  "cost_usd": 0.0,
+  "edge_funnel": {
+    "admitted_predicates": 27,
+    "canonical_endpoints": 29,
+    "extracted": 29,
+    "publishable": 25,
+    "published": 25
+  },
+  "generated_at": "2026-09-14T20:03:14Z",
+  "lineage": "zero_model_relationship_replay",
+  "model_calls": 0,
+  "parent_revision_id": "rev:a5aee4b86bce86956b55c0e6a2166190",
+  "publication_mode": "edge_selective",
+  "schema": "dmb_stage4l_rechain_receipt_v1",
+  "session": 8,
+  "source": {
+    "bytes": 6172,
+    "relpath": "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/Session Recaps/Session 8 - Captain Lysandra Quest.md",
+    "sha256": "a5a1a534941b01c3a5b422a9b0f0504d309c6eb06da2a485454c027f265c7ac1"
+  },
+  "wall_seconds": 5.469
+}
