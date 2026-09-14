@@ -18,7 +18,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: Campaign 1 Sessions 1–10 chronological graph rehearsal
 
 **Created:** 2026-09-14  
-**Status:** COMPLETE — MIXED; experimental notebook; do not merge  
+**Status:** COMPLETE — MIXED; replay authority sealed; experimental notebook; do not merge
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4l-c1-s1-s10-chronological-graph-rehearsal-v1.md`  
 **Conversation/workstream:** `C1/C2 demo-readiness / campaign-memory ingestion experiment program`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / Stage 4L`  
@@ -780,8 +780,9 @@ Report using the repository stop format from `AGENTS.md` / the handoff template.
 Handback only. The experiment contract above is unchanged.
 
 ```text
-Status: COMPLETE — MIXED
+Status: COMPLETE — MIXED; replay authority sealed; do not merge
 Execution SHA: ee5d1fe90b170460b06c86f9446403674ee9fb7d
+Notebook base: bbb4f07d (not re-anchored onto later main)
 PR: #714
 Authoritative S10 head: rev:3fc8e4e9782a6afd1b8fdfe9fa6caffc
 Isolated DB: dungeonmind_stage4l_c1_rehearsal :54329
@@ -790,7 +791,15 @@ Wall (session-sum): 676.3s
 Edges published: 7 / 276
 PC kind: all six roster PCs remain player_character
 Report: out/stage4l_c1_s1_s10_chronological_graph_rehearsal/REPORT.md
+Replay manifest: out/stage4l_c1_s1_s10_chronological_graph_rehearsal/MANIFEST.json
+C1 QA 16-question benchmark: DEFERRED until after relationship publication
 Successor: relationship predicate publication slice (zero-model replay; do not rerun DeepSeek)
 ```
 
 A later S1 zero-model replay forked a new child (`rev:67862c91…`) instead of reproducing paid S1 (`rev:1ed6387f…`). Chronological replay then fail-closed at S2. The rehearsal head was restored to the paid S10 revision. Candidates were not regenerated.
+
+Review `5200762502` required three evidence-contract seals before treating #714 as replay authority. This addendum records them without changing the experiment contract:
+
+1. The 16-question C1 QA / Agent benchmark is deferred until relationships publish. No model rerun.
+2. Paid receipts are immutable; replay writes sidecars; resume/replay fail closed on source digest, candidate digest, prior World revision, and context fingerprint.
+3. `MANIFEST.json` is the compact PR-reviewable fingerprint set for the ten paid sessions.

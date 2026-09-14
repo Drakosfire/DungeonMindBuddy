@@ -254,8 +254,52 @@ def _known_receipt(entities: Sequence[KnownEntity]) -> dict[str, Any]:
     return {"count": len(rows), "fingerprint": _sha_json(rows), "entities": rows}
 
 
-def _candidate_path(root: Path, session: int, run_id: str | None = None) -> Path:
+def _receipt_relpath(path: Path, root: Path) -> str:
+    try:
+        return path.relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        return path.relative_to(root).as_posix()
+
+
+def _paid_receipt_path(root: Path, session: int) -> Path:
+    return root / "receipts" / f"session_{session:02d}.json"
+
+
+def _replay_receipt_path(root: Path, session: int) -> Path:
+    return root / "receipts" / f"session_{session:02d}.replay.json"
+
+
+def _context_seal(context_receipt: Mapping[str, Any]) -> dict[str, Any]:
+    party = context_receipt.get("party_registry") or {}
+    known = context_receipt.get("world_known_entities") or {}
+    payload = {
+        "prior_world_revision_id": context_receipt.get("prior_world_revision_id"),
+        "party_registry_fingerprint": party.get("fingerprint"),
+        "world_known_entities_fingerprint": known.get("fingerprint"),
+        "world_known_entities_count": known.get("count"),
+    }
+    return {**payload, "fingerprint": _sha_json(payload)}
+
+
+def _candidate_path(
+    root: Path,
+    session: int,
+    run_id: str | None = None,
+    *,
+    exact_run: bool = False,
+) -> Path:
     session_dir = root / f"session_{session:02d}"
+    if exact_run:
+        if not run_id:
+            raise Stage4LError(
+                f"Session {session} replay requires an exact candidate run_id"
+            )
+        candidate = session_dir / str(run_id) / "candidate_graph.json"
+        if not candidate.is_file():
+            raise Stage4LError(
+                f"durable candidate missing for Session {session} run {run_id}"
+            )
+        return candidate
     candidates = []
     if run_id:
         candidates.append(session_dir / run_id / "candidate_graph.json")
@@ -265,6 +309,117 @@ def _candidate_path(root: Path, session: int, run_id: str | None = None) -> Path
         if candidate.is_file():
             return candidate
     raise Stage4LError(f"durable candidate missing for Session {session}")
+
+
+def _assert_replay_seals(
+    *,
+    saved: Mapping[str, Any],
+    source: SourceRef,
+    prior_revision: str,
+    live_context: Mapping[str, Any],
+    candidate_path: Path,
+) -> None:
+    if saved.get("source", {}).get("sha256") != source.sha256:
+        raise Stage4LError("saved candidate source digest drift")
+    if saved.get("context", {}).get("prior_world_revision_id") != prior_revision:
+        raise Stage4LError("saved candidate prior World revision drift")
+    saved_candidate = str(saved.get("candidate_sha256") or "")
+    live_candidate = _sha_bytes(candidate_path.read_bytes())
+    if not saved_candidate or saved_candidate != live_candidate:
+        raise Stage4LError("saved candidate digest drift")
+    saved_seal = _context_seal(saved.get("context") or {})
+    live_seal = _context_seal(live_context)
+    if saved_seal["fingerprint"] != live_seal["fingerprint"]:
+        raise Stage4LError("saved candidate context fingerprint drift")
+
+
+def _verify_paid_receipt_on_disk(root: Path, receipt: Mapping[str, Any]) -> None:
+    session = int(receipt["session"])
+    if receipt.get("replay") is True:
+        raise Stage4LError(
+            f"Session {session:02d} receipt is replay-marked; paid seal is missing"
+        )
+    source = _source_ref(session)
+    if receipt.get("source", {}).get("sha256") != source.sha256:
+        raise Stage4LError(f"Session {session:02d} paid source digest drift")
+    candidate_path = _candidate_path(
+        root, session, receipt.get("run_id"), exact_run=True
+    )
+    live_digest = _sha_bytes(candidate_path.read_bytes())
+    if live_digest != receipt.get("candidate_sha256"):
+        raise Stage4LError(f"Session {session:02d} paid candidate digest drift")
+    if not _context_seal(receipt.get("context") or {}).get("fingerprint"):
+        raise Stage4LError(f"Session {session:02d} paid context fingerprint missing")
+
+
+def _verify_paid_chain(
+    root: Path, receipts: Sequence[Mapping[str, Any]]
+) -> int:
+    if not receipts:
+        return 1
+    sessions = [int(row["session"]) for row in receipts]
+    expected = list(range(1, len(receipts) + 1))
+    if sessions != expected:
+        raise Stage4LError(f"paid receipts are not a contiguous 1..N chain: {sessions}")
+    previous_child = None
+    for row in receipts:
+        _verify_paid_receipt_on_disk(root, row)
+        parent = row.get("publication", {}).get("parent_revision_id")
+        child = row.get("publication", {}).get("committed_revision_id")
+        prior = row.get("context", {}).get("prior_world_revision_id")
+        if prior != parent:
+            raise Stage4LError(
+                f"Session {row['session']:02d} context prior does not match publication parent"
+            )
+        if previous_child is not None and parent != previous_child:
+            raise Stage4LError(
+                f"Session {row['session']:02d} parent does not continue the paid chain"
+            )
+        previous_child = child
+    return int(receipts[-1]["session"]) + 1
+
+
+def _manifest_row(receipt: Mapping[str, Any]) -> dict[str, Any]:
+    context = receipt.get("context") or {}
+    publication = receipt.get("publication") or {}
+    recovery = receipt.get("paid_receipt_recovery") or {}
+    return {
+        "session": receipt.get("session"),
+        "lineage": "paid",
+        "replay": bool(receipt.get("replay")),
+        "run_id": receipt.get("run_id"),
+        "source_sha256": (receipt.get("source") or {}).get("sha256"),
+        "candidate_sha256": receipt.get("candidate_sha256"),
+        "candidate_graph_path": receipt.get("candidate_graph_path"),
+        "context_fingerprint": _context_seal(context)["fingerprint"],
+        "prior_world_revision_id": context.get("prior_world_revision_id"),
+        "world_known_entities_count": (context.get("world_known_entities") or {}).get(
+            "count"
+        ),
+        "parent_revision_id": publication.get("parent_revision_id"),
+        "committed_revision_id": publication.get("committed_revision_id"),
+        "publication_mode": publication.get("publication_mode"),
+        "edge_funnel": publication.get("edge_funnel"),
+        "model_calls": receipt.get("model_calls"),
+        "cost_usd": receipt.get("cost_usd"),
+        "paid_receipt_recovery": recovery or None,
+    }
+
+
+def render_manifest(root: Path) -> dict[str, Any]:
+    receipts = _completed_receipts(root)
+    payload = {
+        "schema": "dmb_stage4l_replay_manifest_v1",
+        "generated_at": _now(),
+        "campaign_id": CAMPAIGN_ID,
+        "model": MODEL_ID,
+        "authoritative_s10_revision_id": (
+            receipts[-1]["publication"]["committed_revision_id"] if receipts else None
+        ),
+        "sessions": [_manifest_row(row) for row in receipts],
+    }
+    _write_json(root / "MANIFEST.json", payload)
+    return payload
 
 
 def _select(review_items: Sequence[Mapping[str, Any]], *, edges: bool) -> list[str]:
@@ -503,13 +658,22 @@ def run_session(
     result = None
     client = None
     if replay:
-        receipt_path = root / "receipts" / f"session_{session:02d}.json"
+        receipt_path = _paid_receipt_path(root, session)
         old = json.loads(receipt_path.read_text(encoding="utf-8"))
-        if old["source"]["sha256"] != source.sha256:
-            raise Stage4LError("saved candidate source digest drift")
-        if old["context"]["prior_world_revision_id"] != prior_revision:
-            raise Stage4LError("saved candidate prior World revision drift")
-        candidate_path = _candidate_path(root, session, old.get("run_id"))
+        if old.get("replay") is True:
+            raise Stage4LError(
+                f"Session {session:02d} paid receipt is replay-marked; refuse to replay"
+            )
+        candidate_path = _candidate_path(
+            root, session, old.get("run_id"), exact_run=True
+        )
+        _assert_replay_seals(
+            saved=old,
+            source=source,
+            prior_revision=prior_revision,
+            live_context=context_receipt,
+            candidate_path=candidate_path,
+        )
     else:
         if not execute:
             raise Stage4LError("paid execution requires --execute")
@@ -556,7 +720,7 @@ def run_session(
         },
         "context": context_receipt,
         "run_id": result.run.run_id if result else extraction.get("run_id"),
-        "candidate_graph_path": candidate_path.relative_to(REPO_ROOT).as_posix(),
+        "candidate_graph_path": _receipt_relpath(candidate_path, root),
         "candidate_sha256": candidate_digest,
         "candidate_nodes": len(candidate.get("nodes") or []),
         "candidate_edges": len(candidate.get("edges") or []),
@@ -599,8 +763,29 @@ def run_session(
         },
         "gold_evaluation": _gold_evaluation(candidate) if session == 1 else None,
         "replay": replay,
+        "lineage": (
+            {
+                "kind": "replay",
+                "sealed_paid_receipt": _paid_receipt_path(root, session)
+                .relative_to(root)
+                .as_posix(),
+                "paid_committed_revision_id": extraction.get("publication", {}).get(
+                    "committed_revision_id"
+                ),
+            }
+            if replay
+            else {"kind": "paid", "sealed": True}
+        ),
     }
-    _write_json(root / "receipts" / f"session_{session:02d}.json", receipt)
+    if replay:
+        _write_json(_replay_receipt_path(root, session), receipt)
+    else:
+        paid_path = _paid_receipt_path(root, session)
+        if paid_path.exists():
+            raise Stage4LError(
+                f"paid receipt already sealed for Session {session:02d}; refuse overwrite"
+            )
+        _write_json(paid_path, receipt)
     _write_json(
         root / f"session_{session:02d}" / "review_package.json",
         publication["review_package"],
@@ -612,8 +797,13 @@ def _completed_receipts(root: Path) -> list[dict[str, Any]]:
     receipts = []
     for path in sorted((root / "receipts").glob("session_[0-9][0-9].json")):
         value = json.loads(path.read_text(encoding="utf-8"))
-        if value.get("schema") == "dmb_stage4l_session_receipt_v1":
-            receipts.append(value)
+        if value.get("schema") != "dmb_stage4l_session_receipt_v1":
+            continue
+        if value.get("replay") is True:
+            raise Stage4LError(
+                f"{path.name} is replay-marked; paid seal must be restored before resume"
+            )
+        receipts.append(value)
     return receipts
 
 
@@ -658,6 +848,7 @@ def _facts_lines(receipts: Sequence[Mapping[str, Any]]) -> list[str]:
 
 def render_report(root: Path) -> None:
     receipts = _completed_receipts(root)
+    render_manifest(root)
     report_path = root / "REPORT.md"
     facts = "\n".join(_facts_lines(receipts))
     if report_path.is_file() and VERDICT_MARKER in report_path.read_text(
@@ -685,7 +876,7 @@ def cmd_run(args: argparse.Namespace) -> int:
     if through < 1 or through > 10:
         raise Stage4LError("--through must be 1..10")
     existing = _completed_receipts(root)
-    next_session = len(existing) + 1
+    next_session = _verify_paid_chain(root, existing)
     if next_session > through:
         render_report(root)
         return 0

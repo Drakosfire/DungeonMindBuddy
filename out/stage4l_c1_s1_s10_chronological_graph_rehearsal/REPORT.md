@@ -7,16 +7,23 @@ Per-session wall total: 676.3s
 
 Canonical contract: `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4l-c1-s1-s10-chronological-graph-rehearsal-v1.md`
 
-Execution SHA: `ee5d1fe90b170460b06c86f9446403674ee9fb7d`  
-PR: [#714](https://github.com/Drakosfire/DungeonMindBuddy/pull/714)  
-Isolated World: `dungeonmind_stage4l_c1_rehearsal` on `:54329` (live Eldyrwild `:54330` refused)  
+Execution SHA: `ee5d1fe90b170460b06c86f9446403674ee9fb7d`
+
+PR: [#714](https://github.com/Drakosfire/DungeonMindBuddy/pull/714)
+
+Isolated World: `dungeonmind_stage4l_c1_rehearsal` on `:54329` (live Eldyrwild `:54330` refused)
+
 Authoritative S10 head: `rev:3fc8e4e9782a6afd1b8fdfe9fa6caffc`
+
+Replay manifest: `out/stage4l_c1_s1_s10_chronological_graph_rehearsal/MANIFEST.json`
+
+Notebook base: `bbb4f07d` (not re-anchored onto later `main`; no second paid extraction)
 
 Model: `deepseek/deepseek-v4.1-flash` · provider pin `order=["DeepSeek"]` · `allow_fallbacks=false` · reasoning disabled · Chat Completions `json_object` + local validation.
 
 ## Revision chain
 
-Authoritative paid chronological chain (S2–S10 receipts + DB-proven S1 child). Session 1's on-disk receipt currently records a later zero-model replay fork; see Replay proof.
+Authoritative paid chronological chain. Session 1's paid child is `rev:1ed6387f…`; a later zero-model replay forked `rev:67862c91…` and had overwritten the on-disk S1 receipt. The paid S1 seal is restored; the fork is sidecar-only. See Replay proof and `MANIFEST.json`.
 
 - S01: `rev:d5c54ab8569139e400f0cce9ede4e60d` → `rev:1ed6387f36bb84eb9c86cf80a253d1b1` · 33 nodes / 31 edges · published edges 0/31 · node_object_partial
 - S02: `rev:1ed6387f36bb84eb9c86cf80a253d1b1` → `rev:ade5e648ad6f2c3e09791e0f4f664610` · 12 nodes / 7 edges · published edges 7/7 · all
@@ -162,6 +169,18 @@ replay S1 child:  rev:67862c918c5f59f9ac41bca26494f996
 
 S2 then fail-closed (`saved candidate prior World revision drift`), which is the correct chronological guard. The rehearsal head was restored to the paid S10 revision for inspection. Candidates remain durable; publication package identity is not bit-stable across replay.
 
+The paid S1 receipt is restored as the immutable seal (`replay: false`, committed `rev:1ed6387f…`). Replay now writes `session_NN.replay.json` and fail-closes on source digest, candidate digest, prior World revision, and context fingerprint drift. Resume verifies the contiguous paid 1..N chain instead of counting files.
+
+## C1 QA benchmark — deferred
+
+The 16-question Campaign 1 S1–S10 suite (`evals/graph_benchmark_gold/qa/longmont-c1/sessions-01-10-v1.md`, captured on `main` as `Docs/Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md` at `45e7244d`) was **not** executed. This branch remained based on `bbb4f07d` and was not re-anchored onto later `main` before paid extraction.
+
+That is an explicit deferral, not a silent skip and not a reason to rerun DeepSeek. With 7/276 edges published, oracle-answerable vs Agent-answerable retrieval is not yet a meaningful graph-quality gate. The benchmark becomes the gate **after** relationship-predicate / endpoint-kind publication replay makes the S10 World traversable.
+
+## Evidence sealing
+
+Reviewable successor authority for zero-model replay is `MANIFEST.json` in this directory: per-session source digest, candidate digest/path/run id, context fingerprint, parent/child revision, publication mode, and paid-vs-replay lineage. Full candidate graphs remain local/untracked; the manifest is the PR-auditable fingerprint set.
+
 ## Forcing-question verdict
 
 > After ten chronological sessions, does this look like accumulated campaign memory — stable people/places/things gaining source-linked history and relationships — or like ten document parses piled into one graph?
@@ -174,6 +193,6 @@ Would this graph be more useful than reopening Sessions 1–10? Only for “who 
 
 ### Successor (exactly one)
 
-**Relationship predicate publication slice**, using the already-paid candidates via zero-model replay. Do not widen chronological ingestion and do not rerun DeepSeek until `located_in` / `attacks` / `present_at` / `possesses` / `knows_about` (and endpoint-kind admission) can publish without pretending node-only success is a graph.
+**Relationship predicate publication slice**, using the already-paid candidates via zero-model replay. Do not widen chronological ingestion and do not rerun DeepSeek until `located_in` / `attacks` / `present_at` / `possesses` / `knows_about` (and endpoint-kind admission) can publish without pretending node-only success is a graph. After that replay, run the 16-question oracle-answerable vs Agent-answerable benchmark against the same S10 head.
 
 Identity fragmentation (Lysandra, Stone Bridge, meat-as-item-and-npc) is real but secondary; predicate publication is the blocker that makes the S10 World unusable as memory.
