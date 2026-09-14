@@ -21,8 +21,11 @@ from typing import Any, Mapping, Sequence
 from urllib.parse import unquote, urlparse
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-if str(REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(REPO_ROOT))
+SRC_ROOT = REPO_ROOT / "src"
+for import_root in (str(SRC_ROOT), str(REPO_ROOT)):
+    if import_root in sys.path:
+        sys.path.remove(import_root)
+    sys.path.insert(0, import_root)
 
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv  # noqa: E402
 from src.graph_memory.extraction.deepseek_category_graph_pass_client import (  # noqa: E402
@@ -200,12 +203,18 @@ def _load_env() -> str:
 
 
 def _context_graph(mutation_context: Any) -> dict[str, Any]:
+    def buddy_kind(kind: str) -> str:
+        # DungeonMind's dnd5e:player_character becomes ``player_character``
+        # at the mutation-context wire boundary. The extraction registry's
+        # stable Buddy vocabulary calls the same kind ``pc``.
+        return "pc" if kind == "player_character" else kind
+
     return {
         "nodes": [
             {
                 "node_id": obj.object_id,
                 "label": obj.label,
-                "kind": obj.kind,
+                "kind": buddy_kind(obj.kind),
                 "aliases": list(obj.aliases),
             }
             for obj in mutation_context.objects.values()
@@ -535,6 +544,7 @@ def run_session(
         expected_parent=prior_revision,
     )
     elapsed = round(time.perf_counter() - started, 3)
+    extraction = old if replay else {}
     receipt = {
         "schema": "dmb_stage4l_session_receipt_v1",
         "session": session,
@@ -545,17 +555,45 @@ def run_session(
             "bytes": source.byte_count,
         },
         "context": context_receipt,
-        "run_id": result.run.run_id if result else None,
+        "run_id": result.run.run_id if result else extraction.get("run_id"),
         "candidate_graph_path": candidate_path.relative_to(REPO_ROOT).as_posix(),
         "candidate_sha256": candidate_digest,
         "candidate_nodes": len(candidate.get("nodes") or []),
         "candidate_edges": len(candidate.get("edges") or []),
-        "model": MODEL_ID if result else None,
-        "model_calls": 0 if replay else len(result.pass_telemetry or {}),
-        "usage": _usage_summary(result.pass_telemetry if result else None),
-        "provider_pass_receipts": list(client.receipts) if client is not None else [],
-        "cost_usd": result.total_cost_usd if result else 0.0,
-        "wall_seconds": elapsed,
+        "model": MODEL_ID if result else extraction.get("model"),
+        "model_calls": (
+            len(result.pass_telemetry or {})
+            if result
+            else int(extraction.get("model_calls") or 0)
+        ),
+        "usage": (
+            _usage_summary(result.pass_telemetry)
+            if result
+            else dict(extraction.get("usage") or {})
+        ),
+        "provider_pass_receipts": (
+            list(client.receipts)
+            if client is not None
+            else list(extraction.get("provider_pass_receipts") or [])
+        ),
+        "cost_usd": (
+            result.total_cost_usd
+            if result
+            else float(extraction.get("cost_usd") or 0.0)
+        ),
+        "wall_seconds": (
+            elapsed if result else float(extraction.get("wall_seconds") or 0.0)
+        ),
+        "publication_replay": (
+            {
+                "replayed_at": _now(),
+                "wall_seconds": elapsed,
+                "model_calls": 0,
+                "source_receipt_generated_at": extraction.get("generated_at"),
+            }
+            if replay
+            else None
+        ),
         "publication": {
             key: value for key, value in publication.items() if key != "review_package"
         },

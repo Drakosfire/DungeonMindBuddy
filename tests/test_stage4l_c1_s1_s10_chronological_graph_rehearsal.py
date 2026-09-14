@@ -72,6 +72,29 @@ def test_world_context_contains_only_exact_context_objects() -> None:
     ]
 
 
+def test_world_context_maps_dungeonmind_player_character_to_pc() -> None:
+    context = SimpleNamespace(
+        objects={
+            "node:caelynn": SimpleNamespace(
+                object_id="node:caelynn",
+                label="Caelynn",
+                kind="player_character",
+                aliases=("Caelynn",),
+            )
+        }
+    )
+
+    rows = stage4l._known_entities(context)
+
+    assert [(row.canonical_entity_id, row.kind) for row in rows] == [
+        ("node:caelynn", "pc")
+    ]
+
+
+def test_runner_pins_checkout_src_before_environment_paths() -> None:
+    assert sys.path[:2] == [str(stage4l.REPO_ROOT), str(stage4l.SRC_ROOT)]
+
+
 def test_replay_path_never_constructs_deepseek_client(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
