@@ -498,6 +498,15 @@ Decision rule:
 
 These are three of the maximum four additional runtime paths. They directly own §4.4/§5 and are covered by focused fail-closed tests.
 
+### Paid execution authorization
+
+On 2026-09-14, the user explicitly approved sending the private Campaign 1
+Session 1 recap to `deepseek/deepseek-v4.1-flash` through OpenRouter for the
+paid Stage 4L extraction. This authorization applies to the frozen canonical
+Sessions 1–10 cohort and the provider/model/profile specified by this handoff;
+it does not authorize unrelated corpus material, another provider/model, or a
+production publication target.
+
 No other path is implicitly leased.
 
 ---
