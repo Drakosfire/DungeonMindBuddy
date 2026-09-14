@@ -473,6 +473,19 @@ def _norm(value: str) -> str:
     return value.strip().lower()
 
 
+def _norm_kind(value: str) -> str:
+    """Normalize object kind for identity compatibility.
+
+    Maps representation aliases such as ``pc`` to canonical
+    ``player_character`` so identity matching treats them as same-kind
+    without changing the stored World kind.
+    """
+    kind = _norm(wire_kind(value))
+    if kind == "pc":
+        return "player_character"
+    return kind
+
+
 def _slug(label: str) -> str:
     slug = _SLUG_RE.sub("_", _norm(label)).strip("_")
     return slug or "unnamed"
@@ -645,7 +658,7 @@ def _find_plausible_matches(
         return [], [], []
 
 
-    candidate_kind = _norm(candidate.object_kind)
+    candidate_kind = _norm_kind(candidate.object_kind)
     same_kind: dict[str, MutationObject] = {}
     cross_kind: dict[str, MutationObject] = {}
     provisional_same_kind: dict[str, MutationObject] = {}
@@ -660,14 +673,14 @@ def _find_plausible_matches(
             resolved_id = _resolve_redirect(node_id, context.identity_redirects)
             if resolved_id in canonical:
                 obj = canonical[resolved_id]
-                if _norm(obj.kind) == candidate_kind:
+                if _norm_kind(obj.kind) == candidate_kind:
                     same_kind[resolved_id] = obj
                 elif policy.block_cross_kind_alias_collision:
                     cross_kind[resolved_id] = obj
                 continue
             if resolved_id in provisional:
                 obj = provisional[resolved_id]
-                if _norm(obj.kind) == candidate_kind:
+                if _norm_kind(obj.kind) == candidate_kind:
                     provisional_same_kind[resolved_id] = obj
                 elif policy.block_cross_kind_alias_collision:
                     cross_kind[resolved_id] = obj
@@ -675,23 +688,23 @@ def _find_plausible_matches(
             obj = context.objects.get(resolved_id)
             if obj is None or _is_merged_away_identity(obj) or _is_rejected_identity(obj):
                 continue
-            if policy.block_cross_kind_alias_collision and _norm(obj.kind) != candidate_kind:
+            if policy.block_cross_kind_alias_collision and _norm_kind(obj.kind) != candidate_kind:
                 cross_kind[resolved_id] = obj
 
 
     for object_id, obj in canonical.items():
         if not (terms & _object_surface_terms(obj)):
             continue
-        if policy.exact_label_match_kinds and _norm(obj.kind) == candidate_kind:
+        if policy.exact_label_match_kinds and _norm_kind(obj.kind) == candidate_kind:
             same_kind[object_id] = obj
-        elif policy.block_cross_kind_alias_collision and _norm(obj.kind) != candidate_kind:
+        elif policy.block_cross_kind_alias_collision and _norm_kind(obj.kind) != candidate_kind:
             cross_kind[object_id] = obj
 
 
     for object_id, obj in provisional.items():
         if not (terms & _object_surface_terms(obj)):
             continue
-        if _norm(obj.kind) == candidate_kind:
+        if _norm_kind(obj.kind) == candidate_kind:
             provisional_same_kind[object_id] = obj
         elif policy.block_cross_kind_alias_collision:
             cross_kind[object_id] = obj

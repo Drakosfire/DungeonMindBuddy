@@ -216,6 +216,9 @@ def _infer_object_kind(
 ) -> str:
     """Pick Kernel object_kind so same-kind exact match can attach (e.g. pc:caelynn)."""
     base = kernel_kind_for_node_type(node.node_type)
+    corpus_ref = node.corpus_ref
+    if corpus_ref is not None and str(corpus_ref.type).strip().lower() == "pc":
+        return "pc"
     label = (node.label or "").strip().lower()
     if not label:
         return base
@@ -223,8 +226,11 @@ def _infer_object_kind(
     if raw_type in {"character", "pc", "npc"}:
         for obj in context.objects.values():
             terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}
-            if label in terms and obj.kind in {"pc", "npc"}:
-                return obj.kind
+            world_kind = str(obj.kind or "").strip().lower()
+            if world_kind.startswith("dnd5e:"):
+                world_kind = world_kind[len("dnd5e:") :]
+            if label in terms and world_kind in {"pc", "player_character", "npc"}:
+                return "pc" if world_kind in {"pc", "player_character"} else obj.kind
     if raw_type in {"collective", "organization", "party"}:
         for obj in context.objects.values():
             terms = {obj.label.strip().lower(), *[a.strip().lower() for a in obj.aliases]}

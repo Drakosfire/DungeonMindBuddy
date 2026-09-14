@@ -1,0 +1,17 @@
+{
+  "schema": "dmb_full_corpus_world_graph_ingestion_manifest_v1",
+  "slice": "DOGFOOD-CONTINUITY full-corpus automated World Graph ingestion",
+  "branch": "dogfood-continuity/full-corpus-world-graph-ingestion-v1",
+  "reanchored_from": "origin/main",
+  "predecessor_evidence": "PR #714 / Stage 4L",
+  "promoted_generic_fixes": [
+    "pc ≡ player_character identity kind normalization"
+  ],
+  "worldbuilding": "DEFER",
+  "status": "census_complete_before_paid_execution",
+  "artifacts": {
+    "census": "CENSUS.json",
+    "census_markdown": "CENSUS.md",
+    "worldbuilding_readiness": "worldbuilding/READINESS.md"
+  }
+}
