@@ -1,13 +1,15 @@
 # REPORT — E5A: Buddy inference and knowledge boundary baseline
 
-**Status:** characterization complete; no behavior cutover  
-**Slice:** E5A (not a migration)  
-**Buddy baseline SHA:** `94ae1ea927d6aa6c239085466973a11bff5cc605` (`main` at re-anchor)  
-**OverMind Gate G:** `f836de691bf57f2cfcee50c997ba8abe3040475a`  
-**Accepted GenerationEngine:** `0d01547e2d9afec68e87b4c8f7e6aaa047e8c42a`  
-**Accepted DMS Generation consumer:** `af4be1290c948fb7ccc4d969ab7c1e3b1aacd972`  
-**Buddy DungeonMind pin:** `dungeonmind[postgres] @ 63ec810a02f18c4e25af228f6fdb19d99d12579e`  
-**Concurrent work left alone:** [PR #721](https://github.com/Drakosfire/DungeonMindBuddy/pull/721)
+| Field | Value |
+| --- | --- |
+| Status | characterization complete; no behavior cutover |
+| Slice | E5A (not a migration) |
+| Buddy baseline SHA | `94ae1ea927d6aa6c239085466973a11bff5cc605` (`main` at re-anchor) |
+| OverMind Gate G | `f836de691bf57f2cfcee50c997ba8abe3040475a` |
+| Accepted GenerationEngine | `0d01547e2d9afec68e87b4c8f7e6aaa047e8c42a` |
+| Accepted DMS Generation consumer | `af4be1290c948fb7ccc4d969ab7c1e3b1aacd972` |
+| Buddy DungeonMind pin | `dungeonmind[postgres] @ 63ec810a02f18c4e25af228f6fdb19d99d12579e` |
+| Concurrent work left alone | [PR #721](https://github.com/Drakosfire/DungeonMindBuddy/pull/721) |
 
 This report freezes what Buddy currently owns incorrectly, what is intentionally Buddy-owned, what GenerationEngine must learn before any consumer can move, and which smallest ordinary inference consumer should move first. It does **not** claim a query-only KnowledgeQuery seam or a GenerationEngine cutover.
 
