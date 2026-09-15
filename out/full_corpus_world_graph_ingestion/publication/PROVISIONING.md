@@ -1,4 +1,4 @@
-# Full-corpus governed-publication authority provisioning
+# Frozen 42-session governed-publication authority provisioning
 
 ## Created 2026-09-14
 
@@ -15,14 +15,32 @@ Stage 4L authority using `pg_dump --schema-only --no-owner --no-privileges`.
 No World, source, revision, identity, or campaign rows were copied. Therefore
 the two authorities are equivalent and cannot contaminate one another.
 
+The publication runner may target **only** these exact DSNs:
+
+```text
+postgresql://…@127.0.0.1:54329/dmb_full_corpus_openai
+postgresql://…@127.0.0.1:54329/dmb_full_corpus_deepseek
+```
+
+Loopback hosts `127.0.0.1`, `localhost`, and `::1` are accepted. Port must be
+`54329`. Database names must match the allowlist exactly. Live authority
+ports `54330` (World) and `54331` (APP-STATE) are rejected even if the database
+name looks isolated. A remote host whose database happens to contain
+`full_corpus` is rejected.
+
 No DSN, password, or other credential is stored in this repository or in the
 publication artifacts.
 
 ## Current stop: no governed recap World genesis
 
-The PR #715 code head (`7b4359bb063e22c0fb3f84c15d533b2420a5f757`) provides
-the existing-World governed publication path, which requires a committed parent
-World revision. The two databases intentionally have no parent revision.
+PR #715 is a diverged notebook branch. Permanent merge disposition:
+**DO NOT MERGE.** Reviewed notebook head:
+`d6e2599bbabb9719bc92601f7bc1ad8b69411e98`.
+
+The existing-World governed publication path requires a committed parent World
+revision. The two databases intentionally have no parent revision. Wait for
+PR #718. Do not manufacture a head, use SQL, or copy another graph while
+waiting.
 
 This checkout does not contain a supported production service that initializes
 a recap World from the canonical six-PC party registry. The historical

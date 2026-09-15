@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Chronological C1→C2 recap ingest with intra-document pass parallelism.
 
+Frozen 42-session corpus: C1 S1–17 + C2 S1–25. Do not regenerate C2 S26/S27.
+
+This is autoregressive candidate generation: each recap's extraction receives
+``extra_known_entities`` accumulated from prior **candidate graphs**. It is not
+a governed World-through-N−1 extraction.
+
 Documents stay serial. Independent node/beat passes inside one recap may
 overlap. Edge and party_claimed_fill remain after consolidation.
 

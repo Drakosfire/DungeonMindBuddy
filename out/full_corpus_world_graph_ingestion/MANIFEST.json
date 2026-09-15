@@ -1,14 +1,20 @@
 {
   "schema": "dmb_full_corpus_world_graph_ingestion_manifest_v1",
-  "slice": "DOGFOOD-CONTINUITY full-corpus automated World Graph ingestion",
+  "slice": "DOGFOOD-CONTINUITY frozen-42-session World Graph acceptance notebook",
   "branch": "dogfood-continuity/full-corpus-world-graph-ingestion-v1",
+  "do_not_merge": true,
+  "reviewed_notebook_head": "d6e2599bbabb9719bc92601f7bc1ad8b69411e98",
+  "corpus": "frozen_42_session",
+  "corpus_sessions": "C1 S1-17 + C2 S1-25",
+  "experiment_claim": "two autoregressive, chronologically generated candidate arms, followed by zero-model governed replay into independently initialized Worlds.",
+  "not_a_proof_of": "production Session N extraction seeing only the committed World through Session N-1",
   "reanchored_from": "origin/main",
   "predecessor_evidence": "PR #714 / Stage 4L",
   "promoted_generic_fixes": [
     "pc ≡ player_character identity kind normalization"
   ],
   "worldbuilding": "DEFER",
-  "status": "both_arms_sealed_publication_blocked_on_governed_recap_genesis",
+  "status": "notebook_hold_awaiting_governed_recap_genesis_pr718",
   "arms": {
     "openai-gpt-5.4-mini": {
       "provider": "openai",
@@ -29,6 +35,8 @@
     "worldbuilding_readiness": "worldbuilding/READINESS.md",
     "openai_arm": "openai-gpt-5.4-mini/",
     "deepseek_arm": "deepseek-v4.1-flash/",
+    "acceptance": "ACCEPTANCE.md",
+    "acceptance_manifest": "ACCEPTANCE_MANIFEST.json",
     "publication_provisioning": "publication/PROVISIONING.md"
   }
 }

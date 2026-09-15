@@ -1,7 +1,17 @@
-# Full-corpus recap ingest — scale / health (`deepseek-v4.1-flash`)
+# Frozen 42-session recap ingest — scale / health (`deepseek-v4.1-flash`)
 
 Generated from this arm's `INGEST.json` after the serial C1→C2 run.
 The OpenAI arm remains at `../openai-gpt-5.4-mini/` and was not overwritten.
+
+**Corpus:** C1 S1–17 + C2 S1–25.  Do not regenerate C2 S26/S27.
+
+**Experiment claim:** two autoregressive, chronologically generated candidate
+arms, followed by zero-model governed replay into independently initialized
+Worlds.  This arm's candidate generation accumulated `extra_known_entities`
+from prior **candidate graphs**; it is not evidence that production Session N
+extraction sees only the committed World through Session N−1.
+
+These counts are candidate-generation measurements, not graph-quality results.
 
 ## Execution
 

@@ -2,9 +2,10 @@
 
 **Status:** DESIGN REQUIRED — blocks the final publication phase of PR #715.  
 **Recorded:** 2026-09-14  
-**Workstream:** DOGFOOD-CONTINUITY / full-corpus automated World Graph ingestion  
-**Implementation head:** `7a29388c6f42a65a10ead4030208882e248d0e65`  
-**Primary handoff:** `DOGFOOD-CONTINUITY: publish both full-corpus model arms, select a dogfood World, exit ingestion`
+**Workstream:** DOGFOOD-CONTINUITY / frozen 42-session World Graph acceptance notebook  
+**Reviewed notebook head:** `d6e2599bbabb9719bc92601f7bc1ad8b69411e98`  
+**Permanent merge disposition:** DO NOT MERGE #715. After genesis lands, re-anchor the runner on current `main`; consume this notebook's frozen candidates.  
+**Primary handoff:** `DOGFOOD-CONTINUITY: publish both frozen-42-session model arms, select a dogfood World, exit ingestion`
 
 ## Decision requested
 
@@ -147,10 +148,20 @@ remain documented and deliberate; no credentials may enter tracked artifacts.
 
 ## What remains true about PR #715
 
-- Both arms have 42 readable, digest-verified candidate graphs.
-- Candidate generation is complete and sealed; it must not be rerun.
-- The governed replay harness is implemented and tested (17 focused tests
-  passing at the recorded head).
+- Permanent merge disposition is **DO NOT MERGE**. Finish as an acceptance
+  notebook consuming current production after #718; do not rehabilitate this
+  branch into a product PR.
+- The frozen corpus is C1 S1–17 + C2 S1–25 (42 recaps). C2 S26/S27 are already
+  on `main` via #717 and must not be regenerated for this notebook.
+- Both arms have 42 readable candidate graphs. Candidate generation is complete
+  and must not be rerun. Replay must verify live bytes against
+  `ACCEPTANCE_MANIFEST.json` frozen from `d6e2599`.
+- Accurate claim: two autoregressive, chronologically generated candidate arms,
+  followed by zero-model governed replay into independently initialized Worlds.
+  This is **not** evidence that production Session N extraction sees only the
+  committed World through Session N−1.
+- The governed replay harness is notebook machinery. Caller-selected recap
+  `source_artifact_id` is not a product contract.
 - No model call was made while discovering or provisioning this blocker.
 - Publication, Oracle comparison, terminal probes, selection, and UI GO/HOLD
   are **not yet determined**. They remain blocked only on a truthful governed
