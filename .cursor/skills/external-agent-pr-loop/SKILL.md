@@ -1,20 +1,21 @@
 ---
 name: external-agent-pr-loop
 description: >-
-  Operational runbook for DungeonMindBuddy external-agent PRs: create the checked-in
-  HANDOFF, fetch/verify/post review evidence with scripts/review_external_pr.py,
-  merge an approved PR, and execute the handoff's state-authority sync set. Durable
-  law lives in AGENTS.md and .cursor/rules/external-agent-pr-loop.mdc; steward
-  judgment/decomposition lives in Docs/Process/STEWARD-CYCLE.md.
+  Operational runbook for DungeonMindBuddy external-agent PRs after the steward has
+  already made the implementation HANDOFF durable on main and activated it. Covers
+  fetch/verify/post review evidence with scripts/review_external_pr.py, merge, and
+  the handoff's state-authority sync set. Durable law lives in AGENTS.md and
+  .cursor/rules/external-agent-pr-loop.mdc; steward judgment/decomposition and
+  handoff creation/activation live in Docs/Process/STEWARD-CYCLE.md.
 ---
 
 # External-agent PR loop — mechanics
 
-Use this file for **commands and transport procedure**. Do not use it to decide whether two outcomes belong in one slice or whether parallel lanes are safe; those judgments belong in [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.md).
+Use this file for **commands and transport procedure after an implementation handoff already exists on `main`**. Do not use it to decide whether two outcomes belong in one slice, whether a BLOCKED handoff may be activated, or whether parallel lanes are safe; those judgments belong in [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.md).
 
 Read when you need to:
 
-- create a checked-in handoff for an external/Codex-style branch worker;
+- dispatch an external/Codex-style worker from an already checked-in ACTIVE handoff;
 - fetch and verify a PR against that handoff;
 - post a formal review judgment;
 - merge an approved PR;
@@ -24,32 +25,41 @@ For in-IDE subagents, use `.cursor/rules/subagent-delegation.mdc` instead.
 
 ## 0. Preconditions
 
-Before mechanics begin, the steward has already completed the Steward Cycle readiness gate:
+Before mechanics begin, the steward has already completed the Steward Cycle readiness/activation gate:
 
 ```text
-re-anchored base
+re-anchored current main
 one capability / one invariant
-parallel lane allocated
+HANDOFF durably checked in on main
+Status: ACTIVE
+activation gate satisfied
+implementation lane allocated from current integration state
 §4 write lease known
 runtime/state collision decision made
 §7 evidence planned
 state-authority sync set named
 ```
 
-If any of those are still unclear, return to the Steward Cycle instead of compensating with a larger handoff.
+If the handoff is BLOCKED, exists only in chat/a temporary worktree, or any of those facts are still unclear, return to the Steward Cycle. Do not ask the external implementation worker to create, commit, or activate the authority that authorizes its own work.
 
-## 1. Create the HANDOFF
+## 1. Consume the ACTIVE HANDOFF and dispatch
 
-Copy:
+The external worker receives an implementation handoff that is already checked in on `main` and already `Status: ACTIVE`.
 
-```bash
-cp .cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md \
-  Docs/Plans/HANDOFF-<FLOW>-<short-slug>.md
+The steward supplies:
+
+```text
+checked-in HANDOFF path
+exact implementation branch base
+branch / checkout identity
+flow/workstream
+§4 write lease
+runtime/state ownership
+parallel-lane collision notes
+named successor
 ```
 
-Fill every required placeholder and preserve section headings `§1` through `§9`.
-
-Parser-critical details:
+Parser-critical handoff details remain:
 
 - §4 table has a column literally named `Path`;
 - §5 table has a column literally named `Path`;
@@ -58,7 +68,9 @@ Parser-critical details:
 
 The optional `pr_body_template` frontmatter is only a transport pointer. Do not duplicate the handoff into the PR body.
 
-Before dispatch, compare the §4 write lease with active PR/handoff lanes and run whatever collision preflight the Steward Cycle requires. The worker receives the checked-in handoff, exact base, branch/checkout identity, and relevant runtime/state ownership.
+Before dispatch, run the Steward Cycle's collision/preflight step. `steward_preflight.py` must not report the candidate as non-ACTIVE. A BLOCKED handoff is durable design authority but is not dispatchable and holds no §4 lease.
+
+If a new handoff must be authored or an existing BLOCKED handoff must be activated, stop using this runbook and return to the steward process. Handoff creation/activation is steward work, not external-worker setup.
 
 ## 2. Fetch a PR for review
 
@@ -227,8 +239,11 @@ Return to [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.
 - confirm merged behavior, not handoff promises;
 - confirm state authorities agree;
 - inspect active parallel lanes/write leases;
+- inspect any already-checked-in BLOCKED successor and its activation gate;
 - carry forward repeated review lessons;
 - decompose the next candidate again rather than chain-dispatching from the old plan.
+
+A predecessor merge does not itself activate a BLOCKED successor. The steward owns that explicit transition.
 
 ## Quick command reference
 
@@ -241,6 +256,8 @@ Return to [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.
 
 ## Mechanical failure cases
 
+- **Candidate handoff is BLOCKED/non-ACTIVE:** stop; return to Steward Cycle for re-anchor/activation. Do not dispatch the external worker.
+- **Handoff exists only outside main:** stop; the designing steward must make the authority durable first.
 - **Handoff parser returns empty §4/§7:** inspect template structure; do not waive silently.
 - **Interactive verification:** add a fixture or explicit manual proof rather than bypassing it.
 - **GitHub API outage:** use the equivalent `gh`/web path, preserving exact head and review-cycle semantics.
