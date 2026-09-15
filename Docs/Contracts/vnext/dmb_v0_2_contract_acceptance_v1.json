@@ -1,0 +1,44 @@
+{
+  "schema": "dmb_v0_2_contract_acceptance_v1",
+  "buddy_base_sha": "1876b38deabf21f180be63ce950df6da4402636b",
+  "dungeonmind_provider_merge_sha": "63ec810a02f18c4e25af228f6fdb19d99d12579e",
+  "dungeonmind_accepted_v0_1_head_sha": "ba2ec6dc16137b57aab4ca7544f00eb4a5802a15",
+  "dungeonmind_vnext_aggregate_sha256": "fd04a9047b8ed79aaa5e710b2247ce1b2654c0e44e05d24fafb2adecb9e7b7ea",
+  "vendored_provider_bundle_path": "Docs/Contracts/dungeonmind/dm_vnext_contract_v1.json",
+  "vendored_provider_bundle_sha256": "384d71e3f3ebb668f942de915d89e245b3f22dfab1babd3606d4188aaa21145f",
+  "buddy_pin_manifest_path": "Docs/Contracts/dungeonmind/dm_vnext_contract_pin_v1.json",
+  "domain_contract_descriptor": {
+    "path": "Docs/Contracts/vnext/dungeonbuddy_world_domain_contract_v1.json",
+    "domain_id": "dungeonbuddy.world",
+    "domain_revision": "1",
+    "canonical_sha256": "9c1d3eb3e01ffebde959625a54831f1e5c25aad8a5c422ffaaedd09d8d929a8e"
+  },
+  "semantic_profile_descriptor": {
+    "path": "Docs/Contracts/vnext/dungeonbuddy_dnd5e_semantic_profile_v2.json",
+    "profile_id": "dungeonbuddy.dnd5e",
+    "profile_revision": "1",
+    "canonical_sha256": "51ea47ff45bc86ea158939c34a5769e7ee56de3911278d473570e3795edb7e14"
+  },
+  "preservation_fixture": {
+    "path": "tests/fixtures/vnext/dungeonbuddy_domain_preservation_v1.json",
+    "canonical_sha256": "ca24d54829e4ffa367db263547ac344bf821e565cd808fa8da14bb2391bc47cf"
+  },
+  "source_domain_mapping": {
+    "covered_count": 11,
+    "matches_known_source_domains": true,
+    "domains": [
+      "faction_note",
+      "future_artifact",
+      "item_note",
+      "location_note",
+      "manual_seed",
+      "npc_note",
+      "party_registry",
+      "recap",
+      "session_memory",
+      "statblock",
+      "worldbuilding"
+    ]
+  },
+  "verification_disposition": "V0_2_DUNGEONBUDDY_DOMAIN_PROOF_ACCEPTED"
+}

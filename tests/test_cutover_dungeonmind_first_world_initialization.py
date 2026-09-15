@@ -62,7 +62,7 @@ pytest_plugins = ("tests.application_state.conftest",)
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DUNGEONMIND_PIN = "d8f7a9f0d6b256f5cf4588987520bf286f1eade3"
+DUNGEONMIND_PIN = "63ec810a02f18c4e25af228f6fdb19d99d12579e"
 REJECTED_NODE_ID = "obj_rejected_extra"
 
 
@@ -89,6 +89,8 @@ def test_dungeonmind_pin_is_exact_pr52_merge() -> None:
     lock = (REPO_ROOT / "uv.lock").read_text(encoding="utf-8")
     assert DUNGEONMIND_PIN in pyproject
     assert DUNGEONMIND_PIN in lock
+    assert "d8f7a9f0d6b256f5cf4588987520bf286f1eade3" not in pyproject
+    assert "d8f7a9f0d6b256f5cf4588987520bf286f1eade3" not in lock
     assert "bf40e933bdedf3cf08bb23a07a135958bdb7cc6b" not in pyproject
     assert "bf40e933bdedf3cf08bb23a07a135958bdb7cc6b" not in lock
 

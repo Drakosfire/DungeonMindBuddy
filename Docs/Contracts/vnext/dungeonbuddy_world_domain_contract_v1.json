@@ -1,0 +1,29 @@
+{
+  "schema_version": "dm_domain_contract_v1",
+  "domain_id": "dungeonbuddy.world",
+  "domain_revision": "1",
+  "admission_policy_id": "dungeonbuddy.admission:world_v1",
+  "scope_axes": [
+    "dungeonbuddy.scope:campaign"
+  ],
+  "visibility_labels": [
+    "dungeonbuddy.visibility:gm",
+    "dungeonbuddy.visibility:player"
+  ],
+  "claim_modes": [
+    "dungeonbuddy.claim:belief",
+    "dungeonbuddy.claim:fact",
+    "dungeonbuddy.claim:observed_event",
+    "dungeonbuddy.claim:plan",
+    "dungeonbuddy.claim:rumor"
+  ],
+  "temporal_extension_schemas": [
+    "dungeonbuddy.time:fictional_anchor_v1"
+  ],
+  "domain_metadata_schemas": [
+    "dungeonbuddy.domain_metadata:world_context_v1"
+  ],
+  "source_annotation_schemas": [
+    "dungeonbuddy.source:context_v1"
+  ]
+}

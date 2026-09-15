@@ -1,0 +1,11 @@
+{
+  "schema": "dmb_dungeonmind_vnext_contract_pin_v1",
+  "provider_repository": "Drakosfire/DungeonMind",
+  "provider_commit": "63ec810a02f18c4e25af228f6fdb19d99d12579e",
+  "provider_pr_number": 56,
+  "provider_bundle_path": "Docs/Contracts/vnext/dm_vnext_contract_v1.json",
+  "provider_contract_family": "dungeonmind-vnext",
+  "provider_contract_revision": "v1",
+  "provider_aggregate_sha256": "fd04a9047b8ed79aaa5e710b2247ce1b2654c0e44e05d24fafb2adecb9e7b7ea",
+  "vendored_bundle_sha256": "384d71e3f3ebb668f942de915d89e245b3f22dfab1babd3606d4188aaa21145f"
+}
