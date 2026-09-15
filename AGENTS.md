@@ -58,6 +58,28 @@ Before dispatching parallel work:
 
 When a worker discovers it needs a path leased by another active lane, stop and report the path, current owner, reason it is needed, and whether the seam can be split. Do not edit first and rely on Git to arbitrate later.
 
+## Always release `main`
+
+Git will not check out the same branch in two worktrees. **Never leave `main` checked out.**
+
+- Do not work on `main`. Do not `git switch main` / `git checkout main` / `git pull` on `main` to clean up or start the next task.
+- Start from the remote, without checking out local `main`:
+
+      git fetch origin main
+      git switch -c <branch> origin/main
+
+- Add worktrees the same way. Never `git worktree add <path> main`. Never `git worktree add <path>` while this repo is on `main`.
+
+      git fetch origin main
+      git worktree add -b <branch> <path> origin/main
+
+- If you are on `main`, release it immediately:
+
+      git fetch origin main
+      git switch --detach origin/main
+
+- Before you finish a turn, `git branch --show-current` must not print `main`. If it does, detach as above.
+
 ## Review-cycle counting
 
 Use this exact definition across handoffs, reviews, and completion records:
