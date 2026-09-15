@@ -8,7 +8,7 @@ pr_body_template: |
   - Branch / PR: `dogfood-continuity/frozen-42-session-acceptance-replay-v1` — create only from exact post-genesis `main`; **DO NOT MERGE**
 
   ## Verification pointer
-  - Predecessor: governed recap World genesis PR; currently #718 at `187332e22aa67e7baa0e81ccf49359a49caa0eb3`, not yet merged
+  - Predecessor: PR #718 reviewed at `187332e22aa67e7baa0e81ccf49359a49caa0eb3`, merged as `876123a3d197d426ce76e03a30f059093ba9b4f4`
   - Frozen notebook: PR #715 at `820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed`
   - Frozen candidates: `d6e2599bbabb9719bc92601f7bc1ad8b69411e98` via #715 `ACCEPTANCE_MANIFEST.json`
   - This PR must not merge, rebase, or cherry-pick #715 into production.
@@ -20,31 +20,37 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY: frozen 42-session two-arm acceptance replay
 
 **Created:** 2026-09-14
-**Status:** BLOCKED — activate only after the governed recap World genesis predecessor receives exact-head APPROVE and merges to `main`.
+**Activated:** 2026-09-15
+**Status:** ACTIVE — predecessor genesis exact-head APPROVE merged; execution branch may be created from post-genesis `main`.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-frozen-42-session-acceptance-replay-v1.md`
 **Conversation / workstream:** `DOGFOOD-CONTINUITY / frozen full-corpus acceptance and notebook retirement`
 **Flow / owner:** `DOGFOOD-CONTINUITY`
 **Direction:** DESIGN → CODE → REVIEW → DOGFOOD
-**Authority base:** `BLOCKED — replace with main@<POST_GENESIS_MERGE_SHA> before dispatch`
-**Predecessor:** governed recap World genesis PR; currently #718 at `187332e22aa67e7baa0e81ccf49359a49caa0eb3`, not yet merged at handoff creation.
+**Authority base:** `main@876123a3d197d426ce76e03a30f059093ba9b4f4`
+**Predecessor:** PR #718 governed recap World genesis; reviewed head `187332e22aa67e7baa0e81ccf49359a49caa0eb3`; merge SHA `876123a3d197d426ce76e03a30f059093ba9b4f4`
 **Frozen notebook authority:** PR #715 at reviewed hardening head `820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed`
 **Frozen candidate authority:** candidate bytes frozen from `d6e2599bbabb9719bc92601f7bc1ad8b69411e98` by #715 `ACCEPTANCE_MANIFEST.json`
-**Implementation branch after activation:** `dogfood-continuity/frozen-42-session-acceptance-replay-v1`, created from exact post-genesis `main`
+**Implementation branch after activation:** `dogfood-continuity/frozen-42-session-acceptance-replay-v1`, created from exact post-genesis `main@876123a3d197d426ce76e03a30f059093ba9b4f4`
 **Implementation PR disposition:** **DO NOT MERGE.** This is a reviewable execution/evidence branch. A bounded final report may be promoted separately after acceptance.
 **PR title:** `DOGFOOD-CONTINUITY: execute frozen 42-session acceptance replay`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
-> This handoff is intentionally blocked. Do not create the implementation branch from pre-genesis `main`.
->
-> After the predecessor merges, activation consists only of:
->
-> 1. recording the exact reviewed predecessor head and merge SHA;
-> 2. recording exact post-merge `main@SHA`;
-> 3. changing this handoff from `BLOCKED` to `ACTIVE`;
-> 4. branching from that exact `main`.
->
-> If activation requires changing the mission, invariant, files, evidence, or execution semantics below, stop for design re-review rather than silently editing this handoff.
+**Activation record (2026-09-15). No mission/invariant/files/evidence/execution-semantic edits:**
+
+```text
+reviewed genesis predecessor head:
+187332e22aa67e7baa0e81ccf49359a49caa0eb3
+Review Cycle 2 — APPROVE (GitHub COMMENT fallback; self-review)
+genesis predecessor merge SHA:
+876123a3d197d426ce76e03a30f059093ba9b4f4
+post-merge main SHA:
+876123a3d197d426ce76e03a30f059093ba9b4f4
+#715 notebook head (unchanged):
+820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed
+```
+
+> After this recording, create `dogfood-continuity/frozen-42-session-acceptance-replay-v1` from `main@876123a3…`. Do not merge, rebase, or cherry-pick #715 into that branch. Gate A must complete before either rehearsal World is initialized.
 
 **Recorded at handoff creation (2026-09-14), not an activation record:**
 
@@ -788,8 +794,8 @@ uv run ruff check \
   tests/test_frozen_42_session_acceptance.py
 
 git diff --check
-git diff --name-only <POST_GENESIS_BASE_SHA>...HEAD
-git diff --stat <POST_GENESIS_BASE_SHA>...HEAD
+git diff --name-only 876123a3d197d426ce76e03a30f059093ba9b4f4...HEAD
+git diff --stat 876123a3d197d426ce76e03a30f059093ba9b4f4...HEAD
 ```
 
 Also capture:
