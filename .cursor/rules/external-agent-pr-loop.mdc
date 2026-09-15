@@ -9,7 +9,11 @@ When work lands through a GitHub PR opened by an agent the steward does not dire
 
 ```text
 re-anchor
-→ DESIGN → CODE HANDOFF
+→ DESIGN
+→ steward lands HANDOFF on main
+→ activation gate satisfied
+→ steward marks HANDOFF ACTIVE
+→ CODE HANDOFF
 → external PR
 → review cycle 1..N
 → merge
@@ -22,13 +26,21 @@ The cycle does not end at "merged green." It ends when the applicable mutable st
 
 For in-IDE subagents, follow `subagent-delegation.mdc` instead. Exact fetch/verify/post/merge procedure belongs in `.cursor/skills/external-agent-pr-loop/SKILL.md`.
 
-## Identity, naming, and nano commits
+## Identity, naming, handoff lifecycle, and nano commits
 
-Every handoff records the exact conversation/workstream identity and the explicit direction:
+Every implementation handoff records the exact conversation/workstream identity and the explicit direction:
 
 ```text
-DESIGN agent → CODE agent → reviewer
+DESIGN steward → CODE agent → reviewer
 ```
+
+The DESIGN steward owns that handoff until it is durably checked in on `main`.
+
+- `Status: BLOCKED` is allowed and encouraged when the design is concrete but a predecessor/review/merge/operator activation gate remains false.
+- BLOCKED means durable design authority only: no implementation lane, no §4 lease, no code dispatch.
+- `Status: ACTIVE` is required before an external implementation agent begins work.
+- The implementation agent must not create, land, activate, or materially redesign its own implementation handoff unless the explicitly assigned slice is itself design/architecture work.
+- A predecessor merge does not automatically activate a successor. The steward re-anchors and performs the explicit BLOCKED → ACTIVE transition.
 
 Handoff filenames use:
 
@@ -64,8 +76,9 @@ The completion record should capture the total review-cycle count and the materi
 
 ## Write lease and parallel-agent invariant
 
-HANDOFF §4 is both the expected diff allowlist and the lane's **exclusive expected write lease** while the slice is active.
+HANDOFF §4 is both the expected diff allowlist and the lane's **exclusive expected write lease only while the handoff is ACTIVE**.
 
+- BLOCKED handoffs hold no lease.
 - Other lanes may read leased paths.
 - A second lane must not silently edit them.
 - If a worker discovers a required path outside §4 or owned by another active lane, stop and report it before changing the path.
@@ -76,18 +89,20 @@ Parallel worktree/checkout source isolation does not prove runtime isolation; sh
 
 ## Invariants — do not regress
 
-1. **Critique before dispatch.** Before finalizing a handoff, falsify the proposed merge-ready invariant and its evidence. Identify adversarial sequences, split when one invariant cannot govern every claimed path, and do not dispatch while proof ownership is unresolved.
-2. **One capability / one invariant.** The slice delivers one independently useful outcome. A second independently useful/revertible public or durable contract is a split signal.
-3. **§4 allowlist / write lease is mandatory.** Every expected changed path must be named or covered by a precisely bounded discovery exception. A path outside the lease is a stop report, not a quiet edit.
-4. **The checked-in HANDOFF and cumulative diff are the merge contract.** The reviewer identifies exact PR/branch/head SHA, nano-commit sequence, changed paths, and evidence. The PR description is transport metadata only.
-5. **Review continues for as many cycles as necessary.** Every finding names the failure/missing proof, affected observable path, owning boundary, and concrete fix/evidence required. Re-review the complete invariant after each changed head; do not verify only the literal patch.
-6. **Evidence must exercise the owning boundary.** Lower-level helper coverage can support but cannot prove a higher-level service/workflow/persistence/concurrency/surface guarantee.
-7. **Use the canonical review tooling.** `scripts/review_external_pr.py {fetch | verify | post | merge}` is the normal external-PR path; do not rebuild the manual `gh + git + sed` dance when the handoff is parseable.
-8. **Implementation review and state sync are distinct concerns.** Do not smuggle current-state roadmap/checklist/status edits into implementation fixes merely to make the PR narrative look current.
-9. **Atomic state-authority sync closes the cycle.** After merge or another sequencing transition, identify every mutable workstream document that claims current status, sequence, predecessor, evidence gate, or next action and update the applicable set before dispatching a dependent successor. Prefer one commit/PR transaction. When tooling only supports sequential file writes, the steward holds the transaction boundary: no dependent dispatch or cycle-complete claim occurs between partial writes, and the complete set is re-read/verified before release. `PLAN`, `CHECKLIST`, and HANDOFF status/archive are common members, not a closed set; active roadmaps, trackers, status docs, and indexes join the sync when they carry current state.
-10. **Stable authorities change only when their claims change.** Architecture/contracts/reference docs are not mandatory merge bookkeeping.
-11. **The judgment/rubric is a learning surface.** Accepted review findings should tighten future critique, evidence, or repository law when the lesson generalizes. Copying an unchanged rubric forever is a smell.
-12. **Stale-note discipline.** Notes about what a PR did age well; notes about what is still pending age badly. Re-verify temporal claims before quoting them downstream.
+1. **Design authority is durable before dispatch.** The steward lands the implementation HANDOFF on `main` before any CODE worker is dispatched. If an activation prerequisite is unresolved, land it as BLOCKED rather than keeping it only in chat, a temporary checkout, or the future worker's workspace.
+2. **Critique before activation/dispatch.** Before marking a handoff ACTIVE, falsify the proposed merge-ready invariant and its evidence. Identify adversarial sequences, split when one invariant cannot govern every claimed path, and do not dispatch while proof ownership is unresolved.
+3. **One capability / one invariant.** The slice delivers one independently useful outcome. A second independently useful/revertible public or durable contract is a split signal.
+4. **§4 allowlist / write lease is mandatory for ACTIVE work.** Every expected changed path must be named or covered by a precisely bounded discovery exception. A path outside the lease is a stop report, not a quiet edit. BLOCKED handoffs do not reserve those paths.
+5. **The checked-in ACTIVE HANDOFF and cumulative diff are the merge contract.** The reviewer identifies exact PR/branch/head SHA, nano-commit sequence, changed paths, and evidence. The PR description is transport metadata only.
+6. **Review continues for as many cycles as necessary.** Every finding names the failure/missing proof, affected observable path, owning boundary, and concrete fix/evidence required. Re-review the complete invariant after each changed head; do not verify only the literal patch.
+7. **Evidence must exercise the owning boundary.** Lower-level helper coverage can support but cannot prove a higher-level service/workflow/persistence/concurrency/surface guarantee.
+8. **Use the canonical review tooling.** `scripts/review_external_pr.py {fetch | verify | post | merge}` is the normal external-PR path; do not rebuild the manual `gh + git + sed` dance when the handoff is parseable.
+9. **Implementation review and state sync are distinct concerns.** Do not smuggle current-state roadmap/checklist/status edits into implementation fixes merely to make the PR narrative look current.
+10. **Atomic state-authority sync closes the cycle.** After merge or another sequencing transition, identify every mutable workstream document that claims current status, sequence, predecessor, evidence gate, or next action and update the applicable set before dispatching a dependent successor. Prefer one commit/PR transaction. When tooling only supports sequential file writes, the steward holds the transaction boundary: no dependent dispatch or cycle-complete claim occurs between partial writes, and the complete set is re-read/verified before release. `PLAN`, `CHECKLIST`, and HANDOFF status/archive are common members, not a closed set; active roadmaps, trackers, status docs, and indexes join the sync when they carry current state.
+11. **Successor activation is explicit.** A successor may already be durably present on `main` as BLOCKED. When its gate becomes true, re-anchor, record the newly knowable facts, change it to ACTIVE, and only then allocate the external worker lane.
+12. **Stable authorities change only when their claims change.** Architecture/contracts/reference docs are not mandatory merge bookkeeping.
+13. **The judgment/rubric is a learning surface.** Accepted review findings should tighten future critique, evidence, or repository law when the lesson generalizes. Copying an unchanged rubric forever is a smell.
+14. **Stale-note discipline.** Notes about what a PR did age well; notes about what is still pending age badly. Re-verify temporal claims before quoting them downstream.
 
 ## Atomic state-authority sync contract
 
@@ -111,7 +126,11 @@ Do not add unrelated architecture churn to satisfy "atomic." Atomic refers to **
 
 ## Anti-patterns
 
+- Keeping the authoritative successor handoff only in chat or an uncommitted temporary checkout.
+- Making the implementation worker responsible for committing or activating the handoff that authorizes its own work.
+- Treating a BLOCKED checked-in handoff as an active lane or reserved write lease.
 - Dispatching before invariant/evidence critique.
+- Dispatching from a handoff whose status is not ACTIVE.
 - Treating §4 as documentation rather than an active lane write lease.
 - Parallel agents silently editing the same file because "Git will catch it."
 - Assuming separate worktrees imply separate runtime state.
@@ -122,6 +141,7 @@ Do not add unrelated architecture churn to satisfy "atomic." Atomic refers to **
 - Stopping review after an arbitrary number of rounds.
 - Calling a fix commit a new review cycle before a new formal judgment.
 - Treating merge as cycle completion while current-state documents still say pending.
+- Assuming a predecessor merge automatically activates a dependent successor.
 - Dispatching between partial writes of one state-authority sync.
 - Updating architecture solely because an implementation PR merged.
 - Reusing stale "still pending" notes without verification.
@@ -129,6 +149,7 @@ Do not add unrelated architecture churn to satisfy "atomic." Atomic refers to **
 ## References
 
 - Foundational repo law: `AGENTS.md`
+- Steward judgment/process: `Docs/Process/STEWARD-CYCLE.md`
 - Procedure / runbook: `.cursor/skills/external-agent-pr-loop/SKILL.md`
 - Re-anchor discipline: `.cursor/rules/anchor.mdc`
 - Git/worktree policy: `.cursor/rules/dungeonbuddy-git-workflow.mdc`
