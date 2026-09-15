@@ -1,18 +1,16 @@
 # REPORT — DOGFOOD-CONTINUITY blocked cross-class id disambiguation v1
 
-**Status:** CODE complete — dogfood rerun pending on combined harness head  
+**Status:** CODE + dogfood-cleared prior extraction STOP; successor STOP elsewhere  
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-blocked-cross-class-id-disambiguation-v1.md`  
-**Branch:** `dogfood-continuity/blocked-cross-class-id-disambiguation-v1`
+**Branch:** `dogfood-continuity/blocked-cross-class-id-disambiguation-v1`  
+**PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/724  
+**Implementation head:** `91689c03`
 
 ## Claim
 
 ```text
-BLOCKED CROSS-CLASS ID DISAMBIGUATION: implemented
+BLOCKED CROSS-CLASS ID DISAMBIGUATION: implemented + dogfood-cleared prior STOP
 ```
-
-`reconcile_cross_class_label_collisions` now rewrites colliding `node_id`s inside
-policy-blocked cross-class groups. Actor priority keeps the original id;
-other members receive `{node_type}:{normalized_label}`.
 
 ## Verification
 
@@ -23,13 +21,21 @@ uv run pytest tests/test_graph_memory_identity_resolution.py \
 84 passed
 ```
 
-Preserved session-2 witness nodes: before `node:glowkindle`×2; after reconcile
-unique `{node:glowkindle, faction:glowkindle}` with blocked diagnostic retained.
+## Dogfood proof
+
+Rerun head: `a9d8a0ce` (acceptance harness + #723 + this fix)  
+Artifact: `execute-2026-09-15T224332Z-f0bf9ef0`
+
+| Observation | Evidence |
+|---|---|
+| Prior `duplicate_node_id` STOP cleared | session-2 extraction REVIEWABLE (22 unique node ids) |
+| session-1 sealed | `rev:5df9a77d5505a1d1e0665e84138c6178` |
+| Structural acceptance | HOLD — next STOP `dungeonmind_write` / `parent_binding_mismatch` on `loc:rivers-edge-pub` (identity CREATE_NEW vs existing parent object) |
 
 ## Remains false
 
 ```text
-STRUCTURAL CURRENT-CORPUS ACCEPTANCE = HOLD until fresh pristine --execute PASS
+STRUCTURAL CURRENT-CORPUS ACCEPTANCE = HOLD
 no actor+collective auto-merge
 duplicate_node_id integrity still fail-closed for true duplicates
 ```
