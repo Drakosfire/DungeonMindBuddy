@@ -515,6 +515,40 @@ def accepted_proposals(package: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
     return proposals
 
 
+def _assertion_value(assertion: Mapping[str, Any]) -> dict[str, Any]:
+    raw_value = assertion.get("value")
+    if isinstance(raw_value, str) and raw_value:
+        try:
+            parsed = json.loads(raw_value)
+        except ValueError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    if isinstance(raw_value, dict):
+        return raw_value
+    return {}
+
+
+def _buddy_kind(kind: str) -> str:
+    cleaned = str(kind or "").strip()
+    if cleaned in {"pc", "player_character"}:
+        return "player_character"
+    if cleaned == "character":
+        return "npc"
+    return cleaned
+
+
+def _node_rejection_reason(assertion: Mapping[str, Any]) -> str | None:
+    from apps.live_control_server.integrations.dungeonmind.assertion_qualification import CURRENT_V5_TARGET
+
+    value = _assertion_value(assertion)
+    buddy_kind = _buddy_kind(str(value.get("kind") or assertion.get("node_type") or ""))
+    if not buddy_kind:
+        return "unmapped_kind"
+    if CURRENT_V5_TARGET.buddy_to_dm_kind.get(buddy_kind) is None:
+        return "unmapped_kind"
+    return None
+
+
 def select_confirmable_assertions(
     review_items: list[Mapping[str, Any]],
     *,
@@ -570,6 +604,10 @@ def select_confirmable_assertions(
             continue
         if outcome == "resolved_existing" and oid not in existing_ids:
             rejected["parent_binding_mismatch"] = rejected.get("parent_binding_mismatch", 0) + 1
+            continue
+        kind_reason = _node_rejection_reason(assertion)
+        if kind_reason is not None:
+            rejected[kind_reason] = rejected.get(kind_reason, 0) + 1
             continue
         selectable.append(sid)
     return selectable, rejected, published_edges

@@ -406,6 +406,13 @@ def test_created_new_existing_object_is_rejected_before_confirm() -> None:
             },
             {
                 "selectable": True,
+                "kind": "object",
+                "identity_outcome": "created_new",
+                "assertion_id": "assertion:warning",
+                "slice_qualified_id": "0::assertion:warning",
+            },
+            {
+                "selectable": True,
                 "kind": "relationship",
                 "assertion_id": "assertion:edge",
                 "slice_qualified_id": "0::assertion:edge",
@@ -421,6 +428,13 @@ def test_created_new_existing_object_is_rejected_before_confirm() -> None:
                 "assertion_id": "assertion:new",
                 "subject_node_id": "npc:new-person",
                 "identity_resolution_outcome": "created_new",
+                "value": {"kind": "npc"},
+            },
+            "assertion:warning": {
+                "assertion_id": "assertion:warning",
+                "subject_node_id": "note:warning",
+                "identity_resolution_outcome": "created_new",
+                "value": {"kind": "warning"},
             },
             "assertion:edge": {
                 "assertion_id": "assertion:edge",
@@ -439,7 +453,9 @@ def test_created_new_existing_object_is_rejected_before_confirm() -> None:
     )
     assert "0::assertion:loc" not in selectable
     assert "0::assertion:new" in selectable
+    assert "0::assertion:warning" not in selectable
     assert rejected["parent_binding_mismatch"] == 1
+    assert rejected["unmapped_kind"] == 1
     assert published_edges == 1
     assert "0::assertion:edge" in selectable
 
