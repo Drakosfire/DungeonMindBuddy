@@ -3,7 +3,7 @@
 
 The command reconciles mechanical facts before dispatch/review:
 
-- candidate HANDOFF §4 write lease + declared base/branch/runtime ownership;
+- candidate HANDOFF lifecycle state + §4 write lease + declared base/branch/runtime ownership;
 - active top-level HANDOFF write leases;
 - local Git main/head/worktrees plus the already-observed origin/main ref;
 - optional open GitHub PR changed paths;
@@ -11,7 +11,7 @@ The command reconciles mechanical facts before dispatch/review:
 
 It deliberately does not fetch/mutate Git refs, create branches/worktrees, edit
 handoffs, transfer leases, post reviews, merge PRs, or decide whether a capability
-should be split.
+should be split or an activation gate is semantically satisfied.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ except ModuleNotFoundError:
 
 _STATUS_ACTIVE_RE = re.compile(r"^\*\*Status:\*\*\s*ACTIVE\b", re.MULTILINE | re.IGNORECASE)
 _BASE_RE = re.compile(
-    r"^\*\*Base revision:\*\*\s*`?([0-9a-fA-F]{7,40})`?\s*$",
+    r"^\*\*(?:Design authority base|Base revision):\*\*\s*`?([0-9a-fA-F]{7,40})`?\s*$",
     re.MULTILINE,
 )
 _REVIEW_CYCLE_RE = re.compile(r"^\s*Review Cycle\s+(\d+)\b", re.MULTILINE | re.IGNORECASE)
@@ -463,12 +463,17 @@ def build_snapshot(
 
     handoff = parse_handoff(handoff_path)
     candidate = read_handoff_lane(handoff_path, kind="candidate")
+    candidate_active = bool(_STATUS_ACTIVE_RE.search(handoff.raw))
     base_match = _BASE_RE.search(handoff.raw)
     candidate_base = base_match.group(1) if base_match else None
     runtime_ownership = _section_table_field(handoff.raw, "Runtime/state ownership")
 
     warnings: list[str] = []
     blockers: list[str] = []
+    if not candidate_active:
+        blockers.append(
+            "candidate handoff is not ACTIVE; BLOCKED handoffs are durable design authority but are not dispatchable"
+        )
     if not candidate.paths:
         blockers.append("candidate §4 write lease is empty or unparseable")
     if not runtime_ownership:
@@ -514,6 +519,7 @@ def build_snapshot(
         "status": status,
         "candidate": {
             "handoff": str(handoff_path),
+            "active": candidate_active,
             "branch": candidate.branch,
             "base_revision": candidate_base,
             "write_lease": list(candidate.paths),
