@@ -116,4 +116,32 @@ def test_exact_id_cross_kind_does_not_force_confirm() -> None:
             proposed_node_id="loc:rivers-edge-pub",
         ),
     )
-    assert result.outcome != "resolved_existing"
+    assert result.outcome == "blocked_collision"
+    assert result.blocked_by == ["loc:rivers-edge-pub"]
+
+
+def test_exact_id_wrong_kind_blocks_create_new_into_occupied_id() -> None:
+    """Dogfood witness: node:city_council is party; candidate claims location."""
+    context = _context_with(
+        MutationObject(
+            object_id="node:city_council",
+            label="the Council",
+            kind="party",
+            aliases=("the Council",),
+        )
+    )
+    result = resolve_identity_against_context(
+        context,
+        IdentityCandidate(
+            world_id="dogfood-world",
+            candidate_id="node:city_council",
+            label="city council",
+            object_kind="location",
+            aliases=[],
+            evidence_ref_ids=["evidence:1"],
+            proposed_node_id="node:city_council",
+        ),
+    )
+    assert result.outcome == "blocked_collision"
+    assert result.blocked_by == ["node:city_council"]
+    assert result.requires_human_review is True
