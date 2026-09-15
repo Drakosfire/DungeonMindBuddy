@@ -487,6 +487,26 @@ def recompute_digest_from_package(package: Mapping[str, Any]) -> str:
     return compute_proposal_digest(effect)
 
 
+def bind_candidate_admission_to_proposal(
+    package: Mapping[str, Any], admission: Mapping[str, Any]
+) -> dict[str, Any]:
+    """Seal candidate-admission identity into an existing inert proposal.
+
+    The binding is part of ``effect`` and therefore covered by the ordinary
+    proposal digest and any later identity-ledger rebinding.
+    """
+    bound = dict(package)
+    effect = dict(bound.get("effect") or {})
+    if not effect:
+        raise PromoteProposalError("review package missing effect body")
+    if effect.get("candidate_admission") is not None:
+        raise PromoteProposalError("candidate admission is already bound")
+    effect["candidate_admission"] = dict(admission)
+    bound["effect"] = effect
+    bound["proposal_digest"] = compute_proposal_digest(effect)
+    return bound
+
+
 def contribution_slices_from_effect(effect: Mapping[str, Any]) -> list[dict[str, Any]]:
     """Normalize v2 flat effect or v3 contributions list into ordered slices."""
     raw = effect.get("contributions")

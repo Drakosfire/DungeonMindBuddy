@@ -40,6 +40,9 @@ from apps.live_control_server.models.extract_promote import (
     WorldbuildingWritePlanPrepareRequest,
     WorldbuildingWritePlanResponse,
 )
+from apps.live_control_server.models.candidate_graph_admission import (
+    CandidateAdmissionIntegrityError,
+)
 from apps.live_control_server.services.first_world_graph import (
     resolve_first_world_capability,
 )
@@ -57,7 +60,6 @@ from graph_memory.extract_promote_ops import (
     DEFAULT_WORLD_ID,
     ExtractPromoteWorldError,
     get_extract_promote_status,
-    prepare_extract_promote,
     resolve_merged_contribution_from_package,
 )
 from graph_memory.extract_promote_proposal import PromoteProposalError
@@ -551,14 +553,13 @@ def _assert_and_project_candidate_evidence(
     anchor quotes against canonical source paragraph bytes.
     """
     from graph_memory.anchor_quotes import find_anchor_quote_matches
-    from graph_memory.candidate_graph_to_contribution import (
-        CandidateGraphMappingError,
-        load_typed_candidate_graph,
+    from apps.live_control_server.services.candidate_graph_admission import (
+        validate_candidate_document_integrity,
     )
 
 
     try:
-        typed = load_typed_candidate_graph(candidate_payload)
+        typed = validate_candidate_document_integrity(candidate_payload)
     except CandidateGraphMappingError as exc:
         raise ExtractPromoteError(
             f"candidate graph failed typed validation: {exc}",
@@ -1035,7 +1036,11 @@ def prepare(
                     status_code=exc.status_code,
                     diagnostics=[_diagnostic(exc.code, str(exc))],
                 ) from exc
-            result = prepare_extract_promote(
+            from apps.live_control_server.services.candidate_graph_admission import (
+                prepare_candidate_graph_admission,
+            )
+
+            result = prepare_candidate_graph_admission(
                 **prepare_kwargs,
                 mutation_context=mutation_context,
             )
@@ -1051,10 +1056,23 @@ def prepare(
                 proposal_digest=str(sealed["proposal_digest"]),
             )
         else:
-            result = prepare_extract_promote(
+            from apps.live_control_server.services.candidate_graph_admission import (
+                prepare_candidate_graph_admission,
+            )
+
+            result = prepare_candidate_graph_admission(
                 **prepare_kwargs,
                 world_root=world_graph_root(),
             )
+    except CandidateAdmissionIntegrityError as exc:
+        raise ExtractPromoteError(
+            str(exc),
+            code="candidate_invalid",
+            status_code=422,
+            diagnostics=[
+                _diagnostic(item.code, item.message) for item in exc.diagnostics
+            ],
+        ) from exc
     except CandidateGraphMappingError as exc:
         raise _public_mapping_error(exc) from exc
     except PromoteProposalError as exc:
@@ -1477,13 +1495,56 @@ def confirm(
 
 
         try:
-            payload = world_graph_writes.confirm_extract_promote_via_dungeonmind(
-                request,
-                database_url=_config.world_graph_authority_database_url() or "",
-                confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
-                assertion_ids=normalized_assertion_ids,
-                repo_root=repo_root(),
+            from apps.live_control_server.services.candidate_graph_admission import (
+                confirm_candidate_graph_admission,
             )
+
+            locator = str(
+                ((request.review_package or {}).get("effect") or {})
+                .get("candidate_admission", {})
+                .get("candidate_locator")
+                or ""
+            ).strip()
+            if not locator:
+                raise ExtractPromoteError(
+                    "sealed candidate admission has no candidate locator",
+                    code="candidate_binding_invalid",
+                    status_code=409,
+                )
+            assert_sealed_source_uri_allowed(locator)
+            try:
+                candidate_payload = json.loads(Path(locator).read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError) as exc:
+                raise ExtractPromoteError(
+                    "sealed candidate could not be resolved at confirm",
+                    code="candidate_binding_invalid",
+                    status_code=409,
+                    diagnostics=[_diagnostic("candidate_binding_invalid", str(exc))],
+                ) from exc
+            if not isinstance(candidate_payload, dict):
+                raise ExtractPromoteError(
+                    "sealed candidate root is not an object",
+                    code="candidate_binding_invalid",
+                    status_code=409,
+                )
+            payload = confirm_candidate_graph_admission(
+                review_package=request.review_package,
+                candidate_graph=candidate_payload,
+                governed_confirm=lambda: world_graph_writes.confirm_extract_promote_via_dungeonmind(
+                    request,
+                    database_url=_config.world_graph_authority_database_url() or "",
+                    confirming_principal=SERVER_CONFIRMING_PRINCIPAL,
+                    assertion_ids=normalized_assertion_ids,
+                    repo_root=repo_root(),
+                ),
+            )
+        except CandidateGraphMappingError as exc:
+            raise ExtractPromoteError(
+                str(exc),
+                code="candidate_binding_invalid",
+                status_code=409,
+                diagnostics=[_diagnostic("candidate_binding_invalid", str(exc))],
+            ) from None
         except world_graph_writes.WorldGraphWriteError as exc:
             raise ExtractPromoteError(
                 str(exc),

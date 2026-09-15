@@ -1493,3 +1493,214 @@ def test_native_corrupt_d0_receipt_is_integrity_not_unavailable(
     assert confirm.status_code == 409, confirm.text
     assert confirm.status_code != 503
     assert confirm.json()["code"] == "first_world_initialization_failed"
+
+
+@pytest.mark.integration
+def test_candidate_admission_real_postgres_sequence(native_first_world_client) -> None:
+    """D0 -> D1 -> D2, partial eligibility, fatal integrity, exact retry."""
+    import hashlib
+    import json
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
+        DungeonMindWorldGraphAuthorityAdapter,
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
+        DungeonMindWorldGraphInitializationAdapter,
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+        DungeonMindWorldGraphSourceAdmissionAdapter,
+    )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        bind_identity_ledger_to_package,
+    )
+    from apps.live_control_server.models.candidate_graph_admission import (
+        CandidateAdmissionIntegrityError,
+    )
+    from apps.live_control_server.models.recap_world_genesis import (
+        RecapWorldGenesisConfirmRequest,
+        RecapWorldGenesisPrepareRequest,
+    )
+    from apps.live_control_server.ports.world_graph_authority import WorldGraphPublishRequest
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionRequest,
+    )
+    from apps.live_control_server.services.candidate_graph_admission import (
+        confirm_candidate_graph_admission,
+        prepare_candidate_graph_admission,
+    )
+    from apps.live_control_server.services.recap_world_genesis import (
+        confirm_recap_world_genesis,
+        prepare_recap_world_genesis,
+    )
+    from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
+    from tests.test_candidate_graph_admission_contract import _candidate, _node
+
+    _client, _world_root, repo, dsn = native_first_world_client
+    registry = repo / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json"
+    registry.parent.mkdir(parents=True)
+    shutil.copyfile(
+        REPO_ROOT / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json",
+        registry,
+    )
+    world_id = "world:candidate-admission-pg"
+    genesis_authority = DungeonMindWorldGraphInitializationAdapter(database_url=dsn)
+    genesis_plan = prepare_recap_world_genesis(
+        RecapWorldGenesisPrepareRequest(
+            world_id=world_id,
+            campaign_id="longmont-c1",
+            baseline_roster_key="1",
+            requested_by="candidate-admission-test",
+        ),
+        repo=repo,
+        authority=genesis_authority,
+    )
+    genesis = confirm_recap_world_genesis(
+        RecapWorldGenesisConfirmRequest(
+            plan=genesis_plan, confirming_principal="candidate-admission-test"
+        ),
+        repo=repo,
+        authority=genesis_authority,
+    )
+    d0 = genesis.published_revision_id
+
+    source = repo / "session-9.md"
+    source.write_text("Brin visits the Medical Wing.\n", encoding="utf-8")
+    source_digest = hashlib.sha256(source.read_bytes()).hexdigest()
+    source_revision = f"sha256:{source_digest}"
+    artifact_id = "artifact:recap:longmont-c2:session-9"
+    now = datetime.now(UTC)
+    source_authority = DungeonMindWorldGraphSourceAdmissionAdapter(database_url=dsn)
+    source_authority.prove_or_admit(
+        WorldGraphSourceAdmissionRequest(
+            world_id=world_id,
+            campaign_id="longmont-c2",
+            source_artifact=SimpleNamespace(
+                source_artifact_id=artifact_id,
+                source_domain="recap",
+                campaign_id="longmont-c2",
+                session_id="session-9",
+                uri=str(source),
+                content_sha256=source_digest,
+                artifact_kind="markdown",
+                document_class="recap",
+                authority_state="reviewed",
+                visibility_state="internal",
+                world_id=world_id,
+                workspace_document_id=None,
+                workspace_document_revision=None,
+                lineage={},
+                status="active",
+                created_at=now,
+                updated_at=now,
+            ),
+            source_revision_token=source_revision,
+            source_uri=str(source),
+        )
+    )
+    graph_authority = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
+
+    def prepare(candidate: dict, parent: str):
+        context = graph_authority.mutation_context(world_id, parent)
+        result = prepare_candidate_graph_admission(
+            candidate_graph=candidate,
+            source_uri=str(source),
+            source_revision_id=source_revision,
+            prepared_by="candidate-admission-test",
+            world_id=world_id,
+            source_artifact_id=artifact_id,
+            campaign_scope="longmont-c2",
+            repo_root=repo,
+            mutation_context=context,
+        )
+        return result, context, bind_identity_ledger_to_package(
+            result.review_package, context
+        )
+
+    def publish(candidate: dict, package: dict, context):
+        _verified, contribution = resolve_merged_contribution_from_package(
+            review_package=package,
+            confirming_principal="candidate-admission-test",
+            world_id_hint=world_id,
+            expected_parent_revision_id=context.revision_id,
+            assertion_ids=None,
+            mutation_context=context,
+            verify_source=True,
+            repo_root=repo,
+        )
+        return confirm_candidate_graph_admission(
+            review_package=package,
+            candidate_graph=candidate,
+            governed_confirm=lambda: graph_authority.publish(
+                WorldGraphPublishRequest(
+                    world_id=world_id,
+                    expected_parent_revision_id=context.revision_id,
+                    authority_operation_id=contribution.contribution_id,
+                    actor="candidate-admission-test",
+                    contribution=contribution,
+                    accepted_assertion_ids=tuple(
+                        item.assertion_id for item in contribution.accepted_assertions
+                    ),
+                    decision="create_new",
+                    threat_node_id="candidate:brin",
+                    operation_namespace="threat",
+                )
+            ),
+        )
+
+    candidate_a = _candidate()
+    result_a, context_a, package_a = prepare(candidate_a, d0)
+    assert graph_authority.current_head(world_id).revision_id == d0
+    published_a = publish(candidate_a, package_a, context_a)
+    d1 = published_a.published_revision_id
+    retry_a = publish(candidate_a, package_a, context_a)
+    assert retry_a.published_revision_id == d1
+    assert graph_authority.current_head(world_id).revision_id == d1
+
+    candidate_b = _candidate(unsupported=True)
+    result_b, context_b, package_b = prepare(candidate_b, d1)
+    binding_b = package_b["effect"]["candidate_admission"]
+    assert binding_b["exact_candidate_counts"]["nodes"] == 2
+    assert {item["reason"] for item in binding_b["dispositions"]} == {
+        "unsupported_node_type",
+        "endpoint_not_admitted",
+    }
+    assert graph_authority.current_head(world_id).revision_id == d1
+    published_b = publish(candidate_b, package_b, context_b)
+    d2 = published_b.published_revision_id
+    assert d2 != d1
+
+    candidate_c = _candidate()
+    candidate_c["nodes"] = [
+        _node("candidate:miss-thistlebottoms-emporium", "location"),
+        _node("candidate:miss-thistlebottoms-emporium", "organization"),
+    ]
+    with pytest.raises(CandidateAdmissionIntegrityError):
+        prepare(candidate_c, d2)
+    assert graph_authority.current_head(world_id).revision_id == d2
+    assert result_a.review_package["effect"]["candidate_admission"]["candidate_digest"]
+    assert result_b.review_package["effect"]["candidate_admission"]["candidate_digest"]
+    print(
+        "candidate_admission_pg_witness="
+        + json.dumps(
+            {
+                "world_id": world_id,
+                "source_artifact_id": artifact_id,
+                "source_revision_id": source_revision,
+                "d0": d0,
+                "d1": d1,
+                "d2": d2,
+                "candidate_a_digest": package_a["effect"]["candidate_admission"][
+                    "candidate_digest"
+                ],
+                "candidate_b_digest": package_b["effect"]["candidate_admission"][
+                    "candidate_digest"
+                ],
+                "candidate_b_dispositions": binding_b["dispositions"],
+                "candidate_c_failure": "duplicate_node_id",
+                "model_calls": 0,
+            },
+            sort_keys=True,
+        )
+    )
