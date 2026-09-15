@@ -1,0 +1,2109 @@
+{
+  "acceptance_manifest_sha256": "d0f3cb66075f44abe417d5fe149dd31769d1c5b671d02c36534c4e5b43f6c1a1",
+  "arms": {
+    "deepseek-v4.1-flash": {
+      "acceptance_manifest_sha256": "d0f3cb66075f44abe417d5fe149dd31769d1c5b671d02c36534c4e5b43f6c1a1",
+      "arm": "deepseek-v4.1-flash",
+      "benchmark_result": {
+        "inspected": [
+          "evals/sentence_routing_retrieval_falsification",
+          "apps/live_control_server/services/graph_gold_review.py",
+          "tests/test_cutover_native_genesis_continuity.py"
+        ],
+        "reason": "no repository-owned deterministic continuity/query benchmark applies identically to these two rehearsal Worlds without new wiring or model calls",
+        "selected": null,
+        "verdict": "SEMANTIC MODEL SELECTION HOLD"
+      },
+      "c1_s1": {
+        "accepted_assertion_count": 41,
+        "candidate_sha256": "4825cbcb04049e6397f18ee713fac82fcba1f172c1ae86cf989607732a1de260",
+        "child": "rev:e0bf2048942f3209da9bf15d83e37f52",
+        "ordinary_child_of_d0": true,
+        "parent": "rev:2e2d2a536cf8e1073f537e9286c10d0f",
+        "published_relationships": 15,
+        "source_admission": {
+          "content_sha256": "8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_revision_id": "sha256:8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc"
+        },
+        "source_sha256": "8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc"
+      },
+      "candidate_frozen_head": "d6e2599bbabb9719bc92601f7bc1ad8b69411e98",
+      "candidate_generation": "frozen",
+      "candidate_regeneration": false,
+      "chain": {
+        "complete": true,
+        "gaps": [],
+        "receipt_count": 42,
+        "sessions": [
+          {
+            "accepted_assertion_count": 41,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 32,
+            "candidate_relationships": 22,
+            "candidate_sha256": "4825cbcb04049e6397f18ee713fac82fcba1f172c1ae86cf989607732a1de260",
+            "child": "rev:e0bf2048942f3209da9bf15d83e37f52",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:2e2d2a536cf8e1073f537e9286c10d0f",
+            "published_relationships": 15,
+            "relationship_rejections": {
+              "unmapped_predicate": 4
+            },
+            "session": 1,
+            "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+            "source_sha256": "8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc",
+            "wall_seconds": 1.056
+          },
+          {
+            "accepted_assertion_count": 34,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 14,
+            "candidate_relationships": 20,
+            "candidate_sha256": "62e38010eb5d5e0df22041fe37e307efa6727584acc6f58e42c933ae8965a8de",
+            "child": "rev:d45356d57c2392967c10b46a608d30c5",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:e0bf2048942f3209da9bf15d83e37f52",
+            "published_relationships": 20,
+            "relationship_rejections": {},
+            "session": 2,
+            "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+            "source_sha256": "12aac2b0f386248deb4928a4b629d207338bd48c3c52dd69355e1235f4a11355",
+            "wall_seconds": 0.936
+          },
+          {
+            "accepted_assertion_count": 45,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 29,
+            "candidate_relationships": 21,
+            "candidate_sha256": "fe43e49ddd898122fa4fdabd12202263e5ef3aae8fa5af8c52a8403bc61c1b51",
+            "child": "rev:fc8cddf9219a99fad2bcf547b5c8c0a2",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:d45356d57c2392967c10b46a608d30c5",
+            "published_relationships": 16,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "unmapped_predicate": 2
+            },
+            "session": 3,
+            "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+            "source_sha256": "f8b6c8bb7b7be185fb4372df708f7e5ef5c6fde4152c84e5b56b24cf71ab3a4d",
+            "wall_seconds": 1.319
+          },
+          {
+            "accepted_assertion_count": 41,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 21,
+            "candidate_relationships": 33,
+            "candidate_sha256": "7688cf1f102a883579968de31604711e99de010cb8a0141dbc6e3302b66370a6",
+            "child": "rev:b0a9df98b16eeac953a95d527483f8e0",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:fc8cddf9219a99fad2bcf547b5c8c0a2",
+            "published_relationships": 20,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 4,
+              "unmapped_predicate": 9
+            },
+            "session": 4,
+            "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+            "source_sha256": "ed4a7535fe903a3740dcd01c4f779adfffbf410e7ebd803736f4ac92f6d69e76",
+            "wall_seconds": 1.343
+          },
+          {
+            "accepted_assertion_count": 36,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 25,
+            "candidate_relationships": 18,
+            "candidate_sha256": "599b7ce147572cdf1d8e8100f30c48823b2f5360d43e6f8ff605503335ce73f5",
+            "child": "rev:ad119c7ed2ad7dbab6936096f336a67a",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:b0a9df98b16eeac953a95d527483f8e0",
+            "published_relationships": 11,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "unmapped_predicate": 6
+            },
+            "session": 5,
+            "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+            "source_sha256": "2e5ad974e07d071a2f545d0503b3d09e9d4d1c211ad7fd6c048f69c05a0b351b",
+            "wall_seconds": 1.528
+          },
+          {
+            "accepted_assertion_count": 53,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 29,
+            "candidate_relationships": 28,
+            "candidate_sha256": "2046025c51e591757cf90cdcd5d6f6dfa19e0de7bd79d3dff4ecdc02ba5ccba9",
+            "child": "rev:bee8da913a06259571c5c83f364ff93a",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:ad119c7ed2ad7dbab6936096f336a67a",
+            "published_relationships": 24,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 2,
+              "unmapped_predicate": 2
+            },
+            "session": 6,
+            "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+            "source_sha256": "a6849dbc9bad2045f728d7514deae3fb99fca38495281dfa126806d7087b5bf8",
+            "wall_seconds": 1.687
+          },
+          {
+            "accepted_assertion_count": 34,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 27,
+            "candidate_relationships": 14,
+            "candidate_sha256": "83f8406971d9c7b70e7fb7907dc464a43f70260341b5c04970181545d48a3371",
+            "child": "rev:4b5489305027850be8665f4115d750eb",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:bee8da913a06259571c5c83f364ff93a",
+            "published_relationships": 7,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 4,
+              "unmapped_predicate": 3
+            },
+            "session": 7,
+            "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+            "source_sha256": "cca895ea6c64d72d248cf40e50de48ad3f710d3681237a749cc689efad9ec365",
+            "wall_seconds": 1.86
+          },
+          {
+            "accepted_assertion_count": 47,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 30,
+            "candidate_relationships": 19,
+            "candidate_sha256": "cad1183e9cdd4888aeb9828fb170d7931368030f2ef3aeeeba0db84fdede55ec",
+            "child": "rev:4e1eda89e0e25f31c989b68d9dc42767",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:4b5489305027850be8665f4115d750eb",
+            "published_relationships": 17,
+            "relationship_rejections": {
+              "unmapped_predicate": 2
+            },
+            "session": 8,
+            "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+            "source_sha256": "a5a1a534941b01c3a5b422a9b0f0504d309c6eb06da2a485454c027f265c7ac1",
+            "wall_seconds": 2.181
+          },
+          {
+            "accepted_assertion_count": 46,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 34,
+            "candidate_relationships": 20,
+            "candidate_sha256": "7bfb6e5edba561a2edd34b064bfc1ff64b22bd52fb8a4931bcc9055b3f548b9d",
+            "child": "rev:1762c480335a9dd52bd931fb1177056d",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:4e1eda89e0e25f31c989b68d9dc42767",
+            "published_relationships": 12,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 6,
+              "unmapped_predicate": 2
+            },
+            "session": 9,
+            "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+            "source_sha256": "ee4c45abbc94269adf0c5d3de90d92b27c4d77f46fa3a8e8259ae9327e8a31f7",
+            "wall_seconds": 2.412
+          },
+          {
+            "accepted_assertion_count": 46,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 27,
+            "candidate_relationships": 22,
+            "candidate_sha256": "27b44ee1144929aef518f3add73dd4e55ae98332a836b41b969438f988113910",
+            "child": "rev:2f74eddcd992f1ff5a6dccda5b7eebc6",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:1762c480335a9dd52bd931fb1177056d",
+            "published_relationships": 19,
+            "relationship_rejections": {
+              "unmapped_predicate": 3
+            },
+            "session": 10,
+            "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+            "source_sha256": "202289dc3d5e49ded12d81b7c53e2f746201fe398e2ff61e5b97572feaea211c",
+            "wall_seconds": 2.332
+          },
+          {
+            "accepted_assertion_count": 38,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 24,
+            "candidate_relationships": 16,
+            "candidate_sha256": "7367d786502f5301ce8064a1d1a70f18760a797ea66a694387d4191c7af41e49",
+            "child": "rev:723b05e36189756b0e058472a584d2fe",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:2f74eddcd992f1ff5a6dccda5b7eebc6",
+            "published_relationships": 14,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "unmapped_predicate": 1
+            },
+            "session": 11,
+            "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+            "source_sha256": "3bf37710bb268995431ed1fb02ad116e85aeb7187e60a6a3d33dd1569066b266",
+            "wall_seconds": 2.958
+          },
+          {
+            "accepted_assertion_count": 22,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 21,
+            "candidate_relationships": 2,
+            "candidate_sha256": "6f4dac7c8f901eecd27c2ac0f0eaca8ee09762c4f0a4014ab6a5ee16e5daf01d",
+            "child": "rev:38e78daff664b804e0c6c237e3cc478b",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:723b05e36189756b0e058472a584d2fe",
+            "published_relationships": 1,
+            "relationship_rejections": {
+              "unmapped_predicate": 1
+            },
+            "session": 12,
+            "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+            "source_sha256": "26abfa1c2dbac1f8e5a486ea847ca2c5ae1d83c622a18ef552263f848fe2081d",
+            "wall_seconds": 2.485
+          },
+          {
+            "accepted_assertion_count": 33,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 29,
+            "candidate_relationships": 5,
+            "candidate_sha256": "a0e671f7e7ed3ca19332f18d5155ea689f1f976cbc329f28183f9da5613b78ca",
+            "child": "rev:fc9e4e607d382d9773b2efcbb20a8253",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:38e78daff664b804e0c6c237e3cc478b",
+            "published_relationships": 4,
+            "relationship_rejections": {
+              "unmapped_predicate": 1
+            },
+            "session": 13,
+            "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+            "source_sha256": "55b65ec5dcec1098f97c5b4f5659e5062749277db821c970f4a0047df255837b",
+            "wall_seconds": 3.026
+          },
+          {
+            "accepted_assertion_count": 10,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 10,
+            "candidate_relationships": 1,
+            "candidate_sha256": "233c59ddbf6f31248557e4fb4d9f2e24ea2ea37475f4ea6cb7d82f933d9bf496",
+            "child": "rev:46abbb692cf86e15ae9d069c415ed63c",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:fc9e4e607d382d9773b2efcbb20a8253",
+            "published_relationships": 0,
+            "relationship_rejections": {
+              "unmapped_predicate": 1
+            },
+            "session": 14,
+            "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+            "source_sha256": "e10679f7fe09d7f8a267730684702157ca08caa928bdfc246a4b8d03573f8e96",
+            "wall_seconds": 3.302
+          },
+          {
+            "accepted_assertion_count": 50,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 33,
+            "candidate_relationships": 27,
+            "candidate_sha256": "281cc74cfc26af6026b7e2517e5a50fc4e98ff964142544a4177fb59ea2fa1ee",
+            "child": "rev:d0646a83d3e6e55b9cd2d732b322de79",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:46abbb692cf86e15ae9d069c415ed63c",
+            "published_relationships": 17,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 5,
+              "unmapped_predicate": 5
+            },
+            "session": 15,
+            "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+            "source_sha256": "24fa6f72ecfe16aa1d1bd4e21187a90c54b993b82da6a9ccbb8e0e0946227429",
+            "wall_seconds": 4.477
+          },
+          {
+            "accepted_assertion_count": 20,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 18,
+            "candidate_relationships": 7,
+            "candidate_sha256": "65b491adf74a808dff67d804365cf370c1b8852b4b0fdf785861596c1f621986",
+            "child": "rev:dc2f048cdd080957ba36e5265c1bab6d",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:d0646a83d3e6e55b9cd2d732b322de79",
+            "published_relationships": 2,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 2,
+              "unmapped_predicate": 3
+            },
+            "session": 16,
+            "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+            "source_sha256": "e8b8399abc94ba38daa3151d68b550f0ebc1c90e7a9181552ac71aecb098c161",
+            "wall_seconds": 2.98
+          },
+          {
+            "accepted_assertion_count": 15,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 13,
+            "candidate_relationships": 2,
+            "candidate_sha256": "b5b5f580cf061925920210a9b2df38543ad96c2dc316876765eeaf0c448985db",
+            "child": "rev:386589bd982a1bbe66264f5c5e91f8e0",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:dc2f048cdd080957ba36e5265c1bab6d",
+            "published_relationships": 2,
+            "relationship_rejections": {},
+            "session": 17,
+            "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+            "source_sha256": "0f4fb9ba1ef307b65b6579d70bf758cf0a423a2758e8fdc29d4ee8b397930e7f",
+            "wall_seconds": 3.348
+          },
+          {
+            "accepted_assertion_count": 30,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 22,
+            "candidate_relationships": 13,
+            "candidate_sha256": "601aa495a7250727dd91cc8f23494024ee8b8fc598d8c05a9450a5003b6fd9c6",
+            "child": "rev:8b00c67ae2139af644ba7194d74fbe14",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:386589bd982a1bbe66264f5c5e91f8e0",
+            "published_relationships": 8,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "unmapped_predicate": 2
+            },
+            "session": 1,
+            "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+            "source_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+            "wall_seconds": 3.764
+          },
+          {
+            "accepted_assertion_count": 38,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 26,
+            "candidate_relationships": 15,
+            "candidate_sha256": "234d444aae4ad278023afe0ede4646ae9cfb153563f15f88bf5d27080b58de90",
+            "child": "rev:6849cc9d8eaa8b5c152614415c2cd572",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:8b00c67ae2139af644ba7194d74fbe14",
+            "published_relationships": 12,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 2,
+              "unmapped_predicate": 1
+            },
+            "session": 2,
+            "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+            "source_sha256": "8a4080ac953780c13b30f5613907fb55c9fd4a1f891aa093fd9d3f245ebbca56",
+            "wall_seconds": 3.738
+          },
+          {
+            "accepted_assertion_count": 40,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 29,
+            "candidate_relationships": 12,
+            "candidate_sha256": "6bb14805e01a257d23858ac0313594d6acdbae7263132c93f57e63bdcf54e0af",
+            "child": "rev:1c8af83c56a5790bc7c486f2a1e36e52",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:6849cc9d8eaa8b5c152614415c2cd572",
+            "published_relationships": 11,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1
+            },
+            "session": 3,
+            "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+            "source_sha256": "7080c5f78d97bc39d2ac21a08e7f8b889da77844c376e64d67ea9269f5468bec",
+            "wall_seconds": 4.405
+          },
+          {
+            "accepted_assertion_count": 44,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 31,
+            "candidate_relationships": 18,
+            "candidate_sha256": "241c5aeeef3e5477fd766b9ca9aead5ea96d43a83b2a1877f89634c77a00943d",
+            "child": "rev:6a1eefd6732dcf63e82cd4a8b50bb13f",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:1c8af83c56a5790bc7c486f2a1e36e52",
+            "published_relationships": 13,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "unmapped_predicate": 2
+            },
+            "session": 4,
+            "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+            "source_sha256": "0263725f40f846b0c731d5e28688a119582a948e05373f6d1c17e92f9a630832",
+            "wall_seconds": 4.322
+          },
+          {
+            "accepted_assertion_count": 55,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 34,
+            "candidate_relationships": 24,
+            "candidate_sha256": "b106eddb6febc028ddade149995bc79db0d4ac384f4c921e763ae5a6c38bef23",
+            "child": "rev:0d3f00964c9ec1bacc1100cf01bf3582",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:6a1eefd6732dcf63e82cd4a8b50bb13f",
+            "published_relationships": 21,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3
+            },
+            "session": 5,
+            "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+            "source_sha256": "40a1bbd868a37af9594ae94ee5d2f6150826039e52e516727863cbc46899500c",
+            "wall_seconds": 4.837
+          },
+          {
+            "accepted_assertion_count": 64,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 47,
+            "candidate_relationships": 23,
+            "candidate_sha256": "9ef306afe198b7bf9f55a14409bf3a1ef0e97545bb86676fb79684b7ab335156",
+            "child": "rev:70dc297ac1d3a172e7e21d1adc88a612",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:0d3f00964c9ec1bacc1100cf01bf3582",
+            "published_relationships": 17,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 4,
+              "unmapped_predicate": 2
+            },
+            "session": 6,
+            "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+            "source_sha256": "c4fe6d1592e97a550d250fb88bd914d239134868a48c3905ace8bb3162800b94",
+            "wall_seconds": 7.094
+          },
+          {
+            "accepted_assertion_count": 42,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 34,
+            "candidate_relationships": 13,
+            "candidate_sha256": "bd187265669cc7a4f663d4cf093f7c4faffc6eb2b2ddac464bada103ef9bbede",
+            "child": "rev:257aa4bb75e6cb60dd379f873b6fc1a5",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:70dc297ac1d3a172e7e21d1adc88a612",
+            "published_relationships": 10,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "parent_binding_mismatch": 2
+            },
+            "session": 7,
+            "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+            "source_sha256": "3944b26180b92c1b26525052b8f5c5786513be997a19683fbe2d31a066872319",
+            "wall_seconds": 6.015
+          },
+          {
+            "accepted_assertion_count": 17,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 15,
+            "candidate_relationships": 6,
+            "candidate_sha256": "a23b4ed0e5aca3d11642a01bdc9e9ad4235fb9c330d63ffff288c0aea7f3455a",
+            "child": "rev:b48eccb3e2c719078324d1819014a8c9",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:257aa4bb75e6cb60dd379f873b6fc1a5",
+            "published_relationships": 2,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "unmapped_predicate": 3
+            },
+            "session": 8,
+            "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+            "source_sha256": "f62cfae78793590a732b13de389be31c1299270d3823b65bd0d8d325e9c96840",
+            "wall_seconds": 4.412
+          },
+          {
+            "accepted_assertion_count": 46,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {
+              "duplicate_node_id": 3,
+              "invalid_node_type": 1
+            },
+            "candidate_nodes": 38,
+            "candidate_relationships": 18,
+            "candidate_sha256": "8356afd43109690e8c71e15dd79320e8c76b9d574b470c051d75c37902cdd6de",
+            "child": "rev:28d1fcccbc1bbdc8ed5a93fe81a4d069",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:b48eccb3e2c719078324d1819014a8c9",
+            "published_relationships": 12,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "unmapped_predicate": 3
+            },
+            "session": 9,
+            "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+            "source_sha256": "49ef13907bd8dff0d320fae33f88caec80bef842cd99f5412df9cb687321179a",
+            "wall_seconds": 5.735
+          },
+          {
+            "accepted_assertion_count": 47,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 27,
+            "candidate_relationships": 23,
+            "candidate_sha256": "79f90c95470302fc92657cd91645225e081ac284a55f27228a12884579eb651d",
+            "child": "rev:93ab9119980501b5fea344824b8fd8bd",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:28d1fcccbc1bbdc8ed5a93fe81a4d069",
+            "published_relationships": 20,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3
+            },
+            "session": 10,
+            "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+            "source_sha256": "8482ee1639ec1156689e0339ff40626ac3da9c50b71d165a656250c45e1e3e7d",
+            "wall_seconds": 6.049
+          },
+          {
+            "accepted_assertion_count": 20,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 14,
+            "candidate_relationships": 10,
+            "candidate_sha256": "fc8935c05eb88fb2f1c8bc3012b1b78a18231caf977f7ee84ff8eafddc11a7c9",
+            "child": "rev:0593bab7d372d464296176e69cd911e1",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:93ab9119980501b5fea344824b8fd8bd",
+            "published_relationships": 7,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "parent_binding_mismatch": 1
+            },
+            "session": 11,
+            "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+            "source_sha256": "a64c1f3075a0c3591497ea3d72501de6f48cdcabcbed9b5d1c0a1168ec2f13e2",
+            "wall_seconds": 4.467
+          },
+          {
+            "accepted_assertion_count": 25,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {
+              "duplicate_node_id": 1
+            },
+            "candidate_nodes": 24,
+            "candidate_relationships": 3,
+            "candidate_sha256": "1768866bf2f07d4ccdb23e259d2502574bb68ee149b864d90445ae3f19f47f36",
+            "child": "rev:21ae379514dc7616c1820cf80a70fbf0",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:0593bab7d372d464296176e69cd911e1",
+            "published_relationships": 2,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1
+            },
+            "session": 12,
+            "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+            "source_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+            "wall_seconds": 5.385
+          },
+          {
+            "accepted_assertion_count": 35,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 26,
+            "candidate_relationships": 12,
+            "candidate_sha256": "2bce46acf247990eb8a8f80f6129a2c3a03ea7875562364daa36b41b99f2b1f9",
+            "child": "rev:c87c7b3f70340c7db3429a64e894f788",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:21ae379514dc7616c1820cf80a70fbf0",
+            "published_relationships": 9,
+            "relationship_rejections": {
+              "unmapped_predicate": 3
+            },
+            "session": 13,
+            "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+            "source_sha256": "3a1278d88978d28118494dfb881f5bc5f479fe1ffd88fb039fd8dfe52661e27f",
+            "wall_seconds": 5.568
+          },
+          {
+            "accepted_assertion_count": 52,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 36,
+            "candidate_relationships": 19,
+            "candidate_sha256": "18ecf478b3f71a2fbabd3518fba34729a59fb07a495fd3be77c9e861ad77cbe7",
+            "child": "rev:63ca43c07dd2bc8a1960be0b949d7a7e",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:c87c7b3f70340c7db3429a64e894f788",
+            "published_relationships": 16,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "unmapped_predicate": 2
+            },
+            "session": 14,
+            "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+            "source_sha256": "99ea4cce27aca2db6670fdfab3bc76e495bbf8a886733441a93416ab7a503823",
+            "wall_seconds": 6.031
+          },
+          {
+            "accepted_assertion_count": 24,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 20,
+            "candidate_relationships": 9,
+            "candidate_sha256": "bbd50cdfc1e343574a57f9d05e0b8c0c889376f82177af890f7b3e49a745f2cd",
+            "child": "rev:2f5178224b96807d4065e1d4cc121903",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:63ca43c07dd2bc8a1960be0b949d7a7e",
+            "published_relationships": 4,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 5
+            },
+            "session": 15,
+            "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+            "source_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+            "wall_seconds": 5.328
+          },
+          {
+            "accepted_assertion_count": 34,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 28,
+            "candidate_relationships": 7,
+            "candidate_sha256": "2b071fd00be1dfac14c1402e495c4d1bfe183e1d434da36e6330cded9522f577",
+            "child": "rev:03afd690be70c0df9c3fe34d8b329777",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:2f5178224b96807d4065e1d4cc121903",
+            "published_relationships": 6,
+            "relationship_rejections": {
+              "unmapped_predicate": 1
+            },
+            "session": 16,
+            "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+            "source_sha256": "38fe100ba220bb6faf544fe79f6b77a4c8aa0219d9535aa608ca04743caef535",
+            "wall_seconds": 5.793
+          },
+          {
+            "accepted_assertion_count": 35,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 19,
+            "candidate_relationships": 16,
+            "candidate_sha256": "42acfffbb531c22bc86074d57c9f8a8d8b175e62a1c83e9639b845fca9ed2ee3",
+            "child": "rev:f272b8ac2066cf994dc4a87ea28fb104",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:03afd690be70c0df9c3fe34d8b329777",
+            "published_relationships": 16,
+            "relationship_rejections": {},
+            "session": 17,
+            "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+            "source_sha256": "6f01fc518deabfd705cfc76ba9754a72de6061f4e3e8443a0df2dbf8e088f97a",
+            "wall_seconds": 5.385
+          },
+          {
+            "accepted_assertion_count": 40,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 27,
+            "candidate_relationships": 22,
+            "candidate_sha256": "12aa369dad5c62ac5a415f8e6a7d5067ad33251566d9bbc01f20f78a534d082f",
+            "child": "rev:2a8508c6b1d06800d64c7fd96ea14662",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:f272b8ac2066cf994dc4a87ea28fb104",
+            "published_relationships": 13,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 6,
+              "unmapped_predicate": 3
+            },
+            "session": 18,
+            "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+            "source_sha256": "e920bb658a5bc5bd56cb576d3a9071fbb9df71a30e93117596efb7a98e8d1d7c",
+            "wall_seconds": 6.275
+          },
+          {
+            "accepted_assertion_count": 31,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 23,
+            "candidate_relationships": 12,
+            "candidate_sha256": "9a23fbb364eee2b001a81e78d7e1ffd6a44c05ad191686e5742a716b17fa1b72",
+            "child": "rev:9e4d678ce8a36398a5fbd847a62fd54c",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:2a8508c6b1d06800d64c7fd96ea14662",
+            "published_relationships": 8,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "unmapped_predicate": 1
+            },
+            "session": 19,
+            "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+            "source_sha256": "c5a033c25e53e5dd40ba751efafbd39b49c4f1aa9ed910142d70b20e8b3a4b7d",
+            "wall_seconds": 6.088
+          },
+          {
+            "accepted_assertion_count": 26,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 23,
+            "candidate_relationships": 7,
+            "candidate_sha256": "150180cdcf54e68c9e1493343fc6017469c9ddcf5d025809834d61464855d386",
+            "child": "rev:8eef848f3d7c6bcfccc3a1f81c0a5752",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:9e4d678ce8a36398a5fbd847a62fd54c",
+            "published_relationships": 3,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "unmapped_predicate": 3
+            },
+            "session": 20,
+            "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+            "source_sha256": "70f3983a0182f2a12651a301c29de8e709296edee699184cdf06cbd1a071fa35",
+            "wall_seconds": 6.096
+          },
+          {
+            "accepted_assertion_count": 35,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 26,
+            "candidate_relationships": 14,
+            "candidate_sha256": "26b0aa513453a8bbd8c79bd8aa67190ae77d6e5e35b1bd1449b48233e57ca8b2",
+            "child": "rev:0bf654132bae7e99177a3002173057ba",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:8eef848f3d7c6bcfccc3a1f81c0a5752",
+            "published_relationships": 9,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "unmapped_predicate": 4
+            },
+            "session": 21,
+            "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+            "source_sha256": "ad4ecd013dad92cdcb1a11d412c9f73adb446b15f2ce62cfc50a98358588423f",
+            "wall_seconds": 6.884
+          },
+          {
+            "accepted_assertion_count": 52,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 36,
+            "candidate_relationships": 22,
+            "candidate_sha256": "69ce63946d40bba6cd02643c5eb7d935cf0950c9ff17e730740361725fa6904a",
+            "child": "rev:0b78847e469b78abd62945056daa79ff",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:0bf654132bae7e99177a3002173057ba",
+            "published_relationships": 16,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "unmapped_kind": 1,
+              "unmapped_predicate": 3
+            },
+            "session": 22,
+            "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+            "source_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+            "wall_seconds": 7.448
+          },
+          {
+            "accepted_assertion_count": 51,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 32,
+            "candidate_relationships": 31,
+            "candidate_sha256": "d007438766be77a2d82b12ab412960f3988c91ea8e99bd17f86196305c0e2260",
+            "child": "rev:73e80b0e0e723e123194321cb237e2cc",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:0b78847e469b78abd62945056daa79ff",
+            "published_relationships": 19,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 6,
+              "unmapped_kind": 1,
+              "unmapped_predicate": 6
+            },
+            "session": 23,
+            "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+            "source_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+            "wall_seconds": 7.456
+          },
+          {
+            "accepted_assertion_count": 10,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 9,
+            "candidate_relationships": 4,
+            "candidate_sha256": "f5a246bcc29d95db7dd2fabac30f84d156ab7fe7fcde82260b278ba49c3c55e0",
+            "child": "rev:83afa7fe6afc886b11ae7ef8b5fa23c2",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:73e80b0e0e723e123194321cb237e2cc",
+            "published_relationships": 1,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "unmapped_kind": 1
+            },
+            "session": 24,
+            "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+            "source_sha256": "7fe085121d651f21211f8e58c3192159c4cfaf7b07ce9f78d02b4d082e5df8bc",
+            "wall_seconds": 5.661
+          },
+          {
+            "accepted_assertion_count": 18,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 17,
+            "candidate_relationships": 6,
+            "candidate_sha256": "7ffbbf9b92c206382d0695c914fde42f2b2ab54bb3c88ad715d7726eea8ee60f",
+            "child": "rev:bac4c82fb88afb061a9ba855d681ff85",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:83afa7fe6afc886b11ae7ef8b5fa23c2",
+            "published_relationships": 2,
+            "relationship_rejections": {
+              "unmapped_kind": 1
+            },
+            "session": 25,
+            "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+            "source_sha256": "a3513d738fe09820dfbee1c30adcba176f0beca070701b4a67e94a4935e822b7",
+            "wall_seconds": 6.5
+          }
+        ]
+      },
+      "d0": "rev:2e2d2a536cf8e1073f537e9286c10d0f",
+      "database": "dmb_full_corpus_deepseek",
+      "genesis": {
+        "baseline_roster_key": "1",
+        "canonical_pc_labels": [
+          "Baergrom",
+          "Bonogo",
+          "Caelynn",
+          "Ephanna",
+          "Karsemine",
+          "Stafl"
+        ],
+        "d0": "rev:2e2d2a536cf8e1073f537e9286c10d0f",
+        "outcome": "initialized",
+        "parent_revision_id": null,
+        "pc_identity_keys": [
+          "pc::baergrom",
+          "pc::bonogo",
+          "pc::caelynn",
+          "pc::ephanna",
+          "pc::karsemine",
+          "pc::stafl"
+        ],
+        "pc_object_ids": [
+          "node:baergrom",
+          "node:bonogo",
+          "node:caelynn",
+          "node:ephanna",
+          "node:karsemine",
+          "node:stafl"
+        ],
+        "prepare_inert": true,
+        "pristine_before": {
+          "adoptions": 0,
+          "artifacts": 0,
+          "contributions": 0,
+          "heads": 0,
+          "receipts": 0,
+          "revisions": 0,
+          "revisions_src": 0
+        },
+        "source_revision_id": "sha256:f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25"
+      },
+      "genesis_predecessor_merge_sha": "876123a3d197d426ce76e03a30f059093ba9b4f4",
+      "identity_observations": {
+        "duplicate_node_id": 4,
+        "endpoint_kind_not_admitted": 87,
+        "invalid_node_type": 1,
+        "parent_binding_mismatch": 3,
+        "unmapped_kind": 4,
+        "unmapped_predicate": 84
+      },
+      "model_calls": 0,
+      "model_credentials_present": [],
+      "native_head_matches_terminal": true,
+      "notebook_head": "820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed",
+      "production_head_recorded_in_manifest": "04ff89083aabac75c4b7b135e685d1b1efefd44c",
+      "runner_head_at_run": "04ff89083aabac75c4b7b135e685d1b1efefd44c",
+      "structural_metrics": {
+        "accepted_assertions": 1522,
+        "candidate_load_rejections": {
+          "duplicate_node_id": 4,
+          "invalid_node_type": 1
+        },
+        "candidate_nodes": 1079,
+        "candidate_relationships": 636,
+        "published_relationships": 458,
+        "relationship_rejections": {
+          "endpoint_kind_not_admitted": 87,
+          "parent_binding_mismatch": 3,
+          "unmapped_kind": 4,
+          "unmapped_predicate": 84
+        },
+        "terminal_evidence_refs": 402,
+        "terminal_graph_objects": 1064,
+        "terminal_graph_relationships": 458,
+        "terminal_object_count": 1064,
+        "terminal_objects_by_kind": {
+          "creature": 13,
+          "event": 16,
+          "faction": 43,
+          "group": 34,
+          "item": 277,
+          "location": 170,
+          "mystery": 332,
+          "npc": 161,
+          "party": 9,
+          "player_character": 6,
+          "thread": 3
+        },
+        "terminal_relationship_count": 458,
+        "wall_seconds": 179.966
+      },
+      "terminal_revision": "rev:bac4c82fb88afb061a9ba855d681ff85",
+      "world_id": "dogfood-frozen42-deepseek-v1"
+    },
+    "openai-gpt-5.4-mini": {
+      "acceptance_manifest_sha256": "d0f3cb66075f44abe417d5fe149dd31769d1c5b671d02c36534c4e5b43f6c1a1",
+      "arm": "openai-gpt-5.4-mini",
+      "benchmark_result": {
+        "inspected": [
+          "evals/sentence_routing_retrieval_falsification",
+          "apps/live_control_server/services/graph_gold_review.py",
+          "tests/test_cutover_native_genesis_continuity.py"
+        ],
+        "reason": "no repository-owned deterministic continuity/query benchmark applies identically to these two rehearsal Worlds without new wiring or model calls",
+        "selected": null,
+        "verdict": "SEMANTIC MODEL SELECTION HOLD"
+      },
+      "c1_s1": {
+        "accepted_assertion_count": 47,
+        "candidate_sha256": "bb551b54b31918b432e9848babf36bbb3aafc5165360cac3952a125b80bbb0b1",
+        "child": "rev:509e3c8989aa688f7f632d4eaf9b660c",
+        "ordinary_child_of_d0": true,
+        "parent": "rev:615246aff38a6a53e43a64ffc716471f",
+        "published_relationships": 13,
+        "source_admission": {
+          "content_sha256": "8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc",
+          "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+          "source_revision_id": "sha256:8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc"
+        },
+        "source_sha256": "8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc"
+      },
+      "candidate_frozen_head": "d6e2599bbabb9719bc92601f7bc1ad8b69411e98",
+      "candidate_generation": "frozen",
+      "candidate_regeneration": false,
+      "chain": {
+        "complete": true,
+        "gaps": [],
+        "receipt_count": 42,
+        "sessions": [
+          {
+            "accepted_assertion_count": 47,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 40,
+            "candidate_relationships": 20,
+            "candidate_sha256": "bb551b54b31918b432e9848babf36bbb3aafc5165360cac3952a125b80bbb0b1",
+            "child": "rev:509e3c8989aa688f7f632d4eaf9b660c",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:615246aff38a6a53e43a64ffc716471f",
+            "published_relationships": 13,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "unmapped_predicate": 3
+            },
+            "session": 1,
+            "source_artifact_id": "full-corpus:longmont-c1:session-1:8e4c8600c194",
+            "source_sha256": "8e4c8600c194cf41641cdeb8c78d9ab20aec3c9b4c65cdb02170e20ecd9545cc",
+            "wall_seconds": 1.278
+          },
+          {
+            "accepted_assertion_count": 22,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 15,
+            "candidate_relationships": 13,
+            "candidate_sha256": "bea806acf23443569413b311ce9c554b92d2023fbc24fed4741370d8c50ee15d",
+            "child": "rev:36588b783abe1e41992d8812b5a9960b",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:509e3c8989aa688f7f632d4eaf9b660c",
+            "published_relationships": 7,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 4,
+              "unmapped_predicate": 2
+            },
+            "session": 2,
+            "source_artifact_id": "full-corpus:longmont-c1:session-2:12aac2b0f386",
+            "source_sha256": "12aac2b0f386248deb4928a4b629d207338bd48c3c52dd69355e1235f4a11355",
+            "wall_seconds": 1.386
+          },
+          {
+            "accepted_assertion_count": 39,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 31,
+            "candidate_relationships": 13,
+            "candidate_sha256": "439c672fe85095a2d1069d8f08620cf3c458eff87c38e6a3c55f650475b9581d",
+            "child": "rev:36bd42124c0c33a13727790eef999693",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:36588b783abe1e41992d8812b5a9960b",
+            "published_relationships": 9,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 2,
+              "parent_binding_mismatch": 1,
+              "unmapped_predicate": 2
+            },
+            "session": 3,
+            "source_artifact_id": "full-corpus:longmont-c1:session-3:f8b6c8bb7b7b",
+            "source_sha256": "f8b6c8bb7b7be185fb4372df708f7e5ef5c6fde4152c84e5b56b24cf71ab3a4d",
+            "wall_seconds": 1.537
+          },
+          {
+            "accepted_assertion_count": 35,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 23,
+            "candidate_relationships": 21,
+            "candidate_sha256": "4624696cbde1210ab9f45335fdca7dc5f2644590b7b2944bf68303e6491d024a",
+            "child": "rev:833891ef949e4a2e8c4feaec691aef02",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:36bd42124c0c33a13727790eef999693",
+            "published_relationships": 13,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 4,
+              "unmapped_kind": 1,
+              "unmapped_predicate": 4
+            },
+            "session": 4,
+            "source_artifact_id": "full-corpus:longmont-c1:session-4:ed4a7535fe90",
+            "source_sha256": "ed4a7535fe903a3740dcd01c4f779adfffbf410e7ebd803736f4ac92f6d69e76",
+            "wall_seconds": 1.81
+          },
+          {
+            "accepted_assertion_count": 42,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 29,
+            "candidate_relationships": 14,
+            "candidate_sha256": "82db4af611cae8ebca26992082faa1aff6d61b0acfa0cb9295bd229534357b7f",
+            "child": "rev:4130918195cc50058fdc0a08f5c64bed",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:833891ef949e4a2e8c4feaec691aef02",
+            "published_relationships": 13,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1
+            },
+            "session": 5,
+            "source_artifact_id": "full-corpus:longmont-c1:session-5:2e5ad974e07d",
+            "source_sha256": "2e5ad974e07d071a2f545d0503b3d09e9d4d1c211ad7fd6c048f69c05a0b351b",
+            "wall_seconds": 1.965
+          },
+          {
+            "accepted_assertion_count": 36,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 33,
+            "candidate_relationships": 13,
+            "candidate_sha256": "9de03afe2674966feb5d4b73ef2b4b59255b58ad0f4c52cc5e265e030c690032",
+            "child": "rev:e00f7327fe8028a9c4a886424b31c7e3",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:4130918195cc50058fdc0a08f5c64bed",
+            "published_relationships": 10,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 2,
+              "parent_binding_mismatch": 7,
+              "unmapped_predicate": 1
+            },
+            "session": 6,
+            "source_artifact_id": "full-corpus:longmont-c1:session-6:a6849dbc9bad",
+            "source_sha256": "a6849dbc9bad2045f728d7514deae3fb99fca38495281dfa126806d7087b5bf8",
+            "wall_seconds": 1.958
+          },
+          {
+            "accepted_assertion_count": 46,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 34,
+            "candidate_relationships": 25,
+            "candidate_sha256": "6bf7de5f65e19b9c2a8431ec14df6a6e32661c648e4202e0437ad0a540d048da",
+            "child": "rev:8d5e2b48b797af16144effd64184d872",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:e00f7327fe8028a9c4a886424b31c7e3",
+            "published_relationships": 19,
+            "relationship_rejections": {
+              "parent_binding_mismatch": 7,
+              "unmapped_predicate": 6
+            },
+            "session": 7,
+            "source_artifact_id": "full-corpus:longmont-c1:session-7:cca895ea6c64",
+            "source_sha256": "cca895ea6c64d72d248cf40e50de48ad3f710d3681237a749cc689efad9ec365",
+            "wall_seconds": 2.284
+          },
+          {
+            "accepted_assertion_count": 36,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 27,
+            "candidate_relationships": 15,
+            "candidate_sha256": "9d16a26e634103b641f456f2f12fa6efe16ec0e9f109cadff573da67e95fdb86",
+            "child": "rev:70094f1be9e6a91720b31da96b54659c",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:8d5e2b48b797af16144effd64184d872",
+            "published_relationships": 9,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 5,
+              "unmapped_predicate": 1
+            },
+            "session": 8,
+            "source_artifact_id": "full-corpus:longmont-c1:session-8:a5a1a534941b",
+            "source_sha256": "a5a1a534941b01c3a5b422a9b0f0504d309c6eb06da2a485454c027f265c7ac1",
+            "wall_seconds": 2.356
+          },
+          {
+            "accepted_assertion_count": 47,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 43,
+            "candidate_relationships": 11,
+            "candidate_sha256": "bb7edec08719a12c36c8548accebb88e8a2dec6a81e3e7dcb575774c2e081553",
+            "child": "rev:65430fd604533427a2e5c4a91f696012",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:70094f1be9e6a91720b31da96b54659c",
+            "published_relationships": 4,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 7
+            },
+            "session": 9,
+            "source_artifact_id": "full-corpus:longmont-c1:session-9:ee4c45abbc94",
+            "source_sha256": "ee4c45abbc94269adf0c5d3de90d92b27c4d77f46fa3a8e8259ae9327e8a31f7",
+            "wall_seconds": 3.432
+          },
+          {
+            "accepted_assertion_count": 22,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 22,
+            "candidate_relationships": 4,
+            "candidate_sha256": "128e79a0c59a1bea066e7f2d4f7dace0b6e627d04a301374ccabb70fb90c3609",
+            "child": "rev:bf1a027bb9aad95e13d9aedef5f7ce49",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:65430fd604533427a2e5c4a91f696012",
+            "published_relationships": 3,
+            "relationship_rejections": {
+              "parent_binding_mismatch": 3,
+              "unmapped_predicate": 1
+            },
+            "session": 10,
+            "source_artifact_id": "full-corpus:longmont-c1:session-10:202289dc3d5e",
+            "source_sha256": "202289dc3d5e49ded12d81b7c53e2f746201fe398e2ff61e5b97572feaea211c",
+            "wall_seconds": 2.973
+          },
+          {
+            "accepted_assertion_count": 40,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 29,
+            "candidate_relationships": 18,
+            "candidate_sha256": "86248d9ecd020d4182f7a0c48fff4cf37229e303ec3baf3ae1ebd6c8bcf77fc3",
+            "child": "rev:2a4fe8c6c8738061396eb1d22a5280ca",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:bf1a027bb9aad95e13d9aedef5f7ce49",
+            "published_relationships": 12,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "unmapped_predicate": 3
+            },
+            "session": 11,
+            "source_artifact_id": "full-corpus:longmont-c1:session-11:3bf37710bb26",
+            "source_sha256": "3bf37710bb268995431ed1fb02ad116e85aeb7187e60a6a3d33dd1569066b266",
+            "wall_seconds": 3.739
+          },
+          {
+            "accepted_assertion_count": 27,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 23,
+            "candidate_relationships": 11,
+            "candidate_sha256": "b661ccb579642875a294879da04ff94fd664824099ac31b77c08319c94551015",
+            "child": "rev:647c4c19b737ea6dfb5b85a59f2f561b",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:2a4fe8c6c8738061396eb1d22a5280ca",
+            "published_relationships": 9,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "parent_binding_mismatch": 5,
+              "unmapped_predicate": 1
+            },
+            "session": 12,
+            "source_artifact_id": "full-corpus:longmont-c1:session-12:26abfa1c2dba",
+            "source_sha256": "26abfa1c2dbac1f8e5a486ea847ca2c5ae1d83c622a18ef552263f848fe2081d",
+            "wall_seconds": 3.372
+          },
+          {
+            "accepted_assertion_count": 41,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 41,
+            "candidate_relationships": 10,
+            "candidate_sha256": "6b2b6d417dfa828756c29fca2e1a7640fc68a30f09ff940abc2908458733bc18",
+            "child": "rev:d212f5f12f1b8ebc6f556bf84b5269b3",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:647c4c19b737ea6dfb5b85a59f2f561b",
+            "published_relationships": 7,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "parent_binding_mismatch": 7,
+              "unmapped_predicate": 2
+            },
+            "session": 13,
+            "source_artifact_id": "full-corpus:longmont-c1:session-13:55b65ec5dcec",
+            "source_sha256": "55b65ec5dcec1098f97c5b4f5659e5062749277db821c970f4a0047df255837b",
+            "wall_seconds": 4.562
+          },
+          {
+            "accepted_assertion_count": 43,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 34,
+            "candidate_relationships": 15,
+            "candidate_sha256": "aadd9a81f2647b5d091ae18025eaaad4ec53936fb08a19f7bdddfb41689e91c9",
+            "child": "rev:621509b6ce47eeb3a0b7aa1600ca2dfb",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:d212f5f12f1b8ebc6f556bf84b5269b3",
+            "published_relationships": 9,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 5,
+              "unmapped_predicate": 1
+            },
+            "session": 14,
+            "source_artifact_id": "full-corpus:longmont-c1:session-14:e10679f7fe09",
+            "source_sha256": "e10679f7fe09d7f8a267730684702157ca08caa928bdfc246a4b8d03573f8e96",
+            "wall_seconds": 4.721
+          },
+          {
+            "accepted_assertion_count": 62,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 42,
+            "candidate_relationships": 20,
+            "candidate_sha256": "eaa78a508bbc9cfe977428f89d9129d25d679e8f3ac551896e4c13f4fc9781e3",
+            "child": "rev:6fb7f8b24edbb34809ee5b8f6a354d4e",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:621509b6ce47eeb3a0b7aa1600ca2dfb",
+            "published_relationships": 20,
+            "relationship_rejections": {},
+            "session": 15,
+            "source_artifact_id": "full-corpus:longmont-c1:session-15:24fa6f72ecfe",
+            "source_sha256": "24fa6f72ecfe16aa1d1bd4e21187a90c54b993b82da6a9ccbb8e0e0946227429",
+            "wall_seconds": 5.17
+          },
+          {
+            "accepted_assertion_count": 32,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 23,
+            "candidate_relationships": 13,
+            "candidate_sha256": "1d573776b31caba431059fdae820e8562b5c881b74d33449495297078d32b506",
+            "child": "rev:97bcc6aa7fe55e2acd87ccca964f7b5f",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:6fb7f8b24edbb34809ee5b8f6a354d4e",
+            "published_relationships": 10,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1
+            },
+            "session": 16,
+            "source_artifact_id": "full-corpus:longmont-c1:session-16:e8b8399abc94",
+            "source_sha256": "e8b8399abc94ba38daa3151d68b550f0ebc1c90e7a9181552ac71aecb098c161",
+            "wall_seconds": 4.89
+          },
+          {
+            "accepted_assertion_count": 16,
+            "campaign": "longmont-c1",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 17,
+            "candidate_relationships": 0,
+            "candidate_sha256": "dc36c0ad4cc4ba111f6830f98dd0eaa638e8266e9dc61a59704b72abe47ad93b",
+            "child": "rev:f34f5403f9403e48ddde66d3504ca060",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:97bcc6aa7fe55e2acd87ccca964f7b5f",
+            "published_relationships": 0,
+            "relationship_rejections": {
+              "parent_binding_mismatch": 1
+            },
+            "session": 17,
+            "source_artifact_id": "full-corpus:longmont-c1:session-17:0f4fb9ba1ef3",
+            "source_sha256": "0f4fb9ba1ef307b65b6579d70bf758cf0a423a2758e8fdc29d4ee8b397930e7f",
+            "wall_seconds": 3.972
+          },
+          {
+            "accepted_assertion_count": 26,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 23,
+            "candidate_relationships": 4,
+            "candidate_sha256": "a70b04f2a8ee5bc85ecf5154c2a52604463dbe3723e8ee4ec91c4036fe0fa08a",
+            "child": "rev:582be6e847c509acb3d968febd8caffe",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:f34f5403f9403e48ddde66d3504ca060",
+            "published_relationships": 3,
+            "relationship_rejections": {
+              "unmapped_predicate": 1
+            },
+            "session": 1,
+            "source_artifact_id": "full-corpus:longmont-c2:session-1:f1045adefbd6",
+            "source_sha256": "f1045adefbd67ec0943446bb17ab236388594d5d9dbfecb95646aa985e69c99b",
+            "wall_seconds": 4.293
+          },
+          {
+            "accepted_assertion_count": 18,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 17,
+            "candidate_relationships": 4,
+            "candidate_sha256": "70f92cbbefe5c75729bd76f8d9e3bdf75d245195bd24d4390d297d63f12f7ed6",
+            "child": "rev:ae07128416a38cbd9682dff18662a6d6",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:582be6e847c509acb3d968febd8caffe",
+            "published_relationships": 1,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "unmapped_predicate": 2
+            },
+            "session": 2,
+            "source_artifact_id": "full-corpus:longmont-c2:session-2:8a4080ac9537",
+            "source_sha256": "8a4080ac953780c13b30f5613907fb55c9fd4a1f891aa093fd9d3f245ebbca56",
+            "wall_seconds": 4.515
+          },
+          {
+            "accepted_assertion_count": 27,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 31,
+            "candidate_relationships": 4,
+            "candidate_sha256": "8e58bde5a7bc8ad8345beff169026220c5d62e09b0ea2cc07fac7adc81e6e533",
+            "child": "rev:0fc4825310adf8b51a1b6d2f533290c0",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:ae07128416a38cbd9682dff18662a6d6",
+            "published_relationships": 4,
+            "relationship_rejections": {
+              "parent_binding_mismatch": 8
+            },
+            "session": 3,
+            "source_artifact_id": "full-corpus:longmont-c2:session-3:7080c5f78d97",
+            "source_sha256": "7080c5f78d97bc39d2ac21a08e7f8b889da77844c376e64d67ea9269f5468bec",
+            "wall_seconds": 6.344
+          },
+          {
+            "accepted_assertion_count": 69,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 61,
+            "candidate_relationships": 9,
+            "candidate_sha256": "91e79610a3caa1e936c012990def3e3b3a04b98f0742f0cf6002dde142d00ed7",
+            "child": "rev:dce4bc0bec01e32e5724120c8ad81d58",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:0fc4825310adf8b51a1b6d2f533290c0",
+            "published_relationships": 8,
+            "relationship_rejections": {
+              "unmapped_predicate": 1
+            },
+            "session": 4,
+            "source_artifact_id": "full-corpus:longmont-c2:session-4:0263725f40f8",
+            "source_sha256": "0263725f40f846b0c731d5e28688a119582a948e05373f6d1c17e92f9a630832",
+            "wall_seconds": 8.698
+          },
+          {
+            "accepted_assertion_count": 36,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 40,
+            "candidate_relationships": 16,
+            "candidate_sha256": "35a857f8cbb6af4aa7d3b8b98d2d1a0b2a326a82d7e900a8d1585dd9a24d582b",
+            "child": "rev:1ae8c42a2aa803b101f47bc46b2e5f2c",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:dce4bc0bec01e32e5724120c8ad81d58",
+            "published_relationships": 7,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 4,
+              "parent_binding_mismatch": 11,
+              "unmapped_predicate": 5
+            },
+            "session": 5,
+            "source_artifact_id": "full-corpus:longmont-c2:session-5:40a1bbd868a3",
+            "source_sha256": "40a1bbd868a37af9594ae94ee5d2f6150826039e52e516727863cbc46899500c",
+            "wall_seconds": 7.424
+          },
+          {
+            "accepted_assertion_count": 37,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 34,
+            "candidate_relationships": 5,
+            "candidate_sha256": "2e0416b6de8aafb183f76d6924c85a9b03cec671b9594cf2eb2a57998c9b0883",
+            "child": "rev:5847a19f83d77c9b8ee0fcf9e794226d",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:1ae8c42a2aa803b101f47bc46b2e5f2c",
+            "published_relationships": 3,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "unmapped_predicate": 1
+            },
+            "session": 6,
+            "source_artifact_id": "full-corpus:longmont-c2:session-6:c4fe6d1592e9",
+            "source_sha256": "c4fe6d1592e97a550d250fb88bd914d239134868a48c3905ace8bb3162800b94",
+            "wall_seconds": 7.954
+          },
+          {
+            "accepted_assertion_count": 27,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 27,
+            "candidate_relationships": 0,
+            "candidate_sha256": "02ae4f4db35cee6044002f65532bb7bd0ad82b74399a5cb982937230bd5bc7cc",
+            "child": "rev:af4d1abb8ed47f0edfe9ed195d7a75f0",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:5847a19f83d77c9b8ee0fcf9e794226d",
+            "published_relationships": 0,
+            "relationship_rejections": {},
+            "session": 7,
+            "source_artifact_id": "full-corpus:longmont-c2:session-7:3944b26180b9",
+            "source_sha256": "3944b26180b92c1b26525052b8f5c5786513be997a19683fbe2d31a066872319",
+            "wall_seconds": 6.743
+          },
+          {
+            "accepted_assertion_count": 14,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 20,
+            "candidate_relationships": 0,
+            "candidate_sha256": "5b2aec9164ae5cde86ee0e88e2dfe6848c56818e7c5d91a853fd766acbfe456d",
+            "child": "rev:c905913e940fb85d4ea3ac61fe3dffc8",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:af4d1abb8ed47f0edfe9ed195d7a75f0",
+            "published_relationships": 0,
+            "relationship_rejections": {
+              "parent_binding_mismatch": 6
+            },
+            "session": 8,
+            "source_artifact_id": "full-corpus:longmont-c2:session-8:f62cfae78793",
+            "source_sha256": "f62cfae78793590a732b13de389be31c1299270d3823b65bd0d8d325e9c96840",
+            "wall_seconds": 5.812
+          },
+          {
+            "accepted_assertion_count": 43,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 40,
+            "candidate_relationships": 16,
+            "candidate_sha256": "3a5446012363028f96d9ec4b8ab470ade92dfdb1de3c192229f944694fe90110",
+            "child": "rev:fa95fab65b3394b627b91c55972060d1",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:c905913e940fb85d4ea3ac61fe3dffc8",
+            "published_relationships": 12,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 2,
+              "parent_binding_mismatch": 9,
+              "unmapped_predicate": 2
+            },
+            "session": 9,
+            "source_artifact_id": "full-corpus:longmont-c2:session-9:49ef13907bd8",
+            "source_sha256": "49ef13907bd8dff0d320fae33f88caec80bef842cd99f5412df9cb687321179a",
+            "wall_seconds": 8.097
+          },
+          {
+            "accepted_assertion_count": 64,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 41,
+            "candidate_relationships": 25,
+            "candidate_sha256": "f91e2633bae9d3853a3d74d3af0e6560e6635914747683a13e7b6737d93f98f4",
+            "child": "rev:d2a45f46b8b65f1deb4012c885d7973a",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:fa95fab65b3394b627b91c55972060d1",
+            "published_relationships": 25,
+            "relationship_rejections": {
+              "parent_binding_mismatch": 2
+            },
+            "session": 10,
+            "source_artifact_id": "full-corpus:longmont-c2:session-10:8482ee1639ec",
+            "source_sha256": "8482ee1639ec1156689e0339ff40626ac3da9c50b71d165a656250c45e1e3e7d",
+            "wall_seconds": 7.819
+          },
+          {
+            "accepted_assertion_count": 14,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 22,
+            "candidate_relationships": 0,
+            "candidate_sha256": "464641d608622284847194c10a0e5bb1e4add19ed1a209efe009245b6e134a58",
+            "child": "rev:8a749f8abe9466b42ddd5457bc7df9c5",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:d2a45f46b8b65f1deb4012c885d7973a",
+            "published_relationships": 0,
+            "relationship_rejections": {
+              "parent_binding_mismatch": 8
+            },
+            "session": 11,
+            "source_artifact_id": "full-corpus:longmont-c2:session-11:a64c1f3075a0",
+            "source_sha256": "a64c1f3075a0c3591497ea3d72501de6f48cdcabcbed9b5d1c0a1168ec2f13e2",
+            "wall_seconds": 7.033
+          },
+          {
+            "accepted_assertion_count": 19,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 27,
+            "candidate_relationships": 0,
+            "candidate_sha256": "6fe249eaf1747d1f52bae62c8016313b4d1282ceede119fdc24971f4f2330df8",
+            "child": "rev:0b6306560a482e06182d05c910e0729c",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:8a749f8abe9466b42ddd5457bc7df9c5",
+            "published_relationships": 0,
+            "relationship_rejections": {
+              "parent_binding_mismatch": 8
+            },
+            "session": 12,
+            "source_artifact_id": "full-corpus:longmont-c2:session-12:c702e71fdf13",
+            "source_sha256": "c702e71fdf13211c871a6cf5f618b14edfe3358253db067d955745a48c2d1983",
+            "wall_seconds": 7.515
+          },
+          {
+            "accepted_assertion_count": 30,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 28,
+            "candidate_relationships": 4,
+            "candidate_sha256": "4f1f7b44c9500414841f733ee0c761268d2a19a6f30eafa87f2157a824b98e77",
+            "child": "rev:dce1f4c87cc448406bcea19be8ddc446",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:0b6306560a482e06182d05c910e0729c",
+            "published_relationships": 2,
+            "relationship_rejections": {
+              "unmapped_predicate": 2
+            },
+            "session": 13,
+            "source_artifact_id": "full-corpus:longmont-c2:session-13:3a1278d88978",
+            "source_sha256": "3a1278d88978d28118494dfb881f5bc5f479fe1ffd88fb039fd8dfe52661e27f",
+            "wall_seconds": 7.667
+          },
+          {
+            "accepted_assertion_count": 7,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 33,
+            "candidate_relationships": 1,
+            "candidate_sha256": "be837d673ba5f303b10ec29e44fdb41716aaf26a172940e5a760649d87f41d3d",
+            "child": "rev:987317f0d75f7c778e191c09f12d29d3",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:dce1f4c87cc448406bcea19be8ddc446",
+            "published_relationships": 1,
+            "relationship_rejections": {
+              "parent_binding_mismatch": 26
+            },
+            "session": 14,
+            "source_artifact_id": "full-corpus:longmont-c2:session-14:99ea4cce27ac",
+            "source_sha256": "99ea4cce27aca2db6670fdfab3bc76e495bbf8a886733441a93416ab7a503823",
+            "wall_seconds": 7.407
+          },
+          {
+            "accepted_assertion_count": 15,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 26,
+            "candidate_relationships": 1,
+            "candidate_sha256": "30697f4f4e7d35be335d54cdbd833048e2bffa8682a44a6eb5767c334f009af4",
+            "child": "rev:727038ef8a520f1371a05f7ba3353c9a",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:987317f0d75f7c778e191c09f12d29d3",
+            "published_relationships": 0,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 1,
+              "parent_binding_mismatch": 10
+            },
+            "session": 15,
+            "source_artifact_id": "full-corpus:longmont-c2:session-15:6fc1b7d1a193",
+            "source_sha256": "6fc1b7d1a193d65eb891a89018d3fb9057f68e85abbc33eb5108bdd642c7c956",
+            "wall_seconds": 8.08
+          },
+          {
+            "accepted_assertion_count": 35,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 23,
+            "candidate_relationships": 20,
+            "candidate_sha256": "675e2570646194b770ff8a0b4da177f9b5db3a3c3bb2a1438f79920057a64538",
+            "child": "rev:49210b0feb71f73c31af980ce0097513",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:727038ef8a520f1371a05f7ba3353c9a",
+            "published_relationships": 12,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 4,
+              "unmapped_predicate": 4
+            },
+            "session": 16,
+            "source_artifact_id": "full-corpus:longmont-c2:session-16:38fe100ba220",
+            "source_sha256": "38fe100ba220bb6faf544fe79f6b77a4c8aa0219d9535aa608ca04743caef535",
+            "wall_seconds": 7.864
+          },
+          {
+            "accepted_assertion_count": 51,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 30,
+            "candidate_relationships": 27,
+            "candidate_sha256": "3889a557a2c4c6652c6ca17b12a9fc3bff70cd8aaedf784191fa01e4058c82a3",
+            "child": "rev:23282770f92fc1bf6eaa72afb070ff81",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:49210b0feb71f73c31af980ce0097513",
+            "published_relationships": 21,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 3,
+              "unmapped_predicate": 3
+            },
+            "session": 17,
+            "source_artifact_id": "full-corpus:longmont-c2:session-17:6f01fc518dea",
+            "source_sha256": "6f01fc518deabfd705cfc76ba9754a72de6061f4e3e8443a0df2dbf8e088f97a",
+            "wall_seconds": 9.8
+          },
+          {
+            "accepted_assertion_count": 33,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 29,
+            "candidate_relationships": 9,
+            "candidate_sha256": "b57966a5232ac786c788b15730176ac1323f16d40efebbbf2327c4d3ee8f32f5",
+            "child": "rev:21950e529c2f1e2f3e9650d16c18a2b1",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:23282770f92fc1bf6eaa72afb070ff81",
+            "published_relationships": 4,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 2,
+              "unmapped_predicate": 3
+            },
+            "session": 18,
+            "source_artifact_id": "full-corpus:longmont-c2:session-18:e920bb658a5b",
+            "source_sha256": "e920bb658a5bc5bd56cb576d3a9071fbb9df71a30e93117596efb7a98e8d1d7c",
+            "wall_seconds": 9.379
+          },
+          {
+            "accepted_assertion_count": 29,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 29,
+            "candidate_relationships": 8,
+            "candidate_sha256": "c9dd6362e3bd7e2529b27fb21b070979165546838607c32e691bd6321c4d64ad",
+            "child": "rev:c0e1ac9ca2ac8a729e4ead0edf1517b4",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:21950e529c2f1e2f3e9650d16c18a2b1",
+            "published_relationships": 6,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 2,
+              "parent_binding_mismatch": 6
+            },
+            "session": 19,
+            "source_artifact_id": "full-corpus:longmont-c2:session-19:c5a033c25e53",
+            "source_sha256": "c5a033c25e53e5dd40ba751efafbd39b49c4f1aa9ed910142d70b20e8b3a4b7d",
+            "wall_seconds": 8.594
+          },
+          {
+            "accepted_assertion_count": 44,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 38,
+            "candidate_relationships": 10,
+            "candidate_sha256": "885f734816c76efa655a3517a8f41c7369ab9b4fef7e57e2a6dc4e3efe94a144",
+            "child": "rev:71be288d6010630f168a6943547dcb91",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:c0e1ac9ca2ac8a729e4ead0edf1517b4",
+            "published_relationships": 6,
+            "relationship_rejections": {
+              "unmapped_predicate": 4
+            },
+            "session": 20,
+            "source_artifact_id": "full-corpus:longmont-c2:session-20:70f3983a0182",
+            "source_sha256": "70f3983a0182f2a12651a301c29de8e709296edee699184cdf06cbd1a071fa35",
+            "wall_seconds": 9.217
+          },
+          {
+            "accepted_assertion_count": 24,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 25,
+            "candidate_relationships": 9,
+            "candidate_sha256": "c7bce20c7848255a6f2f90802c0e27b0851445ab49bf3cd0c206be95d8d572ab",
+            "child": "rev:e80e4b092d026b21a32e19f340e71f0d",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:71be288d6010630f168a6943547dcb91",
+            "published_relationships": 6,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 2,
+              "parent_binding_mismatch": 7,
+              "unmapped_predicate": 1
+            },
+            "session": 21,
+            "source_artifact_id": "full-corpus:longmont-c2:session-21:ad4ecd013dad",
+            "source_sha256": "ad4ecd013dad92cdcb1a11d412c9f73adb446b15f2ce62cfc50a98358588423f",
+            "wall_seconds": 9.909
+          },
+          {
+            "accepted_assertion_count": 41,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 32,
+            "candidate_relationships": 14,
+            "candidate_sha256": "4cc310c9251cd888e0c1970f84e353723ad7eb74e514c779129cd16bfe11137d",
+            "child": "rev:179f52f9e629f88c36c9605a3f93b0ab",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:e80e4b092d026b21a32e19f340e71f0d",
+            "published_relationships": 9,
+            "relationship_rejections": {
+              "unmapped_kind": 1,
+              "unmapped_predicate": 5
+            },
+            "session": 22,
+            "source_artifact_id": "full-corpus:longmont-c2:session-22:06c978131f31",
+            "source_sha256": "06c978131f31e6ec85ff6286fe550f07bd2a3c5972c86bf29533079aebbf7083",
+            "wall_seconds": 10.369
+          },
+          {
+            "accepted_assertion_count": 45,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 41,
+            "candidate_relationships": 15,
+            "candidate_sha256": "2d8392ebd6aa6ce96fcaf868f61ef2b2c957cd6cf39202b5e795e2ce7c120a3a",
+            "child": "rev:8f5bfb56b1b8003e35fabc793028b51e",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:179f52f9e629f88c36c9605a3f93b0ab",
+            "published_relationships": 5,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 4,
+              "unmapped_kind": 1,
+              "unmapped_predicate": 5
+            },
+            "session": 23,
+            "source_artifact_id": "full-corpus:longmont-c2:session-23:e08ce9c53189",
+            "source_sha256": "e08ce9c53189e48bb7d00c5a7059acec29d4497006ca66295fc5da1b0a7bad5a",
+            "wall_seconds": 12.228
+          },
+          {
+            "accepted_assertion_count": 19,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 17,
+            "candidate_relationships": 3,
+            "candidate_sha256": "3ae2638e62a552ab48ee2f7ed19c4dbaebf4fee35760fc7ddbc5c5a1a9385e4a",
+            "child": "rev:ffd798545150d30eaf6f870c9d97dd10",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:8f5bfb56b1b8003e35fabc793028b51e",
+            "published_relationships": 2,
+            "relationship_rejections": {
+              "unmapped_kind": 1,
+              "unmapped_predicate": 1
+            },
+            "session": 24,
+            "source_artifact_id": "full-corpus:longmont-c2:session-24:7fe085121d65",
+            "source_sha256": "7fe085121d651f21211f8e58c3192159c4cfaf7b07ce9f78d02b4d082e5df8bc",
+            "wall_seconds": 8.354
+          },
+          {
+            "accepted_assertion_count": 41,
+            "campaign": "longmont-c2",
+            "candidate_load_rejections": {},
+            "candidate_nodes": 25,
+            "candidate_relationships": 23,
+            "candidate_sha256": "080147de8d084179e54da58b69ca48dbd2a3433a9c6d82f7de17fce8b1ae68e4",
+            "child": "rev:6f4667d9b17743860cd38cc8b605466e",
+            "errors": [],
+            "model_calls": 0,
+            "parent": "rev:ffd798545150d30eaf6f870c9d97dd10",
+            "published_relationships": 16,
+            "relationship_rejections": {
+              "endpoint_kind_not_admitted": 5,
+              "unmapped_kind": 1,
+              "unmapped_predicate": 2
+            },
+            "session": 25,
+            "source_artifact_id": "full-corpus:longmont-c2:session-25:a3513d738fe0",
+            "source_sha256": "a3513d738fe09820dfbee1c30adcba176f0beca070701b4a67e94a4935e822b7",
+            "wall_seconds": 9.943
+          }
+        ]
+      },
+      "d0": "rev:615246aff38a6a53e43a64ffc716471f",
+      "database": "dmb_full_corpus_openai",
+      "genesis": {
+        "baseline_roster_key": "1",
+        "canonical_pc_labels": [
+          "Baergrom",
+          "Bonogo",
+          "Caelynn",
+          "Ephanna",
+          "Karsemine",
+          "Stafl"
+        ],
+        "d0": "rev:615246aff38a6a53e43a64ffc716471f",
+        "outcome": "initialized",
+        "parent_revision_id": null,
+        "pc_identity_keys": [
+          "pc::baergrom",
+          "pc::bonogo",
+          "pc::caelynn",
+          "pc::ephanna",
+          "pc::karsemine",
+          "pc::stafl"
+        ],
+        "pc_object_ids": [
+          "node:baergrom",
+          "node:bonogo",
+          "node:caelynn",
+          "node:ephanna",
+          "node:karsemine",
+          "node:stafl"
+        ],
+        "prepare_inert": true,
+        "pristine_before": {
+          "adoptions": 0,
+          "artifacts": 0,
+          "contributions": 0,
+          "heads": 0,
+          "receipts": 0,
+          "revisions": 0,
+          "revisions_src": 0
+        },
+        "source_revision_id": "sha256:f0f49045df06f7baf61aa9c43f3739d16483eeb20ac8ed1bbf29f8209474af25"
+      },
+      "genesis_predecessor_merge_sha": "876123a3d197d426ce76e03a30f059093ba9b4f4",
+      "identity_observations": {
+        "duplicate_node_id": 0,
+        "endpoint_kind_not_admitted": 68,
+        "invalid_node_type": 0,
+        "parent_binding_mismatch": 132,
+        "unmapped_kind": 5,
+        "unmapped_predicate": 69
+      },
+      "model_calls": 0,
+      "model_credentials_present": [],
+      "native_head_matches_terminal": true,
+      "notebook_head": "820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed",
+      "production_head_recorded_in_manifest": "f24d109d0cc0c6b1607dc82034b535c8345681df",
+      "runner_head_at_run": "f24d109d0cc0c6b1607dc82034b535c8345681df",
+      "structural_metrics": {
+        "accepted_assertions": 1441,
+        "candidate_load_rejections": {},
+        "candidate_nodes": 1265,
+        "candidate_relationships": 463,
+        "published_relationships": 320,
+        "relationship_rejections": {
+          "endpoint_kind_not_admitted": 68,
+          "parent_binding_mismatch": 132,
+          "unmapped_kind": 5,
+          "unmapped_predicate": 69
+        },
+        "terminal_evidence_refs": 410,
+        "terminal_graph_objects": 1115,
+        "terminal_graph_relationships": 320,
+        "terminal_object_count": 1115,
+        "terminal_objects_by_kind": {
+          "creature": 1,
+          "faction": 33,
+          "group": 65,
+          "item": 332,
+          "location": 224,
+          "mystery": 302,
+          "npc": 121,
+          "party": 30,
+          "player_character": 6,
+          "thread": 1
+        },
+        "terminal_relationship_count": 320,
+        "wall_seconds": 252.463
+      },
+      "terminal_revision": "rev:6f4667d9b17743860cd38cc8b605466e",
+      "world_id": "dogfood-frozen42-openai-v1"
+    }
+  },
+  "candidate_frozen_head_sha": "d6e2599bbabb9719bc92601f7bc1ad8b69411e98",
+  "comparison": {
+    "accepted_assertions": {
+      "deepseek-v4.1-flash": 1522,
+      "openai-gpt-5.4-mini": 1441
+    },
+    "both_c1_s1_ordinary_children_of_d0": true,
+    "both_chains_complete": true,
+    "candidate_load_rejections": {
+      "deepseek-v4.1-flash": {
+        "duplicate_node_id": 4,
+        "invalid_node_type": 1
+      },
+      "openai-gpt-5.4-mini": {}
+    },
+    "candidate_nodes": {
+      "deepseek-v4.1-flash": 1079,
+      "openai-gpt-5.4-mini": 1265
+    },
+    "candidate_relationships": {
+      "deepseek-v4.1-flash": 636,
+      "openai-gpt-5.4-mini": 463
+    },
+    "genesis_pc_object_ids_equivalent": true,
+    "genesis_registry_digest_equivalent": true,
+    "notes": [
+      "candidate-generation differences are frozen input differences, not runner mutations",
+      "governed-publication differences include unmapped_kind, unmapped_predicate, endpoint_kind_not_admitted, and parent_binding_mismatch skips at the selection boundary",
+      "DeepSeek C2 S9/S12 required runner-local load sanitization of duplicate node IDs and invalid node_type sublocation; OpenAI graphs loaded without that hygiene",
+      "more nodes/edges is not treated as better"
+    ],
+    "published_relationships": {
+      "deepseek-v4.1-flash": 458,
+      "openai-gpt-5.4-mini": 320
+    },
+    "relationship_rejections": {
+      "deepseek-v4.1-flash": {
+        "endpoint_kind_not_admitted": 87,
+        "parent_binding_mismatch": 3,
+        "unmapped_kind": 4,
+        "unmapped_predicate": 84
+      },
+      "openai-gpt-5.4-mini": {
+        "endpoint_kind_not_admitted": 68,
+        "parent_binding_mismatch": 132,
+        "unmapped_kind": 5,
+        "unmapped_predicate": 69
+      }
+    },
+    "terminal_evidence_refs": {
+      "deepseek-v4.1-flash": 402,
+      "openai-gpt-5.4-mini": 410
+    },
+    "terminal_graph_relationships": {
+      "deepseek-v4.1-flash": 458,
+      "openai-gpt-5.4-mini": 320
+    },
+    "terminal_object_count": {
+      "deepseek-v4.1-flash": 1064,
+      "openai-gpt-5.4-mini": 1115
+    },
+    "terminal_objects_by_kind": {
+      "deepseek-v4.1-flash": {
+        "creature": 13,
+        "event": 16,
+        "faction": 43,
+        "group": 34,
+        "item": 277,
+        "location": 170,
+        "mystery": 332,
+        "npc": 161,
+        "party": 9,
+        "player_character": 6,
+        "thread": 3
+      },
+      "openai-gpt-5.4-mini": {
+        "creature": 1,
+        "faction": 33,
+        "group": 65,
+        "item": 332,
+        "location": 224,
+        "mystery": 302,
+        "npc": 121,
+        "party": 30,
+        "player_character": 6,
+        "thread": 1
+      }
+    }
+  },
+  "execution_head_sha": "04ff89083aabac75c4b7b135e685d1b1efefd44c",
+  "experiment_claim": "two autoregressive, chronologically generated candidate arms, followed by zero-model governed replay into independently initialized Worlds.",
+  "generated_at": "2026-09-15T14:35:25Z",
+  "genesis_predecessor_merge_sha": "876123a3d197d426ce76e03a30f059093ba9b4f4",
+  "notebook_head_sha": "820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed",
+  "overall": {
+    "do_not_merge_715": true,
+    "do_not_merge_execution_branch": true,
+    "semantic_verdict": "SEMANTIC MODEL SELECTION HOLD",
+    "stop_conditions": [],
+    "structural_verdict": "STRUCTURAL ACCEPTANCE PASS",
+    "teardown_status": "not_started; rehearsal databases retained for independent evidence review"
+  },
+  "production_base_sha": "876123a3d197d426ce76e03a30f059093ba9b4f4",
+  "schema": "dmb_frozen_42_session_acceptance_result_v1"
+}
