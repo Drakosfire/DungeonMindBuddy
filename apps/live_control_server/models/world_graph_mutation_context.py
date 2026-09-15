@@ -59,6 +59,16 @@ class MutationObject:
 
 
 @dataclass(frozen=True)
+class MutationRelationship:
+    """One relationship fact visible to governed mutation at the sealed parent."""
+
+    relationship_id: str
+    source_object_id: str
+    target_object_id: str
+    predicate: str
+
+
+@dataclass(frozen=True)
 class WorldGraphMutationContext:
     """Exact-revision identity facts for prepare / confirm.
 
@@ -76,6 +86,7 @@ class WorldGraphMutationContext:
     identity_redirects: Mapping[str, str] = field(default_factory=dict)
     identity_decisions: tuple[IdentityDecisionRecord, ...] = ()
     identity_ledger_records: tuple[Mapping[str, Any], ...] = ()
+    relationships: Mapping[str, MutationRelationship] = field(default_factory=dict)
 
 
     def object_ids(self) -> frozenset[str]:
@@ -150,6 +161,61 @@ def mutation_context_from_store(
         decisions.append(record)
         ledger_records.append(record.model_dump(mode="json"))
 
+    relationships: dict[str, MutationRelationship] = {}
+    raw_relationships = getattr(store, "relationships", None)
+    if isinstance(raw_relationships, Mapping):
+        for rel in dict(raw_relationships).values():
+            if isinstance(rel, MutationRelationship):
+                relationships[rel.relationship_id] = rel
+                continue
+            if isinstance(rel, Mapping):
+                relationship_id = str(rel.get("relationship_id") or rel.get("edge_id") or "").strip()
+                source = str(
+                    rel.get("source_object_id")
+                    or rel.get("subject_object_id")
+                    or rel.get("from_node_id")
+                    or ""
+                ).strip()
+                target = str(
+                    rel.get("target_object_id")
+                    or rel.get("object_object_id")
+                    or rel.get("to_node_id")
+                    or ""
+                ).strip()
+                predicate = str(
+                    rel.get("predicate") or rel.get("relationship_type") or ""
+                ).strip()
+            else:
+                relationship_id = str(
+                    getattr(rel, "relationship_id", None)
+                    or getattr(rel, "edge_id", "")
+                    or ""
+                ).strip()
+                source = str(
+                    getattr(rel, "source_object_id", None)
+                    or getattr(rel, "subject_object_id", None)
+                    or getattr(rel, "from_node_id", "")
+                    or ""
+                ).strip()
+                target = str(
+                    getattr(rel, "target_object_id", None)
+                    or getattr(rel, "object_object_id", None)
+                    or getattr(rel, "to_node_id", "")
+                    or ""
+                ).strip()
+                predicate = str(
+                    getattr(rel, "predicate", None)
+                    or getattr(rel, "relationship_type", "")
+                    or ""
+                ).strip()
+            if not relationship_id or not source or not target or not predicate:
+                continue
+            relationships[relationship_id] = MutationRelationship(
+                relationship_id=relationship_id,
+                source_object_id=source,
+                target_object_id=target,
+                predicate=predicate,
+            )
 
     return WorldGraphMutationContext(
         world_id=world_id,
@@ -160,6 +226,7 @@ def mutation_context_from_store(
         identity_redirects=redirects,
         identity_decisions=tuple(decisions),
         identity_ledger_records=tuple(ledger_records),
+        relationships=relationships,
     )
 
 
@@ -293,6 +360,7 @@ def mutation_context_with_sealed_identity(
         identity_redirects=redirects,
         identity_decisions=records,
         identity_ledger_records=tuple(dict(item) for item in decisions),
+        relationships=base.relationships,
     )
 
 
@@ -935,11 +1003,73 @@ def resolve_identity_against_context(
     )
 
 
+def durable_relationship_id(
+    *,
+    source_object_id: str,
+    buddy_predicate: str,
+    target_object_id: str,
+) -> str:
+    """Return the write-path durable relationship id for one Buddy edge."""
+    predicate = (buddy_predicate or "").strip() or "related_to"
+    return f"edge:{source_object_id}:{predicate}:{target_object_id}"
+
+
+def _predicates_compatible(parent_predicate: str, buddy_predicate: str) -> bool:
+    parent_wire = wire_kind(parent_predicate)
+    buddy_wire = wire_kind(buddy_predicate)
+    if parent_wire and buddy_wire and parent_wire == buddy_wire:
+        return True
+    try:
+        from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+            resolve_buddy_predicate_mapping_v4,
+        )
+    except Exception:
+        return False
+    mapping = resolve_buddy_predicate_mapping_v4((buddy_predicate or "").strip())
+    if mapping is None or not mapping[0]:
+        return False
+    return parent_wire == wire_kind(mapping[0])
+
+
+def classify_edge_against_parent(
+    context: WorldGraphMutationContext,
+    *,
+    relationship_id: str,
+    source_object_id: str,
+    target_object_id: str,
+    buddy_predicate: str,
+) -> str:
+    """Classify one edge against parent relationship facts.
+
+    Returns:
+      - ``created_new`` when the durable id is free
+      - ``resolved_existing`` when the id is occupied with the same endpoints
+        and an admitted compatible predicate (confirm existing; do not CREATE)
+      - ``blocked_collision`` when the id is occupied incompatibly
+    """
+    rid = str(relationship_id or "").strip()
+    if not rid:
+        return "created_new"
+    existing = context.relationships.get(rid)
+    if existing is None:
+        return "created_new"
+    if (
+        existing.source_object_id == source_object_id
+        and existing.target_object_id == target_object_id
+        and _predicates_compatible(existing.predicate, buddy_predicate)
+    ):
+        return "resolved_existing"
+    return "blocked_collision"
+
+
 __all__ = [
     "MutationObject",
+    "MutationRelationship",
     "WORLDBUILDING_IDENTITY_SNAPSHOT_SCHEMA",
     "WorldGraphMutationContext",
     "apply_identity_redirects_to_objects",
+    "classify_edge_against_parent",
+    "durable_relationship_id",
     "endpoint_available",
     "identity_facts_from_dungeonmind_decisions",
     "identity_snapshot_from_context",

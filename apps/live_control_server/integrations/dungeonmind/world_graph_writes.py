@@ -21,6 +21,7 @@ from typing import Any
 
 from apps.live_control_server.models.world_graph_mutation_context import (
     MutationObject,
+    MutationRelationship,
     WorldGraphMutationContext,
     apply_identity_redirects_to_objects,
     identity_facts_from_dungeonmind_decisions,
@@ -221,6 +222,7 @@ def _context_with_dungeonmind_identity(
     objects: dict[str, MutationObject],
     alias_owners: dict[str, tuple[str, ...]],
     dungeonmind_decisions: Sequence[Any] | None,
+    relationships: dict[str, MutationRelationship] | None = None,
 ) -> WorldGraphMutationContext:
     redirects: dict[str, str] = {}
     records: tuple[Any, ...] = ()
@@ -253,6 +255,7 @@ def _context_with_dungeonmind_identity(
         identity_redirects=redirects,
         identity_decisions=records,
         identity_ledger_records=ledger_records,
+        relationships=dict(relationships or {}),
     )
 
 
@@ -458,6 +461,61 @@ def _alias_values(raw_aliases: Any) -> tuple[str, ...]:
     return tuple(values)
 
 
+def _mutation_relationships_from_payload(
+    payload: Mapping[str, Any],
+) -> dict[str, MutationRelationship]:
+    relationships: dict[str, MutationRelationship] = {}
+    for raw in list(payload.get("relationships") or []):
+        if not isinstance(raw, Mapping):
+            continue
+        relationship_id = str(raw.get("relationship_id") or "").strip()
+        source = str(
+            raw.get("source_object_id") or raw.get("subject_object_id") or ""
+        ).strip()
+        target = str(
+            raw.get("target_object_id") or raw.get("object_object_id") or ""
+        ).strip()
+        predicate = str(raw.get("predicate") or "").strip()
+        if not relationship_id or not source or not target or not predicate:
+            continue
+        relationships[relationship_id] = MutationRelationship(
+            relationship_id=relationship_id,
+            source_object_id=source,
+            target_object_id=target,
+            predicate=predicate,
+        )
+    return relationships
+
+
+def _mutation_relationships_from_graph(graph: Any) -> dict[str, MutationRelationship]:
+    relationships: dict[str, MutationRelationship] = {}
+    raw_map = getattr(graph, "relationships", None) or {}
+    for rel in dict(raw_map).values():
+        relationship_id = str(
+            getattr(rel, "relationship_id", None) or getattr(rel, "edge_id", "") or ""
+        ).strip()
+        source = str(
+            getattr(rel, "source_object_id", None)
+            or getattr(rel, "subject_object_id", "")
+            or ""
+        ).strip()
+        target = str(
+            getattr(rel, "target_object_id", None)
+            or getattr(rel, "object_object_id", "")
+            or ""
+        ).strip()
+        predicate = str(getattr(rel, "predicate", "") or "").strip()
+        if not relationship_id or not source or not target or not predicate:
+            continue
+        relationships[relationship_id] = MutationRelationship(
+            relationship_id=relationship_id,
+            source_object_id=source,
+            target_object_id=target,
+            predicate=predicate,
+        )
+    return relationships
+
+
 def mutation_context_from_native_projection(
     result: Any,
     *,
@@ -498,6 +556,7 @@ def mutation_context_from_native_projection(
         objects=objects,
         alias_owners=alias_owners,
         dungeonmind_decisions=dungeonmind_decisions,
+        relationships=_mutation_relationships_from_graph(graph),
     )
 
 
@@ -551,6 +610,7 @@ def mutation_context_from_revision_payload(
         objects=objects,
         alias_owners=alias_owners,
         dungeonmind_decisions=dungeonmind_decisions,
+        relationships=_mutation_relationships_from_payload(payload),
     )
 
 
