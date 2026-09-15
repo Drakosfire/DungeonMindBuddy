@@ -359,6 +359,91 @@ def test_runner_binds_world_id_before_admission_without_changing_production_crea
     assert canonical.world_id is None
 
 
+def test_accepted_proposals_reads_v2_flat_effect() -> None:
+    package = {
+        "effect": {
+            "accepted_proposals": [
+                {
+                    "assertion_id": "assertion:loc",
+                    "assertion_kind": "node",
+                    "subject_node_id": "loc:river-edge-pub",
+                    "identity_resolution_outcome": "created_new",
+                },
+                {
+                    "assertion_id": "assertion:edge",
+                    "assertion_kind": "edge",
+                    "predicate": "located_in",
+                    "subject_node_id": "npc:pippa",
+                    "target_node_id": "loc:river-edge-pub",
+                },
+            ]
+        }
+    }
+    proposals = acc.accepted_proposals(package)
+    assert set(proposals) == {"assertion:loc", "assertion:edge"}
+    assert proposals["assertion:edge"]["predicate"] == "located_in"
+
+
+def test_created_new_existing_object_is_rejected_before_confirm() -> None:
+    context = SimpleNamespace(
+        objects={"loc:river-edge-pub": SimpleNamespace(kind="location", label="The River's Edge Pub")}
+    )
+    selectable, rejected, published_edges = acc.select_confirmable_assertions(
+        [
+            {
+                "selectable": True,
+                "kind": "object",
+                "identity_outcome": "created_new",
+                "assertion_id": "assertion:loc",
+                "slice_qualified_id": "0::assertion:loc",
+            },
+            {
+                "selectable": True,
+                "kind": "object",
+                "identity_outcome": "created_new",
+                "assertion_id": "assertion:new",
+                "slice_qualified_id": "0::assertion:new",
+            },
+            {
+                "selectable": True,
+                "kind": "relationship",
+                "assertion_id": "assertion:edge",
+                "slice_qualified_id": "0::assertion:edge",
+            },
+        ],
+        assertions={
+            "assertion:loc": {
+                "assertion_id": "assertion:loc",
+                "subject_node_id": "loc:river-edge-pub",
+                "identity_resolution_outcome": "created_new",
+            },
+            "assertion:new": {
+                "assertion_id": "assertion:new",
+                "subject_node_id": "npc:new-person",
+                "identity_resolution_outcome": "created_new",
+            },
+            "assertion:edge": {
+                "assertion_id": "assertion:edge",
+                "predicate": "located_in",
+                "subject_node_id": "npc:new-person",
+                "target_node_id": "loc:river-edge-pub",
+            },
+        },
+        context=context,
+        candidate={
+            "nodes": [
+                {"id": "loc:river-edge-pub", "kind": "location"},
+                {"id": "npc:new-person", "kind": "npc"},
+            ]
+        },
+    )
+    assert "0::assertion:loc" not in selectable
+    assert "0::assertion:new" in selectable
+    assert rejected["parent_binding_mismatch"] == 1
+    assert published_edges == 1
+    assert "0::assertion:edge" in selectable
+
+
 def test_historical_source_rebinding_remains_runner_private(tmp_path: Path) -> None:
     recap = tmp_path / "recap.md"
     recap.write_text("# Recap\n\nObserved.\n", encoding="utf-8")

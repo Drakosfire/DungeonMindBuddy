@@ -500,6 +500,81 @@ def _edge_rejection_reason(
     return None
 
 
+def accepted_proposals(package: Mapping[str, Any]) -> dict[str, dict[str, Any]]:
+    """Read v2 flat or v3 sliced sealed proposals. Never invent identity."""
+    from graph_memory.extract_promote_proposal import contribution_slices_from_effect
+
+    proposals: dict[str, dict[str, Any]] = {}
+    for part in contribution_slices_from_effect(package.get("effect") or {}):
+        for item in part.get("accepted_proposals") or []:
+            if not isinstance(item, Mapping):
+                continue
+            assertion_id = str(item.get("assertion_id") or "")
+            if assertion_id:
+                proposals[assertion_id] = dict(item)
+    return proposals
+
+
+def select_confirmable_assertions(
+    review_items: list[Mapping[str, Any]],
+    *,
+    assertions: Mapping[str, Mapping[str, Any]],
+    context: Any,
+    candidate: Mapping[str, Any],
+) -> tuple[list[str], dict[str, int], int]:
+    """Apply current production qualification at the selection boundary."""
+    selectable: list[str] = []
+    rejected: dict[str, int] = {}
+    published_edges = 0
+    existing_ids = set(getattr(context, "objects", {}) or {})
+    kinds = _endpoint_kinds(context, candidate)
+    for item in review_items:
+        if not item.get("selectable"):
+            continue
+        sid = str(item.get("slice_qualified_id") or "")
+        kind = str(item.get("kind") or "").lower()
+        assertion = assertions.get(item.get("assertion_id")) or {}
+        if kind in {"edge", "relationship"}:
+            raw_value = assertion.get("value")
+            if isinstance(raw_value, str) and raw_value:
+                try:
+                    parsed_value = json.loads(raw_value)
+                except ValueError:
+                    parsed_value = {}
+            elif isinstance(raw_value, dict):
+                parsed_value = raw_value
+            else:
+                parsed_value = {}
+            reason = _edge_rejection_reason(
+                predicate=str(assertion.get("predicate") or ""),
+                edge_id=str(parsed_value.get("edge_id") or ""),
+                subject_kind=kinds.get(
+                    str(assertion.get("subject_node_id") or assertion.get("subject_object_id") or "")
+                ),
+                target_kind=kinds.get(
+                    str(assertion.get("target_node_id") or assertion.get("object_object_id") or "")
+                ),
+            )
+            if reason is None:
+                selectable.append(sid)
+                published_edges += 1
+            else:
+                rejected[reason] = rejected.get(reason, 0) + 1
+            continue
+        oid = str(assertion.get("subject_node_id") or assertion.get("subject_object_id") or "")
+        outcome = str(
+            item.get("identity_outcome") or assertion.get("identity_resolution_outcome") or ""
+        )
+        if oid in existing_ids and outcome in {"created_new", "provisional_new", ""}:
+            rejected["parent_binding_mismatch"] = rejected.get("parent_binding_mismatch", 0) + 1
+            continue
+        if outcome == "resolved_existing" and oid not in existing_ids:
+            rejected["parent_binding_mismatch"] = rejected.get("parent_binding_mismatch", 0) + 1
+            continue
+        selectable.append(sid)
+    return selectable, rejected, published_edges
+
+
 def _prepare_extract_promote(*args: Any, **kwargs: Any) -> Any:
     from graph_memory.extract_promote_ops import prepare_extract_promote
 
@@ -667,45 +742,13 @@ def publish_session(
         if str(prepared.parent_revision_id) != expected_parent:
             raise AcceptanceError("prepared package parent is not the expected parent")
     package = world_graph_writes.bind_identity_ledger_to_package(prepared.review_package, context)
-    assertions = {
-        item["assertion_id"]: item
-        for part in package.get("effect", {}).get("contribution_slices", [])
-        for item in part.get("accepted_proposals", [])
-    }
-    selectable: list[str] = []
-    rejected: dict[str, int] = {}
-    published_edges = 0
-    kinds = _endpoint_kinds(context, candidate)
-    for item in prepared.review_items:
-        if not item.get("selectable"):
-            continue
-        sid = str(item.get("slice_qualified_id") or "")
-        kind = str(item.get("kind") or "").lower()
-        if kind not in {"edge", "relationship"}:
-            selectable.append(sid)
-            continue
-        assertion = assertions.get(item.get("assertion_id")) or {}
-        raw_value = assertion.get("value")
-        if isinstance(raw_value, str) and raw_value:
-            try:
-                parsed_value = json.loads(raw_value)
-            except ValueError:
-                parsed_value = {}
-        elif isinstance(raw_value, dict):
-            parsed_value = raw_value
-        else:
-            parsed_value = {}
-        reason = _edge_rejection_reason(
-            predicate=str(assertion.get("predicate") or ""),
-            edge_id=str(parsed_value.get("edge_id") or ""),
-            subject_kind=kinds.get(str(assertion.get("subject_node_id") or assertion.get("subject_object_id") or "")),
-            target_kind=kinds.get(str(assertion.get("target_node_id") or assertion.get("object_object_id") or "")),
-        )
-        if reason is None:
-            selectable.append(sid)
-            published_edges += 1
-        else:
-            rejected[reason] = rejected.get(reason, 0) + 1
+    assertions = accepted_proposals(package)
+    selectable, rejected, published_edges = select_confirmable_assertions(
+        prepared.review_items,
+        assertions=assertions,
+        context=context,
+        candidate=candidate,
+    )
     if not selectable:
         raise AcceptanceError("governed preparation produced no publishable assertions")
     request = type("ConfirmRequest", (), {"review_package": package, "assertion_ids": selectable})()
