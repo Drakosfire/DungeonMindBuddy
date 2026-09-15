@@ -34,7 +34,7 @@ from graph_memory.candidate_graph_to_contribution import verify_source_revision
 from graph_memory.candidate_graph_to_contribution import kernel_kind_for_node_type
 from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
     CURRENT_V5_TARGET,
-    resolve_buddy_predicate_mapping_v4,
+    edge_endpoint_kind_admission_reason,
 )
 from graph_memory.extract_promote_proposal import (
     bind_candidate_admission_to_proposal,
@@ -119,18 +119,27 @@ def _integrity_and_eligibility(
         and str(node.get("node_id") or "") in unsupported_ids
     ]
 
+    buddy_kind_by_node_id = {
+        str(node.get("node_id") or ""): kernel_kind_for_node_type(
+            str(node.get("node_type") or "")
+        )
+        for node in raw.get("nodes", [])
+        if isinstance(node, Mapping)
+        and str(node.get("node_id") or "") not in unsupported_ids
+    }
+    vocabulary = CURRENT_V5_TARGET.world_object_loader()
+
     admitted_edges: list[Any] = []
     not_admitted_ids = set(unsupported_ids)
     for edge in raw.get("edges", []):
         if not isinstance(edge, Mapping):
             admitted_edges.append(edge)
             continue
+        from_id = str(edge.get("from_node_id") or "")
+        to_id = str(edge.get("to_node_id") or "")
         blocked = [
             endpoint
-            for endpoint in (
-                str(edge.get("from_node_id") or ""),
-                str(edge.get("to_node_id") or ""),
-            )
+            for endpoint in (from_id, to_id)
             if endpoint in unsupported_ids
         ]
         predicate = str(edge.get("relationship_type") or "").strip()
@@ -146,7 +155,14 @@ def _integrity_and_eligibility(
                     depends_on=blocked,
                 )
             )
-        elif resolve_buddy_predicate_mapping_v4(predicate) is None:
+            continue
+        endpoint_reason = edge_endpoint_kind_admission_reason(
+            buddy_predicate=predicate,
+            from_buddy_kind=buddy_kind_by_node_id.get(from_id, ""),
+            to_buddy_kind=buddy_kind_by_node_id.get(to_id, ""),
+            vocabulary=vocabulary,
+        )
+        if endpoint_reason is not None:
             edge_id = str(edge.get("edge_id") or "")
             not_admitted_ids.add(edge_id)
             dispositions.append(
@@ -154,7 +170,7 @@ def _integrity_and_eligibility(
                     item_id=edge_id,
                     item_kind="edge",
                     outcome="rejected",
-                    reason="unmapped_predicate",
+                    reason=endpoint_reason,
                 )
             )
         else:
