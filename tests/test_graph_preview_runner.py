@@ -547,6 +547,27 @@ def _duplicate_first_node(graph: dict[str, Any]) -> dict[str, Any]:
     return graph
 
 
+def _duplicate_first_edge(graph: dict[str, Any]) -> dict[str, Any]:
+    nodes = list(graph.get("nodes") or [])
+    assert nodes, "expected assembled nodes before duplicate-edge injection"
+    seed = nodes[0]
+    endpoint = str(seed.get("node_id") or "")
+    edge = {
+        "edge_id": "candidate:edge:dup",
+        "from_node_id": endpoint,
+        "to_node_id": endpoint,
+        "relationship_type": "located_at",
+        "label": "located at",
+        "semantic_state": copy.deepcopy(seed.get("semantic_state") or {}),
+        "evidence_refs": copy.deepcopy(seed.get("evidence_refs") or []),
+        "proposed_action": "create",
+        "confidence": "medium",
+        "warnings": [],
+    }
+    graph["edges"] = [copy.deepcopy(edge), copy.deepcopy(edge)]
+    return graph
+
+
 def _duplicate_first_node_and_add_sublocation(graph: dict[str, Any]) -> dict[str, Any]:
     graph = _duplicate_first_node(graph)
     seed = graph["nodes"][0]
@@ -559,12 +580,25 @@ def _duplicate_first_node_and_add_sublocation(graph: dict[str, Any]) -> dict[str
     return graph
 
 
-def test_duplicate_node_ids_fail_generation_as_integrity(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    ("mutator", "issue_code", "id_key", "collection", "output_dir"),
+    [
+        (_duplicate_first_node, "duplicate_node_id", "node_id", "nodes", "dup-node-runs"),
+        (_duplicate_first_edge, "duplicate_edge_id", "edge_id", "edges", "dup-edge-runs"),
+    ],
+)
+def test_duplicate_ids_fail_generation_as_integrity(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    mutator: Any,
+    issue_code: str,
+    id_key: str,
+    collection: str,
+    output_dir: str,
 ) -> None:
     source = _admit_recap(tmp_path)
     span_ref = _first_paragraph_span_id(source)
-    _mutate_extracted_candidate(monkeypatch, _duplicate_first_node)
+    _mutate_extracted_candidate(monkeypatch, mutator)
     result = run_production_extraction(
         ProductionExtractionRequest(
             repo_root=tmp_path,
@@ -573,17 +607,44 @@ def test_duplicate_node_ids_fail_generation_as_integrity(
             profile_version=RECAP_PROFILE_VERSION,
             allow_llm=True,
             category_client=FixtureClient(span_ref=span_ref),
-            output_dir=tmp_path / "dup-runs",
+            output_dir=tmp_path / output_dir,
         )
+    )
+    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    item_ids = [
+        item.get(id_key)
+        for item in (result.candidate_graph or {}).get(collection) or []
+        if isinstance(item, dict)
+    ]
+    assert result.failure_kind == "validation"
+    assert loaded.status == ExtractionRunStatus.FAILED
+    assert loaded.lineage.get("reviewable") is False
+    assert issue_code in " ".join(result.diagnostics)
+    assert item_ids
+    assert len(item_ids) != len(set(item_ids))
+
+
+def test_unexpected_typed_parse_exception_fails_closed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _boom(_data: Any) -> Any:
+        raise RuntimeError("unexpected typed parse")
+
+    monkeypatch.setattr(
+        "src.graph_memory.candidate_document_integrity.candidate_graph_preview_from_dict",
+        _boom,
+    )
+    _source, result = _run_recap_extraction(
+        tmp_path,
+        client=FixtureClient(),
+        output_dir="parse-exception-runs",
     )
     loaded = get_extraction_run(tmp_path, result.run.run_id)
     assert result.failure_kind == "validation"
     assert loaded.status == ExtractionRunStatus.FAILED
     assert loaded.lineage.get("reviewable") is False
-    assert "duplicate_node_id" in " ".join(result.diagnostics)
-    node_ids = [node.get("node_id") for node in (result.candidate_graph or {}).get("nodes") or []]
-    assert len(node_ids) == len([node_id for node_id in node_ids if node_id])
-    assert len(node_ids) != len(set(node_ids))
+    assert any("preview parse failed" in item for item in result.diagnostics)
+    assert any("unexpected typed parse" in item for item in result.diagnostics)
 
 
 def test_unsupported_sublocation_reaches_reviewable_unchanged(tmp_path: Path) -> None:
