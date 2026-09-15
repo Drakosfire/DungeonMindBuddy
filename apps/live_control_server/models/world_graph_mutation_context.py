@@ -712,6 +712,36 @@ def _find_plausible_matches(
     )
 
 
+def _exact_same_kind_durable_id_match(
+    context: WorldGraphMutationContext,
+    candidate: IdentityCandidate,
+) -> MutationObject | None:
+    """Return the parent object when the candidate already names its durable id.
+
+    Session-to-session extraction often reuses the same ``loc:…`` / ``node:…``
+    id while drifting surface labels (e.g. "River's Edge Pub" vs "The River's
+    Edge Pub"). Exact same-kind id continuity must confirm the existing object
+    before label/alias matching or cross-kind alias collisions can invent a
+    CREATE_NEW / blocked outcome for that durable id.
+    """
+    candidate_kind = _norm_kind(candidate.object_kind)
+    if not candidate_kind:
+        return None
+    canonical = _active_canonical_objects(context)
+    for raw_id in (candidate.proposed_node_id, candidate.candidate_id):
+        object_id = str(raw_id or "").strip()
+        if not object_id:
+            continue
+        resolved_id = _resolve_redirect(object_id, context.identity_redirects)
+        obj = canonical.get(resolved_id)
+        if obj is None:
+            continue
+        if _norm_kind(obj.kind) != candidate_kind:
+            continue
+        return obj
+    return None
+
+
 def resolve_identity_against_context(
     context: WorldGraphMutationContext,
     candidate: IdentityCandidate,
@@ -726,6 +756,19 @@ def resolve_identity_against_context(
     if prior is not None:
         return _resolution_from_decision(candidate, prior)
 
+    exact = _exact_same_kind_durable_id_match(context, candidate)
+    if exact is not None:
+        return IdentityResolution(
+            world_id=candidate.world_id,
+            candidate_id=candidate.candidate_id,
+            outcome="resolved_existing",
+            target_node_id=exact.object_id,
+            diagnostics=[
+                f"Exact same-kind durable id match to existing node {exact.object_id}"
+            ],
+            requires_human_review=False,
+            canon_state="canonical",
+        )
 
     same_kind, cross_kind, provisional_same_kind = _find_plausible_matches(
         context, candidate, policy=active_policy
