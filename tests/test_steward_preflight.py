@@ -13,14 +13,17 @@ def _write_handoff(
     lease: tuple[str, ...] = ("src/candidate.py",),
     runtime: str = "Not applicable — fixture",
     base: str = "a" * 40,
+    status: str = "ACTIVE — fixture",
+    use_design_authority_base: bool = False,
 ) -> Path:
     rows = "\n".join(f"| Modify | `{item}` | fixture |" for item in lease)
+    base_label = "Design authority base" if use_design_authority_base else "Base revision"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
         f"""# HANDOFF — fixture
 
-**Status:** ACTIVE — fixture
-**Base revision:** `{base}`
+**Status:** {status}
+**{base_label}:** `{base}`
 
 ## §1 Mission and merge-ready invariant
 
@@ -301,9 +304,38 @@ def test_build_snapshot_blocks_on_pr_overlap_without_active_handoff(
     )
 
     assert snapshot["status"] == "block"
+    assert snapshot["candidate"]["active"] is True
     assert snapshot["github"]["complete"] is True
     assert snapshot["conflicts"][0]["lane_identity"] == "PR #99"
     assert snapshot["blockers"] == ["1 concrete write-lease overlap(s) detected"]
+
+
+def test_blocked_candidate_is_durable_but_not_dispatchable(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    handoff = _write_handoff(
+        tmp_path / "Docs/Plans/HANDOFF-DOCUMENTS-candidate.md",
+        status="BLOCKED — predecessor review/merge pending",
+        use_design_authority_base=True,
+    )
+    monkeypatch.setattr(sp, "_git_state", lambda *_args, **_kwargs: (_git_snapshot(), []))
+    monkeypatch.setattr(sp, "discover_active_handoff_lanes", lambda *_args: [])
+
+    snapshot = sp.build_snapshot(
+        handoff_path=handoff,
+        repo_root=tmp_path,
+        repo_name=None,
+        local_only=True,
+        pr_number=None,
+    )
+
+    assert snapshot["status"] == "block"
+    assert snapshot["candidate"]["active"] is False
+    assert snapshot["candidate"]["base_revision"] == "a" * 40
+    assert snapshot["blockers"] == [
+        "candidate handoff is not ACTIVE; BLOCKED handoffs are durable design authority but are not dispatchable"
+    ]
 
 
 def test_github_unavailable_keeps_local_conflict_and_marks_remote_incomplete(
@@ -353,6 +385,7 @@ def test_local_only_marks_remote_coverage_not_requested(tmp_path: Path, monkeypa
     )
 
     assert snapshot["status"] == "pass"
+    assert snapshot["candidate"]["active"] is True
     assert snapshot["github"]["requested"] is False
     assert snapshot["github"]["complete"] is None
 
@@ -384,6 +417,7 @@ def test_base_drift_is_warning_not_block(tmp_path: Path, monkeypatch) -> None:
     handoff = _write_handoff(
         tmp_path / "Docs/Plans/HANDOFF-DOCUMENTS-candidate.md",
         base=base,
+        use_design_authority_base=True,
     )
     warning = (
         "candidate base differs from local main; this is not automatically invalid, "
@@ -406,6 +440,7 @@ def test_base_drift_is_warning_not_block(tmp_path: Path, monkeypatch) -> None:
 
     assert snapshot["status"] == "warn"
     assert snapshot["blockers"] == []
+    assert snapshot["candidate"]["base_revision"] == base
     assert snapshot["git"]["base_relation"]["matches_local_main"] is False
     assert warning in snapshot["warnings"]
 
