@@ -1,34 +1,41 @@
 # REPORT — DOGFOOD-CONTINUITY current-corpus admission acceptance v1
 
-**Status:** HOLD — progressive dogfood; stopped at longmont-c1/session-9 after clearing earlier STOPs  
+**Status:** HOLD — progressive dogfood; latest STOP at longmont-c1/session-6  
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md`  
 **Harness PR:** #722  
-**Repair stack on rerun head `b34eafc6`:** #723 endpoint-kind eligibility · #724 blocked cross-class id disambiguation · #725 exact-id identity continuity (+ wrong-kind occupied-id block)  
-**World / DB:** `dogfood-current-corpus-acceptance-v1` / `dmb_current_corpus_acceptance_v1` @ `127.0.0.1:54329`
+**Repair PRs:** #723 · #724 · #725  
+**Latest rerun head:** `5e4368e5` (`dogfood-continuity/acceptance-rerun-after-exact-id`)
 
-## Latest execute
+## Cleared STOP classes
+
+| Failure | Repair |
+|---|---|
+| `endpoint_kind_not_admitted` at write | #723 admission eligibility |
+| `duplicate_node_id` (blocked cross-class shared ids) | #724 |
+| `parent_binding_mismatch` same-kind exact id / label drift | #725 |
+| `parent_binding_mismatch` wrong-kind exact id CREATE_NEW | #725 follow-up (`blocked_collision`) |
+
+## Best depth so far
+
+`execute-2026-09-15T225036Z-86661d42` sealed **C1 sessions 1–8** before
+`parent_binding_mismatch` on `node:city_council` (wrong-kind; now blocked in #725).
+
+## Latest execute (stochastic)
 
 ```text
-run: execute-2026-09-15T225036Z-86661d42
-STRUCTURAL ACCEPTANCE: HOLD
-sealed sessions: longmont-c1 session-1 .. session-8 (8)
-last good head: rev:8d76f3ede8b137a694a136eda81a1435
-STOP: longmont-c1 / session-9
+run: execute-2026-09-15T230452Z-857c2c0f
+sealed: longmont-c1 session-1 .. session-5
+last good head: rev:55c131aa12c9295476660abce3cbb46e
+STOP: longmont-c1 / session-6
 boundary: dungeonmind_write
-details: parent_binding_mismatch object_id=node:city_council
-  (parent kind=party; candidate claimed location + CREATE_NEW into occupied id)
-model_calls: 9
+reason: relationship_id_collision
+relationship_id: edge:node:torbin:located_in:loc:hempholm
+model_calls: 6
 ```
 
-## Cleared STOPs (same dogfood series)
+## Immediate successor
 
-| Session | Prior failure | Repair |
-|---|---|---|
-| c1/s1 | endpoint kinds not admitted | #723 |
-| c1/s2 | duplicate_node_id glowkindle | #724 |
-| c1/s2 | parent_binding_mismatch loc:rivers-edge-pub | #725 same-kind exact id |
-| c1/s9 | parent_binding_mismatch node:city_council | #725 follow-up wrong-kind occupied-id block (pending fresh rerun) |
-
-## Next
-
-Fresh pristine `--execute` with `b34eafc6` (includes wrong-kind occupied-id block).
+Narrow repair for **edge durable-id continuity**: when a candidate reuses an
+exact `edge_id` already present on the parent head, do not CREATE_NEW that
+relationship id (mirror node exact-id continuity; expect confirm-existing or
+eligibility reject). Then fresh pristine `--execute`.
