@@ -374,7 +374,12 @@ def test_endpoint_kinds_map_pc_and_npc_mappings():
     )
     cand = {
         "nodes": [
-            {"id": "node:stafl", "label": "Stafl", "type": "character"},
+            {
+                "id": "node:stafl",
+                "label": "Stafl",
+                "type": "character",
+                "corpus_ref": {"type": "pc", "ref_id": "stafl"},
+            },
             {"id": "node:pippa", "label": "Pippa", "type": "character"},
             {"id": "node:cave", "label": "The Cave", "type": "location"},
         ]
@@ -382,7 +387,7 @@ def test_endpoint_kinds_map_pc_and_npc_mappings():
     mapping = stage4l._endpoint_kinds_map(context, cand)
     assert mapping["obj:existing_pc"] == "player_character"
     assert mapping["obj:existing_npc"] == "npc"
-    assert mapping["node:stafl"] == "pc"
+    assert mapping["node:stafl"] == "player_character"
     assert mapping["node:pippa"] == "npc"
     assert mapping["node:cave"] == "location"
 

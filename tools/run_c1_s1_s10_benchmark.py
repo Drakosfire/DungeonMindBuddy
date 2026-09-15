@@ -15,11 +15,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import re
-import sys
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -540,7 +538,7 @@ def classify_failure(
         if oracle_credit != "full":
             return (
                 "graph_connectivity_identity",
-                f"Entities exist in the graph (e.g. Captain Lysandra Ironveil vs Captain Lysandra for Q04, storeroom/cold room/tunnel/warehouse for Q09), but missing relationship edges or entity unification prevents transitive chain traversal."
+                "Entities exist in the graph (e.g. Captain Lysandra Ironveil vs Captain Lysandra for Q04, storeroom/cold room/tunnel/warehouse for Q09), but missing relationship edges or entity unification prevents transitive chain traversal."
             )
 
     # 3. Source/authority failure: planning vs played truth distinction
