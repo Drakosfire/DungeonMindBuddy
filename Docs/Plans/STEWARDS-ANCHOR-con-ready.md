@@ -1,358 +1,348 @@
 # STEWARD'S ANCHOR — CON-READY
 
-**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
-**Line of work:** `CON-READY`
-**Updated:** 2026-09-12
-**Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor base:** `main` `4af440b2cc4102972ad6212590885248e58375c1` (after PR #706 merge)
-**Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
-**Current forcing function:** DOGFOOD-CONTINUITY **Stage 4G / P1a.1 campaign-memory temporal intent** — **ACTIVE** ([`HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-stage4g-campaign-memory-temporal-intent-v1.md)). PR #708 merged at `444b3996` with accepted head `8da461e2` after 2 review cycles. Stage 4G adds seven model-free temporal requirements pinned to that benchmark while keeping identity and temporal intent explicitly unscored. No extraction improvement has been accepted; Stage 7A1 remains queued and Stage 4 remains NOT DONE.
-**Of Conks report:** [`../Reports/REPORT-of-conks-end-to-end-dogfood.md`](../Reports/REPORT-of-conks-end-to-end-dogfood.md)
-**Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)
-**Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)
-**Approved target:** [`../Design/DESIGN-play-surface-gm-cockpit-target.md`](../Design/DESIGN-play-surface-gm-cockpit-target.md)
+**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
+**Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
+**Updated:** 2026-09-15  
+**Repository:** `Drakosfire/DungeonMindBuddy`  
+**Re-anchor base:** `main` `3a777c91df9ad690a45fb22603631b55583b3eb9`  
+**Last product capability merge:** PR #720, merge `2e054ce928f4a7de14a4a7b745460c85a90f8ee1`  
+**Current forcing function:** DESIGN the next bounded campaign-memory acceptance slice; no implementation lane is currently authorized  
+**Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)  
+**Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
+**Consumed admission handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md)  
+**Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)
+
+> This file is the current pickup authority for sequencing. Repository truth supersedes older chat summaries and stale `CURRENT` banners in historical handoffs/roadmaps. The product roadmap remains authoritative for user stories and product intent; use this anchor for present sequencing until the roadmap header is separately synchronized.
 
 ---
 
 ## 0. Pickup rule
 
-Repository truth supersedes older chat, handoffs, and pre-APP-STATE design assumptions.
+A fresh Designing agent must:
 
-Before dispatching a CON-READY / PLAY-SURFACE implementation:
+1. fetch current `main` and record the exact SHA;
+2. inspect open PRs/branches for write-lease collisions;
+3. read this anchor;
+4. read the consumed candidate-admission handoff and the campaign-supergraph architecture;
+5. inspect the frozen-42 acceptance report only as historical experiment evidence;
+6. re-census current canonical campaign sources before using any historical session count;
+7. design **one independently useful capability** and land its handoff on `main` before any implementation lane is allocated;
+8. do not merge unless explicitly instructed.
 
-1. fetch current `main`;
-2. inspect open PRs/worktrees for lease collision;
-3. read the current roadmap + Play authorities above;
-4. record the exact implementation base;
-5. keep one independently useful capability per PR;
-6. require exact-head evidence and review-cycle counting;
-7. do not merge unless explicitly instructed.
-
----
-
-## 1. Current product truth
-
-SURFACE-INTEGRATION is **CLOSED** (SI-6 ACCEPTED, PR #682). The temporary feature freeze is lifted. DFC-1 inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles). DFC-2a Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles). DFC-2c Ingest catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles). **DFC-3** C1/C2 demo-readiness survey is **DONE / ACCEPTED** (PR #687, 3 review cycles). DEMO-R1 historical recap reading: projection PR #689 **MERGED** (`0912ce4010655655b1f7b4966ee071e043b47721`), loaded-recap chrome PR #690 **MERGED** (`08c4052e3e662d94936c37cf8837cdb01a9507ca`). **Stage 2A durable APP-STATE substrate is DONE.** PR #691 merged as squash `35269f087cf1dcee52f169f339d1de79599b3374` (2 review cycles). Closure PR #692 merged as squash `1ed1b6c484d898a2216330258be2897dc0588f74` (3 review cycles; reviewed head `2bb9384099f7408cb8859c43ba98e3d8f28768aa`). The 2026-09-07 human drill proved container replacement, host reboot, and volume destroy+restore of the same Plan object (`document_id` `3c8c6f8b-498d-4d3e-afaf-15b2e1a6520d`, fingerprint `57e74f3f…`, backup `49f7260a…`) without DungeonMind World (`54330`) running. Witness: [`../Reports/REPORT-application-state-durability-drill.md`](../Reports/REPORT-application-state-durability-drill.md). **2026-09-07 APP-STATE loss event:** the tmpfs-backed 54329 server was stopped before any backup existed; the entire APP-STATE database (53 ingest runs, Content, Play, adopted C2S25 source) was destroyed. **Stage 2B implementation is MERGED** (PR #693, `73cc35abe65eb0584b765bf6e6c553684d64401e`) — exact C1/C2 catalog + C2S27 Plan + C2S25 source on `54331`. Stage 2B is **not** an accepted completed stage. Stage 2 and STOP 2 remain open. **Stage 5A is MERGED + human dogfood PASS** (PR #694, `df15db4c695240ce08b5812d43ca398cd70ff6ac`; accepted head `d82ac0c755ad3e7581fa7a023f9c2bb46df64337`; 2 review cycles). Stage 5B remains parked/conditional. **PR #695 provenance is MERGED** (`d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles; Orik human dogfood PASS). The current implementation slice is PR #697 complete World-object projection after DungeonMind #52 merge. The prior inspection-only handoff is superseded; PR #688 remains paused/unmerged. Do not automatically inherit DFC-2b / BF3B. Do not mark Stage 2C complete here.
-
-The Play persistence foundation is no longer the blocker.
-
-```text
-SURFACE-INTEGRATION
-SI-6 / PR #682    DONE / ACCEPTED — merge 86296a4021816862b1ee82cbf7478b2882493963
-SI-7              DONE — re-sequenced to DOGFOOD-CONTINUITY DFC-1
-
-DOGFOOD-CONTINUITY
-DFC-1             DONE / ACCEPTED — PR #684; accepted head f32f90ee1ccc9fac150ca8147c268c517a4ec8a6; merge 8fc9989fb6da616f74876395514f4da26bd94609; 7 review cycles
-DFC-2a            DONE / ACCEPTED — PR #685; accepted head 076f875a8a0b8cd95932c53be730b169cd5f2818; merge 7a73a5a154fa0b1c2bac9689f201dd64d2524aa5; 5 review cycles
-DFC-2c            DONE / ACCEPTED — PR #686; accepted head 2a088c4b357a5bc43635fd31aefad42f4b5d4e95; merge 678e9c276ad58505c53ce61d5a659ea8c792ca31; 2 review cycles
-DFC-3             DONE / ACCEPTED — PR #687; accepted head 29e4e2af0505fdd74ea279b166667ac75db06745; merge 823d9d4121c4534be64bf3de620b24446b2b18ab; 3 review cycles
-DFC-2b            LATER — Build archive/adapter (evidence incomplete)
-STAGE 2A / #691   DONE — durable 54331 substrate personally dogfooded; merge 35269f087cf1dcee52f169f339d1de79599b3374; 2 review cycles
-STAGE 2A / #692   DONE — Stage 2A closure sync; merge 1ed1b6c484d898a2216330258be2897dc0588f74; reviewed head 2bb9384099f7408cb8859c43ba98e3d8f28768aa; 3 review cycles
-STAGE 2B          IMPLEMENTATION MERGED — PR #693 `73cc35abe65eb0584b765bf6e6c553684d64401e`; human STOP remains OPEN; not an accepted completed stage
-STAGE 2 / STOP 2  OPEN
-STAGE 5A          MERGED + human dogfood PASS — PR #694 `df15db4c695240ce08b5812d43ca398cd70ff6ac`; accepted head `d82ac0c755ad3e7581fa7a023f9c2bb46df64337`; 2 review cycles
-STAGE 5B          PARKED / CONDITIONAL — do not auto-dispatch
-PROVENANCE / #695 MERGED — `d2c4248b14397525fd996309e230e513a3662bb1`; accepted head `fe55824e1927a29b03e7c2660ba653c86aaf4a82`; 3 review cycles; Orik PASS
-STAGE 2C / #696   MERGED — `3e2abc0c7f8ce523b071716eb13bcf18d7979a2a`; accepted head `8f93138000c699a5d1249955003c91042f2053b1`; Stage 2 / STOP 2 remain OPEN; not an accepted completed stage
-PR #697           MERGED — complete World-object projection; merge `947a727d`; accepted head `83eb4368`; 3 review cycles; Human STOP successor-routed
-PR #698           MERGED — opened-object usefulness; merge `db7c6660`; post-merge A/E inspection accepted
-PR #699           MERGED — STOP stabilization; merge `b1153423`; accepted head `99420b0b`; 2 review cycles
-PR #700           MERGED — UI-01 Ingest shared Peek; merge `5810a253`; accepted head `d6091ee9`; 2 review cycles
-PR #701           MERGED — UI-02 truthful Agent presence; merge `d515904c`; head `77f2e09f`; 1 formal review cycle (CODE PASS / DOC HOLD)
-PR #702           MERGED — Agent artwork + UI-03 responsive secondary context; merge `92a50db8`; head `90a75542`; 1 formal review cycle (HOLD; no approving disposition recorded)
-STAGE 4D / P0b1  DONE — PR #706 `4af440b2`; accepted head `97df142c`; 2 review cycles; paid smoke PASS
-STAGE 4E / P0b2a DONE — PR #707 `4227f97d`; accepted head `4ca2c12c`; 2 review cycles; 3-repetition live gate PASS
-STAGE 4F / P1a   DONE — PR #708 `444b3996`; accepted head `8da461e2`; 2 review cycles
-CURRENT           Stage 4G/P1a.1 campaign-memory temporal intent; Stage 4 NOT DONE
-
-PLAY STRUCTURE
-BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest
-
-APP-STATE
-AS1              DONE — Plan WorkObjects / immutable WorkRevisions
-AS2              DONE — Runbook + historical Playable WorkRevisions
-AS3              DONE — Run/manifest + progress CAS/rebase PostgreSQL
-AS4              DONE — active Run / resume PostgreSQL
-AS5 / PR #650    DONE — legacy Play filesystem persistence demolished
-
-PLAY PRODUCT
-BF2 / PR #652    DONE — v2 READY, deterministic Beat seed, exact WorkRevision admission
-                 accepted head 9dffcab96ad3f527efedc3981aea805a63deb4df
-                 merge 39ef105d3996ef0062dd45a089fecada14915436
-                 review cycles: 5
-BF3A / PR #655   DONE — Scene-centered Current Moment cockpit (Scenes first)
-                 accepted head 3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
-                 merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957
-                 review cycles: 2
-DF0 / PR #657    DONE — local Play dogfood gateway
-PLAN-BLANK-SHELL / PR #661 DONE — blank Plan is a real authoring surface state
-                 accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
-                 merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
-                 review cycles: 4
-BF4A / PR #660   DONE — native Runbook reopen/save
-                 accepted head d9b34ca87166572af8b482523862722fdd928fbe
-                 merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
-                 review cycles: 2
-BF3B             LATER — Scene-owned Decision interaction (parked; stale "CURRENT" sequencing retired)
-PR #670          CLOSED UNMERGED — exploratory cockpit prototype; 0 review cycles
-```
-
-Current Play runtime/product state:
-
-- Beat-first v2 material can be authored/serialized/sealed.
-- BF2 admits v2 native READY with durable `currentBeatId` and optional `currentSceneId`.
-- historical pinned Playable revisions are real and remain readable after newer revisions exist.
-- bare `/play` active selection and Play Runtime are PostgreSQL-backed.
-- `out/runtime/play` is not current product authority.
-- CR-U17 remains false **overall** because Combat and any other relied-upon non-Play state still need equivalent durability proof.
-
-CUTOVER remains a separate active lane. Disjoint Play Surface work may proceed in parallel.
+At this re-anchor there were **no open PRs** in `Drakosfire/DungeonMindBuddy`.
 
 ---
 
-## 2. Current Play design truth
+## 1. Current campaign-memory truth
 
-The approved cockpit image remains the target.
+### 1.1 Governed World bootstrap exists
 
-Durable hierarchy:
+The campaign-memory path no longer starts from an ad hoc or copied graph.
 
-```text
-Runbook
-  → Beat
-      → Scene / Decision
-```
-
-Runtime projection hierarchy:
+Merged recap World genesis provides:
 
 ```text
-Beat context wrapper
-Active Scene central workspace (when present)
-Decisions / notes / relevant objects around it
+canonical party registry
+  → sealed genesis prepare
+  → governed zero-parent DungeonMind write
+  → D0 containing canonical PC identity anchors only
+  → ordinary existing-World mutation for recap admission
 ```
 
-Do not confuse Scene-centered projection with the rejected Scene-first grammar.
+Genesis is not permission to smuggle recap facts, party-membership assertions, or session claims into D0.
 
-### Choice / Decision law
+### 1.2 Candidate → Graph Admission is now a production boundary
 
-Keep the Choice system:
+PR #720 is merged.
 
 ```text
-Decision
-→ Options
-→ authored consequence
-→ activates / suppresses later Beat/Scene relevance
+reviewed implementation head:
+1d490928b556a8672b56d9f4b6c4fca35e3c4e54
+
+Cycle 4 review:
+APPROVE — review 5213358854
+
+merge:
+2e054ce928f4a7de14a4a7b745460c85a90f8ee1
 ```
 
-Runtime persists `choiceId → optionId` only.
+The durable invariant is:
 
-`activates` / `suppresses` influence emphasis. They are not navigation permission. De-emphasized material remains inspectable and may explicitly be made current.
+> The exact candidate is immutable input. Candidate admission may accept, reject, or leave meaning unresolved, but it may not rewrite candidate semantics to make graph publication succeed.
 
-No general condition/workflow DSL without new dogfood evidence.
-
-### Unexpected-play law
-
-C2S27 showed that players immediately depart from authored expectations.
-
-Play must support:
+The merged seam now distinguishes:
 
 ```text
-CONTEXTUAL
-current Beat/Scene references
+candidate-document integrity
+  malformed/conflicting candidate → fail closed
 
-GLOBAL / ON-DEMAND
-known campaign material needed unexpectedly
+admission eligibility
+  coherent but unsupported/unresolved item → explicit disposition
+
+governed confirmation
+  exact sealed candidate/source/parent decision → existing DungeonMind write
 ```
 
-And must distinguish:
+`confirmable` is derived from the final sealed accepted-assertion union after structural qualification and identity resolution, including multi-contribution standing context.
+
+Source admission remains the existing DungeonMind-backed source-authority path. The graph commit remains the existing governed DungeonMind World write. Do not invent a second persistence path.
+
+### 1.3 PR #715 is retired
+
+PR #715 is now:
 
 ```text
-OPEN / INSPECT
-preserve current Runtime position
-
-MAKE CURRENT
-explicit Beat+Scene Runtime mutation
+CLOSED UNMERGED
+head 820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed
 ```
 
-Useful material must be reachable faster than finding where it was authored.
-
-### Statblock / Combat hot path
-
-High-priority interaction:
+The accepted lifecycle decision was:
 
 ```text
-context or finder
-→ Threat
-→ exact StatblockRevision
-→ Add to Combat
+ARCHIVE_MINIMUM_WITNESS_THEN_CLOSE_UNMERGED
 ```
 
-Combat may expand into the central working area, but remains Combat-owned. Collapse returns to the exact originating Scene.
+Durable replacement authority:
 
-### Runbook posture
+```text
+tests/fixtures/candidate_admission/pr715_failure_witnesses.json
+tests/test_candidate_graph_admission_contract.py
+```
 
-Runbook is the exact linear durable authored source/instructions. It is available as reference but is not the primary runtime navigator.
+The branch/history may remain as historical evidence. It is not active authority, not an implementation lane, and not a corpus that should be repaired to manufacture a passing experiment.
 
-### Notes posture
+### 1.4 Frozen-42 experiment remains a HOLD
 
-Table notes are simple Runtime records projected as pinned context. Do not invent a new note table until BF3/dogfood proves independent note identity/lifecycle is needed.
+Do not rewrite experiment history after closing #715.
+
+```text
+OpenAI exact-frozen arm: PASS
+DeepSeek exact-frozen arm: STOP at C2 S9
+DeepSeek sanitized continuation: DIAGNOSTIC ONLY
+STRUCTURAL ACCEPTANCE: HOLD
+SEMANTIC MODEL SELECTION: HOLD
+```
+
+Why DeepSeek stopped matters:
+
+- conflicting duplicate candidate IDs are candidate-document integrity failures;
+- `sublocation` demonstrated a separate admission-eligibility question;
+- first-wins/deletion sanitization changed candidate semantics and therefore could not count as acceptance evidence.
+
+Those failure classes are now represented by production admission behavior and durable regressions.
 
 ---
 
-## 3. Current delivery sequence
+## 2. What #720 proved — and did not prove
+
+#720 proved the **seam**, not the long-horizon campaign outcome.
+
+We can now say:
 
 ```text
-BF2 / PR #652
-DONE — v2 READY Runtime + current-position/relevance
-        ↓
-BF3A / PR #655
-DONE — Scene-centered Current Moment cockpit (Scenes)
-        ↓
-DF0
-DONE — local Play dogfood bootstrap/readiness
-        ↓
-PLAN-BLANK-SHELL / PR #661
-DONE — blank Plan is a real authoring surface state
-        accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
-        merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
-        review cycles: 4
-        ↓
-BF4A
-DONE — native Runbook reopen/save
-        accepted head d9b34ca87166572af8b482523862722fdd928fbe
-        merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
-        review cycles: 2
-        ↓
-DFC-1
-DONE / ACCEPTED — DOGFOOD-CONTINUITY historical material inventory
-        PR #684; accepted head f32f90ee1ccc9fac150ca8147c268c517a4ec8a6
-        merge 8fc9989fb6da616f74876395514f4da26bd94609; 7 review cycles
-        ↓
-DFC-2a
-DONE / ACCEPTED — exact historical Plan adoption
-        PR #685; accepted head 076f875a8a0b8cd95932c53be730b169cd5f2818
-        merge 7a73a5a154fa0b1c2bac9689f201dd64d2524aa5; 5 review cycles
-        ↓
-DFC-2c
-DONE / ACCEPTED — exact historical Ingest run catalog adoption
-        PR #686; accepted head 2a088c4b357a5bc43635fd31aefad42f4b5d4e95
-        merge 678e9c276ad58505c53ce61d5a659ea8c792ca31; 2 review cycles
-        ↓
-DFC-3
-DONE / ACCEPTED — C1/C2 demo-readiness survey
-        PR #687; accepted head 29e4e2af0505fdd74ea279b166667ac75db06745
-        merge 823d9d4121c4534be64bf3de620b24446b2b18ab; 3 review cycles
-        handoff: HANDOFF-DOGFOOD-CONTINUITY-c1-c2-demo-readiness-survey-v1.md
-        report: REPORT-c1-c2-demo-readiness.md
-        ↓
-DFC-2b / DFC-2p / DFC-2d
-LATER — Build/Plan/Runbook-Play archive recovery (evidence-dependent)
-        ↓
-BF3B
-LATER — Scene-owned Decision interaction (parked until after DOGFOOD-CONTINUITY recovery)
-        ↓
-BF3C / BF3.x / P3 family
-additional At-a-Glance categories; fast cross-Beat inspect + retrieval
-        ↓
-P4 / Combat lane
-Threat→Combat + expandable Combat workspace + durable Combat proof
-        ↓
-real-session dogfood
+exact candidate
+  → deterministic integrity decision
+  → explicit admission qualification
+  → sealed candidate/source/world/parent binding
+  → confirm or refuse
+  → existing governed World revision
 ```
 
-BF4 Plan Beat-first authoring composition may proceed in parallel after BF1 on a disjoint lease and should not block the next cockpit dogfood.
+We still cannot say:
 
-Agent Surface may proceed in parallel on disjoint leases. It is not a prerequisite for fast object/statblock retrieval.
+- a fresh current campaign corpus completes chronologically through this seam;
+- a generated candidate corpus is structurally clean enough for long-horizon admission;
+- one extraction model is semantically better than another;
+- the current canonical corpus has the historical 42-session shape;
+- unattended batch ingestion is product-ready;
+- unsupported candidate concepts should automatically expand World ontology.
 
----
-
-## 4. DF0 completion and BF4A dispatch boundary
-
-BF3A / PR #655 is merged. Do not reopen Current Moment presentation in this slice.
-
-DF0 owns only:
-
-- explicit local `check` / `apply` composition for Buddy application state;
-- provisioning the standard local Buddy logical database when missing;
-- explicit Alembic upgrade and leftover Runbook adoption;
-- domain-neutral APP-STATE unavailable copy;
-- documented ordinary uvicorn + Vite Play startup;
-- a development-only Play setup hint.
-
-DF0 does **not** own:
-
-- migrate-on-boot or import-on-boot;
-- World Graph / file-authority fallback;
-- seeding a fake Runbook;
-- starting or selecting a Play Run;
-- Decision selection UI;
-- Combat, Agent Interaction, or CUTOVER.
-
-DF0 is complete at PR #657. PLAN-BLANK-SHELL is complete at PR #661. BF4A is
-DONE at PR #660. DFC-1 is DONE / ACCEPTED at PR #684. DFC-2a is DONE / ACCEPTED
-at PR #685. **DFC-2c** is DONE / ACCEPTED at PR #686 (2 review cycles). **DFC-3**
-is DONE / ACCEPTED at PR #687 (3 review cycles). **Stage 2A** is DONE at PR #691
-(personally dogfooded) with closure PR #692 merged. **Stage 2B** implementation
-is MERGED (PR #693); Stage 2 / STOP 2 remain OPEN and Stage 2B is not an
-accepted completed stage. **Stage 5A** is MERGED + human dogfood PASS at
-PR #694. **Stage 5B** remains parked/conditional. **PR #695 provenance** is
-MERGED. **Stage 2C broad exact source adoption v1** is MERGED at PR #696.
-PR #697 through #705 are merged predecessors. PR #704 remains a human WOW HOLD
-despite merge. PR #705 passed after 2 review cycles. The current implementation
-slice is Stage 4D/P0b1 isolated extraction experiment pair. Do not mark Stage 2C
-or Stage 4 as an accepted completed stage from this sync, do not pre-mark Stage 4D complete, and
-do not advance Stage 7A1.
-DFC-2b (Build archive/adapter) remains later because its
-evidence is incomplete. Do not automatically resume BF3B from old sequencing.
-
-Create blank Runbook, chooser copy, and paste/replace remain predecessor or
-separate product work. They are not BF3B. Closed unmerged PR #670 is exploratory
-evidence only and is not a review cycle.
+No model winner exists. There is still no pre-existing deterministic semantic benchmark that licenses a model-selection claim.
 
 ---
 
-## 5. Acceptance pressure to retain
+## 3. Current forcing function
 
-The next live dogfood must intentionally include:
+The next Designing agent owns **design**, not implementation.
 
-- resume to exact last Scene;
-- Beat context visible/accessibly expandable;
-- authored Decision branch and visible relevance change;
-- inspect a Scene under another Beat without moving current position;
-- explicit Make Current;
-- unplanned known NPC/Threat retrieval;
-- exact statblock opening with no table-breaking delay;
-- unexpected Add to Combat;
-- Combat expand/collapse with exact Scene return;
-- notes;
-- reload/resume.
+Default successor hypothesis:
 
-A path that forces manual source search, memory reconstruction, JSON surgery, Plan/Build navigation for known mechanics, or loss of current context is product debt even if the underlying architecture is technically correct.
+> **Fresh chronological batch admission acceptance:** prove that the merged production genesis + candidate-admission + governed-write path can build durable campaign memory across the current canonical recap corpus without caller-side semantic repair.
+
+This is a hypothesis, not an already-authorized PR.
+
+The designer must decide whether that experiment is truly the next single capability or whether **candidate-generation contract hardening** is a prerequisite that deserves its own bounded slice first.
+
+The decision should be evidence-driven:
+
+```text
+If current generation can reliably produce coherent candidate documents:
+    design fresh chronological admission acceptance.
+
+If current generation still produces candidate-integrity failures frequently enough
+that the acceptance experiment would mostly measure malformed candidate output:
+    design candidate-generation contract hardening first.
+```
+
+Do not combine both into one implementation PR merely to make an experiment pass.
 
 ---
 
-## 6. What remains deliberately false
+## 4. Mandatory design questions for the successor
 
-- BF2 / PR #652 is DONE (merge `39ef105d3996ef0062dd45a089fecada14915436`, 5 review cycles).
-- BF3A / PR #655 is DONE (merge `4d82f12ad9c6d679b5dbce83db527eb7dbd27957`, 2 review cycles).
-- DF0 local Play dogfood bootstrap is DONE (PR #657, merge `87a769d05605ff021d28f0b69c5d7ab0b8205440`).
-- PLAN-BLANK-SHELL / PR #661 is DONE (merge `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`, 4 review cycles).
-- BF4A native Runbook authoring is DONE (PR #660, accepted head `d9b34ca87166572af8b482523862722fdd928fbe`, merge `a3fd6219062d1cd978c394d07e2f80aaa6d203eb`, 2 review cycles).
-- SURFACE-INTEGRATION is CLOSED (SI-6 ACCEPTED, PR #682 merge `86296a4021816862b1ee82cbf7478b2882493963`, 2 review cycles).
-- DFC-1 historical material inventory is **DONE / ACCEPTED** (PR #684, 7 review cycles).
-- DFC-2a exact historical Plan adoption is **DONE / ACCEPTED** (PR #685, 5 review cycles).
-- DFC-2c exact historical Ingest run catalog adoption is **DONE / ACCEPTED** (PR #686, 2 review cycles).
-- DFC-3 C1/C2 demo-readiness survey is **DONE / ACCEPTED** (PR #687, 3 review cycles).
-- Stage 2A durable APP-STATE substrate is **DONE** (PR #691, 2 review cycles, personally dogfooded; closure PR #692 merge `1ed1b6c484d898a2216330258be2897dc0588f74`, 3 review cycles).
-- Stage 2B C1/C2 repopulation implementation is **MERGED** (PR #693) and **not** an accepted completed stage; Stage 2 / STOP 2 remain OPEN.
-- DFC-2b Build archive/adapter is **LATER** — evidence incomplete.
-- BF3B Decision interaction is **not current** — parked until after DOGFOOD-CONTINUITY recovery. Closed unmerged PR #670 is exploratory evidence only (0 review cycles).
-- BF3.x / P3 retrieval remains false.
-- P4 / Combat remains false.
-- global/on-demand retrieval is not proven.
-- native unexpected Threat→Combat end-to-end is not proven.
-- Combat durability is not assumed.
-- CR-U17 is not complete overall.
-- no new Note schema is authorized.
-- no Choice condition/workflow DSL is authorized.
-- no Agent dependency is authorized for basic Play retrieval.
+The fresh designer should answer these before writing an implementation handoff.
+
+### Corpus authority
+
+- What is the **current** canonical recap corpus on `main`?
+- Re-census it. The old frozen 42 count is stale because later campaign recaps were promoted after that freeze.
+- Which sources are observed recap authority versus prep, worldbuilding, duplicate, or ambiguous material?
+
+### Candidate generation
+
+- Is the experiment consuming newly generated candidates or another already-durable current candidate source?
+- If models are called, what exact model/profile is being tested and what claim is the run allowed to make?
+- What is the fail-closed behavior when a candidate is document-invalid?
+- No sanitizer, first-wins duplicate handling, or semantic deletion is permitted after candidate generation.
+
+### Structural acceptance
+
+- What exact sequence constitutes PASS?
+- Every session must start from the prior admitted head.
+- Prepare must remain inert.
+- Every confirm must bind exact candidate/source/parent authority.
+- A stop must preserve failure evidence rather than silently continuing.
+- A rerun after a real failure must restart from a pristine authorized point, not continue a repaired chain and call it final.
+
+### Model comparison
+
+- Structural acceptance is not semantic model selection.
+- If more than one model is compared, arms must be isolated and comparable.
+- Do not invent a semantic benchmark after seeing results.
+- If no pre-existing benchmark exists, model-selection verdict remains HOLD even if structural runs complete.
+
+### Evidence durability
+
+- What evidence survives disposable database teardown?
+- Exact production SHA, source census/manifest, model/profile where applicable, candidate digests, genesis receipt, per-session receipts, parent chain, terminal head, stop conditions, and zero-repair declaration should be durable outside ephemeral databases.
+
+---
+
+## 5. Design laws that remain binding
+
+### World authority
+
+```text
+source artifact = evidentiary authority
+graph = durable materialized knowledge
+candidate extraction = proposal, never canon
+campaign = scope, not copied graph
+identity = World-global
+published revisions = immutable
+head movement = atomic
+failed write = prior head remains readable
+```
+
+### Admission law
+
+```text
+candidate integrity failure
+≠
+admission eligibility rejection
+≠
+governed write failure
+```
+
+Never collapse those classes merely to keep a batch moving.
+
+### Runner law
+
+A batch/acceptance runner may orchestrate production seams. It must not know how to repair graph semantics.
+
+If a runner needs code like:
+
+```text
+if duplicate: keep first
+if unsupported type: delete node
+if edge no longer works: delete edge
+```
+
+STOP. Production or generation contract ownership is wrong.
+
+### Process law
+
+```text
+re-anchor
+→ decompose candidate capabilities
+→ design one slice
+→ land steward-owned HANDOFF on main
+→ activate only after gates are satisfied
+→ allocate isolated implementation lane
+→ dispatch
+→ exact-head review cycles
+→ merge only when instructed
+→ steward state-authority sync
+→ re-anchor
+```
+
+A BLOCKED handoff is durable design authority but does not reserve a lane or authorize code. Only ACTIVE dispatches implementation.
+
+---
+
+## 6. Likely next authorities to read
+
+Required:
+
+```text
+AGENTS.md
+Docs/Process/STEWARD-CYCLE.md
+Docs/Design/ARCHITECTURE-campaign-supergraph.md
+Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md
+```
+
+Historical evidence:
+
+```text
+Docs/Reports/REPORT-DOGFOOD-CONTINUITY-frozen-42-session-acceptance-v1.md
+PR #715 @ 820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed — closed/unmerged
+```
+
+Product intent/user stories:
+
+```text
+Docs/Roadmaps/ROADMAP-con-ready.md
+```
+
+Use the roadmap for product goals and acceptance stories. Its older sequencing/status prose may lag this anchor.
+
+---
+
+## 7. Stop conditions for the next Designing agent
+
+Stop and rebrief rather than quietly broadening scope if:
+
+- the next experiment requires changing DungeonMind generic contracts;
+- candidate generation and batch acceptance both require material implementation changes;
+- the only way to complete a corpus is semantic repair after generation;
+- source authority cannot be bound exactly;
+- corpus membership is ambiguous and cannot be resolved by existing source rules;
+- a semantic model winner is requested without a pre-existing evaluation contract;
+- the design would reuse #715 as active production authority;
+- the successor needs a second independently useful capability to succeed;
+- an apparently simple acceptance runner begins accumulating ontology, identity, or mapping policy.
+
+---
+
+## 8. Current steward disposition
+
+```text
+PR #720                      MERGED / ACCEPTED
+candidate admission handoff  CONSUMED
+PR #715                      CLOSED UNMERGED
+frozen-42 structural result  HOLD
+semantic model selection     HOLD
+open implementation PRs      none at re-anchor
+next implementation lane     NONE — design required first
+```
+
+The next steward action is to design and land one successor handoff. Do not dispatch code directly from this anchor.
