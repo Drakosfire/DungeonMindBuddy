@@ -712,6 +712,46 @@ def _find_plausible_matches(
     )
 
 
+def _exact_durable_id_occupant(
+    context: WorldGraphMutationContext,
+    candidate: IdentityCandidate,
+) -> MutationObject | None:
+    """Return any canonical parent object already occupying the candidate's durable id."""
+    canonical = _active_canonical_objects(context)
+    for raw_id in (candidate.proposed_node_id, candidate.candidate_id):
+        object_id = str(raw_id or "").strip()
+        if not object_id:
+            continue
+        resolved_id = _resolve_redirect(object_id, context.identity_redirects)
+        obj = canonical.get(resolved_id)
+        if obj is not None:
+            return obj
+    return None
+
+
+def _exact_same_kind_durable_id_match(
+    context: WorldGraphMutationContext,
+    candidate: IdentityCandidate,
+) -> MutationObject | None:
+    """Return the parent object when the candidate already names its durable id.
+
+    Session-to-session extraction often reuses the same ``loc:…`` / ``node:…``
+    id while drifting surface labels (e.g. "River's Edge Pub" vs "The River's
+    Edge Pub"). Exact same-kind id continuity must confirm the existing object
+    before label/alias matching or cross-kind alias collisions can invent a
+    CREATE_NEW / blocked outcome for that durable id.
+    """
+    candidate_kind = _norm_kind(candidate.object_kind)
+    if not candidate_kind:
+        return None
+    obj = _exact_durable_id_occupant(context, candidate)
+    if obj is None:
+        return None
+    if _norm_kind(obj.kind) != candidate_kind:
+        return None
+    return obj
+
+
 def resolve_identity_against_context(
     context: WorldGraphMutationContext,
     candidate: IdentityCandidate,
@@ -726,6 +766,39 @@ def resolve_identity_against_context(
     if prior is not None:
         return _resolution_from_decision(candidate, prior)
 
+    exact = _exact_same_kind_durable_id_match(context, candidate)
+    if exact is not None:
+        return IdentityResolution(
+            world_id=candidate.world_id,
+            candidate_id=candidate.candidate_id,
+            outcome="resolved_existing",
+            target_node_id=exact.object_id,
+            diagnostics=[
+                f"Exact same-kind durable id match to existing node {exact.object_id}"
+            ],
+            requires_human_review=False,
+            canon_state="canonical",
+        )
+
+    occupied = _exact_durable_id_occupant(context, candidate)
+    if occupied is not None:
+        # Durable id is already taken by a different kind — never CREATE_NEW into
+        # that id (materialization parent_binding_mismatch). Fail closed as a
+        # collision for operator/eligibility handling.
+        return IdentityResolution(
+            world_id=candidate.world_id,
+            candidate_id=candidate.candidate_id,
+            outcome="blocked_collision",
+            blocked_by=[occupied.object_id],
+            diagnostics=[
+                (
+                    f"Durable id {occupied.object_id} is already occupied by "
+                    f"kind={occupied.kind!r}; candidate kind="
+                    f"{candidate.object_kind!r} cannot CREATE_NEW into it"
+                )
+            ],
+            requires_human_review=True,
+        )
 
     same_kind, cross_kind, provisional_same_kind = _find_plausible_matches(
         context, candidate, policy=active_policy
