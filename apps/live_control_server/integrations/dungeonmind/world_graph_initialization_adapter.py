@@ -96,7 +96,19 @@ def _qualify_first_world_contribution(contribution: Any) -> Any:
     return contribution.model_copy(update={"assertions": qualified})
 
 
-def _map_sources(request: WorldGraphInitializationRequest) -> tuple[list[Any], list[Any], dict[tuple[str, str], str]]:
+def _is_party_registry_profile(request: WorldGraphInitializationRequest) -> bool:
+    artifact = request.source_artifact
+    return (
+        str(getattr(artifact, "source_domain", "") or "") == "party_registry"
+        and str(getattr(request.reviewed_contribution, "source_kind", "") or "") == "standing_context"
+    )
+
+
+def _map_sources(
+    request: WorldGraphInitializationRequest,
+    *,
+    requested_initialized_at: datetime,
+) -> tuple[list[Any], list[Any], dict[tuple[str, str], str]]:
     from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
         _digest_from_buddy_revision,
         _dm_revision_id,
@@ -130,6 +142,11 @@ def _map_sources(request: WorldGraphInitializationRequest) -> tuple[list[Any], l
         )
     else:
         created_at = _parse_optional_aware(raw_created)
+    # Registry bytes have no independently persisted artifact timestamp.  The
+    # reviewed-init retry path reuses its receipt timestamp, keeping the command
+    # exactly replayable without minting a second audit identity.
+    if created_at is None and _is_party_registry_profile(request):
+        created_at = requested_initialized_at
     if created_at is None:
         raise WorldGraphInitializationError(
             "first-world source artifact is missing created_at",
@@ -161,13 +178,14 @@ def _map_sources(request: WorldGraphInitializationRequest) -> tuple[list[Any], l
 
 
 _FIRST_WORLD_WORLDBUILDING_DOMAIN_KEY = "worldbuilding"
+_FIRST_WORLD_PARTY_REGISTRY_DOMAIN_KEY = "party_registry"
 
 
 def _align_first_world_command_evidence_domains(
     contribution: Any,
     artifacts: list[Any],
 ) -> Any:
-    """Copy command-owned worldbuilding domain onto first-world evidence refs.
+    """Copy command-owned source domain onto first-world evidence refs.
 
     Historical #645 mapping derived exported evidence IDs from an OTHER
     fallback draft. DungeonMind #47 reverse-normalizes only
@@ -206,12 +224,17 @@ def _align_first_world_command_evidence_domains(
                     },
                 )
             domain_key = str(getattr(artifact, "source_domain_key", "") or "")
-            if (
-                artifact.source_domain is not SourceDomain.WORLDBUILDING
-                or domain_key != _FIRST_WORLD_WORLDBUILDING_DOMAIN_KEY
-            ):
+            worldbuilding = (
+                artifact.source_domain is SourceDomain.WORLDBUILDING
+                and domain_key == _FIRST_WORLD_WORLDBUILDING_DOMAIN_KEY
+            )
+            party_registry = (
+                artifact.source_domain is SourceDomain.OTHER
+                and domain_key == _FIRST_WORLD_PARTY_REGISTRY_DOMAIN_KEY
+            )
+            if not (worldbuilding or party_registry):
                 raise WorldGraphInitializationError(
-                    "first-world source artifact is not worldbuilding provenance",
+                    "first-world source artifact is not an approved provenance profile",
                     code="inexpressible",
                     details={
                         "source_artifact_id": artifact.source_artifact_id,
@@ -243,7 +266,35 @@ def _map_contribution(request: WorldGraphInitializationRequest, pair_to_dm: dict
         _map_contributions,
     )
 
-    remapped = _worldbuilding_expressible(request.reviewed_contribution)
+    if _is_party_registry_profile(request):
+        contribution = request.reviewed_contribution
+        artifact = request.source_artifact
+        if (
+            getattr(artifact, "session_id", None) is not None
+            or getattr(contribution, "campaign_scope", None) != request.campaign_id
+            or getattr(contribution, "source_artifact_id", None) != getattr(artifact, "source_artifact_id", None)
+            or getattr(contribution, "source_revision_id", None) != request.source_revision_token
+            or getattr(contribution, "unresolved_mentions", None)
+            or getattr(contribution, "candidate_assertions", None)
+            or getattr(contribution, "rejected_assertions", None)
+        ):
+            raise WorldGraphInitializationError(
+                "party-registry first-world profile is malformed",
+                code="inexpressible",
+                details={"reason": "invalid_party_registry_profile"},
+            )
+        if not contribution.accepted_assertions or any(
+            item.assertion_kind != "node" or item.acceptance_state != "accepted"
+            for item in contribution.accepted_assertions
+        ):
+            raise WorldGraphInitializationError(
+                "party-registry genesis accepts canonical node assertions only",
+                code="inexpressible",
+                details={"reason": "invalid_party_registry_assertions"},
+            )
+        remapped = contribution
+    else:
+        remapped = _worldbuilding_expressible(request.reviewed_contribution)
     try:
         mapped = _map_contributions(_EmptyEvidenceView(), [remapped], pair_to_dm)
     except WorldGraphInitializationError:
@@ -279,7 +330,9 @@ def _build_command(
         ReviewedWorldInitializationCommandV1,
     )
 
-    artifacts, revisions, pair_to_dm = _map_sources(request)
+    artifacts, revisions, pair_to_dm = _map_sources(
+        request, requested_initialized_at=requested_initialized_at
+    )
     contribution = _map_contribution(request, pair_to_dm)
     contribution = _align_first_world_command_evidence_domains(contribution, artifacts)
     return ReviewedWorldInitializationCommandV1(

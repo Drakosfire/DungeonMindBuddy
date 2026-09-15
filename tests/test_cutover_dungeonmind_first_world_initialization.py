@@ -7,6 +7,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import shutil
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, replace
@@ -722,6 +723,65 @@ def _revision_ids(dsn: str, world_id: str) -> list[tuple[str]]:
             "WHERE a.world_id = %s",
             (world_id,),
         ).fetchall()
+
+
+@pytest.mark.integration
+def test_native_recap_genesis_is_atomic_and_replays_exactly(
+    native_first_world_client,
+) -> None:
+    """Real PostgreSQL witness for the party-registry zero-parent profile."""
+    from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
+        DungeonMindWorldGraphInitializationAdapter,
+    )
+    from apps.live_control_server.models.recap_world_genesis import (
+        RecapWorldGenesisConfirmRequest,
+        RecapWorldGenesisPrepareRequest,
+    )
+    from apps.live_control_server.services.recap_world_genesis import (
+        confirm_recap_world_genesis,
+        prepare_recap_world_genesis,
+    )
+
+    _client, _world_root, repo, dsn = native_first_world_client
+    registry = repo / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json"
+    registry.parent.mkdir(parents=True)
+    shutil.copyfile(
+        REPO_ROOT / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json",
+        registry,
+    )
+    world_id = "world:recap-genesis-c1"
+    authority = DungeonMindWorldGraphInitializationAdapter(database_url=dsn)
+    plan = prepare_recap_world_genesis(
+        RecapWorldGenesisPrepareRequest(
+            world_id=world_id, campaign_id="longmont-c1", baseline_roster_key="1", requested_by="test"
+        ), repo=repo, authority=authority,
+    )
+    assert _counts(dsn, world_id) == {
+        "heads": 0, "revisions": 0, "receipts": 0, "contributions": 0,
+        "artifacts": 0, "revisions_src": 0, "adoptions": 0,
+    }
+    first = confirm_recap_world_genesis(
+        RecapWorldGenesisConfirmRequest(plan=plan, confirming_principal="test"), repo=repo, authority=authority
+    )
+    assert _counts(dsn, world_id) == {
+        "heads": 1, "revisions": 1, "receipts": 1, "contributions": 1,
+        "artifacts": 1, "revisions_src": 1, "adoptions": 0,
+    }
+    bundle = _bundle(dsn)
+    revision = bundle.world_graph.get_revision(world_id, first.published_revision_id)
+    assert revision is not None
+    assert revision.revision.parent_revision_id is None
+    assert {item["object_id"] for item in revision.graph_payload["objects"]} == set(plan.pc_object_ids)
+    artifact = bundle.sources.get_artifact(plan.source_artifact_id)
+    assert artifact is not None
+    assert artifact.source_domain_key == "party_registry"
+    assert artifact.source_domain.value == "other"
+    second = confirm_recap_world_genesis(
+        RecapWorldGenesisConfirmRequest(plan=plan, confirming_principal="other-actor"), repo=repo, authority=authority
+    )
+    assert second.published_revision_id == first.published_revision_id
+    assert second.outcome == "already_initialized"
+    assert _counts(dsn, world_id)["revisions"] == 1
 
 
 @pytest.mark.integration
