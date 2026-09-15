@@ -14,6 +14,7 @@ from apps.live_control_server.models.candidate_graph_admission import (
     CandidateAdmissionNotConfirmableError,
 )
 from apps.live_control_server.models.world_graph_mutation_context import (
+    MutationObject,
     WorldGraphMutationContext,
 )
 from apps.live_control_server.services.candidate_graph_admission import (
@@ -119,15 +120,18 @@ def _candidate(*, unsupported: bool = False) -> dict:
     }
 
 
-def _prepare(tmp_path, candidate: dict):
+def _prepare(
+    tmp_path,
+    candidate: dict,
+    *,
+    mutation_context: WorldGraphMutationContext | None = None,
+    registry_context_graph: dict | None = None,
+):
     source = tmp_path / "session-9.md"
     source.write_text("Brin visits the Medical Wing.\n", encoding="utf-8")
     revision = f"sha256:{hashlib.sha256(source.read_bytes()).hexdigest()}"
-    context = WorldGraphMutationContext(
-        world_id="eldyrwild",
-        revision_id="rev:d0",
-        head_revision_id="rev:d0",
-        objects={},
+    context = mutation_context or WorldGraphMutationContext(
+        world_id="eldyrwild", revision_id="rev:d0", head_revision_id="rev:d0", objects={}
     )
     return prepare_candidate_graph_admission(
         candidate_graph=candidate,
@@ -140,6 +144,7 @@ def _prepare(tmp_path, candidate: dict):
         candidate_graph_path=str(tmp_path / "candidate_graph.json"),
         repo_root=tmp_path,
         mutation_context=context,
+        registry_context_graph=registry_context_graph,
     )
 
 
@@ -396,3 +401,63 @@ def test_only_unsupported_node_seals_nonconfirmable_admission(tmp_path) -> None:
             governed_confirm=_governed_confirm,
         )
     assert called is False
+
+
+def test_identity_ambiguity_with_no_accepted_assertions_is_nonconfirmable(
+    tmp_path,
+) -> None:
+    candidate = _candidate()
+    candidate["nodes"][0]["label"] = "Mireward Guard"
+    context = WorldGraphMutationContext(
+        world_id="eldyrwild",
+        revision_id="rev:d0",
+        head_revision_id="rev:d0",
+        objects={
+            "node:a": MutationObject("node:a", "Mireward Guard", "npc"),
+            "node:b": MutationObject("node:b", "Mireward Guard", "npc"),
+        },
+    )
+
+    result = _prepare(tmp_path, candidate, mutation_context=context)
+
+    assert result.accepted_proposals_count == 0
+    assert result.confirmable is False
+    assert result.review_package["effect"]["candidate_admission"]["confirmable"] is False
+
+
+def test_standing_context_assertions_keep_empty_recap_plan_confirmable(
+    tmp_path, monkeypatch,
+) -> None:
+    registry_path = (
+        tmp_path
+        / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/_party_registry.json"
+    )
+    registry_path.parent.mkdir(parents=True)
+    registry_path.write_text("{}\n", encoding="utf-8")
+    monkeypatch.setattr(
+        "graph_memory.extract_promote_ops.resolve_party_registry_uri",
+        lambda _campaign_id, *, repo_root: (
+            registry_path,
+            "artifact:party-registry:longmont-c2",
+            str(registry_path),
+        ),
+    )
+    candidate = _candidate()
+    candidate["nodes"] = [_node("candidate:medical-wing", "sublocation")]
+    standing = _candidate()
+    standing["preview_id"] = "preview:c2-standing"
+    standing["nodes"] = [_node("candidate:caelynn", "character")]
+    standing["nodes"][0]["warnings"] = ["context_anchor_no_session_evidence"]
+    standing["nodes"][0]["context_anchor"] = True
+
+    result = _prepare(
+        tmp_path, candidate, registry_context_graph=standing
+    )
+
+    assert result.accepted_proposals_count > 0
+    assert result.confirmable is True
+    effect = result.review_package["effect"]
+    assert effect["candidate_admission"]["confirmable"] is True
+    assert effect["source_artifact_id"] == "artifact:recap:longmont-c2:session-9"
+    assert len(effect["contributions"]) == 2
+    assert effect["contributions"][-1]["accepted_proposals"] == []

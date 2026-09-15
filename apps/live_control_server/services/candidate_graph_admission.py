@@ -245,8 +245,9 @@ def prepare_candidate_graph_admission(
 ) -> ExtractPromotePrepareResult:
     """Prepare and seal one exact candidate against one pinned parent."""
     projected, dispositions, digest = _integrity_and_eligibility(candidate_graph)
-    confirmable = bool(projected.get("nodes"))
-    if confirmable:
+    has_structurally_admissible_nodes = bool(projected.get("nodes"))
+    has_standing_context = prepare_kwargs.get("registry_context_graph") is not None
+    if has_structurally_admissible_nodes or has_standing_context:
         result = prepare_extract_promote(candidate_graph=projected, **prepare_kwargs)
     else:
         mutation_context = prepare_kwargs.get("mutation_context")
@@ -328,6 +329,8 @@ def prepare_candidate_graph_admission(
             },
         )
     effect = dict(result.review_package.get("effect") or {})
+    confirmable = bool(effect.get("accepted_proposals"))
+    result = replace(result, confirmable=confirmable)
     binding = CandidateAdmissionBinding(
         candidate_digest=digest,
         candidate_locator=prepare_kwargs.get("candidate_graph_path"),
