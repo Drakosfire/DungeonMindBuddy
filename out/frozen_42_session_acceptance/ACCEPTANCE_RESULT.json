@@ -32,8 +32,11 @@
       "candidate_generation": "frozen",
       "candidate_regeneration": false,
       "chain": {
-        "complete": true,
+        "acceptance_complete": false,
+        "complete": false,
+        "diagnostic_sanitized_receipt_count": 42,
         "gaps": [],
+        "note": "42 receipts exist only after in-memory candidate repair; exact frozen replay stopped at C2 S9",
         "receipt_count": 42,
         "sessions": [
           {
@@ -906,6 +909,22 @@
       },
       "d0": "rev:2e2d2a536cf8e1073f537e9286c10d0f",
       "database": "dmb_full_corpus_deepseek",
+      "evidence_class": "diagnostic_only",
+      "exact_frozen_replay": {
+        "error": "CandidateGraphMappingError: duplicate_node_id:candidate:miss-thistlebottoms-emporium; duplicate_node_id:candidate:sputtering-flask; invalid_semantic_state:candidate:medical-wing:invalid node_type",
+        "last_unsanitized_receipt": {
+          "campaign": "longmont-c2",
+          "child": "rev:50ad9c10ebd2d0bfbd3106317a79640e",
+          "session": 8
+        },
+        "preserved_failure_dir": "/tmp/frozen42-deepseek-partial-c2s9-failure",
+        "reason": "candidate graph invalid under current typed loader: duplicate node_id + unsupported sublocation",
+        "stop_session": {
+          "campaign": "longmont-c2",
+          "session": 9
+        },
+        "verdict": "STOP"
+      },
       "genesis": {
         "baseline_roster_key": "1",
         "canonical_pc_labels": [
@@ -962,6 +981,30 @@
       "notebook_head": "820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed",
       "production_head_recorded_in_manifest": "04ff89083aabac75c4b7b135e685d1b1efefd44c",
       "runner_head_at_run": "04ff89083aabac75c4b7b135e685d1b1efefd44c",
+      "sanitized_continuation": {
+        "candidate_semantics_changed_before_prepare_extract_promote": true,
+        "counts_toward_structural_acceptance": false,
+        "load_repair": {
+          "actions": [
+            "keep first duplicate node_id, drop later nodes",
+            "drop unsupported node_type (sublocation)",
+            "drop edges whose endpoints were removed",
+            "remove beat references to removed nodes",
+            "remove proposed writes whose targets were removed"
+          ],
+          "c2_s12": {
+            "duplicate_node_id": 1
+          },
+          "c2_s9": {
+            "duplicate_node_id": 3,
+            "invalid_node_type": 1
+          },
+          "duplicate_node_id": 4,
+          "invalid_node_type": 1
+        },
+        "runner_head": "04ff89083aabac75c4b7b135e685d1b1efefd44c",
+        "verdict": "DIAGNOSTIC ONLY"
+      },
       "structural_metrics": {
         "accepted_assertions": 1522,
         "candidate_load_rejections": {
@@ -1911,6 +1954,13 @@
       },
       "d0": "rev:615246aff38a6a53e43a64ffc716471f",
       "database": "dmb_full_corpus_openai",
+      "evidence_class": "exact_frozen_acceptance",
+      "exact_frozen_replay": {
+        "load_sanitization": false,
+        "receipt_count": 42,
+        "runner_head": "f24d109d0cc0c6b1607dc82034b535c8345681df",
+        "verdict": "PASS"
+      },
       "genesis": {
         "baseline_roster_key": "1",
         "canonical_pc_labels": [
@@ -2004,12 +2054,13 @@
   },
   "candidate_frozen_head_sha": "d6e2599bbabb9719bc92601f7bc1ad8b69411e98",
   "comparison": {
+    "acceptance_comparable": false,
     "accepted_assertions": {
       "deepseek-v4.1-flash": 1522,
       "openai-gpt-5.4-mini": 1441
     },
     "both_c1_s1_ordinary_children_of_d0": true,
-    "both_chains_complete": true,
+    "both_chains_complete": false,
     "candidate_load_rejections": {
       "deepseek-v4.1-flash": {
         "duplicate_node_id": 4,
@@ -2025,12 +2076,14 @@
       "deepseek-v4.1-flash": 636,
       "openai-gpt-5.4-mini": 463
     },
+    "deepseek_metrics_are": "diagnostic_only",
     "genesis_pc_object_ids_equivalent": true,
     "genesis_registry_digest_equivalent": true,
     "notes": [
-      "candidate-generation differences are frozen input differences, not runner mutations",
-      "governed-publication differences include unmapped_kind, unmapped_predicate, endpoint_kind_not_admitted, and parent_binding_mismatch skips at the selection boundary",
-      "DeepSeek C2 S9/S12 required runner-local load sanitization of duplicate node IDs and invalid node_type sublocation; OpenAI graphs loaded without that hygiene",
+      "OpenAI exact frozen replay PASS at f24d109d; DeepSeek exact frozen replay STOP at C2 S9",
+      "DeepSeek Session-42 terminal metrics are diagnostic only; candidate semantics were changed in memory before prepare_extract_promote",
+      "frozen DeepSeek C2 S9/S12 defects are candidate-generation / seal-contract findings, not silently repairable in the acceptance runner",
+      "parent_binding_mismatch 132 vs 3 is later semantic-evaluation material, not an acceptance verdict",
       "more nodes/edges is not treated as better"
     ],
     "published_relationships": {
@@ -2091,19 +2144,33 @@
       }
     }
   },
-  "execution_head_sha": "04ff89083aabac75c4b7b135e685d1b1efefd44c",
+  "corrected_at": "2026-09-15T15:07:07Z",
+  "corrected_from_commit": "b0fa4dafe0faf24e94c20691132cd4dffc70e2b5",
+  "execution_head_sha": null,
+  "execution_heads": {
+    "deepseek-v4.1-flash": "04ff89083aabac75c4b7b135e685d1b1efefd44c",
+    "openai-gpt-5.4-mini": "f24d109d0cc0c6b1607dc82034b535c8345681df"
+  },
   "experiment_claim": "two autoregressive, chronologically generated candidate arms, followed by zero-model governed replay into independently initialized Worlds.",
   "generated_at": "2026-09-15T14:35:25Z",
   "genesis_predecessor_merge_sha": "876123a3d197d426ce76e03a30f059093ba9b4f4",
   "notebook_head_sha": "820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed",
   "overall": {
+    "deepseek_exact_frozen_replay": "STOP at C2 S9",
+    "deepseek_sanitized_chain": "DIAGNOSTIC ONLY",
+    "do_not_close_715": true,
     "do_not_merge_715": true,
     "do_not_merge_execution_branch": true,
+    "openai_exact_frozen_replay": "PASS",
     "semantic_verdict": "SEMANTIC MODEL SELECTION HOLD",
-    "stop_conditions": [],
-    "structural_verdict": "STRUCTURAL ACCEPTANCE PASS",
-    "teardown_status": "not_started; rehearsal databases retained for independent evidence review"
+    "stop_conditions": [
+      "candidate_needs_manual_repair",
+      "arms_not_run_under_one_execution_head"
+    ],
+    "structural_verdict": "STRUCTURAL ACCEPTANCE HOLD",
+    "teardown_status": "not_started; rehearsal databases retained pending HOLD evidence re-review"
   },
   "production_base_sha": "876123a3d197d426ce76e03a30f059093ba9b4f4",
-  "schema": "dmb_frozen_42_session_acceptance_result_v1"
+  "schema": "dmb_frozen_42_session_acceptance_result_v1",
+  "shared_execution_head": false
 }
