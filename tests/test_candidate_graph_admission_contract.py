@@ -11,6 +11,7 @@ import pytest
 
 from apps.live_control_server.models.candidate_graph_admission import (
     CandidateAdmissionIntegrityError,
+    CandidateAdmissionNotConfirmableError,
 )
 from apps.live_control_server.models.world_graph_mutation_context import (
     WorldGraphMutationContext,
@@ -341,3 +342,57 @@ def test_exact_candidate_confirm_invokes_existing_write_once(tmp_path) -> None:
         governed_confirm=_governed_confirm,
     ) == "rev:d1"
     assert calls == 1
+
+
+def test_only_unsupported_node_seals_nonconfirmable_admission(tmp_path) -> None:
+    candidate = _candidate()
+    candidate["nodes"] = [_node("candidate:medical-wing", "sublocation")]
+    exact_digest = canonical_candidate_digest(candidate)
+
+    result = _prepare(tmp_path, candidate)
+    binding = result.review_package["effect"]["candidate_admission"]
+
+    assert result.confirmable is False
+    assert result.accepted_proposals_count == 0
+    assert binding == {
+        "schema": "dmb_candidate_graph_admission_v1",
+        "candidate_digest": exact_digest,
+        "candidate_locator": str(tmp_path / "candidate_graph.json"),
+        "candidate_preview_id": "preview:c2-s9-admission-witness",
+        "source_artifact_id": "artifact:recap:longmont-c2:session-9",
+        "source_revision_id": result.review_package["effect"][
+            "source_revision_id"
+        ],
+        "world_id": "eldyrwild",
+        "parent_revision_id": "rev:d0",
+        "confirmable": False,
+        "dispositions": [
+            {
+                "item_id": "candidate:medical-wing",
+                "item_kind": "node",
+                "outcome": "rejected",
+                "reason": "unsupported_node_type",
+                "depends_on": [],
+            }
+        ],
+        "exact_candidate_counts": {
+            "nodes": 1,
+            "edges": 0,
+            "beats": 0,
+            "proposed_writes": 0,
+        },
+    }
+    called = False
+
+    def _governed_confirm():
+        nonlocal called
+        called = True
+        return "impossible"
+
+    with pytest.raises(CandidateAdmissionNotConfirmableError):
+        confirm_candidate_graph_admission(
+            review_package=result.review_package,
+            candidate_graph=candidate,
+            governed_confirm=_governed_confirm,
+        )
+    assert called is False

@@ -1114,6 +1114,7 @@ def prepare(
         accepted_proposals_count=result.accepted_proposals_count,
         unresolved_mentions_count=result.unresolved_mentions_count,
         rejected_assertions_count=result.rejected_assertions_count,
+        confirmable=result.confirmable,
         review_package=result.review_package,
         review_items=[
             ExtractPromotionReviewItem.model_validate(item)

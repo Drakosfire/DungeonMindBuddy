@@ -85,6 +85,7 @@ class ExtractPromotePrepareResult:
     accepted_proposals_count: int
     unresolved_mentions_count: int
     rejected_assertions_count: int
+    confirmable: bool = True
     review_items: list[dict[str, Any]] = field(default_factory=list)
     review_summary: dict[str, Any] = field(default_factory=dict)
 

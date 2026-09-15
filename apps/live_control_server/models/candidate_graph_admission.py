@@ -49,6 +49,10 @@ class CandidateAdmissionIntegrityError(CandidateGraphMappingError):
         super().__init__(f"candidate_invalid ({len(diagnostics)} issues): {summary}")
 
 
+class CandidateAdmissionNotConfirmableError(CandidateGraphMappingError):
+    """A coherent admission plan contains no admissible governed effect."""
+
+
 class CandidateAdmissionBinding(BaseModel):
     """The admission identity sealed into an existing promote proposal effect."""
 
@@ -64,6 +68,7 @@ class CandidateAdmissionBinding(BaseModel):
     source_revision_id: str
     world_id: str
     parent_revision_id: str
+    confirmable: bool
     dispositions: list[CandidateAdmissionDisposition] = Field(default_factory=list)
     exact_candidate_counts: dict[str, int] = Field(default_factory=dict)
 

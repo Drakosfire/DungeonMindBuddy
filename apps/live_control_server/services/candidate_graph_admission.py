@@ -19,6 +19,7 @@ from apps.live_control_server.models.candidate_graph_admission import (
     CandidateAdmissionBinding,
     CandidateAdmissionDisposition,
     CandidateAdmissionIntegrityError,
+    CandidateAdmissionNotConfirmableError,
     CandidateIntegrityDiagnostic,
 )
 from graph_memory.candidate_graph_preview import (
@@ -30,6 +31,7 @@ from graph_memory.extract_promote_ops import (
     ExtractPromotePrepareResult,
     prepare_extract_promote,
 )
+from graph_memory.candidate_graph_to_contribution import verify_source_revision
 from graph_memory.candidate_graph_to_contribution import kernel_kind_for_node_type
 from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
     CURRENT_V5_TARGET,
@@ -37,7 +39,11 @@ from apps.live_control_server.integrations.dungeonmind.assertion_qualification i
 )
 from graph_memory.extract_promote_proposal import (
     bind_candidate_admission_to_proposal,
+    seal_promote_proposal,
     verify_promote_proposal,
+)
+from apps.live_control_server.models.world_graph_mutation_context import (
+    mutation_context_from_world_root,
 )
 
 _T = TypeVar("_T")
@@ -239,7 +245,88 @@ def prepare_candidate_graph_admission(
 ) -> ExtractPromotePrepareResult:
     """Prepare and seal one exact candidate against one pinned parent."""
     projected, dispositions, digest = _integrity_and_eligibility(candidate_graph)
-    result = prepare_extract_promote(candidate_graph=projected, **prepare_kwargs)
+    confirmable = bool(projected.get("nodes"))
+    if confirmable:
+        result = prepare_extract_promote(candidate_graph=projected, **prepare_kwargs)
+    else:
+        mutation_context = prepare_kwargs.get("mutation_context")
+        world_id = str(prepare_kwargs.get("world_id") or "eldyrwild")
+        if mutation_context is None:
+            world_root = prepare_kwargs.get("world_root")
+            if world_root is None:
+                raise CandidateAdmissionNotConfirmableError(
+                    "mutation_context or world_root is required to seal admission"
+                )
+            mutation_context = mutation_context_from_world_root(world_root, world_id)
+        source_uri = str(prepare_kwargs.get("source_uri") or "")
+        source_revision_id = verify_source_revision(
+            source_uri=source_uri,
+            source_revision_id=str(prepare_kwargs.get("source_revision_id") or ""),
+            repo_root=prepare_kwargs.get("repo_root"),
+            disclose_computed_digest=bool(
+                prepare_kwargs.get("disclose_source_digest", True)
+            ),
+        )
+        source_artifact_id = str(
+            prepare_kwargs.get("source_artifact_id")
+            or next(iter(candidate_graph.get("source_artifact_ids") or []), "")
+        ).strip()
+        if not source_artifact_id:
+            raise CandidateAdmissionNotConfirmableError(
+                "source_artifact_id is required to seal admission"
+            )
+        package = seal_promote_proposal(
+            world_id=world_id,
+            parent_revision_id=mutation_context.revision_id,
+            source_revision_id=source_revision_id,
+            source_artifact_id=source_artifact_id,
+            verified_source_uri=source_uri,
+            candidate_preview_id=str(candidate_graph.get("preview_id") or ""),
+            candidate_schema=str(candidate_graph.get("schema") or ""),
+            candidate_version=str(candidate_graph.get("version") or ""),
+            contribution_meta={
+                "source_kind": "source_extraction",
+                "source_artifact_id": source_artifact_id,
+                "source_revision_id": source_revision_id,
+                "extraction_profile": str(
+                    prepare_kwargs.get("extraction_profile") or "current_default"
+                ),
+                "campaign_scope": prepare_kwargs.get("campaign_scope"),
+                "authored_by": "extract-identity-gate",
+            },
+            accepted_proposals=[],
+            rejected_assertions=[],
+            unresolved_mentions=[],
+            node_id_map={},
+            identity_outcome_snapshot={},
+            prepared_by=str(prepare_kwargs.get("prepared_by") or ""),
+            diagnostics=["candidate_admission:no_admissible_assertions"],
+            world_root=(
+                str(prepare_kwargs["world_root"])
+                if prepare_kwargs.get("world_root") is not None
+                else None
+            ),
+            candidate_graph_path=prepare_kwargs.get("candidate_graph_path"),
+        )
+        result = ExtractPromotePrepareResult(
+            review_package=package,
+            proposal_id=str(package["proposal_id"]),
+            proposal_digest=str(package["proposal_digest"]),
+            parent_revision_id=mutation_context.revision_id,
+            world_id=world_id,
+            accepted_proposals_count=0,
+            unresolved_mentions_count=0,
+            rejected_assertions_count=0,
+            confirmable=False,
+            review_items=[],
+            review_summary={
+                "new_object_count": 0,
+                "connect_existing_count": 0,
+                "relationship_count": 0,
+                "unresolved_mention_count": 0,
+                "rejected_assertion_count": len(dispositions),
+            },
+        )
     effect = dict(result.review_package.get("effect") or {})
     binding = CandidateAdmissionBinding(
         candidate_digest=digest,
@@ -249,6 +336,7 @@ def prepare_candidate_graph_admission(
         source_revision_id=str(effect.get("source_revision_id") or ""),
         world_id=result.world_id,
         parent_revision_id=result.parent_revision_id,
+        confirmable=confirmable,
         dispositions=dispositions,
         exact_candidate_counts={
             key: len(candidate_graph.get(key) or [])
@@ -278,7 +366,14 @@ def verify_candidate_graph_admission_confirmation(
             [CandidateIntegrityDiagnostic(code="admission_binding_missing", message="sealed proposal has no candidate admission binding")],
             candidate_digest=canonical_candidate_digest(candidate_graph),
         )
+    # Prove the ordinary proposal seal before trusting even a nonconfirmable
+    # admission flag from its effect.
+    verify_promote_proposal(review_package, confirming_principal="candidate-admission")
     binding = CandidateAdmissionBinding.model_validate(raw_binding)
+    if not binding.confirmable:
+        raise CandidateAdmissionNotConfirmableError(
+            "candidate admission is not confirmable: no admissible assertions"
+        )
     sealed_pairs = {
         "world_id": str(effect.get("world_id") or ""),
         "parent_revision_id": str(effect.get("parent_revision_id") or ""),
@@ -309,8 +404,6 @@ def verify_candidate_graph_admission_confirmation(
             [CandidateIntegrityDiagnostic(code="candidate_digest_mismatch", message="candidate changed after prepare")],
             candidate_digest=actual,
         )
-    # Also prove the ordinary sealed effect before any caller invokes mutation.
-    verify_promote_proposal(review_package, confirming_principal="candidate-admission")
     return binding
 
 

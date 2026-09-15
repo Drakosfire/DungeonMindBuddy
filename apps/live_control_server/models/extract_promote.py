@@ -143,6 +143,7 @@ class ExtractPromotePrepareResponse(_ExtractPromoteModel):
     accepted_proposals_count: int
     unresolved_mentions_count: int
     rejected_assertions_count: int
+    confirmable: bool
     review_package: dict[str, Any]
     review_items: list[ExtractPromotionReviewItem] = Field(default_factory=list)
     review_summary: ExtractPromoteReviewSummary = Field(
