@@ -132,7 +132,6 @@ from tests._cutover_d3a_blocker_safe_fixtures import (
 
 )
 
-
 from tests._cutover_d3a_blocker_safe_fixtures import (
 
 
@@ -146,6 +145,9 @@ from tests._cutover_d3a_blocker_safe_fixtures import (
 
 
 )
+
+
+pytest_plugins = ("tests.application_state.conftest",)
 
 
 NOW = datetime(2026, 8, 26, 18, 0, tzinfo=UTC)
@@ -610,7 +612,10 @@ def _retrieval_context(*, revision_pin: str | None = None) -> dict:
 def test_reviewed_init_d0_native_read_write_continuity(
 
 
-    native_first_world_client, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    native_first_world_client,
+    application_state_dsn: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 
 
 ) -> None:
@@ -641,6 +646,11 @@ def test_reviewed_init_d0_native_read_write_continuity(
 
 
     client, world_root, repo, dsn = native_first_world_client
+
+
+    monkeypatch.setenv(
+        "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", application_state_dsn
+    )
 
 
     glass_dir = world_root / "graph_memory" / "worlds" / GLASS_ORCHARD_WORLD_ID

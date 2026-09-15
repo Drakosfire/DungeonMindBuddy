@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -54,8 +55,14 @@ class RecapWorldGenesisReceipt(_GenesisModel):
     plan_digest: str
     source_artifact_id: str
     source_revision_id: str
+    source_domain_key: Literal["party_registry"] = "party_registry"
     contribution_id: str
+    contribution_payload_sha256: str
     published_revision_id: str
+    parent_revision_id: None = None
+    command_sha256: str
+    confirmed_by: str
+    initialized_at: datetime
     accepted_assertion_ids: tuple[str, ...]
     pc_object_ids: tuple[str, ...]
     outcome: Literal["initialized", "already_initialized"]

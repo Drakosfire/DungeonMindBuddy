@@ -58,9 +58,11 @@ from tests._cutover_d3a_blocker_safe_fixtures import (
     write_glass_orchard_bld08_run as _write_glass_orchard_bld08_run,
 )
 
+pytest_plugins = ("tests.application_state.conftest",)
+
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DUNGEONMIND_PIN = "5ca5d688612349034f8ca490d465af166d883e6e"
+DUNGEONMIND_PIN = "d8f7a9f0d6b256f5cf4588987520bf286f1eade3"
 REJECTED_NODE_ID = "obj_rejected_extra"
 
 
@@ -82,7 +84,7 @@ def _forbidden_imports(path: Path, names: tuple[str, ...]) -> list[str]:
     return found
 
 
-def test_dungeonmind_pin_is_exact_pr47_merge() -> None:
+def test_dungeonmind_pin_is_exact_pr52_merge() -> None:
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     lock = (REPO_ROOT / "uv.lock").read_text(encoding="utf-8")
     assert DUNGEONMIND_PIN in pyproject
@@ -526,7 +528,14 @@ def _add_rejected_node(payload: dict) -> None:
 
 
 @pytest.fixture
-def native_first_world_client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+def native_first_world_client(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+):
+    monkeypatch.setenv(
+        "DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", application_state_dsn
+    )
     dsn = _test_dsn()
     _ensure_migrated(dsn)
     from dungeonmind.infrastructure.postgres import PostgresDatabase
@@ -733,14 +742,21 @@ def test_native_recap_genesis_is_atomic_and_replays_exactly(
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
+    from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
+        DungeonMindWorldGraphAuthorityAdapter,
+    )
     from apps.live_control_server.models.recap_world_genesis import (
         RecapWorldGenesisConfirmRequest,
         RecapWorldGenesisPrepareRequest,
     )
     from apps.live_control_server.services.recap_world_genesis import (
+        RecapWorldGenesisError,
         confirm_recap_world_genesis,
         prepare_recap_world_genesis,
     )
+    from apps.live_control_server.ports.world_graph_authority import WorldGraphPublishRequest
+    from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
+    from tests._cutover_d3a_blocker_safe_fixtures import _seal_tinker_package
 
     _client, _world_root, repo, dsn = native_first_world_client
     registry = repo / "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json"
@@ -763,6 +779,12 @@ def test_native_recap_genesis_is_atomic_and_replays_exactly(
     first = confirm_recap_world_genesis(
         RecapWorldGenesisConfirmRequest(plan=plan, confirming_principal="test"), repo=repo, authority=authority
     )
+    assert first.source_domain_key == "party_registry"
+    assert first.contribution_payload_sha256 == plan.contribution_payload_sha256
+    assert first.parent_revision_id is None
+    assert first.command_sha256
+    assert first.confirmed_by == "test"
+    assert first.initialized_at is not None
     assert _counts(dsn, world_id) == {
         "heads": 1, "revisions": 1, "receipts": 1, "contributions": 1,
         "artifacts": 1, "revisions_src": 1, "adoptions": 0,
@@ -777,11 +799,60 @@ def test_native_recap_genesis_is_atomic_and_replays_exactly(
     assert artifact.source_domain_key == "party_registry"
     assert artifact.source_domain.value == "other"
     second = confirm_recap_world_genesis(
-        RecapWorldGenesisConfirmRequest(plan=plan, confirming_principal="other-actor"), repo=repo, authority=authority
+        RecapWorldGenesisConfirmRequest(plan=plan, confirming_principal="test"), repo=repo, authority=authority
     )
     assert second.published_revision_id == first.published_revision_id
     assert second.outcome == "already_initialized"
     assert _counts(dsn, world_id)["revisions"] == 1
+    with pytest.raises(RecapWorldGenesisError) as changed_actor:
+        confirm_recap_world_genesis(
+            RecapWorldGenesisConfirmRequest(
+                plan=plan, confirming_principal="other-actor"
+            ),
+            repo=repo,
+            authority=authority,
+        )
+    assert changed_actor.value.code == "idempotency_conflict"
+    assert _counts(dsn, world_id)["revisions"] == 1
+
+    graph_authority = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
+    d0 = first.published_revision_id
+    mutation_context = graph_authority.mutation_context(world_id, d0)
+    assert mutation_context.revision_id == d0
+    assert mutation_context.head_revision_id == d0
+    package, accepted_ids = _seal_tinker_package(
+        mutation_context,
+        repo,
+        preview_slug="recap-genesis-child",
+        node_id="obj_recap_genesis_child",
+        label="Recap Genesis Child",
+    )
+    _, contribution = resolve_merged_contribution_from_package(
+        review_package=package,
+        confirming_principal="test",
+        world_id_hint=world_id,
+        root=None,
+        mutation_context=mutation_context,
+        expected_parent_revision_id=d0,
+        assertion_ids=None,
+        verify_source=False,
+    )
+    child = graph_authority.publish(
+        WorldGraphPublishRequest(
+            world_id=world_id,
+            expected_parent_revision_id=d0,
+            authority_operation_id=contribution.contribution_id,
+            actor="test",
+            contribution=contribution,
+            accepted_assertion_ids=tuple(accepted_ids),
+            decision="create_new",
+            threat_node_id="obj_recap_genesis_child",
+            operation_namespace="threat",
+        )
+    )
+    assert child.published is True
+    assert child.parent_revision_id == d0
+    assert graph_authority.read_revision(world_id, child.published_revision_id).parent_revision_id == d0
 
 
 @pytest.mark.integration

@@ -60,6 +60,11 @@ def _sha256(value: object) -> str:
     return hashlib.sha256(_canonical_json(value).encode("utf-8")).hexdigest()
 
 
+def _registry_display_name(slug: str) -> str:
+    """Render a label from registry-authorized bytes only."""
+    return slug.replace("_", " ").replace("-", " ").title()
+
+
 def _exact_pc_roster(registry: dict[str, Any], key: str) -> list[str]:
     """Select only the exact requested key; genesis never carries a roster forward."""
     if str(registry.get("schema") or "") == "party_registry_v2":
@@ -124,9 +129,10 @@ def _materialize_plan(
     for slug in roster:
         member = members[slug]
         node = member.seed_node()
+        registry_name = _registry_display_name(slug)
         assertions.append(build_assertion(
             assertion_kind="node", acceptance_state="accepted", subject_node_id=str(node["node_id"]),
-            label=member.display_name, value={"kind": "pc", "role": "pc", "aliases": [member.display_name], "source_domains": ["party_registry"], "canon_state": "canonical", "approval_state": "accepted"},
+            label=registry_name, value={"kind": "pc", "role": "pc", "aliases": [registry_name], "source_domains": ["party_registry"], "canon_state": "canonical", "approval_state": "accepted"},
             evidence_ref_ids=[f"evidence:{source_id}:{slug}"], source_artifact_id=source_id,
             source_revision_id=source_revision, campaign_scope=request.campaign_id,
             epistemic_kind="asserted", visibility="gm", identity_resolution_outcome="created_new",
@@ -201,11 +207,20 @@ def confirm_recap_world_genesis(
         ))
     except WorldGraphInitializationError as exc:
         raise RecapWorldGenesisError(str(exc), code=exc.code) from exc
+    if not receipt.command_sha256 or receipt.initialized_at is None:
+        raise RecapWorldGenesisError(
+            "initialization authority returned an incomplete sealed receipt",
+            code="integrity_failure",
+        )
     return RecapWorldGenesisReceipt(
         world_id=plan.world_id, initialization_id=plan.initialization_id, plan_id=plan.plan_id,
         plan_digest=plan.plan_digest, source_artifact_id=plan.source_artifact_id,
         source_revision_id=plan.source_revision_id, contribution_id=plan.contribution_id,
+        contribution_payload_sha256=plan.contribution_payload_sha256,
         published_revision_id=receipt.published_revision_id,
+        command_sha256=receipt.command_sha256,
+        confirmed_by=request.confirming_principal,
+        initialized_at=receipt.initialized_at,
         accepted_assertion_ids=plan.accepted_assertion_ids, pc_object_ids=plan.pc_object_ids,
         outcome=receipt.outcome,
     )

@@ -45,7 +45,8 @@ class _Authority:
                 published_revision_id="rev:d0", reviewed_contribution_id=request.reviewed_contribution.contribution_id,
                 reviewed_contribution_sha256="digest", accepted_assertion_ids=tuple(
                     item.assertion_id for item in request.reviewed_contribution.accepted_assertions
-                ), outcome="already_initialized",
+                ), outcome="already_initialized", command_sha256="command-digest",
+                initialized_at=datetime(2026, 1, 1, tzinfo=UTC),
             )
         self.initialized = True
         return WorldGraphInitializationReceipt(
@@ -53,7 +54,8 @@ class _Authority:
             published_revision_id="rev:d0", reviewed_contribution_id=request.reviewed_contribution.contribution_id,
             reviewed_contribution_sha256="digest", accepted_assertion_ids=tuple(
                 item.assertion_id for item in request.reviewed_contribution.accepted_assertions
-            ), outcome="initialized",
+            ), outcome="initialized", command_sha256="command-digest",
+            initialized_at=datetime(2026, 1, 1, tzinfo=UTC),
         )
 
 
@@ -86,6 +88,12 @@ def test_confirm_rematerializes_then_uses_party_registry_standing_profile() -> N
         RecapWorldGenesisConfirmRequest(plan=plan, confirming_principal="operator"), repo=REPO, authority=authority
     )
     assert receipt.published_revision_id == "rev:d0"
+    assert receipt.source_domain_key == "party_registry"
+    assert receipt.contribution_payload_sha256 == plan.contribution_payload_sha256
+    assert receipt.parent_revision_id is None
+    assert receipt.command_sha256 == "command-digest"
+    assert receipt.confirmed_by == "operator"
+    assert receipt.initialized_at == datetime(2026, 1, 1, tzinfo=UTC)
     request = authority.request
     assert request is not None
     assert request.source_artifact.source_domain == "party_registry"
@@ -93,6 +101,9 @@ def test_confirm_rematerializes_then_uses_party_registry_standing_profile() -> N
     assert all(item.assertion_kind == "node" for item in request.reviewed_contribution.accepted_assertions)
     assert not request.reviewed_contribution.candidate_assertions
     assert not request.reviewed_contribution.rejected_assertions
+    assert {
+        assertion.label for assertion in request.reviewed_contribution.accepted_assertions
+    } == {"Baergrom", "Bonogo", "Caelynn", "Ephanna", "Karsemine", "Stafl"}
 
 
 def test_adapter_preserves_party_registry_key_with_other_coarse_domain() -> None:
