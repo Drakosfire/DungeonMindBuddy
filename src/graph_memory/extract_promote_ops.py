@@ -85,6 +85,7 @@ class ExtractPromotePrepareResult:
     accepted_proposals_count: int
     unresolved_mentions_count: int
     rejected_assertions_count: int
+    confirmable: bool = True
     review_items: list[dict[str, Any]] = field(default_factory=list)
     review_summary: dict[str, Any] = field(default_factory=dict)
 
@@ -333,20 +334,62 @@ def prepare_extract_promote(
         repo_root=repo_root,
         disclose_computed_digest=disclose_source_digest,
     )
-    gate = gate_candidate_graph_against_head(
-        preview,
-        mutation_context=mutation_context,
-        world_id=resolved_world_id,
-        source_artifact_id=source_artifact_id,
-        source_revision_id=verified_revision,
-        campaign_scope=campaign_scope,
-        extraction_profile=extraction_profile,
-        source_uri=source_uri,
-        source_kind="source_extraction",
-        source_domain="recap",
-        node_ids=tuple(node_ids) if node_ids is not None else None,
-        include_edges=include_edges,
-    )
+    if preview.nodes:
+        gate = gate_candidate_graph_against_head(
+            preview,
+            mutation_context=mutation_context,
+            world_id=resolved_world_id,
+            source_artifact_id=source_artifact_id,
+            source_revision_id=verified_revision,
+            campaign_scope=campaign_scope,
+            extraction_profile=extraction_profile,
+            source_uri=source_uri,
+            source_kind="source_extraction",
+            source_domain="recap",
+            node_ids=tuple(node_ids) if node_ids is not None else None,
+            include_edges=include_edges,
+        )
+    elif standing_payload is not None:
+        artifact_id = (source_artifact_id or "").strip()
+        if not artifact_id:
+            raise CandidateGraphMappingError("source_artifact_id is required")
+        gate = IdentityGateResult(
+            parent_revision_id=mutation_context.revision_id,
+            world_id=resolved_world_id,
+            contribution=create_graph_contribution(
+                world_id=resolved_world_id,
+                source_kind="source_extraction",
+                source_artifact_id=artifact_id,
+                source_revision_id=verified_revision,
+                extraction_profile=extraction_profile or "current_default",
+                campaign_scope=campaign_scope,
+                authored_by="extract-identity-gate",
+            ),
+            diagnostics=["candidate_admission:no_admissible_source_assertions"],
+            candidate_preview_id=preview.preview_id,
+            candidate_schema=str(payload.get("schema") or ""),
+            candidate_version=str(payload.get("version") or ""),
+            source_revision_id=verified_revision,
+            source_artifact_id=artifact_id,
+            verified_source_uri=source_uri,
+        )
+    else:
+        # Preserve the historical fail-closed behavior outside the explicit
+        # candidate-admission path that seals an empty result itself.
+        gate = gate_candidate_graph_against_head(
+            preview,
+            mutation_context=mutation_context,
+            world_id=resolved_world_id,
+            source_artifact_id=source_artifact_id,
+            source_revision_id=verified_revision,
+            campaign_scope=campaign_scope,
+            extraction_profile=extraction_profile,
+            source_uri=source_uri,
+            source_kind="source_extraction",
+            source_domain="recap",
+            node_ids=tuple(node_ids) if node_ids is not None else None,
+            include_edges=include_edges,
+        )
 
 
     contribution_slices: list[dict[str, Any]] = []
@@ -500,6 +543,7 @@ def prepare_extract_promote(
         + (len(standing_gate.unresolved_mentions) if standing_gate else 0),
         rejected_assertions_count=len(gate.rejected_assertions)
         + (len(standing_gate.rejected_assertions) if standing_gate else 0),
+        confirmable=bool(package.get("effect", {}).get("accepted_proposals")),
         review_items=review_items,
         review_summary=review_summary,
     )

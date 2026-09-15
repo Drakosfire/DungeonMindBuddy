@@ -1,0 +1,44 @@
+{
+  "schema": "dmb_candidate_admission_regression_witness_v1",
+  "source": {
+    "pr": 715,
+    "head": "820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed",
+    "candidate_freeze_head": "d6e2599bbabb9719bc92601f7bc1ad8b69411e98"
+  },
+  "witnesses": [
+    {
+      "campaign_id": "longmont-c2",
+      "session_id": "session-9",
+      "path": "out/full_corpus_world_graph_ingestion/deepseek-v4.1-flash/runs/longmont-c2/session-09/candidate_graph.json",
+      "duplicate_nodes": [
+        {
+          "node_id": "candidate:miss-thistlebottoms-emporium",
+          "node_types": ["location", "organization"]
+        },
+        {
+          "node_id": "candidate:sputtering-flask",
+          "node_types": ["location", "organization", "item"]
+        }
+      ],
+      "unsupported_nodes": [
+        {
+          "node_id": "candidate:medical-wing",
+          "label": "Medical Wing",
+          "node_type": "sublocation"
+        }
+      ]
+    },
+    {
+      "campaign_id": "longmont-c2",
+      "session_id": "session-12",
+      "path": "out/full_corpus_world_graph_ingestion/deepseek-v4.1-flash/runs/longmont-c2/session-12/candidate_graph.json",
+      "duplicate_nodes": [
+        {
+          "node_id": "candidate:crimson-chorus",
+          "node_types": ["character", "faction"]
+        }
+      ],
+      "unsupported_nodes": []
+    }
+  ]
+}
