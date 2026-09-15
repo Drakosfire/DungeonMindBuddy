@@ -2,154 +2,99 @@
 pr_body_template: |
   ## Handoff pointer
   - Conversation/workstream: DOGFOOD-CONTINUITY / governed full-corpus publication
-  - Flow: DOGFOOD-CONTINUITY / recap World genesis
+  - Flow: DOGFOOD-CONTINUITY
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-governed-recap-world-genesis-v1.md`
-  - Blocked consumer: PR #715 full-corpus publication
+  - Branch: `codex/governed-recap-world-genesis`
 
-  ## Decision
-  Implement baseline-only recap genesis. A pristine DungeonMind World is initialized from the exact canonical campaign `_party_registry.json` as `party_registry` standing-context authority. Genesis contains only durable PC identity anchors. The first observed recap is then published through the normal existing-parent recap path.
+  ## Verification pointer
+  - Predecessor: PR #716 merged as `d85a3787d05fdb0cbf4292f4f1411833f952166a`
+  - Blocked successor: PR #715 full-corpus zero-model publication / notebook retirement
+  - This PR must not consume or modify #715 branch artifacts.
 
-  ## Locked exclusions
-  - no LLM calls or candidate regeneration
-  - no worldbuilding-as-recap bootstrap
-  - no S1 assertions in genesis
-  - no SQL/manual head creation
-  - no ontology widening, Agent/UI work, or broad identity cleanup
+  The checked-in handoff, cumulative diff, nano-commit story, and independently
+  rerun evidence are the review contract. This body is transport metadata.
 ---
 
 # HANDOFF — DOGFOOD-CONTINUITY: governed recap World genesis
 
 **Created:** 2026-09-14  
-**Status:** ACTIVE — one production capability  
+**Re-anchored:** 2026-09-14 after PC identity-equivalence promotion  
+**Status:** ACTIVE — ready for implementation dispatch  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-governed-recap-world-genesis-v1.md`  
 **Conversation/workstream:** `DOGFOOD-CONTINUITY / full-corpus automated World Graph ingestion`  
-**Flow / owner:** `DOGFOOD-CONTINUITY / recap World genesis`  
+**Flow / owner:** `DOGFOOD-CONTINUITY`  
 **Direction:** DESIGN → CODE → REVIEW  
-**Design base:** `45e7244dca7beee7c812f82b4004b557cd4d2c2c`  
-**Blocked consumer:** PR #715 / full-corpus zero-model publication  
-**Suggested PR title:** `DOGFOOD-CONTINUITY: add governed recap World genesis`
+**Authority base:** `main@d85a3787d05fdb0cbf4292f4f1411833f952166a`  
+**Implementation branch:** `codex/governed-recap-world-genesis` from current `main` containing this handoff  
+**PR title:** `DOGFOOD-CONTINUITY: add governed recap World genesis`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
----
-
 ## §1 Mission and merge-ready invariant
 
-**Mission:** An explicit operator action can initialize a pristine DungeonMind World for recap memory from a deterministic campaign party baseline, producing one source-backed immutable zero-parent revision that the ordinary existing-World recap publisher can immediately consume.
+**Mission:** An explicit operator/service action can initialize recap memory for a pristine DungeonMind World from the campaign's canonical party registry so that the ordinary existing-World publication path has a truthful source-backed parent revision.
 
-**Merge-ready invariant:**
+**Merge-ready invariant:** For one pristine `(authority instance, world_id)`, confirm of one sealed recap-genesis plan atomically admits the exact canonical `party_registry` bytes and creates exactly one immutable zero-parent revision containing only the selected canonical PC identity anchors; prepare is inert, confirm rematerializes source authority, exact retry/lost-response recovery returns the same durable initialization, and stale/foreign/partial inputs fail closed without a second head, partial source state, worldbuilding provenance, or invented played-session claims.
 
-> For one pristine `(authority instance, world_id)`, confirm of one sealed recap-genesis plan atomically admits the exact canonical `party_registry` source and creates exactly one zero-parent DungeonMind revision containing only the campaign's canonical PC identity anchors; it never fabricates played/session participation, never uses worldbuilding authority, and exact retry returns the same durable initialization while any changed, foreign, stale, or partial input fails closed without a second head or partially admitted source state.
-
-### Design decision
-
-**Select Option A — baseline-only genesis.**
+### Locked causal order
 
 ```text
-canonical party_registry bytes
+canonical campaign _party_registry.json bytes
   ↓
-sealed recap-genesis plan
-  ↓ explicit confirm
-DungeonMind reviewed zero-parent transaction
+explicit prepare_recap_world_genesis
+  ↓ inert sealed plan
+explicit confirm_recap_world_genesis
+  ↓ existing DungeonMind reviewed zero-parent transaction
+D_0: canonical PC identities only
+  ↓ native mutation-context read
+ordinary existing-parent governed publication
   ↓
-D_0: six stable PC identities only
-  ↓
-normal existing-World recap publication
-  ↓
-C1 S1 child revision
+D_1 child of D_0
 ```
 
-Do **not** select Option B. Combining baseline + S1 into one genesis revision would make the first observed recap use a unique write path, obscure whether identity authority or played evidence created a fact, and weaken the exact chronological witness #715 is trying to exercise.
-
-Do **not** select Option C. The current Buddy first-world adapter is explicitly worldbuilding-shaped (`_worldbuilding_expressible` plus a hard requirement for DungeonMind `SourceDomain.WORLDBUILDING`). Reusing that semantic fiction for recap bootstrap would flatten source authority even though the underlying DungeonMind zero-parent transaction is reusable.
+The first observed recap is **not** part of genesis. No special first-recap publication path may be introduced.
 
 ### Pre-dispatch critique
 
 | Question | Answer |
 |---|---|
-| Can one invariant govern every claimed path? | Yes. Every path is one explicit pristine-World initialization from one sealed registry baseline into one immutable `D_0`. |
-| Most likely adversarial sequence | Prepare from registry digest A → registry bytes change to digest B → confirm trusts browser-carried plan → wrong baseline enters `D_0`. Confirm must rematerialize and reject instead. |
-| Will §7 detect that failure? | Yes. Real-PG stale-source and lost-response tests exercise the actual initialization boundary. |
-| Easiest owning boundary to under-test | Source/evidence mapping: `party_registry` must remain registry authority in DungeonMind rather than silently becoming worldbuilding or recap. |
-| Fact that forces stop/split | DungeonMind's existing reviewed zero-parent command cannot accept a non-worldbuilding `SourceArtifactV2` while preserving source/evidence closure. If provider schema itself is source-domain-specific, stop and design the DungeonMind contract first. |
-
----
+| Can one invariant govern every claimed observable path? | Yes. Every changed path establishes or verifies one explicit pristine-World initialization from one exact registry baseline. |
+| Most likely adversarial sequence | Prepare from registry digest A → bytes change to digest B → confirm trusts caller-carried plan A → stale identities/source enter `D_0`. Confirm must rematerialize B and reject before mutation. |
+| Will §7 actually detect that failure? | Yes. A stale-source service test plus real-PostgreSQL pre/post state assertions own the failure boundary. |
+| Easiest owning boundary to under-test | DungeonMind source/evidence mapping: `party_registry` must survive as source-domain key while the provider coarse enum is `OTHER`, and worldbuilding behavior must remain unchanged. |
+| Fact that forces stop/split | The pinned DungeonMind reviewed initializer cannot atomically accept a `party_registry`/`standing_context` command without a provider schema/API change, or an ordinary child publication cannot consume the resulting native `D_0` without changing existing-parent semantics. |
 
 ## §2 Context, authority, and lane
 
-| Field | Required content |
+| Field | Current authority |
 |---|---|
-| Parent authority | `Docs/Plans/HANDOFF-CUTOVER-mounted-first-world-authority-migration.md`; current `WorldGraphInitializationAuthority`; current `standing_context` / party-registry promotion semantics. |
-| Design base | `main@45e7244dca7beee7c812f82b4004b557cd4d2c2c`. Re-anchor before implementation. |
-| Blocked consumer | PR #715 has sealed 42-session OpenAI and DeepSeek candidate arms and an existing-parent zero-model replay path, but fresh rehearsal authorities have no head. |
-| Canonical baseline source | Campaign `_party_registry.json`, exact bytes, exact SHA-256, `source_domain=party_registry`. For C1 this is `corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json`. |
-| Existing source identity | `artifact:party-registry:<campaign_id>` and exact `repo://.../_party_registry.json`, via `resolve_party_registry_uri(...)`. |
-| Existing contribution class | `standing_context`; do not add a new contribution source kind for this slice. |
-| Existing provider transaction | DungeonMind `ReviewedWorldInitializationCommandV1` / reviewed zero-parent initialization: source + contribution + graph revision/head + initialization receipt atomically. |
-| Named consumer after merge | #715 creates two fresh equivalent rehearsal Worlds, then replays C1 S1→C2 S25 against exact committed predecessors with zero model calls. |
-| What remains false | Worldbuilding ingestion, broader source taxonomies, automatic campaign creation, Agent tuning, UI, general identity cleanup, and ontology expansion remain unimplemented. |
-| Runtime/state ownership | Production capability uses the configured DungeonMind authority. #715 injects two explicit isolated rehearsal DSNs; no live authority mutation. |
+| Parent design | Campaign Supergraph immutable-revision/atomic-head invariants plus the landed CUTOVER reviewed first-world authority. |
+| Authority base | `main@d85a3787d05fdb0cbf4292f4f1411833f952166a`. The handoff commit is a descendant; implementation branches from current `main` after this handoff lands. |
+| Predecessor contract | PR #716, `DOGFOOD-CONTINUITY: promote PC identity equivalence`, merged as `d85a3787d05fdb0cbf4292f4f1411833f952166a`. Review Cycle 1 = APPROVE (GitHub COMMENT due self-review); independent owning verification = 18 passed. `pc`, `player_character`, and `dnd5e:player_character` now compare compatibly while NPC collisions remain blocked. |
+| Existing provider boundary | `WorldGraphInitializationAuthority` → `DungeonMindWorldGraphInitializationAdapter` → DungeonMind `ReviewedWorldInitializationCommandV1` / atomic reviewed initialization. |
+| Existing source semantics | Buddy already recognizes `party_registry`; `CAMPAIGN_STABLE_SOURCE_DOMAINS` includes it; standing context already uses `artifact:party-registry:<campaign_id>`, exact `repo://.../_party_registry.json`, `source_kind=standing_context`, `source_domain=party_registry`. |
+| Exact product input | `world_id`, `campaign_id`, `baseline_roster_key`, actor/principal; server resolves the canonical registry path and exact bytes. C1 acceptance uses `campaign_id=longmont-c1`, `baseline_roster_key="1"`. |
+| Named successor | Post-merge #715 acceptance: independently initialize the two saved model-arm rehearsal authorities, replay sealed C1 S1→C2 S25 with zero model calls, preserve final evidence, extract any last production-worthy behavior into focused PRs, then retire #715 and older notebook PRs. |
+| What remains false | Full-corpus publication, model-arm comparison, graph-query benchmark verdict, UI GO/HOLD, Sessions 26/27 corpus promotion, broader identity cleanup, ontology widening, Agent tuning, and notebook retirement. |
+| Explicit non-goals | No routes/UI, no automatic world creation side effect, no model call, no recap extraction, no worldbuilding bootstrap, no first-session facts, no `member_of`/party collective, no SQL/manual head, no DungeonMind dependency bump. |
+| Branch / isolated checkout | `codex/governed-recap-world-genesis`; isolated checkout from current `main`. Do not base on, merge from, or cherry-pick #715. |
+| Parallel lanes / collision hotspots | Open #712/#713/#714/#715 are lab/corpus branches. They are read-only evidence for this slice. If any active lane edits a §4 runtime path, serialize or stop; do not resolve by merge conflict. |
+| Runtime/state ownership | Focused tests use the existing isolated PostgreSQL test authority/fixture only. Do **not** use live Eldyrwild or #715's `dmb_full_corpus_openai` / `dmb_full_corpus_deepseek` databases in this implementation PR. |
+| Backward-looking state sync | The implementation PR may update `HANDOFF-DOGFOOD-CONTINUITY-pc-identity-equivalence-promotion-v1.md` only to record PR #716 merged, merge SHA `d85a3787…`, Review Cycle 1 APPROVE, and 18-pass verification. No current-genesis completion claim belongs in that sync. |
+| State authority after this merge | Completion of this handoff is recorded by the next dependent acceptance/retirement slice, or by a guarded steward sync if no successor PR is required. |
 
-### Predecessor dependency: PC kind equivalence
+### Canonical baseline authority
 
-The genesis implementation requires the generic identity invariant `pc ≡ player_character` at the mutation/identity boundary so a later generic `character` candidate carrying resolved `corpus_ref.type=pc` resolves to the baseline PC instead of minting an NPC duplicate.
-
-PR #715 currently carries that generic fix experimentally. **Do not silently duplicate a second version here.** Before implementation, re-anchor:
-
-- if the generic normalization is already on `main`, consume it;
-- if not, stop and have the steward land/promote that existing generic fix first or explicitly assign it to this PR before coding.
-
-The recap-genesis PR does not own unrelated identity cleanup such as Lysandra aliases or cross-kind meat-object reconciliation.
-
----
-
-## §3 Authority model and epistemic meaning
-
-### 3.1 `_party_registry.json` is identity authority, not played-session authority
-
-The repo already defines `party_registry` as a source domain, and party context treats registry membership as durable standing campaign state. `PartyMember.corpus_ref()` uses resolved `(type=pc, ref_id=<slug>)` as the strongest deterministic identity key.
-
-For this capability, the registry authorizes only:
+For Campaign 1 the only semantic genesis source is:
 
 ```text
-this campaign recognizes canonical PC identity <slug>
-this identity's object kind is PC / player_character
-this identity may be used as a standing anchor for later recap evidence
+corpus/eldyrwild-markdown/Longmont Campaign/Campaign 1/_party_registry.json
 ```
 
-It does **not** authorize:
+The service resolves it through the existing campaign mapping and registry helpers. The caller never supplies an arbitrary filesystem path.
 
-```text
-PC participated in Session 1
-PC was physically present in any scene
-PC performed any action
-party membership persisted through every later session
-any recap fact, plan, secret, rumor, or worldbuilding statement
-```
-
-The fact that C1's first roster is stored under `session_pc_rosters["1"]` is a registry organization detail used to choose the initial roster. Genesis must not translate that key into a session participation assertion.
-
-### 3.2 Exact source class in DungeonMind
-
-Map the Buddy artifact as:
-
-```text
-source_domain_key = "party_registry"
-source_domain     = DungeonMind SourceDomain.OTHER
-campaign_id       = exact campaign id
-session_id        = null
-```
-
-unless the pinned DungeonMind dependency already exposes a first-class PARTY_REGISTRY enum at implementation time. Do not map registry evidence to `WORLDBUILDING`, `SESSION_RECAP`, `PREP`, or `MANUAL` merely to fit an existing branch.
-
-`source_domain_key="party_registry"` carries the exact source class even when the provider's coarse enum is `OTHER`.
-
-### 3.3 Baseline content
-
-`D_0` contains exactly the initial canonical PC identity anchors required by the selected registry roster.
-
-For the #715 C1 witness this is exactly:
+The selected C1 baseline roster contains exactly:
 
 ```text
 Baergrom
@@ -160,81 +105,132 @@ Karsemine
 Stafl
 ```
 
-Each accepted node is deterministic standing context:
+Registry membership authorizes durable PC identity availability. It does **not** assert that a PC participated in Session 1, was physically present in a scene, performed an action, remained in the party forever, or supports any recap/worldbuilding fact.
+
+Hub README content may remain existing optional display-name enrichment only. Hub bytes are not an additional genesis source. If stable labels cannot be produced without treating hub prose as authority, use deterministic slug-derived labels rather than admit an undeclared source.
+
+## §3 Observable paths and adversarial sequences
+
+| Path | Current behavior | Required behavior | Same §1 invariant? | Owning boundary |
+|---|---|---|---:|---|
+| Prepare on pristine World | No recap-genesis action exists. | Resolve canonical registry, exact roster, exact digest and inert sealed plan; no graph/source mutation. | Yes | recap-genesis service |
+| Prepare on initialized/unreadable World | Existing generic initializer can probe, but no recap service owns semantics. | Fail closed before plan confirmation; never reinterpret existing state as pristine. | Yes | service + initialization authority |
+| Prepare malformed/missing/wrong-campaign registry | No dedicated behavior. | Non-confirmable/error; no durable effect. | Yes | service materializer |
+| Confirm exact plan | First-world adapter is worldbuilding-shaped. | Rematerialize registry, verify the sealed semantics, then invoke the existing atomic initializer with `party_registry` + `standing_context`. | Yes | service + DungeonMind adapter |
+| Registry changes after prepare | Not governed for recap genesis. | Digest/roster/plan mismatch rejects before provider mutation. | Yes | service confirm |
+| Head appears after prepare | No recap-specific path. | Provider pristine check fails closed; no second head. | Yes | DungeonMind transaction |
+| Exact confirm retry / lost response | Generic provider has receipt-first idempotency. | Return same `D_0`/receipt; no second revision. | Yes | DungeonMind adapter/provider |
+| Different semantic command with same init ID | Existing provider detects command conflict. | Typed idempotency conflict; head unchanged. | Yes | provider boundary |
+| Different init ID on initialized World | Existing provider detects non-pristine state. | `already_initialized`; no mutation. | Yes | provider boundary |
+| Native read immediately after confirm | Existing worldbuilding genesis is readable; recap genesis does not exist. | Normal native mutation-context read sees exact `D_0`, six PCs, and head == receipt revision. | Yes | native read adapter |
+| Ordinary existing-parent child publication | #715 can do this only when a parent exists. | Existing governed write path can publish a minimal test child against exact `D_0`; no special first-recap branch. | Yes | existing-parent write integration |
+
+Adversarial sequences:
+
+| Sequence | Required safe outcome | Owning §7 proof |
+|---|---|---|
+| prepare A → registry bytes become B → confirm A | Reject before source/revision/head/receipt creation. | stale-source service + PG state proof |
+| prepare A → another initializer commits → confirm A | `already_initialized`/non-pristine failure; existing head remains sole head. | real-PG competing-init proof |
+| confirm commits → caller loses response → exact retry | Same initialization receipt and `D_0`; revision/head counts unchanged. | real-PG lost-response/retry proof |
+| exact init ID → changed semantic plan | Idempotency conflict; no head movement. | real-PG changed-command proof |
+| party-registry command → adapter accidentally routes through worldbuilding coercion | Test fails; registry source must remain `source_domain_key=party_registry`, coarse provider domain non-worldbuilding/non-recap. | adapter contract proof |
+| `D_0` read → ordinary child write | Child parent equals `D_0`; genesis is not bypassed or mutated. | native continuity proof |
+
+## §4 Files in scope — write lease
+
+| Action | Path | Purpose |
+|---|---|---|
+| Create | `apps/live_control_server/models/recap_world_genesis.py` | Storage-neutral prepare request, sealed plan, confirm request/result/receipt models. |
+| Create | `apps/live_control_server/services/recap_world_genesis.py` | Explicit prepare/confirm behavior, canonical registry rematerialization, deterministic sealing/idempotency, authority invocation. |
+| Modify | `apps/live_control_server/integrations/dungeonmind/world_graph_initialization_adapter.py` | Generalize the existing reviewed zero-parent adapter only enough to admit the approved `party_registry` + `standing_context` profile without weakening the existing worldbuilding path. |
+| Create | `tests/test_recap_world_genesis.py` | Deterministic roster, inert prepare, stale-source, plan verification, source semantics, all-or-nothing selection, and no-played-claims tests. |
+| Modify | `tests/test_cutover_dungeonmind_first_world_initialization.py` | Real-PostgreSQL party-registry initialization, atomicity, exact retry/lost response, conflicting init, and worldbuilding-regression proof. |
+| Modify | `tests/test_cutover_native_genesis_continuity.py` | Native `D_0` read plus ordinary existing-parent child-publication witness. |
+| Modify | `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-pc-identity-equivalence-promotion-v1.md` | Backward-looking state sync for merged prerequisite #716 only. |
+
+Read-only seams expected to be consumed, not edited:
 
 ```text
-object_id: existing PartyMember.seed_node() identity (`node:<slug>` family)
-object_kind: pc → DungeonMind player_character
-corpus identity: pc::<slug>
-campaign scope: longmont-c1
-evidence: exact party_registry source
+apps/live_control_server/ports/world_graph_initialization.py
+apps/live_control_server/ports/world_graph_initialization_access.py
+apps/live_control_server/integrations/dungeonmind/contribution_mapping.py
+apps/live_control_server/integrations/dungeonmind/world_graph_source_admission_adapter.py
+apps/live_control_server/models/world_graph_contribution_models.py
+apps/live_control_server/models/world_graph_mutation_context.py
+src/graph_memory/party_context.py
+src/graph_memory/standing_context_partition.py
+src/graph_memory/source_artifact_domains.py
+src/graph_memory/evidence/source_artifact.py
 ```
 
-Do not create a party collective, `member_of` edges, session-presence edges, recap facts, or C1 S1 candidate assertions in genesis. Those are not necessary to unblock the chronological write chain and would enlarge the epistemic claim.
-
-Hub READMEs may be used only for existing deterministic display-name enrichment already performed by `party_context`; they are not additional truth sources for genesis. If implementation cannot derive a stable display label without making hub bytes semantic authority, use deterministic slug display and let later source-backed evidence enrich presentation rather than admitting undeclared source authority.
-
----
-
-## §4 Explicit user/operator intent
-
-Genesis is **not** an implicit side effect of extraction, source admission, database provisioning, or ordinary recap publication.
-
-Introduce one explicit product/service action, conceptual naming:
+**Bounded discovery exception:**
 
 ```text
-prepare_recap_world_genesis(...)
-confirm_recap_world_genesis(...)
+Directory: tests/
+Maximum additional paths: 1
+Allowed path kinds: an existing shared PostgreSQL fixture/helper only
+Decision rule: only when the existing real-PG fixture cannot expose the same
+              atomic initialization boundary to the new test without duplication.
 ```
 
-The action means:
+No additional runtime path is covered by bounded discovery. A missing runtime helper/API is a stop/re-brief rather than permission to broaden the PR.
 
-> Initialize recap memory for this pristine World from this campaign's canonical party-registry baseline.
+## §5 Explicitly out of scope / collision boundary
 
-The caller must identify at least:
+| Path / capability | Rule |
+|---|---|
+| `out/full_corpus_world_graph_ingestion/**` | #715 notebook evidence; do not edit, copy, regenerate, or make it a merge dependency. |
+| `tools/publish_full_corpus_world_graph.py` and other #715 tooling | Post-merge acceptance lane only. Do not promote tooling incidentally in genesis. |
+| `src/graph_memory/extract_promote_ops.py` | Existing-parent extraction/promotion remains unchanged. Genesis is a sibling initialization capability. |
+| `src/graph_memory/party_context.py` | Consume canonical roster/identity behavior; do not change roster semantics. |
+| `src/graph_memory/standing_context_partition.py` | Consume existing artifact/URI/evidence conventions; do not add party edges or new provenance semantics. |
+| `apps/live_control_server/services/source_artifact_registry.py` | Do not pre-persist registry authority outside the reviewed zero-parent transaction. |
+| `apps/live_control_server/routes/**`, `apps/live_control_server/main.py`, UI | No new route/surface/operator UI in this slice. Service action is sufficient. |
+| `pyproject.toml`, `uv.lock` | No DungeonMind pin/schema/API upgrade. Provider-contract change is a stop condition. |
+| C1 S1 or later candidate files | No model generation, candidate rewriting, or first-recap special case. |
+| Relationship/identity cleanup | No `member_of`, party collective, Lysandra alias work, fuzzy identity widening, or ontology changes. |
+| Live/rehearsal campaign databases | No live Eldyrwild and no #715 model-arm DB mutation in this PR. |
+
+## §6 Implementation contract
+
+### Public product behavior
 
 ```text
-world_id
-campaign_id
-baseline_roster_key          # "1" for the #715 C1 witness
+Input — prepare:
+  RecapWorldGenesisPrepareRequest
+    world_id
+    campaign_id
+    baseline_roster_key
+    requested_by            # audit only; not semantic identity
+
+Input — confirm:
+  sealed RecapWorldGenesisPlan
+  confirming_principal
+
+Output — inert prepare:
+  RecapWorldGenesisPlan
+
+Output — confirm:
+  RecapWorldGenesisReceipt
+
+Invariant:
+  exact canonical party-registry authority → one atomic zero-parent identity baseline
 ```
 
-The server resolves the canonical registry path/artifact itself. Do not accept an arbitrary filesystem path as equivalent authority.
+Prepare must:
 
-For #715, the operator invokes the same action independently against each isolated rehearsal authority. The model arm is runtime/receipt metadata, not graph truth and not part of identity resolution.
+1. probe the target World and require pristine/uninitialized state;
+2. resolve the canonical campaign registry through existing campaign mapping;
+3. read **exact bytes** and compute SHA-256;
+4. validate supported registry schema and exact `campaign_id` equality;
+5. resolve the requested PC roster **by exact key** — no carry-forward for genesis;
+6. reject missing/empty roster, duplicate slugs, companions/non-PC entries, unsupported identity, or ambiguous canonical IDs;
+7. materialize exactly the selected PC identity anchors, with no party collective or edges;
+8. bind evidence to `artifact:party-registry:<campaign_id>` and exact repo URI using existing standing-context provenance conventions;
+9. build one accepted `standing_context` contribution with no unresolved/rejected/candidate claims;
+10. seal the semantic plan and return without graph/source mutation.
 
----
-
-## §5 Prepare / confirm contract
-
-### 5.1 Prepare request
-
-Preferred storage-neutral product request:
-
-```text
-RecapWorldGenesisPrepareRequest
-  world_id
-  campaign_id
-  baseline_roster_key
-  requested_by / operator principal (audit only)
-```
-
-Prepare performs **zero graph mutation** and must:
-
-1. probe initialization authority and require pristine/uninitialized state;
-2. resolve the canonical campaign registry using existing campaign corpus mapping;
-3. read exact registry bytes and compute SHA-256;
-4. validate registry schema and exact `campaign_id`;
-5. resolve exactly the selected PC roster;
-6. reject empty roster, duplicate slugs, unsupported member kinds, or ambiguous canonical IDs;
-7. materialize the six deterministic standing-context node assertions;
-8. stamp evidence to `artifact:party-registry:<campaign_id>` using the existing registry provenance convention;
-9. build one accepted `standing_context` GraphContribution;
-10. seal the complete plan and return it inertly.
-
-### 5.2 Sealed plan
-
-Preferred plan shape:
+Recommended sealed semantic fields:
 
 ```text
 schema = dmb_recap_world_genesis_plan_v1
@@ -246,328 +242,255 @@ campaign_id
 baseline_roster_key
 source_artifact_id
 source_revision_id = sha256:<exact registry bytes>
-source_uri = repo://...
+source_uri
 contribution_id
 contribution_payload_sha256
 accepted_assertion_ids
 pc_object_ids
 pc_identity_keys
 confirmable
-prepared_by
 ```
 
-**Selection rule: all-or-nothing.** There is no partial six-PC checkbox set. A canonical baseline with one rejected/ambiguous PC is not confirmable. The operator confirms the sealed baseline as a whole or does not initialize.
+Do not put wall-clock prepare time, model-arm name, database name, browser state, or caller-supplied path into the semantic digest. Audit-only fields must not make an otherwise identical baseline produce a different semantic initialization.
 
-### 5.3 Deterministic idempotency
-
-Derive `initialization_id` from semantic sealed input, not a random UUID. Conceptually:
+### Deterministic identity and plan rules
 
 ```text
-sha256(
-  schema_version
-  + world_id
-  + campaign_id
-  + baseline_roster_key
-  + source_revision_id
-  + sorted(pc identity keys)
-)
+source_artifact_id = artifact:party-registry:<campaign_id>
+source_domain       = party_registry
+source_kind         = standing_context
+session scope       = null
+campaign scope      = exact campaign_id
+PC identity key     = pc::<slug>
+PC object id        = existing PartyMember.seed_node() object-id family
 ```
 
-Use that value through the existing `WorldGraphInitializationAuthority` / DungeonMind reviewed-init idempotency contract.
+`initialization_id` must be deterministic over the sealed semantic input. Reuse the existing first-world deterministic-id machinery when the sealed `plan_id` already binds all semantic fields; do not create a random UUID.
 
-Same semantic plan → same initialization id and command digest.  
-Same initialization id + changed semantic command → idempotency conflict.  
-Different initialization id on an already initialized world → already-initialized conflict.
+Same semantic source/roster/world → same plan semantics and initialization ID.  
+Same initialization ID + changed semantic command → idempotency conflict.  
+Different initialization ID on initialized World → already initialized.
 
-### 5.4 Confirm
+### Confirm trust boundary
 
-Confirm receives the sealed plan plus the explicit confirming principal. It must **not trust the browser/caller-carried plan as source authority**.
-
-Before crossing the transaction boundary, confirm rematerializes from canonical registry bytes and verifies:
+Confirm must treat the caller-carried plan as evidence, not source authority. Before invoking `WorldGraphInitializationAuthority.initialize`, rematerialize from the canonical registry and compare at least:
 
 ```text
-plan_id
-plan_digest
-source artifact id
-source digest/revision
-roster key
-PC identity set
-contribution id/digest
-accepted assertion ids
-world/campaign scope
+plan_id / plan_digest
+world_id / campaign_id
+baseline_roster_key
+source_artifact_id / source_revision_id / source_uri
+PC identity set / object IDs
+contribution_id / contribution digest
+accepted assertion IDs
 ```
 
-Any mismatch fails before mutation.
+Any mismatch fails before the transaction boundary.
 
-The provider command uses the existing `WorldGraphInitializationRequest` / `ReviewedWorldInitializationCommandV1` machinery. The existing Buddy adapter must be generalized only enough to permit the approved `party_registry` standing-context contribution without relabeling it as worldbuilding.
+The `confirming_principal` is recorded as actor/audit authority; changing actor does not change the semantic registry baseline.
 
-### 5.5 Product receipt
+### DungeonMind adapter source profile
 
-Return/capture at least:
+The existing worldbuilding source profile remains valid and unchanged.
+
+The only new first-world source profile permitted by this slice is:
 
 ```text
-schema = dmb_recap_world_genesis_receipt_v1
-outcome = initialized | already_initialized
-world_id
-campaign_id
-initialization_id
-plan_id
-plan_digest
-source_artifact_id
-source_revision_id
-source_domain_key = party_registry
-contribution_id
-contribution_payload_sha256
-accepted_assertion_ids
-pc_object_ids
-published_revision_id
-parent_revision_id = null
-command_sha256
-confirmed_by
-initialized_at
+Buddy source_domain:              party_registry
+DungeonMind source_domain_key:    party_registry
+DungeonMind coarse source_domain: OTHER
+Buddy source_kind:                standing_context
+campaign_id:                      exact campaign_id
+session_id:                       null
+accepted assertion kinds:         node only
 ```
 
-The receipt must be sufficient to prove that OpenAI-arm and DeepSeek-arm rehearsal authorities began from semantically equivalent baseline inputs without copying one arm's graph or identity ledger into the other.
+unless the already-pinned DungeonMind dependency itself already exposes a first-class party-registry enum. Do not map registry authority to WORLDBUILDING, SESSION_RECAP, PREP, MANUAL, or RULEBOOK merely to satisfy an existing branch.
 
----
+The adapter must fail closed if a party-registry first-world request carries a non-standing contribution, session scope, non-node accepted assertion, mismatched source pair/campaign, unresolved identity, or evidence naming an artifact outside the command.
 
-## §6 Atomicity, recovery, identity, and isolation
+### Provider timestamp / exact-retry rule
 
-### A. Failure / recovery matrix
+Party-registry source metadata must not cause an exact retry to rebuild a different command digest. If the Buddy registry artifact has no stable persisted `created_at`, the adapter may derive provider artifact/revision creation time from the reviewed initialization's `requested_initialized_at`; the existing receipt-first retry path must then reuse the stored `initialized_at` so the reconstructed command is byte/semantic equivalent. Do not use fresh wall-clock time on exact retry.
 
-| Situation | Required behavior |
-|---|---|
-| Registry missing / malformed / wrong campaign | Prepare fails; no source, revision, head, or receipt. |
-| Empty/duplicate/ambiguous roster identity | Prepare is non-confirmable; no mutation. |
-| Registry bytes change after prepare | Confirm rematerialization detects digest/plan mismatch; no mutation. |
-| Target gains a head after prepare | DungeonMind pristine transaction fails closed; no second head. |
-| Source admission/materialization fails inside confirm | Transaction rolls back source + contribution + graph/head + receipt together. |
-| Exact confirm retried | Return same durable `D_0` / receipt; no second revision. |
-| Confirm commits but response is lost | Retry same sealed plan; provider receipt-first recovery returns same `D_0`. |
-| Same init id with changed plan | Idempotency conflict. |
-| Different init id on initialized world | Already initialized; no mutation. |
-| Receipt exists without coherent head | Integrity failure, not success. |
-| Partially initialized DB from external/manual tampering | Fail closed as non-pristine/integrity failure; do not repair silently. |
+This rule is narrow to missing party-registry audit timestamps and must not change existing worldbuilding timestamp semantics.
 
-### B. Identity rules
-
-| Situation | Required rule |
-|---|---|
-| Roster PC | Durable object uses existing resolved `pc::<slug>` identity and PC/player_character kind. |
-| Later candidate says `character` but resolved `corpus_ref.type=pc` matches | Resolve existing baseline PC; never mint an NPC duplicate. |
-| Same label but different/no corpus_ref | Normal governed identity policy applies; genesis does not broaden fuzzy merging. |
-| Registry carry-forward | Identity availability only; never creates participation/history assertions. |
-| Party collective/member_of | Not part of this genesis slice. |
-
-### C. Commit point
+### Commit point
 
 ```text
 Before commit:
-  only sealed plan / in-memory command values exist
+  canonical bytes were rematerialized and verified;
+  only inert plan / request values exist.
 
 Commit point:
-  DungeonMind reviewed zero-parent initialization transaction
+  existing DungeonMind reviewed zero-parent initialization transaction.
 
 Atomic durable effects:
   SourceArtifactV2 + SourceRevision
   reviewed standing-context contribution
-  D_0 with parent_revision_id = null
+  immutable D_0 with parent_revision_id = null
   world head → D_0
   reviewed initialization receipt
 
 After commit:
-  native read/mutation-context paths must observe D_0 exactly as an existing World
+  native World Graph readers/mutation-context code observes D_0 as an ordinary existing World.
+
+Truth after post-commit response loss:
+  publication is already durable; exact retry recovers the same receipt/D_0 and never reconfirms a second genesis.
 ```
 
-### D. Rehearsal isolation for #715
+### State / fallback matrix
 
-Use two independently provisioned authorities:
+| Path | Loading/init | Exact success | Ordinary miss | Authority unavailable | Integrity failure | Stale/superseded | Retry/replay |
+|---|---|---|---|---|---|---|---|
+| Prepare | Probe authority + canonical registry | Inert confirmable plan | Missing roster/registry = fail closed | Typed unavailable; no plan claiming success | Malformed/wrong campaign/non-pristine = fail closed | Registry state is read now | Re-prepare rematerializes current bytes |
+| Confirm | Rematerialize canonical registry | One `D_0` + receipt | N/A | No success claim | Plan/source/head mismatch fails closed | Changed bytes invalidate carried plan | Exact committed retry returns same receipt |
+| Native read | Open exact current revision | Head/revision = receipt `D_0` | Missing after success = integrity failure | Typed read failure | Receipt/head incoherence = integrity failure | Explicit revision remains immutable | Read retry only; never reinitialize |
+| Child write smoke | Use exact `D_0` as parent | One ordinary child revision | N/A | Existing write failure semantics | Parent mismatch fails closed | Stale parent rejected | Existing governed-write semantics only |
 
-```text
-dmb_full_corpus_openai
-dmb_full_corpus_deepseek
+### Identity matrix
+
+| Situation | Required rule | Ambiguity behavior | Fallback? |
+|---|---|---|---|
+| Registry roster slug | Exact `pc::<slug>` identity; deterministic object ID | Any duplicate/ambiguous identity makes plan non-confirmable | No fuzzy fallback |
+| `pc` / `player_character` / `dnd5e:player_character` | Consume #716 normalization at shared mutation comparator | Must resolve as same compatible kind | No new alias layer |
+| Later `character` candidate with resolved `corpus_ref.type=pc` | Normal governed identity path resolves existing baseline PC | Collision remains reviewable/blocked per existing policy | No first-win match |
+| Same label with NPC/no PC corpus ref | Genuine cross-kind collision remains blocked | Human review per existing policy | No |
+| Rename/delete/rebind | Not owned by genesis | Existing identity decision machinery | No genesis special case |
+
+### Persistence / replay matrix
+
+| Operation | Durable representation | Round-trip guarantee | Duplicate/replay | Compatibility/migration | Rollback |
+|---|---|---|---|---|---|
+| Prepare | None; caller receives sealed plan | Same semantic input seals same semantic plan | Safe; no graph mutation | New plan schema only at product service boundary | Drop plan |
+| Confirm | Existing DungeonMind source + contribution + revision/head + reviewed-init receipt | Native read returns exact committed revision/object identities | Exact replay returns same durable init | No DB migration or dependency bump | Transaction rollback before commit; immutable after commit |
+| Native read | Existing projection/mutation-context contracts | `head_revision_id == published_revision_id` | Read-only retry | Existing contracts unchanged | N/A |
+
+### Predecessor → consumer mapping
+
+**Grounding:** merged #716 identity rule, current `GraphMemorySourceArtifact`, current `GraphContribution`, current `WorldGraphInitializationRequest`, current DungeonMind adapter.
+
+| Predecessor field/outcome | Real shape | Genesis consumer behavior | Transformation | Proof |
+|---|---|---|---|---|
+| Buddy `source_domain="party_registry"` | Known source-domain string | First-world source authority | `_store_artifact_v2` preserves key; coarse enum becomes `OTHER` | adapter contract test |
+| Buddy `source_kind="standing_context"` | Existing contribution kind | Reviewed baseline contribution | Existing contribution mapper → DungeonMind STANDING_CONTEXT | PG initialization test |
+| Registry revision | `sha256:<64 hex>` | SourceRevision identity/digest | Existing source mapping rules; no synthetic parent | source/PG test |
+| PC kind representations | `pc`, `player_character`, `dnd5e:player_character` | Existing baseline identity remains reusable | Landed #716 `_norm_kind` compatibility | `test_pc_identity_normalization.py` + continuity test |
+| `WorldGraphInitializationReceipt` | existing provider-neutral receipt | Wrap in recap-genesis receipt with source/plan/PC fields | No new DB receipt format | service/PG test |
+
+## §7 Evidence required to merge
+
+| Guarantee | Owning boundary | Evidence | Expected result | Merge blocker |
+|---|---|---|---|---|
+| Exact C1 registry produces six-PC baseline only | recap-genesis service | focused contract test using real C1 registry bytes | exactly six canonical PC identities, zero edges/session facts | extra/missing identity or invented claim |
+| Prepare is inert | service + authority spy/PG state | pre/post counts/probe | no source/revision/head/receipt mutation | any durable effect |
+| Source change after prepare fails before commit | confirm service | mutate copied canonical registry between prepare/confirm | plan verification error; durable state still pristine | mutation or stale confirm succeeds |
+| `party_registry` provenance survives provider mapping | DungeonMind adapter | focused adapter + PG source snapshot assertion | key=`party_registry`; coarse domain non-worldbuilding/non-recap; contribution STANDING_CONTEXT | provenance relabeled/flattened |
+| Worldbuilding first-world path is unchanged | existing adapter regression | existing first-world tests | prior worldbuilding cases remain green | behavior drift |
+| One atomic zero-parent revision | real PostgreSQL boundary | existing PG fixture extended for recap genesis | one source/revision, one contribution, one receipt, one `D_0`, parent null, one head | partial rows or extra revision/head |
+| Exact retry/lost response | real PostgreSQL boundary | inject response-loss/retry or existing hook | same receipt/revision; no second revision | different command/second head |
+| Competing/different init fails closed | real PostgreSQL boundary | initialize then retry with foreign semantic command/id | typed conflict/already initialized; head unchanged | second genesis/head movement |
+| Native readers accept `D_0` | native mutation-context integration | load exact world after confirm | six PC objects; head == receipt revision | read requires special recap mode |
+| Ordinary existing-parent writer consumes `D_0` | native continuity integration | publish a minimal deterministic test child through existing write path | child parent exactly `D_0`; genesis unchanged | special first-child code or parent drift |
+| #716 remains effective | shared identity boundary | existing normalization test | PC forms compatible; NPC collision blocked | regression |
+| Scope/lease remains clean | repo diff | diff commands | only §4 paths (+ allowed one test helper) | notebook/tool/route/corpus/runtime scope creep |
+
+Exact commands:
+
+```bash
+uv run pytest -q \
+  tests/test_recap_world_genesis.py \
+  tests/test_cutover_dungeonmind_first_world_initialization.py \
+  tests/test_cutover_native_genesis_continuity.py \
+  tests/test_pc_identity_normalization.py
+
+uv run pytest -q \
+  tests/test_cutover_native_governed_write.py \
+  tests/test_world_graph_source_admission.py
+
+uv run ruff check \
+  apps/live_control_server/models/recap_world_genesis.py \
+  apps/live_control_server/services/recap_world_genesis.py \
+  apps/live_control_server/integrations/dungeonmind/world_graph_initialization_adapter.py \
+  tests/test_recap_world_genesis.py \
+  tests/test_cutover_dungeonmind_first_world_initialization.py \
+  tests/test_cutover_native_genesis_continuity.py
+
+git diff --check
+git diff --name-only <implementation-base>...HEAD
 ```
 
-The experiment may use the same semantic `world_id=eldyrwild` inside each isolated database so the already-sealed candidates remain compatible. Isolation is the authority/database boundary, not a fake change to World identity.
+If a required focused command already fails on base, run the same command on base and head, record the exact delta, and require an explicit waiver before approval. Do not report a baseline-red gate as green.
 
-Required guards in the #715 consumer:
+### Minimal live / dogfood proof
 
-- explicit injected database URL;
-- refuse live `:54330` / live database identity;
-- refuse database names outside the declared rehearsal allowlist/prefix;
-- never read the other arm's head, identity ledger, receipt, or source catalog;
-- initialize each arm independently from the same canonical registry bytes;
-- record database name + genesis receipt in sanitized publication evidence;
-- teardown only through the existing deliberate scoped drop procedure after experiment completion;
-- never write credentials into tracked artifacts.
+Not applicable as a UI/manual surface. The owning live boundary for this capability is the real isolated PostgreSQL integration witness above.
 
-Equivalent baseline means same source digest, same PC identity set, same plan semantics, and same contribution payload semantics. It does **not** require copying a revision row or receipt between databases.
+**Explicitly not a merge gate for this PR:** using #715's saved OpenAI/DeepSeek candidates or rehearsal databases. That is the named post-merge acceptance/retirement successor. This PR must prove the production capability without depending on an unmergeable notebook branch.
 
----
-
-## §7 Read/write compatibility and evidence required
-
-### 7.1 Native compatibility proof
-
-Immediately after confirm, the normal DungeonMind existing-World read path must succeed:
-
-```text
-load_production_mutation_context(world_id, database_url=isolated_dsn)
-```
-
-and show:
-
-```text
-head_revision_id == genesis receipt published_revision_id
-revision_id == same D_0
-six PC objects exist
-all six have player_character-compatible kind
-no recap/session facts were authored by genesis
-```
-
-Then the existing #715 replay path must publish the already-sealed C1 S1 candidate with:
-
-```text
-expected_parent_revision_id = D_0
-model_calls = 0
-```
-
-and produce one child whose parent is exactly `D_0`.
-
-No special "first recap" publication branch is allowed after genesis.
-
-### 7.2 Required owning-boundary tests
-
-| Guarantee | Owning boundary | Required evidence |
-|---|---|---|
-| Registry resolves to deterministic six-PC standing baseline | recap-genesis plan materializer | focused contract test using real C1 registry fixture/bytes |
-| Prepare mutates nothing | product service + real repository state | pre/post pristine probe + source/head/revision counts unchanged |
-| `party_registry` remains registry authority | DungeonMind initialization adapter | adapter test asserting `source_domain_key=party_registry`, coarse enum non-worldbuilding/non-recap, evidence closure preserved |
-| Real zero-parent atomic initialization | DungeonMind-backed adapter + PostgreSQL | integration test on fresh isolated PG: 1 head, 1 D_0, parent null, source + contribution + receipt all present |
-| Exact retry/lost response | same real-PG boundary | same revision/receipt, no second revision |
-| Changed bytes between prepare/confirm | product confirm | mutate fixture copy after prepare; fail before any durable rows |
-| Foreign/different init on initialized World | provider boundary | typed already-initialized/idempotency failure; no head movement |
-| PC identity does not become NPC later | mutation/identity boundary | baseline genesis + generic PC-shaped later candidate resolves existing |
-| Existing worldbuilding first-world path unchanged | current first-world regression cohort | all existing CUTOVER first-world initialization tests remain green |
-| Existing recap publisher consumes D_0 | full integration witness | zero-model C1 S1 publication child with exact parent D_0 |
-
-### 7.3 Real isolated-PG witness required before #715 resumes
-
-Run against **two fresh** isolated PostgreSQL authorities, one per model arm:
-
-```text
-prepare identical C1 baseline independently
-→ confirm each
-→ compare sanitized genesis receipts
-→ load native mutation context from each D_0
-→ assert six canonical PCs
-→ replay that arm's saved C1 S1 candidate with zero model calls
-→ assert S1 parent == that arm's D_0
-```
-
-Only after both witnesses pass may #715 continue S1→S42 publication.
-
-The witness must exercise the production initialization adapter/service. An in-memory mapper test or direct repository insert is not sufficient.
-
----
-
-## §8 Files in scope — implementation write lease
-
-Expected paths; re-anchor before coding because #715 and any PC-normalization promotion may move shared seams.
-
-| Action | Path | Purpose |
-|---|---|---|
-| Create | `apps/live_control_server/services/recap_world_genesis.py` | Explicit prepare/confirm product service and sealed plan rematerialization. |
-| Create | `apps/live_control_server/models/recap_world_genesis.py` | Storage-neutral prepare/plan/confirm/receipt values. |
-| Modify | `apps/live_control_server/integrations/dungeonmind/world_graph_initialization_adapter.py` | Generalize first-world source/evidence mapping only enough for approved `party_registry` standing context while preserving worldbuilding behavior. |
-| Reuse / minimally modify | `src/graph_memory/standing_context_partition.py` | Canonical registry artifact/URI/evidence helpers; only change if an owning helper required by genesis is missing. |
-| Reuse / minimally modify | `src/graph_memory/party_context.py` | Deterministic roster/PC identity materialization; no participation semantics. |
-| Create | `tests/test_recap_world_genesis.py` | Prepare/rematerialize/idempotency/stale-source/identity contract tests. |
-| Create or extend | `tests/...first_world...postgres...py` | Real isolated-Postgres initialization + retry + C1 S1 existing-parent witness. |
-
-**Bounded discovery exception:**
-
-```text
-Directories:
-  apps/live_control_server/integrations/dungeonmind/**
-  apps/live_control_server/ports/**
-  src/graph_memory/**
-Maximum additional runtime paths: 3
-Allowed path kinds:
-  existing owner of reviewed zero-parent command construction;
-  existing owner of party-registry SourceArtifact materialization;
-  exact existing-parent mutation-context consumer needed for the compatibility witness.
-Decision rule:
-  only if the path already owns a required §1 invariant clause; record the discovery before editing.
-```
-
-Do not add a new DungeonMind database migration or provider command in Buddy unless the §1 stop condition proves the current provider cannot express a source-neutral reviewed initialization.
-
----
-
-## §9 Explicit non-goals / collision boundary
-
-| Capability/path | Exclusion |
-|---|---|
-| Full worldbuilding ingestion | Remains separately governed; do not use it to bootstrap recap memory. |
-| C1 S1 extraction/model generation | Already sealed in #715; zero new model calls. |
-| Atomic baseline + S1 genesis | Rejected by design; S1 must exercise normal existing-parent publication. |
-| Relationship ontology widening | Not part of genesis. |
-| Identity cleanup beyond roster invariant | No Lysandra/cross-kind/general alias project. |
-| Party participation / `member_of` chronology | Baseline identity is not session participation. |
-| Agent retrieval/tuning | Separate benchmark/successor. |
-| Plan/Play/Ingest UI | No UI required; explicit service/operator action is sufficient. |
-| Combat | Unrelated. |
-| Direct SQL / copied heads / copied arm graph | Forbidden evidence. |
-| Live Eldyrwild mutation for #715 witness | Forbidden. |
-
----
-
-## §10 Acceptance rubric / handback
-
-Implementation is merge-ready only when all are true:
-
-- [ ] Option A is implemented: baseline-only `D_0`, then ordinary S1 child.
-- [ ] Exact `_party_registry.json` bytes are the admitted genesis source.
-- [ ] Source remains `party_registry`; no worldbuilding/recap relabeling.
-- [ ] Genesis contains exactly the selected canonical PC identity anchors and no played/session claims.
-- [ ] All roster PCs materialize as durable PC/player_character identities.
-- [ ] Prepare is inert and confirm rematerializes source bytes before mutation.
-- [ ] One DungeonMind atomic transaction owns source + contribution + D_0/head + receipt.
-- [ ] Exact retry/lost-response returns the same D_0.
-- [ ] Changed/foreign/stale/partial inputs fail closed.
-- [ ] Native mutation-context read works immediately from D_0.
-- [ ] Saved C1 S1 candidate publishes against exact D_0 with zero model calls.
-- [ ] Existing worldbuilding first-world tests remain green.
-- [ ] Two fresh #715 rehearsal authorities independently produce equivalent baseline semantics without cross-arm reads/copies.
-- [ ] No live authority, SQL bootstrap, new model call, ontology widening, UI, Agent, or worldbuilding work entered the slice.
-
-### Required review handback
+## §8 Required review handback
 
 Record:
 
-1. exact implementation PR/head SHA and base;
-2. exact C1 registry SHA used by the witness;
-3. genesis plan/receipt schema and sanitized sample;
-4. six PC object IDs/kinds observed through native mutation context;
-5. Postgres row/state proof: one D_0, parent null, one head, one initialization receipt;
-6. exact-retry and stale-source results;
-7. existing worldbuilding first-world regression result;
-8. C1 S1 zero-model child revision and exact `parent_revision_id=D_0` proof;
-9. OpenAI-arm and DeepSeek-arm isolated genesis receipt comparison;
-10. any path outside §8 (`none` or stop report).
+1. `Review Cycle <N>`, exact PR URL/branch/head SHA, and implementation base;
+2. §1 mission/invariant disposition;
+3. actual changed paths against §4 and any bounded test-helper discovery;
+4. nano-commit story;
+5. exact C1 registry SHA-256 used by tests;
+6. sealed plan semantic sample (sanitized) and deterministic ID/digest proof;
+7. provider source snapshot proving `source_domain_key=party_registry` and coarse non-worldbuilding domain;
+8. real-PG state proof: one source revision, one standing contribution, one `D_0` with parent null, one head, one initialization receipt;
+9. exact-retry/lost-response and stale-source/foreign-init results;
+10. native mutation-context observation of the six PC object IDs/kinds;
+11. ordinary child revision ID and exact `parent_revision_id == D_0` proof;
+12. #716 identity regression result and existing worldbuilding first-world regression result;
+13. every §7 command with exact result and provenance (author-local / independently rerun / CI);
+14. baseline failures and waivers (`none` when none);
+15. stop conditions (`none` when none);
+16. confirmation that #715/#712/#713/#714 branch artifacts were not consumed or modified.
+
+## §9 Acceptance rubric
+
+- [ ] One independently useful production capability exists: explicit governed recap World genesis.
+- [ ] The only semantic genesis source is the exact canonical campaign `party_registry` bytes.
+- [ ] C1 roster key `1` materializes exactly the six canonical PC identities and no collective, edges, recap/session facts, or participation claims.
+- [ ] Prepare performs zero graph/source mutation.
+- [ ] Confirm rematerializes canonical bytes and fails stale/tampered plans before commit.
+- [ ] `party_registry` remains the DungeonMind source-domain key and is never relabeled as worldbuilding/recap/prep/manual.
+- [ ] Existing worldbuilding reviewed genesis behavior remains unchanged.
+- [ ] One existing DungeonMind atomic transaction owns source + contribution + `D_0`/head + initialization receipt.
+- [ ] Exact retry/lost-response recovery returns the same `D_0`; changed/foreign initialization fails closed.
+- [ ] Native mutation context reads `D_0` without a recap-specific fallback.
+- [ ] An ordinary existing-parent governed write creates a child whose parent is exactly `D_0`.
+- [ ] The landed #716 PC-kind equivalence is consumed, not reimplemented or widened.
+- [ ] No route/UI/model call/SQL/bootstrap/DungeonMind upgrade/ontology cleanup enters the slice.
+- [ ] No #715 notebook artifact, model-arm database, generated candidate, or publication tool is required for merge.
+- [ ] Actual changed paths remain inside §4 / the one bounded test-helper exception.
+- [ ] The named successor—full-corpus two-arm acceptance and notebook retirement—remains unimplemented/unclaimed by this PR.
 
 ## Stop conditions
 
-Stop and report instead of widening when:
+Stop and report instead of expanding if:
 
-- pinned DungeonMind reviewed initialization itself requires worldbuilding provenance;
-- `party_registry` cannot be represented without a DungeonMind contract/schema change;
-- source + contribution + D_0/head + receipt cannot commit atomically;
+- the pinned DungeonMind reviewed initializer itself requires worldbuilding provenance or cannot preserve `source_domain_key=party_registry`;
+- provider support requires a DungeonMind schema/API/dependency change;
+- source + contribution + `D_0`/head + receipt cannot remain one atomic transaction;
 - a fake/sentinel/empty parent appears necessary;
-- a second source class or first-recap special write path becomes necessary;
-- implementing genesis requires broad identity or relationship redesign;
-- the generic `pc ≡ player_character` predecessor is absent and ownership is unresolved;
-- #715's saved C1 S1 candidate cannot consume the resulting native mutation context without changing candidate semantics.
+- a second source class, party collective, membership edge, recap assertion, or first-recap special write path appears necessary;
+- exact retry cannot reconstruct an equivalent provider command without inventing a new durable timestamp/id contract;
+- implementation requires changing `party_context`, `standing_context_partition`, `extract_promote_ops`, routes, or #715 tooling;
+- native existing-parent publication cannot consume the resulting `D_0` without changing its semantics;
+- any active lane owns a required §4 path or shared test database in a way that cannot be isolated;
+- a required owning-boundary test cannot be produced with the existing PostgreSQL fixture/provider pin.
 
-Report using the repository stop format before modifying additional authority boundaries.
+Report:
+
+```text
+Stop condition:
+Invariant clause affected:
+Why current mission cannot absorb it:
+Required evidence now missing:
+Affected paths/ownership layers:
+Proposed successor or re-brief:
+State-authority update needed:
+```
