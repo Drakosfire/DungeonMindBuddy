@@ -79,6 +79,69 @@ def test_isolation_guard_accepts_exact_loopback_rehearsal_targets(dsn: str) -> N
     pub.assert_isolated_dsn(dsn)
 
 
+@pytest.mark.parametrize(
+    "arm,dsn",
+    [
+        ("openai-gpt-5.4-mini", "postgresql://x@127.0.0.1:54329/dmb_full_corpus_openai"),
+        ("deepseek-v4.1-flash", "postgresql://x@localhost:54329/dmb_full_corpus_deepseek"),
+    ],
+)
+def test_arm_authority_accepts_designated_pairings(arm: str, dsn: str) -> None:
+    pub.assert_arm_authority(arm, dsn)
+
+
+@pytest.mark.parametrize(
+    "arm,dsn",
+    [
+        ("openai-gpt-5.4-mini", "postgresql://x@127.0.0.1:54329/dmb_full_corpus_deepseek"),
+        ("deepseek-v4.1-flash", "postgresql://x@127.0.0.1:54329/dmb_full_corpus_openai"),
+    ],
+)
+def test_arm_authority_rejects_swapped_rehearsal_databases(arm: str, dsn: str) -> None:
+    with pytest.raises(pub.PublicationError, match="must use rehearsal database"):
+        pub.assert_arm_authority(arm, dsn)
+
+
+@pytest.mark.parametrize(
+    "arm,dsn",
+    [
+        ("openai-gpt-5.4-mini", "postgresql://x@127.0.0.1:54329/dmb_full_corpus_openai"),
+        ("deepseek-v4.1-flash", "postgresql://x@localhost:54329/dmb_full_corpus_deepseek"),
+    ],
+)
+def test_run_arm_checks_designated_authority_before_seal(
+    arm: str, dsn: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    called: list[str] = []
+
+    def fake_verify(seal_arm: str) -> dict:
+        called.append(seal_arm)
+        raise RuntimeError("stop after arm authority")
+
+    monkeypatch.setattr(pub, "verify_seal", fake_verify)
+    with pytest.raises(RuntimeError, match="stop after arm authority"):
+        pub.run_arm(arm=arm, dsn=dsn, world_id="world-test", output=tmp_path)
+    assert called == [arm]
+
+
+@pytest.mark.parametrize(
+    "arm,dsn",
+    [
+        ("openai-gpt-5.4-mini", "postgresql://x@127.0.0.1:54329/dmb_full_corpus_deepseek"),
+        ("deepseek-v4.1-flash", "postgresql://x@127.0.0.1:54329/dmb_full_corpus_openai"),
+    ],
+)
+def test_run_arm_rejects_swapped_authority_before_seal(
+    arm: str, dsn: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(seal_arm: str) -> dict:
+        raise AssertionError(f"must not verify seal for mismatched arm {seal_arm}")
+
+    monkeypatch.setattr(pub, "verify_seal", boom)
+    with pytest.raises(pub.PublicationError, match="must use rehearsal database"):
+        pub.run_arm(arm=arm, dsn=dsn, world_id="world-test", output=tmp_path)
+
+
 def test_path_containment_rejects_files_outside_the_repo(tmp_path: Path) -> None:
     outsider = tmp_path / "escape.md"
     outsider.write_text("not in repo\n", encoding="utf-8")

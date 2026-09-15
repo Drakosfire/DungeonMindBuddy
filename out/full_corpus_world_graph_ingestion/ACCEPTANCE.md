@@ -64,9 +64,10 @@ not `#715 branch code → production`.
    current `main` supplies production code; this notebook supplies frozen
    candidates plus narrowly retained experiment tooling.
 2. Rehearsal DSNs must be loopback `127.0.0.1:54329` (localhost/`::1`
-   accepted as loopback) and exactly `dmb_full_corpus_openai` or
-   `dmb_full_corpus_deepseek`.  Live authority ports `54330`/`54331` are
-   forbidden.
+   accepted as loopback).  `run_arm()` binds each arm to one database:
+   `openai-gpt-5.4-mini` → `dmb_full_corpus_openai`,
+   `deepseek-v4.1-flash` → `dmb_full_corpus_deepseek`.  Swapped pairings are
+   rejected.  Live authority ports `54330`/`54331` are forbidden.
 3. Historical candidate `source_artifact_id` values are rebound only inside
    the acceptance harness after freeze verification.  Production
    `create_recap_source_artifact()` does not accept a caller-selected identity.

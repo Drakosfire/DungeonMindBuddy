@@ -42,9 +42,11 @@ EXPERIMENT_CLAIM = (
     "two autoregressive, chronologically generated candidate arms, followed by "
     "zero-model governed replay into independently initialized Worlds."
 )
-ALLOWED_REHEARSAL_DATABASES = frozenset(
-    {"dmb_full_corpus_openai", "dmb_full_corpus_deepseek"}
-)
+ARM_DATABASE = {
+    "openai-gpt-5.4-mini": "dmb_full_corpus_openai",
+    "deepseek-v4.1-flash": "dmb_full_corpus_deepseek",
+}
+ALLOWED_REHEARSAL_DATABASES = frozenset(ARM_DATABASE.values())
 REHEARSAL_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
 REHEARSAL_PORT = 54329
 LIVE_AUTHORITY_PORTS = frozenset({54330, 54331})
@@ -214,9 +216,14 @@ def verify_seal(arm: str) -> dict[str, Any]:
     }
 
 
+def _dsn_database(dsn: str) -> str:
+    parsed = urlparse(dsn.strip())
+    return unquote(parsed.path or "").lstrip("/").split("/")[0]
+
+
 def assert_isolated_dsn(dsn: str) -> None:
     parsed = urlparse(dsn.strip())
-    database = unquote(parsed.path or "").lstrip("/").split("/")[0]
+    database = _dsn_database(dsn)
     host = (parsed.hostname or "").lower()
     if parsed.scheme not in {"postgres", "postgresql"} or not database:
         raise PublicationError("an isolated PostgreSQL DungeonMind DSN is required")
@@ -234,6 +241,16 @@ def assert_isolated_dsn(dsn: str) -> None:
         )
 
 
+def assert_arm_authority(arm: str, dsn: str) -> None:
+    expected = ARM_DATABASE.get(arm)
+    if expected is None:
+        raise PublicationError(f"unknown arm {arm!r}")
+    assert_isolated_dsn(dsn)
+    database = _dsn_database(dsn)
+    if database != expected:
+        raise PublicationError(f"arm {arm} must use rehearsal database {expected}, not {database}")
+
+
 def register_verified_historical_recap(
     root: Path,
     *,
@@ -243,7 +260,12 @@ def register_verified_historical_recap(
     expected_content_sha256: str,
     historical_source_artifact_id: str,
 ) -> Any:
-    """Notebook-only alias after freeze verification.  Not a product creator."""
+    """Notebook-only alias after freeze verification.  Not a product creator.
+
+    Only ``run_arm()`` is the authorized execution boundary.  This helper assumes
+    the caller already compared candidate bytes to the frozen acceptance
+    manifest.  Do not promote it or its ``_upsert_source_artifact`` use.
+    """
     from apps.live_control_server.services.source_artifact_registry import (
         _upsert_source_artifact,
         create_recap_source_artifact,
@@ -399,6 +421,7 @@ def publish_session(*, dsn: str, world_id: str, seal: Mapping[str, Any], expecte
 
 
 def run_arm(*, arm: str, dsn: str, world_id: str, output: Path) -> dict[str, Any]:
+    assert_arm_authority(arm, dsn)
     seal = verify_seal(arm)
     _write(output / "SEAL.json", seal)
     from apps.live_control_server.integrations.dungeonmind import world_graph_writes
@@ -454,7 +477,6 @@ def main() -> int:
         return 0
     if not args.dsn or not args.world_id:
         raise SystemExit("--dsn and --world-id are required for governed publication")
-    assert_isolated_dsn(args.dsn)
     result = run_arm(arm=args.arm, dsn=args.dsn, world_id=args.world_id, output=OUT / "publication" / args.arm)
     print(json.dumps(result, indent=2))
     return 0
