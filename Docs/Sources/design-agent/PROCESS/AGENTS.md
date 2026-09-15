@@ -9,8 +9,10 @@ A development cycle is:
 ```text
 re-anchor
 → decompose candidate capabilities
-→ allocate an isolated lane
 → design one slice
+→ land the HANDOFF on main
+→ satisfy activation gate / re-anchor
+→ allocate an isolated implementation lane
 → dispatch
 → review cycle 1..N
 → merge
@@ -24,27 +26,32 @@ The cycle does not end at a green merge. It ends when the repository state and e
 
 1. **Re-anchor before dispatch.** Current repository authority and `main` beat chat history, stale handoffs, Project Sources, and old summaries.
 2. **One independently useful capability.** One slice has one merge-ready invariant. Split when a second independently useful/revertible contract appears.
-3. **The HANDOFF §4 allowlist is a write lease.** While a slice is active, its listed paths are that lane's exclusive expected write set. Other lanes may read them but must not edit them without an explicit split, transfer, or serialization decision.
-4. **Parallel lanes use branches + isolated checkouts.** Worktrees are the normal local mechanism; an external/remote worker may provide equivalent checkout isolation. Two or more agents may work concurrently when their write leases and runtime/state ownership do not conflict. Git merge conflicts are a last-resort safety net, not the coordination protocol.
-5. **Source isolation is not runtime isolation.** Separate worktrees/checkouts can still collide through ports, services, databases, `out/`, caches, generated state, shared fixtures, or external resources. A lane must name those collisions when relevant.
-6. **Review every distinct head until merge-ready.** A review cycle is one complete formal reviewer judgment against one distinct PR head SHA. Fix commits, comments, CI reruns, and handbacks do not increment the count until another formal judgment is issued.
-7. **Evidence lives at the owning boundary.** Helper tests cannot prove a service, workflow, persistence, concurrency, or surface invariant they do not exercise.
-8. **No silent scope expansion.** A path outside the write lease, a second durable/public contract, or a new operator/product workflow is a stop/split signal unless the handoff explicitly bounded discovery for it.
-9. **Atomic state-authority sync after state transitions.** After merge, phase close, gate trip, or another sequencing transition, update every mutable workstream document that claims current status/sequence/predecessor/next action before dispatching the next dependent slice. Prefer one commit/PR transaction. If tooling can only apply sequential writes, treat the whole sequence as one guarded transaction: do not dispatch between partial writes, then verify the complete sync set before closing the cycle. Plan/checklist/handoff are common members, not a closed set; roadmaps, trackers, status docs, or indexes belong in the sync when they carry that state.
-10. **Stable authorities do not churn for ceremony.** Architecture, contracts, and reference docs change only when their claims changed—not merely because an implementation PR merged.
+3. **The designing steward owns handoff durability.** The steward/designing agent authors the implementation HANDOFF and is responsible for ensuring that authoritative file is durably landed on `main` before any implementation worker is dispatched. An implementation worker consumes an already checked-in handoff; it does not create, land, activate, or materially redesign its own authority document unless the explicitly assigned slice is itself a design/architecture slice.
+4. **BLOCKED is durable, not dispatched.** A handoff may be landed on `main` with `Status: BLOCKED` while a predecessor, review, merge, operator decision, or other activation gate remains unresolved. Landing that handoff does not create an implementation lane, reserve its §4 paths, or authorize code changes. Only an `ACTIVE` handoff may be dispatched. Activation requires re-anchoring after the gate becomes true and recording the newly knowable activation facts without changing the slice mission/invariant unless the design is deliberately re-reviewed.
+5. **The HANDOFF §4 allowlist is a write lease only while the slice is ACTIVE.** While a slice is active, its listed paths are that lane's exclusive expected write set. BLOCKED handoffs are durable design authority but hold no write lease. Other lanes may read leased paths but must not edit them without an explicit split, transfer, or serialization decision.
+6. **Parallel lanes use branches + isolated checkouts.** Worktrees are the normal local mechanism; an external/remote worker may provide equivalent checkout isolation. Two or more agents may work concurrently when their write leases and runtime/state ownership do not conflict. Git merge conflicts are a last-resort safety net, not the coordination protocol.
+7. **Source isolation is not runtime isolation.** Separate worktrees/checkouts can still collide through ports, services, databases, `out/`, caches, generated state, shared fixtures, or external resources. A lane must name those collisions when relevant.
+8. **Review every distinct head until merge-ready.** A review cycle is one complete formal reviewer judgment against one distinct PR head SHA. Fix commits, comments, CI reruns, and handbacks do not increment the count until another formal judgment is issued.
+9. **Evidence lives at the owning boundary.** Helper tests cannot prove a service, workflow, persistence, concurrency, or surface invariant they do not exercise.
+10. **No silent scope expansion.** A path outside the write lease, a second durable/public contract, or a new operator/product workflow is a stop/split signal unless the handoff explicitly bounded discovery for it.
+11. **Atomic state-authority sync is backward-looking maintenance.** Each implementation handoff must identify the mutable authority documents that need to be synchronized for its already-completed predecessor. Those updates travel in the implementation PR when they are truthfully knowable before that PR merges. They record completed prior work; they do not pre-mark the in-flight implementation slice complete, invent its future merge SHA/review count, or advance a successor as already done. Facts that become knowable only when the current implementation merges are normally recorded by the next dependent implementation PR's predecessor sync. If no suitable successor exists, or delaying the truth would leave repository authority materially misleading, the steward applies a direct guarded sync after re-anchoring. Cross-repository sync follows the same rule. Plan/checklist/handoff are common members, not a closed set; roadmaps, trackers, status docs, or indexes belong in the sync when they carry that state.
+12. **Documentation-only PRs are exceptional, not forbidden.** Routine handoff maintenance, roadmap/tracker/status synchronization, completion recording, and other state-authority bookkeeping do not get standalone PRs. The steward may land a new or blocked implementation handoff directly on `main` as a guarded documentation transaction when repository policy allows; that is handoff creation, not an implementation lane. Rare steward-designated **design or architecture PRs** are allowed when the design artifact itself needs explicit review before implementation. They must use the owning workstream/flow label, stay narrowly limited to the design/architecture decision and its implementation handoff, and must not become a generic `DOCUMENTS` lane. Executable process/tooling changes use normal implementation PRs with their documentation included unless the user explicitly directs a guarded `main` edit.
+13. **Stable authorities do not churn for ceremony.** Architecture, contracts, and reference docs change only when their claims changed—not merely because an implementation PR merged.
 
 ## Parallel lane contract
 
-A lane is the combination of:
+An **active implementation lane** is the combination of:
 
 ```text
-branch + isolated checkout/worktree + HANDOFF + write lease + relevant runtime/state ownership
+branch + isolated checkout/worktree + ACTIVE HANDOFF + write lease + relevant runtime/state ownership
 ```
+
+A checked-in `BLOCKED` handoff is not a lane and does not participate in write-lease collision ownership until activation.
 
 Before dispatching parallel work:
 
 - pin the lane's base revision;
-- inspect active PRs/worktrees/handoffs for overlapping expected writes;
+- inspect active PRs/worktrees/ACTIVE handoffs for overlapping expected writes;
 - treat central routing, shared registries, lockfiles, root config, active sequencing docs, and generated schemas as collision hotspots;
 - prefer splitting a seam so each lane has a clean owner;
 - otherwise serialize the work or explicitly transfer the contested path.
@@ -73,19 +80,25 @@ Review-cycle count is learning telemetry, not a quality target. Do not cap round
 
 ## Atomic state-authority sync
 
-After a state-changing event, first identify the workstream's mutable state authorities. Examples:
+Before dispatching an implementation slice, identify the workstream's mutable state authorities that still need to record the **completed predecessor**. Examples:
 
 - `PLAN-*`
 - `CHECKLIST-*`
-- active HANDOFF status/archive state
+- predecessor HANDOFF status/archive state
 - active `ROADMAP-*`
 - PR/sequencing trackers
 - current-state/status documents
 - source/index manifests when they claim the current active set
 
-Prefer to land the applicable set together. When an API/tool can update only one file per commit, sequential file writes are acceptable only inside the same guarded sync operation: no dependent dispatch or "cycle complete" claim occurs until every intended authority is updated and the final repository state has been re-read.
+Put that predecessor sync set in the implementation handoff's write lease. When those facts are already true before implementation begins, land the whole sync in the implementation PR alongside the executable capability. This keeps routine maintenance attached to the work that consumes the predecessor rather than creating a documentation PR.
 
-The sync records the new state; it does not rewrite architecture history or bundle unrelated cleanup.
+The sync is intentionally backward-looking. It may record the predecessor's exact PR/merge SHA, review-cycle count, accepted design decision, completion/archive state, and the fact that the current implementation slice is now the active work. It must **not** mark the current implementation slice `DONE`, invent its future merge SHA or final review-cycle count, or claim a successor has completed.
+
+Facts that become knowable only after the current implementation merges are carried by the next dependent implementation PR's predecessor sync. When there is no suitable successor, when a cross-repository dependency must be truthful before further dispatch, or when waiting would leave active authority materially misleading, use a direct guarded steward sync after re-anchoring. **Do not open a routine documentation-only PR for that sync.**
+
+Prefer to land each applicable sync set together. When an API/tool can update only one file per commit, sequential file writes are acceptable only inside the same guarded sync operation: no dependent dispatch or "cycle complete" claim occurs until every intended authority is updated and the final repository state has been re-read.
+
+The sync records completed state; it does not rewrite architecture history or bundle unrelated cleanup.
 
 ## Token-efficient repo navigation
 
@@ -103,11 +116,13 @@ After merges, prefer `git rev-parse HEAD` and `git show -s --format=… HEAD` ov
 
 ## External-agent PR loop
 
-For a GitHub PR opened by an external/Codex-style worker, the procedure is `.cursor/skills/external-agent-pr-loop/SKILL.md`; non-negotiable loop invariants are in `.cursor/rules/external-agent-pr-loop.mdc`. Use `scripts/review_external_pr.py {fetch | verify | post | merge}` rather than rebuilding the `gh + git + sed` workflow manually.
+For a GitHub implementation PR opened by an external/Codex-style worker, the procedure is `.cursor/skills/external-agent-pr-loop/SKILL.md`; non-negotiable loop invariants are in `.cursor/rules/external-agent-pr-loop.mdc`. Use `scripts/review_external_pr.py {fetch | verify | post | merge}` rather than rebuilding the `gh + git + sed` workflow manually.
 
-The checked-in HANDOFF, cumulative diff, nano-commit story, and independently rerun evidence are the review contract. The PR description is transport metadata.
+The checked-in ACTIVE HANDOFF, cumulative diff, nano-commit story, and independently rerun evidence are the review contract. The PR description is transport metadata.
 
-## Handoff and PR naming
+Implementation PRs include the backward-looking state-authority sync named by their handoff. Routine state maintenance does not enter a separate PR loop. Rare steward-designated design/architecture PRs may be opened under the owning flow when the design artifact itself needs review; they remain narrowly scoped and are not a revival of the generic `DOCUMENTS` flow.
+
+## Handoff lifecycle and PR naming
 
 Handoffs use:
 
@@ -115,14 +130,16 @@ Handoffs use:
 Docs/Plans/HANDOFF-<FLOW>-<short-slug>.md
 ```
 
-PR titles use:
+Implementation handoffs are steward-authored and steward-landed on `main` before dispatch. If a prerequisite is unresolved, land the handoff as `BLOCKED` with an explicit activation gate and the design-time authority snapshot. When the gate becomes true, the steward re-anchors, records the newly knowable predecessor/merge/base facts, changes `BLOCKED → ACTIVE`, and only then allocates/dispatches the implementation lane. A rare steward-designated design/architecture PR may create or revise the implementation handoff when that handoff is itself the reviewed output of the design decision.
+
+Implementation PR titles use:
 
 ```text
 <FLOW>: <short capability>
 ```
 
-`<FLOW>` is the repository/workstream's explicit operating label (for example `BUILD`, `STATBLOCK`, `TIMELINE`, `DOCUMENTS`, or another named active flow such as `HERMES`). Do not treat a historical four-flow list as a closed enum; the handoff must still name one unambiguous owner.
+`<FLOW>` is the repository/workstream's explicit operating label (for example `BUILD`, `STATBLOCK`, `TIMELINE`, `CUTOVER`, or another named active flow such as `HERMES`). Do not treat a historical flow list as a closed enum; the handoff must still name one unambiguous owner.
 
-`DOCUMENTS` also covers repository development-process documentation/tooling when no product-domain flow owns the change.
+`DOCUMENTS` is retired as a standalone PR flow. Historical `DOCUMENTS` PRs and handoffs remain historical evidence and are not retroactively renamed. Routine documentation/state-authority maintenance rides with the consuming implementation PR or, when necessary, a direct guarded steward sync. Rare design/architecture PRs use the owning workstream label rather than `DOCUMENTS`.
 
 PR numbers are optional GitHub transport metadata. They are not part of handoff filenames, branch names, PR titles, or design authority. Historical `HANDOFF-pr<N>-…` names remain historical and are not retroactively renamed.
