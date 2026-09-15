@@ -4,40 +4,48 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-15  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main` `3a777c91df9ad690a45fb22603631b55583b3eb9`  
+**Re-anchor base:** `main` `3db71402ec7beed1670b6ad837290324a0a79b78` — steward handoff landing  
 **Last product capability merge:** PR #720, merge `2e054ce928f4a7de14a4a7b745460c85a90f8ee1`  
-**Current forcing function:** DESIGN the next bounded campaign-memory acceptance slice; no implementation lane is currently authorized  
-**Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)  
-**Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
+**Current forcing function:** IMPLEMENT candidate-generation integrity alignment from the checked-in ACTIVE handoff  
+**Active implementation authority:** [`HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md)  
 **Consumed admission handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md)  
-**Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)
+**Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
+**Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
+**Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
 
-> This file is the current pickup authority for sequencing. Repository truth supersedes older chat summaries and stale `CURRENT` banners in historical handoffs/roadmaps. The product roadmap remains authoritative for user stories and product intent; use this anchor for present sequencing until the roadmap header is separately synchronized.
+> This file is the current pickup authority for sequencing. Repository truth supersedes older chat summaries and stale `CURRENT` banners in historical handoffs/roadmaps. The product roadmap remains authoritative for user stories and product intent; use this anchor for present sequencing until its older status prose is separately synchronized.
 
 ---
 
 ## 0. Pickup rule
 
-A fresh Designing agent must:
+### Coding / implementation agent
 
-1. fetch current `main` and record the exact SHA;
-2. inspect open PRs/branches for write-lease collisions;
-3. read this anchor;
-4. read the consumed candidate-admission handoff and the campaign-supergraph architecture;
-5. inspect the frozen-42 acceptance report only as historical experiment evidence;
-6. re-census current canonical campaign sources before using any historical session count;
-7. design **one independently useful capability** and land its handoff on `main` before any implementation lane is allocated;
-8. do not merge unless explicitly instructed.
+Do not redesign the slice from chat history. Read, in order:
 
-At this re-anchor there were **no open PRs** in `Drakosfire/DungeonMindBuddy`.
+1. [`HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md) — **ACTIVE implementation authority**;
+2. [`HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md) — consumed predecessor semantics;
+3. only the exact owning code/tests named by handoff §4/§7.
+
+The candidate implementation branch is:
+
+```text
+dogfood-continuity/candidate-generation-integrity-alignment-v1
+```
+
+The steward allocates that branch only from current `main` after this authority sync. The implementation agent must stay inside the handoff §4 lease and STOP on any required path outside it.
+
+### Fresh designing/review agent
+
+Re-anchor exact `main`, open PR state, the ACTIVE handoff, and the predecessor before making any sequencing claim. Do not dispatch the named successor until this slice is reviewed/merged and repository authority is synchronized again.
+
+At handoff design re-anchor there were **no open PRs**.
 
 ---
 
 ## 1. Current campaign-memory truth
 
 ### 1.1 Governed World bootstrap exists
-
-The campaign-memory path no longer starts from an ad hoc or copied graph.
 
 Merged recap World genesis provides:
 
@@ -51,9 +59,9 @@ canonical party registry
 
 Genesis is not permission to smuggle recap facts, party-membership assertions, or session claims into D0.
 
-### 1.2 Candidate → Graph Admission is now a production boundary
+### 1.2 Candidate Graph Admission is production authority
 
-PR #720 is merged.
+PR #720 is merged and accepted.
 
 ```text
 reviewed implementation head:
@@ -66,11 +74,11 @@ merge:
 2e054ce928f4a7de14a4a7b745460c85a90f8ee1
 ```
 
-The durable invariant is:
+Durable invariant:
 
 > The exact candidate is immutable input. Candidate admission may accept, reject, or leave meaning unresolved, but it may not rewrite candidate semantics to make graph publication succeed.
 
-The merged seam now distinguishes:
+The merged seam distinguishes:
 
 ```text
 candidate-document integrity
@@ -80,26 +88,36 @@ admission eligibility
   coherent but unsupported/unresolved item → explicit disposition
 
 governed confirmation
-  exact sealed candidate/source/parent decision → existing DungeonMind write
+  exact sealed candidate/source/world/parent decision → existing DungeonMind write
 ```
 
-`confirmable` is derived from the final sealed accepted-assertion union after structural qualification and identity resolution, including multi-contribution standing context.
+Source admission remains the existing DungeonMind-backed source-authority path. The graph commit remains the existing governed DungeonMind World write.
 
-Source admission remains the existing DungeonMind-backed source-authority path. The graph commit remains the existing governed DungeonMind World write. Do not invent a second persistence path.
+### 1.3 Candidate generation has one prerequisite classification mismatch
 
-### 1.3 PR #715 is retired
+Current production extraction already validates the fully assembled typed candidate before making an extraction run reviewable. It therefore already fails true malformed documents such as duplicate IDs or broken references.
 
-PR #715 is now:
+However, current production extraction treats **every** typed preview error as generation failure. #720 intentionally treats an otherwise coherent `invalid node_type` such as `sublocation` as **admission eligibility**, preserving the exact candidate for an explicit `unsupported_node_type` disposition.
+
+So today the same conceptual condition can be classified differently at adjacent production boundaries:
 
 ```text
+production generation:
+  invalid node_type → FAILED / not reviewable
+
+Candidate Graph Admission:
+  coherent unsupported node_type → candidate preserved
+  → explicit unsupported_node_type disposition
+```
+
+The ACTIVE handoff owns only this alignment. It does not add a new node type and does not weaken real document-integrity validation.
+
+### 1.4 PR #715 is retired
+
+```text
+PR #715
 CLOSED UNMERGED
 head 820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed
-```
-
-The accepted lifecycle decision was:
-
-```text
-ARCHIVE_MINIMUM_WITNESS_THEN_CLOSE_UNMERGED
 ```
 
 Durable replacement authority:
@@ -109,11 +127,9 @@ tests/fixtures/candidate_admission/pr715_failure_witnesses.json
 tests/test_candidate_graph_admission_contract.py
 ```
 
-The branch/history may remain as historical evidence. It is not active authority, not an implementation lane, and not a corpus that should be repaired to manufacture a passing experiment.
+#715 is historical evidence only. Do not merge, rebase, cherry-pick, rehabilitate, sanitize, or use it as active candidate authority.
 
-### 1.4 Frozen-42 experiment remains a HOLD
-
-Do not rewrite experiment history after closing #715.
+### 1.5 Frozen-42 experiment remains a HOLD
 
 ```text
 OpenAI exact-frozen arm: PASS
@@ -123,108 +139,96 @@ STRUCTURAL ACCEPTANCE: HOLD
 SEMANTIC MODEL SELECTION: HOLD
 ```
 
-Why DeepSeek stopped matters:
-
-- conflicting duplicate candidate IDs are candidate-document integrity failures;
-- `sublocation` demonstrated a separate admission-eligibility question;
-- first-wins/deletion sanitization changed candidate semantics and therefore could not count as acceptance evidence.
-
-Those failure classes are now represented by production admission behavior and durable regressions.
+The sanitized DeepSeek continuation is not acceptance evidence.
 
 ---
 
-## 2. What #720 proved — and did not prove
+## 2. Re-census result and successor context
 
-#720 proved the **seam**, not the long-horizon campaign outcome.
+The design steward independently re-censused current `main` before selecting this prerequisite.
 
-We can now say:
+Current normalized observed-recap lineage covers:
 
 ```text
-exact candidate
-  → deterministic integrity decision
-  → explicit admission qualification
-  → sealed candidate/source/world/parent binding
-  → confirm or refuse
-  → existing governed World revision
+Campaign 1: Sessions 1–17
+Campaign 2: Sessions 1–27
+Total logical recap sessions: 44
 ```
 
-We still cannot say:
+Existing normalized provenance resolves the historical duplicate raw recap choices, including:
 
-- a fresh current campaign corpus completes chronologically through this seam;
-- a generated candidate corpus is structurally clean enough for long-horizon admission;
-- one extraction model is semantically better than another;
-- the current canonical corpus has the historical 42-session shape;
-- unattended batch ingestion is product-ready;
-- unsupported candidate concepts should automatically expand World ontology.
+```text
+C1 S2  → Session 2 - Finishing the Job.md
+C2 S23 → Session 23 - Mireward Gate Battle.md
+```
 
-No model winner exists. There is still no pre-existing deterministic semantic benchmark that licenses a model-selection claim.
+C2 S26 and S27 are now present and normalized as observed session recaps.
+
+This is a **design-time census**, not a frozen acceptance manifest and not a structural PASS. The named successor must independently re-freeze the then-current corpus before model calls.
 
 ---
 
 ## 3. Current forcing function
 
-The next Designing agent owns **design**, not implementation.
+The design decision is complete:
 
-Default successor hypothesis:
+> **Candidate-generation integrity alignment is the one prerequisite slice before fresh chronological batch admission acceptance.**
 
-> **Fresh chronological batch admission acceptance:** prove that the merged production genesis + candidate-admission + governed-write path can build durable campaign memory across the current canonical recap corpus without caller-side semantic repair.
+Why it is separate:
 
-This is a hypothesis, not an already-authorized PR.
+- candidate generation already has a fail-closed full-document validation boundary;
+- the missing capability is not generic validation or candidate repair;
+- the specific defect is disagreement over **integrity versus admission eligibility**;
+- fresh chronological acceptance must not report an eligibility condition as malformed generation before #720 can own it.
 
-The designer must decide whether that experiment is truly the next single capability or whether **candidate-generation contract hardening** is a prerequisite that deserves its own bounded slice first.
-
-The decision should be evidence-driven:
+The ACTIVE implementation handoff is:
 
 ```text
-If current generation can reliably produce coherent candidate documents:
-    design fresh chronological admission acceptance.
-
-If current generation still produces candidate-integrity failures frequently enough
-that the acceptance experiment would mostly measure malformed candidate output:
-    design candidate-generation contract hardening first.
+Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md
 ```
 
-Do not combine both into one implementation PR merely to make an experiment pass.
+Its governing invariant is:
+
+> A production-generated candidate becomes reviewable iff its fully assembled document is coherent under the same candidate-document integrity definition consumed by Candidate Graph Admission; admission-eligibility issues remain exact candidate input for #720 to disposition, while true integrity failures still fail closed before admission.
+
+No broader generation hardening is authorized.
 
 ---
 
-## 4. Mandatory design questions for the successor
+## 4. Implementation laws for the ACTIVE slice
 
-The fresh designer should answer these before writing an implementation handoff.
+The coding agent must preserve all of these:
 
-### Corpus authority
+```text
+exact candidate semantics remain immutable
+candidate integrity failure ≠ admission eligibility rejection
+unsupported coherent concept is not silently made supported
+no sanitizer / first-wins / semantic deletion
+no model/prompt/schema tuning
+no identity-policy changes
+no source/genesis/governed-write changes
+no batch runner
+```
 
-- What is the **current** canonical recap corpus on `main`?
-- Re-census it. The old frozen 42 count is stale because later campaign recaps were promoted after that freeze.
-- Which sources are observed recap authority versus prep, worldbuilding, duplicate, or ambiguous material?
+Required cross-boundary proof:
 
-### Candidate generation
+```text
+coherent unique sublocation candidate
+  → production extraction REVIEWABLE unchanged
+  → Candidate Graph Admission
+  → explicit unsupported_node_type disposition
+```
 
-- Is the experiment consuming newly generated candidates or another already-durable current candidate source?
-- If models are called, what exact model/profile is being tested and what claim is the run allowed to make?
-- What is the fail-closed behavior when a candidate is document-invalid?
-- No sanitizer, first-wins duplicate handling, or semantic deletion is permitted after candidate generation.
+Required adversarial proof:
 
-### Structural acceptance
+```text
+duplicate/conflicting candidate ID
+  + optional eligibility issue
+  → generation integrity failure
+  → no reviewable sanitized subset
+```
 
-- What exact sequence constitutes PASS?
-- Every session must start from the prior admitted head.
-- Prepare must remain inert.
-- Every confirm must bind exact candidate/source/parent authority.
-- A stop must preserve failure evidence rather than silently continuing.
-- A rerun after a real failure must restart from a pristine authorized point, not continue a repaired chain and call it final.
-
-### Model comparison
-
-- Structural acceptance is not semantic model selection.
-- If more than one model is compared, arms must be isolated and comparable.
-- Do not invent a semantic benchmark after seeing results.
-- If no pre-existing benchmark exists, model-selection verdict remains HOLD even if structural runs complete.
-
-### Evidence durability
-
-- What evidence survives disposable database teardown?
-- Exact production SHA, source census/manifest, model/profile where applicable, candidate digests, genesis receipt, per-session receipts, parent chain, terminal head, stop conditions, and zero-repair declaration should be durable outside ephemeral databases.
+If the implementation requires a path outside handoff §4, STOP and return to the steward.
 
 ---
 
@@ -253,13 +257,11 @@ admission eligibility rejection
 governed write failure
 ```
 
-Never collapse those classes merely to keep a batch moving.
+### Runner law for the named successor
 
-### Runner law
+The future chronological acceptance runner may orchestrate production seams. It must not know how to repair graph semantics.
 
-A batch/acceptance runner may orchestrate production seams. It must not know how to repair graph semantics.
-
-If a runner needs code like:
+If it needs code like:
 
 ```text
 if duplicate: keep first
@@ -267,82 +269,85 @@ if unsupported type: delete node
 if edge no longer works: delete edge
 ```
 
-STOP. Production or generation contract ownership is wrong.
+STOP.
 
 ### Process law
 
 ```text
-re-anchor
-→ decompose candidate capabilities
-→ design one slice
-→ land steward-owned HANDOFF on main
-→ activate only after gates are satisfied
+ACTIVE handoff on main
 → allocate isolated implementation lane
 → dispatch
 → exact-head review cycles
 → merge only when instructed
 → steward state-authority sync
 → re-anchor
+→ only then design/dispatch named successor
 ```
-
-A BLOCKED handoff is durable design authority but does not reserve a lane or authorize code. Only ACTIVE dispatches implementation.
 
 ---
 
-## 6. Likely next authorities to read
+## 6. Authorities to read
 
-Required:
+### Current implementation
 
 ```text
 AGENTS.md
 Docs/Process/STEWARD-CYCLE.md
-Docs/Design/ARCHITECTURE-campaign-supergraph.md
+Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md
 Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md
+src/graph_memory/candidate_graph_preview.py
+src/graph_memory/extraction/graph_preview_runner.py
+apps/live_control_server/services/candidate_graph_admission.py
+tests/test_graph_preview_runner.py
+tests/test_candidate_graph_admission_contract.py
 ```
 
-Historical evidence:
+### Architecture / product intent
 
 ```text
-Docs/Reports/REPORT-DOGFOOD-CONTINUITY-frozen-42-session-acceptance-v1.md
-PR #715 @ 820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed — closed/unmerged
-```
-
-Product intent/user stories:
-
-```text
+Docs/Design/ARCHITECTURE-campaign-supergraph.md
 Docs/Roadmaps/ROADMAP-con-ready.md
 ```
 
-Use the roadmap for product goals and acceptance stories. Its older sequencing/status prose may lag this anchor.
+### Historical evidence only
+
+```text
+tests/fixtures/candidate_admission/pr715_failure_witnesses.json
+Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-frozen-42-session-acceptance-replay-v1.md
+PR #715 @ 820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed — CLOSED UNMERGED
+```
+
+Do not require the coding agent to reconstruct the frozen experiment beyond the durable witness needed by the ACTIVE handoff.
 
 ---
 
-## 7. Stop conditions for the next Designing agent
+## 7. Stop conditions
 
-Stop and rebrief rather than quietly broadening scope if:
+Stop and rebrief rather than broadening scope if:
 
-- the next experiment requires changing DungeonMind generic contracts;
-- candidate generation and batch acceptance both require material implementation changes;
-- the only way to complete a corpus is semantic repair after generation;
-- source authority cannot be bound exactly;
-- corpus membership is ambiguous and cannot be resolved by existing source rules;
-- a semantic model winner is requested without a pre-existing evaluation contract;
-- the design would reuse #715 as active production authority;
-- the successor needs a second independently useful capability to succeed;
-- an apparently simple acceptance runner begins accumulating ontology, identity, or mapping policy.
+- shared classification requires changing the candidate schema/version;
+- the fix requires adding `sublocation` or any other ontology concept;
+- model prompts, model policy, extraction passes, or retry behavior must change;
+- candidate assembly must delete/merge/rewrite semantic objects to satisfy integrity;
+- #720's accepted integrity/eligibility semantics must materially change;
+- source authority, recap genesis, DungeonMind contracts, or governed writes need modification;
+- any required path falls outside the ACTIVE handoff §4 lease;
+- another independently useful capability appears.
 
 ---
 
 ## 8. Current steward disposition
 
 ```text
-PR #720                      MERGED / ACCEPTED
-candidate admission handoff  CONSUMED
-PR #715                      CLOSED UNMERGED
-frozen-42 structural result  HOLD
-semantic model selection     HOLD
-open implementation PRs      none at re-anchor
-next implementation lane     NONE — design required first
+PR #720                         MERGED / ACCEPTED
+candidate admission handoff     CONSUMED
+PR #715                         CLOSED UNMERGED
+frozen-42 structural result     HOLD
+semantic model selection        HOLD
+current corpus design census    C1 S1–17 + C2 S1–27 = 44 logical recaps
+active implementation handoff   candidate-generation-integrity-alignment-v1
+implementation PR               none yet
+named successor                 fresh chronological current-corpus admission acceptance
 ```
 
-The next steward action is to design and land one successor handoff. Do not dispatch code directly from this anchor.
+The next implementation agent should execute the ACTIVE handoff, not redesign campaign-memory sequencing from scratch.
