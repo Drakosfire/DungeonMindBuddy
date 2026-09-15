@@ -2,7 +2,10 @@
 
 **Status:** CODE complete — dogfood rerun pending  
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-exact-edge-id-continuity-v1.md`  
-**Branch:** `dogfood-continuity/exact-edge-id-continuity-v1`
+**Branch:** `dogfood-continuity/exact-edge-id-continuity-v1`  
+**PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/726  
+**Implementation head:** `1138df4ff75a52b9063e55776f0b88f7a4d77e7d`  
+**Design authority base:** `68577114b3c8ec7e06bc0b0a8d382143fdc570ec`
 
 ## Claim
 
