@@ -21,19 +21,32 @@ For DungeonMindBuddy right now:
 - Clear commit messages and nano-commit review stories matter more than branch ceremony.
 - Do not push secrets.
 
+## Handoff durability is steward work, not an implementation lane
+
+The designing steward owns an implementation handoff until it is durably present on `main`.
+
+- A handoff may be committed to `main` as `BLOCKED` while an activation prerequisite remains false.
+- A BLOCKED handoff is documentation/design authority only. It does not create a branch/worktree lane and its §4 paths are not leased.
+- Only an `ACTIVE` handoff may be used to allocate and dispatch an implementation lane.
+- When a BLOCKED handoff's gate becomes true, the steward re-anchors, records the newly knowable activation facts, changes it to ACTIVE, and only then creates the implementation branch/worktree.
+- The implementation worker consumes the checked-in ACTIVE handoff; it does not create, land, or activate its own authority document unless explicitly assigned a design/architecture slice.
+
+A narrow guarded handoff commit to `main` is therefore not a documentation implementation lane. It is the steward making dispatch authority durable. If future branch protection requires a PR instead, the steward still owns that transaction.
+
 ## Parallel work is normal
 
 Multiple agents may work concurrently. Use **one branch + one worktree per active implementation lane** unless the environment provides equivalent source isolation.
 
 A parallel lane is safe only when both forms of ownership are understood:
 
-1. **source ownership** — the HANDOFF §4 allowlist is the lane's expected exclusive write lease;
+1. **source ownership** — the ACTIVE HANDOFF §4 allowlist is the lane's expected exclusive write lease;
 2. **runtime/state ownership** — ports, services, DBs, `out/`, caches, generated state, fixtures, and external resources may still be shared across worktrees.
 
-Read overlap is normal. Write overlap is not.
+Read overlap is normal. Write overlap is not. BLOCKED handoffs are future sequencing context, not active source owners.
 
 Before dispatching or adding a parallel lane:
 
+- verify the candidate handoff is checked in and `Status: ACTIVE`;
 - pin each active lane's base revision;
 - compare active handoff §4 allowlists and PR changed paths;
 - identify collision hotspots such as central routers, shared registries, lockfiles, root config, active state-authority docs, and generated schemas;
@@ -85,11 +98,14 @@ After merge:
 
 1. verify the exact integration tip (`git rev-parse HEAD`, `git show -s`, and remote ref when relevant);
 2. perform the workstream's atomic state-authority sync;
-3. re-anchor active lanes against the new integration state;
-4. only then dispatch a dependent successor.
+3. re-anchor active lanes and any checked-in BLOCKED dependent successor against the new integration state;
+4. if a dependent successor's activation gate is now true, activate it explicitly;
+5. only then allocate/dispatch that dependent successor.
+
+A predecessor merge does not itself activate or dispatch a checked-in successor handoff.
 
 Independent lanes may continue when the merged change does not invalidate their base assumptions, write lease, or predecessor contract; the steward must make that judgment explicitly rather than assuming every merge forces every worktree to restart.
 
 ## When to tighten this rule
 
-Revisit branch protection/release policy when Buddy ships on a schedule, shares `main` with a larger team, or CI must become a blocking release gate. That future release discipline should not erase the worktree/write-lease model for concurrent development.
+Revisit branch protection/release policy when Buddy ships on a schedule, shares `main` with a larger team, or CI must become a blocking release gate. That future release discipline should not erase the worktree/write-lease model for concurrent development or transfer handoff-authority ownership from the steward to the implementation worker.
