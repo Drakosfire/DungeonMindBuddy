@@ -5,29 +5,33 @@ pr_body_template: |
   - Flow: {{TODO}}
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: {{TODO: checked-in path}}
-  - Branch / PR: {{TODO: optional transport metadata}}
+  - Branch / PR: {{TODO: optional transport metadata; none while BLOCKED}}
 
   ## Verification pointer
-  - Base/head: {{TODO}}
+  - Design authority / head: {{TODO}}
   - Changed paths: {{TODO}}
   - Verification: {{TODO: exact result pointer}}
 
-  The checked-in handoff, cumulative diff, nano-commit story, and independently
+  The checked-in ACTIVE handoff, cumulative diff, nano-commit story, and independently
   rerun evidence are the review contract. This body is transport metadata.
 ---
 
 # HANDOFF — {{TODO: one implementation capability}}
 
 **Created:** {{TODO: YYYY-MM-DD}}  
-**Status:** ACTIVE — one implementation capability  
+**Status:** {{TODO: BLOCKED — <activation gate> | ACTIVE — one implementation capability}}  
 **Canonical handoff path:** `{{TODO}}`  
 **Conversation/workstream:** `{{TODO}}`  
 **Flow / owner:** `{{TODO}}`  
 **Direction:** DESIGN → CODE → REVIEW  
-**Base revision:** `{{TODO: immutable SHA/revision}}`  
+**Design authority base:** `{{TODO: exact main SHA/revision used to design this handoff}}`  
+**Activation gate:** {{TODO: `none — satisfied` or exact predecessor/review/merge/operator condition}}  
+**Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review rather than trying to self-reference it inside this main commit.  
 **PR title:** `{{TODO: FLOW: short capability}}`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
+
+> Handoff lifecycle: the designing steward lands this file on `main`. `BLOCKED` means durable design authority only—no implementation lane and no active §4 lease. The steward changes `BLOCKED → ACTIVE` only after re-anchoring and verifying the activation gate. The implementation worker consumes the already-checked-in ACTIVE handoff and does not create or activate its own authority document.
 
 ## §1 Mission and merge-ready invariant
 
@@ -50,18 +54,20 @@ pr_body_template: |
 | Field | Required content |
 |---|---|
 | Parent authority | `<architecture / decision / tracker / issue>` |
-| Base revision | `<immutable SHA/revision>` |
-| Predecessor contract | `<merged PR / schema / fixture / none>` |
+| Design authority base | `<immutable SHA/revision used to design the slice>` |
+| Activation gate | `<none/satisfied, or exact prerequisite that keeps this handoff BLOCKED>` |
+| Dispatch base rule | `fresh current main containing this handoff after activation; exact branch base recorded at dispatch/review` |
+| Predecessor contract | `<merged PR / schema / fixture / none; if unmerged, name exact gate>` |
 | Exact input consumed | `<artifact / payload / event / store revision / caller contract>` |
 | Named successor | `<capability intentionally deferred>` |
 | What remains false | `<specific behavior not delivered>` |
 | Explicit non-goals | `<bounded exclusions>` |
-| Branch / isolated checkout | `<branch + worktree/equivalent>` |
-| Parallel lanes / collision hotspots | `<active lanes or none; shared files/runtime/state>` |
+| Branch / isolated checkout | `<none while BLOCKED; exact branch + worktree/equivalent after ACTIVE>` |
+| Parallel lanes / collision hotspots | `<active lanes or none; BLOCKED handoffs are not lease owners>` |
 | Runtime/state ownership | `<isolated root / namespace / shared serialized resource / not applicable>` |
 | State-authority sync set after merge | `<PLAN/CHECKLIST/HANDOFF/ROADMAP/tracker/status/index paths as applicable, or handoff-only>` |
 
-Read the exact predecessor/implementation seam/tests required by this slice before changing code. If base, authority, predecessor shape, lane ownership, or invariant differs materially, stop and report the consequence.
+Read the exact predecessor/implementation seam/tests required by this slice before changing code. If design authority, activation gate, predecessor shape, lane ownership, or invariant differs materially, stop and report the consequence.
 
 ## §3 Observable paths and adversarial sequences
 
@@ -81,7 +87,7 @@ A `No` in the invariant column is a split signal unless that path leaves the mis
 
 ## §4 Files in scope — write lease
 
-Every expected changed path must be expressible here.
+Every expected changed path must be expressible here. This table becomes an exclusive expected write lease only when `Status: ACTIVE`; while BLOCKED it is prospective scope, not reserved ownership.
 
 | Action | Path | Purpose |
 |---|---|---|
@@ -96,7 +102,7 @@ Allowed path kinds:
 Decision rule:
 ```
 
-A required path outside this lease/exception is a stop report. If another active lane owns it, do not edit it before the steward resolves ownership.
+Once ACTIVE, a required path outside this lease/exception is a stop report. If another active lane owns it, do not edit it before the steward resolves ownership.
 
 ## §5 Explicitly out of scope / collision boundary
 
@@ -184,7 +190,7 @@ Exact verification commands:
 <contract / round-trip / failure-injection test as applicable>
 <repository regression/build/lint command as applicable>
 git diff --check
-git diff --name-only <base>...HEAD
+git diff --name-only <dispatch-base>...HEAD
 ```
 
 ### Minimal live / dogfood proof
@@ -207,21 +213,23 @@ Evidence captured:
 Record:
 
 1. `Review Cycle <N>` and exact PR/branch/head SHA;
-2. §1 mission/invariant disposition;
-3. §7 required vs produced evidence + provenance;
-4. nano-commit/fix story;
-5. base/head and actual changed paths vs §4;
-6. baseline failures/waivers;
-7. paths outside §4 (`none` or stop report);
-8. stop conditions and resolution;
-9. named successor still false;
-10. prior finding ledger on re-review.
+2. exact implementation branch base used at dispatch;
+3. §1 mission/invariant disposition;
+4. §7 required vs produced evidence + provenance;
+5. nano-commit/fix story;
+6. base/head and actual changed paths vs §4;
+7. baseline failures/waivers;
+8. paths outside §4 (`none` or stop report);
+9. stop conditions and resolution;
+10. named successor still false;
+11. prior finding ledger on re-review.
 
 ## §9 Acceptance rubric
 
+- [ ] This handoff was checked in by the steward before implementation dispatch and was ACTIVE at dispatch.
 - [ ] Exactly one independently useful capability from §1 is delivered and proved by §7.
 - [ ] The §1 invariant holds across every claimed §3 path/adversarial sequence.
-- [ ] Exact PR/head, evidence provenance, and review-cycle number are recorded.
+- [ ] Exact implementation base, PR/head, evidence provenance, and review-cycle number are recorded.
 - [ ] No second public/durable contract or operator workflow was silently introduced.
 - [ ] Applicable §6 state/identity/persistence/predecessor semantics hold.
 - [ ] Actual changed paths stay inside §4 / bounded discovery.
@@ -233,12 +241,13 @@ Record:
 
 Stop and report instead of expanding when any of these appears:
 
+- this handoff is still BLOCKED or its activation gate is not truthfully satisfied;
 - second independently useful outcome or public/durable contract;
 - invariant cannot govern every claimed path;
 - owning-boundary evidence cannot be produced;
 - unresolved state/identity/persistence/replay/compatibility semantics;
 - predecessor differs materially from the authoritative fixture/schema;
-- required path outside §4 or another lane's write lease;
+- required path outside §4 or another active lane's write lease;
 - unsafe shared runtime/state collision;
 - irreversible operation outside the declared commit model;
 - repository/architecture conflict;
