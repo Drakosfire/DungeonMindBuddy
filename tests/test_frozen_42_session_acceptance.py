@@ -342,6 +342,23 @@ def test_production_recap_creator_does_not_accept_caller_selected_identity(tmp_p
         )
 
 
+def test_runner_binds_world_id_before_admission_without_changing_production_creator(
+    tmp_path: Path,
+) -> None:
+    recap = tmp_path / "recap.md"
+    recap.write_text("# Recap\n\nObserved.\n", encoding="utf-8")
+    canonical = create_recap_source_artifact(
+        tmp_path,
+        campaign_id="longmont-c1",
+        session_id="session-1",
+        recap_path=recap,
+    )
+    assert canonical.world_id is None
+    bound = acc.bind_artifact_world(canonical, world_id="dogfood-frozen42-openai-v1")
+    assert bound.world_id == "dogfood-frozen42-openai-v1"
+    assert canonical.world_id is None
+
+
 def test_historical_source_rebinding_remains_runner_private(tmp_path: Path) -> None:
     recap = tmp_path / "recap.md"
     recap.write_text("# Recap\n\nObserved.\n", encoding="utf-8")

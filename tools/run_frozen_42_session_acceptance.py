@@ -396,6 +396,21 @@ def register_verified_historical_recap(
     return _upsert_source_artifact(root, candidate=aliased, content=content)
 
 
+def bind_artifact_world(artifact: Any, *, world_id: str) -> Any:
+    """Acceptance-local World binding. Production recap creator stays world-neutral."""
+    bound = str(world_id or "").strip()
+    if not bound:
+        raise AcceptanceError("world_id is required before source admission")
+    current = str(getattr(artifact, "world_id", None) or "").strip()
+    if current and current != bound:
+        raise AcceptanceError(
+            f"source artifact world_id {current!r} does not match derived world {bound!r}"
+        )
+    if hasattr(artifact, "model_copy"):
+        return artifact.model_copy(update={"world_id": bound})
+    return artifact
+
+
 def inspect_authority_counts(dsn: str, world_id: str) -> dict[str, int]:
     import psycopg
 
@@ -627,6 +642,7 @@ def publish_session(
         expected_content_sha256=str(seal["source_sha256"]),
         historical_source_artifact_id=str(seal["source_artifact_id"]),
     )
+    artifact = bind_artifact_world(artifact, world_id=world_id)
     admitted = DungeonMindWorldGraphSourceAdmissionAdapter(database_url=dsn).prove_or_admit(
         WorldGraphSourceAdmissionRequest(
             world_id=world_id,
