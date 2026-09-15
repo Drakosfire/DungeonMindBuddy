@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import copy
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -149,8 +151,25 @@ class FixtureClient:
         }
         if self.mode == "missing_evidence":
             node["evidence_refs"] = []
+        nodes = [node]
+        if self.mode == "unsupported_sublocation" and pass_name == "location_pass":
+            nodes.append(
+                {
+                    "node_id": "candidate:medical-wing",
+                    "label": "Medical Wing",
+                    "node_type": "sublocation",
+                    "description": "fixture unsupported sublocation",
+                    "importance": "medium",
+                    "evidence_refs": [
+                        {
+                            "source_span_ref_id": evidence_ref,
+                            "anchor_quotes": ["Mirathorn"],
+                        }
+                    ],
+                }
+            )
         return {
-            "parsed": {"observation_nodes": [node]},
+            "parsed": {"observation_nodes": nodes},
             "cost_usd": 0.0,
             "usage": {},
             "elapsed_ms": 1,
@@ -481,6 +500,241 @@ def test_worldbuilding_graph_uses_profile_semantic_state(tmp_path: Path) -> None
     report = validate_candidate_graph_preview(preview)
     assert report.issue_counts.get("invalid_semantic_state", 0) == 0
     assert report.issues == ()
+
+
+def _run_recap_extraction(
+    tmp_path: Path,
+    *,
+    client: FixtureClient,
+    output_dir: str = "runs",
+):
+    source = _admit_recap(tmp_path)
+    if client.span_ref is None:
+        client.span_ref = _first_paragraph_span_id(source)
+    result = run_production_extraction(
+        ProductionExtractionRequest(
+            repo_root=tmp_path,
+            source=source,
+            profile_id=RECAP_PROFILE_ID,
+            profile_version=RECAP_PROFILE_VERSION,
+            allow_llm=True,
+            category_client=client,
+            output_dir=tmp_path / output_dir,
+        )
+    )
+    return source, result
+
+
+def _mutate_extracted_candidate(
+    monkeypatch: pytest.MonkeyPatch, mutator: Any
+) -> None:
+    from src.graph_memory.extraction import graph_preview_runner as runner
+
+    real = runner.extract_category_candidate_graph
+
+    def _wrapped(options: Any, client: Any = None) -> Any:
+        extracted = real(options, client=client)
+        mutated = mutator(copy.deepcopy(extracted.candidate_graph))
+        return replace(extracted, candidate_graph=mutated)
+
+    monkeypatch.setattr(runner, "extract_category_candidate_graph", _wrapped)
+
+
+def _duplicate_first_node(graph: dict[str, Any]) -> dict[str, Any]:
+    nodes = list(graph.get("nodes") or [])
+    assert nodes, "expected assembled nodes before duplicate injection"
+    graph["nodes"] = [*nodes, copy.deepcopy(nodes[0])]
+    return graph
+
+
+def _duplicate_first_node_and_add_sublocation(graph: dict[str, Any]) -> dict[str, Any]:
+    graph = _duplicate_first_node(graph)
+    seed = graph["nodes"][0]
+    extra = copy.deepcopy(seed)
+    extra["node_id"] = "candidate:medical-wing"
+    extra["label"] = "Medical Wing"
+    extra["node_type"] = "sublocation"
+    extra["description"] = "injected unsupported sublocation"
+    graph["nodes"].append(extra)
+    return graph
+
+
+def test_duplicate_node_ids_fail_generation_as_integrity(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _admit_recap(tmp_path)
+    span_ref = _first_paragraph_span_id(source)
+    _mutate_extracted_candidate(monkeypatch, _duplicate_first_node)
+    result = run_production_extraction(
+        ProductionExtractionRequest(
+            repo_root=tmp_path,
+            source=source,
+            profile_id=RECAP_PROFILE_ID,
+            profile_version=RECAP_PROFILE_VERSION,
+            allow_llm=True,
+            category_client=FixtureClient(span_ref=span_ref),
+            output_dir=tmp_path / "dup-runs",
+        )
+    )
+    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    assert result.failure_kind == "validation"
+    assert loaded.status == ExtractionRunStatus.FAILED
+    assert loaded.lineage.get("reviewable") is False
+    assert "duplicate_node_id" in " ".join(result.diagnostics)
+    node_ids = [node.get("node_id") for node in (result.candidate_graph or {}).get("nodes") or []]
+    assert len(node_ids) == len([node_id for node_id in node_ids if node_id])
+    assert len(node_ids) != len(set(node_ids))
+
+
+def test_unsupported_sublocation_reaches_reviewable_unchanged(tmp_path: Path) -> None:
+    _source, result = _run_recap_extraction(
+        tmp_path,
+        client=FixtureClient(mode="unsupported_sublocation"),
+        output_dir="sublocation-runs",
+    )
+    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    frozen = copy.deepcopy(result.candidate_graph)
+    assert result.failure_kind is None
+    assert loaded.status == ExtractionRunStatus.REVIEWABLE
+    nodes = list((result.candidate_graph or {}).get("nodes") or [])
+    unsupported = [
+        node
+        for node in nodes
+        if isinstance(node, dict) and node.get("node_id") == "candidate:medical-wing"
+    ]
+    assert len(unsupported) == 1
+    assert unsupported[0]["node_type"] == "sublocation"
+    assert result.candidate_graph == frozen
+
+
+def test_reviewable_unsupported_candidate_is_exact_admission_input(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.models.world_graph_mutation_context import (
+        WorldGraphMutationContext,
+    )
+    from apps.live_control_server.services.candidate_graph_admission import (
+        canonical_candidate_digest,
+        prepare_candidate_graph_admission,
+    )
+
+    source, result = _run_recap_extraction(
+        tmp_path,
+        client=FixtureClient(mode="unsupported_sublocation"),
+        output_dir="sublocation-admission-runs",
+    )
+    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    assert loaded.status == ExtractionRunStatus.REVIEWABLE
+    candidate = result.candidate_graph or {}
+    frozen = copy.deepcopy(candidate)
+    exact_digest = canonical_candidate_digest(candidate)
+
+    revision = source.source_sha256
+    if not revision.startswith("sha256:"):
+        revision = f"sha256:{revision}"
+    prepared = prepare_candidate_graph_admission(
+        candidate_graph=candidate,
+        source_uri=source.source_uri,
+        source_revision_id=revision,
+        prepared_by="gm@test",
+        world_id="eldyrwild",
+        source_artifact_id=source.source_artifact_id,
+        campaign_scope="longmont-c2",
+        candidate_graph_path=str(tmp_path / "candidate_graph.json"),
+        repo_root=tmp_path,
+        mutation_context=WorldGraphMutationContext(
+            world_id="eldyrwild",
+            revision_id="rev:d0",
+            head_revision_id="rev:d0",
+            objects={},
+        ),
+    )
+    binding = prepared.review_package["effect"]["candidate_admission"]
+    assert candidate == frozen
+    assert binding["candidate_digest"] == exact_digest
+    assert {
+        (item["item_id"], item["reason"])
+        for item in binding["dispositions"]
+        if item["reason"] == "unsupported_node_type"
+    } == {("candidate:medical-wing", "unsupported_node_type")}
+
+
+def test_integrity_failure_outranks_unsupported_eligibility(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source = _admit_recap(tmp_path)
+    span_ref = _first_paragraph_span_id(source)
+    _mutate_extracted_candidate(monkeypatch, _duplicate_first_node_and_add_sublocation)
+    result = run_production_extraction(
+        ProductionExtractionRequest(
+            repo_root=tmp_path,
+            source=source,
+            profile_id=RECAP_PROFILE_ID,
+            profile_version=RECAP_PROFILE_VERSION,
+            allow_llm=True,
+            category_client=FixtureClient(span_ref=span_ref),
+            output_dir=tmp_path / "dup-sublocation-runs",
+        )
+    )
+    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    graph = result.candidate_graph or {}
+    node_ids = [node.get("node_id") for node in graph.get("nodes") or []]
+    assert result.failure_kind == "validation"
+    assert loaded.status == ExtractionRunStatus.FAILED
+    assert "duplicate_node_id" in " ".join(result.diagnostics)
+    assert "candidate:medical-wing" in node_ids
+    assert len(node_ids) != len(set(node_ids))
+
+
+def test_valid_candidate_semantics_are_unchanged_by_integrity_classification(
+    tmp_path: Path,
+) -> None:
+    from src.graph_memory.candidate_document_integrity import (
+        classify_candidate_document_integrity,
+    )
+
+    _source, result = _run_recap_extraction(
+        tmp_path,
+        client=FixtureClient(),
+        output_dir="valid-equality-runs",
+    )
+    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    candidate = result.candidate_graph or {}
+    frozen = copy.deepcopy(candidate)
+    classification = classify_candidate_document_integrity(candidate)
+    assert loaded.status == ExtractionRunStatus.REVIEWABLE
+    assert classification.is_document_integrity_failure is False
+    assert classification.eligibility_issues == ()
+    assert candidate == frozen
+
+
+def test_profile_post_extraction_validator_still_fails_generation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from src.graph_memory.extraction.extraction_profile import require_admitted_profile
+
+    real = require_admitted_profile
+
+    def _with_validator(*args: Any, **kwargs: Any) -> Any:
+        profile = real(*args, **kwargs)
+        return replace(
+            profile,
+            post_extraction_validator=lambda _graph: ["synthetic profile bound"],
+        )
+
+    monkeypatch.setattr(
+        "src.graph_memory.extraction.graph_preview_runner.require_admitted_profile",
+        _with_validator,
+    )
+    _source, result = _run_recap_extraction(
+        tmp_path,
+        client=FixtureClient(),
+        output_dir="profile-validator-runs",
+    )
+    loaded = get_extraction_run(tmp_path, result.run.run_id)
+    assert result.failure_kind == "validation"
+    assert loaded.status == ExtractionRunStatus.FAILED
+    assert any("profile post-extraction validation failed" in item for item in result.diagnostics)
 
 
 def test_recap_snapshot_rejects_path_escape(tmp_path: Path) -> None:

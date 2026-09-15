@@ -21,6 +21,10 @@ from apps.live_control_server.services.candidate_graph_admission import (
     canonical_candidate_digest,
     confirm_candidate_graph_admission,
     prepare_candidate_graph_admission,
+    validate_candidate_document_integrity,
+)
+from graph_memory.candidate_document_integrity import (
+    classify_candidate_document_integrity,
 )
 from graph_memory.candidate_graph_preview import (
     CANDIDATE_GRAPH_PREVIEW_SCHEMA,
@@ -146,6 +150,41 @@ def _prepare(
         mutation_context=context,
         registry_context_graph=registry_context_graph,
     )
+
+
+def test_shared_classifier_preserves_unsupported_kind_for_admission() -> None:
+    candidate = _candidate(unsupported=True)
+    frozen = copy.deepcopy(candidate)
+    classification = classify_candidate_document_integrity(candidate)
+    preview = validate_candidate_document_integrity(candidate)
+
+    assert candidate == frozen
+    assert classification.is_document_integrity_failure is False
+    assert {
+        (issue.object_id, issue.message) for issue in classification.eligibility_issues
+    } == {("candidate:medical-wing", "invalid node_type")}
+    assert {node.node_id: node.node_type for node in preview.nodes} == {
+        "candidate:brin": "character",
+        "candidate:medical-wing": "sublocation",
+    }
+
+
+def test_integrity_outranks_eligibility_for_duplicate_plus_unsupported() -> None:
+    candidate = _candidate(unsupported=True)
+    candidate["nodes"].append(_node("candidate:brin", "character"))
+    frozen = copy.deepcopy(candidate)
+    classification = classify_candidate_document_integrity(candidate)
+
+    assert candidate == frozen
+    assert classification.is_document_integrity_failure is True
+    assert [issue.code for issue in classification.integrity_issues] == ["duplicate_node_id"]
+    assert any(
+        issue.message == "invalid node_type" for issue in classification.eligibility_issues
+    )
+    with pytest.raises(CandidateAdmissionIntegrityError) as excinfo:
+        validate_candidate_document_integrity(candidate)
+    assert [item.code for item in excinfo.value.diagnostics] == ["duplicate_node_id"]
+    assert candidate == frozen
 
 
 def test_digest_covers_complete_candidate_before_qualification(tmp_path) -> None:

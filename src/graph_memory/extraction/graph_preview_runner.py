@@ -21,9 +21,8 @@ from graph_memory.source_span import (
     build_source_span_index_for_text,
     source_span_index_to_dict,
 )
-from src.graph_memory.candidate_graph_preview import (
-    candidate_graph_preview_from_dict,
-    validate_candidate_graph_preview,
+from src.graph_memory.candidate_document_integrity import (
+    classify_candidate_document_integrity,
 )
 from src.graph_memory.extraction.category_candidate_graph_extractor import (
     CategoryGraphExtractionError,
@@ -460,11 +459,21 @@ def run_production_extraction(
             profile_version=profile.profile_version,
         )
 
-    try:
-        preview = candidate_graph_preview_from_dict(extraction.candidate_graph)
-        typed_report = validate_candidate_graph_preview(preview)
-    except Exception as exc:  # noqa: BLE001 - treat malformed IR as validation failure
-        message = f"candidate graph preview parse failed: {exc}"
+    classification = classify_candidate_document_integrity(extraction.candidate_graph)
+    if classification.is_document_integrity_failure:
+        if classification.parse_error:
+            message = (
+                "candidate graph preview parse failed: "
+                f"{classification.parse_error}"
+            )
+            typed_issue_count = 0
+        else:
+            sample = "; ".join(
+                f"{issue.code}: {issue.message}"
+                for issue in classification.integrity_issues[:5]
+            )
+            message = f"candidate graph typed validation failed: {sample}"
+            typed_issue_count = len(classification.integrity_issues)
         failed = _fail_run(
             request.repo_root,
             extracted,
@@ -477,43 +486,7 @@ def run_production_extraction(
                 "profile_version": profile.profile_version,
                 "model_id": model_id,
                 "reviewable": False,
-            },
-        )
-        loaded = get_extraction_run(request.repo_root, failed.run_id)
-        return ProductionExtractionResult(
-            run=loaded,
-            candidate_graph=extraction.candidate_graph,
-            source_span_index=span_payload,
-            failure_kind="validation",
-            diagnostics=[message],
-            model_id=model_id,
-            profile_id=profile.profile_id,
-            profile_version=profile.profile_version,
-        )
-
-    typed_errors = [
-        issue
-        for issue in typed_report.issues
-        if str(getattr(issue, "severity", "error") or "error") == "error"
-    ]
-    if typed_errors:
-        sample = "; ".join(
-            f"{issue.code}: {issue.message}" for issue in typed_errors[:5]
-        )
-        message = f"candidate graph typed validation failed: {sample}"
-        failed = _fail_run(
-            request.repo_root,
-            extracted,
-            message=message,
-            failure_kind="validation",
-            components=components,
-            incomplete_components=["candidate_graph"],
-            lineage={
-                "profile_id": profile.profile_id,
-                "profile_version": profile.profile_version,
-                "model_id": model_id,
-                "reviewable": False,
-                "typed_issue_count": len(typed_errors),
+                "typed_issue_count": typed_issue_count,
             },
         )
         loaded = get_extraction_run(request.repo_root, failed.run_id)

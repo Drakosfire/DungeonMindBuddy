@@ -22,11 +22,10 @@ from apps.live_control_server.models.candidate_graph_admission import (
     CandidateAdmissionNotConfirmableError,
     CandidateIntegrityDiagnostic,
 )
-from graph_memory.candidate_graph_preview import (
-    NODE_TYPES,
-    candidate_graph_preview_from_dict,
-    validate_candidate_graph_preview,
+from graph_memory.candidate_document_integrity import (
+    classify_candidate_document_integrity,
 )
+from graph_memory.candidate_graph_preview import NODE_TYPES
 from graph_memory.extract_promote_ops import (
     ExtractPromotePrepareResult,
     prepare_extract_promote,
@@ -63,25 +62,18 @@ def canonical_candidate_digest(candidate_graph: Mapping[str, Any]) -> str:
 def validate_candidate_document_integrity(candidate_graph: Mapping[str, Any]):
     """Return the exact typed preview while treating unsupported kinds as eligibility."""
     digest = canonical_candidate_digest(candidate_graph)
-    raw = copy.deepcopy(dict(candidate_graph))
-    try:
-        preview = candidate_graph_preview_from_dict(raw)
-    except (KeyError, TypeError, ValueError) as exc:
+    classification = classify_candidate_document_integrity(candidate_graph)
+    if classification.parse_error:
         raise CandidateAdmissionIntegrityError(
-            [CandidateIntegrityDiagnostic(code="typed_parse_failed", message=str(exc))],
+            [
+                CandidateIntegrityDiagnostic(
+                    code="typed_parse_failed",
+                    message=classification.parse_error,
+                )
+            ],
             candidate_digest=digest,
-        ) from exc
-
-    report = validate_candidate_graph_preview(preview)
-    eligibility_issues = [
-        issue
-        for issue in report.issues
-        if issue.field == "node_type" and issue.message == "invalid node_type"
-    ]
-    integrity_issues = [
-        issue for issue in report.issues if issue not in eligibility_issues
-    ]
-    if integrity_issues:
+        )
+    if classification.integrity_issues:
         raise CandidateAdmissionIntegrityError(
             [
                 CandidateIntegrityDiagnostic(
@@ -90,11 +82,12 @@ def validate_candidate_document_integrity(candidate_graph: Mapping[str, Any]):
                     field=issue.field,
                     message=issue.message,
                 )
-                for issue in integrity_issues
+                for issue in classification.integrity_issues
             ],
             candidate_digest=digest,
         )
-    return preview
+    assert classification.preview is not None
+    return classification.preview
 
 
 def _integrity_and_eligibility(
