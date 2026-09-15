@@ -142,7 +142,8 @@
           "dungeonbuddy.visibility:player"
         ],
         "standing_selector": [
-          "established"
+          "established",
+          "provisional"
         ],
         "focus": [
           {
@@ -183,7 +184,8 @@
           "dungeonbuddy.visibility:player"
         ],
         "standing_selector": [
-          "established"
+          "established",
+          "provisional"
         ],
         "focus": [
           {

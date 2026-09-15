@@ -84,7 +84,7 @@ def _forbidden_imports(path: Path, names: tuple[str, ...]) -> list[str]:
     return found
 
 
-def test_dungeonmind_pin_is_exact_pr52_merge() -> None:
+def test_dungeonmind_pin_is_exact_pr56_merge() -> None:
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     lock = (REPO_ROOT / "uv.lock").read_text(encoding="utf-8")
     assert DUNGEONMIND_PIN in pyproject

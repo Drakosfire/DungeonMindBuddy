@@ -18,6 +18,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from pydantic import ValidationError
@@ -30,10 +31,13 @@ from dungeonmind.contracts.vnext import (
     DomainContractRef,
     Entity,
     EvidenceRefV3,
+    FocusRef,
     IdentityAlias,
     KnowledgeContribution,
     KnowledgeStanding,
     ProjectionRequest,
+    ScopeBinding,
+    ScopeSelector,
     SemanticProfileDescriptorV2,
     SourceArtifactV3,
     SourceRevisionV2,
@@ -52,6 +56,9 @@ ACCEPTANCE_ARTIFACT_PATH = ROOT / "Docs/Contracts/vnext/dmb_v0_2_contract_accept
 
 EXPECTED_PROVIDER_AGGREGATE = "fd04a9047b8ed79aaa5e710b2247ce1b2654c0e44e05d24fafb2adecb9e7b7ea"
 EXPECTED_PROVIDER_COMMIT = "63ec810a02f18c4e25af228f6fdb19d99d12579e"
+EXPECTED_BUDDY_BASE = "68a4abae9635211bc773d8480ec6ce46b10ada5e"
+EXPECTED_REVIEWED_HEAD = "6293a1e635a74eaf3a80d87e931c236de583065f"
+EXPECTED_ACCEPTED_V0_1_HEAD = "ba2ec6dc16137b57aab4ca7544f00eb4a5802a15"
 
 
 @pytest.fixture(scope="module")
@@ -150,6 +157,176 @@ def test_semantic_profile_descriptor_validates_and_matches_ref(semantic_profile_
 
 
 # --- §4 & §8 Current Buddy request and context preservation ---
+
+
+def map_buddy_to_projection_request(buddy_input: dict[str, Any]) -> ProjectionRequest:
+    """Pure V0.2 test/helper mapping Buddy input parameters into generic ProjectionRequest.
+
+    Rules:
+    - world_id -> space_id (required, non-blank string)
+    - scope_mode:
+        * 'campaign' -> binds 'dungeonbuddy.scope:campaign' = campaign_id (required)
+        * 'world' -> wildcard_axes=['dungeonbuddy.scope:campaign'], bindings=[]
+        * unknown -> fails closed (raises ValueError)
+    - role:
+        * 'gm' -> audience_labels=['dungeonbuddy.visibility:gm', 'dungeonbuddy.visibility:player']
+        * 'player' -> audience_labels=['dungeonbuddy.visibility:player']
+        * unknown -> fails closed (raises ValueError)
+    - focus:
+        * if session_id is provided -> FocusRef(kind='dungeonbuddy.focus:session', id=session_id)
+          plus FocusRef(kind='dungeonbuddy.focus:campaign', id=campaign_id) if campaign_id is provided
+    - standing:
+        * 'gm' defaults to [established, provisional]
+        * 'player' defaults to [established]
+        * if standing_selector provided, player requesting non-established fails closed
+    """
+    if not isinstance(buddy_input, dict):
+        raise ValueError(f"buddy_input must be a dict, got {type(buddy_input)}")
+
+    world_id = buddy_input.get("world_id")
+    if not isinstance(world_id, str) or not world_id.strip():
+        raise ValueError(f"world_id is required and must be non-blank, got {world_id!r}")
+    space_id = world_id.strip()
+
+    scope_mode = buddy_input.get("scope_mode")
+    if scope_mode == "campaign":
+        campaign_id = buddy_input.get("campaign_id")
+        if not isinstance(campaign_id, str) or not campaign_id.strip():
+            raise ValueError(f"campaign_id is required when scope_mode is 'campaign', got {campaign_id!r}")
+        scope_selector = ScopeSelector(
+            include_unscoped=True,
+            bindings=[ScopeBinding(axis="dungeonbuddy.scope:campaign", value=campaign_id.strip())],
+            wildcard_axes=[],
+        )
+    elif scope_mode == "world":
+        scope_selector = ScopeSelector(
+            include_unscoped=True,
+            bindings=[],
+            wildcard_axes=["dungeonbuddy.scope:campaign"],
+        )
+    else:
+        raise ValueError(f"Unknown scope_mode: {scope_mode!r}. Must be 'campaign' or 'world'.")
+
+    role = buddy_input.get("role")
+    if not isinstance(role, str):
+        raise ValueError(f"role is required and must be a string, got {role!r}")
+    normalized_role = role.strip().lower()
+    if normalized_role == "gm":
+        audience_labels = [
+            "dungeonbuddy.visibility:gm",
+            "dungeonbuddy.visibility:player",
+        ]
+        default_standing = [KnowledgeStanding.ESTABLISHED, KnowledgeStanding.PROVISIONAL]
+    elif normalized_role == "player":
+        audience_labels = [
+            "dungeonbuddy.visibility:player",
+        ]
+        default_standing = [KnowledgeStanding.ESTABLISHED]
+    else:
+        raise ValueError(f"Unknown role: {role!r}. Must be 'gm' or 'player'.")
+
+    standing_selector: list[KnowledgeStanding]
+    if "standing_selector" in buddy_input:
+        raw_standings = buddy_input["standing_selector"]
+        if not isinstance(raw_standings, list) or not raw_standings:
+            raise ValueError("standing_selector must be a non-empty list of standing strings")
+        parsed_standings = [KnowledgeStanding(s) for s in raw_standings]
+        if normalized_role == "player" and any(st != KnowledgeStanding.ESTABLISHED for st in parsed_standings):
+            raise ValueError("Player role cannot request non-established standing")
+        standing_selector = parsed_standings
+    else:
+        standing_selector = default_standing
+
+    focus: list[FocusRef] = []
+    if buddy_input.get("session_id"):
+        # Presentation focus: session-focused requests carry optional campaign and session focus refs
+        if buddy_input.get("campaign_id"):
+            focus.append(FocusRef(kind="dungeonbuddy.focus:campaign", id=str(buddy_input["campaign_id"]).strip()))
+        focus.append(FocusRef(kind="dungeonbuddy.focus:session", id=str(buddy_input["session_id"]).strip()))
+
+    return ProjectionRequest(
+        space_id=space_id,
+        scope_selector=scope_selector,
+        audience_labels=audience_labels,
+        standing_selector=standing_selector,
+        focus=focus,
+        domain_context=[],
+    )
+
+
+def test_buddy_input_executable_mapping_proof(preservation_data: dict) -> None:
+    """Proves executable mapping from Buddy input parameters to vNext ProjectionRequest.
+
+    Ensures that ProjectionRequests in the preservation fixture are not merely
+    pre-authored static data, but are derived deterministically by the mapping helper.
+    """
+    for case in preservation_data["request_context_cases"]:
+        mapped = map_buddy_to_projection_request(case["buddy_input"])
+        expected = ProjectionRequest.model_validate(case["projection_request"])
+        assert mapped == expected
+        assert mapped.model_dump(mode="json", exclude_none=True) == case["projection_request"]
+
+
+def test_unknown_scope_mode_fails_closed() -> None:
+    """Proves that unknown scope modes fail closed with ValueError."""
+    with pytest.raises(ValueError, match="Unknown scope_mode: 'galaxy'"):
+        map_buddy_to_projection_request(
+            {
+                "world_id": "eldyrwild",
+                "scope_mode": "galaxy",
+                "role": "gm",
+            }
+        )
+
+
+def test_campaign_scope_missing_campaign_id_fails_closed() -> None:
+    """Proves that campaign scope mode without campaign_id fails closed with ValueError."""
+    with pytest.raises(ValueError, match="campaign_id is required"):
+        map_buddy_to_projection_request(
+            {
+                "world_id": "eldyrwild",
+                "scope_mode": "campaign",
+                "role": "gm",
+            }
+        )
+
+
+def test_unknown_role_fails_closed() -> None:
+    """Proves that unknown user roles fail closed with ValueError."""
+    with pytest.raises(ValueError, match="Unknown role: 'spectator'"):
+        map_buddy_to_projection_request(
+            {
+                "world_id": "eldyrwild",
+                "scope_mode": "world",
+                "role": "spectator",
+            }
+        )
+
+
+def test_player_requesting_non_established_standing_fails_closed() -> None:
+    """Proves that player role requesting provisional or retracted standing fails closed."""
+    with pytest.raises(ValueError, match="Player role cannot request non-established standing"):
+        map_buddy_to_projection_request(
+            {
+                "world_id": "eldyrwild",
+                "scope_mode": "campaign",
+                "campaign_id": "c1",
+                "role": "player",
+                "standing_selector": ["provisional"],
+            }
+        )
+
+
+def test_missing_or_blank_world_id_fails_closed() -> None:
+    """Proves that empty or whitespace-only world_id fails closed."""
+    with pytest.raises(ValueError, match="world_id is required"):
+        map_buddy_to_projection_request(
+            {
+                "world_id": "   ",
+                "scope_mode": "world",
+                "role": "gm",
+            }
+        )
 
 
 def test_request_context_cases_validate_projection_contract(preservation_data: dict) -> None:
@@ -318,13 +495,50 @@ def test_candidate_representation_through_contribution_and_disposition(preservat
 # --- §9 Acceptance artifact integrity ---
 
 
-def test_acceptance_artifact_integrity(acceptance_artifact: dict, preservation_data: dict) -> None:
+def test_acceptance_artifact_integrity(
+    acceptance_artifact: dict,
+    preservation_data: dict,
+    domain_contract_data: dict,
+    semantic_profile_data: dict,
+    pin_manifest: dict,
+) -> None:
+    """Fully seals the acceptance artifact against its canonical ground truths."""
     assert acceptance_artifact["schema"] == "dmb_v0_2_contract_acceptance_v1"
     assert acceptance_artifact["verification_disposition"] == "V0_2_DUNGEONBUDDY_DOMAIN_PROOF_ACCEPTED"
-    assert acceptance_artifact["dungeonmind_vnext_aggregate_sha256"] == EXPECTED_PROVIDER_AGGREGATE
+    assert acceptance_artifact["buddy_base_sha"] == EXPECTED_BUDDY_BASE
+    assert acceptance_artifact["reviewed_implementation_head_sha"] == EXPECTED_REVIEWED_HEAD
     assert acceptance_artifact["dungeonmind_provider_merge_sha"] == EXPECTED_PROVIDER_COMMIT
+    assert acceptance_artifact["dungeonmind_accepted_v0_1_head_sha"] == EXPECTED_ACCEPTED_V0_1_HEAD
+    assert acceptance_artifact["dungeonmind_vnext_aggregate_sha256"] == EXPECTED_PROVIDER_AGGREGATE
 
-    # Verify preservation fixture canonical sha matches artifact
+    # Provider and pin manifest paths and digests
+    assert acceptance_artifact["vendored_provider_bundle_path"] == "Docs/Contracts/dungeonmind/dm_vnext_contract_v1.json"
+    assert acceptance_artifact["vendored_provider_bundle_sha256"] == pin_manifest["vendored_bundle_sha256"]
+    assert acceptance_artifact["buddy_pin_manifest_path"] == "Docs/Contracts/dungeonmind/dm_vnext_contract_pin_v1.json"
+
+    # DomainContract descriptor sealing
+    domain_desc = acceptance_artifact["domain_contract_descriptor"]
+    assert domain_desc["path"] == "Docs/Contracts/vnext/dungeonbuddy_world_domain_contract_v1.json"
+    assert domain_desc["domain_id"] == "dungeonbuddy.world"
+    assert domain_desc["domain_revision"] == "1"
+    actual_domain_sha = sha256(canonical_json(domain_contract_data))
+    assert domain_desc["canonical_sha256"] == actual_domain_sha
+
+    # SemanticProfile descriptor sealing
+    profile_desc = acceptance_artifact["semantic_profile_descriptor"]
+    assert profile_desc["path"] == "Docs/Contracts/vnext/dungeonbuddy_dnd5e_semantic_profile_v2.json"
+    assert profile_desc["profile_id"] == "dungeonbuddy.dnd5e"
+    assert profile_desc["profile_revision"] == "1"
+    actual_profile_sha = sha256(canonical_json(semantic_profile_data))
+    assert profile_desc["canonical_sha256"] == actual_profile_sha
+
+    # Preservation fixture sealing
     actual_preservation_sha = sha256(canonical_json(preservation_data))
+    assert acceptance_artifact["preservation_fixture"]["path"] == "tests/fixtures/vnext/dungeonbuddy_domain_preservation_v1.json"
     assert acceptance_artifact["preservation_fixture"]["canonical_sha256"] == actual_preservation_sha
-    assert acceptance_artifact["source_domain_mapping"]["matches_known_source_domains"] is True
+
+    # Source-domain mapping sealing
+    source_map = acceptance_artifact["source_domain_mapping"]
+    assert source_map["matches_known_source_domains"] is True
+    assert source_map["covered_count"] == len(KNOWN_SOURCE_DOMAINS)
+    assert source_map["domains"] == sorted(KNOWN_SOURCE_DOMAINS)
