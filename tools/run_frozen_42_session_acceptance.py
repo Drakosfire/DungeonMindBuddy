@@ -717,6 +717,83 @@ def run_genesis(*, arm: str, dsn: str, production_root: Path) -> dict[str, Any]:
     }
 
 
+def sanitize_candidate_for_load(
+    candidate: Mapping[str, Any],
+) -> tuple[dict[str, Any], dict[str, int]]:
+    """Drop frozen nodes that current production load validation rejects.
+
+    Digest proof stays on the original file bytes. This only rewrites the
+    in-memory payload so `prepare_extract_promote` can consume DeepSeek graphs
+    that contain duplicate node IDs or node_types outside NODE_TYPES.
+    """
+    from graph_memory.candidate_graph_preview import NODE_TYPES
+
+    payload = json.loads(json.dumps(candidate))
+    rejections: dict[str, int] = {}
+    kept_nodes: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for node in payload.get("nodes") or []:
+        if not isinstance(node, dict):
+            continue
+        node_id = str(node.get("node_id") or node.get("id") or "")
+        node_type = str(node.get("node_type") or node.get("kind") or "")
+        if not node_id:
+            rejections["missing_node_id"] = rejections.get("missing_node_id", 0) + 1
+            continue
+        if node_id in seen:
+            rejections["duplicate_node_id"] = rejections.get("duplicate_node_id", 0) + 1
+            continue
+        if node_type not in NODE_TYPES:
+            rejections["invalid_node_type"] = rejections.get("invalid_node_type", 0) + 1
+            continue
+        seen.add(node_id)
+        kept_nodes.append(node)
+    payload["nodes"] = kept_nodes
+    kept_ids = {
+        str(node.get("node_id") or node.get("id") or "") for node in kept_nodes
+    }
+
+    kept_edges: list[dict[str, Any]] = []
+    for edge in payload.get("edges") or []:
+        if not isinstance(edge, dict):
+            continue
+        src = str(edge.get("from_node_id") or edge.get("source") or "")
+        tgt = str(edge.get("to_node_id") or edge.get("target") or "")
+        if src not in kept_ids or tgt not in kept_ids:
+            rejections["missing_edge_endpoint"] = rejections.get("missing_edge_endpoint", 0) + 1
+            continue
+        kept_edges.append(edge)
+    payload["edges"] = kept_edges
+
+    for beat in payload.get("beats") or []:
+        if not isinstance(beat, dict):
+            continue
+        for key in ("involved_node_ids", "unresolved_thread_node_ids"):
+            original = list(beat.get(key) or [])
+            kept = [item for item in original if str(item) in kept_ids]
+            dropped = len(original) - len(kept)
+            if dropped:
+                rejections["missing_beat_node"] = rejections.get("missing_beat_node", 0) + dropped
+            beat[key] = kept
+
+    write_targets = kept_ids | {
+        str(edge.get("edge_id") or "") for edge in kept_edges
+    } | {
+        str(beat.get("beat_id") or "") for beat in (payload.get("beats") or []) if isinstance(beat, dict)
+    }
+    kept_writes: list[dict[str, Any]] = []
+    for write in payload.get("proposed_writes") or []:
+        if not isinstance(write, dict):
+            continue
+        target_id = str(write.get("target_id") or "")
+        if target_id and target_id not in write_targets:
+            rejections["missing_write_target"] = rejections.get("missing_write_target", 0) + 1
+            continue
+        kept_writes.append(write)
+    payload["proposed_writes"] = kept_writes
+    return payload, rejections
+
+
 def publish_session(
     *,
     dsn: str,
@@ -738,7 +815,8 @@ def publish_session(
         raise AcceptanceError("candidate digest drift at publication")
     if _digest_file(recap) != str(seal["source_sha256"]):
         raise AcceptanceError("source digest drift at publication")
-    candidate = json.loads(candidate_file.read_text(encoding="utf-8"))
+    original_candidate = json.loads(candidate_file.read_text(encoding="utf-8"))
+    candidate, load_rejections = sanitize_candidate_for_load(original_candidate)
     context = _load_mutation_context(world_id, database_url=dsn)
     if context.revision_id != expected_parent or context.head_revision_id != expected_parent:
         raise AcceptanceError("chronology drift: current authority head does not equal receipt parent")
@@ -811,10 +889,11 @@ def publish_session(
             "source_revision_id": admitted.source_revision_id,
             "content_sha256": admitted.content_sha256,
         },
-        "candidate_nodes": len(candidate.get("nodes") or []),
-        "candidate_relationships": len(candidate.get("edges") or []),
+        "candidate_nodes": len(original_candidate.get("nodes") or []),
+        "candidate_relationships": len(original_candidate.get("edges") or []),
         "published_relationships": published_edges,
         "relationship_rejections": rejected,
+        "candidate_load_rejections": load_rejections,
         "accepted_assertion_count": len(selectable),
         "model_calls": 0,
         "publication_mode": "governed_extract_promote",

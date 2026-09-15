@@ -528,6 +528,51 @@ def test_wrong_frozen_digest_refuses_publication(tmp_path: Path, monkeypatch: py
         )
 
 
+def test_sanitize_keeps_first_duplicate_and_drops_invalid_node_types() -> None:
+    payload = {
+        "nodes": [
+            {"node_id": "candidate:shop", "node_type": "location", "label": "Shop"},
+            {"node_id": "candidate:shop", "node_type": "organization", "label": "Shop"},
+            {"node_id": "candidate:wing", "node_type": "sublocation", "label": "Wing"},
+            {"node_id": "candidate:ok", "node_type": "character", "label": "Ok"},
+        ],
+        "edges": [
+            {"edge_id": "e-wing", "from_node_id": "candidate:ok", "to_node_id": "candidate:wing"},
+            {"edge_id": "e-shop", "from_node_id": "candidate:ok", "to_node_id": "candidate:shop"},
+        ],
+        "beats": [
+            {
+                "beat_id": "b1",
+                "involved_node_ids": ["candidate:wing", "candidate:ok"],
+                "unresolved_thread_node_ids": [],
+            }
+        ],
+        "proposed_writes": [
+            {"write_id": "w-wing", "target_id": "candidate:wing"},
+            {"write_id": "w-shop", "target_id": "candidate:shop"},
+        ],
+    }
+    sanitized, rejected = acc.sanitize_candidate_for_load(payload)
+    kept_ids = [node["node_id"] for node in sanitized["nodes"]]
+    assert kept_ids == ["candidate:shop", "candidate:ok"]
+    assert sanitized["nodes"][0]["node_type"] == "location"
+    assert [edge["edge_id"] for edge in sanitized["edges"]] == ["e-shop"]
+    assert sanitized["beats"][0]["involved_node_ids"] == ["candidate:ok"]
+    assert [write["write_id"] for write in sanitized["proposed_writes"]] == ["w-shop"]
+    assert rejected == {
+        "duplicate_node_id": 1,
+        "invalid_node_type": 1,
+        "missing_edge_endpoint": 1,
+        "missing_beat_node": 1,
+        "missing_write_target": 1,
+    }
+    unchanged, empty = acc.sanitize_candidate_for_load(
+        {"nodes": [{"node_id": "candidate:ok", "node_type": "character"}], "edges": []}
+    )
+    assert empty == {}
+    assert len(unchanged["nodes"]) == 1
+
+
 def test_semantic_benchmark_remains_hold_after_bounded_discovery() -> None:
     assert acc.SEMANTIC_BENCHMARK_DISCOVERY["selected"] is None
     assert acc.SEMANTIC_BENCHMARK_DISCOVERY["verdict"] == "SEMANTIC MODEL SELECTION HOLD"
@@ -553,3 +598,24 @@ def test_real_notebook_and_current_main_sources_match_frozen_manifest() -> None:
         assert seal["model_calls"] == 0
         assert ("longmont-c2", 26) not in [(row["campaign"], row["session"]) for row in seal["sessions"]]
         assert ("longmont-c2", 27) not in [(row["campaign"], row["session"]) for row in seal["sessions"]]
+
+
+@pytest.mark.skipif(not _notebook_is_reviewed_head(), reason="reviewed #715 notebook checkout is not mounted")
+def test_sanitize_makes_deepseek_duplicate_graphs_loadable() -> None:
+    from graph_memory.candidate_graph_to_contribution import (
+        CandidateGraphMappingError,
+        load_typed_candidate_graph,
+    )
+
+    notebook = NOTEBOOK_FIXTURE / "out/full_corpus_world_graph_ingestion/deepseek-v4.1-flash/runs"
+    for rel, expected in (
+        ("longmont-c2/session-09/candidate_graph.json", {"duplicate_node_id": 3, "invalid_node_type": 1}),
+        ("longmont-c2/session-12/candidate_graph.json", {"duplicate_node_id": 1}),
+    ):
+        raw = json.loads((notebook / rel).read_text(encoding="utf-8"))
+        with pytest.raises(CandidateGraphMappingError):
+            load_typed_candidate_graph(raw)
+        sanitized, rejected = acc.sanitize_candidate_for_load(raw)
+        load_typed_candidate_graph(sanitized)
+        for key, count in expected.items():
+            assert rejected.get(key, 0) == count, (rel, rejected)
