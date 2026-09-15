@@ -199,6 +199,44 @@ def resolve_buddy_predicate_mapping_v4(
     return None
 
 
+def edge_endpoint_kind_admission_reason(
+    *,
+    buddy_predicate: str,
+    from_buddy_kind: str,
+    to_buddy_kind: str,
+    vocabulary: Any | None = None,
+) -> str | None:
+    """Return an eligibility/write rejection reason, or None when endpoints admit.
+
+    Mirrors the governed-write endpoint gate so Candidate Graph Admission can
+    disposition inexpressible edges before confirm. Reasons:
+
+    - ``unmapped_predicate`` — no Buddy→DM predicate mapping
+    - ``vocabulary_missing_predicate`` — mapped DM term absent from vocabulary
+    - ``endpoint_kind_not_admitted`` — endpoint kinds fail the qualified predicate
+    """
+    mapping = resolve_buddy_predicate_mapping_v4(buddy_predicate)
+    if mapping is None or not mapping[0]:
+        return "unmapped_predicate"
+    dm_predicate, reverse_endpoints = mapping
+    vocab = vocabulary if vocabulary is not None else CURRENT_V5_TARGET.world_object_loader()
+    allowed = predicate_allowed_endpoints(dm_predicate, vocab)
+    if allowed is None:
+        return "vocabulary_missing_predicate"
+    subject_kinds, object_kinds = allowed
+    src_dm = CURRENT_V5_TARGET.buddy_to_dm_kind.get(from_buddy_kind or "")
+    tgt_dm = CURRENT_V5_TARGET.buddy_to_dm_kind.get(to_buddy_kind or "")
+    admit_src, admit_tgt = (tgt_dm, src_dm) if reverse_endpoints else (src_dm, tgt_dm)
+    if (
+        admit_src is None
+        or admit_tgt is None
+        or admit_src not in subject_kinds
+        or admit_tgt not in object_kinds
+    ):
+        return "endpoint_kind_not_admitted"
+    return None
+
+
 def edge_has_reverse_direction_qualifier_v4(
     *,
     buddy_predicate: str,

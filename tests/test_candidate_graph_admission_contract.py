@@ -370,6 +370,92 @@ def test_unmapped_predicate_is_explicit_admission_rejection(tmp_path) -> None:
     ]
 
 
+def test_endpoint_kind_not_admitted_is_explicit_eligibility_rejection(
+    tmp_path,
+) -> None:
+    """Mapped predicates with illegal endpoint kinds must not reach confirm.
+
+    Dogfood witness shape: belongs_to character→group maps to owns(reversed)
+    but group↛npc is not admitted for owns object kinds.
+    """
+    candidate = _candidate()
+    candidate["nodes"].extend(
+        [
+            _node("candidate:watch", "group"),
+            _node("candidate:square", "location"),
+        ]
+    )
+    candidate["edges"] = [
+        {
+            "edge_id": "candidate:edge:belongs-group",
+            "from_node_id": "candidate:brin",
+            "to_node_id": "candidate:watch",
+            "relationship_type": "belongs_to",
+            "label": "belongs to",
+            "semantic_state": _semantic(),
+            "evidence_refs": [_evidence("belongs")],
+            "proposed_action": "create",
+            "confidence": "medium",
+            "warnings": [],
+        },
+        {
+            "edge_id": "candidate:edge:present-creature-shaped",
+            "from_node_id": "candidate:brin",
+            "to_node_id": "candidate:watch",
+            "relationship_type": "present_at",
+            "label": "present at",
+            "semantic_state": _semantic(),
+            "evidence_refs": [_evidence("present")],
+            "proposed_action": "create",
+            "confidence": "medium",
+            "warnings": [],
+        },
+        {
+            "edge_id": "candidate:edge:located-ok",
+            "from_node_id": "candidate:brin",
+            "to_node_id": "candidate:square",
+            "relationship_type": "located_in",
+            "label": "located in",
+            "semantic_state": _semantic(),
+            "evidence_refs": [_evidence("located")],
+            "proposed_action": "create",
+            "confidence": "medium",
+            "warnings": [],
+        },
+    ]
+    exact_digest = canonical_candidate_digest(candidate)
+    result = _prepare(tmp_path, candidate)
+    binding = result.review_package["effect"]["candidate_admission"]
+    assert binding["candidate_digest"] == exact_digest
+    assert result.confirmable is True
+    by_id = {
+        item["item_id"]: item["reason"] for item in binding["dispositions"]
+    }
+    assert by_id["candidate:edge:belongs-group"] == "endpoint_kind_not_admitted"
+    assert (
+        by_id["candidate:edge:present-creature-shaped"]
+        == "endpoint_kind_not_admitted"
+    )
+    assert "candidate:edge:located-ok" not in by_id
+
+    called = False
+
+    def _governed_confirm():
+        nonlocal called
+        called = True
+        return "rev:d1"
+
+    assert (
+        confirm_candidate_graph_admission(
+            review_package=result.review_package,
+            candidate_graph=candidate,
+            governed_confirm=_governed_confirm,
+        )
+        == "rev:d1"
+    )
+    assert called is True
+
+
 def test_exact_candidate_confirm_invokes_existing_write_once(tmp_path) -> None:
     candidate = _candidate()
     result = _prepare(tmp_path, candidate)
