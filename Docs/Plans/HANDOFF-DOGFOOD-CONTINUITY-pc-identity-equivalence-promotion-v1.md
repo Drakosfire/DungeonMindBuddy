@@ -1,6 +1,6 @@
 # HANDOFF — DOGFOOD-CONTINUITY: promote PC identity equivalence
 
-**Status:** ACTIVE  
+**Status:** MERGED — consumed by governed recap World genesis
 **Flow:** DOGFOOD-CONTINUITY  
 **Base:** `efa3e5fd47bcd6e52193cb7d0a5b989156de137d`  
 **Consumer:** governed recap World genesis
@@ -15,11 +15,12 @@ creature collisions remain blocked.
 ## §2 Context and state authority
 
 The predecessor is the experimental #715 branch's `8a90d75f` implementation.
-The successor design is
+This promotion merged as PR #716 at
+`d85a3787d05fdb0cbf4292f4f1411833f952166a`; Review Cycle 1 was APPROVE
+(recorded as GitHub COMMENT due self-review) with 18 independently rerun tests.
+The active consumer is
 `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-governed-recap-world-genesis-v1.md`.
-After merge, a guarded steward sync must add this merge SHA and review count to
-that successor handoff before its implementation dispatch. No other authority
-is changed by this prerequisite.
+No other authority changed with this prerequisite.
 
 ## §3 Design
 
