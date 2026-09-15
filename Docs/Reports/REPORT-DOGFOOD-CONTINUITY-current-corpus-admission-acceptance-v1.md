@@ -4,7 +4,7 @@
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md`  
 **Branch:** `dogfood-continuity/current-corpus-admission-acceptance-v1`  
 **Dispatch base:** `68577114b3c8ec7e06bc0b0a8d382143fdc570ec`  
-**Implementation head (this report):** pending commit on `dogfood-continuity/current-corpus-admission-acceptance-v1`  
+**Implementation head (this report):** `9d41691d81cc44b3b7e92c4b01bde30b30d5a3b5`  
 **World ID:** `dogfood-current-corpus-acceptance-v1`  
 **Database:** `dmb_current_corpus_acceptance_v1` @ `127.0.0.1:54329`
 
