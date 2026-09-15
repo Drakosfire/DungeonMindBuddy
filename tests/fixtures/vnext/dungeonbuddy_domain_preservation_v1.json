@@ -1,0 +1,564 @@
+{
+  "schema": "dmb_dungeonbuddy_domain_preservation_v1",
+  "world_id": "eldyrwild",
+  "space_id": "eldyrwild",
+  "domain_contract_ref": {
+    "schema_version": "dm_domain_contract_ref_v1",
+    "domain_id": "dungeonbuddy.world",
+    "domain_revision": "1",
+    "descriptor_sha256": "9c1d3eb3e01ffebde959625a54831f1e5c25aad8a5c422ffaaedd09d8d929a8e"
+  },
+  "semantic_profile_ref": {
+    "schema_version": "dm_semantic_profile_ref_v1",
+    "profile_id": "dungeonbuddy.dnd5e",
+    "profile_revision": "1",
+    "descriptor_sha256": "51ea47ff45bc86ea158939c34a5769e7ee56de3911278d473570e3795edb7e14"
+  },
+  "request_context_cases": [
+    {
+      "case_id": "campaign_gm",
+      "description": "Campaign scope with GM authorization sees campaign and unscoped knowledge with player and gm labels",
+      "buddy_input": {
+        "world_id": "eldyrwild",
+        "scope_mode": "campaign",
+        "campaign_id": "campaign-longmont",
+        "role": "gm"
+      },
+      "projection_request": {
+        "schema_version": "dm_knowledge_projection_request_v1",
+        "space_id": "eldyrwild",
+        "scope_selector": {
+          "include_unscoped": true,
+          "bindings": [
+            {
+              "axis": "dungeonbuddy.scope:campaign",
+              "value": "campaign-longmont"
+            }
+          ],
+          "wildcard_axes": []
+        },
+        "audience_labels": [
+          "dungeonbuddy.visibility:gm",
+          "dungeonbuddy.visibility:player"
+        ],
+        "standing_selector": [
+          "established",
+          "provisional"
+        ],
+        "focus": [],
+        "domain_context": []
+      },
+      "preservation_notes": "Preserves campaign admission and allows GM to satisfy player and gm visibility"
+    },
+    {
+      "case_id": "campaign_player",
+      "description": "Campaign scope with PLAYER authorization sees campaign and unscoped knowledge with player visibility only",
+      "buddy_input": {
+        "world_id": "eldyrwild",
+        "scope_mode": "campaign",
+        "campaign_id": "campaign-longmont",
+        "role": "player"
+      },
+      "projection_request": {
+        "schema_version": "dm_knowledge_projection_request_v1",
+        "space_id": "eldyrwild",
+        "scope_selector": {
+          "include_unscoped": true,
+          "bindings": [
+            {
+              "axis": "dungeonbuddy.scope:campaign",
+              "value": "campaign-longmont"
+            }
+          ],
+          "wildcard_axes": []
+        },
+        "audience_labels": [
+          "dungeonbuddy.visibility:player"
+        ],
+        "standing_selector": [
+          "established"
+        ],
+        "focus": [],
+        "domain_context": []
+      },
+      "preservation_notes": "Preserves player admission boundary; cannot satisfy gm-only labels"
+    },
+    {
+      "case_id": "world_gm",
+      "description": "Cross-campaign world scope with GM authorization wildcards campaign axis",
+      "buddy_input": {
+        "world_id": "eldyrwild",
+        "scope_mode": "world",
+        "role": "gm"
+      },
+      "projection_request": {
+        "schema_version": "dm_knowledge_projection_request_v1",
+        "space_id": "eldyrwild",
+        "scope_selector": {
+          "include_unscoped": true,
+          "bindings": [],
+          "wildcard_axes": [
+            "dungeonbuddy.scope:campaign"
+          ]
+        },
+        "audience_labels": [
+          "dungeonbuddy.visibility:gm",
+          "dungeonbuddy.visibility:player"
+        ],
+        "standing_selector": [
+          "established",
+          "provisional"
+        ],
+        "focus": [],
+        "domain_context": []
+      },
+      "preservation_notes": "Preserves cross-campaign admission across any campaign scope plus unscoped knowledge"
+    },
+    {
+      "case_id": "session_focused_campaign_request",
+      "description": "Campaign request with current session focus; session is presentation focus, not authority scope",
+      "buddy_input": {
+        "world_id": "eldyrwild",
+        "scope_mode": "campaign",
+        "campaign_id": "campaign-longmont",
+        "session_id": "session-28",
+        "role": "gm"
+      },
+      "projection_request": {
+        "schema_version": "dm_knowledge_projection_request_v1",
+        "space_id": "eldyrwild",
+        "scope_selector": {
+          "include_unscoped": true,
+          "bindings": [
+            {
+              "axis": "dungeonbuddy.scope:campaign",
+              "value": "campaign-longmont"
+            }
+          ],
+          "wildcard_axes": []
+        },
+        "audience_labels": [
+          "dungeonbuddy.visibility:gm",
+          "dungeonbuddy.visibility:player"
+        ],
+        "standing_selector": [
+          "established",
+          "provisional"
+        ],
+        "focus": [
+          {
+            "kind": "dungeonbuddy.focus:campaign",
+            "id": "campaign-longmont"
+          },
+          {
+            "kind": "dungeonbuddy.focus:session",
+            "id": "session-28"
+          }
+        ],
+        "domain_context": []
+      },
+      "preservation_notes": "Session focus is carried via focus refs; scope remains strictly campaign-level"
+    },
+    {
+      "case_id": "session_focused_world_request",
+      "description": "Cross-campaign world request carrying session focus for ranking without narrowing scope",
+      "buddy_input": {
+        "world_id": "eldyrwild",
+        "scope_mode": "world",
+        "campaign_id": "campaign-longmont",
+        "session_id": "session-28",
+        "role": "gm"
+      },
+      "projection_request": {
+        "schema_version": "dm_knowledge_projection_request_v1",
+        "space_id": "eldyrwild",
+        "scope_selector": {
+          "include_unscoped": true,
+          "bindings": [],
+          "wildcard_axes": [
+            "dungeonbuddy.scope:campaign"
+          ]
+        },
+        "audience_labels": [
+          "dungeonbuddy.visibility:gm",
+          "dungeonbuddy.visibility:player"
+        ],
+        "standing_selector": [
+          "established",
+          "provisional"
+        ],
+        "focus": [
+          {
+            "kind": "dungeonbuddy.focus:campaign",
+            "id": "campaign-longmont"
+          },
+          {
+            "kind": "dungeonbuddy.focus:session",
+            "id": "session-28"
+          }
+        ],
+        "domain_context": []
+      },
+      "preservation_notes": "World scope remains broad while focus refs provide ranking hint"
+    }
+  ],
+  "source_domain_mapping": {
+    "recap": "dungeonbuddy.source:recap",
+    "statblock": "dungeonbuddy.source:statblock",
+    "worldbuilding": "dungeonbuddy.source:worldbuilding",
+    "npc_note": "dungeonbuddy.source:npc_note",
+    "location_note": "dungeonbuddy.source:location_note",
+    "faction_note": "dungeonbuddy.source:faction_note",
+    "item_note": "dungeonbuddy.source:item_note",
+    "session_memory": "dungeonbuddy.source:session_memory",
+    "manual_seed": "dungeonbuddy.source:manual_seed",
+    "future_artifact": "dungeonbuddy.source:future_artifact",
+    "party_registry": "dungeonbuddy.source:party_registry"
+  },
+  "sources": [
+    {
+      "schema_version": "dm_source_artifact_v3",
+      "source_artifact_id": "src:session-28-recap",
+      "source_classification": "dungeonbuddy.source:recap",
+      "authority": "primary",
+      "visibility": {
+        "kind": "public"
+      },
+      "status": "active",
+      "foreign_refs": [
+        "buddy:doc:session-28"
+      ],
+      "domain_metadata": [
+        {
+          "schema": "dungeonbuddy.source:context_v1",
+          "payload": {
+            "campaign_id": "campaign-longmont",
+            "session_id": "session-28"
+          }
+        }
+      ]
+    }
+  ],
+  "source_revisions": [
+    {
+      "schema_version": "dm_source_revision_v2",
+      "source_revision_id": "sr:session-28-recap-rev1",
+      "source_artifact_id": "src:session-28-recap",
+      "content_sha256": "4b227777d4dd1fc61c6f884f48641d02b4d121d3fd328cb08b5531fcacdabf8a",
+      "body_storage": "blob://eldyrwild/session-28.md",
+      "created_at": "2026-09-14T10:00:00Z"
+    }
+  ],
+  "evidence": [
+    {
+      "schema_version": "dm_evidence_ref_v3",
+      "evidence_ref_id": "ev:session-28-mireward-arrival",
+      "source_artifact_id": "src:session-28-recap",
+      "source_revision_id": "sr:session-28-recap-rev1",
+      "evidence_role": "support",
+      "can_open_source": true,
+      "can_highlight_span": true,
+      "locator": "paragraph:14",
+      "domain_metadata": [
+        {
+          "schema": "dungeonbuddy.domain_metadata:world_context_v1",
+          "payload": {
+            "context_type": "arrival_scene"
+          }
+        }
+      ]
+    }
+  ],
+  "entities": [
+    {
+      "schema_version": "dm_entity_v1",
+      "entity_id": "entity:npc:brennan-tallow"
+    },
+    {
+      "schema_version": "dm_entity_v1",
+      "entity_id": "entity:loc:mireward"
+    }
+  ],
+  "aliases": [
+    {
+      "schema_version": "dm_identity_alias_v1",
+      "alias_id": "alias:brennan-old-tallow",
+      "entity_id": "entity:npc:brennan-tallow",
+      "alias_text": "Old Tallow",
+      "evidence_ref_ids": [
+        "ev:session-28-mireward-arrival"
+      ],
+      "standing": "established"
+    }
+  ],
+  "assertions": [
+    {
+      "schema_version": "dm_assertion_v1",
+      "assertion_id": "as:mireward-classification",
+      "subject_entity_id": "entity:loc:mireward",
+      "predicate": "dnd5e:classification",
+      "value": {
+        "kind": "term_ref",
+        "term": "dnd5e:location"
+      },
+      "metadata": {
+        "scope": [],
+        "visibility": {
+          "kind": "public"
+        },
+        "epistemic_basis": "asserted",
+        "claim_mode": "dungeonbuddy.claim:fact",
+        "standing": "established",
+        "evidence_ref_ids": [
+          "ev:session-28-mireward-arrival"
+        ],
+        "temporal_scope": {
+          "kind": "timeless"
+        }
+      }
+    },
+    {
+      "schema_version": "dm_assertion_v1",
+      "assertion_id": "as:brennan-classification",
+      "subject_entity_id": "entity:npc:brennan-tallow",
+      "predicate": "dnd5e:classification",
+      "value": {
+        "kind": "term_ref",
+        "term": "dnd5e:npc"
+      },
+      "metadata": {
+        "scope": [
+          {
+            "axis": "dungeonbuddy.scope:campaign",
+            "value": "campaign-longmont"
+          }
+        ],
+        "visibility": {
+          "kind": "labels_any",
+          "labels": [
+            "dungeonbuddy.visibility:player"
+          ]
+        },
+        "epistemic_basis": "asserted",
+        "claim_mode": "dungeonbuddy.claim:fact",
+        "standing": "established",
+        "evidence_ref_ids": [
+          "ev:session-28-mireward-arrival"
+        ],
+        "temporal_scope": {
+          "kind": "domain_ref",
+          "schema": "dungeonbuddy.time:fictional_anchor_v1",
+          "payload": {
+            "campaign_id": "campaign-longmont",
+            "session_number": 28,
+            "fictional_year": 1492,
+            "fictional_season": "autumn"
+          }
+        }
+      }
+    },
+    {
+      "schema_version": "dm_assertion_v1",
+      "assertion_id": "as:brennan-name",
+      "subject_entity_id": "entity:npc:brennan-tallow",
+      "predicate": "dnd5e:name",
+      "value": {
+        "kind": "literal",
+        "value": "Brennan Tallow"
+      },
+      "metadata": {
+        "scope": [
+          {
+            "axis": "dungeonbuddy.scope:campaign",
+            "value": "campaign-longmont"
+          }
+        ],
+        "visibility": {
+          "kind": "labels_any",
+          "labels": [
+            "dungeonbuddy.visibility:player"
+          ]
+        },
+        "epistemic_basis": "asserted",
+        "claim_mode": "dungeonbuddy.claim:fact",
+        "standing": "established",
+        "evidence_ref_ids": [
+          "ev:session-28-mireward-arrival"
+        ],
+        "temporal_scope": {
+          "kind": "timeless"
+        }
+      }
+    },
+    {
+      "schema_version": "dm_assertion_v1",
+      "assertion_id": "as:brennan-secret-plan",
+      "subject_entity_id": "entity:npc:brennan-tallow",
+      "predicate": "dnd5e:summary",
+      "value": {
+        "kind": "literal",
+        "value": "Secretly smuggles Mireward night-root to the docks"
+      },
+      "metadata": {
+        "scope": [
+          {
+            "axis": "dungeonbuddy.scope:campaign",
+            "value": "campaign-longmont"
+          }
+        ],
+        "visibility": {
+          "kind": "labels_any",
+          "labels": [
+            "dungeonbuddy.visibility:gm"
+          ]
+        },
+        "epistemic_basis": "inferred",
+        "claim_mode": "dungeonbuddy.claim:plan",
+        "standing": "provisional",
+        "evidence_ref_ids": [
+          "ev:session-28-mireward-arrival"
+        ],
+        "temporal_scope": {
+          "kind": "domain_ref",
+          "schema": "dungeonbuddy.time:fictional_anchor_v1",
+          "payload": {
+            "campaign_id": "campaign-longmont",
+            "session_number": 28
+          }
+        }
+      }
+    },
+    {
+      "schema_version": "dm_assertion_v1",
+      "assertion_id": "as:brennan-located-in-mireward",
+      "subject_entity_id": "entity:npc:brennan-tallow",
+      "predicate": "dnd5e:located_in",
+      "value": {
+        "kind": "entity_ref",
+        "entity_id": "entity:loc:mireward"
+      },
+      "metadata": {
+        "scope": [
+          {
+            "axis": "dungeonbuddy.scope:campaign",
+            "value": "campaign-longmont"
+          }
+        ],
+        "visibility": {
+          "kind": "labels_any",
+          "labels": [
+            "dungeonbuddy.visibility:player"
+          ]
+        },
+        "epistemic_basis": "asserted",
+        "claim_mode": "dungeonbuddy.claim:observed_event",
+        "standing": "established",
+        "evidence_ref_ids": [
+          "ev:session-28-mireward-arrival"
+        ],
+        "temporal_scope": {
+          "kind": "domain_ref",
+          "schema": "dungeonbuddy.time:fictional_anchor_v1",
+          "payload": {
+            "campaign_id": "campaign-longmont",
+            "session_number": 28
+          }
+        }
+      }
+    },
+    {
+      "schema_version": "dm_assertion_v1",
+      "assertion_id": "as:brennan-retracted-rumor",
+      "subject_entity_id": "entity:npc:brennan-tallow",
+      "predicate": "dnd5e:summary",
+      "value": {
+        "kind": "literal",
+        "value": "Rumored to be an agent of the Gloomward Syndicate"
+      },
+      "metadata": {
+        "scope": [
+          {
+            "axis": "dungeonbuddy.scope:campaign",
+            "value": "campaign-longmont"
+          }
+        ],
+        "visibility": {
+          "kind": "labels_any",
+          "labels": [
+            "dungeonbuddy.visibility:player"
+          ]
+        },
+        "epistemic_basis": "speculative",
+        "claim_mode": "dungeonbuddy.claim:rumor",
+        "standing": "retracted",
+        "evidence_ref_ids": [
+          "ev:session-28-mireward-arrival"
+        ],
+        "temporal_scope": {
+          "kind": "timeless"
+        }
+      }
+    }
+  ],
+  "candidate_contribution": {
+    "schema_version": "dm_knowledge_contribution_v1",
+    "contribution_id": "contrib:session-28-candidate-1",
+    "space_id": "eldyrwild",
+    "producer": "buddy.extraction.candidate_extractor_v1",
+    "produced_at": "2026-09-14T10:15:00Z",
+    "status": "provisional",
+    "source_refs": [
+      "src:session-28-recap"
+    ],
+    "items": [
+      {
+        "kind": "propose_assertion",
+        "item_id": "item:prop-brennan-ally",
+        "assertion": {
+          "schema_version": "dm_assertion_v1",
+          "assertion_id": "as:candidate:brennan-ally",
+          "subject_entity_id": "entity:npc:brennan-tallow",
+          "predicate": "dungeonbuddy:allied_with",
+          "value": {
+            "kind": "entity_ref",
+            "entity_id": "entity:loc:mireward"
+          },
+          "metadata": {
+            "scope": [
+              {
+                "axis": "dungeonbuddy.scope:campaign",
+                "value": "campaign-longmont"
+              }
+            ],
+            "visibility": {
+              "kind": "labels_any",
+              "labels": [
+                "dungeonbuddy.visibility:gm"
+              ]
+            },
+            "epistemic_basis": "inferred",
+            "claim_mode": "dungeonbuddy.claim:belief",
+            "standing": "provisional",
+            "evidence_ref_ids": [
+              "ev:session-28-mireward-arrival"
+            ],
+            "temporal_scope": {
+              "kind": "domain_ref",
+              "schema": "dungeonbuddy.time:fictional_anchor_v1",
+              "payload": {
+                "campaign_id": "campaign-longmont",
+                "session_number": 28
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "candidate_disposition": {
+    "schema_version": "dm_contribution_disposition_v1",
+    "item_id": "item:prop-brennan-ally",
+    "disposition": "unresolved",
+    "reason_code": "pending_gm_review"
+  }
+}
