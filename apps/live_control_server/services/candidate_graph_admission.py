@@ -121,6 +121,7 @@ def _integrity_and_eligibility(
     ]
 
     admitted_edges: list[Any] = []
+    not_admitted_ids = set(unsupported_ids)
     for edge in raw.get("edges", []):
         if not isinstance(edge, Mapping):
             admitted_edges.append(edge)
@@ -136,6 +137,7 @@ def _integrity_and_eligibility(
         predicate = str(edge.get("relationship_type") or "").strip()
         if blocked:
             edge_id = str(edge.get("edge_id") or "")
+            not_admitted_ids.add(edge_id)
             dispositions.append(
                 CandidateAdmissionDisposition(
                     item_id=edge_id,
@@ -147,6 +149,7 @@ def _integrity_and_eligibility(
             )
         elif resolve_buddy_predicate_mapping_v4(predicate) is None:
             edge_id = str(edge.get("edge_id") or "")
+            not_admitted_ids.add(edge_id)
             dispositions.append(
                 CandidateAdmissionDisposition(
                     item_id=edge_id,
@@ -169,16 +172,33 @@ def _integrity_and_eligibility(
         or str(node.get("node_id") or "") not in unsupported_ids
     ]
     projected["edges"] = admitted_edges
-    projected["beats"] = [
-        beat
-        for beat in raw.get("beats", [])
-        if not isinstance(beat, Mapping)
-        or not (
-            set(map(str, beat.get("involved_node_ids", [])))
-            | set(map(str, beat.get("unresolved_thread_node_ids", [])))
+    admitted_beats: list[Any] = []
+    for beat in raw.get("beats", []):
+        if not isinstance(beat, Mapping):
+            admitted_beats.append(beat)
+            continue
+        blocked = sorted(
+            (
+                set(map(str, beat.get("involved_node_ids", [])))
+                | set(map(str, beat.get("unresolved_thread_node_ids", [])))
+            )
+            & unsupported_ids
         )
-        & unsupported_ids
-    ]
+        if blocked:
+            beat_id = str(beat.get("beat_id") or "")
+            not_admitted_ids.add(beat_id)
+            dispositions.append(
+                CandidateAdmissionDisposition(
+                    item_id=beat_id,
+                    item_kind="beat",
+                    outcome="rejected",
+                    reason="dependency_not_admitted",
+                    depends_on=blocked,
+                )
+            )
+        else:
+            admitted_beats.append(beat)
+    projected["beats"] = admitted_beats
     retained_targets = {
         str(node.get("node_id") or "")
         for node in projected.get("nodes", [])
@@ -192,12 +212,25 @@ def _integrity_and_eligibility(
         for beat in projected.get("beats", [])
         if isinstance(beat, Mapping)
     }
-    projected["proposed_writes"] = [
-        write
-        for write in raw.get("proposed_writes", [])
-        if not isinstance(write, Mapping)
-        or str(write.get("target_id") or "") in retained_targets
-    ]
+    admitted_writes: list[Any] = []
+    for write in raw.get("proposed_writes", []):
+        if not isinstance(write, Mapping):
+            admitted_writes.append(write)
+            continue
+        target_id = str(write.get("target_id") or "")
+        if target_id not in retained_targets or target_id in not_admitted_ids:
+            dispositions.append(
+                CandidateAdmissionDisposition(
+                    item_id=str(write.get("write_id") or ""),
+                    item_kind="proposed_write",
+                    outcome="rejected",
+                    reason="target_not_admitted",
+                    depends_on=[target_id] if target_id else [],
+                )
+            )
+        else:
+            admitted_writes.append(write)
+    projected["proposed_writes"] = admitted_writes
     return projected, dispositions, digest
 
 

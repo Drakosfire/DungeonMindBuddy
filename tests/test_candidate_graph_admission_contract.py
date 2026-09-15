@@ -207,6 +207,70 @@ def test_pr715_s9_sublocation_witness_is_explicit_rejection(tmp_path) -> None:
     ]
 
 
+def test_unsupported_node_dependents_receive_explicit_dispositions(tmp_path) -> None:
+    candidate = _candidate(unsupported=True)
+    candidate["beats"] = [
+        {
+            "beat_id": "candidate:beat:medical-wing",
+            "order": 1,
+            "title": "At the Medical Wing",
+            "summary": "Brin visits the unsupported sublocation.",
+            "involved_node_ids": [
+                "candidate:brin",
+                "candidate:medical-wing",
+            ],
+            "evidence_refs": [_evidence("medical-wing-beat")],
+            "unresolved_thread_node_ids": [],
+            "proposed_action": "create",
+            "warnings": [],
+        }
+    ]
+    candidate["proposed_writes"] = [
+        {
+            "write_id": "candidate:write:medical-wing",
+            "write_type": "attach_fact",
+            "target_id": "candidate:medical-wing",
+            "label": "Medical Wing context",
+            "reason": "Attach the recap fact.",
+            "evidence_refs": [_evidence("medical-wing-write")],
+            "status": "pending",
+        }
+    ]
+    exact_digest = canonical_candidate_digest(candidate)
+
+    result = _prepare(tmp_path, candidate)
+    binding = result.review_package["effect"]["candidate_admission"]
+
+    assert binding["candidate_digest"] == exact_digest
+    assert binding["exact_candidate_counts"] == {
+        "nodes": 2,
+        "edges": 1,
+        "beats": 1,
+        "proposed_writes": 1,
+    }
+    assert {
+        (item["item_id"], item["reason"], tuple(item["depends_on"]))
+        for item in binding["dispositions"]
+    } == {
+        ("candidate:medical-wing", "unsupported_node_type", ()),
+        (
+            "candidate:edge:brin-medical-wing",
+            "endpoint_not_admitted",
+            ("candidate:medical-wing",),
+        ),
+        (
+            "candidate:beat:medical-wing",
+            "dependency_not_admitted",
+            ("candidate:medical-wing",),
+        ),
+        (
+            "candidate:write:medical-wing",
+            "target_not_admitted",
+            ("candidate:medical-wing",),
+        ),
+    }
+
+
 def test_candidate_drift_blocks_governed_confirm(tmp_path) -> None:
     candidate = _candidate()
     result = _prepare(tmp_path, candidate)
