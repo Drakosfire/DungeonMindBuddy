@@ -465,6 +465,44 @@ def test_cross_class_actor_collective_collision_is_blocked():
     assert blocked["policy_version"] == "cross_class_exact_label_policy_v0"
 
 
+def test_blocked_cross_class_collision_disambiguates_shared_node_ids():
+    """LLM-minted node:{label} must not survive as duplicate ids when blocked.
+
+    Dogfood witness: character + faction both emitted as node:glowkindle.
+    Policy keeps both identities; ids must become unique so candidate-document
+    integrity does not fail closed on the blocked path.
+    """
+    nodes = [
+        _node("node:glowkindle", "Glowkindle", "character", spans=[(18, 18)]),
+        _node("node:glowkindle", "Glowkindle", "faction", spans=[(18, 18)]),
+    ]
+    edges = [
+        {
+            "edge_id": "e1",
+            "from_node_id": "node:glowkindle",
+            "to_node_id": "mystery:hidden",
+            "relationship_type": "objective_of",
+        }
+    ]
+    result = ir.reconcile_cross_class_label_collisions(nodes, edges)
+    kept_ids = {n["node_id"] for n in result["kept"]}
+    assert len(result["kept"]) == 2
+    assert len(kept_ids) == 2
+    assert "node:glowkindle" in kept_ids  # actor priority keeps original
+    assert "faction:glowkindle" in kept_ids
+    assert result["merged"] == []
+    assert result["remap"] == {}
+    blocked = result["blocked"][0]
+    assert blocked["policy_reason"] == "actor_cross_class_collision_high_risk"
+    assert set(blocked["node_ids"]) == kept_ids
+    # Ambiguous LLM edge stays on the survivor id (actor).
+    assert result["edges"][0]["from_node_id"] == "node:glowkindle"
+    character = next(n for n in result["kept"] if n["node_type"] == "character")
+    faction = next(n for n in result["kept"] if n["node_type"] == "faction")
+    assert character["node_id"] == "node:glowkindle"
+    assert faction["node_id"] == "faction:glowkindle"
+
+
 def test_blocked_cross_class_collision_does_not_rewrite_edge_endpoints():
     nodes = [
         _node("actor:the-shepherd", "The Shepherd", "character"),

@@ -25,7 +25,7 @@ vocabularies in ``src/graph_memory/candidate_graph_preview.py`` (``NODE_TYPES``,
 from __future__ import annotations
 
 import re
-from typing import Any, Callable, Iterable, Mapping, MutableMapping, Sequence
+from typing import Any, Callable, Mapping, MutableMapping, Sequence
 
 # --------------------------------------------------------------------------- #
 # Equivalence classes
@@ -925,6 +925,74 @@ def json_safe_key(value: Any) -> str:
         return repr(value)
 
 
+def _disambiguated_blocked_node_id(
+    node: Any,
+    *,
+    normalized_label: str,
+    used_ids: set[str],
+) -> str:
+    """Mint a stable unique id for a blocked cross-class collision member."""
+    node_type = node_type_of(node) or "unknown"
+    label_slug = normalized_label.replace(" ", "-") or "unknown"
+    base = f"{node_type}:{label_slug}"
+    if base not in used_ids:
+        return base
+    suffix = 2
+    while f"{base}-{suffix}" in used_ids:
+        suffix += 1
+    return f"{base}-{suffix}"
+
+
+def _ensure_unique_ids_for_blocked_collision_members(
+    members: Sequence[Any],
+    *,
+    normalized_label: str,
+) -> list[Any]:
+    """Rewrite colliding node_ids inside a blocked exact-label class collision.
+
+    LLM observation passes often mint ``node:{label}`` for every type class, so
+    a blocked actor/collective collision can leave two kept nodes with the same
+    ``node_id``. That is a document-integrity failure downstream even though
+    the policy intentionally kept both identities.
+
+    Highest-priority type class keeps the original id. Later members that still
+    collide are rewritten to ``{node_type}:{normalized_label}``. Edge endpoints
+    that still name the original id continue to address the survivor — the
+    ambiguous LLM binding stays on the preferred class rather than inventing
+    dual edges.
+    """
+    ordered = sorted(
+        members,
+        key=lambda m: (
+            -_cross_class_priority(m),
+            str(_get(m, "node_id", "") or ""),
+        ),
+    )
+    used_ids: set[str] = set()
+    rewritten: list[Any] = []
+    for member in ordered:
+        node_id = str(_get(member, "node_id", "") or "")
+        if node_id and node_id not in used_ids:
+            used_ids.add(node_id)
+            rewritten.append(member)
+            continue
+        new_id = _disambiguated_blocked_node_id(
+            member,
+            normalized_label=normalized_label,
+            used_ids=used_ids,
+        )
+        if isinstance(member, MutableMapping):
+            member["node_id"] = new_id
+            rewritten.append(member)
+        else:
+            # Immutable payloads: shallow-copy via dict when possible.
+            payload = dict(member) if isinstance(member, Mapping) else {"node_id": new_id}
+            payload["node_id"] = new_id
+            rewritten.append(payload)
+        used_ids.add(new_id)
+    return rewritten
+
+
 def reconcile_cross_class_label_collisions(
     nodes: Sequence[Any],
     edges: Sequence[Any] | None = None,
@@ -946,6 +1014,10 @@ def reconcile_cross_class_label_collisions(
     (see ``_CROSS_CLASS_TYPE_PRIORITY``), union evidence refs onto the survivor,
     and rewrite any edge endpoints that referenced a dropped id. Self-loops
     created by approved merges are dropped.
+
+    Blocked collisions that still share a minted ``node_id`` (common when the
+    model emits ``node:{label}`` for every pass) are id-disambiguated so the
+    kept nodes remain a coherent candidate document.
 
     Conservative by construction: only policy-approved *byte-identical normalized
     labels* merge. The degradation direction is fail-to-merge with diagnostics,
@@ -984,7 +1056,14 @@ def reconcile_cross_class_label_collisions(
             continue
         policy = should_merge_cross_class_label_collision(members)
         if policy["action"] != "merge":
-            sorted_members = sorted(members, key=lambda m: str(_get(m, "node_id", "") or ""))
+            disambiguated = _ensure_unique_ids_for_blocked_collision_members(
+                members,
+                normalized_label=key,
+            )
+            sorted_members = sorted(
+                disambiguated,
+                key=lambda m: str(_get(m, "node_id", "") or ""),
+            )
             blocked.append(
                 {
                     "label": key,
@@ -998,7 +1077,7 @@ def reconcile_cross_class_label_collisions(
                     ],
                 }
             )
-            kept.extend(members)
+            kept.extend(disambiguated)
             continue
         survivor = max(
             members,
