@@ -1,6 +1,6 @@
 # REPORT — DOGFOOD-CONTINUITY exact-edge-id continuity v1
 
-**Status:** CODE complete — dogfood rerun pending  
+**Status:** CODE + dogfood proof that prior relationship_id_collision STOP is cleared  
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-exact-edge-id-continuity-v1.md`  
 **Branch:** `dogfood-continuity/exact-edge-id-continuity-v1`  
 **PR:** https://github.com/Drakosfire/DungeonMindBuddy/pull/726  
@@ -10,17 +10,17 @@
 ## Claim
 
 ```text
-EXACT-EDGE-ID CONTINUITY: implemented
+EXACT-EDGE-ID CONTINUITY: implemented + dogfood-cleared prior STOP
 ```
 
-Mutation context now carries sealed parent relationships. Identity gating
+Mutation context carries sealed parent relationships. Identity gating
 classifies candidate edges by exact durable `relationship_id`:
 
 - compatible endpoints + admitted predicate → confirm existing (omit CREATE)
 - occupied incompatibly → `blocked_collision` reject
 - free id → `created_new` as before
 
-## Verification
+## Verification (zero-cost)
 
 ```text
 uv run pytest tests/test_exact_edge_id_continuity.py -q
@@ -36,15 +36,21 @@ uv run ruff check \
 All checks passed!
 ```
 
-## Predecessor handback (not yet durable acceptance REPORT)
+## Dogfood proof (fresh pristine acceptance `--execute`)
 
-C1S6 stochastic STOP: `relationship_id_collision` on
-`edge:node:torbin:located_in:loc:hempholm`. C1S1–S8 best depth remains
-observational until a pristine full `--execute` clears the frozen corpus.
+Rerun head (acceptance harness + #723–#726): `3217d1dd25058766ee0c61f79d08a8d1558f0b16`  
+Artifact: `out/graph_memory/current_corpus_admission_acceptance_v1/execute-2026-09-15T234947Z-77482c97`
+
+| Observation | Evidence |
+|---|---|
+| Prior C1S6 `relationship_id_collision` cleared | `longmont-c1/session-6` sealed (`rev:b92b1da25bff8458ae323067ba00fba3`) |
+| Full frozen corpus | 44/44 sessions sealed; `structural_acceptance=PASS` |
+| Terminal head | `rev:ad49d3e180b270d551e2d0afe7dd987a` |
+| No STOP | `stop: null`; model_calls=44 |
 
 ## Remains false
 
 ```text
-STRUCTURAL CURRENT-CORPUS ACCEPTANCE = HOLD until fresh pristine --execute PASS
+SEMANTIC MODEL SELECTION = HOLD
 no fuzzy edge matching / predicate remapping / ID regeneration
 ```
