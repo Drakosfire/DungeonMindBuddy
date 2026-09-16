@@ -4,344 +4,254 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-15  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main@6cc58dafd6cd27741c53f5f275de080ff5d3cc6f` — successor handoff landed and predecessor authority consumed  
-**Last product capability merge:** PR #721, merge `233c49f4cfe247c962def10446eee336ff9a042b`  
-**Current forcing function:** IMPLEMENT + DOGFOOD fresh chronological current-corpus admission acceptance  
-**Active implementation authority:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md)  
-**Consumed predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md)  
-**Consumed admission contract:** [`HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md)  
+**Re-anchor base:** `main@270e9c5892f4164146d1231d454e2f437c2b59a5` — dogfood-readiness doctrine + benchmark gate + blocked published-object successor landed  
+**Structural acceptance:** PASS — current-corpus 44-session governed-write continuity  
+**Product readiness:** NOT READY — accepted-World dogfood failed loadability/operator/Agent gates  
+**Current forcing function:** close the current question-gauntlet evaluation lane durably, then repair the earliest failed product boundary: published-object addressability  
+**Current evaluation authority:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md)  
+**Blocked successor:** [`HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md)  
+**Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
+**Benchmark authority:** [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md)  
 **Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
 
-> This is the current sequencing authority. Repository truth supersedes old chat summaries, historical notebook branches, and stale `CURRENT` prose in older roadmaps/handoffs.
+> This is the current sequencing authority. Repository truth supersedes old chat summaries and stale `CURRENT` prose elsewhere.
 
 ---
 
 ## 0. Pickup rule
 
-### Coding / implementation agent
+Every fresh steward/worker must begin with this distinction:
 
-Do not reconstruct this slice from chat history or old experiments. Read, in order:
+> **If the operator cannot dogfood the World through the normal product, it is not ready. Structural smoke does not override that.**
 
-1. [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md) — **ACTIVE implementation authority**;
-2. [`HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-candidate-generation-integrity-alignment-v1.md) — consumed producer-boundary predecessor;
-3. [`HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-candidate-graph-admission-contract-v1.md) — consumed admission semantics;
-4. only the production seams that the ACTIVE handoff tells you to call/read and the three §4 write-lease paths.
+Read, in order:
 
-Candidate implementation branch:
+1. `Docs/Design/ACCEPTANCE-dogfood-readiness.md`;
+2. this anchor;
+3. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` for the current evaluation lane;
+4. once the gauntlet report is merged, `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`;
+5. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md` for the blocked successor.
 
-```text
-dogfood-continuity/current-corpus-admission-acceptance-v1
-```
-
-The implementation worker owns only the three paths in handoff §4. Production extraction, source authority, genesis, admission, identity, ontology, model policy, corpus, and DungeonMind write code are **read-only** in this slice.
-
-If the acceptance run discovers a defect in one of those production seams, STOP and return evidence to the steward. Do not repair production behavior inside the acceptance runner.
-
-### Fresh designing/review agent
-
-Re-anchor exact `main`, open PR state, the ACTIVE handoff, and any implementation PR before judgment. Review exact heads by the handoff invariant. Do not advance to semantic-quality/model-selection work unless structural acceptance completes and the current cycle is merged/synchronized.
-
-At successor design re-anchor there were **no open PRs**.
+Do not infer readiness from the structural acceptance report alone.
 
 ---
 
-## 1. Current campaign-memory truth
+## 1. What is true
 
-### 1.1 Governed recap World genesis exists
+### 1.1 Structural current-corpus acceptance passed
 
-Production already provides:
+The recovery/drain completed #722–#726 and one pristine full acceptance run on real integrated `main`.
 
-```text
-canonical Campaign 1 party registry
-  → inert sealed genesis prepare
-  → governed zero-parent DungeonMind confirm
-  → D0 containing canonical PC identity anchors only
-  → ordinary existing-World mutation thereafter
-```
-
-Genesis does not contain recap facts.
-
-### 1.2 Candidate Graph Admission is production authority
-
-PR #720 is merged/accepted.
+Accepted structural witness:
 
 ```text
-reviewed head: 1d490928b556a8672b56d9f4b6c4fca35e3c4e54
-final review: 5213358854
-merge: 2e054ce928f4a7de14a4a7b745460c85a90f8ee1
+World:          dogfood-current-corpus-acceptance-v1
+Database:       dmb_current_corpus_acceptance_v1
+Terminal head:  rev:cce8d24621d65a018d3e2922552f56f2
+Model calls:    44
+Graph writes:   45
+Structural STOP:null
 ```
 
-Durable rule:
+This proves the production source → extraction → candidate integrity → Candidate Graph Admission → governed DungeonMind write → exact-head continuity chain can process the frozen current corpus.
 
-> The exact candidate is immutable input. Admission can accept, reject, defer, or leave meaning unresolved; it may not rewrite candidate semantics merely to make publication succeed.
+It does **not** prove product loadability, semantic usefulness, Agent usefulness, or model selection.
 
-### 1.3 Production generation now agrees with admission on integrity versus eligibility
+### 1.2 The first accepted-World dogfood says NOT READY
 
-PR #721 is merged/accepted.
+Operator-reported gauntlet evidence, pending durable merge of the evaluation report:
 
 ```text
-reviewed head: f8028a51dfb7c1fb5e9481559490fa39f6146249
-formal review cycles: 2
-final evidence review: 5216154953
-merge: 233c49f4cfe247c962def10446eee336ff9a042b
+dogfood_ready       = false
+oracle answerable   = 4 / 16
+Agent FULL          = 0 / 16
+Agent tool calls    = 0 on oracle-answerable questions
+loadability         = product_unresolved
+World head unchanged= true
 ```
 
-The shared boundary now means:
+Accepted handbacks:
 
 ```text
-true candidate-document corruption
-  → production FAILED / non-reviewable
+ingested_object_unreadable
+  representative Mireward publication/identity exists
+  normal product search/object/complete-object/evidence cannot open it
 
-coherent unsupported candidate concept
-  → production REVIEWABLE unchanged
-  → Candidate Graph Admission owns explicit eligibility disposition
+hermes_cannot_answer
+  four questions were oracle-answerable
+  Hermes abstained without graph-tool investigation
+
+operator mounting/context
+  default UI World is not the accepted dogfood World
+  C1+C2 union/campaign lens is not an ordinary clean operator path
+
+graph coverage
+  12 / 16 C1S10 questions were not oracle-answerable
 ```
 
-This removed the final known prerequisite mismatch before a fresh chronological acceptance run.
+Do not flatten these into one score. They belong to different ownership boundaries.
 
-### 1.4 PR #715 remains retired
+### 1.3 The readiness law is now durable
+
+`Docs/Design/ACCEPTANCE-dogfood-readiness.md` defines the cumulative gate order:
 
 ```text
-PR #715
-CLOSED UNMERGED
-head 820fe3aa5e8ca7301e71f0a4aad05d46e9b486ed
+structural acceptance
+→ product loadability/addressability
+→ operator dogfoodability
+→ semantic usefulness / oracle answerability
+→ Agent usefulness
 ```
 
-Use only durable witnesses on `main`. Do not resurrect, sanitize, repair, cherry-pick, or treat #715 candidate output as current authority.
-
-### 1.5 Historical frozen experiment remains historical HOLD evidence
-
-```text
-OpenAI exact-frozen replay: PASS
-DeepSeek exact-frozen replay: STOP at C2 S9
-DeepSeek sanitized continuation: DIAGNOSTIC ONLY
-STRUCTURAL CURRENT-CORPUS ACCEPTANCE: HOLD
-SEMANTIC MODEL SELECTION: HOLD
-```
-
-The current slice does not rerun or repair the frozen experiment. It generates candidates fresh from current production code and current source authority.
+A lower-layer PASS cannot override a higher-layer failure.
 
 ---
 
-## 2. Current corpus context
+## 2. Current sequencing
 
-Design-time normalized observed-recap lineage currently covers:
+### Step 1 — finish the evaluation lane
+
+The current question-gauntlet lane has produced useful NOT READY evidence, but its evaluation PR/report must become durable repository authority before successor implementation activates.
+
+Required outcome:
 
 ```text
-Campaign 1: Sessions 1–17
-Campaign 2: Sessions 1–27
-Total design-time logical recaps: 44
+Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md
+  present on main
+  raw/evaluator evidence contract reviewed
+  NOT READY verdict preserved
 ```
 
-This count is **not** the acceptance manifest and must not be hard-coded.
+The eval PR must not patch production.
 
-The ACTIVE harness must freeze the then-current cohort before model calls. `_normalized/` recaps are lineage/index authority only. Each entry must resolve `normalized_from`; the referenced original recap bytes are the source/evidentiary authority actually passed through production extraction and source admission.
+### Step 2 — activate exactly one successor
 
-Historical duplicate raw choices therefore remain resolved by normalized provenance rather than filename guessing.
+After the eval PR merges and state authority is synchronized, re-anchor and change:
+
+`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`
+
+from `BLOCKED` to `ACTIVE`.
+
+That slice owns only this invariant:
+
+> A durable object identity exposed by accepted publication/projection/search must round-trip through ordinary product object/complete-object/neighborhood/evidence reads at the same World/campaign/revision.
+
+The first real witness is Mireward.
+
+### Step 3 — classify the owning boundary before fixing
+
+The addressability handoff requires a three-way decision:
+
+```text
+A. DungeonMind native reads round-trip, Buddy adapter does not
+   → Buddy read-side repair proceeds
+
+B. DungeonMind native retrieval cannot open its own published ID
+   → STOP; dependency handback; no Buddy alias shim
+
+C. publication/admission itself wrote inconsistent IDs
+   → STOP; write-side successor design; do not widen read repair
+```
+
+### Step 4 — only after addressability
+
+Do not pre-dispatch these. They remain sequencing candidates:
+
+```text
+operator World/campaign mounting
+→ rerun the same fixed question gauntlet
+→ use remaining A/B/C/E failures for graph/retrieval work
+→ use oracle-answerable D/F failures for Agent work
+```
+
+Hermes tuning is not the next action while the product cannot reliably open what publication says exists.
 
 ---
 
-## 3. Current forcing function
+## 3. PR topology and lane law
 
-The current capability is:
+Current open implementation PRs observed at this re-anchor: `none`.
 
-> **Fresh chronological current-corpus admission acceptance.**
-
-We now test the whole structural memory machine rather than another isolated seam:
+Topology remains serial:
 
 ```text
-fresh current-corpus manifest
-  → pristine isolated acceptance World
-  → governed C1 genesis D0
-  → fresh production extraction per recap
-  → candidate-document integrity
-  → exact Candidate Graph Admission
-  → exact current-parent governed write
-  → receipt/head verification
-  → next recap
+question-gauntlet eval PR
+  → merge + sync + re-anchor
+  → published-object-addressability PR
+  → merge + targeted dogfood + sync + re-anchor
+  → choose exactly one next slice from observed evidence
 ```
 
-The acceptance contract is intentionally fail-closed:
+Do not open an addressability implementation PR while its handoff is BLOCKED.
 
-```text
-source drift            → STOP
-generation failure      → STOP
-candidate integrity     → STOP
-nonconfirmable admission→ STOP
-stale parent            → STOP
-governed write failure  → STOP
-receipt/head mismatch   → STOP
-process interruption    → run invalid / no resume-as-PASS
-```
+Do not open UI/Hermes/coverage PRs from an addressability finding.
 
-Eligibility dispositions such as unsupported coherent concepts are not automatic failures by themselves. They remain exact candidate input; the run can continue only when Candidate Graph Admission truthfully seals a confirmable accepted union.
-
-The runner is orchestration/evidence code, not graph semantics. If it needs logic such as:
-
-```text
-if duplicate: keep first
-if unsupported type: delete node
-if bad edge: remove it
-if session fails: skip and continue
-```
-
-STOP.
+A new defect is evidence for the steward, not permission for worker fan-out.
 
 ---
 
-## 4. ACTIVE slice ownership
+## 4. Acceptance semantics to preserve
 
-Canonical handoff:
-
-```text
-Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md
-```
-
-Only leased writes:
+Use scoped labels:
 
 ```text
-CREATE evals/graph_memory_layer/run_current_corpus_admission_acceptance.py
-CREATE tests/test_current_corpus_admission_acceptance.py
-CREATE Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md
-```
-
-Generated runtime evidence under:
-
-```text
-out/graph_memory/current_corpus_admission_acceptance_v1/**
-```
-
-is not committed by default.
-
-Runtime target is fixed and isolated:
-
-```text
-World ID: dogfood-current-corpus-acceptance-v1
-Database: dmb_current_corpus_acceptance_v1
-Host: loopback only
-Port: 54329
-```
-
-The runner must never reset/drop/delete the database. Non-pristine authority is an operator STOP.
-
-CLI contract:
-
-```text
---preflight   zero model calls / zero durable source or graph mutation
---execute     one full fresh run from a pristine authority
-```
-
-No session subsets, start-at, skip, resume, sanitize, repair, arbitrary model, or arbitrary world controls.
-
-Model selection is current production authority:
-
-```text
-ProductionExtractionRequest.model_id = None
-```
-
-Record the resolved model and model-policy digest; do not hard-code or compare models.
-
----
-
-## 5. Evidence and review gates
-
-### Deterministic review before paid dogfood
-
-```bash
-uv run pytest \
-  tests/test_current_corpus_admission_acceptance.py \
-  tests/test_recap_world_genesis.py \
-  tests/test_graph_preview_runner.py \
-  tests/test_candidate_graph_admission_contract.py -q
-
-uv run ruff check \
-  evals/graph_memory_layer/run_current_corpus_admission_acceptance.py \
-  tests/test_current_corpus_admission_acceptance.py
-
-git diff --check
-git diff --name-only <dispatch-base>...HEAD
-```
-
-Then exact-head operator preflight:
-
-```bash
-uv run python evals/graph_memory_layer/run_current_corpus_admission_acceptance.py --preflight
-```
-
-Only after deterministic review is clean should the paid run execute:
-
-```bash
-uv run python evals/graph_memory_layer/run_current_corpus_admission_acceptance.py --execute
-```
-
-The paid run has only two truthful outcomes:
-
-```text
-complete exact frozen manifest → STRUCTURAL ACCEPTANCE PASS
-first owning-boundary failure   → STRUCTURAL ACCEPTANCE HOLD / STOP
-```
-
-A STOP is useful evidence and should normally lead to one focused repair handoff at the first failing production boundary.
-
----
-
-## 6. Binding design laws
-
-```text
-source artifact = evidentiary authority
-graph = durable materialized knowledge
-candidate extraction = proposal, never canon
-identity = World-global
-published revisions = immutable
-head movement = atomic
-failed write = prior head remains authoritative
-candidate integrity ≠ admission eligibility ≠ write failure
-structural acceptance ≠ semantic quality
-```
-
-The current acceptance runner may compose existing production capabilities. It must not create a second source system, candidate schema, admission contract, identity policy, ontology, graph writer, model policy, or product batch-ingestion workflow.
-
----
-
-## 7. Claims that remain false
-
-Before this slice completes:
-
-```text
-STRUCTURAL CURRENT-CORPUS ACCEPTANCE = HOLD
+STRUCTURAL CURRENT-CORPUS ACCEPTANCE = PASS
+PRODUCT LOADABILITY = NOT_READY
+OPERATOR DOGFOOD = NOT_READY
+SEMANTIC COVERAGE = measured but not readiness-clearing
+AGENT ANSWERABILITY = measured but not readiness-clearing
 SEMANTIC MODEL SELECTION = HOLD
 ```
 
-Even after a structural PASS, all of these remain false:
+The accepted World is real and structurally coherent enough to have a revision lineage. It is not yet a World the product can honestly call ready.
+
+Presence in any of these is insufficient by itself:
 
 ```text
-no model winner exists
-no semantic truthfulness/recall/precision score exists
-no claim every accepted assertion is factually correct
-no broad ontology-support decision exists
-no unattended production batch-ingestion loop exists
-no resume/retry scheduler exists
-no live Eldyrwild rewrite has occurred
+candidate graph
+admission package
+published payload
+PostgreSQL row
+raw DungeonMind projection dump
+Graph Review evidence list
 ```
+
+For readiness, the ordinary product must be able to open and use the resulting object.
 
 ---
 
-## 8. Current steward disposition
+## 5. Forbidden shortcuts
+
+Do not:
+
+- rerun the 44-session paid extraction merely to repair a read identity issue;
+- query PostgreSQL directly and call that dogfood;
+- add evaluator-only or UI-only ID translations to hide a publication/read mismatch;
+- use repository Markdown fallback to rescue graph coverage;
+- tune Hermes before the graph path it must use is loadable;
+- change benchmark questions/gold to fit current output;
+- treat HTTP 200 + abstention + zero tools as successful Agent dogfood;
+- call the World ready because structural acceptance passed;
+- open a second repair/successor PR from the same lane.
+
+---
+
+## 6. Current finish line
+
+The immediate finish line is **not** semantic model selection and not an Agent score.
+
+It is:
 
 ```text
-recap World genesis                 MERGED / ACCEPTED
-PR #720 Candidate Graph Admission   MERGED / ACCEPTED
-PR #721 generation alignment        MERGED / ACCEPTED
-PR #715                              CLOSED UNMERGED / historical only
-frozen-42 structural result          HOLD / historical diagnostic
-semantic model selection             HOLD
-current corpus design census         C1 S1–17 + C2 S1–27 = 44 logical recaps
-active implementation handoff        current-corpus-admission-acceptance-v1
-implementation PR                    none yet at authority sync
-named successor after PASS           semantic truthfulness / current-memory evaluation contract
-successor after STOP                 one focused repair at first failing production boundary
+accepted publication says object X exists
+→ normal product can find X
+→ open X
+→ inspect complete X
+→ traverse X
+→ inspect X evidence/source
+→ same exact revision/authority throughout
 ```
 
-The next implementation agent should execute the ACTIVE handoff exactly. It should not redesign campaign-memory sequencing from scratch.
+Until that is true for the real accepted-world witness, CON-READY remains `NOT READY` at the World-memory dogfood boundary.
