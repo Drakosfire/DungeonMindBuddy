@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: accepted-world question gauntlet v1
 
 **Created:** 2026-09-15  
-**Status:** ACTIVE — evaluation lane; structural acceptance prerequisite is satisfied  
+**Status:** DONE — MERGED as PR #728 @ `982cfe04c6c976f9c9147ef48f3b7c29b4feec00` (reviewed head `ac18bfc59f9f2cfaf152116006a7923ff74353d9`, 5 review cycles); successor is published-object addressability  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / semantic truthfulness`  

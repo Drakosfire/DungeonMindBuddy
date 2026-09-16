@@ -1,21 +1,60 @@
 # HANDOFF — DOGFOOD-CONTINUITY: published-object addressability v1
 
 **Created:** 2026-09-15  
-**Status:** BLOCKED — durable successor design; activate only after the accepted-World gauntlet evaluation PR is merged and its report is present on `main`  
+**Activated:** 2026-09-16  
+**Status:** ACTIVE — published-object addressability; #728 merged; serial implementation PR authorized  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / product loadability`  
 **Direction:** DESIGN → CODE → REVIEW → TARGETED DOGFOOD  
 **Design authority base:** `main@832b6347a08fab7355cae5b97890c0543eaa6d55`  
-**Activation gate:** merge the current-corpus question-gauntlet evaluation PR so `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` is durable on `main`; then re-anchor and change this handoff to ACTIVE  
-**Dispatch base rule:** fresh current `main` containing the merged gauntlet report plus this handoff; record exact implementation branch base at activation  
+**Activation gate:** satisfied — #728 MERGED; `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` is durable on `main`  
+**Dispatch base:** `main@982cfe04c6c976f9c9147ef48f3b7c29b4feec00`  
+**Implementation branch after activation:** `dogfood-continuity/published-object-addressability-v1`, created from that exact `main`  
 **PR topology:** `serial`  
-**PR authorization:** once ACTIVE, open/update exactly one implementation PR for this addressability capability; no UI/Hermes/coverage successor PRs from the same worker  
+**PR authorization:** open/update exactly one implementation PR for this addressability capability; no UI/Hermes/coverage successor PRs from the same worker  
 **PR title:** `DOGFOOD-CONTINUITY: make published World objects round-trip through product reads`
+
+**Activation facts:**
+
+```text
+predecessor #728 merge SHA:
+982cfe04c6c976f9c9147ef48f3b7c29b4feec00
+reviewed eval head:
+ac18bfc59f9f2cfaf152116006a7923ff74353d9
+formal review cycles on #728:
+5 (Cycle 5 APPROVE 5227405549)
+canonical report:
+Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md
+canonical run:
+gauntlet-compliant-stop-v1
+dogfood_ready:
+false
+oracle:
+not started (STOP before Q01)
+Agent suite:
+STOPPED (not scored)
+C1S10 BENCHMARK_REVISION:
+rev:6d15a3f9f7d2208d444df1097db0166a
+terminal head:
+rev:cce8d24621d65a018d3e2922552f56f2
+Mireward loadability pin:
+rev:24268294e868b30034e247aa9e23087b
+Mireward candidate:
+loc:mireward
+Mireward published:
+node:location:mireward
+Mireward product:
+product_unresolved
+open implementation PRs at activation:
+none
+§4 collision:
+none — KERNEL v0-2 lists world_graph_reads.py as not-expected; no open PRs
+```
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Readiness doctrine: [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md). Evaluation authority: [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md).
 
-> This handoff intentionally begins **BLOCKED**. The evaluation lane has produced accepted NOT READY evidence, but its report is not yet durable on `main`. Do not create the implementation PR until that report is merged and the steward re-anchors this handoff.
+> Activation does not change the mission, invariant, write lease, or Case A/B/C stop conditions. Exact IDs below replace the pre-merge operator summary. Create the implementation branch only from `main@982cfe04…`. Do not open a second PR.
 
 ---
 
@@ -35,7 +74,7 @@ published/remapped identity observed: node:location:mireward
 ordinary product search/object/complete-object/evidence: unresolved/empty
 ```
 
-The implementation may discover that the exact IDs differ from the operator summary once it reads the durable report and database. Repository/runtime evidence wins; record the exact observed identities before changing code.
+Durable report IDs are recorded in Activation facts. If accepted-database inspection differs, repository/runtime evidence wins; record the exact observed identities before changing code.
 
 ### Pre-dispatch critique
 
@@ -64,24 +103,27 @@ accepted terminal head = rev:cce8d24621d65a018d3e2922552f56f2
 
 That result does not imply dogfood readiness.
 
-The accepted follow-on gauntlet has reported:
+The accepted follow-on gauntlet is durable on `main` as `gauntlet-compliant-stop-v1`:
 
 ```text
 dogfood_ready = false
 loadability = product_unresolved
-oracle answerable = 4 / 16
-Agent FULL = 0 / 16
-Agent tool calls on oracle-answerable questions = 0
+oracle answerable = not started (STOP before Q01)
+Agent suite = STOPPED (not scored)
 World head unchanged = true
 ```
 
-Relevant handback for this slice:
+A pre-fix walk that scored `oracle answerable = 4 / 16` exists only as superseded historical diagnostic evidence in that report. It is not the canonical score.
+
+Relevant handback for this slice, with exact report identities:
 
 ```text
 ingested_object_unreadable
-  Mireward is represented in admitted/publication material
-  an identity remap is visible
-  normal product read operations cannot open the object
+  candidate = loc:mireward
+  published = node:location:mireward
+  loadability pin = rev:24268294e868b30034e247aa9e23087b
+  search/object/complete-object/evidence = empty / found: false
+  seed_status = product_unresolved
 ```
 
 Other accepted handbacks remain **out of scope** here:
@@ -425,7 +467,7 @@ The first run showed four oracle-answerable questions with zero Hermes tool call
 
 This handoff is merge-ready only if, after activation:
 
-- [ ] merged gauntlet report is durable on `main`;
+- [x] merged gauntlet report is durable on `main`;
 - [ ] exact accepted World/revision/head are re-anchored;
 - [ ] pre-change Mireward identity/read ledger is captured;
 - [ ] defect is classified Case A, B, or C;

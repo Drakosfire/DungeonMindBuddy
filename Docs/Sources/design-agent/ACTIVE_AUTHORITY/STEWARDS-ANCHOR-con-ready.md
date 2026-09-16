@@ -2,14 +2,15 @@
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
-**Updated:** 2026-09-15  
+**Updated:** 2026-09-16  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main@270e9c5892f4164146d1231d454e2f437c2b59a5` — dogfood-readiness doctrine + benchmark gate + blocked published-object successor landed  
+**Re-anchor base:** `main@982cfe04c6c976f9c9147ef48f3b7c29b4feec00` — #728 gauntlet report merged; published-object addressability ACTIVE  
 **Structural acceptance:** PASS — current-corpus 44-session governed-write continuity  
 **Product readiness:** NOT READY — accepted-World dogfood failed loadability/operator/Agent gates  
-**Current forcing function:** close the current question-gauntlet evaluation lane durably, then repair the earliest failed product boundary: published-object addressability  
-**Current evaluation authority:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md)  
-**Blocked successor:** [`HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md)  
+**Current forcing function:** repair published-object addressability so admitted World objects round-trip through ordinary product reads  
+**Completed evaluation:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md) — MERGED #728  
+**Durable report:** [`../Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md)  
+**Active implementation:** [`HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md)  
 **Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
 **Benchmark authority:** [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md)  
 **Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -30,9 +31,8 @@ Read, in order:
 
 1. `Docs/Design/ACCEPTANCE-dogfood-readiness.md`;
 2. this anchor;
-3. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` for the current evaluation lane;
-4. once the gauntlet report is merged, `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`;
-5. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md` for the blocked successor.
+3. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` for the durable NOT READY verdict;
+4. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md` for the active implementation lane.
 
 Do not infer readiness from the structural acceptance report alone.
 
@@ -61,34 +61,37 @@ It does **not** prove product loadability, semantic usefulness, Agent usefulness
 
 ### 1.2 The first accepted-World dogfood says NOT READY
 
-Operator-reported gauntlet evidence, pending durable merge of the evaluation report:
+Durable gauntlet authority is `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` on `main@982cfe04…`, run `gauntlet-compliant-stop-v1`:
 
 ```text
 dogfood_ready       = false
-oracle answerable   = 4 / 16
-Agent FULL          = 0 / 16
-Agent tool calls    = 0 on oracle-answerable questions
+oracle answerable   = not started (STOP before Q01)
+Agent suite         = STOPPED (not scored)
 loadability         = product_unresolved
 World head unchanged= true
 ```
+
+A pre-fix `oracle answerable = 4 / 16` walk is retained in that report only as superseded historical diagnostic evidence. It is not the canonical score.
 
 Accepted handbacks:
 
 ```text
 ingested_object_unreadable
-  representative Mireward publication/identity exists
+  candidate = loc:mireward
+  published = node:location:mireward
+  loadability pin = rev:24268294e868b30034e247aa9e23087b
   normal product search/object/complete-object/evidence cannot open it
 
 hermes_cannot_answer
-  four questions were oracle-answerable
-  Hermes abstained without graph-tool investigation
+  Agent runtime unavailable: openai-api / gpt-5.6-luna / chat_completions 400
+  suite STOPPED before Q01; not scored as D
 
 operator mounting/context
   default UI World is not the accepted dogfood World
   C1+C2 union/campaign lens is not an ordinary clean operator path
 
 graph coverage
-  12 / 16 C1S10 questions were not oracle-answerable
+  Q01–Q16 not started on the compliant run
 ```
 
 Do not flatten these into one score. They belong to different ownership boundaries.
@@ -111,34 +114,23 @@ A lower-layer PASS cannot override a higher-layer failure.
 
 ## 2. Current sequencing
 
-### Step 1 — finish the evaluation lane
+### Step 1 — evaluation lane: COMPLETE
 
-The current question-gauntlet lane has produced useful NOT READY evidence, but its evaluation PR/report must become durable repository authority before successor implementation activates.
+PR #728 merged as `982cfe04c6c976f9c9147ef48f3b7c29b4feec00`. The durable report is on `main`. Verdict remains NOT READY. The eval PR did not patch production.
 
-Required outcome:
+### Step 2 — published-object addressability: CURRENT / ACTIVE
 
-```text
-Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md
-  present on main
-  raw/evaluator evidence contract reviewed
-  NOT READY verdict preserved
-```
+`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md` is ACTIVE.
 
-The eval PR must not patch production.
-
-### Step 2 — activate exactly one successor
-
-After the eval PR merges and state authority is synchronized, re-anchor and change:
-
-`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`
-
-from `BLOCKED` to `ACTIVE`.
+Dispatch base: `main@982cfe04c6c976f9c9147ef48f3b7c29b4feec00`.
+Authorized branch: `dogfood-continuity/published-object-addressability-v1`.
+Authorized PR title: `DOGFOOD-CONTINUITY: make published World objects round-trip through product reads`.
 
 That slice owns only this invariant:
 
 > A durable object identity exposed by accepted publication/projection/search must round-trip through ordinary product object/complete-object/neighborhood/evidence reads at the same World/campaign/revision.
 
-The first real witness is Mireward.
+The first real witness is Mireward (`loc:mireward` → `node:location:mireward`, product_unresolved).
 
 ### Step 3 — classify the owning boundary before fixing
 
@@ -177,14 +169,11 @@ Current open implementation PRs observed at this re-anchor: `none`.
 Topology remains serial:
 
 ```text
-question-gauntlet eval PR
-  → merge + sync + re-anchor
-  → published-object-addressability PR
+question-gauntlet eval PR #728 MERGED
+  → published-object-addressability PR (authorized, not yet opened)
   → merge + targeted dogfood + sync + re-anchor
   → choose exactly one next slice from observed evidence
 ```
-
-Do not open an addressability implementation PR while its handoff is BLOCKED.
 
 Do not open UI/Hermes/coverage PRs from an addressability finding.
 
@@ -200,8 +189,8 @@ Use scoped labels:
 STRUCTURAL CURRENT-CORPUS ACCEPTANCE = PASS
 PRODUCT LOADABILITY = NOT_READY
 OPERATOR DOGFOOD = NOT_READY
-SEMANTIC COVERAGE = measured but not readiness-clearing
-AGENT ANSWERABILITY = measured but not readiness-clearing
+SEMANTIC COVERAGE = not started (STOP before Q01); historical 4/16 is not canonical
+AGENT ANSWERABILITY = STOPPED (not scored)
 SEMANTIC MODEL SELECTION = HOLD
 ```
 
