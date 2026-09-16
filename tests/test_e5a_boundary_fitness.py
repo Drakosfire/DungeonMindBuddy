@@ -6,8 +6,11 @@ cannot grow unnoticed. Later migration PRs must shrink the matching baseline
 in the same change that removes the import.
 
 Harvested by AST from apps/ and src/ on Buddy main
-``94ae1ea927d6aa6c239085466973a11bff5cc605``. evals/, scripts/, tools/, and
-tests/ are intentionally out of scope.
+``fd6e90cee7fee259b6da427f275d1e507d2c3d04``. Original harvest was
+``94ae1ea927d6aa6c239085466973a11bff5cc605`` (historical provenance).
+Cycle 2 re-ran the scan on the accepted baseline; allowlists were
+identical. evals/, scripts/, tools/, and tests/ are intentionally out
+of scope.
 """
 
 from __future__ import annotations

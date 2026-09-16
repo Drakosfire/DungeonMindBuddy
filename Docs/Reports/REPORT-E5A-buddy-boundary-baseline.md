@@ -4,12 +4,13 @@
 | --- | --- |
 | Status | characterization complete; no behavior cutover |
 | Slice | E5A (not a migration) |
-| Buddy baseline SHA | `94ae1ea927d6aa6c239085466973a11bff5cc605` (`main` at re-anchor) |
+| Buddy baseline SHA | `fd6e90cee7fee259b6da427f275d1e507d2c3d04` (`main` at Cycle 2 re-anchor) |
+| Original characterization SHA | `94ae1ea927d6aa6c239085466973a11bff5cc605` (historical provenance only) |
 | OverMind Gate G | `f836de691bf57f2cfcee50c997ba8abe3040475a` |
 | Accepted GenerationEngine | `0d01547e2d9afec68e87b4c8f7e6aaa047e8c42a` |
 | Accepted DMS Generation consumer | `af4be1290c948fb7ccc4d969ab7c1e3b1aacd972` |
 | Buddy DungeonMind pin | `dungeonmind[postgres] @ 63ec810a02f18c4e25af228f6fdb19d99d12579e` |
-| Concurrent work left alone | [PR #721](https://github.com/Drakosfire/DungeonMindBuddy/pull/721) |
+| Concurrent Buddy PRs | none — [PR #721](https://github.com/Drakosfire/DungeonMindBuddy/pull/721) merged 2026-09-15; this slice did not absorb it |
 
 This report freezes what Buddy currently owns incorrectly, what is intentionally Buddy-owned, what GenerationEngine must learn before any consumer can move, and which smallest ordinary inference consumer should move first. It does **not** claim a query-only KnowledgeQuery seam or a GenerationEngine cutover.
 
@@ -21,8 +22,11 @@ Machine enforcement: `tests/test_e5a_boundary_fitness.py` (AST import allowlists
 
 | Fact | Value |
 | --- | --- |
-| Buddy `origin/main` | `94ae1ea927d6aa6c239085466973a11bff5cc605` — `docs(steward): never leave main checked out` |
-| Open Buddy PRs at re-anchor | #721 only (`dogfood-continuity/candidate-generation-integrity-alignment-v1`) |
+| Buddy `origin/main` (accepted baseline) | `fd6e90cee7fee259b6da427f275d1e507d2c3d04` — `docs: pin graph_writes count in structural acceptance PASS report` |
+| Cycle 1 PR rebase base | `26e40f1eb108544516160a97acc6627fac3fe39d` (superseded by current `main`) |
+| Original characterization SHA | `94ae1ea927d6aa6c239085466973a11bff5cc605` — first harvest; **not** the accepted baseline |
+| Commits original harvest → accepted baseline | 47 |
+| Open Buddy PRs at Cycle 2 re-anchor | this PR only (#727). #721–#726 are on `main`. |
 | GenerationEngine accepted pin | still `0d01547e…` (OverMind `acceptance/generation-boundary-g.toml`) |
 | Python | `>=3.13,<3.14` |
 | `openai` | `==2.24.0` (lock hash present) |
@@ -31,10 +35,18 @@ Machine enforcement: `tests/test_e5a_boundary_fitness.py` (AST import allowlists
 | `dungeonmind[postgres]` | `63ec810a02f18c4e25af228f6fdb19d99d12579e` |
 | `GenerationClient` / `generationengine` in `apps/`+`src/` | **none** |
 | `MODEL_POLICY.json` status | `buddy_owned_transition_policy` (unchanged) |
+| AST import tuples vs original harvest | **identical** (provider 17, PydanticAI 1, GE 0, dungeonmind 44, extra-boundary `{runtime_preflight.py}`) |
 
 GE's OpenAI extra accepts `openai>=2.14.0`; Buddy's `2.24.0` pin is not inherently incompatible. E5A does **not** add GenerationEngine as a dependency.
 
-Method: fresh AST import scan of `apps/` and `src/`, plus targeted reads of each active provider and DungeonMind path. `evals/`, `scripts/`, `tools/`, `extraction_lab/`, and `tests/` were inventoried only to keep them out of the runtime baseline.
+Method: Cycle 2 re-ran the AST import scan of `apps/` and `src/` on accepted `main` `fd6e90ce…`, plus targeted confirmation of classified DungeonMind paths that moved after the original harvest. `evals/`, `scripts/`, `tools/`, `extraction_lab/`, and `tests/` were inventoried only to keep them out of the runtime baseline.
+
+Boundary files that moved between `94ae1ea9` and `fd6e90ce` and are named in §4:
+
+- `apps/live_control_server/integrations/dungeonmind/world_graph_writes.py` (+60) — still `WRITE_PUBLICATION_DEBT`; still imports `review_publication` / `contribution_review_v2` / postgres. Exact-edge-id continuity and related admission work landed here; **no AST import tuple changed**.
+- `apps/live_control_server/integrations/dungeonmind/assertion_qualification.py` (+38) — still `INTERNAL_API_DEBT` via `dungeonmind_dnd.application.world_object_vocabulary` only. Endpoint-kind / qualification logic grew; **no AST import tuple changed**.
+
+Other files in that interval (`src/graph_memory/candidate_document_integrity.py`, `extract_identity_gate.py`, `identity_resolution.py`, `extraction/graph_preview_runner.py`) do not import `dungeonmind*` or provider SDKs, so they stay outside this freeze. Classifications, GE catalog delta, and successor ordering in §1–§5 still hold.
 
 ---
 
@@ -227,11 +239,11 @@ Buddy product-local persistence (APP-STATE, Runs, workspace documents, candidate
 | Path | Primary bucket | Import surface | Notes |
 | --- | --- | --- | --- |
 | `world_graph_reads.py` | `QUERY_CONSUMER` implemented as `INTERNAL_API_DEBT` | application retrieval/projection/snapshot; infrastructure postgres + semantic profiles; `dungeonmind_dnd` vocabulary; `domain.errors`; plus `contracts.evidence` / `projection` / `projection_v2` | Query-shaped consumption through kernel internals, not KnowledgeQuery. Also performs `PRODUCT_LOCAL_JOIN` (focus presentation, source-artifact titles/excerpts). **Not** already query-only. |
-| `world_graph_writes.py` | `WRITE_PUBLICATION_DEBT` | `application.review_publication`, `contribution_review_v2`, postgres, canonical hashing, contracts for contribution/review/identity/capability | Buddy participates in governed publication. Conflicts with the E5 target. |
+| `world_graph_writes.py` | `WRITE_PUBLICATION_DEBT` | `application.review_publication`, `contribution_review_v2`, postgres, canonical hashing, contracts for contribution/review/identity/capability | Buddy participates in governed publication. Conflicts with the E5 target. Cycle 2: +60 lines after `94ae1ea9` (exact-edge-id continuity / related admission); AST import tuples unchanged. |
 | `world_graph_initialization_adapter.py` | `WRITE_PUBLICATION_DEBT` | `application.reviewed_world_initialization`, semantic profiles, `dungeonmind_dnd` vocabulary, contribution/evidence contracts | First-world / reviewed initialization is mutation architecture. |
 | `world_graph_source_admission_adapter.py` | `WRITE_PUBLICATION_DEBT` | evidence/vocabulary contracts, `domain.errors`, `infrastructure.postgres` | Source admit/put is world-knowledge mutation. |
 | `contribution_mapping.py` | `WRITE_PUBLICATION_DEBT` | contribution/evidence/identity/vocabulary contracts + `domain.canonical` | Maps Buddy contribution values onto DungeonMind publication types. |
-| `assertion_qualification.py` | `INTERNAL_API_DEBT` | `dungeonmind_dnd.application.world_object_vocabulary` | Kind/predicate qualification for governed writes. |
+| `assertion_qualification.py` | `INTERNAL_API_DEBT` | `dungeonmind_dnd.application.world_object_vocabulary` | Kind/predicate qualification for governed writes. Cycle 2: +38 lines after `94ae1ea9` (endpoint-kind / qualification); AST import tuples unchanged. |
 | `world_graph_authority_adapter.py` | `WRITE_PUBLICATION_DEBT` (composition) | none directly | Port adapter over writes. |
 | `services/runtime_preflight.py` | `INTERNAL_API_DEBT` | `dungeonmind.infrastructure.postgres` | Outside the integration package. Connectivity/preflight, not a query contract. |
 
@@ -345,9 +357,36 @@ Allowlists are **not** target architecture. A migration PR that removes a direct
 - DungeonMind writes/publication not removed
 - Plan/Build/Play behavior unchanged
 - Graph candidate semantics unchanged
-- PR #721 / DOGFOOD-CONTINUITY not absorbed
+- PR #721 / DOGFOOD-CONTINUITY not absorbed (now merged on `main`; Cycle 2 re-characterized the resulting tree instead of taking that work into this slice)
 - E4 public Web/API work not touched
 - No new OverMind runtime consumers
 - No repository/package rename
 
 If a later PR changes a boundary file: rebase, regenerate the AST inventory, update the exact baseline, rerun these tests. Never keep a stale allowlist to win the merge.
+
+---
+
+## 8. Cycle 2 exact-head verification
+
+Recorded 2026-09-16 in the `e5/buddy-boundary-baseline` worktree after merging accepted `main` `fd6e90cee7fee259b6da427f275d1e507d2c3d04`. Commands ran on the Cycle 2 report/test edits below; `apps/` and `src/` were not changed. No GitHub workflow runs or commit statuses exist for this repository (no `.github/workflows`); this section is the recorded proof.
+
+| Command | Tooling | Result |
+| --- | --- | --- |
+| `uv lock --check` | uv `0.5.20` | exit 0; `Resolved 143 packages in 3ms` |
+| `uv run ruff check tests/test_e5a_boundary_fitness.py Docs/Reports/REPORT-E5A-buddy-boundary-baseline.md` | uv `0.5.20` | `All checks passed!` |
+| focused pytest (files below) | CPython `3.13.1`, pytest `9.0.2` | **41 passed** in 19.97s |
+| `git diff --check` (working tree and `origin/main` on E5A paths) | git | clean |
+
+Focused pytest files:
+
+```text
+tests/test_e5a_boundary_fitness.py
+tests/test_model_policy_authority.py
+tests/test_agent_graph_policy.py
+tests/test_api_client.py
+tests/test_live_play_classify_turn_llm_path.py
+tests/test_synthesis.py
+tests/ingestion/test_frontmatter.py
+```
+
+Full Buddy pytest was not run (needs disposable Postgres / app-state). Lockfile was not rewritten.
