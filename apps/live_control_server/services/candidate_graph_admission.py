@@ -13,6 +13,7 @@ import hashlib
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import replace
+from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 from apps.live_control_server.models.candidate_graph_admission import (
@@ -44,8 +45,15 @@ from graph_memory.extract_promote_proposal import (
 from apps.live_control_server.models.world_graph_mutation_context import (
     mutation_context_from_world_root,
 )
+from apps.live_control_server.ports.world_graph_source_admission import (
+    AdmittedSourceIdentity,
+    WorldGraphSourceAdmissionError,
+    WorldGraphSourceAdmissionRequest,
+)
+from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 
 _T = TypeVar("_T")
+_SOURCE_ADMISSION_EFFECT_KEY = "source_admission"
 
 
 def canonical_candidate_digest(candidate_graph: Mapping[str, Any]) -> str:
@@ -249,10 +257,195 @@ def _integrity_and_eligibility(
     return projected, dispositions, digest
 
 
+_RECAP_SOURCE_DOMAIN_KEYS = frozenset({"recap", "session_recap"})
+_CANONICAL_RECAP_SOURCE_DOMAIN_KEY = "session_recap"
+
+
+def _scope_check_recap_source_artifact(
+    artifact: Any,
+    *,
+    world_id: str,
+    campaign_id: str,
+) -> None:
+    art_campaign = str(getattr(artifact, "campaign_id", "") or "").strip()
+    if art_campaign and campaign_id and art_campaign != campaign_id:
+        raise CandidateAdmissionNotConfirmableError(
+            "source artifact belongs to a different campaign"
+        )
+    art_world = str(getattr(artifact, "world_id", "") or "").strip()
+    if art_world and world_id and art_world != world_id:
+        raise CandidateAdmissionNotConfirmableError(
+            "source artifact belongs to a different world"
+        )
+    domain = str(getattr(artifact, "source_domain", "") or "").strip()
+    if domain in _RECAP_SOURCE_DOMAIN_KEYS:
+        if not art_campaign or not str(getattr(artifact, "session_id", "") or "").strip():
+            raise CandidateAdmissionNotConfirmableError(
+                "recap source artifact requires campaign_id and session_id"
+            )
+
+
+def _canonical_recap_source_artifact(artifact: Any) -> Any:
+    """Admit recap sources under the DungeonMind session_recap family key.
+
+    DungeonMind lifts v1 evidence with ``source_domain_key = SESSION_RECAP.value``.
+    Buddy's producer domain ``recap`` must therefore be stored as that same key
+    or native projection rejects the published object as domain mismatch.
+    """
+    domain = str(getattr(artifact, "source_domain", "") or "").strip()
+    if domain == _CANONICAL_RECAP_SOURCE_DOMAIN_KEY:
+        return artifact
+    if domain not in _RECAP_SOURCE_DOMAIN_KEYS and domain:
+        return artifact
+    if hasattr(artifact, "model_copy"):
+        return artifact.model_copy(
+            update={"source_domain": _CANONICAL_RECAP_SOURCE_DOMAIN_KEY}
+        )
+    copied = copy.copy(artifact)
+    copied.source_domain = _CANONICAL_RECAP_SOURCE_DOMAIN_KEY
+    return copied
+
+
+def _buddy_recap_source_artifact(
+    *,
+    candidate_graph: Mapping[str, Any],
+    world_id: str,
+    verified_revision_id: str,
+    source_artifact: Any | None,
+    source_artifact_id: str,
+    source_uri: str,
+    campaign_id: str,
+) -> Any:
+    if source_artifact is not None:
+        return _canonical_recap_source_artifact(source_artifact)
+    session_id = str(candidate_graph.get("session_id") or "").strip()
+    digest = verified_revision_id.removeprefix("sha256:")
+    now = datetime.now(UTC).isoformat()
+    return GraphMemorySourceArtifact(
+        source_artifact_id=source_artifact_id,
+        source_domain=_CANONICAL_RECAP_SOURCE_DOMAIN_KEY,
+        campaign_id=campaign_id or None,
+        session_id=session_id or None,
+        uri=source_uri,
+        content_sha256=digest,
+        artifact_kind="markdown",
+        document_class="recap",
+        authority_state="reviewed",
+        visibility_state="internal",
+        world_id=world_id,
+        status="active",
+        created_at=now,
+        updated_at=now,
+    )
+
+
+def _source_admission_authority(source_admission: Any | None) -> Any:
+    if source_admission is not None:
+        return source_admission
+    from apps.live_control_server.ports.world_graph_source_admission_access import (
+        get_world_graph_source_admission_authority,
+    )
+
+    return get_world_graph_source_admission_authority()
+
+
+def _raise_source_admission(
+    exc: WorldGraphSourceAdmissionError,
+    *,
+    candidate_digest: str,
+) -> None:
+    if exc.code == "source_identity_conflict":
+        raise CandidateAdmissionIntegrityError(
+            [
+                CandidateIntegrityDiagnostic(
+                    code="source_identity_conflict",
+                    field="source_revision_id",
+                    message=str(exc),
+                )
+            ],
+            candidate_digest=candidate_digest,
+        ) from exc
+    raise CandidateAdmissionNotConfirmableError(str(exc)) from exc
+
+
+def _admit_confirmable_recap_source(
+    *,
+    candidate_graph: Mapping[str, Any],
+    world_id: str,
+    campaign_id: str,
+    source_uri: str,
+    verified_revision_id: str,
+    source_artifact_id: str,
+    source_artifact: Any | None,
+    source_admission: Any | None,
+    candidate_digest: str,
+) -> AdmittedSourceIdentity:
+    if not source_artifact_id or not verified_revision_id or not source_uri:
+        raise CandidateAdmissionNotConfirmableError(
+            "confirmable recap admission requires source artifact, revision, and URI"
+        )
+    artifact = _buddy_recap_source_artifact(
+        candidate_graph=candidate_graph,
+        world_id=world_id,
+        verified_revision_id=verified_revision_id,
+        source_artifact=source_artifact,
+        source_artifact_id=source_artifact_id,
+        source_uri=source_uri,
+        campaign_id=campaign_id,
+    )
+    _scope_check_recap_source_artifact(
+        artifact, world_id=world_id, campaign_id=campaign_id
+    )
+    request = WorldGraphSourceAdmissionRequest(
+        world_id=world_id,
+        campaign_id=campaign_id,
+        source_artifact=artifact,
+        source_revision_token=verified_revision_id,
+        source_uri=source_uri,
+    )
+    authority = _source_admission_authority(source_admission)
+    try:
+        return authority.prove_or_admit(request)
+    except WorldGraphSourceAdmissionError as exc:
+        if exc.code == "source_identity_conflict":
+            try:
+                return authority.prove(
+                    world_id=world_id,
+                    source_artifact_id=source_artifact_id,
+                    source_revision_id=verified_revision_id,
+                    source_revision_token=verified_revision_id,
+                )
+            except WorldGraphSourceAdmissionError:
+                pass
+        _raise_source_admission(exc, candidate_digest=candidate_digest)
+        raise
+
+
+def _seal_source_admission(
+    package: Mapping[str, Any],
+    admitted: AdmittedSourceIdentity,
+) -> dict[str, Any]:
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+
+    sealed = dict(package)
+    effect = dict(sealed.get("effect") or {})
+    effect[_SOURCE_ADMISSION_EFFECT_KEY] = {
+        "source_artifact_id": admitted.source_artifact_id,
+        "source_revision_id": admitted.source_revision_id,
+        "buddy_source_revision_id": admitted.buddy_source_revision_id,
+        "content_sha256": admitted.content_sha256,
+    }
+    sealed["effect"] = effect
+    sealed["proposal_digest"] = compute_proposal_digest(effect)
+    return sealed
+
+
 def prepare_candidate_graph_admission(
     *, candidate_graph: Mapping[str, Any], **prepare_kwargs: Any
 ) -> ExtractPromotePrepareResult:
     """Prepare and seal one exact candidate against one pinned parent."""
+    source_admission = prepare_kwargs.pop("source_admission", None)
+    source_artifact = prepare_kwargs.pop("source_artifact", None)
     projected, dispositions, digest = _integrity_and_eligibility(candidate_graph)
     has_structurally_admissible_nodes = bool(projected.get("nodes"))
     has_standing_context = prepare_kwargs.get("registry_context_graph") is not None
@@ -358,6 +551,27 @@ def prepare_candidate_graph_admission(
     package = bind_candidate_admission_to_proposal(
         result.review_package, binding.as_effect_payload()
     )
+    if confirmable:
+        admitted = _admit_confirmable_recap_source(
+            candidate_graph=candidate_graph,
+            world_id=result.world_id,
+            campaign_id=str(
+                prepare_kwargs.get("campaign_scope")
+                or candidate_graph.get("campaign_id")
+                or ""
+            ).strip(),
+            source_uri=str(prepare_kwargs.get("source_uri") or "").strip(),
+            verified_revision_id=str(effect.get("source_revision_id") or "").strip(),
+            source_artifact_id=str(
+                effect.get("source_artifact_id")
+                or prepare_kwargs.get("source_artifact_id")
+                or ""
+            ).strip(),
+            source_artifact=source_artifact,
+            source_admission=source_admission,
+            candidate_digest=digest,
+        )
+        package = _seal_source_admission(package, admitted)
     return replace(
         result,
         review_package=package,
@@ -385,6 +599,19 @@ def verify_candidate_graph_admission_confirmation(
     if not binding.confirmable:
         raise CandidateAdmissionNotConfirmableError(
             "candidate admission is not confirmable: no admissible assertions"
+        )
+    source_admission = effect.get(_SOURCE_ADMISSION_EFFECT_KEY)
+    if not isinstance(source_admission, Mapping) or not str(
+        source_admission.get("source_artifact_id") or ""
+    ).strip() or not str(source_admission.get("source_revision_id") or "").strip():
+        raise CandidateAdmissionIntegrityError(
+            [
+                CandidateIntegrityDiagnostic(
+                    code="source_admission_missing",
+                    message="confirmable proposal is missing sealed source admission",
+                )
+            ],
+            candidate_digest=canonical_candidate_digest(candidate_graph),
         )
     sealed_pairs = {
         "world_id": str(effect.get("world_id") or ""),

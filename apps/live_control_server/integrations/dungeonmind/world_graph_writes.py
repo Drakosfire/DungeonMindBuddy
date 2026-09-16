@@ -144,6 +144,50 @@ def _graph_review_evidence_view(
     return _EmptyEvidenceView(evidence=records)
 
 
+def _recap_extraction_evidence_view(
+    contribution: Any,
+    *,
+    pair_to_dm: dict[tuple[str, str], str],
+    sources: Any | None = None,
+) -> _EmptyEvidenceView:
+    """Source-extraction evidence bound to the admitted recap source pair.
+
+    The empty-store fallback stamps SourceDomain.OTHER, which native
+    projection rejects against a recap SourceArtifactV2 as
+    ``evidence_source_domain_mismatch`` / SCOPE_UNKNOWN.
+    """
+    records: dict[str, Any] = {}
+    assertions = [
+        *list(getattr(contribution, "accepted_assertions", None) or []),
+        *list(getattr(contribution, "candidate_assertions", None) or []),
+        *list(getattr(contribution, "rejected_assertions", None) or []),
+    ]
+    for assertion in assertions:
+        artifact_id = str(getattr(assertion, "source_artifact_id", "") or "")
+        token = str(getattr(assertion, "source_revision_id", "") or "")
+        dm_revision_id = pair_to_dm.get((artifact_id, token), token)
+        locator = None
+        if sources is not None and dm_revision_id:
+            try:
+                revision = sources.get_revision(dm_revision_id)
+            except Exception:
+                revision = None
+            if revision is not None:
+                locator = str(getattr(revision, "locator", None) or "") or None
+        for evidence_id in list(getattr(assertion, "evidence_ref_ids", None) or []):
+            records[str(evidence_id)] = _BuddyEvidenceRecord(
+                evidence_ref_id=str(evidence_id),
+                source_artifact_id=artifact_id,
+                source_domain="session_recap",
+                evidence_role="support",
+                can_open_source=bool(locator),
+                can_highlight_span=False,
+                locator=locator,
+                uri=locator,
+            )
+    return _EmptyEvidenceView(evidence=records)
+
+
 def _open_repository_bundle(database_url: str) -> Any:
     try:
         from dungeonmind.infrastructure.postgres import (
@@ -1007,6 +1051,65 @@ def _build_pair_to_dm(
     return catalog_aware_source_revision_ids(bundle.sources, world_id, pairs)
 
 
+def _reprove_source_extraction(
+    bundle: Any,
+    world_id: str,
+    contribution: Any,
+    *,
+    package: Mapping[str, Any] | None = None,
+) -> None:
+    """Confirm-time snapshot proof for recap source-extraction publications."""
+    if getattr(contribution, "source_kind", None) != "source_extraction":
+        return
+    from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+        DungeonMindWorldGraphSourceAdmissionAdapter,
+    )
+    from apps.live_control_server.ports.world_graph_source_admission import (
+        WorldGraphSourceAdmissionError,
+    )
+
+    artifact_id = str(getattr(contribution, "source_artifact_id", "") or "").strip()
+    buddy_token = str(getattr(contribution, "source_revision_id", "") or "").strip()
+    sealed = {}
+    if package is not None:
+        sealed = dict((package.get("effect") or {}).get("source_admission") or {})
+    if sealed:
+        artifact_id = str(sealed.get("source_artifact_id") or artifact_id).strip()
+        dm_revision_id = str(sealed.get("source_revision_id") or "").strip()
+        buddy_token = str(sealed.get("buddy_source_revision_id") or buddy_token).strip()
+    else:
+        if not artifact_id or not buddy_token:
+            raise WorldGraphWriteError(
+                "source-extraction publication is missing source identity",
+                code="governed_write_inexpressible",
+                details={"world_id": world_id, "reason": "source_identity_missing"},
+            )
+        derived = catalog_aware_source_revision_ids(
+            bundle.sources, world_id, {(artifact_id, buddy_token)}
+        )
+        dm_revision_id = str(derived.get((artifact_id, buddy_token)) or "").strip()
+    if not artifact_id or not dm_revision_id:
+        raise WorldGraphWriteError(
+            "source-extraction publication is missing sealed source admission",
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "reason": "source_not_admitted"},
+        )
+    adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=bundle.sources)
+    try:
+        adapter.prove(
+            world_id=world_id,
+            source_artifact_id=artifact_id,
+            source_revision_id=dm_revision_id,
+            source_revision_token=buddy_token,
+        )
+    except WorldGraphSourceAdmissionError as exc:
+        raise WorldGraphWriteError(
+            str(exc),
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "reason": exc.code, **dict(exc.details or {})},
+        ) from exc
+
+
 def _candidate_endpoint_kinds(
     context: WorldGraphMutationContext, candidate: Any
 ) -> dict[str, str]:
@@ -1230,8 +1333,13 @@ def _build_v2_candidate(
     from dungeonmind.contracts.contribution import AcceptanceState, ContributionStatus
 
     evidence_view: Any = _EmptyEvidenceView()
-    if getattr(contribution, "source_kind", None) == "graph_review_authored_assertion":
+    source_kind = getattr(contribution, "source_kind", None)
+    if source_kind == "graph_review_authored_assertion":
         evidence_view = _graph_review_evidence_view(
+            contribution, pair_to_dm=pair_to_dm, sources=sources
+        )
+    elif source_kind == "source_extraction":
+        evidence_view = _recap_extraction_evidence_view(
             contribution, pair_to_dm=pair_to_dm, sources=sources
         )
     mapped = _map_contributions(evidence_view, [contribution], pair_to_dm)
@@ -1849,6 +1957,7 @@ def confirm_extract_promote_via_dungeonmind(
     )
 
     parent_envelope = parent_stored.revision
+    _reprove_source_extraction(bundle, world_id, contribution, package=package)
     pair_to_dm = _build_pair_to_dm(bundle, world_id, contribution)
     reviewed_at = parent_envelope.created_at
     candidate, verdict_states = _build_v2_candidate(
@@ -2157,6 +2266,7 @@ def _review_intent_sha256_for_threat_request(
         head_revision_id=expected_parent_revision_id,
     )
     parent_envelope = parent_stored.revision
+    _reprove_source_extraction(bundle, world_id, contribution)
     pair_to_dm = _build_pair_to_dm(bundle, world_id, contribution)
     reviewed_at = parent_envelope.created_at
     candidate, verdict_states = _build_v2_candidate(
@@ -2375,6 +2485,7 @@ def publish_contribution_via_dungeonmind(
         head_revision_id=str(head.head_revision_id),
     )
     parent_envelope = parent_stored.revision
+    _reprove_source_extraction(bundle, world_id, contribution)
     pair_to_dm = _build_pair_to_dm(bundle, world_id, contribution)
     reviewed_at = parent_envelope.created_at
     candidate, verdict_states = _build_v2_candidate(

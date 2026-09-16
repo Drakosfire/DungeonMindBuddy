@@ -999,6 +999,17 @@ def prepare(
     from apps.live_control_server import config as _config
 
 
+    source_artifact = None
+    try:
+        from apps.live_control_server.services.source_artifact_registry import (
+            SourceArtifactRegistryError,
+            get_source_artifact,
+        )
+
+        source_artifact = get_source_artifact(repo_root(), resolved.source_artifact_id)
+    except SourceArtifactRegistryError:
+        source_artifact = None
+
     prepare_kwargs = dict(
         candidate_graph=payload,
         source_uri=resolved.sealed_source_uri,
@@ -1006,6 +1017,7 @@ def prepare(
         prepared_by=SERVER_PREPARED_BY,
         world_id=DEFAULT_WORLD_ID,
         source_artifact_id=resolved.source_artifact_id,
+        source_artifact=source_artifact,
         campaign_scope=resolved.campaign_id,
         extraction_profile=extraction_profile,
         node_ids=request.node_ids,
