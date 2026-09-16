@@ -4,7 +4,7 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-16  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main@16493fc8fb1986339dca92c0dd80ec33df33ef26` — parent of the Case B predecessor closeout; pin the closeout SHA after this transaction lands  
+**Re-anchor base:** `main@3fc400af0b425fb02be1a904d3e541d90ea29362` — Case B report durable; addressability closed STOP / dependency handback; provenance successor remains BLOCKED  
 **Structural acceptance:** PASS — current-corpus 44-session governed-write continuity  
 **Product readiness:** NOT READY — accepted World is structurally published but native scoped reads cannot admit ordinary recap-backed objects  
 **Current forcing function:** steward-activate the blocked recap source-provenance successor; do not dispatch until it is ACTIVE  
