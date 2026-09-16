@@ -1,29 +1,31 @@
 # HANDOFF — DOGFOOD-CONTINUITY exact-edge-id continuity v1
 
 **Created:** 2026-09-15  
-**Status:** ACTIVE — one implementation capability  
+**Status:** BLOCKED — recovery queue; activate only after #725 merges, state authority is synchronized, and the steward re-anchors current `main`  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-exact-edge-id-continuity-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
 **Direction:** DESIGN → CODE → REVIEW  
-**Design authority base:** `main@68577114b3c8ec7e06bc0b0a8d382143fdc570ec`  
-**Activation gate:** `none — satisfied` (predecessor dogfood STOP on combined acceptance head is observational evidence, not a merge gate)  
-**Dispatch base rule:** fresh current `main` containing this checked-in handoff; record exact implementation branch base at dispatch/review.  
+**Original design authority base:** `main@68577114b3c8ec7e06bc0b0a8d382143fdc570ec`  
+**Recovery authority:** `HANDOFF-STEWARDSHIP-drain-dogfood-continuity-pr-queue.md`  
+**Activation gate:** `PR #725 merged + state-authority sync complete + fresh re-anchor selects #726 as the only active merge candidate`  
+**PR topology:** `serial`  
+**PR authorization:** `existing PR #726 is parked transport state while BLOCKED; once ACTIVE, rebase/update/review #726 only; do not open another implementation PR`  
 **PR title:** `DOGFOOD-CONTINUITY: confirm existing relationships by exact edge id`
 
-> Repository law: [`AGENTS.md`](../../AGENTS.md). Relationship analogue of
-> `HANDOFF-DOGFOOD-CONTINUITY-exact-id-identity-continuity-v1.md` (#725).
-> Successor to stochastic acceptance HOLD at `longmont-c1/session-6`
-> (`relationship_id_collision` on `edge:node:torbin:located_in:loc:hempholm`).
+> This slice was already implemented, reviewed twice, and exercised on a synthetic
+> combined dogfood head before the accidental PR fan-out was recognized. Preserve
+> that evidence, but do not treat the synthetic head as integration authority.
+> BLOCKED means no active §4 lease until #725 is merged and #726 is rebased onto
+> actual `main`.
 
 ## §1 Mission and merge-ready invariant
 
 **Mission:** When a candidate reuses the derived durable write
-`relationship_id` already present on the sealed parent with compatible
-admitted relationship semantics (including endpoint orientation after any
-admitted reverse mapping), identity gating confirms that relationship and does
-not emit CREATE_NEW into the occupied id. When the id is occupied
-incompatibly, the edge is rejected as `blocked_collision`.
+`relationship_id` already present on the sealed parent with compatible admitted
+relationship semantics, including endpoint orientation after any admitted reverse
+mapping, identity gating confirms that relationship and does not emit CREATE_NEW
+into the occupied id. Incompatible occupancy is rejected as `blocked_collision`.
 
 **Merge-ready invariant:**
 
@@ -43,41 +45,38 @@ never CREATE_NEW into an occupied relationship_id
 ```
 
 Continuity is keyed on the **derived durable write relationship id**
-(`edge:{resolved buddy subject}:{buddy predicate}:{resolved buddy target}`
-sealed into `value.edge_id` / DM `relationship_id`), **not** the
-extractor-local `CandidateEdge.edge_id`.
+(`edge:{resolved buddy subject}:{buddy predicate}:{resolved buddy target}` sealed
+into `value.edge_id` / DungeonMind `relationship_id`), not extractor-local
+`CandidateEdge.edge_id`.
 
-### Pre-dispatch critique
-
-| Question | Answer |
-|---|---|
-| Can one invariant govern every claimed observable path? | Yes — exact durable write relationship-id continuity only |
-| Most likely adversarial sequence | Compatible re-extract still emits CREATE_NEW → DM `relationship_id_collision`; or reverse-endpoint mapping false-collides |
-| Will §7 actually detect that failure? | Classify + identity-gate tests with Torbin/Hempholm + belongs_to reverse witness |
-| Easiest owning boundary to under-test | `classify_edge_against_parent` vs gate omit/reject |
-| Fact that forces stop/split | Fuzzy edge matching / predicate remapping / ID regeneration |
-
-## §2 Context
+## §2 Context and recovery sequencing
 
 | Field | Content |
 |---|---|
-| Parent authority | Exact object-id continuity (#725); acceptance dogfood |
-| Predecessor | Stochastic C1S6 `relationship_id_collision` after C1S1–S8 best depth |
-| Named successor | Fresh pristine current-corpus acceptance `--execute` (no resume) |
-| Explicit non-goals | Fuzzy edge matching; predicate remapping beyond admitted write mapping; ID regeneration; acceptance-run repair; graph redesign |
-| State-authority sync set after merge | Update acceptance REPORT after pristine rerun (separate) |
+| Dogfood predecessor | C1S6 `relationship_id_collision` on `edge:node:torbin:located_in:loc:hempholm`. |
+| Existing transport | PR #726, parked while this handoff is BLOCKED. |
+| Prior review | Cycle 1 HOLD on `289ae015…`; Cycle 2 code-clean/HOLD on sequencing. Preserve as historical evidence, but final merge review must target the rebased head. |
+| PR topology | `serial`. |
+| Activation gate | #725 merged + synced; steward re-anchors and activates this handoff. |
+| Action at activation | Rebase existing #726 onto exact current `main`; ensure the cumulative diff contains #726's edge slice rather than duplicating already-merged #725; review the new exact head; merge only after formal approval. |
+| Named successor | Fresh pristine 44-session structural acceptance on actual `main`; no new implementation PR unless that run STOPs and a new handoff is designed after queue closure. |
+| Explicit non-goals | Fuzzy relationship matching; ontology expansion; predicate invention; ID regeneration; acceptance-run repair; graph redesign. |
+
+Synthetic/cherry-picked combined heads are diagnostic evidence only. The recorded
+44/44 PASS from a combined head does **not** close structural acceptance for real
+`main`; the authoritative rerun happens after this queue drains.
 
 ## §3 Observable paths
 
-| Path | Current | Required | Owning boundary |
-|---|---|---|---|
-| Compatible re-extract of occupied edge | always `created_new` → write collision | omit / confirm existing | identity gate |
-| Occupied id, incompatible endpoints/predicate | would CREATE_NEW | `blocked_collision` reject | identity gate |
-| Free durable write relationship id | CREATE_NEW | still CREATE_NEW | identity gate |
-| `belongs_to` repeat after reverse publish | Buddy A→B vs stored B→A owns | confirm existing | identity gate |
-| Parent relationships on mutation context | missing / unused | populated from DM payload/projection | world_graph_writes |
+| Path | Required behavior | Owning boundary |
+|---|---|---|
+| compatible repeated direct predicate | omit CREATE_NEW / confirm existing | identity gate |
+| `belongs_to` repeated after reverse publish as `dnd5e:owns` | normalize orientation and confirm existing | identity gate |
+| occupied id, incompatible endpoint/predicate | `blocked_collision` | identity gate |
+| free durable relationship id | CREATE_NEW behavior unchanged | identity gate |
+| parent relationship facts | loaded from exact sealed parent projection/payload | mutation context / DungeonMind adapter |
 
-## §4 Write lease (exclusive while ACTIVE)
+## §4 Write lease — prospective while BLOCKED
 
 ```text
 apps/live_control_server/models/world_graph_mutation_context.py
@@ -88,23 +87,19 @@ Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-exact-edge-id-continuity-v1.md
 Docs/Reports/REPORT-DOGFOOD-CONTINUITY-exact-edge-id-continuity-v1.md
 ```
 
-**Lease serialization with #725:** both slices touch
-`apps/live_control_server/models/world_graph_mutation_context.py`. Steward
-decision: **serialize** — merge #725 (object exact durable-id continuity)
-before #726; #726 rebases onto the #725 head before merge. No concurrent
-unserialized dual-write to that file. This handoff does not transfer #725's
-object-identity invariant ownership.
+No path above is actively leased while this handoff is BLOCKED.
 
-**Out of scope:** fuzzy matching, ontology expansion, acceptance harness,
-`src/prompts/*.py`, gold fixtures, #723/#724/#725 object/admission code
-beyond the shared-file serialization above.
+**Serialization with #725:** both slices touch
+`apps/live_control_server/models/world_graph_mutation_context.py`. Recovery order
+is strict: #725 merges first; then #726 rebases onto that real `main`. No concurrent
+unserialized dual-write.
 
 ## §5–§6 Non-goals / stop signs
 
-Do not invent alternate relationship ids. Do not remap predicates onto
-different semantics beyond the existing admitted write-path mapping (including
-`reverse_endpoints`). Do not repair acceptance runs mid-flight. Do not widen
-this into a general relationship merge/graph redesign.
+Do not invent alternate relationship ids. Do not remap predicates beyond the
+existing admitted write-path mapping. Do not repair acceptance runs mid-flight.
+Do not widen into general relationship merge logic. Do not open a new repair PR
+from a newly observed STOP; return it to the steward.
 
 ## §7 Evidence
 
@@ -115,17 +110,24 @@ uv run ruff check \
   apps/live_control_server/integrations/dungeonmind/world_graph_writes.py \
   src/graph_memory/extract_identity_gate.py \
   tests/test_exact_edge_id_continuity.py
+git diff --check
+git diff --name-only <activation-dispatch-base>...HEAD
 ```
 
-## Predecessor STOP
+Prior author evidence includes the reverse-endpoint regression (`belongs_to` →
+`dnd5e:owns`) and a synthetic combined 44/44 PASS. Those are supporting evidence,
+not substitutes for final rebased review or the post-queue pristine acceptance run.
 
-`longmont-c1/session-6` / `dungeonmind_write` /
-`relationship_id_collision` /
-`edge:node:torbin:located_in:loc:hempholm`
-(parent already holds matching endpoints + `dnd5e:located_in`).
+## §8 Review handback
 
-## Review Cycle 1
+Record exact rebased base/head, formal review cycle, prior-finding disposition,
+evidence provenance, actual changed paths, and confirmation that no additional PR
+was opened.
 
-HOLD on `289ae015…` (`5217509706`): reverse-endpoint admitted predicates
-misclassified; steward handoff not yet on `main`; terminology must name the
-derived durable write relationship id.
+## §9 Acceptance rubric
+
+- [ ] Handoff was activated only after #725 merge/sync/re-anchor.
+- [ ] Existing #726 was rebased onto real current `main` and no already-merged #725 code remains as duplicate diff.
+- [ ] Direct and reverse-endpoint relationship continuity both hold.
+- [ ] No fuzzy matching/predicate invention/ID regeneration was introduced.
+- [ ] No successor/repair PR was opened from this lane.
