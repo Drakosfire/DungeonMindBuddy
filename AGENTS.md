@@ -12,6 +12,7 @@ re-anchor
 → design one slice
 → land the HANDOFF on main
 → satisfy activation gate / re-anchor
+→ declare PR topology
 → allocate an isolated implementation lane
 → dispatch
 → review cycle 1..N
@@ -37,6 +38,7 @@ The cycle does not end at a green merge. It ends when the repository state and e
 11. **Atomic state-authority sync is backward-looking maintenance.** Each implementation handoff must identify the mutable authority documents that need to be synchronized for its already-completed predecessor. Those updates travel in the implementation PR when they are truthfully knowable before that PR merges. They record completed prior work; they do not pre-mark the in-flight implementation slice complete, invent its future merge SHA/review count, or advance a successor as already done. Facts that become knowable only when the current implementation merges are normally recorded by the next dependent implementation PR's predecessor sync. If no suitable successor exists, or delaying the truth would leave repository authority materially misleading, the steward applies a direct guarded sync after re-anchoring. Cross-repository sync follows the same rule. Plan/checklist/handoff are common members, not a closed set; roadmaps, trackers, status docs, or indexes belong in the sync when they carry that state.
 12. **Documentation-only PRs are exceptional, not forbidden.** Routine handoff maintenance, roadmap/tracker/status synchronization, completion recording, and other state-authority bookkeeping do not get standalone PRs. The steward may land a new or blocked implementation handoff directly on `main` as a guarded documentation transaction when repository policy allows; that is handoff creation, not an implementation lane. Rare steward-designated **design or architecture PRs** are allowed when the design artifact itself needs explicit review before implementation. They must use the owning workstream/flow label, stay narrowly limited to the design/architecture decision and its implementation handoff, and must not become a generic `DOCUMENTS` lane. Executable process/tooling changes use normal implementation PRs with their documentation included unless the user explicitly directs a guarded `main` edit.
 13. **Stable authorities do not churn for ceremony.** Architecture, contracts, and reference docs change only when their claims changed—not merely because an implementation PR merged.
+14. **PR topology is handoff authority; the default is serial.** Every ACTIVE implementation handoff must declare whether its assigned PR is `serial`, `stacked`, or `parallel-independent`. If the field is absent or ambiguous, treat it as `serial`: one open implementation PR in that workstream, and any newly discovered successor/repair returns to the steward rather than opening another PR. “Open the assigned PR without asking” means the worker does not need separate user confirmation for the one PR already authorized by its ACTIVE handoff; it is not permission to choose or expand PR topology. A `stacked` handoff must name its exact unmerged predecessor and required merge/rebase order. `parallel-independent` requires no dependency on another unmerged result plus safe write/runtime ownership. A dogfood STOP or new defect observed on a synthetic/combined unmerged head is evidence for steward re-decomposition, not automatic authority to spawn another PR.
 
 ## Parallel lane contract
 
@@ -57,6 +59,42 @@ Before dispatching parallel work:
 - otherwise serialize the work or explicitly transfer the contested path.
 
 When a worker discovers it needs a path leased by another active lane, stop and report the path, current owner, reason it is needed, and whether the seam can be split. Do not edit first and rely on Git to arbitrate later.
+
+## PR topology and open-PR budget
+
+PR creation is an execution step inside an already designed lane. It is not a worker-level scheduling decision.
+
+The HANDOFF must name one topology:
+
+```text
+serial
+  default
+  one open implementation PR in the workstream
+  dependent/successor handoffs may exist on main as BLOCKED
+  no successor branch/PR until predecessor merge + state sync + re-anchor
+
+stacked
+  explicit exception for dependent unmerged work
+  each handoff names the exact parent PR/head/base relation
+  merge/rebase order is written before dispatch
+  a worker may open only the stacked PR explicitly assigned to its handoff
+
+parallel-independent
+  explicit exception for truly independent work
+  no unmerged behavioral dependency
+  disjoint or deliberately isolated write/runtime ownership
+  each handoff names the concurrent lanes it was checked against
+```
+
+The user may direct agents not to ask for confirmation before opening the PR named by an ACTIVE handoff. Honor that by opening **that assigned PR** without ceremony. Do not reinterpret it as authority to open a successor, repair, cleanup, or dogfood-followup PR.
+
+When a new defect appears while another PR in the same workstream is open:
+
+1. if it violates the current slice invariant and fits the current lease, fix the current PR;
+2. if it is a separate capability/repair, return it to the steward, who may land a `BLOCKED` successor handoff on `main` without dispatching it;
+3. open another PR only when the steward has deliberately changed the topology to `stacked` or `parallel-independent` and the relevant handoff records that decision.
+
+If the repository already contains an unplanned fan-out of dependent PRs, freeze new PR creation, land a stewardship recovery handoff, declare a drain order, and rebase/review/merge against real `main` one PR at a time. A synthetic combined branch may be useful diagnostic evidence, but it is not integration authority.
 
 ## Always release `main`
 
