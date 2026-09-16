@@ -25,7 +25,7 @@ model_policy_digest: 477b9f1541a675dbe1751b9e46c376208cd7a5052207c1059b6c62e981c
 genesis_d0: rev:b31956daf4790c79426381b90cc3fc69
 terminal_head: rev:cce8d24621d65a018d3e2922552f56f2
 model_calls: 44
-graph_writes: (see acceptance_report.json)
+graph_writes: 45
 stop: null
 world: dogfood-current-corpus-acceptance-v1 @ 127.0.0.1:54329 / dmb_current_corpus_acceptance_v1
 artifact: out/graph_memory/current_corpus_admission_acceptance_v1/execute-2026-09-16T020204Z-6e3b812a/
