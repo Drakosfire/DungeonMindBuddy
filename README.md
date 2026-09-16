@@ -75,6 +75,7 @@ authority. Use these documents for current design work:
 - [World Graph continuity state guide](Docs/Design/STATUS-world-graph-continuity-spine.md)
 - [Shared surface-interaction architecture](Docs/Design/ARCHITECTURE-surface-interaction-layer.md)
 - [Graph document audit](Docs/Reports/graph-document-audit.md)
+- [E5A inference and knowledge boundary baseline](Docs/Reports/REPORT-E5A-buddy-boundary-baseline.md)
 - [Design-agent source manifest](Docs/Design/INDEX-design-agent-source-set.md)
 
 The manifest is the checked-in entry point for the exact Project Sources to
