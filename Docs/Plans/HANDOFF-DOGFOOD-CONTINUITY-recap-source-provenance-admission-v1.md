@@ -10,7 +10,7 @@
 **Design authority base:** `main@f95de4c26483b5b556a8f3411e389824c837f3a4`  
 **Predecessor evidence on main:** accepted Case B report from `1a4588e7a853f811c15b213e4299866e3710281d` at `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`  
 **Activation gate:** satisfied — Case B report durable; predecessor closed STOP / dependency handback; no open implementation PR  
-**Dispatch base:** `main@cf43ec97d6648667923c543e609dd4c27a6481fc` — create the implementation branch from current `origin/main` at or after the activation commit  
+**Dispatch base:** `main@43e04ce5de34ff6df4edaafddabdb9f8e22488de` — activation commit; create the implementation branch from current `origin/main` at or after this SHA  
 **PR topology:** `serial`  
 **Authorized branch:** `dogfood-continuity/recap-source-provenance-admission-v1`  
 **Authorized PR title:** `DOGFOOD-CONTINUITY: make governed recap writes provenance-complete`  
@@ -23,6 +23,8 @@ predecessor Case B closeout:
 3fc400af0b425fb02be1a904d3e541d90ea29362
 predecessor pin / current main:
 cf43ec97d6648667923c543e609dd4c27a6481fc
+activation commit:
+43e04ce5de34ff6df4edaafddabdb9f8e22488de
 canonical Case B report:
 Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md
 accepted evidence head:
@@ -50,7 +52,7 @@ Activation is complete. The write lease in §5 is now exclusive for the one auth
 ```text
 1. satisfied — Case B report durable on main from 1a4588e7a853f811c15b213e4299866e3710281d
 2. satisfied — published-object-addressability closed as STOP / dependency handback
-3. satisfied — origin/main@cf43ec97d6648667923c543e609dd4c27a6481fc; open implementation PRs: none
+3. satisfied — origin/main@43e04ce5de34ff6df4edaafddabdb9f8e22488de; open implementation PRs: none
 4. satisfied — this activation records the dispatch base
 ```
 

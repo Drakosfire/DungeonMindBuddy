@@ -4,7 +4,7 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-16  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main@cf43ec97d6648667923c543e609dd4c27a6481fc` — parent of recap-provenance activation; pin the activation SHA after this transaction lands  
+**Re-anchor base:** `main@43e04ce5de34ff6df4edaafddabdb9f8e22488de` — recap-provenance admission ACTIVE after Case B closeout  
 **Structural acceptance:** PASS — current-corpus 44-session governed-write continuity  
 **Product readiness:** NOT READY — accepted World is structurally published but native scoped reads cannot admit ordinary recap-backed objects  
 **Current forcing function:** make governed recap writes provenance-complete so a fresh published object survives native scoped projection and retrieval  
