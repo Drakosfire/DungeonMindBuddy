@@ -4,7 +4,7 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-16  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main@982cfe04c6c976f9c9147ef48f3b7c29b4feec00` — #728 gauntlet report merged; published-object addressability ACTIVE  
+**Re-anchor base:** `main@8b1e7ca37053a84095e3f94aa8c6b70db426fd0a` — published-object addressability ACTIVE after #728  
 **Structural acceptance:** PASS — current-corpus 44-session governed-write continuity  
 **Product readiness:** NOT READY — accepted-World dogfood failed loadability/operator/Agent gates  
 **Current forcing function:** repair published-object addressability so admitted World objects round-trip through ordinary product reads  
@@ -122,7 +122,7 @@ PR #728 merged as `982cfe04c6c976f9c9147ef48f3b7c29b4feec00`. The durable report
 
 `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md` is ACTIVE.
 
-Dispatch base: `main@982cfe04c6c976f9c9147ef48f3b7c29b4feec00`.
+Dispatch base: `main@8b1e7ca37053a84095e3f94aa8c6b70db426fd0a` (activation commit; use current `origin/main` at or after that SHA).
 Authorized branch: `dogfood-continuity/published-object-addressability-v1`.
 Authorized PR title: `DOGFOOD-CONTINUITY: make published World objects round-trip through product reads`.
 

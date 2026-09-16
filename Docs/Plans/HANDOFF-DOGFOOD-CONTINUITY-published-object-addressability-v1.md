@@ -9,7 +9,7 @@
 **Direction:** DESIGN → CODE → REVIEW → TARGETED DOGFOOD  
 **Design authority base:** `main@832b6347a08fab7355cae5b97890c0543eaa6d55`  
 **Activation gate:** satisfied — #728 MERGED; `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` is durable on `main`  
-**Dispatch base:** `main@982cfe04c6c976f9c9147ef48f3b7c29b4feec00`  
+**Dispatch base:** `main@8b1e7ca37053a84095e3f94aa8c6b70db426fd0a` — activation commit; create the implementation branch from current `origin/main` at or after this SHA  
 **Implementation branch after activation:** `dogfood-continuity/published-object-addressability-v1`, created from that exact `main`  
 **PR topology:** `serial`  
 **PR authorization:** open/update exactly one implementation PR for this addressability capability; no UI/Hermes/coverage successor PRs from the same worker  
@@ -20,6 +20,8 @@
 ```text
 predecessor #728 merge SHA:
 982cfe04c6c976f9c9147ef48f3b7c29b4feec00
+activation commit:
+8b1e7ca37053a84095e3f94aa8c6b70db426fd0a
 reviewed eval head:
 ac18bfc59f9f2cfaf152116006a7923ff74353d9
 formal review cycles on #728:
@@ -54,7 +56,7 @@ none — KERNEL v0-2 lists world_graph_reads.py as not-expected; no open PRs
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Readiness doctrine: [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md). Evaluation authority: [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md).
 
-> Activation does not change the mission, invariant, write lease, or Case A/B/C stop conditions. Exact IDs below replace the pre-merge operator summary. Create the implementation branch only from `main@982cfe04…`. Do not open a second PR.
+> Activation does not change the mission, invariant, write lease, or Case A/B/C stop conditions. Exact IDs below replace the pre-merge operator summary. Create the implementation branch only from `main@8b1e7ca3…` or later `origin/main` containing this ACTIVE handoff. Do not open a second PR.
 
 ---
 
