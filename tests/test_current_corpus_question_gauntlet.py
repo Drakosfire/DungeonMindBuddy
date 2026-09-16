@@ -9,6 +9,7 @@ import pytest
 
 from evals.graph_benchmark.run_current_corpus_question_gauntlet import (
     AGENT_FORBIDDEN_KEYS,
+    AGENT_STOPPED,
     BENCHMARK_ID,
     C2S22_REVISION,
     CAMPAIGN_ID,
@@ -29,13 +30,16 @@ from evals.graph_benchmark.run_current_corpus_question_gauntlet import (
     attribute_failure,
     build_agent_live_query_request,
     build_loadability_complete_object_request,
+    build_qualitative,
     build_retrieval_search_request,
     candidate_public_view,
     classify_loadability,
     concept_matched,
+    evaluate_agent_smoke,
     evaluate_dogfood_readiness,
     extract_agent_runtime_from_trace,
     extract_candidate_node,
+    grade_agent_response,
     grade_answer,
     load_gold_questions,
     match_quotes_against_excerpts,
@@ -408,12 +412,19 @@ def test_report_status_is_not_ready_when_operator_cannot_dogfood() -> None:
             "oracle_answerable": 4,
             "agent_full": 0,
             "agent_partial": 0,
-            "agent_fail": 16,
-            "failure_counts": {k: 0 for k in "ABCDEF"} | {"D": 4},
+            "agent_fail": 0,
+            "agent_stopped": 16,
+            "agent_suite": AGENT_STOPPED,
+            "agent_skipped": True,
+            "failure_counts": {k: 0 for k in "ABCDEF"},
             "oracle_unresolved_owning_boundary": 12,
             "head_before": TERMINAL_HEAD,
             "head_after": TERMINAL_HEAD,
-            "qualitative": {},
+            "qualitative": {
+                "identity_continuity": (
+                    "Q11 oracle miss (ABC-unresolved); Agent STOPPED"
+                ),
+            },
             "dogfood": dogfood,
         },
         question_rows=[],
@@ -431,6 +442,10 @@ def test_report_status_is_not_ready_when_operator_cannot_dogfood() -> None:
     assert "A proven:          0" in report
     assert "ABC-unresolved:    12" in report
     assert "A: 12" not in report
+    assert "fail=A" not in report
+    assert "Agent FAIL:        16 / 16" not in report
+    assert "Agent suite:       STOPPED (not scored)" in report
+    assert "D: 4" not in report
     assert "Readiness ready:" not in report
     assert "Retrieval harness ready" in report
     assert "model=`gpt-5.6-luna`" in report
@@ -456,10 +471,164 @@ def test_oracle_miss_does_not_claim_graph_coverage_a() -> None:
             question=load_gold_questions()[0],
             oracle={"oracle_answerable": True},
             agent_grade="FAIL",
-            agent_body={},
+            agent_body={
+                "status": "ok",
+                "mode": "hermes_graph_agent",
+                "agent_trace": {
+                    "model_calls": [
+                        {
+                            "status": "ok",
+                            "api_mode": "chat_completions",
+                            "requested_model": "gpt-5.6-luna",
+                        }
+                    ],
+                },
+            },
         )
         == "D"
     )
+    assert (
+        attribute_failure(
+            question=load_gold_questions()[0],
+            oracle={"oracle_answerable": True},
+            agent_grade="FAIL",
+            agent_body={
+                "status": "partial",
+                "mode": "hermes_graph_agent",
+                "agent_trace": {
+                    "model_calls": [
+                        {
+                            "status": "error",
+                            "error_type": "BadRequestError",
+                            "status_code": 400,
+                        }
+                    ],
+                },
+            },
+        )
+        is None
+    )
+
+
+def test_wrapped_model_error_is_not_agent_ready() -> None:
+    smoke = evaluate_agent_smoke(
+        http_status=200,
+        body={
+            "status": "partial",
+            "mode": "hermes_graph_agent",
+            "world_graph_context": {"revision_id": FIXTURE_REVISION},
+            "agent_trace": {
+                "mode": "hermes_graph_agent",
+                "provider": "openai-api",
+                "model": "gpt-5.6-luna",
+                "context_summary": {"revision_id": FIXTURE_REVISION},
+                "model_calls": [
+                    {
+                        "api_mode": "chat_completions",
+                        "requested_model": "gpt-5.6-luna",
+                        "status": "error",
+                        "error_type": "BadRequestError",
+                        "status_code": 400,
+                    }
+                ],
+            },
+        },
+        benchmark_revision=FIXTURE_REVISION,
+    )
+    assert smoke["ok"] is False
+    assert smoke["provider_unavailable"] is True
+    assert smoke["mode_ok"] is True
+    assert smoke["revision_ok"] is True
+    assert smoke["error"]["code"] == "BadRequestError"
+
+
+def test_model_call_error_stops_agent_grade_instead_of_d() -> None:
+    question = load_gold_questions()[0]
+    grade = grade_agent_response(
+        question=question,
+        response_record={
+            "status_code": 200,
+            "body": {
+                "answer": "",
+                "status": "partial",
+                "mode": "hermes_graph_agent",
+                "agent_trace": {
+                    "context_summary": {"revision_id": FIXTURE_REVISION},
+                    "model_calls": [
+                        {
+                            "status": "error",
+                            "error_type": "BadRequestError",
+                            "status_code": 400,
+                            "api_mode": "chat_completions",
+                            "requested_model": "gpt-5.6-luna",
+                        }
+                    ],
+                },
+            },
+        },
+        oracle={"oracle_answerable": True},
+    )
+    assert grade["agent_grade"] == AGENT_STOPPED
+    assert grade["primary_failure"] is None
+    assert grade["skip_reason"] == "agent_runtime_unavailable"
+
+
+def test_qualitative_findings_do_not_claim_unproven_a() -> None:
+    notes = build_qualitative(
+        [
+            {
+                "question_id": "Q11",
+                "agent_grade": AGENT_STOPPED,
+                "primary_failure": UNRESOLVED_OWNING_BOUNDARY,
+            },
+            {
+                "question_id": "Q06",
+                "agent_grade": AGENT_STOPPED,
+                "primary_failure": UNRESOLVED_OWNING_BOUNDARY,
+            },
+            {
+                "question_id": "Q07",
+                "agent_grade": AGENT_STOPPED,
+                "primary_failure": None,
+            },
+            {
+                "question_id": "Q08",
+                "agent_grade": AGENT_STOPPED,
+                "primary_failure": UNRESOLVED_OWNING_BOUNDARY,
+            },
+            {
+                "question_id": "Q09",
+                "agent_grade": AGENT_STOPPED,
+                "primary_failure": UNRESOLVED_OWNING_BOUNDARY,
+            },
+            {
+                "question_id": "Q10",
+                "agent_grade": AGENT_STOPPED,
+                "primary_failure": UNRESOLVED_OWNING_BOUNDARY,
+            },
+            {
+                "question_id": "Q14",
+                "agent_grade": AGENT_STOPPED,
+                "primary_failure": UNRESOLVED_OWNING_BOUNDARY,
+            },
+            {
+                "question_id": "Q15",
+                "agent_grade": AGENT_STOPPED,
+                "primary_failure": UNRESOLVED_OWNING_BOUNDARY,
+            },
+            {
+                "question_id": "Q16",
+                "agent_grade": AGENT_STOPPED,
+                "primary_failure": UNRESOLVED_OWNING_BOUNDARY,
+            },
+        ]
+    )
+    blob = " ".join(notes.values())
+    assert "fail=A" not in blob
+    assert "fail=D" not in blob
+    assert "Agent STOPPED" in notes["identity_continuity"]
+    assert UNRESOLVED_OWNING_BOUNDARY in notes["identity_continuity"]
+    assert "not scored" in notes["multi_hop"]
 
 
 def test_agent_runtime_identity_records_env_override(monkeypatch: pytest.MonkeyPatch) -> None:

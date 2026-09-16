@@ -30,7 +30,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
-UNRESOLVED_OWNING_BOUNDARY = "ABC-unresolved"
 from urllib.parse import urlparse
 
 import httpx
@@ -89,6 +88,7 @@ AGENT_FORBIDDEN_KEYS = frozenset(
 )
 
 UNRESOLVED_OWNING_BOUNDARY = "ABC-unresolved"
+AGENT_STOPPED = "STOPPED"
 
 _STOPWORDS = frozenset(
     {
@@ -682,6 +682,82 @@ def extract_agent_runtime_from_trace(body: Any) -> dict[str, Any]:
     }
 
 
+def evaluate_agent_smoke(
+    *,
+    http_status: int | None,
+    body: Any,
+    benchmark_revision: str,
+) -> dict[str, Any]:
+    """Fail closed unless the Agent actually executed a usable investigation.
+
+    HTTP 200 + hermes_graph_agent + revision pin is not Agent-ready when the
+    wrapped model call errors or never runs. That is a STOP, not a D grade.
+    """
+    payload = body if isinstance(body, dict) else {}
+    runtime = extract_agent_runtime_from_trace(payload)
+    revision_ids = extract_revision_ids(payload)
+    revision_ok = benchmark_revision in revision_ids
+    wgc = payload.get("world_graph_context") or {}
+    if isinstance(wgc, dict) and wgc.get("revision_id") == benchmark_revision:
+        revision_ok = True
+    trace = (
+        payload.get("agent_trace")
+        if isinstance(payload.get("agent_trace"), dict)
+        else {}
+    )
+    context = trace.get("context_summary") if isinstance(trace, dict) else {}
+    if isinstance(context, dict) and context.get("revision_id") == benchmark_revision:
+        revision_ok = True
+    mode_ok = payload.get("mode") == "hermes_graph_agent"
+    calls = trace.get("model_calls") if isinstance(trace.get("model_calls"), list) else []
+    call_statuses = [call.get("status") for call in calls if isinstance(call, dict)]
+    has_ok_call = any(status == "ok" for status in call_statuses)
+    has_error_call = any(status == "error" for status in call_statuses)
+    provider_unavailable = bool(has_error_call and not has_ok_call)
+    product_status = payload.get("status")
+    truthful_outcome = product_status in {"ok", "abstained", "abstention"} or (
+        product_status == "partial" and has_ok_call
+    )
+    trace_present = bool(trace)
+    ok = (
+        http_status == 200
+        and mode_ok
+        and revision_ok
+        and trace_present
+        and truthful_outcome
+        and not provider_unavailable
+    )
+    error = _agent_smoke_error(payload)
+    if provider_unavailable:
+        error = {
+            "code": runtime.get("model_call_error_type") or "model_call_error",
+            "status": runtime.get("model_call_status"),
+            "detail": " ".join(
+                str(part)
+                for part in (
+                    runtime.get("model_call_status_code"),
+                    runtime.get("model_call_error_type"),
+                )
+                if part not in (None, "")
+            ),
+        }
+    return {
+        "ok": ok,
+        "status_code": http_status,
+        "mode": payload.get("mode"),
+        "mode_ok": mode_ok,
+        "status": product_status,
+        "revision_ok": revision_ok,
+        "trace_present": trace_present,
+        "truthful_outcome": truthful_outcome,
+        "provider_unavailable": provider_unavailable,
+        "has_ok_model_call": has_ok_call,
+        "has_error_model_call": has_error_call,
+        "runtime": runtime,
+        "error": error,
+    }
+
+
 def merge_observed_agent_runtime(
     configured: dict[str, Any],
     observed: dict[str, Any],
@@ -1149,11 +1225,20 @@ def attribute_failure(
     agent_grade: str,
     agent_body: dict[str, Any],
 ) -> str | None:
-    if agent_grade == "FULL":
+    if agent_grade in {"FULL", AGENT_STOPPED}:
+        if agent_grade == AGENT_STOPPED and not oracle.get("oracle_answerable"):
+            return oracle.get("primary_failure_bucket") or UNRESOLVED_OWNING_BOUNDARY
         return None
     if not oracle.get("oracle_answerable"):
         return oracle.get("primary_failure_bucket") or UNRESOLVED_OWNING_BOUNDARY
-    # Oracle succeeded → Agent-side failure.
+    smoke = evaluate_agent_smoke(
+        http_status=200,
+        body=agent_body,
+        benchmark_revision="",
+    )
+    if smoke.get("provider_unavailable") or not smoke.get("has_ok_model_call"):
+        return None
+    # Oracle succeeded → Agent-side failure after a completed model call.
     if question.qid in {"Q14", "Q16"}:
         return "E"
     tool_calls = count_tool_events(agent_body if isinstance(agent_body, dict) else {})
@@ -1169,9 +1254,26 @@ def grade_agent_response(
     oracle: dict[str, Any],
 ) -> dict[str, Any]:
     body = response_record.get("body") or {}
-    answer = ""
-    if isinstance(body, dict):
-        answer = str(body.get("answer") or "")
+    if not isinstance(body, dict):
+        body = {}
+    smoke = evaluate_agent_smoke(
+        http_status=response_record.get("status_code"),
+        body=body,
+        benchmark_revision=str(
+            ((body.get("agent_trace") or {}).get("context_summary") or {}).get(
+                "revision_id"
+            )
+            or ""
+        ),
+    )
+    if not smoke.get("ok"):
+        return _stopped_agent_grade(
+            question,
+            reason="agent_runtime_unavailable",
+            oracle=oracle,
+            agent_runtime=smoke.get("runtime") or extract_agent_runtime_from_trace(body),
+        )
+    answer = str(body.get("answer") or "")
     scored = grade_answer(
         answer_text=answer,
         must_include=question.must_include,
@@ -1181,10 +1283,10 @@ def grade_agent_response(
         question=question,
         oracle=oracle,
         agent_grade=scored["grade"],
-        agent_body=body if isinstance(body, dict) else {},
+        agent_body=body,
     )
     agent_runtime = extract_agent_runtime_from_trace(body)
-    revision_ids = extract_revision_ids(body) if isinstance(body, dict) else set()
+    revision_ids = extract_revision_ids(body)
     return {
         "question_id": question.qid,
         "agent_grade": scored["grade"],
@@ -1194,15 +1296,13 @@ def grade_agent_response(
         "match_ratio": scored["match_ratio"],
         "primary_failure": primary,
         "secondary_failures": [],
-        "tool_call_count": count_tool_events(body if isinstance(body, dict) else {}),
-        "source_anchor_count": count_source_anchors_in_agent(
-            body if isinstance(body, dict) else {}
-        ),
+        "tool_call_count": count_tool_events(body),
+        "source_anchor_count": count_source_anchors_in_agent(body),
         "revision_ids_seen": sorted(revision_ids),
         "answer_excerpt": answer[:500],
         "http_status": response_record.get("status_code"),
-        "agent_status": (body.get("status") if isinstance(body, dict) else None),
-        "agent_mode": (body.get("mode") if isinstance(body, dict) else None),
+        "agent_status": body.get("status"),
+        "agent_mode": body.get("mode"),
         "agent_runtime": agent_runtime,
     }
 
@@ -1242,9 +1342,20 @@ def run_readiness(
     harness_ready = search_status == 200 and revision_ok
     agent_status: int | None = None
     agent_body: Any = None
-    agent_revision_ok = False
-    agent_mode_ok = False
     agent_skipped = skip_agent
+    smoke: dict[str, Any] = {
+        "ok": False,
+        "skipped": agent_skipped,
+        "status_code": None,
+        "mode": None,
+        "mode_ok": False,
+        "status": None,
+        "revision_ok": False,
+        "trace_present": False,
+        "truthful_outcome": False,
+        "provider_unavailable": False,
+        "error": None,
+    }
     if not skip_agent:
         smoke_req = build_agent_live_query_request(
             question_text="Who is Torbin in Campaign 1?",
@@ -1253,18 +1364,13 @@ def run_readiness(
         agent_status, agent_body = _post_json(
             client, "/api/live/query", smoke_req, timeout=300.0
         )
-        if isinstance(agent_body, dict):
-            agent_revision_ok = benchmark_revision in extract_revision_ids(agent_body)
-            agent_mode_ok = agent_body.get("mode") == "hermes_graph_agent"
-            wgc = agent_body.get("world_graph_context") or {}
-            if isinstance(wgc, dict) and wgc.get("revision_id") == benchmark_revision:
-                agent_revision_ok = True
-    agent_ok = (
-        not skip_agent
-        and agent_status == 200
-        and agent_revision_ok
-        and agent_mode_ok
-    )
+        smoke = evaluate_agent_smoke(
+            http_status=agent_status,
+            body=agent_body,
+            benchmark_revision=benchmark_revision,
+        )
+        smoke["skipped"] = False
+    agent_ok = bool(smoke.get("ok"))
     return {
         "ready": harness_ready,
         "harness_ready": harness_ready,
@@ -1280,18 +1386,7 @@ def run_readiness(
             "status_code": search_status,
             "ok": harness_ready,
         },
-        "agent_smoke": {
-            "skipped": agent_skipped,
-            "status_code": agent_status,
-            "mode": (agent_body.get("mode") if isinstance(agent_body, dict) else None),
-            "status": (
-                agent_body.get("status") if isinstance(agent_body, dict) else None
-            ),
-            "revision_ok": agent_revision_ok,
-            "mode_ok": agent_mode_ok,
-            "ok": agent_ok,
-            "error": _agent_smoke_error(agent_body),
-        },
+        "agent_smoke": smoke,
         "benchmark_revision": benchmark_revision,
     }
 
@@ -1314,7 +1409,14 @@ def _agent_smoke_error(agent_body: Any) -> dict[str, Any] | None:
 
 def diagnostic_finding(*, oracle: dict[str, Any], grade: dict[str, Any]) -> str:
     """Short per-question diagnostic; not a truncated answer excerpt."""
-    if not oracle.get("oracle_answerable"):
+    runtime = grade.get("agent_runtime") or {}
+    model = runtime.get("model_id") or runtime.get("requested_model")
+    api_mode = runtime.get("api_mode")
+    err = runtime.get("model_call_error_type")
+    code = runtime.get("model_call_status_code")
+    stopped = grade.get("agent_grade") == AGENT_STOPPED or bool(grade.get("skip_reason"))
+    oracle_miss = not oracle.get("oracle_answerable")
+    if oracle_miss:
         observation = oracle.get("retrieval_observation") or {}
         nodes = observation.get("node_count")
         if nodes is None:
@@ -1324,30 +1426,41 @@ def diagnostic_finding(*, oracle: dict[str, Any], grade: dict[str, Any]) -> str:
             ratio = (oracle.get("coverage_vs_must_include") or {}).get("match_ratio")
         if isinstance(ratio, float):
             ratio = round(ratio, 2)
-        return (
+        miss = (
             f"oracle miss; retrieval nodes={nodes} match_ratio={ratio}; "
             f"{UNRESOLVED_OWNING_BOUNDARY}"
         )
-    runtime = grade.get("agent_runtime") or {}
-    tools = grade.get("tool_call_count", 0)
-    model = runtime.get("model_id") or runtime.get("requested_model") or "model-unrecorded"
-    api_mode = runtime.get("api_mode") or "api-unrecorded"
-    status = runtime.get("model_call_status")
-    err = runtime.get("model_call_error_type")
-    code = runtime.get("model_call_status_code")
-    if err or status == "error":
-        return (
-            f"oracle yes; tools={tools}; {model} {api_mode} "
-            f"{code} {err or status}"
+        if stopped:
+            return f"{miss}; Agent STOPPED"
+        return miss
+    if stopped:
+        runtime_note = " ".join(
+            str(part)
+            for part in (model, api_mode, code, err)
+            if part not in (None, "")
         )
+        reason = grade.get("skip_reason") or "agent_runtime_unavailable"
+        if runtime_note:
+            return f"Agent STOPPED ({reason}); {runtime_note}"
+        return f"Agent STOPPED ({reason})"
+    tools = grade.get("tool_call_count", 0)
     return f"oracle yes; tools={tools}; agent={grade.get('agent_grade')}"
 
 
-def _skipped_agent_grade(question: GoldQuestion, *, reason: str) -> dict[str, Any]:
+def _stopped_agent_grade(
+    question: GoldQuestion,
+    *,
+    reason: str,
+    oracle: dict[str, Any],
+    agent_runtime: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    primary = None
+    if not oracle.get("oracle_answerable"):
+        primary = oracle.get("primary_failure_bucket") or UNRESOLVED_OWNING_BOUNDARY
     return {
         "question_id": question.qid,
-        "agent_grade": "FAIL",
-        "primary_failure": "D",
+        "agent_grade": AGENT_STOPPED,
+        "primary_failure": primary,
         "skip_reason": reason,
         "tool_call_count": 0,
         "source_anchor_count": 0,
@@ -1360,8 +1473,9 @@ def _skipped_agent_grade(question: GoldQuestion, *, reason: str) -> dict[str, An
         "match_ratio": 0.0,
         "revision_ids_seen": [],
         "http_status": None,
-        "agent_status": "skipped",
+        "agent_status": AGENT_STOPPED,
         "agent_mode": None,
+        "agent_runtime": agent_runtime or {},
     }
 
 
@@ -1490,9 +1604,20 @@ def render_report(
     lines.append(
         f"oracle answerable: {scorecard['oracle_answerable']} / 16"
     )
-    lines.append(f"Agent FULL:        {scorecard['agent_full']} / 16")
-    lines.append(f"Agent PARTIAL:     {scorecard['agent_partial']} / 16")
-    lines.append(f"Agent FAIL:        {scorecard['agent_fail']} / 16")
+    agent_stopped = (
+        scorecard.get("agent_suite") == AGENT_STOPPED
+        or scorecard.get("agent_skipped")
+        or int(scorecard.get("agent_stopped") or 0) == 16
+    )
+    if agent_stopped:
+        lines.append("Agent suite:       STOPPED (not scored)")
+        lines.append("Agent FULL:        —")
+        lines.append("Agent PARTIAL:     —")
+        lines.append("Agent FAIL:        —")
+    else:
+        lines.append(f"Agent FULL:        {scorecard['agent_full']} / 16")
+        lines.append(f"Agent PARTIAL:     {scorecard['agent_partial']} / 16")
+        lines.append(f"Agent FAIL:        {scorecard['agent_fail']} / 16")
     lines.append(
         f"A proven:          {scorecard['failure_counts'].get('A', 0)}"
     )
@@ -1589,6 +1714,7 @@ def render_report(
         "is diagnostic only: a large gap points to Agent orchestration/synthesis; "
         "a low oracle count points to graph coverage/publication/authority. "
         "Neither structural score can override a dogfood blocker. "
+        "The Agent suite is not scored when the runtime prerequisite fails. "
         "A low oracle-answerable count is not, by itself, a proven graph-coverage "
         "failure (A); those misses remain ABC-unresolved until an owning-boundary "
         "check exists. "
@@ -1606,12 +1732,11 @@ def render_report(
         "cannot be validated against a product object the UI cannot open."
     )
     lines.append(
-        "- **Hermes did not use the graph.** Every Agent turn used "
-        "`openai-api` / `gpt-5.6-luna` / `chat_completions` and the model call "
-        "returned 400 `BadRequestError` with 0 tool calls. Q01, Q02, Q07, and "
-        "Q13 were oracle-answerable; the Agent-layer miss is D, but it is a "
-        "failed model call, not a completed investigation that chose to skip "
-        "tools. HTTP 200 / `hermes_graph_agent` smoke is not dogfood."
+        "- **Agent runtime unavailable (STOP).** Hermes `/api/live/query` returned "
+        "HTTP 200 / `hermes_graph_agent` wrapping `openai-api` / `gpt-5.6-luna` / "
+        "`chat_completions` 400 `BadRequestError` before any tool call. The Agent "
+        "suite is STOPPED and not scored. That is a provider/model prerequisite "
+        "failure, not D. HTTP 200 / `hermes_graph_agent` / `partial` is not Agent-ready."
     )
     lines.append(
         "- **Default World targeting is `eldyrwild`.** The accepted World id is "
@@ -1632,7 +1757,16 @@ def build_qualitative(question_grades: list[dict[str, Any]]) -> dict[str, str]:
 
     def note(qid: str) -> str:
         g = by_id.get(qid, {})
-        return f"{qid}={g.get('agent_grade')} (fail={g.get('primary_failure') or 'none'})"
+        grade = g.get("agent_grade")
+        primary = g.get("primary_failure")
+        if grade == AGENT_STOPPED:
+            if primary == UNRESOLVED_OWNING_BOUNDARY:
+                return f"{qid} oracle miss ({UNRESOLVED_OWNING_BOUNDARY}); Agent STOPPED"
+            if primary:
+                return f"{qid} Agent STOPPED (oracle {primary})"
+            return f"{qid} Agent STOPPED (not scored)"
+        fail = primary or "none"
+        return f"{qid}={grade} (fail={fail})"
 
     return {
         "identity_continuity": note("Q11"),
@@ -1863,8 +1997,9 @@ def evaluate_dogfood_readiness(
             {
                 "id": "hermes_agent",
                 "detail": (
-                    "Hermes Agent smoke failed. The operator cannot ask the "
-                    "accepted World a question and get a graph-backed answer."
+                    "Hermes Agent runtime was unavailable. HTTP 200 / "
+                    "hermes_graph_agent wrapping a provider/model error is not "
+                    "Agent-ready. The Agent suite STOPPED and is not scored."
                 ),
             }
         )
@@ -2536,8 +2671,9 @@ def main(argv: list[str] | None = None) -> int:
         skip_reason = (
             "operator_skip_agent"
             if args.skip_agent
-            else "hermes_agent_unusable"
+            else "agent_runtime_unavailable"
         )
+        smoke_runtime = (readiness.get("agent_smoke") or {}).get("runtime")
 
         question_rows: list[dict[str, Any]] = []
         grades: list[dict[str, Any]] = []
@@ -2563,7 +2699,12 @@ def main(argv: list[str] | None = None) -> int:
                     "body": {"answer": "", "skipped": True, "reason": skip_reason},
                 }
                 write_json(qdir / "agent-response.json", agent_response)
-                grade = _skipped_agent_grade(question, reason=skip_reason)
+                grade = _stopped_agent_grade(
+                    question,
+                    reason=skip_reason,
+                    oracle=oracle,
+                    agent_runtime=smoke_runtime if isinstance(smoke_runtime, dict) else {},
+                )
             else:
                 print(f"=== {question.qid} agent ===")
                 agent_request, agent_response = run_agent_for_question(
@@ -2642,6 +2783,9 @@ def main(argv: list[str] | None = None) -> int:
         "agent_full": sum(1 for g in grades if g["agent_grade"] == "FULL"),
         "agent_partial": sum(1 for g in grades if g["agent_grade"] == "PARTIAL"),
         "agent_fail": sum(1 for g in grades if g["agent_grade"] == "FAIL"),
+        "agent_stopped": sum(1 for g in grades if g["agent_grade"] == AGENT_STOPPED),
+        "agent_suite": AGENT_STOPPED if skip_agent else "SCORED",
+        "agent_stop_reason": skip_reason if skip_agent else None,
         "failure_counts": failure_counts,
         "oracle_unresolved_owning_boundary": unresolved_owning_boundary,
         "head_before": head_before,

@@ -21,7 +21,7 @@ If the operator cannot dogfood the accepted World, it is not ready. Structural r
 
 Blockers:
 
-- `hermes_cannot_answer` — Hermes returned 0 FULL answers (tool_calls=0). HTTP 200 / hermes_graph_agent is not dogfood if the operator cannot get a usable graph-backed answer.
+- `hermes_agent` — Hermes Agent runtime was unavailable. HTTP 200 / hermes_graph_agent wrapping a provider/model error is not Agent-ready. The Agent suite STOPPED and is not scored.
 - `ingested_object_unreadable` — Admitted C2S22 Mireward is not loadable through product reads (seed_status=product_unresolved; candidate=loc:mireward; published=['node:location:mireward']).
 
 ### Ingested-object loadability (C2S22 Mireward)
@@ -44,14 +44,15 @@ Graph Review `evidence[2]` quote-in-span cannot be validated until the published
 
 ```text
 oracle answerable: 4 / 16
-Agent FULL:        0 / 16
-Agent PARTIAL:     0 / 16
-Agent FAIL:        16 / 16
+Agent suite:       STOPPED (not scored)
+Agent FULL:        —
+Agent PARTIAL:     —
+Agent FAIL:        —
 A proven:          0
 B proven:          0
 C proven:          0
 ABC-unresolved:    12
-D: 4
+D: 0
 E: 0
 F: 0
 ```
@@ -62,57 +63,57 @@ A/B/C are only counted when the owning boundary is proven. An oracle miss from e
 
 | Q | Oracle answerable | Agent grade | Primary failure | Agent tool calls | Source anchors | Short finding |
 |---:|---|---|---|---:|---:|---|
-| 01 | yes | FAIL | D | 0 | 0 | oracle yes; tools=0; gpt-5.6-luna chat_completions 400 BadRequestError |
-| 02 | yes | FAIL | D | 0 | 0 | oracle yes; tools=0; gpt-5.6-luna chat_completions 400 BadRequestError |
-| 03 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.5; ABC-unresolved |
-| 04 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved |
-| 05 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved |
-| 06 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.14; ABC-unresolved |
-| 07 | yes | FAIL | D | 0 | 0 | oracle yes; tools=0; gpt-5.6-luna chat_completions 400 BadRequestError |
-| 08 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved |
-| 09 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.5; ABC-unresolved |
-| 10 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved |
-| 11 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.4; ABC-unresolved |
-| 12 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.75; ABC-unresolved |
-| 13 | yes | FAIL | D | 0 | 0 | oracle yes; tools=0; gpt-5.6-luna chat_completions 400 BadRequestError |
-| 14 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.75; ABC-unresolved |
-| 15 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.44; ABC-unresolved |
-| 16 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.6; ABC-unresolved |
+| 01 | yes | STOPPED | — | 0 | 0 | Agent STOPPED (agent_runtime_unavailable); gpt-5.6-luna chat_completions 400 BadRequestError |
+| 02 | yes | STOPPED | — | 0 | 0 | Agent STOPPED (agent_runtime_unavailable); gpt-5.6-luna chat_completions 400 BadRequestError |
+| 03 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.5; ABC-unresolved; Agent STOPPED |
+| 04 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved; Agent STOPPED |
+| 05 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved; Agent STOPPED |
+| 06 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.14; ABC-unresolved; Agent STOPPED |
+| 07 | yes | STOPPED | — | 0 | 0 | Agent STOPPED (agent_runtime_unavailable); gpt-5.6-luna chat_completions 400 BadRequestError |
+| 08 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved; Agent STOPPED |
+| 09 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.5; ABC-unresolved; Agent STOPPED |
+| 10 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved; Agent STOPPED |
+| 11 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.4; ABC-unresolved; Agent STOPPED |
+| 12 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.75; ABC-unresolved; Agent STOPPED |
+| 13 | yes | STOPPED | — | 0 | 0 | Agent STOPPED (agent_runtime_unavailable); gpt-5.6-luna chat_completions 400 BadRequestError |
+| 14 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.75; ABC-unresolved; Agent STOPPED |
+| 15 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.44; ABC-unresolved; Agent STOPPED |
+| 16 | no | STOPPED | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.6; ABC-unresolved; Agent STOPPED |
 
 ## Qualitative findings
 
 ### Identity continuity
 
-Q11=FAIL (fail=A)
+Q11 oracle miss (ABC-unresolved); Agent STOPPED
 
 ### Multi-hop connectivity
 
-Q06=FAIL (fail=A), Q07=FAIL (fail=D), Q08=FAIL (fail=A)
+Q06 oracle miss (ABC-unresolved); Agent STOPPED, Q07 Agent STOPPED (not scored), Q08 oracle miss (ABC-unresolved); Agent STOPPED
 
 ### Ordered path retrieval
 
-Q09=FAIL (fail=A)
+Q09 oracle miss (ABC-unresolved); Agent STOPPED
 
 ### Learned encounter facts
 
-Q10=FAIL (fail=A)
+Q10 oracle miss (ABC-unresolved); Agent STOPPED
 
 ### Source / play-vs-plan authority
 
-Q14=FAIL (fail=A), Q16=FAIL (fail=A)
+Q14 oracle miss (ABC-unresolved); Agent STOPPED, Q16 oracle miss (ABC-unresolved); Agent STOPPED
 
 ### Broad campaign-state investigation
 
-Q15=FAIL (fail=A)
+Q15 oracle miss (ABC-unresolved); Agent STOPPED
 
 ### Bounded inference / abstention quality
 
-Q16=FAIL (fail=A)
+Q16 oracle miss (ABC-unresolved); Agent STOPPED
 
 ## Safeguards
 
 - Retrieval harness ready (C1S10 pin): `True`
-- Agent smoke ok: `True`
+- Agent smoke ok: `False`
 - dogfood_ready: `False`
 - Head before: `rev:cce8d24621d65a018d3e2922552f56f2`; head after: `rev:cce8d24621d65a018d3e2922552f56f2`
 - Head unchanged: `True`
@@ -120,12 +121,12 @@ Q16=FAIL (fail=A)
 
 ## Interpretation
 
-Operator dogfood is the readiness gate. Oracle-answerable vs Agent FULL is diagnostic only: a large gap points to Agent orchestration/synthesis; a low oracle count points to graph coverage/publication/authority. Neither structural score can override a dogfood blocker. A low oracle-answerable count is not, by itself, a proven graph-coverage failure (A); those misses remain ABC-unresolved until an owning-boundary check exists. This report does not select a semantic model. Production defects discovered here are handbacks, not repairs in this lane.
+Operator dogfood is the readiness gate. Oracle-answerable vs Agent FULL is diagnostic only: a large gap points to Agent orchestration/synthesis; a low oracle count points to graph coverage/publication/authority. Neither structural score can override a dogfood blocker. The Agent suite is not scored when the runtime prerequisite fails. A low oracle-answerable count is not, by itself, a proven graph-coverage failure (A); those misses remain ABC-unresolved until an owning-boundary check exists. This report does not select a semantic model. Production defects discovered here are handbacks, not repairs in this lane.
 
 ## Handbacks (production; not repaired in this evaluation lane)
 
 - **Published objects are not product-loadable.** C2S22 Mireward exists in `graph_payload` as `node:location:mireward` but search/object/complete-object/evidence all return empty / `found: false`. Candidate IDs stay `loc:mireward`. Graph Review quote-in-span (`evidence[2]`) cannot be validated against a product object the UI cannot open.
-- **Hermes did not use the graph.** Every Agent turn used `openai-api` / `gpt-5.6-luna` / `chat_completions` and the model call returned 400 `BadRequestError` with 0 tool calls. Q01, Q02, Q07, and Q13 were oracle-answerable; the Agent-layer miss is D, but it is a failed model call, not a completed investigation that chose to skip tools. HTTP 200 / `hermes_graph_agent` smoke is not dogfood.
+- **Agent runtime unavailable (STOP).** Hermes `/api/live/query` returned HTTP 200 / `hermes_graph_agent` wrapping `openai-api` / `gpt-5.6-luna` / `chat_completions` 400 `BadRequestError` before any tool call. The Agent suite is STOPPED and not scored. That is a provider/model prerequisite failure, not D. HTTP 200 / `hermes_graph_agent` / `partial` is not Agent-ready.
 - **Default World targeting is `eldyrwild`.** The accepted World id is `dogfood-current-corpus-acceptance-v1`. Without an explicit world-id override the operator cannot open this World in the UI.
 - **World-union projection rejects empty `campaignId`.** Selecting C1+C2 has historically failed with `Projection campaign does not match requested campaign longmont-c2`. That is a product verifier defect.
 
