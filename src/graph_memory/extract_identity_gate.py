@@ -39,6 +39,8 @@ from apps.live_control_server.models.world_graph_contributions import (
 from apps.live_control_server.models.world_graph_identity_models import IdentityCandidate
 from apps.live_control_server.models.world_graph_mutation_context import (
     WorldGraphMutationContext,
+    classify_edge_against_parent,
+    durable_relationship_id,
     endpoint_available,
     mutation_context_from_world_root,
     mutation_objects_as_match_dicts,
@@ -478,6 +480,49 @@ def gate_candidate_graph_against_head(
             from_id = edge.from_node_id
             to_id = edge.to_node_id
             if from_id not in mapped or to_id not in mapped:
+                continue
+            subject_id = node_id_map[from_id]
+            target_id = node_id_map[to_id]
+            predicate = (edge.relationship_type or "related_to").strip() or "related_to"
+            relationship_id = durable_relationship_id(
+                source_object_id=subject_id,
+                buddy_predicate=predicate,
+                target_object_id=target_id,
+            )
+            edge_outcome = classify_edge_against_parent(
+                mutation_context,
+                relationship_id=relationship_id,
+                source_object_id=subject_id,
+                target_object_id=target_id,
+                buddy_predicate=predicate,
+            )
+            identity_outcome_snapshot[relationship_id] = edge_outcome
+            diagnostics.append(f"edge_identity:{relationship_id}:{edge_outcome}")
+            if edge_outcome == "resolved_existing":
+                # Confirm existing: do not emit CREATE_NEW into an occupied id.
+                diagnostics.append(f"confirm_existing_edge:{relationship_id}")
+                continue
+            if edge_outcome == "blocked_collision":
+                try:
+                    rejected.append(
+                        map_candidate_edge_to_assertion(
+                            edge,
+                            source_revision_id=revision_id,
+                            verified_source_artifact_id=artifact_id,
+                            campaign_scope=scope,
+                            source_domain=source_domain,
+                            session_id=session_id,
+                            campaign_id=campaign_id,
+                            source_uri=source_uri,
+                            acceptance_state="rejected",
+                            identity_resolution_outcome="blocked_collision",
+                            node_id_map=node_id_map,
+                        )
+                    )
+                except CandidateGraphMappingError as exc:
+                    diagnostics.append(
+                        f"edge_collision_reject_map_failed:{relationship_id}:{exc}"
+                    )
                 continue
             accepted_proposals.append(
                 map_candidate_edge_to_assertion(
