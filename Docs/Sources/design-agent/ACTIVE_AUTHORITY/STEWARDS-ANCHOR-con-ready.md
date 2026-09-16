@@ -4,26 +4,27 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-16  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main@8b1e7ca37053a84095e3f94aa8c6b70db426fd0a` — published-object addressability ACTIVE after #728  
+**Re-anchor base:** `main@7f57e22b86e8a233e2ec9618fc6d1f14ff843060` — blocked recap-provenance successor landed; predecessor Case B report still branch-only  
 **Structural acceptance:** PASS — current-corpus 44-session governed-write continuity  
-**Product readiness:** NOT READY — accepted-World dogfood failed loadability/operator/Agent gates  
-**Current forcing function:** repair published-object addressability so admitted World objects round-trip through ordinary product reads  
+**Product readiness:** NOT READY — accepted World is structurally published but native scoped reads cannot admit ordinary recap-backed objects  
+**Current forcing function:** durably close the published-object-addressability Case B STOP, then repair the governed recap source-provenance contract  
 **Completed evaluation:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md) — MERGED #728  
-**Durable report:** [`../Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md)  
-**Active implementation:** [`HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md)  
+**Durable gauntlet report:** [`../Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md)  
+**Current predecessor lane:** [`HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md) — ACTIVE, but implementation correctly STOPPED at Case B; report is not yet on `main`  
+**Blocked successor:** [`HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md) — BLOCKED until Case B evidence is durable and predecessor closes  
 **Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
 **Benchmark authority:** [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md)  
 **Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
 **Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
 
-> This is the current sequencing authority. Repository truth supersedes old chat summaries and stale `CURRENT` prose elsewhere.
+> This is the current sequencing authority. Repository truth supersedes chat summaries, branch-only reports, and stale `CURRENT` prose elsewhere.
 
 ---
 
 ## 0. Pickup rule
 
-Every fresh steward/worker must begin with this distinction:
+Every fresh steward/worker begins with:
 
 > **If the operator cannot dogfood the World through the normal product, it is not ready. Structural smoke does not override that.**
 
@@ -31,18 +32,17 @@ Read, in order:
 
 1. `Docs/Design/ACCEPTANCE-dogfood-readiness.md`;
 2. this anchor;
-3. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` for the durable NOT READY verdict;
-4. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md` for the active implementation lane.
+3. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`;
+4. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`;
+5. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md` for the designed but **BLOCKED** successor.
 
-Do not infer readiness from the structural acceptance report alone.
+The accepted Case B addressability report currently exists only on branch `dogfood-continuity/published-object-addressability-v1` at accepted head `1a4588e7a853f811c15b213e4299866e3710281d`. Until that report is durably landed on `main`, it is design evidence, not repository authority.
 
 ---
 
 ## 1. What is true
 
 ### 1.1 Structural current-corpus acceptance passed
-
-The recovery/drain completed #722–#726 and one pristine full acceptance run on real integrated `main`.
 
 Accepted structural witness:
 
@@ -55,13 +55,13 @@ Graph writes:   45
 Structural STOP:null
 ```
 
-This proves the production source → extraction → candidate integrity → Candidate Graph Admission → governed DungeonMind write → exact-head continuity chain can process the frozen current corpus.
+This proves source → extraction → candidate integrity → Candidate Graph Admission → governed DungeonMind write → exact-head continuity processed the frozen 44-session corpus.
 
-It does **not** prove product loadability, semantic usefulness, Agent usefulness, or model selection.
+It does **not** prove source provenance completeness, product loadability, semantic usefulness, Agent usefulness, or model selection.
 
-### 1.2 The first accepted-World dogfood says NOT READY
+### 1.2 Accepted-World dogfood remains NOT READY
 
-Durable gauntlet authority is `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` on `main@982cfe04…`, run `gauntlet-compliant-stop-v1`:
+Canonical gauntlet run on `main` is `gauntlet-compliant-stop-v1`:
 
 ```text
 dogfood_ready       = false
@@ -71,113 +71,154 @@ loadability         = product_unresolved
 World head unchanged= true
 ```
 
-A pre-fix `oracle answerable = 4 / 16` walk is retained in that report only as superseded historical diagnostic evidence. It is not the canonical score.
+A pre-fix `oracle answerable = 4 / 16` walk is retained only as superseded diagnostic evidence.
 
-Accepted handbacks:
+### 1.3 Addressability localized below Buddy
 
-```text
-ingested_object_unreadable
-  candidate = loc:mireward
-  published = node:location:mireward
-  loadability pin = rev:24268294e868b30034e247aa9e23087b
-  normal product search/object/complete-object/evidence cannot open it
-
-hermes_cannot_answer
-  Agent runtime unavailable: openai-api / gpt-5.6-luna / chat_completions 400
-  suite STOPPED before Q01; not scored as D
-
-operator mounting/context
-  default UI World is not the accepted dogfood World
-  C1+C2 union/campaign lens is not an ordinary clean operator path
-
-graph coverage
-  Q01–Q16 not started on the compliant run
-```
-
-Do not flatten these into one score. They belong to different ownership boundaries.
-
-### 1.3 The readiness law is now durable
-
-`Docs/Design/ACCEPTANCE-dogfood-readiness.md` defines the cumulative gate order:
+The ACTIVE published-object-addressability lane was required to classify the first owning boundary before editing Buddy reads. Its accepted branch evidence at `1a4588e7…` establishes **Case B**:
 
 ```text
-structural acceptance
-→ product loadability/addressability
-→ operator dogfoodability
-→ semantic usefulness / oracle answerability
-→ Agent usefulness
+candidate/extract C2S22:       loc:mireward
+published object:              node:location:mireward
+existence subject:             node:location:mireward
+published payload objects:     924
+native scoped projection:      0 objects
+Mireward native exact-object:  found=false / stored_provenance_invalid
+Mireward source artifact row:  missing
+World source_artifact rows:    1
+payload evidence_refs:         399
+scope_unknown exclusions:      918
+in-scope provenance rejects:   6
+Buddy read adapter mutation:   none
+accepted World head mutation:  none
 ```
 
-A lower-layer PASS cannot override a higher-layer failure.
+Boundary result:
+
+```text
+Case A — Buddy loses/remaps identity after native success
+FALSE
+
+Case B — published object exists but native DungeonMind cannot open it
+TRUE → STOP
+
+Case C — publication/admission identity split
+NOT ESTABLISHED / not required to proceed
+```
+
+The amended branch evidence records `effect.node_id_map` as absent from durable accepted-World stores; the C2S21 durable identity verdict agrees with `node:location:mireward`, while C2S22 `loc:mireward` has no sealed verdict. Do not turn that absence into a false Case C claim.
+
+### 1.4 The likely next owning contract is systemic source provenance
+
+The Case B counts make a one-object ID patch implausible: hundreds of payload objects/evidence refs coexist with effectively no usable source catalog for scoped native reads.
+
+Existing repository architecture already defines the relevant source-authority law:
+
+```text
+_build_pair_to_dm = source revision identity derivation, not admission
+publish_finalized_review = graph publication, not source insertion
+confirmable governed writes require exact SourceArtifactV2 + SourceRevision
+  prove/admit before confirmable prepare
+confirm re-proves the sealed admitted pair
+native projection fails closed on missing/mismatched provenance
+```
+
+The new blocked successor applies that already-landed contract to governed recap candidate admission rather than inventing a new source store.
 
 ---
 
 ## 2. Current sequencing
 
-### Step 1 — evaluation lane: COMPLETE
+### Step 1 — question gauntlet: COMPLETE
 
-PR #728 merged as `982cfe04c6c976f9c9147ef48f3b7c29b4feec00`. The durable report is on `main`. Verdict remains NOT READY. The eval PR did not patch production.
+PR #728 merged as `982cfe04c6c976f9c9147ef48f3b7c29b4feec00`. Canonical verdict remains NOT READY. The Agent suite did not run because its readiness smoke failed.
 
-### Step 2 — published-object addressability: CURRENT / ACTIVE
+### Step 2 — published-object addressability: STOP EVIDENCE ACCEPTED, DURABILITY PENDING
 
-`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md` is ACTIVE.
+Handoff remains ACTIVE until repository authority is closed truthfully:
 
-Dispatch base: `main@8b1e7ca37053a84095e3f94aa8c6b70db426fd0a` (activation commit; use current `origin/main` at or after that SHA).
-Authorized branch: `dogfood-continuity/published-object-addressability-v1`.
-Authorized PR title: `DOGFOOD-CONTINUITY: make published World objects round-trip through product reads`.
+`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`
 
-That slice owns only this invariant:
-
-> A durable object identity exposed by accepted publication/projection/search must round-trip through ordinary product object/complete-object/neighborhood/evidence reads at the same World/campaign/revision.
-
-The first real witness is Mireward (`loc:mireward` → `node:location:mireward`, product_unresolved).
-
-### Step 3 — classify the owning boundary before fixing
-
-The addressability handoff requires a three-way decision:
+Branch-only accepted report:
 
 ```text
-A. DungeonMind native reads round-trip, Buddy adapter does not
-   → Buddy read-side repair proceeds
-
-B. DungeonMind native retrieval cannot open its own published ID
-   → STOP; dependency handback; no Buddy alias shim
-
-C. publication/admission itself wrote inconsistent IDs
-   → STOP; write-side successor design; do not widen read repair
+branch: dogfood-continuity/published-object-addressability-v1
+head:   1a4588e7a853f811c15b213e4299866e3710281d
+result: Case B TRUE → STOP
+repair: no Buddy read-adapter change
 ```
 
-### Step 4 — only after addressability
+Next steward operation for this predecessor is to land the report durably and close/sync the handoff as a dependency handback. Do not open a Buddy addressability implementation PR merely to satisfy the old PR title.
 
-Do not pre-dispatch these. They remain sequencing candidates:
+### Step 3 — recap source provenance admission: DESIGNED / BLOCKED
+
+Canonical successor handoff:
+
+`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`
+
+It is BLOCKED until Step 2 is durable and closed.
+
+Its single merge-ready invariant is:
+
+> A governed recap candidate may become confirmable and publish only when every accepted assertion's exact source artifact/revision pair is admitted and snapshot-provable in DungeonMind, and its published evidence is compatible with that admitted source; the fresh published object must then survive native scoped projection and native retrieval at the same revision.
+
+It must localize before editing:
 
 ```text
-operator World/campaign mounting
-→ rerun the same fixed question gauntlet
-→ use remaining A/B/C/E failures for graph/retrieval work
-→ use oracle-answerable D/F failures for Agent work
+P1 source pair never admitted
+P2 source pair admitted but evidence provenance incompatible
+P3 both P1 + P2 are required by one provenance-complete invariant
+P4 correct Buddy provenance still rejected by DungeonMind → STOP dependency handback
+P5 only historical compatibility/backfill can repair old immutable World → STOP/split
 ```
 
-Hermes tuning is not the next action while the product cannot reliably open what publication says exists.
+Likely seams to prove, not assume:
+
+```text
+candidate_graph_admission confirmability
+→ mounted WorldGraphSourceAdmissionAuthority
+→ source pair snapshot proof
+→ confirm-time re-proof
+→ source-extraction EvidenceRef mapping
+→ finalize/publish
+→ native scoped projection/retrieval
+```
+
+### Step 4 — after provenance repair merge
+
+The old accepted World is an immutable defect witness. The provenance PR must not rewrite it.
+
+After merge + state sync + re-anchor, steward chooses exactly one separate acceptance action:
+
+```text
+A. replay durable frozen candidate/source artifacts into a pristine new World without model regeneration, if sufficient;
+B. pristine current-corpus acceptance rerun through corrected production path;
+C. separately designed historical provenance compatibility/backfill, only if preserving the exact old World is required.
+```
+
+Only after a normal product-loadable World exists should sequencing return to operator mounting → question gauntlet → graph/retrieval semantic failures → Agent usefulness.
 
 ---
 
 ## 3. PR topology and lane law
 
-Current open implementation PRs observed at this re-anchor: `none`.
+Current open implementation PRs observed at the provenance-design re-anchor: `none`.
 
-Topology remains serial:
+Topology is serial:
 
 ```text
-question-gauntlet eval PR #728 MERGED
-  → published-object-addressability PR (authorized, not yet opened)
-  → merge + targeted dogfood + sync + re-anchor
-  → choose exactly one next slice from observed evidence
+#728 gauntlet MERGED
+  → published-object-addressability Case B report durability + predecessor closure
+  → state sync + re-anchor
+  → activate recap-source-provenance-admission handoff
+  → exactly one provenance implementation PR
+  → merge + state sync + re-anchor
+  → exactly one separately designed acceptance/replay action
 ```
 
-Do not open UI/Hermes/coverage PRs from an addressability finding.
+The blocked provenance handoff does not lease paths and does not authorize a branch or PR.
 
-A new defect is evidence for the steward, not permission for worker fan-out.
+Do not open UI, Hermes, graph-coverage, Buddy addressability, accepted-world rebuild, or provenance-backfill work in parallel from this sequence.
 
 ---
 
@@ -187,27 +228,21 @@ Use scoped labels:
 
 ```text
 STRUCTURAL CURRENT-CORPUS ACCEPTANCE = PASS
+GOVERNED RECAP SOURCE PROVENANCE = NOT ESTABLISHED for fresh writes
 PRODUCT LOADABILITY = NOT_READY
 OPERATOR DOGFOOD = NOT_READY
-SEMANTIC COVERAGE = not started (STOP before Q01); historical 4/16 is not canonical
+SEMANTIC COVERAGE = not started (STOP before Q01)
 AGENT ANSWERABILITY = STOPPED (not scored)
 SEMANTIC MODEL SELECTION = HOLD
 ```
 
-The accepted World is real and structurally coherent enough to have a revision lineage. It is not yet a World the product can honestly call ready.
-
-Presence in any of these is insufficient by itself:
+A future provenance PR PASS may establish only:
 
 ```text
-candidate graph
-admission package
-published payload
-PostgreSQL row
-raw DungeonMind projection dump
-Graph Review evidence list
+GOVERNED RECAP SOURCE PROVENANCE CONTRACT = PASS for fresh writes
 ```
 
-For readiness, the ordinary product must be able to open and use the resulting object.
+It does not retroactively make the historical accepted World readable or ready.
 
 ---
 
@@ -215,32 +250,32 @@ For readiness, the ordinary product must be able to open and use the resulting o
 
 Do not:
 
-- rerun the 44-session paid extraction merely to repair a read identity issue;
-- query PostgreSQL directly and call that dogfood;
-- add evaluator-only or UI-only ID translations to hide a publication/read mismatch;
-- use repository Markdown fallback to rescue graph coverage;
-- tune Hermes before the graph path it must use is loadable;
-- change benchmark questions/gold to fit current output;
-- treat HTTP 200 + abstention + zero tools as successful Agent dogfood;
-- call the World ready because structural acceptance passed;
+- patch `loc:`/`node:` aliases in Buddy to hide a native provenance failure;
+- mutate or republish an immutable accepted revision inside the provenance repair;
+- insert source rows with direct SQL as the production mechanism;
+- create a second source-artifact catalog;
+- weaken DungeonMind provenance validation or add a generic “trust the artifact” waiver;
+- globally relabel generic missing evidence as recap;
+- rerun paid extraction merely to debug source persistence;
+- tune Hermes before product loadability is restored;
+- change benchmark gold/questions;
+- treat raw payload presence or a PostgreSQL row as product dogfood;
 - open a second repair/successor PR from the same lane.
 
 ---
 
-## 6. Current finish line
+## 6. Immediate finish line
 
-The immediate finish line is **not** semantic model selection and not an Agent score.
-
-It is:
+The immediate finish line is not the old accepted World magically becoming healthy. It is a fresh governed recap write whose provenance contract is complete:
 
 ```text
-accepted publication says object X exists
-→ normal product can find X
-→ open X
-→ inspect complete X
-→ traverse X
-→ inspect X evidence/source
-→ same exact revision/authority throughout
+verified recap bytes
+→ exact source artifact + revision admitted in DungeonMind
+→ confirmable candidate seals that admitted identity
+→ confirm re-proves it
+→ published evidence matches recap source provenance
+→ native scoped projection admits the object
+→ native search/object/neighborhood/evidence can open it
 ```
 
-Until that is true for the real accepted-world witness, CON-READY remains `NOT READY` at the World-memory dogfood boundary.
+Then, and only then, run a separately authorized pristine acceptance/replay step to establish product loadability for campaign memory.
