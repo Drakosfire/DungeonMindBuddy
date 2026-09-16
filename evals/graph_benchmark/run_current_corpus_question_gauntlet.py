@@ -89,6 +89,17 @@ AGENT_FORBIDDEN_KEYS = frozenset(
 
 UNRESOLVED_OWNING_BOUNDARY = "ABC-unresolved"
 AGENT_STOPPED = "STOPPED"
+HISTORICAL_PRE_FIX_ORACLE = {
+    "run_id": "gauntlet-dogfood-not-ready",
+    "runtime_git_sha": "ff79374fffad38f07c4ce1807e3037015d74f451",
+    "status": "superseded",
+    "oracle_answerable": 4,
+    "question_count": 16,
+    "note": (
+        "Pre-fix capture that began Q01–Q16 after Agent smoke failed. "
+        "Not the canonical score of a handoff-compliant run."
+    ),
+}
 
 _STOPWORDS = frozenset(
     {
@@ -1650,74 +1661,97 @@ def render_report(
         lines.append(f"Agent FULL:        {scorecard['agent_full']} / 16")
         lines.append(f"Agent PARTIAL:     {scorecard['agent_partial']} / 16")
         lines.append(f"Agent FAIL:        {scorecard['agent_fail']} / 16")
-    lines.append(
-        f"A proven:          {scorecard['failure_counts'].get('A', 0)}"
-    )
-    lines.append(
-        f"B proven:          {scorecard['failure_counts'].get('B', 0)}"
-    )
-    lines.append(
-        f"C proven:          {scorecard['failure_counts'].get('C', 0)}"
-    )
-    lines.append(
-        "ABC-unresolved:    "
-        f"{scorecard.get('oracle_unresolved_owning_boundary', 0)}"
-    )
-    for bucket in ("D", "E", "F"):
+    if questions_started is False:
+        lines.append("A/B/C proven:      not started")
+        lines.append("ABC-unresolved:    not started")
+        lines.append("D/E/F:             not started")
+    else:
         lines.append(
-            f"{bucket}: {scorecard['failure_counts'].get(bucket, 0)}"
+            f"A proven:          {scorecard['failure_counts'].get('A', 0)}"
         )
+        lines.append(
+            f"B proven:          {scorecard['failure_counts'].get('B', 0)}"
+        )
+        lines.append(
+            f"C proven:          {scorecard['failure_counts'].get('C', 0)}"
+        )
+        lines.append(
+            "ABC-unresolved:    "
+            f"{scorecard.get('oracle_unresolved_owning_boundary', 0)}"
+        )
+        for bucket in ("D", "E", "F"):
+            lines.append(
+                f"{bucket}: {scorecard['failure_counts'].get(bucket, 0)}"
+            )
     lines.append("```")
     lines.append("")
-    lines.append(
-        "A/B/C are only counted when the owning boundary is proven. "
-        "An oracle miss from empty or partial retrieval is `ABC-unresolved`, "
-        "not a graph-coverage claim."
-    )
-    lines.append("")
-    lines.append("## Per-question results")
-    lines.append("")
-    lines.append(
-        "| Q | Oracle answerable | Agent grade | Primary failure | Agent tool calls | Source anchors | Short finding |"
-    )
-    lines.append("|---:|---|---|---|---:|---:|---|")
-    for row in question_rows:
+    if questions_started is False:
         lines.append(
-            f"| {row['qid']} | {row['oracle_answerable']} | {row['agent_grade']} | "
-            f"{row['primary_failure'] or '—'} | {row['tool_calls']} | "
-            f"{row['source_anchors']} | {row['finding']} |"
+            "Q01–Q16 were not started. Agent backend/provider unavailable → STOP."
         )
-    lines.append("")
-    lines.append("## Qualitative findings")
-    lines.append("")
-    lines.append("### Identity continuity")
-    lines.append("")
-    lines.append(scorecard.get("qualitative", {}).get("identity_continuity", "_pending_"))
-    lines.append("")
-    lines.append("### Multi-hop connectivity")
-    lines.append("")
-    lines.append(scorecard.get("qualitative", {}).get("multi_hop", "_pending_"))
-    lines.append("")
-    lines.append("### Ordered path retrieval")
-    lines.append("")
-    lines.append(scorecard.get("qualitative", {}).get("ordered_path", "_pending_"))
-    lines.append("")
-    lines.append("### Learned encounter facts")
-    lines.append("")
-    lines.append(scorecard.get("qualitative", {}).get("learned_encounter", "_pending_"))
-    lines.append("")
-    lines.append("### Source / play-vs-plan authority")
-    lines.append("")
-    lines.append(scorecard.get("qualitative", {}).get("authority", "_pending_"))
-    lines.append("")
-    lines.append("### Broad campaign-state investigation")
-    lines.append("")
-    lines.append(scorecard.get("qualitative", {}).get("campaign_state", "_pending_"))
-    lines.append("")
-    lines.append("### Bounded inference / abstention quality")
-    lines.append("")
-    lines.append(scorecard.get("qualitative", {}).get("bounded_inference", "_pending_"))
-    lines.append("")
+        lines.append("")
+        historical = scorecard.get("historical_oracle") or HISTORICAL_PRE_FIX_ORACLE
+        lines.append("## Historical diagnostic (superseded; not the canonical score)")
+        lines.append("")
+        lines.append(
+            f"Pre-fix run `{historical.get('run_id')}` at "
+            f"`{historical.get('runtime_git_sha')}` walked Q01–Q16 after Agent "
+            "smoke failed and observed "
+            f"oracle answerable {historical.get('oracle_answerable')} / "
+            f"{historical.get('question_count')}. That walk violated handoff §5. "
+            f"{historical.get('note')} It is diagnostic evidence only."
+        )
+        lines.append("")
+    else:
+        lines.append(
+            "A/B/C are only counted when the owning boundary is proven. "
+            "An oracle miss from empty or partial retrieval is `ABC-unresolved`, "
+            "not a graph-coverage claim."
+        )
+        lines.append("")
+        lines.append("## Per-question results")
+        lines.append("")
+        lines.append(
+            "| Q | Oracle answerable | Agent grade | Primary failure | Agent tool calls | Source anchors | Short finding |"
+        )
+        lines.append("|---:|---|---|---|---:|---:|---|")
+        for row in question_rows:
+            lines.append(
+                f"| {row['qid']} | {row['oracle_answerable']} | {row['agent_grade']} | "
+                f"{row['primary_failure'] or '—'} | {row['tool_calls']} | "
+                f"{row['source_anchors']} | {row['finding']} |"
+            )
+        lines.append("")
+        lines.append("## Qualitative findings")
+        lines.append("")
+        lines.append("### Identity continuity")
+        lines.append("")
+        lines.append(scorecard.get("qualitative", {}).get("identity_continuity", "_pending_"))
+        lines.append("")
+        lines.append("### Multi-hop connectivity")
+        lines.append("")
+        lines.append(scorecard.get("qualitative", {}).get("multi_hop", "_pending_"))
+        lines.append("")
+        lines.append("### Ordered path retrieval")
+        lines.append("")
+        lines.append(scorecard.get("qualitative", {}).get("ordered_path", "_pending_"))
+        lines.append("")
+        lines.append("### Learned encounter facts")
+        lines.append("")
+        lines.append(scorecard.get("qualitative", {}).get("learned_encounter", "_pending_"))
+        lines.append("")
+        lines.append("### Source / play-vs-plan authority")
+        lines.append("")
+        lines.append(scorecard.get("qualitative", {}).get("authority", "_pending_"))
+        lines.append("")
+        lines.append("### Broad campaign-state investigation")
+        lines.append("")
+        lines.append(scorecard.get("qualitative", {}).get("campaign_state", "_pending_"))
+        lines.append("")
+        lines.append("### Bounded inference / abstention quality")
+        lines.append("")
+        lines.append(scorecard.get("qualitative", {}).get("bounded_inference", "_pending_"))
+        lines.append("")
     lines.append("## Safeguards")
     lines.append("")
     lines.append(
@@ -1747,16 +1781,11 @@ def render_report(
     lines.append("## Interpretation")
     lines.append("")
     lines.append(
-        "Operator dogfood is the readiness gate. Oracle-answerable vs Agent FULL "
-        "is diagnostic only: a large gap points to Agent orchestration/synthesis; "
-        "a low oracle count points to graph coverage/publication/authority. "
-        "Neither structural score can override a dogfood blocker. "
-        "The Agent suite is not scored when the runtime prerequisite fails. "
-        "A failed Agent readiness gate STOPs before Q01; the runner does not "
-        "walk oracle questions after that STOP. "
-        "A low oracle-answerable count is not, by itself, a proven graph-coverage "
-        "failure (A); those misses remain ABC-unresolved until an owning-boundary "
-        "check exists. "
+        "Operator dogfood is the readiness gate. This compliant run STOPs before "
+        "Q01 when Agent readiness fails, so oracle-answerable is not a current "
+        "score. A pre-fix 4/16 oracle walk exists only as superseded diagnostic "
+        "evidence. Neither that historical walk nor a structural retrieval PASS "
+        "can override a dogfood blocker. "
         "This report does not select a semantic model. "
         "Production defects discovered here are handbacks, not repairs in this lane."
     )
@@ -2717,6 +2746,16 @@ def main(argv: list[str] | None = None) -> int:
         grades: list[dict[str, Any]] = []
         if stop_reason:
             print(f"STOP before Q01: {stop_reason}")
+            smoke = readiness.get("agent_smoke") or {}
+            runtime = smoke.get("runtime")
+            if isinstance(runtime, dict) and (
+                runtime.get("model_id") or runtime.get("provider")
+            ):
+                authority["agent_runtime"] = merge_observed_agent_runtime(
+                    authority.get("agent_runtime") or {},
+                    runtime,
+                )
+                write_json(run_dir / "AUTHORITY.json", authority)
         else:
             for question in questions:
                 qdir = run_dir / question.qid
@@ -2817,7 +2856,14 @@ def main(argv: list[str] | None = None) -> int:
         "head_after": head_after,
         "head_unchanged": head_before == head_after == TERMINAL_HEAD,
         "question_count": len(grades),
-        "qualitative": build_qualitative(grades),
+        "qualitative": (
+            {}
+            if not questions_started
+            else build_qualitative(grades)
+        ),
+        "historical_oracle": (
+            HISTORICAL_PRE_FIX_ORACLE if not questions_started else None
+        ),
         "semantic_model_selection": "HOLD",
         "dogfood": dogfood,
         "agent_skipped": skip_agent,
@@ -2841,7 +2887,9 @@ def main(argv: list[str] | None = None) -> int:
 
     print(json.dumps({
         "dogfood_ready": dogfood["dogfood_ready"],
-        "oracle_answerable": scorecard["oracle_answerable"],
+        "questions_started": scorecard.get("questions_started"),
+        "agent_suite": scorecard.get("agent_suite"),
+        "agent_stop_reason": scorecard.get("agent_stop_reason"),
         "agent_full": scorecard["agent_full"],
         "agent_partial": scorecard["agent_partial"],
         "agent_fail": scorecard["agent_fail"],

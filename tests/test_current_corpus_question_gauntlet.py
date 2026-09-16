@@ -410,22 +410,27 @@ def test_report_status_is_not_ready_when_operator_cannot_dogfood() -> None:
         },
         readiness={"ready": True, "harness_ready": True},
         scorecard={
-            "oracle_answerable": 4,
+            "oracle_answerable": 0,
             "agent_full": 0,
             "agent_partial": 0,
             "agent_fail": 0,
-            "agent_stopped": 16,
+            "agent_stopped": 0,
             "agent_suite": AGENT_STOPPED,
             "agent_skipped": True,
+            "questions_started": False,
             "failure_counts": {k: 0 for k in "ABCDEF"},
-            "oracle_unresolved_owning_boundary": 12,
+            "oracle_unresolved_owning_boundary": 0,
             "head_before": TERMINAL_HEAD,
             "head_after": TERMINAL_HEAD,
-            "qualitative": {
-                "identity_continuity": (
-                    "Q11 oracle miss (ABC-unresolved); Agent STOPPED"
-                ),
+            "historical_oracle": {
+                "run_id": "gauntlet-dogfood-not-ready",
+                "runtime_git_sha": "ff79374fffad38f07c4ce1807e3037015d74f451",
+                "status": "superseded",
+                "oracle_answerable": 4,
+                "question_count": 16,
+                "note": "Pre-fix capture. Not the canonical score.",
             },
+            "qualitative": {},
             "dogfood": dogfood,
         },
         question_rows=[],
@@ -434,14 +439,16 @@ def test_report_status_is_not_ready_when_operator_cannot_dogfood() -> None:
         dogfood=dogfood,
     )
     assert "**Status:** NOT READY — operator cannot dogfood this World" in report
-    assert "oracle answerable: 4 / 16" in report
+    assert "oracle answerable: not started (STOP before Q01)" in report
+    canonical = report.split("## Historical diagnostic", 1)[0]
+    assert "oracle answerable: 4 / 16" not in canonical
     assert "If the operator cannot dogfood" in report
     status_line = report.split("**Status:**", 1)[1].split("\n", 1)[0]
     assert "COMPLETE" not in status_line
     assert "seed_status:     product_unresolved" in report
     assert "## Handbacks" in report
-    assert "A proven:          0" in report
-    assert "ABC-unresolved:    12" in report
+    assert "A proven:          0" not in report
+    assert "ABC-unresolved:    12" not in report
     assert "A: 12" not in report
     assert "fail=A" not in report
     assert "Agent FAIL:        16 / 16" not in report
@@ -449,8 +456,12 @@ def test_report_status_is_not_ready_when_operator_cannot_dogfood() -> None:
     assert "D: 4" not in report
     assert "Readiness ready:" not in report
     assert "Retrieval harness ready" in report
-    assert "walk oracle questions after that STOP" in report
-    assert "Q01–Q16 started:" in report
+    assert "Q01–Q16 started: `False`" in report
+    assert "## Historical diagnostic (superseded; not the canonical score)" in report
+    assert "oracle answerable 4 / 16" in report.split("## Historical diagnostic", 1)[1]
+    assert "| 01 |" not in report
+    assert "model=`gpt-5.6-luna`" in report
+    assert "api_mode=`chat_completions`" in report
 
 
 def test_oracle_miss_does_not_claim_graph_coverage_a() -> None:
