@@ -6,6 +6,7 @@ pr_body_template: |
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: {{TODO: checked-in path}}
   - Branch / PR: {{TODO: optional transport metadata; none while BLOCKED}}
+  - PR topology: {{TODO: serial | stacked | parallel-independent}}
 
   ## Verification pointer
   - Design authority / head: {{TODO}}
@@ -27,11 +28,15 @@ pr_body_template: |
 **Design authority base:** `{{TODO: exact main SHA/revision used to design this handoff}}`  
 **Activation gate:** {{TODO: `none — satisfied` or exact predecessor/review/merge/operator condition}}  
 **Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review rather than trying to self-reference it inside this main commit.  
+**PR topology:** `{{TODO: serial (default) | stacked | parallel-independent}}`  
+**PR authorization:** `{{TODO: exactly which implementation PR this worker may open/update without asking; normally “open/update this one assigned PR only; no successor/repair PRs”}}`  
 **PR title:** `{{TODO: FLOW: short capability}}`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
 > Handoff lifecycle: the designing steward lands this file on `main`. `BLOCKED` means durable design authority only—no implementation lane and no active §4 lease. The steward changes `BLOCKED → ACTIVE` only after re-anchoring and verifying the activation gate. The implementation worker consumes the already-checked-in ACTIVE handoff and does not create or activate its own authority document.
+
+> PR authorization rule: once this handoff is ACTIVE, the worker should open the **one assigned implementation PR** without asking the user for another confirmation. That convenience does not let the worker choose PR topology or open successor/repair/cleanup PRs. Unless this handoff explicitly says `stacked` or `parallel-independent` and names the relationship, a newly discovered next defect is a stop/handback to the steward.
 
 ## §1 Mission and merge-ready invariant
 
@@ -47,9 +52,10 @@ pr_body_template: |
 | Most likely adversarial sequence | `<ordered sequence>` |
 | Will §7 actually detect that failure? | `<why>` |
 | Easiest owning boundary to under-test | `<boundary>` |
+| What PR topology is authorized, and why is it safe? | `<serial by default; or exact stacked/parallel rationale>` |
 | Fact that forces stop/split | `<stop condition>` |
 
-## §2 Context, authority, and lane
+## §2 Context, authority, lane, and PR topology
 
 | Field | Required content |
 |---|---|
@@ -62,12 +68,38 @@ pr_body_template: |
 | Named successor | `<capability intentionally deferred>` |
 | What remains false | `<specific behavior not delivered>` |
 | Explicit non-goals | `<bounded exclusions>` |
+| PR topology | `<serial (default) / stacked / parallel-independent>` |
+| Authorized PR action | `<open/update exactly this assigned PR without asking; no additional PRs unless explicitly authorized here>` |
+| Open implementation PRs in workstream at dispatch | `<none / exact PR list>` |
+| Stack parent + merge/rebase order | `<not applicable, or exact parent PR/head and required order>` |
 | Branch / isolated checkout | `<none while BLOCKED; exact branch + worktree/equivalent after ACTIVE>` |
 | Parallel lanes / collision hotspots | `<active lanes or none; BLOCKED handoffs are not lease owners>` |
 | Runtime/state ownership | `<isolated root / namespace / shared serialized resource / not applicable>` |
 | State-authority sync set after merge | `<PLAN/CHECKLIST/HANDOFF/ROADMAP/tracker/status/index paths as applicable, or handoff-only>` |
 
-Read the exact predecessor/implementation seam/tests required by this slice before changing code. If design authority, activation gate, predecessor shape, lane ownership, or invariant differs materially, stop and report the consequence.
+Read the exact predecessor/implementation seam/tests required by this slice before changing code. If design authority, activation gate, predecessor shape, PR topology, lane ownership, or invariant differs materially, stop and report the consequence.
+
+### PR topology semantics
+
+Use exactly one:
+
+```text
+serial
+  default
+  this worker owns one PR
+  no dependent/successor PR opens until predecessor merge + sync + re-anchor
+
+stacked
+  only when this handoff names an exact unmerged parent PR/head
+  this worker owns one child PR in that declared stack
+  merge/rebase order is part of the handoff contract
+
+parallel-independent
+  only when this handoff proves no unmerged behavioral dependency
+  write/runtime/state ownership is disjoint or deliberately isolated
+```
+
+A user instruction such as “don’t ask before opening the PR” means: open the PR explicitly assigned above without ceremony once ACTIVE. It does **not** mean “open whatever additional PR seems useful.”
 
 ## §3 Observable paths and adversarial sequences
 
@@ -109,6 +141,8 @@ Once ACTIVE, a required path outside this lease/exception is a stop report. If a
 | Path | Why this slice must not touch or claim it |
 |---|---|
 | `{{TODO: path/glob}}` | `{{TODO: successor ownership / parallel lease / separate invariant}}` |
+
+Also out of scope unless §2 explicitly authorizes otherwise: opening a second implementation PR, spawning a repair PR from dogfood, or creating a successor lane while this PR/predecessor is still open.
 
 ## §6 Implementation contract
 
@@ -214,19 +248,21 @@ Record:
 
 1. `Review Cycle <N>` and exact PR/branch/head SHA;
 2. exact implementation branch base used at dispatch;
-3. §1 mission/invariant disposition;
-4. §7 required vs produced evidence + provenance;
-5. nano-commit/fix story;
-6. base/head and actual changed paths vs §4;
-7. baseline failures/waivers;
-8. paths outside §4 (`none` or stop report);
-9. stop conditions and resolution;
-10. named successor still false;
-11. prior finding ledger on re-review.
+3. declared PR topology, open PRs at dispatch, and whether topology remained truthful;
+4. §1 mission/invariant disposition;
+5. §7 required vs produced evidence + provenance;
+6. nano-commit/fix story;
+7. base/head and actual changed paths vs §4;
+8. baseline failures/waivers;
+9. paths outside §4 (`none` or stop report);
+10. stop conditions and resolution;
+11. named successor still false;
+12. prior finding ledger on re-review.
 
 ## §9 Acceptance rubric
 
 - [ ] This handoff was checked in by the steward before implementation dispatch and was ACTIVE at dispatch.
+- [ ] PR topology was explicit and honored; the worker opened/updated only the PR(s) this handoff actually authorized.
 - [ ] Exactly one independently useful capability from §1 is delivered and proved by §7.
 - [ ] The §1 invariant holds across every claimed §3 path/adversarial sequence.
 - [ ] Exact implementation base, PR/head, evidence provenance, and review-cycle number are recorded.
@@ -242,6 +278,8 @@ Record:
 Stop and report instead of expanding when any of these appears:
 
 - this handoff is still BLOCKED or its activation gate is not truthfully satisfied;
+- observed open-PR shape differs from the declared PR topology;
+- a newly discovered successor/repair would require opening another PR not explicitly authorized by §2;
 - second independently useful outcome or public/durable contract;
 - invariant cannot govern every claimed path;
 - owning-boundary evidence cannot be produced;
@@ -258,6 +296,7 @@ Report:
 ```text
 Stop condition:
 Invariant clause affected:
+PR topology consequence:
 Why current mission cannot absorb it:
 Required evidence now missing:
 Affected paths/ownership layers:
