@@ -1,280 +1,257 @@
 # STEWARD'S ANCHOR — CON-READY
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
-**Line of work:** `CON-READY`  
-**Updated:** 2026-08-31
+**Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
+**Updated:** 2026-09-15  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main` `ae01ef630e170e9b2a2de6daaa93373f88dc3a91`
-**Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)  
-**Primary Play architecture:** [`../Design/ARCHITECTURE-playable-material-and-runtime.md`](../Design/ARCHITECTURE-playable-material-and-runtime.md)  
-**Primary cockpit contract:** [`../Design/DESIGN-play-current-moment-cockpit.md`](../Design/DESIGN-play-current-moment-cockpit.md)  
-**Approved target:** [`../Design/DESIGN-play-surface-gm-cockpit-target.md`](../Design/DESIGN-play-surface-gm-cockpit-target.md)
+**Re-anchor base:** `main@270e9c5892f4164146d1231d454e2f437c2b59a5` — dogfood-readiness doctrine + benchmark gate + blocked published-object successor landed  
+**Structural acceptance:** PASS — current-corpus 44-session governed-write continuity  
+**Product readiness:** NOT READY — accepted-World dogfood failed loadability/operator/Agent gates  
+**Current forcing function:** close the current question-gauntlet evaluation lane durably, then repair the earliest failed product boundary: published-object addressability  
+**Current evaluation authority:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md)  
+**Blocked successor:** [`HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md)  
+**Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
+**Benchmark authority:** [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md)  
+**Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
+**Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)  
+**Product roadmap:** [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md)
+
+> This is the current sequencing authority. Repository truth supersedes old chat summaries and stale `CURRENT` prose elsewhere.
 
 ---
 
 ## 0. Pickup rule
 
-Repository truth supersedes older chat, handoffs, and pre-APP-STATE design assumptions.
+Every fresh steward/worker must begin with this distinction:
 
-Before dispatching a CON-READY / PLAY-SURFACE implementation:
+> **If the operator cannot dogfood the World through the normal product, it is not ready. Structural smoke does not override that.**
 
-1. fetch current `main`;
-2. inspect open PRs/worktrees for lease collision;
-3. read the current roadmap + Play authorities above;
-4. record the exact implementation base;
-5. keep one independently useful capability per PR;
-6. require exact-head evidence and review-cycle counting;
-7. do not merge unless explicitly instructed.
+Read, in order:
 
----
+1. `Docs/Design/ACCEPTANCE-dogfood-readiness.md`;
+2. this anchor;
+3. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` for the current evaluation lane;
+4. once the gauntlet report is merged, `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`;
+5. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md` for the blocked successor.
 
-## 1. Current product truth
-
-The Play persistence foundation is no longer the blocker.
-
-```text
-BF1 / PR #628    DONE — Beat-first v2 grammar/index/manifest
-
-APP-STATE
-AS1              DONE — Plan WorkObjects / immutable WorkRevisions
-AS2              DONE — Runbook + historical Playable WorkRevisions
-AS3              DONE — Run/manifest + progress CAS/rebase PostgreSQL
-AS4              DONE — active Run / resume PostgreSQL
-AS5 / PR #650    DONE — legacy Play filesystem persistence demolished
-
-PLAY PRODUCT
-BF2 / PR #652    DONE — v2 READY, deterministic Beat seed, exact WorkRevision admission
-                 accepted head 9dffcab96ad3f527efedc3981aea805a63deb4df
-                 merge 39ef105d3996ef0062dd45a089fecada14915436
-                 review cycles: 5
-BF3A / PR #655   DONE — Scene-centered Current Moment cockpit (Scenes first)
-                 accepted head 3d5925c8ad1bdbe934020e1c4cd7f2f3fafbbec7
-                 merge 4d82f12ad9c6d679b5dbce83db527eb7dbd27957
-                 review cycles: 2
-DF0 / PR #657    DONE — local Play dogfood gateway
-PLAN-BLANK-SHELL / PR #661 DONE — blank Plan is a real authoring surface state
-                 accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
-                 merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
-                 review cycles: 4
-BF4A / PR #660   DONE — native Runbook reopen/save
-                 accepted head d9b34ca87166572af8b482523862722fdd928fbe
-                 merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
-                 review cycles: 2
-BF3B             CURRENT / IN FLIGHT — Scene-owned Decision interaction
-                 recut branch agent/play-surface-decision-cockpit-recut
-PR #670          CLOSED UNMERGED — exploratory cockpit prototype; 0 review cycles
-```
-
-Current Play runtime/product state:
-
-- Beat-first v2 material can be authored/serialized/sealed.
-- BF2 admits v2 native READY with durable `currentBeatId` and optional `currentSceneId`.
-- historical pinned Playable revisions are real and remain readable after newer revisions exist.
-- bare `/play` active selection and Play Runtime are PostgreSQL-backed.
-- `out/runtime/play` is not current product authority.
-- CR-U17 remains false **overall** because Combat and any other relied-upon non-Play state still need equivalent durability proof.
-
-CUTOVER remains a separate active lane. Disjoint Play Surface work may proceed in parallel.
+Do not infer readiness from the structural acceptance report alone.
 
 ---
 
-## 2. Current Play design truth
+## 1. What is true
 
-The approved cockpit image remains the target.
+### 1.1 Structural current-corpus acceptance passed
 
-Durable hierarchy:
+The recovery/drain completed #722–#726 and one pristine full acceptance run on real integrated `main`.
 
-```text
-Runbook
-  → Beat
-      → Scene / Decision
-```
-
-Runtime projection hierarchy:
+Accepted structural witness:
 
 ```text
-Beat context wrapper
-Active Scene central workspace (when present)
-Decisions / notes / relevant objects around it
+World:          dogfood-current-corpus-acceptance-v1
+Database:       dmb_current_corpus_acceptance_v1
+Terminal head:  rev:cce8d24621d65a018d3e2922552f56f2
+Model calls:    44
+Graph writes:   45
+Structural STOP:null
 ```
 
-Do not confuse Scene-centered projection with the rejected Scene-first grammar.
+This proves the production source → extraction → candidate integrity → Candidate Graph Admission → governed DungeonMind write → exact-head continuity chain can process the frozen current corpus.
 
-### Choice / Decision law
+It does **not** prove product loadability, semantic usefulness, Agent usefulness, or model selection.
 
-Keep the Choice system:
+### 1.2 The first accepted-World dogfood says NOT READY
+
+Operator-reported gauntlet evidence, pending durable merge of the evaluation report:
 
 ```text
-Decision
-→ Options
-→ authored consequence
-→ activates / suppresses later Beat/Scene relevance
+dogfood_ready       = false
+oracle answerable   = 4 / 16
+Agent FULL          = 0 / 16
+Agent tool calls    = 0 on oracle-answerable questions
+loadability         = product_unresolved
+World head unchanged= true
 ```
 
-Runtime persists `choiceId → optionId` only.
-
-`activates` / `suppresses` influence emphasis. They are not navigation permission. De-emphasized material remains inspectable and may explicitly be made current.
-
-No general condition/workflow DSL without new dogfood evidence.
-
-### Unexpected-play law
-
-C2S27 showed that players immediately depart from authored expectations.
-
-Play must support:
+Accepted handbacks:
 
 ```text
-CONTEXTUAL
-current Beat/Scene references
+ingested_object_unreadable
+  representative Mireward publication/identity exists
+  normal product search/object/complete-object/evidence cannot open it
 
-GLOBAL / ON-DEMAND
-known campaign material needed unexpectedly
+hermes_cannot_answer
+  four questions were oracle-answerable
+  Hermes abstained without graph-tool investigation
+
+operator mounting/context
+  default UI World is not the accepted dogfood World
+  C1+C2 union/campaign lens is not an ordinary clean operator path
+
+graph coverage
+  12 / 16 C1S10 questions were not oracle-answerable
 ```
 
-And must distinguish:
+Do not flatten these into one score. They belong to different ownership boundaries.
+
+### 1.3 The readiness law is now durable
+
+`Docs/Design/ACCEPTANCE-dogfood-readiness.md` defines the cumulative gate order:
 
 ```text
-OPEN / INSPECT
-preserve current Runtime position
-
-MAKE CURRENT
-explicit Beat+Scene Runtime mutation
+structural acceptance
+→ product loadability/addressability
+→ operator dogfoodability
+→ semantic usefulness / oracle answerability
+→ Agent usefulness
 ```
 
-Useful material must be reachable faster than finding where it was authored.
-
-### Statblock / Combat hot path
-
-High-priority interaction:
-
-```text
-context or finder
-→ Threat
-→ exact StatblockRevision
-→ Add to Combat
-```
-
-Combat may expand into the central working area, but remains Combat-owned. Collapse returns to the exact originating Scene.
-
-### Runbook posture
-
-Runbook is the exact linear durable authored source/instructions. It is available as reference but is not the primary runtime navigator.
-
-### Notes posture
-
-Table notes are simple Runtime records projected as pinned context. Do not invent a new note table until BF3/dogfood proves independent note identity/lifecycle is needed.
+A lower-layer PASS cannot override a higher-layer failure.
 
 ---
 
-## 3. Current delivery sequence
+## 2. Current sequencing
+
+### Step 1 — finish the evaluation lane
+
+The current question-gauntlet lane has produced useful NOT READY evidence, but its evaluation PR/report must become durable repository authority before successor implementation activates.
+
+Required outcome:
 
 ```text
-BF2 / PR #652
-DONE — v2 READY Runtime + current-position/relevance
-        ↓
-BF3A / PR #655
-DONE — Scene-centered Current Moment cockpit (Scenes)
-        ↓
-DF0
-DONE — local Play dogfood bootstrap/readiness
-        ↓
-PLAN-BLANK-SHELL / PR #661
-DONE — blank Plan is a real authoring surface state
-        accepted head ffa0b18d6212a6780d6be90f91a25626bf15b464
-        merge 770f79cca4aa3c12aa8a35db2db77ce376f2ff9e
-        review cycles: 4
-        ↓
-BF4A
-DONE — native Runbook reopen/save
-        accepted head d9b34ca87166572af8b482523862722fdd928fbe
-        merge a3fd6219062d1cd978c394d07e2f80aaa6d203eb
-        review cycles: 2
-        ↓
-BF3B
-CURRENT / IN FLIGHT — Scene-owned Decision interaction
-        recut from main after closed unmerged PR #670 (0 review cycles)
-        ↓
-BF3C / BF3.x / P3 family
-additional At-a-Glance categories; fast cross-Beat inspect + retrieval
-        ↓
-P4 / Combat lane
-Threat→Combat + expandable Combat workspace + durable Combat proof
-        ↓
-real-session dogfood
+Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md
+  present on main
+  raw/evaluator evidence contract reviewed
+  NOT READY verdict preserved
 ```
 
-BF4 Plan Beat-first authoring composition may proceed in parallel after BF1 on a disjoint lease and should not block the next cockpit dogfood.
+The eval PR must not patch production.
 
-Agent Surface may proceed in parallel on disjoint leases. It is not a prerequisite for fast object/statblock retrieval.
+### Step 2 — activate exactly one successor
 
----
+After the eval PR merges and state authority is synchronized, re-anchor and change:
 
-## 4. DF0 completion and BF4A dispatch boundary
+`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`
 
-BF3A / PR #655 is merged. Do not reopen Current Moment presentation in this slice.
+from `BLOCKED` to `ACTIVE`.
 
-DF0 owns only:
+That slice owns only this invariant:
 
-- explicit local `check` / `apply` composition for Buddy application state;
-- provisioning the standard local Buddy logical database when missing;
-- explicit Alembic upgrade and leftover Runbook adoption;
-- domain-neutral APP-STATE unavailable copy;
-- documented ordinary uvicorn + Vite Play startup;
-- a development-only Play setup hint.
+> A durable object identity exposed by accepted publication/projection/search must round-trip through ordinary product object/complete-object/neighborhood/evidence reads at the same World/campaign/revision.
 
-DF0 does **not** own:
+The first real witness is Mireward.
 
-- migrate-on-boot or import-on-boot;
-- World Graph / file-authority fallback;
-- seeding a fake Runbook;
-- starting or selecting a Play Run;
-- Decision selection UI;
-- Combat, Agent Interaction, or CUTOVER.
+### Step 3 — classify the owning boundary before fixing
 
-DF0 is complete at PR #657. PLAN-BLANK-SHELL is complete at PR #661. BF4A is
-DONE at PR #660. BF3B is the current Play product slice and owns Scene-owned
-Decision interaction on an already-committed Runbook and READY Run.
+The addressability handoff requires a three-way decision:
 
-Create blank Runbook, chooser copy, and paste/replace remain predecessor or
-separate product work. They are not BF3B. Closed unmerged PR #670 is exploratory
-evidence only and is not a review cycle.
+```text
+A. DungeonMind native reads round-trip, Buddy adapter does not
+   → Buddy read-side repair proceeds
 
----
+B. DungeonMind native retrieval cannot open its own published ID
+   → STOP; dependency handback; no Buddy alias shim
 
-## 5. Acceptance pressure to retain
+C. publication/admission itself wrote inconsistent IDs
+   → STOP; write-side successor design; do not widen read repair
+```
 
-The next live dogfood must intentionally include:
+### Step 4 — only after addressability
 
-- resume to exact last Scene;
-- Beat context visible/accessibly expandable;
-- authored Decision branch and visible relevance change;
-- inspect a Scene under another Beat without moving current position;
-- explicit Make Current;
-- unplanned known NPC/Threat retrieval;
-- exact statblock opening with no table-breaking delay;
-- unexpected Add to Combat;
-- Combat expand/collapse with exact Scene return;
-- notes;
-- reload/resume.
+Do not pre-dispatch these. They remain sequencing candidates:
 
-A path that forces manual source search, memory reconstruction, JSON surgery, Plan/Build navigation for known mechanics, or loss of current context is product debt even if the underlying architecture is technically correct.
+```text
+operator World/campaign mounting
+→ rerun the same fixed question gauntlet
+→ use remaining A/B/C/E failures for graph/retrieval work
+→ use oracle-answerable D/F failures for Agent work
+```
+
+Hermes tuning is not the next action while the product cannot reliably open what publication says exists.
 
 ---
 
-## 6. What remains deliberately false
+## 3. PR topology and lane law
 
-- BF2 / PR #652 is DONE (merge `39ef105d3996ef0062dd45a089fecada14915436`, 5 review cycles).
-- BF3A / PR #655 is DONE (merge `4d82f12ad9c6d679b5dbce83db527eb7dbd27957`, 2 review cycles).
-- DF0 local Play dogfood bootstrap is DONE (PR #657, merge `87a769d05605ff021d28f0b69c5d7ab0b8205440`).
-- PLAN-BLANK-SHELL / PR #661 is DONE (merge `770f79cca4aa3c12aa8a35db2db77ce376f2ff9e`, 4 review cycles).
-- BF4A native Runbook authoring is DONE (PR #660, accepted head `d9b34ca87166572af8b482523862722fdd928fbe`, merge `a3fd6219062d1cd978c394d07e2f80aaa6d203eb`, 2 review cycles).
-- BF3B Decision interaction is CURRENT / IN FLIGHT on `agent/play-surface-decision-cockpit-recut`. Closed unmerged PR #670 is exploratory evidence only (0 review cycles).
-- BF3.x / P3 retrieval remains false.
-- P4 / Combat remains false.
-- global/on-demand retrieval is not proven.
-- native unexpected Threat→Combat end-to-end is not proven.
-- Combat durability is not assumed.
-- CR-U17 is not complete overall.
-- no new Note schema is authorized.
-- no Choice condition/workflow DSL is authorized.
-- no Agent dependency is authorized for basic Play retrieval.
+Current open implementation PRs observed at this re-anchor: `none`.
+
+Topology remains serial:
+
+```text
+question-gauntlet eval PR
+  → merge + sync + re-anchor
+  → published-object-addressability PR
+  → merge + targeted dogfood + sync + re-anchor
+  → choose exactly one next slice from observed evidence
+```
+
+Do not open an addressability implementation PR while its handoff is BLOCKED.
+
+Do not open UI/Hermes/coverage PRs from an addressability finding.
+
+A new defect is evidence for the steward, not permission for worker fan-out.
+
+---
+
+## 4. Acceptance semantics to preserve
+
+Use scoped labels:
+
+```text
+STRUCTURAL CURRENT-CORPUS ACCEPTANCE = PASS
+PRODUCT LOADABILITY = NOT_READY
+OPERATOR DOGFOOD = NOT_READY
+SEMANTIC COVERAGE = measured but not readiness-clearing
+AGENT ANSWERABILITY = measured but not readiness-clearing
+SEMANTIC MODEL SELECTION = HOLD
+```
+
+The accepted World is real and structurally coherent enough to have a revision lineage. It is not yet a World the product can honestly call ready.
+
+Presence in any of these is insufficient by itself:
+
+```text
+candidate graph
+admission package
+published payload
+PostgreSQL row
+raw DungeonMind projection dump
+Graph Review evidence list
+```
+
+For readiness, the ordinary product must be able to open and use the resulting object.
+
+---
+
+## 5. Forbidden shortcuts
+
+Do not:
+
+- rerun the 44-session paid extraction merely to repair a read identity issue;
+- query PostgreSQL directly and call that dogfood;
+- add evaluator-only or UI-only ID translations to hide a publication/read mismatch;
+- use repository Markdown fallback to rescue graph coverage;
+- tune Hermes before the graph path it must use is loadable;
+- change benchmark questions/gold to fit current output;
+- treat HTTP 200 + abstention + zero tools as successful Agent dogfood;
+- call the World ready because structural acceptance passed;
+- open a second repair/successor PR from the same lane.
+
+---
+
+## 6. Current finish line
+
+The immediate finish line is **not** semantic model selection and not an Agent score.
+
+It is:
+
+```text
+accepted publication says object X exists
+→ normal product can find X
+→ open X
+→ inspect complete X
+→ traverse X
+→ inspect X evidence/source
+→ same exact revision/authority throughout
+```
+
+Until that is true for the real accepted-world witness, CON-READY remains `NOT READY` at the World-memory dogfood boundary.
