@@ -8,6 +8,7 @@
 **BENCHMARK_REVISION (C1S10):** `rev:6d15a3f9f7d2208d444df1097db0166a`
 **Terminal head (lineage only):** `rev:cce8d24621d65a018d3e2922552f56f2`
 **Benchmark ID:** `longmont-c1-sessions-01-10-graph-query-v1`
+**Agent runtime:** provider=`openai-api` model=`gpt-5.6-luna` api_mode=`chat_completions` source=`agent_trace`
 **SEMANTIC MODEL SELECTION:** `HOLD`
 **Readiness law:** [`Docs/Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md) — structural acceptance → product loadability → operator dogfoodability → semantic usefulness → Agent usefulness. A lower-layer PASS cannot override a higher-layer failure.
 **Successor:** [`HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md) remains **BLOCKED** until this report is durable on `main`. No implementation PR from this evaluation.
@@ -46,34 +47,37 @@ oracle answerable: 4 / 16
 Agent FULL:        0 / 16
 Agent PARTIAL:     0 / 16
 Agent FAIL:        16 / 16
-A: 12
-B: 0
-C: 0
+A proven:          0
+B proven:          0
+C proven:          0
+ABC-unresolved:    12
 D: 4
 E: 0
 F: 0
 ```
 
+A/B/C are only counted when the owning boundary is proven. An oracle miss from empty or partial retrieval is `ABC-unresolved`, not a graph-coverage claim.
+
 ## Per-question results
 
 | Q | Oracle answerable | Agent grade | Primary failure | Agent tool calls | Source anchors | Short finding |
 |---:|---|---|---|---:|---:|---|
-| 01 | yes | FAIL | D | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 02 | yes | FAIL | D | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 03 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 04 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 05 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 06 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 07 | yes | FAIL | D | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 08 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 09 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 10 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 11 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 12 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 13 | yes | FAIL | D | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 14 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 15 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
-| 16 | no | FAIL | A | 0 | 0 | DungeonBuddy’s World Graph does not currently contain enough admitted evidence t |
+| 01 | yes | FAIL | D | 0 | 0 | oracle yes; tools=0; gpt-5.6-luna chat_completions 400 BadRequestError |
+| 02 | yes | FAIL | D | 0 | 0 | oracle yes; tools=0; gpt-5.6-luna chat_completions 400 BadRequestError |
+| 03 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.5; ABC-unresolved |
+| 04 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved |
+| 05 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved |
+| 06 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.14; ABC-unresolved |
+| 07 | yes | FAIL | D | 0 | 0 | oracle yes; tools=0; gpt-5.6-luna chat_completions 400 BadRequestError |
+| 08 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved |
+| 09 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.5; ABC-unresolved |
+| 10 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.67; ABC-unresolved |
+| 11 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.4; ABC-unresolved |
+| 12 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.75; ABC-unresolved |
+| 13 | yes | FAIL | D | 0 | 0 | oracle yes; tools=0; gpt-5.6-luna chat_completions 400 BadRequestError |
+| 14 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.75; ABC-unresolved |
+| 15 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.44; ABC-unresolved |
+| 16 | no | FAIL | ABC-unresolved | 0 | 0 | oracle miss; retrieval nodes=0 match_ratio=0.6; ABC-unresolved |
 
 ## Qualitative findings
 
@@ -107,19 +111,21 @@ Q16=FAIL (fail=A)
 
 ## Safeguards
 
-- Readiness ready: `True`
+- Retrieval harness ready (C1S10 pin): `True`
+- Agent smoke ok: `True`
+- dogfood_ready: `False`
 - Head before: `rev:cce8d24621d65a018d3e2922552f56f2`; head after: `rev:cce8d24621d65a018d3e2922552f56f2`
 - Head unchanged: `True`
 - Gold SHA256: `87187a52cf32ce505ffb9cc91944d0c2249e44f85e2971c0785294405d29b62d`
 
 ## Interpretation
 
-Operator dogfood is the readiness gate. Oracle-answerable vs Agent FULL is diagnostic only: a large gap points to Agent orchestration/synthesis; a low oracle count points to graph coverage/publication/authority. Neither structural score can override a dogfood blocker. This report does not select a semantic model. Production defects discovered here are handbacks, not repairs in this lane.
+Operator dogfood is the readiness gate. Oracle-answerable vs Agent FULL is diagnostic only: a large gap points to Agent orchestration/synthesis; a low oracle count points to graph coverage/publication/authority. Neither structural score can override a dogfood blocker. A low oracle-answerable count is not, by itself, a proven graph-coverage failure (A); those misses remain ABC-unresolved until an owning-boundary check exists. This report does not select a semantic model. Production defects discovered here are handbacks, not repairs in this lane.
 
 ## Handbacks (production; not repaired in this evaluation lane)
 
 - **Published objects are not product-loadable.** C2S22 Mireward exists in `graph_payload` as `node:location:mireward` but search/object/complete-object/evidence all return empty / `found: false`. Candidate IDs stay `loc:mireward`. Graph Review quote-in-span (`evidence[2]`) cannot be validated against a product object the UI cannot open.
-- **Hermes did not use the graph.** Agent smoke was HTTP 200 / `hermes_graph_agent` / `partial`, but Q01–Q16 recorded 0 tool calls and 0 FULL answers. Several questions were oracle-answerable from production retrieval; Hermes still abstained. Smoke is not dogfood.
+- **Hermes did not use the graph.** Every Agent turn used `openai-api` / `gpt-5.6-luna` / `chat_completions` and the model call returned 400 `BadRequestError` with 0 tool calls. Q01, Q02, Q07, and Q13 were oracle-answerable; the Agent-layer miss is D, but it is a failed model call, not a completed investigation that chose to skip tools. HTTP 200 / `hermes_graph_agent` smoke is not dogfood.
 - **Default World targeting is `eldyrwild`.** The accepted World id is `dogfood-current-corpus-acceptance-v1`. Without an explicit world-id override the operator cannot open this World in the UI.
 - **World-union projection rejects empty `campaignId`.** Selecting C1+C2 has historically failed with `Projection campaign does not match requested campaign longmont-c2`. That is a product verifier defect.
 

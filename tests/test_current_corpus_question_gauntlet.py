@@ -7,42 +7,44 @@ from pathlib import Path
 
 import pytest
 
-from evals.graph_benchmark.loadability import (
+from evals.graph_benchmark.run_current_corpus_question_gauntlet import (
+    AGENT_FORBIDDEN_KEYS,
+    BENCHMARK_ID,
     C2S22_REVISION,
+    CAMPAIGN_ID,
     CANDIDATE_NODE_ID,
+    GOLD_PATH,
     LOADABILITY_CAMPAIGN_ID,
     LOADABILITY_SESSION_ID,
+    PROJECT_ROOT,
     PUBLISHED_OBJECT_ID,
     STATUS_CANDIDATE_NOT_ADMITTED,
     STATUS_EXCERPT_READY,
     STATUS_PRODUCT_UNRESOLVED,
     STATUS_QUOTE_MISMATCH,
-    build_loadability_complete_object_request,
-    candidate_public_view,
-    classify_loadability,
-    evaluate_dogfood_readiness,
-    extract_candidate_node,
-    match_quotes_against_excerpts,
-    roll_up_seed_status,
-)
-from evals.graph_benchmark.run_current_corpus_question_gauntlet import (
-    AGENT_FORBIDDEN_KEYS,
-    BENCHMARK_ID,
-    CAMPAIGN_ID,
-    GOLD_PATH,
-    PROJECT_ROOT,
     TERMINAL_HEAD,
+    UNRESOLVED_OWNING_BOUNDARY,
     WORLD_ID,
     assert_agent_request_sanitized,
+    attribute_failure,
     build_agent_live_query_request,
+    build_loadability_complete_object_request,
     build_retrieval_search_request,
+    candidate_public_view,
+    classify_loadability,
     concept_matched,
+    evaluate_dogfood_readiness,
+    extract_agent_runtime_from_trace,
+    extract_candidate_node,
     grade_answer,
     load_gold_questions,
+    match_quotes_against_excerpts,
     parse_gold_markdown,
     render_report,
+    resolve_agent_runtime_identity,
     resolve_benchmark_revision,
     resolve_ledger_session_row,
+    roll_up_seed_status,
     sealed_world_graph_context,
 )
 
@@ -394,17 +396,25 @@ def test_report_status_is_not_ready_when_operator_cannot_dogfood() -> None:
             "acceptance_terminal_head": TERMINAL_HEAD,
             "benchmark_id": BENCHMARK_ID,
             "gold_sha256": "abc",
+            "agent_runtime": {
+                "provider": "openai-api",
+                "model_id": "gpt-5.6-luna",
+                "api_mode": "chat_completions",
+                "source": "agent_trace",
+            },
         },
         readiness={"ready": True, "harness_ready": True},
         scorecard={
-            "oracle_answerable": 16,
+            "oracle_answerable": 4,
             "agent_full": 0,
             "agent_partial": 0,
             "agent_fail": 16,
-            "failure_counts": {k: 0 for k in "ABCDEF"},
+            "failure_counts": {k: 0 for k in "ABCDEF"} | {"D": 4},
+            "oracle_unresolved_owning_boundary": 12,
             "head_before": TERMINAL_HEAD,
             "head_after": TERMINAL_HEAD,
             "qualitative": {},
+            "dogfood": dogfood,
         },
         question_rows=[],
         run_id="test-run",
@@ -412,9 +422,75 @@ def test_report_status_is_not_ready_when_operator_cannot_dogfood() -> None:
         dogfood=dogfood,
     )
     assert "**Status:** NOT READY — operator cannot dogfood this World" in report
-    assert "oracle answerable: 16 / 16" in report
+    assert "oracle answerable: 4 / 16" in report
     assert "If the operator cannot dogfood" in report
     status_line = report.split("**Status:**", 1)[1].split("\n", 1)[0]
     assert "COMPLETE" not in status_line
     assert "seed_status:     product_unresolved" in report
     assert "## Handbacks" in report
+    assert "A proven:          0" in report
+    assert "ABC-unresolved:    12" in report
+    assert "A: 12" not in report
+    assert "Readiness ready:" not in report
+    assert "Retrieval harness ready" in report
+    assert "model=`gpt-5.6-luna`" in report
+    assert "api_mode=`chat_completions`" in report
+
+
+def test_oracle_miss_does_not_claim_graph_coverage_a() -> None:
+    question = load_gold_questions()[2]
+    assert (
+        attribute_failure(
+            question=question,
+            oracle={
+                "oracle_answerable": False,
+                "primary_failure_bucket": UNRESOLVED_OWNING_BOUNDARY,
+            },
+            agent_grade="FAIL",
+            agent_body={},
+        )
+        == UNRESOLVED_OWNING_BOUNDARY
+    )
+    assert (
+        attribute_failure(
+            question=load_gold_questions()[0],
+            oracle={"oracle_answerable": True},
+            agent_grade="FAIL",
+            agent_body={},
+        )
+        == "D"
+    )
+
+
+def test_agent_runtime_identity_records_env_override(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DUNGEONMIND_HERMES_GRAPH_MODEL", "gpt-5.6-luna")
+    identity = resolve_agent_runtime_identity()
+    assert identity["query_backend"] == "hermes"
+    assert identity["model_id"] == "gpt-5.6-luna"
+    assert identity["env_override"] == "gpt-5.6-luna"
+
+
+def test_extract_agent_runtime_from_trace() -> None:
+    observed = extract_agent_runtime_from_trace(
+        {
+            "mode": "hermes_graph_agent",
+            "agent_trace": {
+                "provider": "openai-api",
+                "model": "gpt-5.6-luna",
+                "runtime": "process_isolated",
+                "model_calls": [
+                    {
+                        "api_mode": "chat_completions",
+                        "requested_model": "gpt-5.6-luna",
+                        "status": "error",
+                        "error_type": "BadRequestError",
+                        "status_code": 400,
+                    }
+                ],
+            },
+        }
+    )
+    assert observed["model_id"] == "gpt-5.6-luna"
+    assert observed["api_mode"] == "chat_completions"
+    assert observed["model_call_status_code"] == 400
+    assert observed["model_call_error_type"] == "BadRequestError"

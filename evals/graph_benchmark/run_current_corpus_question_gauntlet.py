@@ -10,7 +10,8 @@ Usage (after Terminal 1 FastAPI is up against the acceptance World):
         --base-url http://127.0.0.1:8000
 
     uv run python evals/graph_benchmark/run_current_corpus_question_gauntlet.py \\
-        --base-url http://127.0.0.1:8000 --loadability-only
+        --serve --acceptance-dsn "$ACCEPTANCE_DSN" \\
+        --live-session-dir "$LIVE_SESSION" --hermes-model gpt-5.6-luna
 """
 
 from __future__ import annotations
@@ -27,10 +28,14 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
+
+UNRESOLVED_OWNING_BOUNDARY = "ABC-unresolved"
 from urllib.parse import urlparse
 
 import httpx
+
+from graph_memory.anchor_quotes import find_anchor_quote_matches
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -82,6 +87,8 @@ AGENT_FORBIDDEN_KEYS = frozenset(
         "gold",
     }
 )
+
+UNRESOLVED_OWNING_BOUNDARY = "ABC-unresolved"
 
 _STOPWORDS = frozenset(
     {
@@ -627,6 +634,118 @@ SELECT depth FROM walk WHERE revision_id = '{ancestor}';
     return bool(out)
 
 
+def resolve_agent_runtime_identity() -> dict[str, Any]:
+    """Bind the Agent provider/model actually configured for this process."""
+    env_override = (os.environ.get("DUNGEONMIND_HERMES_GRAPH_MODEL") or "").strip() or None
+    record: dict[str, Any] = {
+        "query_backend": "hermes",
+        "policy_action": "hermes_graph_agent",
+        "provider": None,
+        "model_id": env_override,
+        "env_override": env_override,
+        "source": "unresolved",
+        "api_mode": None,
+    }
+    try:
+        from apps.live_control_server.services.agent_graph_policy import (
+            resolve_agent_graph_openai_inference,
+        )
+
+        resolved = resolve_agent_graph_openai_inference(require_api_key=False)
+        if isinstance(resolved, tuple) and len(resolved) >= 2:
+            record["provider"] = resolved[0]
+            record["model_id"] = env_override or resolved[1]
+            record["source"] = "env_override" if env_override else "model_policy"
+        elif isinstance(resolved, str):
+            record["source"] = "unresolved"
+            record["resolve_error"] = resolved
+    except Exception as exc:  # pragma: no cover - diagnostic only
+        record["resolve_error"] = f"{type(exc).__name__}: {exc}"
+    return record
+
+
+def extract_agent_runtime_from_trace(body: Any) -> dict[str, Any]:
+    payload = body if isinstance(body, dict) else {}
+    trace = payload.get("agent_trace") if isinstance(payload.get("agent_trace"), dict) else {}
+    calls = trace.get("model_calls") if isinstance(trace.get("model_calls"), list) else []
+    first = calls[0] if calls and isinstance(calls[0], dict) else {}
+    return {
+        "provider": trace.get("provider") or first.get("provider"),
+        "model_id": trace.get("model") or first.get("requested_model"),
+        "api_mode": first.get("api_mode"),
+        "runtime": trace.get("runtime"),
+        "mode": trace.get("mode") or payload.get("mode"),
+        "model_call_status": first.get("status"),
+        "model_call_error_type": first.get("error_type"),
+        "model_call_status_code": first.get("status_code"),
+        "requested_model": first.get("requested_model"),
+    }
+
+
+def merge_observed_agent_runtime(
+    configured: dict[str, Any],
+    observed: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(configured)
+    for key, value in observed.items():
+        if value not in (None, "", []):
+            merged[key] = value
+    if observed.get("model_id") and configured.get("model_id"):
+        merged["configured_model_id"] = configured.get("model_id")
+        merged["observed_model_id"] = observed.get("model_id")
+        if observed.get("model_id") != configured.get("model_id"):
+            merged["model_identity_mismatch"] = True
+    if observed.get("model_id") or observed.get("provider"):
+        merged["source"] = "agent_trace"
+    return merged
+
+
+def serve_gauntlet_api(
+    *,
+    host: str,
+    port: int,
+    acceptance_dsn: str,
+    live_session_dir: str,
+    hermes_model: str | None,
+) -> int:
+    """Start FastAPI pinned to the acceptance World (evaluation-only)."""
+    from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+    import src.bootstrap_env as bootstrap_env
+
+    load_dungeonmindbuddy_dotenv(override=True)
+    bootstrap_env.load_dungeonmindbuddy_dotenv = lambda **_kwargs: None
+
+    def _pin() -> None:
+        os.environ["DUNGEONMIND_WORLD_GRAPH_AUTHORITY"] = "dungeonmind"
+        os.environ["DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL"] = acceptance_dsn
+        os.environ["DUNGEONMIND_DATABASE_URL"] = acceptance_dsn
+        os.environ["DUNGEONMIND_LIVE_SESSION_DIR"] = live_session_dir
+        if hermes_model:
+            os.environ["DUNGEONMIND_HERMES_GRAPH_MODEL"] = hermes_model
+
+    _pin()
+    from apps.live_control_server.main import app
+    _pin()
+    from apps.live_control_server import config
+
+    url = config.world_graph_authority_database_url() or ""
+    if "dmb_current_corpus_acceptance_v1" not in url:
+        print("refusing to start: acceptance DB not selected", file=sys.stderr)
+        return 2
+    if not os.environ.get("OPENAI_API_KEY"):
+        print("refusing to start: OPENAI_API_KEY missing", file=sys.stderr)
+        return 2
+    print("authority_url_ok")
+    print(
+        "hermes_model",
+        os.environ.get("DUNGEONMIND_HERMES_GRAPH_MODEL") or "(policy default)",
+    )
+    import uvicorn
+
+    uvicorn.run(app, host=host, port=port, reload=False)
+    return 0
+
+
 def build_authority_record(
     *,
     benchmark_revision: str,
@@ -663,6 +782,7 @@ def build_authority_record(
         "gold_path": str(GOLD_PATH.relative_to(PROJECT_ROOT)),
         "gold_sha256": file_sha256(GOLD_PATH),
         "semantic_model_selection": "HOLD",
+        "agent_runtime": resolve_agent_runtime_identity(),
         "resolved_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -912,15 +1032,17 @@ def run_oracle_for_question(
     oracle_answerable = coverage["grade"] == "FULL"
 
     primary_failure = None
+    owning_boundary_status = "established" if oracle_answerable else "unresolved"
+    owning_boundary_reason = None
     if not oracle_answerable:
-        if not all_ids["node_ids"]:
-            primary_failure = "A"
-        elif coverage["match_ratio"] == 0:
-            primary_failure = "A"
-        elif coverage["match_ratio"] < 0.5:
-            primary_failure = "B"
-        else:
-            primary_failure = "C"
+        # Empty/partial retrieval cannot distinguish A (absent from World),
+        # B (identity/connectivity), or C (bounded retrieval API).
+        primary_failure = UNRESOLVED_OWNING_BOUNDARY
+        owning_boundary_reason = (
+            "Production retrieval did not expose gold must-include concepts. "
+            "That outcome is compatible with A, B, or C; this evaluator does not "
+            "inspect admitted payload/candidates for those propositions."
+        )
 
     # headRevisionId may appear alongside pinned revisionId — allow terminal
     # head only as lineage metadata, never as an unexpected third revision.
@@ -942,6 +1064,12 @@ def run_oracle_for_question(
         "coverage_vs_must_include": coverage,
         "oracle_answerable": oracle_answerable,
         "primary_failure_bucket": primary_failure,
+        "owning_boundary_status": owning_boundary_status,
+        "owning_boundary_reason": owning_boundary_reason,
+        "retrieval_observation": {
+            "node_count": len(all_ids["node_ids"]),
+            "match_ratio": coverage["match_ratio"],
+        },
         "revision_ids_seen": sorted(revision_ids_seen),
         "unexpected_revision_ids": leakage,
         "oracle_synthesis_notes": (
@@ -1024,7 +1152,7 @@ def attribute_failure(
     if agent_grade == "FULL":
         return None
     if not oracle.get("oracle_answerable"):
-        return oracle.get("primary_failure_bucket") or "A"
+        return oracle.get("primary_failure_bucket") or UNRESOLVED_OWNING_BOUNDARY
     # Oracle succeeded → Agent-side failure.
     if question.qid in {"Q14", "Q16"}:
         return "E"
@@ -1055,6 +1183,7 @@ def grade_agent_response(
         agent_grade=scored["grade"],
         agent_body=body if isinstance(body, dict) else {},
     )
+    agent_runtime = extract_agent_runtime_from_trace(body)
     revision_ids = extract_revision_ids(body) if isinstance(body, dict) else set()
     return {
         "question_id": question.qid,
@@ -1074,6 +1203,7 @@ def grade_agent_response(
         "http_status": response_record.get("status_code"),
         "agent_status": (body.get("status") if isinstance(body, dict) else None),
         "agent_mode": (body.get("mode") if isinstance(body, dict) else None),
+        "agent_runtime": agent_runtime,
     }
 
 
@@ -1182,6 +1312,37 @@ def _agent_smoke_error(agent_body: Any) -> dict[str, Any] | None:
     }
 
 
+def diagnostic_finding(*, oracle: dict[str, Any], grade: dict[str, Any]) -> str:
+    """Short per-question diagnostic; not a truncated answer excerpt."""
+    if not oracle.get("oracle_answerable"):
+        observation = oracle.get("retrieval_observation") or {}
+        nodes = observation.get("node_count")
+        if nodes is None:
+            nodes = len((oracle.get("matched_ids") or {}).get("node_ids") or [])
+        ratio = observation.get("match_ratio")
+        if ratio is None:
+            ratio = (oracle.get("coverage_vs_must_include") or {}).get("match_ratio")
+        if isinstance(ratio, float):
+            ratio = round(ratio, 2)
+        return (
+            f"oracle miss; retrieval nodes={nodes} match_ratio={ratio}; "
+            f"{UNRESOLVED_OWNING_BOUNDARY}"
+        )
+    runtime = grade.get("agent_runtime") or {}
+    tools = grade.get("tool_call_count", 0)
+    model = runtime.get("model_id") or runtime.get("requested_model") or "model-unrecorded"
+    api_mode = runtime.get("api_mode") or "api-unrecorded"
+    status = runtime.get("model_call_status")
+    err = runtime.get("model_call_error_type")
+    code = runtime.get("model_call_status_code")
+    if err or status == "error":
+        return (
+            f"oracle yes; tools={tools}; {model} {api_mode} "
+            f"{code} {err or status}"
+        )
+    return f"oracle yes; tools={tools}; agent={grade.get('agent_grade')}"
+
+
 def _skipped_agent_grade(question: GoldQuestion, *, reason: str) -> dict[str, Any]:
     return {
         "question_id": question.qid,
@@ -1241,6 +1402,13 @@ def render_report(
         f"**Terminal head (lineage only):** `{authority.get('acceptance_terminal_head')}`"
     )
     lines.append(f"**Benchmark ID:** `{authority.get('benchmark_id')}`")
+    runtime = (authority.get("agent_runtime") or {})
+    lines.append(
+        f"**Agent runtime:** provider=`{runtime.get('provider')}` "
+        f"model=`{runtime.get('model_id')}` "
+        f"api_mode=`{runtime.get('api_mode')}` "
+        f"source=`{runtime.get('source')}`"
+    )
     lines.append("**SEMANTIC MODEL SELECTION:** `HOLD`")
     lines.append(
         "**Readiness law:** [`Docs/Design/ACCEPTANCE-dogfood-readiness.md`]"
@@ -1325,11 +1493,30 @@ def render_report(
     lines.append(f"Agent FULL:        {scorecard['agent_full']} / 16")
     lines.append(f"Agent PARTIAL:     {scorecard['agent_partial']} / 16")
     lines.append(f"Agent FAIL:        {scorecard['agent_fail']} / 16")
-    for bucket in ("A", "B", "C", "D", "E", "F"):
+    lines.append(
+        f"A proven:          {scorecard['failure_counts'].get('A', 0)}"
+    )
+    lines.append(
+        f"B proven:          {scorecard['failure_counts'].get('B', 0)}"
+    )
+    lines.append(
+        f"C proven:          {scorecard['failure_counts'].get('C', 0)}"
+    )
+    lines.append(
+        "ABC-unresolved:    "
+        f"{scorecard.get('oracle_unresolved_owning_boundary', 0)}"
+    )
+    for bucket in ("D", "E", "F"):
         lines.append(
             f"{bucket}: {scorecard['failure_counts'].get(bucket, 0)}"
         )
     lines.append("```")
+    lines.append("")
+    lines.append(
+        "A/B/C are only counted when the owning boundary is proven. "
+        "An oracle miss from empty or partial retrieval is `ABC-unresolved`, "
+        "not a graph-coverage claim."
+    )
     lines.append("")
     lines.append("## Per-question results")
     lines.append("")
@@ -1376,7 +1563,15 @@ def render_report(
     lines.append("")
     lines.append("## Safeguards")
     lines.append("")
-    lines.append(f"- Readiness ready: `{readiness.get('ready')}`")
+    lines.append(
+        f"- Retrieval harness ready (C1S10 pin): `{readiness.get('harness_ready', readiness.get('ready'))}`"
+    )
+    lines.append(
+        f"- Agent smoke ok: `{readiness.get('dogfood_agent_ok')}`"
+    )
+    lines.append(
+        f"- dogfood_ready: `{scorecard.get('dogfood', {}).get('dogfood_ready')}`"
+    )
     lines.append(
         f"- Head before: `{scorecard.get('head_before')}`; head after: `{scorecard.get('head_after')}`"
     )
@@ -1394,6 +1589,9 @@ def render_report(
         "is diagnostic only: a large gap points to Agent orchestration/synthesis; "
         "a low oracle count points to graph coverage/publication/authority. "
         "Neither structural score can override a dogfood blocker. "
+        "A low oracle-answerable count is not, by itself, a proven graph-coverage "
+        "failure (A); those misses remain ABC-unresolved until an owning-boundary "
+        "check exists. "
         "This report does not select a semantic model. "
         "Production defects discovered here are handbacks, not repairs in this lane."
     )
@@ -1408,10 +1606,12 @@ def render_report(
         "cannot be validated against a product object the UI cannot open."
     )
     lines.append(
-        "- **Hermes did not use the graph.** Agent smoke was HTTP 200 / "
-        "`hermes_graph_agent` / `partial`, but Q01–Q16 recorded 0 tool calls "
-        "and 0 FULL answers. Several questions were oracle-answerable from "
-        "production retrieval; Hermes still abstained. Smoke is not dogfood."
+        "- **Hermes did not use the graph.** Every Agent turn used "
+        "`openai-api` / `gpt-5.6-luna` / `chat_completions` and the model call "
+        "returned 400 `BadRequestError` with 0 tool calls. Q01, Q02, Q07, and "
+        "Q13 were oracle-answerable; the Agent-layer miss is D, but it is a "
+        "failed model call, not a completed investigation that chose to skip "
+        "tools. HTTP 200 / `hermes_graph_agent` smoke is not dogfood."
     )
     lines.append(
         "- **Default World targeting is `eldyrwild`.** The accepted World id is "
@@ -1455,6 +1655,746 @@ def prepare_live_session_fixture(run_dir: Path) -> Path:
     return dest
 
 
+# ---------------------------------------------------------------------------
+# Loadability probe (folded into the leased runner)
+# ---------------------------------------------------------------------------
+
+LOADABILITY_CAMPAIGN_ID = OUTER_CAMPAIGN_ID
+LOADABILITY_SESSION_ID = "session-22"
+CANDIDATE_NODE_ID = "loc:mireward"
+PUBLISHED_OBJECT_ID = "node:location:mireward"
+SEARCH_TEXT = "Mireward"
+C2S22_REVISION = "rev:24268294e868b30034e247aa9e23087b"
+
+_SAFE_ID_RE = re.compile(r"^[A-Za-z0-9:_-]+$")
+
+LoadabilityStatus = str
+
+STATUS_AUTHORITY_ABSENT = "authority_absent"
+STATUS_CANDIDATE_NOT_ADMITTED = "candidate_not_admitted"
+STATUS_PRODUCT_UNRESOLVED = "product_unresolved"
+STATUS_EXCERPT_READY = "excerpt_ready"
+STATUS_QUOTE_MISMATCH = "quote_mismatch"
+STATUS_SOURCE_NOT_DURABLE = "source_not_durable"
+STATUS_SPAN_UNRESOLVABLE = "span_unresolvable"
+STATUS_UNREADABLE_ANCHOR = "unreadable_anchor"
+
+_STATUS_PRIORITY = (
+    STATUS_QUOTE_MISMATCH,
+    STATUS_PRODUCT_UNRESOLVED,
+    STATUS_UNREADABLE_ANCHOR,
+    STATUS_SOURCE_NOT_DURABLE,
+    STATUS_SPAN_UNRESOLVABLE,
+    STATUS_CANDIDATE_NOT_ADMITTED,
+    STATUS_AUTHORITY_ABSENT,
+    STATUS_EXCERPT_READY,
+)
+
+
+def _require_safe_id(value: str, *, what: str) -> str:
+    if not _SAFE_ID_RE.match(value):
+        raise ValueError(f"refusing to interpolate unsafe {what}: {value!r}")
+    return value
+
+
+def build_loadability_search_request(
+    *,
+    query_text: str,
+    revision_pin: str,
+    campaign_id: str = LOADABILITY_CAMPAIGN_ID,
+    scope_mode: str = "world",
+    seed_node_ids: list[str] | None = None,
+    focus_session_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema": "dmb_world_graph_search_request_v1",
+        "worldId": WORLD_ID,
+        "campaignId": campaign_id,
+        "focus": _focus(focus_session_id, campaign_id),
+        "admissibility": "gm",
+        "revisionPin": revision_pin,
+        "scopeMode": scope_mode,
+        "queryText": query_text,
+        "seedNodeIds": list(seed_node_ids or []),
+        "bounds": {
+            "maxNodes": 12,
+            "maxRelationships": 24,
+            "maxAttributes": 32,
+            "maxSourceAnchors": 32,
+        },
+    }
+
+
+def build_loadability_object_request(
+    *,
+    node_id: str,
+    revision_pin: str,
+    campaign_id: str = LOADABILITY_CAMPAIGN_ID,
+    scope_mode: str = "world",
+    focus_session_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema": "dmb_world_graph_object_request_v1",
+        "worldId": WORLD_ID,
+        "campaignId": campaign_id,
+        "focus": _focus(focus_session_id, campaign_id),
+        "admissibility": "gm",
+        "revisionPin": revision_pin,
+        "scopeMode": scope_mode,
+        "nodeId": node_id,
+        "bounds": {
+            "maxNodes": 12,
+            "maxRelationships": 24,
+            "maxAttributes": 32,
+            "maxSourceAnchors": 32,
+        },
+    }
+
+
+def build_loadability_complete_object_request(
+    *,
+    node_id: str,
+    revision_pin: str,
+    campaign_id: str = LOADABILITY_CAMPAIGN_ID,
+    focus_session_id: str | None = None,
+    origin_surface: str = "ingest",
+) -> dict[str, Any]:
+    return {
+        "schema": "dmb_world_graph_object_projection_request_v1",
+        "worldId": WORLD_ID,
+        "campaignId": campaign_id,
+        "nodeId": node_id,
+        "focus": _focus(focus_session_id, campaign_id),
+        "admissibility": "gm",
+        "revisionPin": revision_pin,
+        "originSurface": origin_surface,
+    }
+
+
+def build_loadability_evidence_request(
+    *,
+    node_id: str,
+    revision_pin: str,
+    campaign_id: str = LOADABILITY_CAMPAIGN_ID,
+    scope_mode: str = "world",
+    focus_session_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema": "dmb_world_graph_evidence_request_v1",
+        "worldId": WORLD_ID,
+        "campaignId": campaign_id,
+        "focus": _focus(focus_session_id, campaign_id),
+        "admissibility": "gm",
+        "revisionPin": revision_pin,
+        "scopeMode": scope_mode,
+        "target": {"kind": "node", "id": node_id},
+        "bounds": {"maxSourceAnchors": 32},
+    }
+
+
+def _focus(session_id: str | None, campaign_id: str) -> dict[str, Any]:
+    if session_id:
+        return {
+            "kind": "session",
+            "sessionId": session_id,
+            "campaignId": campaign_id,
+        }
+    return {"kind": "none", "sessionId": None, "campaignId": None}
+
+
+def classify_loadability(
+    *,
+    candidate_present: bool,
+    payload_present: bool,
+    product_found: bool,
+    provenance_statuses: Sequence[str] = (),
+    quotes_checked: bool = False,
+    quotes_all_matched: bool = False,
+) -> LoadabilityStatus:
+    """Classify one identity: candidate vs admitted payload vs product read."""
+    if product_found:
+        if quotes_checked and not quotes_all_matched:
+            return STATUS_QUOTE_MISMATCH
+        statuses = [s for s in provenance_statuses if s]
+        if statuses and all(s == "excerpt_ready" for s in statuses):
+            return STATUS_EXCERPT_READY
+        if statuses and all(s == "source_not_durable" for s in statuses):
+            return STATUS_SOURCE_NOT_DURABLE
+        if statuses and all(s == "span_unresolvable" for s in statuses):
+            return STATUS_SPAN_UNRESOLVABLE
+        if any(s == "excerpt_ready" for s in statuses):
+            return STATUS_EXCERPT_READY
+        return STATUS_UNREADABLE_ANCHOR
+    if payload_present:
+        return STATUS_PRODUCT_UNRESOLVED
+    if candidate_present:
+        return STATUS_CANDIDATE_NOT_ADMITTED
+    return STATUS_AUTHORITY_ABSENT
+
+
+def evaluate_dogfood_readiness(
+    *,
+    harness_ready: bool,
+    agent_smoke_ok: bool,
+    loadability: dict[str, Any] | None,
+    agent_full: int | None = None,
+    agent_ran: bool = False,
+    agent_tool_calls: int | None = None,
+) -> dict[str, Any]:
+    """Operator dogfood is the readiness gate.
+
+    Structural oracle PASS does not make the World ready. If the GM cannot
+    load admitted objects or get a usable Hermes answer, the product is
+    not ready.
+    """
+    blockers: list[dict[str, str]] = []
+    if not harness_ready:
+        blockers.append(
+            {
+                "id": "historical_retrieval",
+                "detail": (
+                    "C1S10 retrieval smoke did not pin BENCHMARK_REVISION; "
+                    "the operator cannot even query the historical World."
+                ),
+            }
+        )
+    if not agent_smoke_ok:
+        blockers.append(
+            {
+                "id": "hermes_agent",
+                "detail": (
+                    "Hermes Agent smoke failed. The operator cannot ask the "
+                    "accepted World a question and get a graph-backed answer."
+                ),
+            }
+        )
+    elif agent_ran and agent_full == 0:
+        tool_note = (
+            f" (tool_calls={agent_tool_calls})"
+            if agent_tool_calls is not None
+            else ""
+        )
+        blockers.append(
+            {
+                "id": "hermes_cannot_answer",
+                "detail": (
+                    "Hermes returned 0 FULL answers"
+                    f"{tool_note}. HTTP 200 / hermes_graph_agent is not dogfood "
+                    "if the operator cannot get a usable graph-backed answer."
+                ),
+            }
+        )
+    if loadability is None:
+        blockers.append(
+            {
+                "id": "loadability_missing",
+                "detail": "Ingested-object loadability was not probed.",
+            }
+        )
+    elif not loadability.get("openable") or loadability.get("seed_status") != STATUS_EXCERPT_READY:
+        seed_status = loadability.get("seed_status")
+        remap = loadability.get("identity_remap") or {}
+        blockers.append(
+            {
+                "id": "ingested_object_unreadable",
+                "detail": (
+                    "Admitted C2S22 Mireward is not loadable through product "
+                    f"reads (seed_status={seed_status}; "
+                    f"candidate={remap.get('from_candidate_id')}; "
+                    f"published={remap.get('to_published_ids')})."
+                ),
+            }
+        )
+    return {
+        "schema": "dmb_current_corpus_dogfood_readiness_v1",
+        "rule": (
+            "If the operator cannot dogfood the accepted World, it is not ready. "
+            "Structural retrieval PASS is not product readiness."
+        ),
+        "dogfood_ready": not blockers,
+        "blockers": blockers,
+    }
+
+
+def roll_up_seed_status(statuses: Sequence[str]) -> LoadabilityStatus:
+    remaining = set(statuses)
+    if not remaining:
+        return STATUS_AUTHORITY_ABSENT
+    for status in _STATUS_PRIORITY:
+        if status in remaining:
+            return status
+    return next(iter(remaining))
+
+
+def extract_candidate_node(
+    candidate_path: Path,
+    node_id: str,
+) -> dict[str, Any]:
+    payload = json.loads(candidate_path.read_text(encoding="utf-8"))
+    nodes = payload.get("nodes") if isinstance(payload, dict) else None
+    if not isinstance(nodes, list):
+        raise RuntimeError(f"candidate missing nodes list: {candidate_path}")
+    match = next(
+        (
+            node
+            for node in nodes
+            if isinstance(node, dict) and node.get("node_id") == node_id
+        ),
+        None,
+    )
+    if match is None:
+        return {
+            "present": False,
+            "node_id": node_id,
+            "label": None,
+            "node_type": None,
+            "evidence_ref_count": 0,
+            "quotes": [],
+        }
+    quotes: list[dict[str, Any]] = []
+    for index, evidence in enumerate(match.get("evidence_refs") or []):
+        if not isinstance(evidence, dict):
+            continue
+        for quote_index, quote in enumerate(evidence.get("anchor_quotes") or []):
+            if not isinstance(quote, str) or not quote.strip():
+                continue
+            quotes.append(
+                {
+                    "evidence_index": index,
+                    "quote_index": quote_index,
+                    "char_len": len(quote),
+                    "text": quote,
+                    "source_span_ref_id": evidence.get("source_span_ref_id"),
+                    "source_artifact_id": evidence.get("source_artifact_id"),
+                    "can_open_source": evidence.get("can_open_source"),
+                    "can_highlight_span": evidence.get("can_highlight_span"),
+                }
+            )
+    return {
+        "present": True,
+        "node_id": node_id,
+        "label": match.get("label"),
+        "node_type": match.get("node_type"),
+        "proposed_action": match.get("proposed_action"),
+        "evidence_ref_count": len(match.get("evidence_refs") or []),
+        "quotes": quotes,
+    }
+
+
+def candidate_public_view(extracted: dict[str, Any]) -> dict[str, Any]:
+    """Drop quote text before persisting artifacts."""
+    quotes = [
+        {
+            "evidence_index": row["evidence_index"],
+            "quote_index": row["quote_index"],
+            "char_len": row["char_len"],
+            "source_span_ref_id": row.get("source_span_ref_id"),
+            "source_artifact_id": row.get("source_artifact_id"),
+            "can_open_source": row.get("can_open_source"),
+            "can_highlight_span": row.get("can_highlight_span"),
+        }
+        for row in extracted.get("quotes") or []
+    ]
+    return {
+        "present": extracted.get("present"),
+        "node_id": extracted.get("node_id"),
+        "label": extracted.get("label"),
+        "node_type": extracted.get("node_type"),
+        "proposed_action": extracted.get("proposed_action"),
+        "evidence_ref_count": extracted.get("evidence_ref_count"),
+        "quote_count": len(quotes),
+        "quotes": quotes,
+    }
+
+
+def lookup_payload_objects(
+    *,
+    revision_id: str,
+    object_ids: Sequence[str],
+    label_needle: str,
+) -> list[dict[str, str]]:
+    revision = _require_safe_id(revision_id, what="revision_id")
+    world_id = _require_safe_id(WORLD_ID, what="world_id")
+    safe_ids = [_require_safe_id(item, what="object_id") for item in object_ids]
+    if not safe_ids:
+        return []
+    ids_sql = ", ".join(f"'{item}'" for item in safe_ids)
+    needle = label_needle.replace("'", "''")
+    sql = f"""
+SELECT obj->>'object_id', coalesce(obj->>'kind',''), coalesce(obj->>'label','')
+FROM dungeonmind.graph_revisions r,
+LATERAL jsonb_array_elements(r.graph_payload->'objects') obj
+WHERE r.world_id = '{world_id}'
+  AND r.revision_id = '{revision}'
+  AND (
+    obj->>'object_id' IN ({ids_sql})
+    OR obj->>'label' ILIKE '%{needle}%'
+  );
+"""
+    env = os.environ.copy()
+    env.setdefault("PGPASSWORD", "dungeonmind-dev")
+    out = subprocess.check_output(
+        [
+            "psql",
+            "-h",
+            "127.0.0.1",
+            "-p",
+            "54329",
+            "-U",
+            "dungeonmind",
+            "-d",
+            DATABASE_NAME,
+            "-Atc",
+            sql,
+        ],
+        env=env,
+        text=True,
+    ).strip()
+    rows: list[dict[str, str]] = []
+    if not out:
+        return rows
+    for line in out.splitlines():
+        object_id, kind, label = (line.split("|") + ["", ""])[:3]
+        rows.append({"object_id": object_id, "kind": kind, "label": label})
+    return rows
+
+
+def summarize_retrieval(status_code: int, body: Any) -> dict[str, Any]:
+    payload = body if isinstance(body, dict) else {"non_object": True}
+    ids = collect_ids(payload) if isinstance(body, dict) else {
+        "node_ids": [],
+        "relationship_ids": [],
+        "attribute_ids": [],
+        "source_anchor_ids": [],
+    }
+    snapshot = payload.get("snapshot") or {}
+    if not snapshot and isinstance(payload.get("result"), dict):
+        snapshot = payload["result"].get("snapshot") or {}
+    coverage = payload.get("coverage") or {}
+    return {
+        "http_status": status_code,
+        "outcome": payload.get("outcome"),
+        "found": payload.get("found"),
+        "requested_node_id": payload.get("requestedNodeId")
+        or payload.get("requested_node_id"),
+        "resolved_node_id": payload.get("resolvedNodeId")
+        or payload.get("resolved_node_id"),
+        "revision_id": (
+            snapshot.get("revisionId") or snapshot.get("revision_id")
+            if isinstance(snapshot, dict)
+            else None
+        ),
+        "node_ids": ids["node_ids"],
+        "source_anchor_ids": ids["source_anchor_ids"],
+        "missing_seed_node_ids": coverage.get("missingSeedNodeIds")
+        or coverage.get("missing_seed_node_ids")
+        or [],
+        "resolved_redirects": coverage.get("resolvedRedirects")
+        or coverage.get("resolved_redirects")
+        or {},
+        "error_code": payload.get("code") or payload.get("error"),
+    }
+
+
+def summarize_complete_object(status_code: int, body: Any) -> dict[str, Any]:
+    payload = body if isinstance(body, dict) else {}
+    bindings = payload.get("sourceBindings") or payload.get("source_bindings") or []
+    provenance: list[str] = []
+    artifact_ids: list[str] = []
+    session_ids: list[str] = []
+    excerpts: list[str] = []
+    for binding in bindings:
+        if not isinstance(binding, dict):
+            continue
+        status = binding.get("provenanceStatus") or binding.get("provenance_status")
+        if isinstance(status, str):
+            provenance.append(status)
+        artifact = binding.get("sourceArtifactId") or binding.get("source_artifact_id")
+        if isinstance(artifact, str):
+            artifact_ids.append(artifact)
+        session_id = binding.get("sessionId") or binding.get("session_id")
+        if isinstance(session_id, str):
+            session_ids.append(session_id)
+        excerpt = binding.get("excerpt")
+        if isinstance(excerpt, str) and excerpt.strip():
+            excerpts.append(excerpt)
+    return {
+        "http_status": status_code,
+        "found": payload.get("found"),
+        "requested_node_id": payload.get("requestedNodeId")
+        or payload.get("requested_node_id"),
+        "resolved_node_id": payload.get("resolvedNodeId")
+        or payload.get("resolved_node_id"),
+        "completeness": payload.get("completeness"),
+        "assertion_count": len(payload.get("assertions") or []),
+        "relationship_count": len(payload.get("relationships") or []),
+        "provenance_statuses": provenance,
+        "source_artifact_ids": sorted(set(artifact_ids)),
+        "session_ids": sorted(set(session_ids)),
+        "excerpt_count": len(excerpts),
+        "excerpts": excerpts,
+        "error_code": payload.get("code") or payload.get("error"),
+    }
+
+
+def match_quotes_against_excerpts(
+    quotes: Sequence[dict[str, Any]],
+    excerpts: Sequence[str],
+) -> dict[str, Any]:
+    if not quotes:
+        return {
+            "quotes_checked": False,
+            "quotes_all_matched": False,
+            "matched": [],
+        }
+    if not excerpts:
+        return {
+            "quotes_checked": False,
+            "quotes_all_matched": False,
+            "matched": [],
+        }
+    matched: list[dict[str, Any]] = []
+    all_matched = True
+    for quote in quotes:
+        text = quote.get("text") or ""
+        hits = False
+        for excerpt in excerpts:
+            if find_anchor_quote_matches(excerpt, [text]):
+                hits = True
+                break
+        if not hits:
+            all_matched = False
+        matched.append(
+            {
+                "evidence_index": quote.get("evidence_index"),
+                "quote_index": quote.get("quote_index"),
+                "char_len": quote.get("char_len"),
+                "matched": hits,
+            }
+        )
+    return {
+        "quotes_checked": True,
+        "quotes_all_matched": all_matched,
+        "matched": matched,
+    }
+
+
+def _product_found(complete_summaries: Sequence[dict[str, Any]], object_summaries: Sequence[dict[str, Any]]) -> bool:
+    return any(row.get("found") is True for row in complete_summaries) or any(
+        row.get("outcome") not in (None, "empty") and row.get("http_status") == 200
+        and (row.get("node_ids") or row.get("found") is True)
+        for row in object_summaries
+    )
+
+
+def probe_identity(
+    client: httpx.Client,
+    *,
+    node_id: str,
+    revision_pin: str,
+    campaign_id: str,
+    session_id: str,
+    candidate_present: bool,
+    payload_present: bool,
+    candidate_quotes: Sequence[dict[str, Any]],
+) -> dict[str, Any]:
+    complete_none_status, complete_none_body = _post_json(
+        client,
+        "/api/live/world-graph/retrieval/complete-object",
+        build_loadability_complete_object_request(
+            node_id=node_id,
+            revision_pin=revision_pin,
+            campaign_id=campaign_id,
+        ),
+    )
+    complete_session_status, complete_session_body = _post_json(
+        client,
+        "/api/live/world-graph/retrieval/complete-object",
+        build_loadability_complete_object_request(
+            node_id=node_id,
+            revision_pin=revision_pin,
+            campaign_id=campaign_id,
+            focus_session_id=session_id,
+        ),
+    )
+    object_status, object_body = _post_json(
+        client,
+        "/api/live/world-graph/retrieval/object",
+        build_loadability_object_request(
+            node_id=node_id,
+            revision_pin=revision_pin,
+            campaign_id=campaign_id,
+            focus_session_id=session_id,
+        ),
+    )
+    evidence_status, evidence_body = _post_json(
+        client,
+        "/api/live/world-graph/retrieval/evidence",
+        build_loadability_evidence_request(
+            node_id=node_id,
+            revision_pin=revision_pin,
+            campaign_id=campaign_id,
+            focus_session_id=session_id,
+        ),
+    )
+
+    complete_none = summarize_complete_object(complete_none_status, complete_none_body)
+    complete_session = summarize_complete_object(
+        complete_session_status, complete_session_body
+    )
+    object_summary = summarize_retrieval(object_status, object_body)
+    evidence_summary = summarize_retrieval(evidence_status, evidence_body)
+
+    excerpts = list(complete_none.get("excerpts") or []) + list(
+        complete_session.get("excerpts") or []
+    )
+    quote_report = match_quotes_against_excerpts(candidate_quotes, excerpts)
+    provenance = list(complete_none.get("provenance_statuses") or []) + list(
+        complete_session.get("provenance_statuses") or []
+    )
+    found = _product_found(
+        [complete_none, complete_session],
+        [object_summary, evidence_summary],
+    )
+    status = classify_loadability(
+        candidate_present=candidate_present,
+        payload_present=payload_present,
+        product_found=found,
+        provenance_statuses=provenance,
+        quotes_checked=quote_report["quotes_checked"],
+        quotes_all_matched=quote_report["quotes_all_matched"],
+    )
+    complete_none.pop("excerpts", None)
+    complete_session.pop("excerpts", None)
+    return {
+        "node_id": node_id,
+        "candidate_present": candidate_present,
+        "payload_present": payload_present,
+        "product_found": found,
+        "status": status,
+        "quote_report": {
+            "quotes_checked": quote_report["quotes_checked"],
+            "quotes_all_matched": quote_report["quotes_all_matched"],
+            "matched": quote_report["matched"],
+        },
+        "complete_object_focus_none": complete_none,
+        "complete_object_focus_session": complete_session,
+        "object": object_summary,
+        "evidence": evidence_summary,
+    }
+
+
+def run_loadability_probe(
+    client: httpx.Client,
+    *,
+    campaign_id: str = LOADABILITY_CAMPAIGN_ID,
+    session_id: str = LOADABILITY_SESSION_ID,
+    candidate_node_id: str = CANDIDATE_NODE_ID,
+    search_text: str = SEARCH_TEXT,
+    lookup_ids: Sequence[str] | None = None,
+) -> dict[str, Any]:
+    ids = list(lookup_ids or (candidate_node_id, PUBLISHED_OBJECT_ID))
+    ledger_row = resolve_ledger_session_row(campaign_id, session_id)
+    revision_pin = ledger_row["receipt_child_revision"]
+    if revision_pin == TERMINAL_HEAD:
+        raise RuntimeError(
+            f"{campaign_id}/{session_id} unexpectedly equals terminal head"
+        )
+    if (
+        campaign_id == LOADABILITY_CAMPAIGN_ID
+        and session_id == LOADABILITY_SESSION_ID
+        and revision_pin != C2S22_REVISION
+    ):
+        raise RuntimeError(
+            f"C2S22 revision drifted: got {revision_pin}, expected {C2S22_REVISION}"
+        )
+
+    locator = ledger_row.get("candidate_locator")
+    if not isinstance(locator, str) or not locator:
+        raise RuntimeError("candidate_locator missing from ledger row")
+    candidate_path = PROJECT_ROOT / locator
+    extracted = extract_candidate_node(candidate_path, candidate_node_id)
+    payload_rows = lookup_payload_objects(
+        revision_id=revision_pin,
+        object_ids=ids,
+        label_needle=search_text,
+    )
+    payload_ids = {row["object_id"] for row in payload_rows}
+    identity_remap = None
+    if extracted["present"] and candidate_node_id not in payload_ids:
+        published = sorted(
+            item for item in payload_ids if item != candidate_node_id
+        )
+        if published:
+            identity_remap = {
+                "from_candidate_id": candidate_node_id,
+                "to_published_ids": published,
+            }
+
+    search_world_status, search_world_body = _post_json(
+        client,
+        "/api/live/world-graph/retrieval/search",
+        build_loadability_search_request(
+            query_text=search_text,
+            revision_pin=revision_pin,
+            campaign_id=campaign_id,
+            scope_mode="world",
+            focus_session_id=session_id,
+        ),
+    )
+    search_campaign_status, search_campaign_body = _post_json(
+        client,
+        "/api/live/world-graph/retrieval/search",
+        build_loadability_search_request(
+            query_text=search_text,
+            revision_pin=revision_pin,
+            campaign_id=campaign_id,
+            scope_mode="campaign",
+            focus_session_id=session_id,
+        ),
+    )
+
+    identities = [
+        probe_identity(
+            client,
+            node_id=node_id,
+            revision_pin=revision_pin,
+            campaign_id=campaign_id,
+            session_id=session_id,
+            candidate_present=extracted["present"] and node_id == candidate_node_id,
+            payload_present=node_id in payload_ids,
+            candidate_quotes=extracted.get("quotes") or [],
+        )
+        for node_id in ids
+    ]
+    seed_status = roll_up_seed_status(row["status"] for row in identities)
+    return {
+        "schema": "dmb_current_corpus_loadability_probe_v1",
+        "probed_at": datetime.now(timezone.utc).isoformat(),
+        "world_id": WORLD_ID,
+        "campaign_id": campaign_id,
+        "session_id": session_id,
+        "revision_pin": revision_pin,
+        "terminal_head": TERMINAL_HEAD,
+        "search_text": search_text,
+        "candidate": candidate_public_view(extracted),
+        "payload_objects": payload_rows,
+        "identity_remap": identity_remap,
+        "search_world": summarize_retrieval(search_world_status, search_world_body),
+        "search_campaign": summarize_retrieval(
+            search_campaign_status, search_campaign_body
+        ),
+        "identities": identities,
+        "seed_status": seed_status,
+        "openable": seed_status == STATUS_EXCERPT_READY,
+        "notes": [
+            "Read-only evaluator probe; not an admission gate.",
+            "Quote text and source excerpts are not persisted.",
+        ],
+    }
+
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
@@ -1478,7 +2418,29 @@ def main(argv: list[str] | None = None) -> int:
         type=Path,
         default=DEFAULT_ARTIFACT_ROOT,
     )
+    parser.add_argument("--serve", action="store_true")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--acceptance-dsn", default=None)
+    parser.add_argument("--live-session-dir", default=None)
+    parser.add_argument(
+        "--hermes-model",
+        default=None,
+        help="Optional DUNGEONMIND_HERMES_GRAPH_MODEL override for --serve.",
+    )
     args = parser.parse_args(argv)
+    if args.serve:
+        if not args.acceptance_dsn or not args.live_session_dir:
+            raise SystemExit(
+                "--serve requires --acceptance-dsn and --live-session-dir"
+            )
+        return serve_gauntlet_api(
+            host=args.host,
+            port=args.port,
+            acceptance_dsn=args.acceptance_dsn,
+            live_session_dir=args.live_session_dir,
+            hermes_model=args.hermes_model,
+        )
 
     run_id = args.run_id or datetime.now(timezone.utc).strftime(
         "gauntlet-%Y%m%dT%H%M%SZ"
@@ -1500,11 +2462,6 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.loadability_only:
-        from evals.graph_benchmark.loadability import (
-            evaluate_dogfood_readiness,
-            run_loadability_probe,
-        )
-
         with httpx.Client(base_url=args.base_url) as client:
             loadability = run_loadability_probe(client)
         dogfood = evaluate_dogfood_readiness(
@@ -1547,11 +2504,6 @@ def main(argv: list[str] | None = None) -> int:
         questions = [q for q in questions if q.qid in wanted]
         if not questions:
             raise SystemExit(f"no questions matched {wanted}")
-
-    from evals.graph_benchmark.loadability import (
-        evaluate_dogfood_readiness,
-        run_loadability_probe,
-    )
 
     with httpx.Client(base_url=args.base_url) as client:
         readiness = run_readiness(
@@ -1628,8 +2580,7 @@ def main(argv: list[str] | None = None) -> int:
                 )
             write_json(qdir / "grade.json", grade)
             grades.append(grade)
-            finding = grade.get("answer_excerpt") or grade.get("skip_reason") or ""
-            finding = re.sub(r"\s+", " ", finding)[:80]
+            finding = diagnostic_finding(oracle=oracle, grade=grade)
             question_rows.append(
                 {
                     "qid": question.qid.replace("Q", ""),
@@ -1648,10 +2599,23 @@ def main(argv: list[str] | None = None) -> int:
 
     head_after = read_world_head_via_psql()
     failure_counts = {k: 0 for k in "ABCDEF"}
+    unresolved_owning_boundary = 0
+    observed_runtimes: list[dict[str, Any]] = []
     for g in grades:
         pf = g.get("primary_failure")
         if pf in failure_counts:
             failure_counts[pf] += 1
+        elif pf == UNRESOLVED_OWNING_BOUNDARY:
+            unresolved_owning_boundary += 1
+        runtime = g.get("agent_runtime")
+        if isinstance(runtime, dict):
+            observed_runtimes.append(runtime)
+    if observed_runtimes:
+        authority["agent_runtime"] = merge_observed_agent_runtime(
+            authority.get("agent_runtime") or {},
+            observed_runtimes[0],
+        )
+        write_json(run_dir / "AUTHORITY.json", authority)
 
     oracle_yes = 0
     for question in questions:
@@ -1679,6 +2643,7 @@ def main(argv: list[str] | None = None) -> int:
         "agent_partial": sum(1 for g in grades if g["agent_grade"] == "PARTIAL"),
         "agent_fail": sum(1 for g in grades if g["agent_grade"] == "FAIL"),
         "failure_counts": failure_counts,
+        "oracle_unresolved_owning_boundary": unresolved_owning_boundary,
         "head_before": head_before,
         "head_after": head_after,
         "head_unchanged": head_before == head_after == TERMINAL_HEAD,
