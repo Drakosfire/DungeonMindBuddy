@@ -1247,11 +1247,44 @@ def attribute_failure(
     return "F"
 
 
+def agent_stop_reason(smoke: dict[str, Any]) -> str:
+    if not smoke.get("revision_ok"):
+        return "agent_revision_mismatch"
+    if smoke.get("provider_unavailable") or not smoke.get("has_ok_model_call"):
+        return "agent_runtime_unavailable"
+    return "agent_runtime_unavailable"
+
+
+def pre_question_stop_reason(
+    readiness: dict[str, Any],
+    *,
+    skip_agent: bool = False,
+) -> str | None:
+    """Return a STOP reason, or None if Q01 may begin.
+
+    Handoff §5: do not begin Q01 until retrieval and Agent readiness are green.
+    Provider unavailable is a STOP, not an oracle-only continuation.
+    """
+    if not readiness.get("harness_ready"):
+        return "historical_retrieval"
+    if skip_agent:
+        return "operator_skip_agent"
+    if not readiness.get("dogfood_agent_ok"):
+        smoke = readiness.get("agent_smoke") or {}
+        if smoke.get("provider_unavailable"):
+            return "agent_runtime_unavailable"
+        if smoke.get("revision_ok") is False:
+            return "agent_revision_mismatch"
+        return "agent_runtime_unavailable"
+    return None
+
+
 def grade_agent_response(
     *,
     question: GoldQuestion,
     response_record: dict[str, Any],
     oracle: dict[str, Any],
+    benchmark_revision: str,
 ) -> dict[str, Any]:
     body = response_record.get("body") or {}
     if not isinstance(body, dict):
@@ -1259,17 +1292,12 @@ def grade_agent_response(
     smoke = evaluate_agent_smoke(
         http_status=response_record.get("status_code"),
         body=body,
-        benchmark_revision=str(
-            ((body.get("agent_trace") or {}).get("context_summary") or {}).get(
-                "revision_id"
-            )
-            or ""
-        ),
+        benchmark_revision=benchmark_revision,
     )
     if not smoke.get("ok"):
         return _stopped_agent_grade(
             question,
-            reason="agent_runtime_unavailable",
+            reason=agent_stop_reason(smoke),
             oracle=oracle,
             agent_runtime=smoke.get("runtime") or extract_agent_runtime_from_trace(body),
         )
@@ -1601,9 +1629,13 @@ def render_report(
     lines.append("## Totals")
     lines.append("")
     lines.append("```text")
-    lines.append(
-        f"oracle answerable: {scorecard['oracle_answerable']} / 16"
-    )
+    questions_started = scorecard.get("questions_started")
+    if questions_started is False:
+        lines.append("oracle answerable: not started (STOP before Q01)")
+    else:
+        lines.append(
+            f"oracle answerable: {scorecard['oracle_answerable']} / 16"
+        )
     agent_stopped = (
         scorecard.get("agent_suite") == AGENT_STOPPED
         or scorecard.get("agent_skipped")
@@ -1706,6 +1738,11 @@ def render_report(
     lines.append(
         f"- Gold SHA256: `{authority.get('gold_sha256')}`"
     )
+    lines.append(
+        "- Q01–Q16 started: "
+        f"`{scorecard.get('questions_started', True)}` "
+        "(handoff §5: STOP before Q01 unless Agent readiness is green)"
+    )
     lines.append("")
     lines.append("## Interpretation")
     lines.append("")
@@ -1715,6 +1752,8 @@ def render_report(
         "a low oracle count points to graph coverage/publication/authority. "
         "Neither structural score can override a dogfood blocker. "
         "The Agent suite is not scored when the runtime prerequisite fails. "
+        "A failed Agent readiness gate STOPs before Q01; the runner does not "
+        "walk oracle questions after that STOP. "
         "A low oracle-answerable count is not, by itself, a proven graph-coverage "
         "failure (A); those misses remain ABC-unresolved until an owning-boundary "
         "check exists. "
@@ -2667,45 +2706,28 @@ def main(argv: list[str] | None = None) -> int:
             f"openable={loadability['openable']}"
         )
 
-        skip_agent = args.skip_agent or not readiness.get("dogfood_agent_ok")
-        skip_reason = (
-            "operator_skip_agent"
-            if args.skip_agent
-            else "agent_runtime_unavailable"
+        stop_reason = pre_question_stop_reason(
+            readiness, skip_agent=args.skip_agent
         )
-        smoke_runtime = (readiness.get("agent_smoke") or {}).get("runtime")
+        skip_agent = stop_reason is not None
+        skip_reason = stop_reason
+        questions_started = stop_reason is None
 
         question_rows: list[dict[str, Any]] = []
         grades: list[dict[str, Any]] = []
-        for question in questions:
-            qdir = run_dir / question.qid
-            qdir.mkdir(parents=True, exist_ok=True)
-            print(f"=== {question.qid} oracle ===")
-            oracle = run_oracle_for_question(
-                client,
-                question=question,
-                benchmark_revision=benchmark_revision,
-            )
-            write_json(qdir / "oracle.json", oracle)
-
-            if skip_agent:
-                agent_request = build_agent_live_query_request(
-                    question_text=question.question,
+        if stop_reason:
+            print(f"STOP before Q01: {stop_reason}")
+        else:
+            for question in questions:
+                qdir = run_dir / question.qid
+                qdir.mkdir(parents=True, exist_ok=True)
+                print(f"=== {question.qid} oracle ===")
+                oracle = run_oracle_for_question(
+                    client,
+                    question=question,
                     benchmark_revision=benchmark_revision,
                 )
-                write_json(qdir / "agent-request.json", agent_request)
-                agent_response = {
-                    "status_code": None,
-                    "body": {"answer": "", "skipped": True, "reason": skip_reason},
-                }
-                write_json(qdir / "agent-response.json", agent_response)
-                grade = _stopped_agent_grade(
-                    question,
-                    reason=skip_reason,
-                    oracle=oracle,
-                    agent_runtime=smoke_runtime if isinstance(smoke_runtime, dict) else {},
-                )
-            else:
+                write_json(qdir / "oracle.json", oracle)
                 print(f"=== {question.qid} agent ===")
                 agent_request, agent_response = run_agent_for_question(
                     client,
@@ -2718,25 +2740,26 @@ def main(argv: list[str] | None = None) -> int:
                     question=question,
                     response_record=agent_response,
                     oracle=oracle,
+                    benchmark_revision=benchmark_revision,
                 )
-            write_json(qdir / "grade.json", grade)
-            grades.append(grade)
-            finding = diagnostic_finding(oracle=oracle, grade=grade)
-            question_rows.append(
-                {
-                    "qid": question.qid.replace("Q", ""),
-                    "oracle_answerable": "yes" if oracle["oracle_answerable"] else "no",
-                    "agent_grade": grade["agent_grade"],
-                    "primary_failure": grade.get("primary_failure"),
-                    "tool_calls": grade.get("tool_call_count", 0),
-                    "source_anchors": grade.get("source_anchor_count", 0),
-                    "finding": finding or "(empty)",
-                }
-            )
-            print(
-                f"{question.qid}: oracle={oracle['oracle_answerable']} "
-                f"agent={grade['agent_grade']} fail={grade.get('primary_failure')}"
-            )
+                write_json(qdir / "grade.json", grade)
+                grades.append(grade)
+                finding = diagnostic_finding(oracle=oracle, grade=grade)
+                question_rows.append(
+                    {
+                        "qid": question.qid.replace("Q", ""),
+                        "oracle_answerable": "yes" if oracle["oracle_answerable"] else "no",
+                        "agent_grade": grade["agent_grade"],
+                        "primary_failure": grade.get("primary_failure"),
+                        "tool_calls": grade.get("tool_call_count", 0),
+                        "source_anchors": grade.get("source_anchor_count", 0),
+                        "finding": finding or "(empty)",
+                    }
+                )
+                print(
+                    f"{question.qid}: oracle={oracle['oracle_answerable']} "
+                    f"agent={grade['agent_grade']} fail={grade.get('primary_failure')}"
+                )
 
     head_after = read_world_head_via_psql()
     failure_counts = {k: 0 for k in "ABCDEF"}
@@ -2759,11 +2782,12 @@ def main(argv: list[str] | None = None) -> int:
         write_json(run_dir / "AUTHORITY.json", authority)
 
     oracle_yes = 0
-    for question in questions:
-        oracle_path = run_dir / question.qid / "oracle.json"
-        if oracle_path.exists():
-            if json.loads(oracle_path.read_text())["oracle_answerable"]:
-                oracle_yes += 1
+    if questions_started:
+        for question in questions:
+            oracle_path = run_dir / question.qid / "oracle.json"
+            if oracle_path.exists():
+                if json.loads(oracle_path.read_text())["oracle_answerable"]:
+                    oracle_yes += 1
 
     dogfood = evaluate_dogfood_readiness(
         harness_ready=bool(readiness.get("harness_ready")),
@@ -2786,6 +2810,7 @@ def main(argv: list[str] | None = None) -> int:
         "agent_stopped": sum(1 for g in grades if g["agent_grade"] == AGENT_STOPPED),
         "agent_suite": AGENT_STOPPED if skip_agent else "SCORED",
         "agent_stop_reason": skip_reason if skip_agent else None,
+        "questions_started": questions_started,
         "failure_counts": failure_counts,
         "oracle_unresolved_owning_boundary": unresolved_owning_boundary,
         "head_before": head_before,

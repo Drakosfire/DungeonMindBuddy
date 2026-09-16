@@ -118,10 +118,11 @@ Q16 oracle miss (ABC-unresolved); Agent STOPPED
 - Head before: `rev:cce8d24621d65a018d3e2922552f56f2`; head after: `rev:cce8d24621d65a018d3e2922552f56f2`
 - Head unchanged: `True`
 - Gold SHA256: `87187a52cf32ce505ffb9cc91944d0c2249e44f85e2971c0785294405d29b62d`
+- Q01–Q16 started: `True` (handoff §5: STOP before Q01 unless Agent readiness is green)
 
 ## Interpretation
 
-Operator dogfood is the readiness gate. Oracle-answerable vs Agent FULL is diagnostic only: a large gap points to Agent orchestration/synthesis; a low oracle count points to graph coverage/publication/authority. Neither structural score can override a dogfood blocker. The Agent suite is not scored when the runtime prerequisite fails. A low oracle-answerable count is not, by itself, a proven graph-coverage failure (A); those misses remain ABC-unresolved until an owning-boundary check exists. This report does not select a semantic model. Production defects discovered here are handbacks, not repairs in this lane.
+Operator dogfood is the readiness gate. Oracle-answerable vs Agent FULL is diagnostic only: a large gap points to Agent orchestration/synthesis; a low oracle count points to graph coverage/publication/authority. Neither structural score can override a dogfood blocker. The Agent suite is not scored when the runtime prerequisite fails. A failed Agent readiness gate STOPs before Q01; the runner does not walk oracle questions after that STOP. A low oracle-answerable count is not, by itself, a proven graph-coverage failure (A); those misses remain ABC-unresolved until an owning-boundary check exists. This report does not select a semantic model. Production defects discovered here are handbacks, not repairs in this lane.
 
 ## Handbacks (production; not repaired in this evaluation lane)
 

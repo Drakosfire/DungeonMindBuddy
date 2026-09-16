@@ -44,6 +44,7 @@ from evals.graph_benchmark.run_current_corpus_question_gauntlet import (
     load_gold_questions,
     match_quotes_against_excerpts,
     parse_gold_markdown,
+    pre_question_stop_reason,
     render_report,
     resolve_agent_runtime_identity,
     resolve_benchmark_revision,
@@ -448,8 +449,8 @@ def test_report_status_is_not_ready_when_operator_cannot_dogfood() -> None:
     assert "D: 4" not in report
     assert "Readiness ready:" not in report
     assert "Retrieval harness ready" in report
-    assert "model=`gpt-5.6-luna`" in report
-    assert "api_mode=`chat_completions`" in report
+    assert "walk oracle questions after that STOP" in report
+    assert "Q01–Q16 started:" in report
 
 
 def test_oracle_miss_does_not_claim_graph_coverage_a() -> None:
@@ -567,10 +568,72 @@ def test_model_call_error_stops_agent_grade_instead_of_d() -> None:
             },
         },
         oracle={"oracle_answerable": True},
+        benchmark_revision=FIXTURE_REVISION,
     )
     assert grade["agent_grade"] == AGENT_STOPPED
     assert grade["primary_failure"] is None
     assert grade["skip_reason"] == "agent_runtime_unavailable"
+
+
+def test_agent_grade_uses_sealed_revision_not_trace_self_declaration() -> None:
+    question = load_gold_questions()[0]
+    body = {
+        "answer": "usable",
+        "status": "ok",
+        "mode": "hermes_graph_agent",
+        "world_graph_context": {"revision_id": TERMINAL_HEAD},
+        "agent_trace": {
+            "mode": "hermes_graph_agent",
+            "context_summary": {"revision_id": TERMINAL_HEAD},
+            "model_calls": [
+                {
+                    "status": "ok",
+                    "api_mode": "chat_completions",
+                    "requested_model": "gpt-5.6-luna",
+                }
+            ],
+        },
+    }
+    self_declared = evaluate_agent_smoke(
+        http_status=200,
+        body=body,
+        benchmark_revision=TERMINAL_HEAD,
+    )
+    assert self_declared["ok"] is True
+    grade = grade_agent_response(
+        question=question,
+        response_record={"status_code": 200, "body": body},
+        oracle={"oracle_answerable": True},
+        benchmark_revision=FIXTURE_REVISION,
+    )
+    assert grade["agent_grade"] == AGENT_STOPPED
+    assert grade["skip_reason"] == "agent_revision_mismatch"
+
+
+def test_questions_do_not_begin_when_agent_readiness_fails() -> None:
+    assert (
+        pre_question_stop_reason(
+            {
+                "harness_ready": True,
+                "dogfood_agent_ok": False,
+                "agent_smoke": {"provider_unavailable": True, "revision_ok": True},
+            }
+        )
+        == "agent_runtime_unavailable"
+    )
+    assert (
+        pre_question_stop_reason(
+            {"harness_ready": True, "dogfood_agent_ok": True}
+        )
+        is None
+    )
+    assert (
+        pre_question_stop_reason(
+            {"harness_ready": True, "dogfood_agent_ok": True},
+            skip_agent=True,
+        )
+        == "operator_skip_agent"
+    )
 
 
 def test_qualitative_findings_do_not_claim_unproven_a() -> None:
