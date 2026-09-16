@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY exact-id identity continuity v1
 
 **Created:** 2026-09-15  
-**Status:** ACTIVE — recovery queue front; #724 merged; serialize #725 only  
+**Status:** DONE — MERGED as PR #725 @ `28f4fb432c71553f2479e02fee851951e20c7ec9` (rebased head `0fd7f8c1ba8ec1a82799ead7fb1005a11506a6ea`); stewardship drain continues at #726  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-exact-id-identity-continuity-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  

@@ -1,17 +1,24 @@
 # HANDOFF — DOGFOOD-CONTINUITY exact-edge-id continuity v1
 
 **Created:** 2026-09-15  
-**Status:** BLOCKED — recovery queue; activate only after #725 merges, state authority is synchronized, and the steward re-anchors current `main`  
+**Status:** ACTIVE — recovery queue front; #725 merged; serialize #726 only — must MERGE  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-exact-edge-id-continuity-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Original design authority base:** `main@68577114b3c8ec7e06bc0b0a8d382143fdc570ec`  
 **Recovery authority:** `HANDOFF-STEWARDSHIP-drain-dogfood-continuity-pr-queue.md`  
-**Activation gate:** `PR #725 merged + state-authority sync complete + fresh re-anchor selects #726 as the only active merge candidate`  
+**Activation gate:** `satisfied — #725 MERGED @ 28f4fb432c71553f2479e02fee851951e20c7ec9; activation base main@28f4fb432c71553f2479e02fee851951e20c7ec9`  
 **PR topology:** `serial`  
-**PR authorization:** `existing PR #726 is parked transport state while BLOCKED; once ACTIVE, rebase/update/review #726 only; do not open another implementation PR`  
+**PR authorization:** `ACTIVE — rebase/update/review existing PR #726 only; do not open another implementation PR; MERGE required`  
 **PR title:** `DOGFOOD-CONTINUITY: confirm existing relationships by exact edge id`
+
+**Activation facts:**
+- Predecessor #725 merge SHA: `28f4fb432c71553f2479e02fee851951e20c7ec9`
+- Rebased #725 head: `0fd7f8c1ba8ec1a82799ead7fb1005a11506a6ea`
+- Activation base: `main@28f4fb432c71553f2479e02fee851951e20c7ec9`
+- Formal review cycles on #725 integration head: 1
+- Required finish: MERGE #726; then pristine full acceptance from real main
 
 > This slice was already implemented, reviewed twice, and exercised on a synthetic
 > combined dogfood head before the accidental PR fan-out was recognized. Preserve

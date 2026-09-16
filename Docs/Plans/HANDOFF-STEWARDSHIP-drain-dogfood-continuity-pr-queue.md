@@ -375,7 +375,7 @@ Maintain this table in this handoff or the owning reports as the queue advances:
 | #722 | `688852eab383e71a7380fd1efebc67617a811b33` | 1 | 19 passed harness+genesis; ruff clean | MERGED | `cba8242dee13220f1f8e41469cd6e0edc1e491fc` |
 | #723 | `70749ca8d4e6ae8c5c600218089dfaab47ace99d` | 1 | 34 passed admission+preview; ruff clean | MERGED | `ba0f781b6b3effb4770db3bf171a89da1ce18bae` |
 | #724 | `4a5f50da` | 1 | 51 passed identity_resolution; ruff clean | MERGED | `45c98d425bb61746564f151c2b5adccaa1591898` |
-| #725 | `<sha>` | `<N>` | `<result>` | MERGED / REDUNDANT | `<merge SHA or closure proof>` |
+| #725 | `0fd7f8c1ba8ec1a82799ead7fb1005a11506a6ea` | 1 | 22 passed exact-id+pc+cutover; ruff clean | MERGED | `28f4fb432c71553f2479e02fee851951e20c7ec9` |
 | #726 | `<sha>` | `<N>` | `<result>` | **MERGED** | `<merge SHA>` |
 
 At every queue transition also record:
