@@ -2,7 +2,7 @@
 
 **Created:** 2026-09-15  
 **Revised:** 2026-09-15 after explicit operator direction to finish the open-PR recovery  
-**Status:** ACTIVE — #722–#726 MERGED; final pristine post-#726 acceptance in progress; do not open #727  
+**Status:** COMPLETE — #722–#726 MERGED; pristine post-#726 structural acceptance PASS on real main `26e40f1e…`  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Canonical path:** `Docs/Plans/HANDOFF-STEWARDSHIP-drain-dogfood-continuity-pr-queue.md`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / stewardship`  
@@ -413,17 +413,32 @@ that PR's invariant and write lease.
 
 This handoff is COMPLETE only when all are true:
 
-- [ ] no new implementation PR was opened during recovery;
-- [ ] #722 is CLOSED as MERGED or rigorously proven redundant;
-- [ ] #723 is CLOSED as MERGED or rigorously proven redundant;
-- [ ] #724 is CLOSED as MERGED or rigorously proven redundant;
-- [ ] #725 is CLOSED as MERGED or rigorously proven redundant;
-- [ ] **#726 is MERGED into real main**;
-- [ ] every required capability from the causal chain is present on real main;
-- [ ] each rebased non-empty PR received a formal review on its exact integration head;
-- [ ] #726's final diff does not duplicate #725;
-- [ ] one fresh pristine full structural acceptance ran after #726 merge;
-- [ ] final PASS or first STOP is bound to exact real-main authority;
-- [ ] synthetic 44/44 evidence remains diagnostic history only;
-- [ ] no #722–#726 PR remains ambiguously open/parked;
-- [ ] repository state authorities agree on the next single action.
+- [x] no new implementation PR was opened during recovery;
+- [x] #722 is CLOSED as MERGED or rigorously proven redundant;
+- [x] #723 is CLOSED as MERGED or rigorously proven redundant;
+- [x] #724 is CLOSED as MERGED or rigorously proven redundant;
+- [x] #725 is CLOSED as MERGED or rigorously proven redundant;
+- [x] **#726 is MERGED into real main**;
+- [x] every required capability from the causal chain is present on real main;
+- [x] each rebased non-empty PR received a formal review on its exact integration head;
+- [x] #726's final diff does not duplicate #725;
+- [x] one fresh pristine full structural acceptance ran after #726 merge;
+- [x] final PASS or first STOP is bound to exact real-main authority;
+- [x] synthetic 44/44 evidence remains diagnostic history only;
+- [x] no #722–#726 PR remains ambiguously open/parked;
+- [x] repository state authorities agree on the next single action.
+
+## Completion record
+
+```text
+#722 MERGED cba8242dee13220f1f8e41469cd6e0edc1e491fc
+#723 MERGED ba0f781b6b3effb4770db3bf171a89da1ce18bae
+#724 MERGED 45c98d425bb61746564f151c2b5adccaa1591898
+#725 MERGED 28f4fb432c71553f2479e02fee851951e20c7ec9
+#726 MERGED 23a00dfd1d7eca788e9a3db7875e7443ac83a7dc
+post-#726 pristine execute: execute-2026-09-16T020204Z-6e3b812a
+structural_acceptance: PASS
+real_main_sha: 26e40f1eb108544516160a97acc6627fac3fe39d
+terminal_head: rev:cce8d24621d65a018d3e2922552f56f2
+next single action: design semantic-truthfulness work from clean main (HOLD until designed)
+```
