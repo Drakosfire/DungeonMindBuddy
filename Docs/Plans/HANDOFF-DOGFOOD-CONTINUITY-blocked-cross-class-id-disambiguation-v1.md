@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY blocked cross-class id disambiguation v1
 
 **Created:** 2026-09-15  
-**Status:** ACTIVE — recovery queue front; #723 merged; serialize #724 only  
+**Status:** DONE — MERGED as PR #724 @ `45c98d425bb61746564f151c2b5adccaa1591898` (rebased head `4a5f50da`); stewardship drain continues at #725  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-blocked-cross-class-id-disambiguation-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
