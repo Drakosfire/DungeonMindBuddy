@@ -2,7 +2,7 @@
 
 **Created:** 2026-09-15  
 **Revised:** 2026-09-15 after explicit operator direction to finish the open-PR recovery  
-**Status:** ACTIVE — stewardship execution mission; do not create another implementation PR  
+**Status:** ACTIVE — #722–#726 MERGED; final pristine post-#726 acceptance in progress; do not open #727  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Canonical path:** `Docs/Plans/HANDOFF-STEWARDSHIP-drain-dogfood-continuity-pr-queue.md`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / stewardship`  
@@ -376,7 +376,7 @@ Maintain this table in this handoff or the owning reports as the queue advances:
 | #723 | `70749ca8d4e6ae8c5c600218089dfaab47ace99d` | 1 | 34 passed admission+preview; ruff clean | MERGED | `ba0f781b6b3effb4770db3bf171a89da1ce18bae` |
 | #724 | `4a5f50da` | 1 | 51 passed identity_resolution; ruff clean | MERGED | `45c98d425bb61746564f151c2b5adccaa1591898` |
 | #725 | `0fd7f8c1ba8ec1a82799ead7fb1005a11506a6ea` | 1 | 22 passed exact-id+pc+cutover; ruff clean | MERGED | `28f4fb432c71553f2479e02fee851951e20c7ec9` |
-| #726 | `<sha>` | `<N>` | `<result>` | **MERGED** | `<merge SHA>` |
+| #726 | `a42ced95c82892751b1d22cfbdc64e30d1d03d0a` | 1 | 14 passed edge+object continuity; belongs_to reverse regressions; #725 absent from incremental diff | **MERGED** | `23a00dfd1d7eca788e9a3db7875e7443ac83a7dc` |
 
 At every queue transition also record:
 
