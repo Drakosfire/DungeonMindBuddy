@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY admission endpoint-kind eligibility v1
 
 **Created:** 2026-09-15  
-**Status:** ACTIVE — recovery queue front; #722 merged; serialize #723 only  
+**Status:** DONE — MERGED as PR #723 @ `ba0f781b6b3effb4770db3bf171a89da1ce18bae` (rebased head `70749ca8d4e6ae8c5c600218089dfaab47ace99d`); stewardship drain continues at #724  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-admission-endpoint-kind-eligibility-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  

@@ -1,17 +1,23 @@
 # HANDOFF — DOGFOOD-CONTINUITY blocked cross-class id disambiguation v1
 
 **Created:** 2026-09-15  
-**Status:** BLOCKED — recovery queue; activate only after #723 merges, state authority is synchronized, and the steward re-anchors current `main`  
+**Status:** ACTIVE — recovery queue front; #723 merged; serialize #724 only  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-blocked-cross-class-id-disambiguation-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Original design authority base:** `main@68577114b3c8ec7e06bc0b0a8d382143fdc570ec`  
 **Recovery authority:** `HANDOFF-STEWARDSHIP-drain-dogfood-continuity-pr-queue.md`  
-**Activation gate:** `PR #723 merged + state-authority sync complete + fresh re-anchor selects #724 as the only active merge candidate`  
+**Activation gate:** `satisfied — #723 MERGED @ ba0f781b6b3effb4770db3bf171a89da1ce18bae; activation base main@ba0f781b6b3effb4770db3bf171a89da1ce18bae`  
 **PR topology:** `serial`  
-**PR authorization:** `existing PR #724 is parked transport state while BLOCKED; once ACTIVE, rebase/update/review #724 only; do not open another implementation PR`  
+**PR authorization:** `ACTIVE — rebase/update/review existing PR #724 only; do not open another implementation PR`  
 **PR title:** `DOGFOOD-CONTINUITY: disambiguate shared ids on blocked cross-class collisions`
+
+**Activation facts:**
+- Predecessor #723 merge SHA: `ba0f781b6b3effb4770db3bf171a89da1ce18bae`
+- Rebased #723 head: `70749ca8d4e6ae8c5c600218089dfaab47ace99d`
+- Activation base: `main@ba0f781b6b3effb4770db3bf171a89da1ce18bae`
+- Formal review cycles on #723 integration head: 1
 
 > This handoff was originally created inside PR #724 instead of being landed on
 > `main` before dispatch. The 2026-09-15 stewardship recovery makes the design
