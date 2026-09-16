@@ -28,8 +28,11 @@ Case B  published object is in the revision payload; native retrieval cannot ope
         TRUE  — STOP
 
 Case C  publication wrote internally inconsistent IDs (map X / assertion Y / evidence Z)
-        FALSE as an identity-split. Existence assertion subject is the published object ID.
-        The native miss is missing source artifacts behind admitted evidence, not a loc:/node: split.
+        NOT ESTABLISHED / not required to proceed.
+        Extract-promote effect.node_id_map is absent from durable accepted-World
+        stores. First-admission identity_verdict agrees with the published object
+        id, but that is not a substitute for the missing node_id_map document.
+        Case B independently forces STOP.
 ```
 
 Authorized Buddy repair does not proceed. Steward must route a DungeonMind-owned source-artifact / provenance repair. UI/Hermes/coverage successors remain blocked.
@@ -42,7 +45,10 @@ Captured in-process against the accepted database before any production edit.
 
 | Surface | Identity / result |
 |---|---|
-| candidate/extract id | `loc:mireward` (not in revision payload) |
+| candidate/extract id | C2S22 candidate graph: `loc:mireward` (not in revision payload). C2S21 candidate graph, first admission: `node:location:mireward` |
+| sealed admission `node_id_map` | **absent/not present.** `effect.node_id_map` is not in `graph_contributions` (0), `contribution_reviews` (0), `finalized_review_publications` (0), or `identity_decisions` (0 rows on this World) |
+| durable identity verdict (C2S21 first admission) | `identity:node:location:mireward` → `node:location:mireward` (`create_new`); review `review:b4d5470503c010665a7378ca174b980d`; proposal `proposal:ae45d12457ac40a8bd9a5683d542423c` |
+| C2S22 sealed identity verdict for `loc:mireward` | **absent.** Session-22 review `proposal:b5b19f96258a4c54aeaca681edb2f0e6` has 32 identity_verdicts; none map `loc:mireward`. Admission dispositions are 9 rejected edges only |
 | published DungeonMind object id | `node:location:mireward` |
 | kind / label | `dnd5e:location` / `Mireward` |
 | existence assertion id | `assertion:173cf91e8151e83d` |
@@ -81,13 +87,15 @@ Buddy adapter requests used `scopeMode=world` (mapped to the same `WORLD_CROSS_C
 
 ## Why this is not a Buddy identity round-trip bug
 
-The gauntlet correctly observed a candidate→published remap:
+The gauntlet correctly observed a candidate→published form difference at the C2S22 pin:
 
 ```text
-loc:mireward  →  node:location:mireward
+C2S22 extract id:     loc:mireward
+C2S21 extract id:     node:location:mireward
+published object id:  node:location:mireward
 ```
 
-That remap is real, but it is not the failing product-read boundary. DungeonMind already stores the durable object as `node:location:mireward`. Buddy `get_object_direct` / `get_complete_object_direct` pass `request.node_id` to `services.retrieval.get_object(..., object_id=request.node_id)` with no prefix rewrite.
+That form difference is real, but it is not the failing product-read boundary, and it is **not** a sealed `node_id_map` proof. Extract-promote `effect.node_id_map` was not persisted with the accepted World. The durable first-admission identity verdict already names `node:location:mireward` as both candidate and target. DungeonMind stores the durable object as `node:location:mireward`. Buddy `get_object_direct` / `get_complete_object_direct` pass `request.node_id` to `services.retrieval.get_object(..., object_id=request.node_id)` with no prefix rewrite.
 
 Native `WorldGraphRetrievalService.get_object` is an exact dict lookup on the **scoped** projection. The published id is parsed onto the unscoped snapshot, then hidden because provenance cannot be established:
 
@@ -123,6 +131,8 @@ world_id:     dogfood-current-corpus-acceptance-v1
 revision:     rev:24268294e868b30034e247aa9e23087b
 object_id:    node:location:mireward
 assertion:    assertion:173cf91e8151e83d
+node_id_map:  absent/not present in durable stores
+identity_verdict (C2S21): identity:node:location:mireward → node:location:mireward
 evidence:     evidence:artifact:recap:longmont-c2:session-21:ad4ecd013dad:…
 artifact:     artifact:recap:longmont-c2:session-21:ad4ecd013dad
 native:       found=false, stored_provenance_invalid, scope_unknown
@@ -148,7 +158,7 @@ Did:
 
 - allocate `dogfood-continuity/published-object-addressability-v1` from the ACTIVE dispatch base
 - capture the accepted-world identity/read ledger read-only
-- classify Case B
+- classify Case B; record sealed `node_id_map` as absent and Case C as not established
 - leave `apps/live_control_server/integrations/dungeonmind/world_graph_reads.py` unchanged
 - leave the accepted World head unchanged
 
