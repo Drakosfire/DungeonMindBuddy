@@ -1,41 +1,52 @@
 # REPORT — DOGFOOD-CONTINUITY current-corpus admission acceptance v1
 
-**Status:** HOLD — progressive dogfood; edge repair landed; pristine rerun in flight  
+**Status:** PASS — structural current-corpus admission acceptance  
 **Handoff:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md`  
 **Harness PR:** #722  
 **Repair PRs:** #723 · #724 · #725 · #726  
-**Latest combined head:** `d3315694` (`dogfood-continuity/acceptance-rerun-after-exact-edge`)
+**Passing execute head:** `3217d1dd25058766ee0c61f79d08a8d1558f0b16`  
+(`dogfood-continuity/acceptance-rerun-after-exact-edge`)
 
-## Cleared STOP classes (code; dogfood proof pending fresh execute)
+## Claim
+
+```text
+STRUCTURAL CURRENT-CORPUS ACCEPTANCE = PASS
+```
+
+One uninterrupted pristine `--execute` sealed the frozen 44-session current
+corpus (C1 1–17, C2 1–27) without caller-side repair, skip, or resume.
+
+## Passing execute
+
+```text
+run: execute-2026-09-15T234947Z-77482c97
+git_head: 3217d1dd25058766ee0c61f79d08a8d1558f0b16
+manifest: 44 sessions / digest d21477c395f7093540491ca17c109a83bdf7e8a4e9f04517f5ef91f5d3d30e5c
+model: gpt-5.4-mini
+model_policy_digest: 477b9f1541a675dbe1751b9e46c376208cd7a5052207c1059b6c62e981ca2212
+genesis_d0: rev:b31956daf4790c79426381b90cc3fc69
+terminal_head: rev:ad49d3e180b270d551e2d0afe7dd987a
+model_calls: 44
+graph_writes: 45
+stop: null
+world: dogfood-current-corpus-acceptance-v1 @ 127.0.0.1:54329 / dmb_current_corpus_acceptance_v1
+artifact: out/graph_memory/current_corpus_admission_acceptance_v1/execute-2026-09-15T234947Z-77482c97/
+```
+
+## Cleared STOP classes (now dogfood-proven on this head)
 
 | Failure | Repair |
 |---|---|
-| `endpoint_kind_not_admitted` at write | #723 admission eligibility |
+| `endpoint_kind_not_admitted` at write | #723 |
 | `duplicate_node_id` (blocked cross-class shared ids) | #724 |
-| `parent_binding_mismatch` same-kind exact id / label drift | #725 |
-| `parent_binding_mismatch` wrong-kind exact id CREATE_NEW | #725 follow-up (`blocked_collision`) |
-| `relationship_id_collision` occupied compatible edge | #726 exact edge-id continuity |
+| `parent_binding_mismatch` same-kind / wrong-kind exact object id | #725 |
+| `relationship_id_collision` occupied compatible edge | #726 |
 
-## Best depth so far (handback; not yet superseded by this head)
-
-`execute-2026-09-15T225036Z-86661d42` sealed **C1 sessions 1–8** before
-`parent_binding_mismatch` on `node:city_council` (wrong-kind; blocked in #725).
-
-## Prior execute that motivated #726 (handback)
+## Remains false
 
 ```text
-run: execute-2026-09-15T230452Z-857c2c0f
-sealed: longmont-c1 session-1 .. session-5
-last good head: rev:55c131aa12c9295476660abce3cbb46e
-STOP: longmont-c1 / session-6
-boundary: dungeonmind_write
-reason: relationship_id_collision
-relationship_id: edge:node:torbin:located_in:loc:hempholm
-model_calls: 6
+SEMANTIC MODEL SELECTION = HOLD
+no model winner exists
+no semantic recall/precision/truthfulness score exists
+no unattended production batch ingestion exists
 ```
-
-## Immediate next
-
-Pristine full `--execute` on this combined head. No resume from session-6.
-Structural acceptance remains HOLD until one uninterrupted run clears the
-frozen current corpus.
