@@ -4,7 +4,7 @@
 | --- | --- |
 | Status | characterization complete; no behavior cutover |
 | Slice | E5A (not a migration) |
-| Buddy baseline SHA | `fd6e90cee7fee259b6da427f275d1e507d2c3d04` (`main` at Cycle 2 re-anchor) |
+| Buddy baseline SHA | `ff79374fffad38f07c4ce1807e3037015d74f451` (`main` at Cycle 2 re-anchor) |
 | Original characterization SHA | `94ae1ea927d6aa6c239085466973a11bff5cc605` (historical provenance only) |
 | OverMind Gate G | `f836de691bf57f2cfcee50c997ba8abe3040475a` |
 | Accepted GenerationEngine | `0d01547e2d9afec68e87b4c8f7e6aaa047e8c42a` |
@@ -22,10 +22,10 @@ Machine enforcement: `tests/test_e5a_boundary_fitness.py` (AST import allowlists
 
 | Fact | Value |
 | --- | --- |
-| Buddy `origin/main` (accepted baseline) | `fd6e90cee7fee259b6da427f275d1e507d2c3d04` — `docs: pin graph_writes count in structural acceptance PASS report` |
+| Buddy `origin/main` (accepted baseline) | `ff79374fffad38f07c4ce1807e3037015d74f451` — `docs(dogfood): activate accepted-world question gauntlet` |
 | Cycle 1 PR rebase base | `26e40f1eb108544516160a97acc6627fac3fe39d` (superseded by current `main`) |
 | Original characterization SHA | `94ae1ea927d6aa6c239085466973a11bff5cc605` — first harvest; **not** the accepted baseline |
-| Commits original harvest → accepted baseline | 47 |
+| Commits original harvest → accepted baseline | 48 |
 | Open Buddy PRs at Cycle 2 re-anchor | this PR only (#727). #721–#726 are on `main`. |
 | GenerationEngine accepted pin | still `0d01547e…` (OverMind `acceptance/generation-boundary-g.toml`) |
 | Python | `>=3.13,<3.14` |
@@ -39,9 +39,9 @@ Machine enforcement: `tests/test_e5a_boundary_fitness.py` (AST import allowlists
 
 GE's OpenAI extra accepts `openai>=2.14.0`; Buddy's `2.24.0` pin is not inherently incompatible. E5A does **not** add GenerationEngine as a dependency.
 
-Method: Cycle 2 re-ran the AST import scan of `apps/` and `src/` on accepted `main` `fd6e90ce…`, plus targeted confirmation of classified DungeonMind paths that moved after the original harvest. `evals/`, `scripts/`, `tools/`, `extraction_lab/`, and `tests/` were inventoried only to keep them out of the runtime baseline.
+Method: Cycle 2 re-ran the AST import scan of `apps/` and `src/` on accepted `main` `ff79374f…`, plus targeted confirmation of classified DungeonMind paths that moved after the original harvest. The one commit after `fd6e90ce` is docs-only (`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`); `apps/` and `src/` are unchanged from that tree. `evals/`, `scripts/`, `tools/`, `extraction_lab/`, and `tests/` were inventoried only to keep them out of the runtime baseline.
 
-Boundary files that moved between `94ae1ea9` and `fd6e90ce` and are named in §4:
+Boundary files that moved between `94ae1ea9` and `ff79374f` and are named in §4:
 
 - `apps/live_control_server/integrations/dungeonmind/world_graph_writes.py` (+60) — still `WRITE_PUBLICATION_DEBT`; still imports `review_publication` / `contribution_review_v2` / postgres. Exact-edge-id continuity and related admission work landed here; **no AST import tuple changed**.
 - `apps/live_control_server/integrations/dungeonmind/assertion_qualification.py` (+38) — still `INTERNAL_API_DEBT` via `dungeonmind_dnd.application.world_object_vocabulary` only. Endpoint-kind / qualification logic grew; **no AST import tuple changed**.
@@ -368,13 +368,13 @@ If a later PR changes a boundary file: rebase, regenerate the AST inventory, upd
 
 ## 8. Cycle 2 exact-head verification
 
-Recorded 2026-09-16 in the `e5/buddy-boundary-baseline` worktree after merging accepted `main` `fd6e90cee7fee259b6da427f275d1e507d2c3d04`. Commands ran on the Cycle 2 report/test edits below; `apps/` and `src/` were not changed. No GitHub workflow runs or commit statuses exist for this repository (no `.github/workflows`); this section is the recorded proof.
+Recorded 2026-09-16 in the `e5/buddy-boundary-baseline` worktree after merging accepted `main` `ff79374fffad38f07c4ce1807e3037015d74f451`. Commands ran on the Cycle 2 report/test SHA updates; `apps/` and `src/` import surface was unchanged from `fd6e90ce`. No GitHub workflow runs or commit statuses exist for this repository (no `.github/workflows`); this section is the recorded proof.
 
 | Command | Tooling | Result |
 | --- | --- | --- |
-| `uv lock --check` | uv `0.5.20` | exit 0; `Resolved 143 packages in 3ms` |
+| `uv lock --check` | uv `0.5.20` | exit 0; `Resolved 143 packages in 2ms` |
 | `uv run ruff check tests/test_e5a_boundary_fitness.py Docs/Reports/REPORT-E5A-buddy-boundary-baseline.md` | uv `0.5.20` | `All checks passed!` |
-| focused pytest (files below) | CPython `3.13.1`, pytest `9.0.2` | **41 passed** in 19.97s |
+| focused pytest (files below) | CPython `3.13.1`, pytest `9.0.2` | **41 passed** in 32.75s |
 | `git diff --check` (working tree and `origin/main` on E5A paths) | git | clean |
 
 Focused pytest files:
