@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY exact-edge-id continuity v1
 
 **Created:** 2026-09-15  
-**Status:** DONE — MERGED as PR #726 @ `23a00dfd1d7eca788e9a3db7875e7443ac83a7dc` (rebased head `a42ced95c82892751b1d22cfbdc64e30d1d03d0a`); final pristine acceptance pending  
+**Status:** DONE — MERGED as PR #726 @ `23a00dfd1d7eca788e9a3db7875e7443ac83a7dc`; pristine post-merge acceptance PASS (`execute-2026-09-16T020204Z-6e3b812a` on `26e40f1e…`)  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-exact-edge-id-continuity-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
