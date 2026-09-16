@@ -152,6 +152,84 @@ def test_incompatible_predicate_block_create_into_occupied_id() -> None:
     )
 
 
+def test_belongs_to_repeat_confirms_after_reverse_endpoint_publication() -> None:
+    """Review Cycle 1: belongs_to publishes as reversed dnd5e:owns.
+
+    Candidate A belongs_to B seals durable id edge:A:belongs_to:B, but the write
+    qualifier stores parent endpoints as B→A with predicate dnd5e:owns. A later
+    identical candidate must confirm existing, not false-collide.
+    """
+    member = "node:torbin"
+    group = "node:city_council"
+    rid = durable_relationship_id(
+        source_object_id=member,
+        buddy_predicate="belongs_to",
+        target_object_id=group,
+    )
+    assert rid == "edge:node:torbin:belongs_to:node:city_council"
+    context = _context(
+        objects=[
+            MutationObject(object_id=member, label="Torbin", kind="npc"),
+            MutationObject(object_id=group, label="City Council", kind="party"),
+        ],
+        relationships=[
+            MutationRelationship(
+                relationship_id=rid,
+                # Published orientation after reverse_endpoints=True.
+                source_object_id=group,
+                target_object_id=member,
+                predicate="dnd5e:owns",
+            )
+        ],
+    )
+    assert (
+        classify_edge_against_parent(
+            context,
+            relationship_id=rid,
+            source_object_id=member,
+            target_object_id=group,
+            buddy_predicate="belongs_to",
+        )
+        == "resolved_existing"
+    )
+
+
+def test_belongs_to_still_blocks_when_published_endpoints_disagree() -> None:
+    member = "node:torbin"
+    group = "node:city_council"
+    other = "node:other_guild"
+    rid = durable_relationship_id(
+        source_object_id=member,
+        buddy_predicate="belongs_to",
+        target_object_id=group,
+    )
+    context = _context(
+        objects=[
+            MutationObject(object_id=member, label="Torbin", kind="npc"),
+            MutationObject(object_id=group, label="City Council", kind="party"),
+            MutationObject(object_id=other, label="Other Guild", kind="party"),
+        ],
+        relationships=[
+            MutationRelationship(
+                relationship_id=rid,
+                source_object_id=other,
+                target_object_id=member,
+                predicate="dnd5e:owns",
+            )
+        ],
+    )
+    assert (
+        classify_edge_against_parent(
+            context,
+            relationship_id=rid,
+            source_object_id=member,
+            target_object_id=group,
+            buddy_predicate="belongs_to",
+        )
+        == "blocked_collision"
+    )
+
+
 def _preview_node(
     artifact_id: str,
     *,
@@ -324,6 +402,101 @@ def test_identity_gate_omits_compatible_existing_edge(
     assert any(
         d.startswith(f"confirm_existing_edge:{rid}") for d in gate.diagnostics
     )
+
+
+def test_identity_gate_omits_belongs_to_after_reverse_endpoint_publication(
+    tmp_path: Path,
+) -> None:
+    member = "node:torbin"
+    group = "node:city_council"
+    rid = durable_relationship_id(
+        source_object_id=member,
+        buddy_predicate="belongs_to",
+        target_object_id=group,
+    )
+    context = _context(
+        objects=[
+            MutationObject(object_id=member, label="Torbin", kind="npc"),
+            MutationObject(object_id=group, label="City Council", kind="party"),
+        ],
+        relationships=[
+            MutationRelationship(
+                relationship_id=rid,
+                source_object_id=group,
+                target_object_id=member,
+                predicate="dnd5e:owns",
+            )
+        ],
+    )
+    source = tmp_path / "recap.md"
+    source.write_text("Torbin belongs to the city council.\n")
+    source_revision = "sha256:" + hashlib.sha256(source.read_bytes()).hexdigest()
+    artifact_id = "artifact:recap:dogfood:belongs-to-continuity"
+    graph = {
+        "schema": CANDIDATE_GRAPH_PREVIEW_SCHEMA,
+        "version": CANDIDATE_GRAPH_PREVIEW_VERSION,
+        "preview_id": "preview:belongs-to-continuity",
+        "session_id": "session-6",
+        "campaign_id": "longmont-c1",
+        "source_artifact_ids": [artifact_id],
+        "status": "preview",
+        "nodes": [
+            _preview_node(
+                artifact_id,
+                node_id=member,
+                label="Torbin",
+                node_type="npc",
+            ),
+            _preview_node(
+                artifact_id,
+                node_id=group,
+                label="City Council",
+                node_type="party",
+            ),
+        ],
+        "edges": [
+            _preview_edge(
+                artifact_id,
+                edge_id="candidate:edge:torbin-belongs-council",
+                from_node_id=member,
+                to_node_id=group,
+                relationship_type="belongs_to",
+            )
+        ],
+        "beats": [],
+        "proposed_writes": [],
+        "ignored_items": [],
+        "deferred_items": [],
+        "diagnostics": {
+            "preview_only": True,
+            "extraction_performed": False,
+            "llm_used": False,
+            "runtime_connected": False,
+            "plan_connected": False,
+            "agent_interaction_connected": False,
+            "corpus_scanned": False,
+            "corpus_mutated": False,
+            "facts_promoted": False,
+            "canon_promoted": False,
+            "unresolved_evidence_refs": 0,
+            "missing_evidence_objects": 0,
+            "warning_count": 0,
+        },
+    }
+    gate = gate_candidate_graph_against_head(
+        candidate_graph_preview_from_dict(graph),
+        mutation_context=context,
+        world_id=context.world_id,
+        source_artifact_id=artifact_id,
+        source_revision_id=source_revision,
+        source_uri=str(source),
+        source_kind="source_extraction",
+        source_domain="recap",
+        campaign_scope="longmont-c1",
+    )
+    assert all(a.assertion_kind != "edge" for a in gate.accepted_proposals)
+    assert gate.identity_outcome_snapshot.get(rid) == "resolved_existing"
+    assert any(d.startswith(f"confirm_existing_edge:{rid}") for d in gate.diagnostics)
 
 
 def test_identity_gate_rejects_incompatible_occupied_edge(

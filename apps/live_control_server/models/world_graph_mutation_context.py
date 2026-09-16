@@ -1009,9 +1009,28 @@ def durable_relationship_id(
     buddy_predicate: str,
     target_object_id: str,
 ) -> str:
-    """Return the write-path durable relationship id for one Buddy edge."""
+    """Return the write-path durable relationship id for one Buddy edge.
+
+    This is the derived id sealed into ``value.edge_id`` /
+    ``relationship_id`` (``edge:{buddy_subject}:{buddy_predicate}:{buddy_target}``).
+    It is not the extractor-local ``CandidateEdge.edge_id``. Endpoint
+    orientation for parent comparison is handled separately when an admitted
+    mapping reverses endpoints at publication.
+    """
     predicate = (buddy_predicate or "").strip() or "related_to"
     return f"edge:{source_object_id}:{predicate}:{target_object_id}"
+
+
+def _buddy_predicate_mapping(
+    buddy_predicate: str,
+) -> tuple[str | None, bool] | None:
+    try:
+        from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
+            resolve_buddy_predicate_mapping_v4,
+        )
+    except Exception:
+        return None
+    return resolve_buddy_predicate_mapping_v4((buddy_predicate or "").strip())
 
 
 def _predicates_compatible(parent_predicate: str, buddy_predicate: str) -> bool:
@@ -1019,16 +1038,29 @@ def _predicates_compatible(parent_predicate: str, buddy_predicate: str) -> bool:
     buddy_wire = wire_kind(buddy_predicate)
     if parent_wire and buddy_wire and parent_wire == buddy_wire:
         return True
-    try:
-        from apps.live_control_server.integrations.dungeonmind.assertion_qualification import (
-            resolve_buddy_predicate_mapping_v4,
-        )
-    except Exception:
-        return False
-    mapping = resolve_buddy_predicate_mapping_v4((buddy_predicate or "").strip())
+    mapping = _buddy_predicate_mapping(buddy_predicate)
     if mapping is None or not mapping[0]:
         return False
     return parent_wire == wire_kind(mapping[0])
+
+
+def _candidate_endpoints_as_published(
+    *,
+    source_object_id: str,
+    target_object_id: str,
+    buddy_predicate: str,
+) -> tuple[str, str]:
+    """Return endpoints in the orientation the write path publishes to DM.
+
+    Admitted mappings with ``reverse_endpoints=True`` (e.g. ``belongs_to`` →
+    ``dnd5e:owns``) swap subject/object before publication. Parent relationship
+    facts therefore store the reversed orientation; continuity comparison must
+    use the same orientation.
+    """
+    mapping = _buddy_predicate_mapping(buddy_predicate)
+    if mapping is not None and mapping[1]:
+        return target_object_id, source_object_id
+    return source_object_id, target_object_id
 
 
 def classify_edge_against_parent(
@@ -1041,10 +1073,14 @@ def classify_edge_against_parent(
 ) -> str:
     """Classify one edge against parent relationship facts.
 
+    Continuity is keyed on the derived durable write ``relationship_id``
+    (``value.edge_id``), not the extractor-local ``CandidateEdge.edge_id``.
+
     Returns:
       - ``created_new`` when the durable id is free
-      - ``resolved_existing`` when the id is occupied with the same endpoints
-        and an admitted compatible predicate (confirm existing; do not CREATE)
+      - ``resolved_existing`` when the id is occupied with the same published
+        endpoints and an admitted compatible predicate (confirm existing; do
+        not CREATE)
       - ``blocked_collision`` when the id is occupied incompatibly
     """
     rid = str(relationship_id or "").strip()
@@ -1053,9 +1089,14 @@ def classify_edge_against_parent(
     existing = context.relationships.get(rid)
     if existing is None:
         return "created_new"
+    published_source, published_target = _candidate_endpoints_as_published(
+        source_object_id=source_object_id,
+        target_object_id=target_object_id,
+        buddy_predicate=buddy_predicate,
+    )
     if (
-        existing.source_object_id == source_object_id
-        and existing.target_object_id == target_object_id
+        existing.source_object_id == published_source
+        and existing.target_object_id == published_target
         and _predicates_compatible(existing.predicate, buddy_predicate)
     ):
         return "resolved_existing"
