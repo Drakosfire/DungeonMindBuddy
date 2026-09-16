@@ -1,17 +1,43 @@
 # HANDOFF — DOGFOOD-CONTINUITY: recap source provenance admission v1
 
 **Created:** 2026-09-16  
-**Status:** BLOCKED — Case B predecessor closed; do not dispatch until steward re-anchor records the dispatch base and changes this handoff ACTIVE  
+**Activated:** 2026-09-16  
+**Status:** ACTIVE — governed recap source-provenance admission; Case B predecessor closed; serial implementation PR authorized  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / product loadability / governed recap provenance`  
 **Direction:** DESIGN → CODE → REVIEW → TARGETED NATIVE DOGFOOD  
 **Design authority base:** `main@f95de4c26483b5b556a8f3411e389824c837f3a4`  
 **Predecessor evidence on main:** accepted Case B report from `1a4588e7a853f811c15b213e4299866e3710281d` at `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`  
-**PR topology after activation:** `serial`  
-**Authorized branch after activation:** `dogfood-continuity/recap-source-provenance-admission-v1`  
-**Authorized PR title after activation:** `DOGFOOD-CONTINUITY: make governed recap writes provenance-complete`  
-**PR authorization after activation:** open/update exactly one implementation PR for this capability; no accepted-World rebuild, UI, Hermes, coverage, or successor PR from the same worker
+**Activation gate:** satisfied — Case B report durable; predecessor closed STOP / dependency handback; no open implementation PR  
+**Dispatch base:** `main@cf43ec97d6648667923c543e609dd4c27a6481fc` — create the implementation branch from current `origin/main` at or after the activation commit  
+**PR topology:** `serial`  
+**Authorized branch:** `dogfood-continuity/recap-source-provenance-admission-v1`  
+**Authorized PR title:** `DOGFOOD-CONTINUITY: make governed recap writes provenance-complete`  
+**PR authorization:** open/update exactly one implementation PR for this capability; no accepted-World rebuild, UI, Hermes, coverage, or successor PR from the same worker
+
+**Activation facts:**
+
+```text
+predecessor Case B closeout:
+3fc400af0b425fb02be1a904d3e541d90ea29362
+predecessor pin / current main:
+cf43ec97d6648667923c543e609dd4c27a6481fc
+canonical Case B report:
+Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md
+accepted evidence head:
+1a4588e7a853f811c15b213e4299866e3710281d
+classification:
+Case B TRUE → STOP
+Case A:
+FALSE
+Case C:
+NOT ESTABLISHED / not required to proceed
+open implementation PRs at activation:
+none
+§5 collision:
+none — no open PRs; UI/kernel worktrees do not lease candidate_graph_admission.py, world_graph_writes.py, contribution_mapping.py, or extract_promote.py
+```
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Sequencing authority: [`STEWARDS-ANCHOR-con-ready.md`](STEWARDS-ANCHOR-con-ready.md). Readiness doctrine: [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md). Source-admission architecture precedent: [`HANDOFF-CUTOVER-buddy-graph-engine-demolition.md`](HANDOFF-CUTOVER-buddy-graph-engine-demolition.md).
 
@@ -19,26 +45,14 @@
 
 ## §0 Activation gate
 
-This handoff is deliberately **BLOCKED**. Landing it on `main` does not create a write lease or implementation lane.
-
-Activate only after all are true:
+Activation is complete. The write lease in §5 is now exclusive for the one authorized PR.
 
 ```text
-1. [satisfied by predecessor closeout]
-   Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md
-   is durable on main with the accepted Case B conclusion from branch head
-   1a4588e7a853f811c15b213e4299866e3710281d.
-
-2. [satisfied by predecessor closeout]
-   HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md is closed
-   as STOP / dependency handback; no Buddy addressability repair remains active.
-
-3. Re-anchor current main and confirm there is no open conflicting implementation PR.
-
-4. Steward changes this handoff BLOCKED → ACTIVE and records the exact dispatch base.
+1. satisfied — Case B report durable on main from 1a4588e7a853f811c15b213e4299866e3710281d
+2. satisfied — published-object-addressability closed as STOP / dependency handback
+3. satisfied — origin/main@cf43ec97d6648667923c543e609dd4c27a6481fc; open implementation PRs: none
+4. satisfied — this activation records the dispatch base
 ```
-
-Do not create the implementation branch or PR before activation. Gates 1–2 becoming true does **not** activate this slice.
 
 ---
 
@@ -271,9 +285,9 @@ Do not fork `_build_pair_to_dm` collision math.
 
 ---
 
-## §5 Files in scope — prospective ACTIVE write lease
+## §5 Files in scope — ACTIVE write lease
 
-This lease is **not active yet**. On activation, it becomes the exclusive expected write set for the one PR.
+This table is the exclusive expected write set for the one authorized PR.
 
 ### Production paths
 
@@ -293,7 +307,7 @@ This lease is **not active yet**. On activation, it becomes the exclusive expect
 
 ### Backward-looking predecessor state sync in the implementation PR
 
-The Case B addressability predecessor is already closed on `main` by the steward closeout. Once this handoff is activated, the repair PR updates only documents that would otherwise still claim this provenance slice is unstarted or that CON-READY sequencing is still waiting on Case B durability:
+The Case B addressability predecessor is already closed on `main`. The repair PR updates only documents that would otherwise still claim this provenance slice is unstarted:
 
 ```text
 Docs/Plans/STEWARDS-ANCHOR-con-ready.md

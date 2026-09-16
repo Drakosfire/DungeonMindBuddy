@@ -4,15 +4,15 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-16  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main@3fc400af0b425fb02be1a904d3e541d90ea29362` — Case B report durable; addressability closed STOP / dependency handback; provenance successor remains BLOCKED  
+**Re-anchor base:** `main@cf43ec97d6648667923c543e609dd4c27a6481fc` — parent of recap-provenance activation; pin the activation SHA after this transaction lands  
 **Structural acceptance:** PASS — current-corpus 44-session governed-write continuity  
 **Product readiness:** NOT READY — accepted World is structurally published but native scoped reads cannot admit ordinary recap-backed objects  
-**Current forcing function:** steward-activate the blocked recap source-provenance successor; do not dispatch until it is ACTIVE  
+**Current forcing function:** make governed recap writes provenance-complete so a fresh published object survives native scoped projection and retrieval  
 **Completed evaluation:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md) — MERGED #728  
 **Durable gauntlet report:** [`../Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md)  
 **Closed predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md) — STOP / dependency handback; Case B TRUE; no Buddy repair  
 **Durable Case B report:** [`../Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md) — accepted evidence from `1a4588e7a853f811c15b213e4299866e3710281d`  
-**Blocked successor:** [`HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md) — BLOCKED; gates 1–2 satisfied; activate only after re-anchor records the dispatch base  
+**Active implementation:** [`HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md) — ACTIVE; serial PR authorized  
 **Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
 **Benchmark authority:** [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md)  
 **Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
@@ -36,9 +36,9 @@ Read, in order:
 3. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md`;
 4. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`;
 5. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md` as the closed Case B predecessor;
-6. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md` for the designed but **BLOCKED** successor.
+6. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md` for the **ACTIVE** implementation lane.
 
-The accepted Case B report is now durable on `main`. The provenance successor remains **BLOCKED**. Do not create its implementation branch or PR.
+Do not reopen a Buddy addressability PR. Do not create a second provenance PR.
 
 ---
 
@@ -125,7 +125,7 @@ confirm re-proves the sealed admitted pair
 native projection fails closed on missing/mismatched provenance
 ```
 
-The new blocked successor applies that already-landed contract to governed recap candidate admission rather than inventing a new source store.
+The ACTIVE provenance slice applies that already-landed contract to governed recap candidate admission rather than inventing a new source store.
 
 ---
 
@@ -153,13 +153,13 @@ lease:  released
 
 Do not reopen a Buddy addressability implementation PR.
 
-### Step 3 — recap source provenance admission: DESIGNED / BLOCKED
+### Step 3 — recap source provenance admission: ACTIVE
 
-Canonical successor handoff:
+Canonical implementation handoff:
 
 `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`
 
-Activation gates 1–2 are satisfied by the Case B closeout. The handoff remains BLOCKED until a later steward re-anchor records the dispatch base and changes it ACTIVE. No implementation branch or PR.
+Activation gates 1–4 are satisfied. Topology is serial: exactly one implementation PR. Authorized branch `dogfood-continuity/recap-source-provenance-admission-v1`. Authorized title `DOGFOOD-CONTINUITY: make governed recap writes provenance-complete`.
 
 Its single merge-ready invariant is:
 
@@ -212,13 +212,13 @@ Topology is serial:
 ```text
 #728 gauntlet MERGED
   → published-object-addressability Case B STOP closed on main
-  → steward re-anchor + activate recap-source-provenance-admission
+  → recap-source-provenance-admission ACTIVE
   → exactly one provenance implementation PR
   → merge + state sync + re-anchor
   → exactly one separately designed acceptance/replay action
 ```
 
-The blocked provenance handoff does not lease paths and does not authorize a branch or PR. This closeout is not that activation.
+The ACTIVE provenance handoff leases the §5 paths. Do not open a second repair/successor PR from this sequence.
 
 Do not open UI, Hermes, graph-coverage, Buddy addressability, accepted-world rebuild, or provenance-backfill work in parallel from this sequence.
 
