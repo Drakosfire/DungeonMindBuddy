@@ -1,13 +1,13 @@
 # HANDOFF — DOGFOOD-CONTINUITY: recap source provenance admission v1
 
 **Created:** 2026-09-16  
-**Status:** BLOCKED — design complete; do not dispatch until the accepted Case B addressability report is durable on `main` and the predecessor lane is closed  
+**Status:** BLOCKED — Case B predecessor closed; do not dispatch until steward re-anchor records the dispatch base and changes this handoff ACTIVE  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / product loadability / governed recap provenance`  
 **Direction:** DESIGN → CODE → REVIEW → TARGETED NATIVE DOGFOOD  
 **Design authority base:** `main@f95de4c26483b5b556a8f3411e389824c837f3a4`  
-**Design evidence only, not yet main authority:** accepted Case B report branch head `1a4588e7a853f811c15b213e4299866e3710281d`  
+**Predecessor evidence on main:** accepted Case B report from `1a4588e7a853f811c15b213e4299866e3710281d` at `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`  
 **PR topology after activation:** `serial`  
 **Authorized branch after activation:** `dogfood-continuity/recap-source-provenance-admission-v1`  
 **Authorized PR title after activation:** `DOGFOOD-CONTINUITY: make governed recap writes provenance-complete`  
@@ -24,11 +24,13 @@ This handoff is deliberately **BLOCKED**. Landing it on `main` does not create a
 Activate only after all are true:
 
 ```text
-1. Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md
+1. [satisfied by predecessor closeout]
+   Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md
    is durable on main with the accepted Case B conclusion from branch head
-   1a4588e7a853f811c15b213e4299866e3710281d or an equivalent reviewed successor.
+   1a4588e7a853f811c15b213e4299866e3710281d.
 
-2. HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md is closed
+2. [satisfied by predecessor closeout]
+   HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md is closed
    as STOP / dependency handback; no Buddy addressability repair remains active.
 
 3. Re-anchor current main and confirm there is no open conflicting implementation PR.
@@ -36,7 +38,7 @@ Activate only after all are true:
 4. Steward changes this handoff BLOCKED → ACTIVE and records the exact dispatch base.
 ```
 
-Do not create the implementation branch or PR before activation.
+Do not create the implementation branch or PR before activation. Gates 1–2 becoming true does **not** activate this slice.
 
 ---
 
@@ -291,15 +293,14 @@ This lease is **not active yet**. On activation, it becomes the exclusive expect
 
 ### Backward-looking predecessor state sync in the implementation PR
 
-Once this handoff is activated, the repair PR may also update:
+The Case B addressability predecessor is already closed on `main` by the steward closeout. Once this handoff is activated, the repair PR updates only documents that would otherwise still claim this provenance slice is unstarted or that CON-READY sequencing is still waiting on Case B durability:
 
 ```text
-Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md
 Docs/Plans/STEWARDS-ANCHOR-con-ready.md
 Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md
 ```
 
-Those edits record the already-completed Case B predecessor. They must not pre-mark this provenance repair complete.
+Those edits record the already-completed Case B predecessor and that this provenance slice is the active work. They must not pre-mark this provenance repair complete, invent its merge SHA, or reopen the closed addressability handoff.
 
 ### Read-only unless a stop condition is hit
 

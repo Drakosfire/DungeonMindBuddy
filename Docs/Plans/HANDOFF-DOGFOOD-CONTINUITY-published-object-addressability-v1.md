@@ -2,18 +2,20 @@
 
 **Created:** 2026-09-15  
 **Activated:** 2026-09-16  
-**Status:** ACTIVE — published-object addressability; #728 merged; serial implementation PR authorized  
+**Closed:** 2026-09-16  
+**Status:** STOP / dependency handback — Case B TRUE; no Buddy read-adapter repair; write lease released  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`  
+**Canonical report:** [`../Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md) — accepted evidence from `1a4588e7a853f811c15b213e4299866e3710281d`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / product loadability`  
 **Direction:** DESIGN → CODE → REVIEW → TARGETED DOGFOOD  
 **Design authority base:** `main@832b6347a08fab7355cae5b97890c0543eaa6d55`  
 **Activation gate:** satisfied — #728 MERGED; `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-question-gauntlet-v1.md` is durable on `main`  
-**Dispatch base:** `main@8b1e7ca37053a84095e3f94aa8c6b70db426fd0a` — activation commit; create the implementation branch from current `origin/main` at or after this SHA  
-**Implementation branch after activation:** `dogfood-continuity/published-object-addressability-v1`, created from that exact `main`  
-**PR topology:** `serial`  
-**PR authorization:** open/update exactly one implementation PR for this addressability capability; no UI/Hermes/coverage successor PRs from the same worker  
-**PR title:** `DOGFOOD-CONTINUITY: make published World objects round-trip through product reads`
+**Dispatch base:** `main@8b1e7ca37053a84095e3f94aa8c6b70db426fd0a` — historical; this lane is closed and must not be redispatched  
+**Implementation branch:** `dogfood-continuity/published-object-addressability-v1` — evidence only; no implementation PR  
+**PR topology:** `serial` — closed without an addressability implementation PR  
+**PR authorization:** revoked — do not open a Buddy addressability PR to satisfy the old title  
+**PR title:** `DOGFOOD-CONTINUITY: make published World objects round-trip through product reads` — not used; Case B STOP superseded it
 
 **Activation facts:**
 
@@ -54,9 +56,36 @@ none
 none — KERNEL v0-2 lists world_graph_reads.py as not-expected; no open PRs
 ```
 
+**Closeout facts:**
+
+```text
+accepted evidence head:
+1a4588e7a853f811c15b213e4299866e3710281d
+canonical report:
+Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-object-addressability-v1.md
+classification:
+Case B TRUE → STOP
+Case A:
+FALSE
+Case C:
+NOT ESTABLISHED / not required to proceed
+Buddy production reads:
+unchanged
+accepted World head:
+unchanged
+PRODUCT OBJECT ADDRESSABILITY:
+FAIL (not PASS)
+write lease:
+released
+designed successor:
+HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md
+successor status after this closeout:
+BLOCKED (not activated, not dispatched)
+```
+
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). Readiness doctrine: [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md). Evaluation authority: [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md).
 
-> Activation does not change the mission, invariant, write lease, or Case A/B/C stop conditions. Exact IDs below replace the pre-merge operator summary. Create the implementation branch only from `main@8b1e7ca3…` or later `origin/main` containing this ACTIVE handoff. Do not open a second PR.
+> Closeout does not change the historical mission, invariant, or Case A/B/C stop conditions. It records that Case B was proven, the write lease is released, and no Buddy addressability PR may be opened from this handoff. The blocked provenance successor is a separate activation.
 
 ---
 
@@ -435,7 +464,13 @@ Return evidence to the steward instead of widening the branch.
 
 ## §10 Explicit successors — sequencing only, not authorized lanes
 
-This handoff does **not** authorize these PRs. It records why they remain later:
+This closed lane does **not** authorize any PR. The designed next contract is the blocked recap-provenance successor:
+
+`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`
+
+That successor stays **BLOCKED** until a later steward activation. Do not treat this closeout as dispatch.
+
+The following remain later than provenance repair:
 
 ### Successor candidate: operator World/campaign mounting
 
@@ -467,22 +502,22 @@ The first run showed four oracle-answerable questions with zero Hermes tool call
 
 ## §11 Completion rubric
 
-This handoff is merge-ready only if, after activation:
+This handoff closed as **STOP / dependency handback**, not as a successful addressability repair.
 
 - [x] merged gauntlet report is durable on `main`;
-- [ ] exact accepted World/revision/head are re-anchored;
-- [ ] pre-change Mireward identity/read ledger is captured;
-- [ ] defect is classified Case A, B, or C;
-- [ ] only Case A proceeds to Buddy code change;
-- [ ] product-visible durable ID round-trips across projection/search/object/complete-object/neighborhood/evidence;
-- [ ] unknown IDs still miss honestly;
-- [ ] accepted World head is unchanged;
-- [ ] focused deterministic regression passes;
-- [ ] real accepted-world targeted dogfood passes for object opening/inspection;
-- [ ] report states the remaining operator/UI and semantic/Agent gates truthfully;
-- [ ] no second PR or successor lane is opened.
+- [x] exact accepted World/revision/head are re-anchored;
+- [x] pre-change Mireward identity/read ledger is captured;
+- [x] defect is classified Case A, B, or C;
+- [x] only Case A proceeds to Buddy code change — Case A was FALSE, so no Buddy edit;
+- [ ] product-visible durable ID round-trips across projection/search/object/complete-object/neighborhood/evidence — native Case B miss;
+- [x] unknown IDs still miss honestly — unused because the published ID itself misses natively;
+- [x] accepted World head is unchanged;
+- [ ] focused deterministic Case A regression — not applicable after Case B STOP;
+- [ ] real accepted-world targeted dogfood passes for object opening/inspection — native miss;
+- [x] report states the remaining operator/UI and semantic/Agent gates truthfully;
+- [x] no second PR or successor lane is opened from this handoff.
 
-A successful merge establishes:
+This closeout does **not** establish:
 
 ```text
 PRODUCT OBJECT ADDRESSABILITY = PASS for the repaired contract/witness
