@@ -6,7 +6,7 @@
 **External PR mechanics:** [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md)  
 **Slice template:** [`.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`](../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md)
 
-This document owns **steward judgment**: what to read, how to decompose work, when parallel lanes are safe, what belongs in one handoff, how to make that handoff durable, how to activate/dispatch it, how to review findings, and when the next slice may be dispatched.
+This document owns **steward judgment**: what to read, how to decompose work, when parallel lanes are safe, what belongs in one handoff, how to make that handoff durable, how to activate/dispatch it, what PR topology is authorized, how to review findings, and when the next slice may be dispatched.
 
 It does not redefine repository law from `AGENTS.md`, provide the exact GitHub command runbook, or carry facts that belong in one slice's HANDOFF.
 
@@ -23,6 +23,8 @@ LAND HANDOFF ON MAIN
   ↓
 BLOCKED? ── yes → wait for gate → RE-ANCHOR / ACTIVATE
   ↓ no / activated
+DECLARE PR TOPOLOGY
+  ↓
 ALLOCATE IMPLEMENTATION LANE
   ↓
 DISPATCH
@@ -59,13 +61,15 @@ Then state an explicit hypothesis:
 main is at <sha>
 <predecessor> is actually true
 <current state authorities> agree / disagree
+open implementation PRs in this workstream: <N / list>
+authorized PR topology: <serial / stacked / parallel-independent>
 <active lane A> owns <writes/runtime state>
 <active lane B> owns <writes/runtime state>
 <blocked successor C> awaits <activation gate>
 <next candidate capabilities> remain false
 ```
 
-If repository authorities disagree with each other or `main`, repair that contradiction before choosing the next dependent slice.
+If repository authorities disagree with each other or `main`, or the observed open-PR shape does not match an explicit handoff-owned topology decision, repair that contradiction before choosing the next dependent slice.
 
 Detailed re-anchor discipline lives in `.cursor/rules/anchor.mdc`.
 
@@ -94,7 +98,21 @@ Group outcomes only when one merge-ready invariant can govern every claimed path
 
 Unresolved architecture is reconnaissance/design work, not permission for an implementation agent to guess.
 
-## 3. Plan lane allocation before dispatch
+A new defect discovered while proving another open PR is not automatically a new implementation lane. First classify it:
+
+```text
+same invariant + same lease
+  → fix/review the current PR
+
+separate capability/repair
+  → steward may design and land a BLOCKED successor handoff
+  → do not open its PR under serial topology
+
+truly independent or deliberately stacked work
+  → only after the steward records that topology explicitly
+```
+
+## 3. Plan lane allocation and PR topology before dispatch
 
 Before the handoff is active, plan the likely implementation lane without creating it. Write down:
 
@@ -106,16 +124,38 @@ expected §4 write lease
 runtime/state resources that can collide
 predecessor/dependency
 activation gate if any
+PR topology: serial | stacked | parallel-independent
+open implementation PRs already in this workstream
+exact stack parent + merge/rebase order, if stacked
+concurrent lanes checked, if parallel-independent
 ```
 
 Do not create/reserve an implementation lane merely because a BLOCKED handoff exists. Actual lane allocation occurs only after the handoff is ACTIVE.
+
+### PR topology — default serial
+
+The default is `serial` even when the user has said not to ask before opening PRs.
+
+`serial` means:
+
+- one open implementation PR in the workstream;
+- the implementation worker should open the one PR named by its ACTIVE handoff without asking for another confirmation;
+- a discovered successor may be designed and landed on `main` as BLOCKED, but it gets no implementation branch/PR until predecessor merge + state sync + re-anchor;
+- dogfood on a combined/cherry-picked diagnostic head may reveal the next repair, but that observation alone does not authorize another PR.
+
+Use `stacked` only when dependent unmerged work is deliberately worth carrying concurrently. The handoff must name the exact parent PR/head/base relation and required merge/rebase order. Do not infer a stack after several PRs already exist.
+
+Use `parallel-independent` only when the lanes have no unmerged behavioral dependency and their write/runtime/state ownership is safe. Independent file diffs alone are not enough if one lane's behavior or evidence depends on another's unmerged result.
+
+If multiple dependent PRs have already accumulated without an explicit topology decision, stop dispatch. Freeze new PR creation, author a stewardship recovery handoff, declare a drain order, and turn the existing PRs into a serialized queue. Synthetic combined heads remain diagnostic evidence, not merge authority.
 
 ### Safe parallelism
 
 Two active lanes may proceed when:
 
-- their expected write leases do not overlap;
-- neither depends on the other's unmerged result;
+- their handoffs explicitly declare `parallel-independent` or an intentional `stacked` relation;
+- their expected write leases do not overlap, unless the stack explicitly serializes a shared path;
+- neither independent lane depends on the other's unmerged result;
 - shared runtime/state resources are isolated, namespaced, copied safely, or intentionally serialized;
 - one merge cannot invalidate the other's invariant without detection.
 
@@ -155,7 +195,7 @@ Use `--local-only` when GitHub discovery is intentionally unavailable. The JSON 
 
 `pass` means no observed mechanical conflict. `warn` means the steward still has an incomplete or changed fact to judge (for example `main` advanced or GitHub discovery was unavailable). `block` means the candidate is not ACTIVE, has a concrete write-lease overlap, or has an invalid/empty candidate lease.
 
-The command never decides whether an activation gate is semantically satisfied, whether a base change invalidates the slice, transfers ownership, authors a handoff, or mutates Git/GitHub. A clean snapshot is evidence for dispatch readiness, not a substitute for the steward's invariant/dependency judgment.
+The command never decides whether an activation gate is semantically satisfied, whether PR topology is appropriate, whether a base change invalidates the slice, transfers ownership, authors a handoff, or mutates Git/GitHub. A clean snapshot is evidence for dispatch readiness, not a substitute for the steward's invariant/dependency/topology judgment.
 
 ## 4. Handoff-readiness and activation gate
 
@@ -168,13 +208,15 @@ Before a handoff may become `ACTIVE`, these answers must be concrete:
 - **Remaining falsehood:** What named successor remains intentionally unimplemented?
 - **Authority:** What design-time base, schema/fixture, parent design, and known predecessor state govern the slice?
 - **Activation gate:** Which predecessor review/merge/operator fact must become true before dispatch, or `none` if immediately dispatchable?
+- **PR topology:** Is this `serial`, `stacked`, or `parallel-independent`; which open PRs already exist; and what exact parent/order applies if stacked?
+- **PR authorization:** Which one implementation PR may the worker open/update without asking, and which additional PRs are explicitly not authorized?
 - **Observable paths:** Which success/failure/stale/retry/persistence/interleaving paths change?
 - **Second-contract check:** Does the work introduce another durable format, identifier, API, event, or operator workflow?
 - **Write lease:** Can every expected changed path be named, with only a precisely bounded discovery exception if needed?
 - **Parallel ownership:** Once ACTIVE, would §4 overlap another active lane? What runtime/state resources are shared?
 - **Contract semantics:** Are applicable identity, state/fallback, persistence/replay, predecessor mapping, and commit-point questions resolved?
 - **Proof:** Does each material invariant clause have evidence at its owning boundary?
-- **Stop conditions:** Does the future worker know when to stop rather than absorb adjacent work?
+- **Stop conditions:** Does the future worker know when to stop rather than absorb adjacent work or spawn a successor PR?
 - **State-sync set:** Which mutable workstream authorities are expected to change after merge?
 
 If the mission/invariant/contract itself is unresolved, split, reconnaissance, or design resolution is required. If only a prerequisite fact is unresolved, write and land the handoff as `BLOCKED` with that explicit activation gate rather than leaving the authority in chat or an uncommitted worktree.
@@ -188,6 +230,7 @@ The designing steward owns the handoff until it is durably present on `main`. Th
 ```text
 author against current authority
 → record design-time authority snapshot
+→ declare PR topology and authorization
 → set Status: BLOCKED or ACTIVE truthfully
 → land the handoff on main
 → re-read main and the checked-in handoff
@@ -198,16 +241,17 @@ When an activation prerequisite is unresolved:
 - use `Status: BLOCKED`;
 - name the exact activation gate;
 - record the creation/design authority snapshot;
+- declare the intended PR topology, normally serial;
 - do not create the implementation branch;
 - do not treat §4 as an active write lease;
 - do not ask the future code worker to commit or activate its own authority document.
 
-When the gate later becomes true, the steward re-anchors and makes a narrow activation sync: record the newly knowable predecessor/review/merge/current-main facts, change `BLOCKED → ACTIVE`, verify the mission/invariant/execution semantics did not drift, then allocate the implementation lane. If satisfying the gate changes the design materially, stop and re-review/rewrite the design rather than calling it metadata activation.
+When the gate later becomes true, the steward re-anchors and makes a narrow activation sync: record the newly knowable predecessor/review/merge/current-main facts, confirm the PR topology is still safe, change `BLOCKED → ACTIVE`, verify the mission/invariant/execution semantics did not drift, then allocate the implementation lane. If satisfying the gate changes the design materially, stop and re-review/rewrite the design rather than calling it metadata activation.
 
 The handoff should contain only what changes from slice to slice:
 
 - mission + merge-ready invariant + pre-dispatch critique;
-- exact design authority/predecessor/successor, activation gate, and state-sync set;
+- exact design authority/predecessor/successor, activation gate, PR topology/authorization, and state-sync set;
 - affected observable paths and adversarial sequences;
 - §4 write lease;
 - explicit exclusions/collision boundaries;
@@ -230,6 +274,10 @@ At dispatch, the steward should know:
 exact checked-in handoff path
 Status: ACTIVE
 activation gate satisfied
+PR topology: serial | stacked | parallel-independent
+exact assigned PR authorization
+open implementation PRs in the workstream
+stack parent / merge-rebase order if applicable
 exact implementation branch base
 branch / checkout identity
 flow/workstream
@@ -241,7 +289,9 @@ named successor
 
 The implementation agent consumes this authority. It does not create, land, activate, or materially redesign its own implementation handoff unless the assigned slice is explicitly a design/architecture slice.
 
-A worker discovering a new required path/contract/observable workflow stops and reports the scope consequence. The steward decides whether bounded discovery covers it or the slice must be re-briefed/split.
+The worker should not ask the user for separate permission to open the one implementation PR already authorized by its ACTIVE handoff. It should also **not** open any additional successor/repair/cleanup PR unless the handoff explicitly authorizes that topology and names the relation. A newly discovered next defect is a stop/handback to the steward under serial topology.
+
+A worker discovering a new required path/contract/observable workflow stops and reports the scope consequence. The steward decides whether bounded discovery covers it, the current PR owns the fix, a BLOCKED successor should be landed, or topology must be deliberately changed.
 
 ## 7. Review by invariant, not file order
 
@@ -252,15 +302,16 @@ A formal judgment against one distinct head SHA is one **Review Cycle**. Count c
 For each cycle:
 
 1. identify exact PR/branch/head SHA and handoff;
-2. verify changed paths against §4 before interpreting behavior;
-3. restate mission/invariant/named successor;
-4. trace every governed observable path and adversarial sequence;
-5. inspect for hidden second contracts or scope growth;
-6. verify applicable state/identity/persistence/predecessor semantics;
-7. rerun §7 evidence at the owning boundary;
-8. compare baseline/head when a required gate already fails;
-9. inspect nano commits as the implementation/fix story;
-10. issue every material finding needed to reach merge, not merely the first one noticed.
+2. verify observed open-PR topology still matches the handoff;
+3. verify changed paths against §4 before interpreting behavior;
+4. restate mission/invariant/named successor;
+5. trace every governed observable path and adversarial sequence;
+6. inspect for hidden second contracts or scope growth;
+7. verify applicable state/identity/persistence/predecessor semantics;
+8. rerun §7 evidence at the owning boundary;
+9. compare baseline/head when a required gate already fails;
+10. inspect nano commits as the implementation/fix story;
+11. issue every material finding needed to reach merge, not merely the first one noticed.
 
 Each finding states:
 
@@ -270,6 +321,8 @@ affected observable path
 owning boundary
 specific fix or evidence required
 ```
+
+If review or dogfood exposes a separate successor while the current PR is still open, record the successor finding/design consequence but do not chain-dispatch it under serial topology. It may become a durable BLOCKED handoff; its implementation waits for the current cycle to close.
 
 ### Review provenance
 
@@ -321,11 +374,12 @@ Re-read:
 - exact `main` head;
 - every intended state authority;
 - completion/review-cycle record;
+- remaining open PRs and their authorized topology;
 - next action.
 
 Architecture/contracts change only when their claims changed.
 
-A successor handoff may already exist on `main` as BLOCKED. Merging its predecessor does not automatically dispatch it; the steward must re-anchor, activate it truthfully, and only then allocate the successor lane.
+A successor handoff may already exist on `main` as BLOCKED. Merging its predecessor does not automatically dispatch it; the steward must re-anchor, activate it truthfully, confirm topology, and only then allocate the successor lane.
 
 ## 11. Learn, then select the next slice
 
@@ -337,6 +391,7 @@ After close, ask:
 - Was the failure visible during pre-dispatch critique?
 - Did §7 test the wrong boundary?
 - Did parallel ownership need human intervention?
+- Did PR topology drift or fan out without an explicit steward decision?
 - Did the handoff carry universal text that belongs upstream?
 - Did the reviewer repeatedly copy or reconstruct something a tool should supply?
 - Did the process accidentally make an implementation worker responsible for creating or activating its own authority document?
@@ -360,12 +415,13 @@ A healthy process lets a fresh steward answer these without chat history:
 2. What one capability is next?
 3. Is its handoff already durably checked in, and is it BLOCKED or ACTIVE?
 4. If BLOCKED, what exact activation gate remains false?
-5. What remains false afterward?
-6. Which paths/state does its ACTIVE lane own?
-7. Which other lanes can proceed safely?
-8. What exact evidence proves merge readiness?
-9. What would force a split?
-10. How many review cycles did the predecessor need, and what did they teach us?
-11. Which state-authority documents must change after merge?
+5. What PR topology is authorized, how many implementation PRs are open in this workstream, and which one PR may the worker open/update without asking?
+6. What remains false afterward?
+7. Which paths/state does its ACTIVE lane own?
+8. Which other lanes can proceed safely?
+9. What exact evidence proves merge readiness?
+10. What would force a split?
+11. How many review cycles did the predecessor need, and what did they teach us?
+12. Which state-authority documents must change after merge?
 
-If the answers require reverse-engineering old PR descriptions, recovering an uncommitted handoff from a temporary checkout, asking a code worker to land its own authority, or copying a giant process prompt into the handoff, the process layer is carrying the wrong responsibility.
+If the answers require reverse-engineering old PR descriptions, recovering an uncommitted handoff from a temporary checkout, asking a code worker to land its own authority, guessing whether a new PR may be opened, or copying a giant process prompt into the handoff, the process layer is carrying the wrong responsibility.
