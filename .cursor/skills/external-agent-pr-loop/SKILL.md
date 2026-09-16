@@ -11,11 +11,12 @@ description: >-
 
 # External-agent PR loop — mechanics
 
-Use this file for **commands and transport procedure after an implementation handoff already exists on `main`**. Do not use it to decide whether two outcomes belong in one slice, whether a BLOCKED handoff may be activated, or whether parallel lanes are safe; those judgments belong in [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.md).
+Use this file for **commands and transport procedure after an implementation handoff already exists on `main`**. Do not use it to decide whether two outcomes belong in one slice, whether a BLOCKED handoff may be activated, whether another PR may be opened, or whether parallel lanes are safe; those judgments belong in [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.md).
 
 Read when you need to:
 
 - dispatch an external/Codex-style worker from an already checked-in ACTIVE handoff;
+- open/update the one implementation PR authorized by that handoff;
 - fetch and verify a PR against that handoff;
 - post a formal review judgment;
 - merge an approved PR;
@@ -33,6 +34,9 @@ one capability / one invariant
 HANDOFF durably checked in on main
 Status: ACTIVE
 activation gate satisfied
+PR topology declared: serial | stacked | parallel-independent
+one assigned PR action explicitly authorized
+open workstream PRs reconciled with that topology
 implementation lane allocated from current integration state
 §4 write lease known
 runtime/state collision decision made
@@ -40,7 +44,7 @@ runtime/state collision decision made
 state-authority sync set named
 ```
 
-If the handoff is BLOCKED, exists only in chat/a temporary worktree, or any of those facts are still unclear, return to the Steward Cycle. Do not ask the external implementation worker to create, commit, or activate the authority that authorizes its own work.
+If the handoff is BLOCKED, exists only in chat/a temporary worktree, omits/contradicts PR topology, or any of those facts are still unclear, return to the Steward Cycle. Do not ask the external implementation worker to create, commit, or activate the authority that authorizes its own work, and do not ask it to decide whether an additional PR should exist.
 
 ## 1. Consume the ACTIVE HANDOFF and dispatch
 
@@ -50,6 +54,10 @@ The steward supplies:
 
 ```text
 checked-in HANDOFF path
+PR topology: serial | stacked | parallel-independent
+authorized PR action
+open implementation PRs in the workstream
+stack parent / merge-rebase order if applicable
 exact implementation branch base
 branch / checkout identity
 flow/workstream
@@ -71,6 +79,24 @@ The optional `pr_body_template` frontmatter is only a transport pointer. Do not 
 Before dispatch, run the Steward Cycle's collision/preflight step. `steward_preflight.py` must not report the candidate as non-ACTIVE. A BLOCKED handoff is durable design authority but is not dispatchable and holds no §4 lease.
 
 If a new handoff must be authored or an existing BLOCKED handoff must be activated, stop using this runbook and return to the steward process. Handoff creation/activation is steward work, not external-worker setup.
+
+### Assigned PR execution rule
+
+Once an ACTIVE handoff explicitly authorizes this implementation PR, **do not ask the user for another confirmation before opening it**. Open/update that one assigned PR as part of executing the handoff.
+
+That instruction is deliberately narrow:
+
+```text
+ACTIVE handoff authorizes PR X
+  → open/update PR X without asking
+
+worker discovers next defect / cleanup / successor
+  → do NOT open PR Y
+  → stop/hand back to steward unless the handoff explicitly declared
+    a stacked or parallel-independent relation that already authorizes Y
+```
+
+Under `serial` topology, a discovered successor may be described in the handback and the steward may later land a BLOCKED successor handoff, but no successor implementation branch/PR opens until the current predecessor merges, state authority is synchronized, and the steward re-anchors.
 
 ## 2. Fetch a PR for review
 
@@ -94,6 +120,8 @@ Treat these fields as the pre-review gate:
 | `handoff.rubric_bullets[]` | optional §9 text for review drafting |
 
 An empty parsed allowlist means the template/handoff shape was not understood; do not treat that as a pass.
+
+Also compare the observed open-PR shape to the handoff's declared topology. A mechanically clean diff does not make an unauthorized stack or fan-out acceptable.
 
 ## 3. Verify §7 independently
 
@@ -159,10 +187,12 @@ After fixes:
 1. fetch the new head;
 2. review the finding-led delta;
 3. rerun required evidence;
-4. re-evaluate the complete invariant;
+4. re-evaluate the complete invariant **and PR topology**;
 5. post the next formal review cycle against the changed head.
 
 Do not count fix commits or evidence-only comments as cycles by themselves.
+
+If review/dogfood exposes a separate successor while the current PR remains open, do not chain-dispatch it under serial topology. Record the finding and return the scheduling decision to the steward.
 
 ## 5. Capture review learning
 
@@ -177,6 +207,7 @@ PR / merge revision
 total review cycles
 material finding classes
 accepted evidence / waivers
+PR topology disposition
 named successor still false
 ```
 
@@ -199,6 +230,8 @@ Useful properties:
 - a failed stash pop means the remote merge may already be complete—resolve local state without pretending the merge failed.
 
 After merge, verify exact integration state (`git rev-parse HEAD`, `git show -s`, remote ref when relevant).
+
+For a declared stack, merge/rebase only in the order written by the handoff; after each merge, the next stacked PR gets a new exact-head review against real integration state. Do not treat a previously tested synthetic combined head as authority for the rebased child.
 
 ## 7. Execute atomic state-authority sync
 
@@ -238,6 +271,7 @@ Return to [`Docs/Process/STEWARD-CYCLE.md`](../../../Docs/Process/STEWARD-CYCLE.
 
 - confirm merged behavior, not handoff promises;
 - confirm state authorities agree;
+- inspect remaining open PRs and verify they still match declared topology;
 - inspect active parallel lanes/write leases;
 - inspect any already-checked-in BLOCKED successor and its activation gate;
 - carry forward repeated review lessons;
@@ -258,6 +292,8 @@ A predecessor merge does not itself activate a BLOCKED successor. The steward ow
 
 - **Candidate handoff is BLOCKED/non-ACTIVE:** stop; return to Steward Cycle for re-anchor/activation. Do not dispatch the external worker.
 - **Handoff exists only outside main:** stop; the designing steward must make the authority durable first.
+- **PR topology absent/contradictory:** stop; return to Steward Cycle. Do not let the worker choose whether to stack/fan out.
+- **New successor defect discovered under serial topology:** stop/hand back; do not open another PR.
 - **Handoff parser returns empty §4/§7:** inspect template structure; do not waive silently.
 - **Interactive verification:** add a fixture or explicit manual proof rather than bypassing it.
 - **GitHub API outage:** use the equivalent `gh`/web path, preserving exact head and review-cycle semantics.
