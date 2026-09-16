@@ -1,28 +1,28 @@
-# HANDOFF — STEWARDSHIP: drain DOGFOOD-CONTINUITY PR queue
+# HANDOFF — STEWARDSHIP: resolve #722–#726 and land #726
 
 **Created:** 2026-09-15  
-**Status:** ACTIVE — stewardship recovery mission, not an implementation PR  
+**Revised:** 2026-09-15 after explicit operator direction to finish the open-PR recovery  
+**Status:** ACTIVE — stewardship execution mission; do not create another implementation PR  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Canonical path:** `Docs/Plans/HANDOFF-STEWARDSHIP-drain-dogfood-continuity-pr-queue.md`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / stewardship`  
-**Starting integration anchor:** `main@dcd28bbda295beaca1010e81f3da9c92ec835707`  
-**PR topology:** `recovery-serial` — one active merge candidate at a time; no new implementation PRs until the existing queue is drained and post-queue acceptance is adjudicated  
-**One-line mission:** convert the accidental #722–#726 fan-out into a deliberate serial queue, integrate each already-built capability against real `main`, run one fresh pristine structural acceptance from that actual integrated state, and stop before opening any successor PR.
+**Execution anchor:** `main@e55584844105ae02447f0d75ae132bed7278418a`  
+**PR topology:** `recovery-serial` — exactly one front-of-queue PR may be rebased/reviewed/merged at a time  
+**PR authorization:** work only the already-open PRs `#722`, `#723`, `#724`, `#725`, `#726`; do not open `#727` or any replacement integration PR  
+**Primary finish line:** **PR #726 is merged into real `main`; PRs #722–#725 are no longer ambiguous open work; every required predecessor capability is present on `main`; one fresh pristine current-corpus structural acceptance run is adjudicated from that real integrated state.**
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process:
-> [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md). The process law
-> was tightened during this recovery so PR topology is now handoff authority and
-> `serial` is the default.
+> [`Docs/Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md).
+> This handoff is the queue/topology authority for the accidental #722–#726 fan-out.
 
 ---
 
-## §1 Finish line and recovery invariant
+## §1 Mission and non-negotiable end state
 
-This mission exists because one acceptance effort accumulated five open PRs without
-an explicit decision to run five concurrent lanes.
+Five open PRs accumulated from one acceptance loop without an explicit decision to
+run five concurrent implementation lanes. Resolve that fan-out completely.
 
-The open PRs are not five independent product capabilities. They are one acceptance
-harness plus four production repairs discovered serially by running that harness:
+The intended causal chain is:
 
 ```text
 #722  current-corpus structural acceptance harness
@@ -36,345 +36,394 @@ harness plus four production repairs discovered serially by running that harness
 #726  exact durable relationship-id continuity
 ```
 
-The recovery invariant is:
-
-> **At any point in this mission exactly one existing implementation PR is the active merge candidate. Every later PR is parked. The active PR is rebased/updated against actual current `main`, formally reviewed on that exact head, merged or deliberately closed, and state authority is synchronized before the next parked handoff becomes ACTIVE. No new implementation PR is opened while the queue remains. Synthetic/cherry-picked combined heads are diagnostic evidence only, never integration authority.**
-
-The user preference **“do not ask before opening the PR; just do it”** remains valid
-and is now interpreted narrowly:
+The executor is not done when #726 merely reviews cleanly. The mission ends only at:
 
 ```text
-ACTIVE code handoff explicitly authorizes one assigned PR
-  → worker opens/updates that PR without asking
-
-worker discovers another defect / successor
-  → worker does not open another PR
-  → steward owns whether that future work is serial, stacked, or independent
+real main contains every still-required capability from #722–#726
+#722 CLOSED (normally MERGED)
+#723 CLOSED (normally MERGED)
+#724 CLOSED (normally MERGED)
+#725 CLOSED (normally MERGED)
+#726 MERGED
+no replacement repair/integration PR opened
+one fresh pristine post-#726 acceptance run recorded against exact real-main SHA
+repository authorities agree on the next single action
 ```
 
-For this recovery, the answer is already decided: **serial**.
+Expected disposition is **merge all five in order**. A predecessor PR may instead
+be closed/superseded only if its exact intended capability is already present on
+current `main` and the steward records concrete diff/behavior evidence proving that
+merging it would add no required semantics. "It is old", "it conflicts", or "#726
+contains related code" are not sufficient reasons to close it.
+
+**#726 is different:** this mission specifically requires its relationship-ID
+continuity capability to land. If #726's branch becomes mechanically unsuitable
+after rebases, repair the existing #726 branch. Do not replace it with another PR.
 
 ---
 
-## §2 Current truth at recovery handoff
+## §2 Current snapshot — re-verify before each action
 
-Re-anchor every item before acting; repository/GitHub truth wins if a head moved.
-The snapshot that triggered this recovery was:
+At this revision of the handoff:
 
-| Queue | PR | Capability | Observed head | Recovery disposition |
-|---:|---:|---|---|---|
-| 1 | #722 | Fresh current-corpus admission acceptance harness | `bb79a11320cc03624d8468a3097c646bdcddd950` | **ACTIVE merge candidate first** |
-| 2 | #723 | Endpoint-kind eligibility at Candidate Graph Admission | `e7b1447738f6332c9ce0fec3dbaba46d51d00e37` | PARKED; handoff now durable BLOCKED on `main` |
-| 3 | #724 | Blocked cross-class ID disambiguation | `a62065eed4d59897190707f3d5f6ca28ad672486` | PARKED; handoff now durable BLOCKED on `main` |
-| 4 | #725 | Exact durable object-ID continuity | `812d5d6ee2699571fd3c08dc5616725927a8b6f3` | PARKED; handoff changed ACTIVE → BLOCKED |
-| 5 | #726 | Exact durable relationship-ID continuity | `7293fd6904197678c05b5ffd909634f9eb940d99` | PARKED; handoff changed ACTIVE → BLOCKED |
+| Order | PR | Capability | Observed head | GitHub state | Required disposition |
+|---:|---:|---|---|---|---|
+| 1 | #722 | Current-corpus structural acceptance harness | `bb79a11320cc03624d8468a3097c646bdcddd950` | OPEN / currently non-mergeable against advanced main | rebase, review, **merge unless proven redundant** |
+| 2 | #723 | Admission endpoint-kind eligibility | `e7b1447738f6332c9ce0fec3dbaba46d51d00e37` | OPEN / currently non-mergeable | rebase after #722, review, **merge unless proven redundant** |
+| 3 | #724 | Blocked cross-class ID disambiguation | `a62065eed4d59897190707f3d5f6ca28ad672486` | OPEN / currently non-mergeable | rebase after #723, review, **merge unless proven redundant** |
+| 4 | #725 | Exact durable object-ID continuity | `812d5d6ee2699571fd3c08dc5616725927a8b6f3` | OPEN / currently non-mergeable | rebase after #724, review, **merge unless proven redundant** |
+| 5 | #726 | Exact durable relationship-ID continuity | `7293fd6904197678c05b5ffd909634f9eb940d99` | OPEN / currently non-mergeable | rebase after #725, fresh formal review, **MERGE** |
 
-Process/authority repair already completed before this handoff was landed:
+Current process authority already repaired:
 
-- `AGENTS.md` now makes PR topology handoff authority and defaults to serial;
-- `Docs/Process/STEWARD-CYCLE.md` requires topology/open-PR reconciliation before dispatch;
-- the code-agent HANDOFF template requires `PR topology` + explicit `PR authorization`;
-- the external-agent rule/runbook distinguish opening the assigned PR from spawning another PR;
-- design-agent process mirrors were refreshed;
-- #723 and #724 handoffs were landed on `main` as BLOCKED parked successors;
-- #725 and #726 handoffs were changed to BLOCKED parked successors.
+- PR topology is now handoff-owned and defaults to serial.
+- `#723` and `#724` handoffs are durable on `main` as BLOCKED successors.
+- `#725` and `#726` handoffs are BLOCKED while predecessors remain unresolved.
+- opening the assigned PR without asking does not authorize another successor PR.
+- a prior synthetic/cherry-picked combined head completed 44/44 sessions; that is
+  useful diagnostic evidence but is not final integration authority.
 
-### Existing synthetic dogfood evidence
-
-A combined/cherry-picked acceptance head containing #723–#726 previously completed
-44/44 sessions with no STOP. Preserve that as strong diagnostic evidence that the
-known repair set is coherent together.
-
-It is **not** the final structural acceptance authority because those changes were
-not yet integrated through real `main` history. Do not throw the evidence away;
-do not promote it into a merge claim either.
+Repository/GitHub truth beats this snapshot if a head moves. Re-anchor before every
+rebase, review, close, or merge.
 
 ---
 
-## §3 Queue freeze — effective immediately
+## §3 Queue law for this recovery
 
-Until §5 completes:
+Exactly one queue item is active at a time.
 
 ```text
-NO new implementation PRs
-NO #727 repair PR
-NO successor branch created merely because a known/novel STOP is observed
-NO paid full-corpus acceptance between each already-known repair
-NO treating a synthetic combined head as equivalent to main
-NO chain-dispatch after merge without state sync + re-anchor
+front PR
+  → activate/reconcile its handoff authority
+  → rebase existing branch onto exact current main
+  → inspect resulting cumulative diff
+  → run focused owning-boundary evidence
+  → formal review against exact rebased head
+  → fix findings in the SAME PR
+  → merge or, for #722–#725 only, prove fully redundant and close
+  → synchronize authority
+  → re-anchor
+  → advance one slot
 ```
 
-Existing PRs #723–#726 may remain open on GitHub while parked. Their existence is
-transport state, not authorization for concurrent implementation work.
+While this mission is active:
 
-Only the front-of-queue handoff is ACTIVE. Later handoffs remain BLOCKED and hold
-no write lease.
+```text
+NO #727
+NO replacement "integration" PR
+NO successor branch for a newly discovered defect
+NO synthetic combined head promoted as repository truth
+NO chain-dispatch before predecessor merge/close + state sync + re-anchor
+NO paid 44-session rerun between already-known repairs
+```
 
-If a parked PR receives incidental bot/CI updates, do not treat that as lane
-activation.
+A newly discovered defect is recorded as evidence / a possible future BLOCKED
+handoff. It does not create an implementation lane until this recovery is complete.
 
 ---
 
-## §4 Per-PR drain protocol
+## §4 Rebase and authority-conflict rules
 
-Apply this exact protocol to each queue item before moving to the next:
+The old PR branches predate the process-authority repair now on `main`, so handoff
+files may conflict during rebase. That conflict is expected and must not resurrect
+stale authority.
 
-```text
-1. re-anchor exact current main + exact PR head
-2. confirm this PR is the front-of-queue handoff
-3. activate its handoff on main if it was BLOCKED
-4. rebase/update the existing PR onto exact current main
-5. inspect cumulative diff after rebase
-6. if diff is empty because predecessors absorbed it:
-     close/supersede truthfully; do not manufacture a merge
-7. otherwise run the handoff's focused owning-boundary evidence
-8. issue a formal review judgment against the exact rebased head
-9. finding-led fixes stay in this same PR when they belong to its invariant/lease
-10. if a genuinely separate next defect is discovered:
-      record it as a steward handback / possible BLOCKED future handoff
-      DO NOT open another PR
-11. when merge-ready, merge this PR
-12. perform its backward-looking state-authority sync
-13. mark/record completion truthfully
-14. re-anchor actual main
-15. only then activate the next parked handoff
-```
+For every queue PR:
 
-A rebase itself creates a new exact review head. Prior reviews remain historical
-evidence but do not approve the rebased integration head automatically.
+1. preserve the **current canonical handoff on `main`** as authority;
+2. preserve the PR's executable implementation and report evidence when still true;
+3. do not let an old branch copy change `BLOCKED`/`ACTIVE`, topology, activation gate,
+   predecessor state, or write-lease ownership back to stale values;
+4. after predecessor resolution, the steward performs the narrow activation sync on
+   `main` before the implementation branch is treated as active;
+5. rebase the existing branch onto that exact activated `main`;
+6. if code conflicts with already-merged predecessor behavior, resolve only inside
+   the current handoff invariant/write lease; otherwise STOP for steward judgment.
 
-### What counts as an integration fix
-
-A rebase may expose a conflict because an earlier queue item changed the same seam.
-Resolve that conflict inside the current PR only when the resolution preserves the
-current handoff invariant and remains inside its write lease.
-
-If integration requires redesigning another capability or changing a second durable
-contract, stop and return to stewardship. Still do **not** open another PR.
+An old review does not approve a rebased head. Every rebased implementation head
+gets a fresh formal judgment.
 
 ---
 
-## §5 Required drain order
+## §5 Execute the queue
 
-### Phase A — #722 acceptance harness
+### A. Resolve #722 — land the harness first
 
-**Current role:** only ACTIVE merge candidate at recovery start.
+Canonical handoff:
+`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md`
 
-Review #722 as the harness capability it was designed to be:
+#722 owns the fail-closed harness, not a claim that production already passes.
+Production seams remain read-only.
+
+Required actions:
 
 ```text
-fail-closed --preflight / --execute runner
-exact current-corpus manifest freeze
-pristine isolated authority
-strict chronological one-pass processing
-exact candidate forwarding
-first-failure STOP
-revision/head chain verification
-no skip / resume / repair / model override
+rebase #722 onto exact current main
+verify its cumulative diff is still only harness + tests + compact report
+run its deterministic harness tests / lint / diff checks
+formally review exact rebased head
+merge #722 when merge-ready
+record merge SHA + review-cycle count
+sync #722 handoff/report authority truthfully
+re-anchor main
 ```
 
-Production seams remain read-only in this PR.
+It is valid for #722 to merge while structural acceptance is still HOLD. The harness
+exists to expose production failures; the later repairs answer those failures.
 
-The harness does **not** need the later production repairs already merged in order
-to be a valid harness. It may merge with structural acceptance still HOLD. Its job
-is to expose truthfully whether current production code passes.
+Do not run the final paid/full 44-session acceptance here.
 
-If #722 review reveals a harness defect, fix #722. If it reveals another production
-defect, record it but do not open a repair PR during queue recovery.
+### B. Resolve #723 — endpoint-kind eligibility
 
-After #722 merges and sync completes, activate #723.
-
-### Phase B — #723 admission endpoint-kind eligibility
-
-Use:
+Canonical handoff:
 `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-admission-endpoint-kind-eligibility-v1.md`
 
-Before review:
+Activation gate: #722 resolved and state synced.
 
-- change handoff BLOCKED → ACTIVE on `main` after re-anchor;
-- rebase existing #723 onto actual current `main`;
-- rerun its focused Candidate Graph Admission evidence;
-- formally review the new exact head.
+Required actions:
 
-After merge/sync, activate #724.
+```text
+activate #723 handoff on main
+rebase existing #723 branch onto current main
+preserve exact immutable candidate digest behavior
+prove mapped-but-inexpressible endpoints receive sealed endpoint_kind_not_admitted disposition
+prove legal edges remain confirmable
+run handoff evidence
+formal review exact rebased head
+merge #723 unless exact capability is already proven present on main
+sync / re-anchor
+```
 
-### Phase C — #724 blocked cross-class ID disambiguation
+### C. Resolve #724 — blocked cross-class node-ID disambiguation
 
-Use:
+Canonical handoff:
 `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-blocked-cross-class-id-disambiguation-v1.md`
 
-Rebase onto actual `main` containing #722 + #723, review its exact identity-resolution
-invariant, merge/sync, then activate #725.
+Activation gate: #723 resolved and state synced.
 
-### Phase D — #725 exact durable object-ID continuity
+Required invariant:
 
-Use:
+```text
+blocked cross-class exact-label collision
+  → both identities remain distinct
+  → kept node IDs are unique
+  → deterministic survivor keeps original ID
+  → other blocked member receives deterministic disambiguated ID
+  → true same-class duplicate integrity remains fail-closed
+```
+
+Rebase, run focused evidence, formally review, merge unless already proven redundant,
+sync, re-anchor.
+
+### D. Resolve #725 — exact durable object-ID continuity
+
+Canonical handoff:
 `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-exact-id-identity-continuity-v1.md`
 
-Rebase onto actual `main` containing #722–#724. Preserve same-kind exact-ID precedence
-and wrong-kind occupied-ID fail-closed behavior. Review exact rebased head, merge,
-sync, then activate #726.
+Activation gate: #724 resolved and state synced.
 
-### Phase E — #726 exact durable relationship-ID continuity
+Required invariant:
 
-Use:
+```text
+candidate/proposed object ID equals existing parent same-kind durable object ID
+  → resolved_existing before label/alias ambiguity
+wrong-kind exact occupied ID
+  → does not force confirm
+label drift alone
+  → does not invent CREATE_NEW into occupied durable ID
+```
+
+Rebase onto real `main` containing resolved #722–#724, run focused evidence, formally
+review, merge unless already proven redundant, sync, re-anchor.
+
+The #725 merge is the hard predecessor gate for #726.
+
+### E. Land #726 — exact durable relationship-ID continuity
+
+Canonical handoff:
 `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-exact-edge-id-continuity-v1.md`
 
-#726 currently contains historical stacked ancestry from #725. After #725 is actually
-merged:
+Activation gate: #725 **merged/resolved on real main**, authority synced, and #726
+handoff explicitly ACTIVE again.
 
-- rebase #726 onto current `main`;
-- verify the cumulative diff contains only the relationship-continuity slice and
-  does not reintroduce #725 as duplicate diff;
-- preserve direct-predicate and reverse-endpoint (`belongs_to → dnd5e:owns`)
-  regressions;
-- formally review the exact rebased head.
+Historical #726 findings remain relevant:
 
-Prior #726 Review Cycles remain useful finding history. The rebased integration head
-still requires a fresh formal judgment.
+- Cycle 1 caught false collision for admitted reverse-endpoint predicates.
+- The fix normalized candidate endpoints through the same admitted write mapping.
+- Deterministic regressions now cover `belongs_to → dnd5e:owns` at classifier and
+  identity-gate boundaries.
+- Historical synthetic full-corpus run reached 44/44, but did not establish real-main
+  integration acceptance.
 
-Merge/sync #726. The implementation queue is then empty.
+Required #726 rebase rule:
 
-### Phase F — one pristine full structural acceptance from actual main
+```text
+rebase existing #726 onto post-#725 current main
+#725 object-ID code must disappear from #726's incremental diff
+#726 incremental diff must retain relationship-context/classification/gate behavior
+canonical main handoff topology/status wins any documentation conflict
+```
 
-Only after #722–#726 are integrated through real `main`:
+Then run the exact #726 focused evidence, including direct-predicate and reverse
+endpoint cases. Inspect the full cumulative diff against current main, not merely the
+last fix commit.
 
-1. re-anchor exact `main` and record SHA;
-2. recreate/migrate the pristine acceptance DB using the canonical harness contract;
-3. run `--preflight`;
-4. run one fresh full `--execute` over the frozen current corpus;
-5. bind the acceptance report to the exact real-main SHA, manifest digest, production
-   model policy digest/resolved model, runtime identity, and terminal World head.
+Issue the next formal Review Cycle against that exact rebased head. If findings
+remain, fix them in #726 and repeat review cycles until merge-ready.
 
-Do **not** resume a historical run. Do not reuse the synthetic combined run as the
-final witness.
+**Then merge #726. Do not stop at APPROVE/HOLD-cleared.** Record:
 
-#### If PASS
+```text
+accepted #726 head SHA
+final review-cycle number
+merge SHA
+focused evidence provenance
+actual changed paths
+confirmation that #725 is not duplicated in the final #726 diff
+```
+
+After merge, synchronize #726 completion and re-anchor exact `main`.
+
+---
+
+## §6 What "resolved" means for #722–#725
+
+A predecessor PR is resolved only by one of these two dispositions:
+
+### MERGED — normal/expected
+
+Its capability is still required, focused evidence passes on its rebased head, review
+accepts it, and the PR merges into `main`.
+
+### CLOSED AS REDUNDANT — exceptional
+
+Allowed only when all are true:
+
+```text
+current main already contains the exact capability
+PR diff after rebase is empty or only stale transport/authority metadata
+focused owning-boundary evidence passes on main
+closure comment identifies exact main SHA and where the capability landed
+no later PR depends on unmerged commits unique to the closed branch
+```
+
+Do not close a PR merely to reduce the count. Do not call a merge conflict
+"superseded." Preserve causal history truthfully.
+
+By the time #726 merges, #722–#725 must all be CLOSED by one of these dispositions.
+There must be no ambiguous "parked for later" item left from this fan-out.
+
+---
+
+## §7 Final post-#726 structural acceptance
+
+Only after #726 is merged and #722–#725 are resolved:
+
+```text
+re-anchor exact real main
+confirm main contains every required capability
+prepare one newly pristine dmb_current_corpus_acceptance_v1 DB at the canonical loopback target
+run harness --preflight
+run one fresh full harness --execute
+process frozen corpus exactly once in chronological order
+no resume / skip / repair / candidate substitution
+```
+
+Bind the report to:
+
+```text
+exact real-main SHA
+manifest count + digest
+production model-policy digest + resolved model
+runtime/database/world identity
+D0 genesis revision
+terminal World head or first STOP head
+model-call count
+first failing boundary if any
+```
+
+### PASS outcome
+
+Record exactly:
 
 ```text
 STRUCTURAL CURRENT-CORPUS ACCEPTANCE = PASS
 SEMANTIC MODEL SELECTION = HOLD
+SEMANTIC TRUTHFULNESS / PRECISION / RECALL = NOT ESTABLISHED
 ```
 
-Update the acceptance REPORT/state authority by guarded steward sync on `main`.
-Mark this recovery handoff COMPLETE. Re-anchor before designing/activating the named
-semantic-truthfulness successor.
+Perform guarded state-authority sync and mark this stewardship handoff COMPLETE.
+The next semantic-truthfulness work may then be designed from a clean single `main`.
 
-#### If STOP
+### STOP outcome
 
-Preserve the first failing boundary exactly. Do not open a PR from the runner or the
-code agent.
+A truthful STOP does **not** reopen the five-PR fan-out.
 
-The steward may author a **new BLOCKED successor handoff on `main`** for the newly
-proven defect. Once this recovery mission is closed and repository authority is
-coherent, re-anchor and decide whether that successor becomes the next single serial
-implementation PR.
-
-The queue recovery is still successful if it leaves one truthful new STOP rather
-than five floating repair branches.
+Record first failure and preserve artifacts. A new repair may be designed as a
+BLOCKED handoff on `main`, but do not open its implementation PR until this recovery
+is closed, state authority is coherent, and the steward explicitly activates one
+next serial lane.
 
 ---
 
-## §6 Why the old process allowed this
+## §8 Evidence ledger required during execution
 
-The old law correctly constrained write leases and parallel collisions, but it did
-not make **PR topology itself** an explicit handoff-owned decision.
+Maintain this table in this handoff or the owning reports as the queue advances:
 
-That omission interacted badly with a reasonable user preference:
+| PR | Rebased head | Formal review cycle | Focused evidence | Resolution | Merge/close evidence |
+|---:|---|---:|---|---|---|
+| #722 | `<sha>` | `<N>` | `<result>` | MERGED / REDUNDANT | `<merge SHA or closure proof>` |
+| #723 | `<sha>` | `<N>` | `<result>` | MERGED / REDUNDANT | `<merge SHA or closure proof>` |
+| #724 | `<sha>` | `<N>` | `<result>` | MERGED / REDUNDANT | `<merge SHA or closure proof>` |
+| #725 | `<sha>` | `<N>` | `<result>` | MERGED / REDUNDANT | `<merge SHA or closure proof>` |
+| #726 | `<sha>` | `<N>` | `<result>` | **MERGED** | `<merge SHA>` |
 
-> “Don’t ask whether to open the PR. The handoff already authorized the work.”
-
-Without a topology field, an agent could overgeneralize that preference from:
-
-```text
-open the assigned PR without asking
-```
-
-to:
-
-```text
-when dogfood exposes the next repair, open that PR too
-```
-
-The permanent correction is now upstream:
-
-```text
-Steward decides topology
-  ↓
-HANDOFF records topology + exact PR authorization
-  ↓
-CODE worker executes assigned PR without ceremony
-  ↓
-new successor finding returns to steward
-```
-
-Default topology is serial. Stacked and parallel-independent work are explicit
-exceptions, not emergent facts inferred from how many branches happen to exist.
-
----
-
-## §7 Recovery evidence / stewardship checks
-
-At every transition, record:
+At every queue transition also record:
 
 ```text
 current main SHA
-front-of-queue PR + exact head
+open PRs among #722–#726
 front handoff ACTIVE
 later handoffs BLOCKED
-observed open PR list
-no new PR created
-focused evidence result
-formal review cycle / disposition
-merge SHA or truthful close reason
-state-authority sync completion
-next activation decision
+no #727 / replacement PR exists
+state-authority sync complete
 ```
-
-Before Phase F, the expected integrated production/harness ancestry is:
-
-```text
-main
-  contains #722 harness
-  contains #723 admission eligibility
-  contains #724 blocked cross-class disambiguation
-  contains #725 exact object-id continuity
-  contains #726 exact relationship-id continuity
-```
-
-Do not infer this from PR titles. Verify actual merged commits/diffs and exact current
-behavior.
 
 ---
 
-## §8 Stop conditions
+## §9 Stop conditions
 
-Stop the drain and return to stewardship if:
+Stop for steward judgment, but do not open another implementation PR, if:
 
-- a queue PR's invariant is no longer valid after rebasing onto current `main`;
-- resolving a rebase requires a second independently useful contract;
-- a queue PR needs files outside its handoff lease;
-- the order #722 → #723 → #724 → #725 → #726 is disproven by an actual dependency;
-- an already-merged predecessor makes a queue PR empty or obsolete;
-- a new production failure requires architecture/ontology/model-policy changes;
-- anyone proposes opening another implementation PR before this queue is drained;
-- state authorities disagree after a merge.
+- rebasing changes a queue PR's mission/invariant materially;
+- a queue PR requires a path outside its canonical handoff lease;
+- a supposedly redundant PR still owns executable semantics absent from main;
+- #726 after #725 rebase still contains duplicate #725 implementation diff;
+- integration requires ontology/model-policy/architecture redesign;
+- state authorities disagree after a merge/closure;
+- final acceptance exposes a new production defect.
 
-An empty/obsolete PR is not a failure: close/supersede it truthfully and continue.
+Integration conflicts that are purely the expected consequence of serially landing
+these already-known capabilities are fixed in the current PR when they remain inside
+that PR's invariant and write lease.
 
 ---
 
-## §9 Completion rubric
+## §10 Completion rubric
 
-This stewardship recovery is complete only when:
+This handoff is COMPLETE only when all are true:
 
-- [ ] no implementation PR beyond #722–#726 was opened during recovery;
-- [ ] #722–#726 were each reviewed against actual integration ancestry, then merged or truthfully closed/superseded in declared order;
-- [ ] at most one queue handoff was ACTIVE at a time;
-- [ ] later queue handoffs remained BLOCKED until predecessor merge + sync + re-anchor;
-- [ ] #726 did not duplicate #725 after final rebase;
-- [ ] one fresh pristine full structural acceptance ran from actual post-queue `main`;
+- [ ] no new implementation PR was opened during recovery;
+- [ ] #722 is CLOSED as MERGED or rigorously proven redundant;
+- [ ] #723 is CLOSED as MERGED or rigorously proven redundant;
+- [ ] #724 is CLOSED as MERGED or rigorously proven redundant;
+- [ ] #725 is CLOSED as MERGED or rigorously proven redundant;
+- [ ] **#726 is MERGED into real main**;
+- [ ] every required capability from the causal chain is present on real main;
+- [ ] each rebased non-empty PR received a formal review on its exact integration head;
+- [ ] #726's final diff does not duplicate #725;
+- [ ] one fresh pristine full structural acceptance ran after #726 merge;
 - [ ] final PASS or first STOP is bound to exact real-main authority;
-- [ ] synthetic combined dogfood evidence is preserved as diagnostic history, not mislabeled as integration proof;
-- [ ] process-law/template changes remain durable and mirrored for future design/code agents;
+- [ ] synthetic 44/44 evidence remains diagnostic history only;
+- [ ] no #722–#726 PR remains ambiguously open/parked;
 - [ ] repository state authorities agree on the next single action.
