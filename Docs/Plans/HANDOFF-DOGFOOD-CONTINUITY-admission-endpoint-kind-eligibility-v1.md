@@ -1,17 +1,23 @@
 # HANDOFF — DOGFOOD-CONTINUITY admission endpoint-kind eligibility v1
 
 **Created:** 2026-09-15  
-**Status:** BLOCKED — recovery queue; activate only after #722 merges, state authority is synchronized, and the steward re-anchors current `main`  
+**Status:** ACTIVE — recovery queue front; #722 merged; serialize #723 only  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-admission-endpoint-kind-eligibility-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Original design authority base:** `main@68577114b3c8ec7e06bc0b0a8d382143fdc570ec`  
 **Recovery authority:** `HANDOFF-STEWARDSHIP-drain-dogfood-continuity-pr-queue.md`  
-**Activation gate:** `PR #722 merged + state-authority sync complete + fresh re-anchor selects #723 as the only active merge candidate`  
+**Activation gate:** `satisfied — #722 MERGED @ cba8242dee13220f1f8e41469cd6e0edc1e491fc; activation base main@cba8242dee13220f1f8e41469cd6e0edc1e491fc`  
 **PR topology:** `serial`  
-**PR authorization:** `existing PR #723 is parked transport state while BLOCKED; once ACTIVE, rebase/update/review #723 only; do not open another implementation PR`  
+**PR authorization:** `ACTIVE — rebase/update/review existing PR #723 only; do not open another implementation PR`  
 **PR title:** `DOGFOOD-CONTINUITY: fail closed on inexpressible edge endpoint kinds at admission`
+
+**Activation facts:**
+- Predecessor #722 merge SHA: `cba8242dee13220f1f8e41469cd6e0edc1e491fc`
+- Rebased #722 head: `688852eab383e71a7380fd1efebc67617a811b33`
+- Activation base: `main@cba8242dee13220f1f8e41469cd6e0edc1e491fc`
+- Formal review cycles on #722 integration head: 1
 
 > This handoff was originally created inside PR #723 instead of being landed on
 > `main` before dispatch. The 2026-09-15 stewardship recovery makes the design

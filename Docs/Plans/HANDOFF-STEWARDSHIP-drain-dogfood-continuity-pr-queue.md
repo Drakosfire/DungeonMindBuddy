@@ -372,7 +372,7 @@ Maintain this table in this handoff or the owning reports as the queue advances:
 
 | PR | Rebased head | Formal review cycle | Focused evidence | Resolution | Merge/close evidence |
 |---:|---|---:|---|---|---|
-| #722 | `<sha>` | `<N>` | `<result>` | MERGED / REDUNDANT | `<merge SHA or closure proof>` |
+| #722 | `688852eab383e71a7380fd1efebc67617a811b33` | 1 | 19 passed harness+genesis; ruff clean | MERGED | `cba8242dee13220f1f8e41469cd6e0edc1e491fc` |
 | #723 | `<sha>` | `<N>` | `<result>` | MERGED / REDUNDANT | `<merge SHA or closure proof>` |
 | #724 | `<sha>` | `<N>` | `<result>` | MERGED / REDUNDANT | `<merge SHA or closure proof>` |
 | #725 | `<sha>` | `<N>` | `<result>` | MERGED / REDUNDANT | `<merge SHA or closure proof>` |

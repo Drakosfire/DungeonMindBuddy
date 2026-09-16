@@ -19,7 +19,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-CONTINUITY current-corpus admission acceptance v1
 
 **Created:** 2026-09-15  
-**Status:** ACTIVE — predecessor #721 merged/accepted; no open implementation PR exists at design re-anchor  
+**Status:** DONE — MERGED as PR #722 @ `cba8242dee13220f1f8e41469cd6e0edc1e491fc` (rebased head `688852eab383e71a7380fd1efebc67617a811b33`); stewardship drain continues at #723  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-admission-acceptance-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
