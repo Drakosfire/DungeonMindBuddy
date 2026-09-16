@@ -13,6 +13,7 @@ re-anchor
 → steward lands HANDOFF on main
 → activation gate satisfied
 → steward marks HANDOFF ACTIVE
+→ PR topology declared
 → CODE HANDOFF
 → external PR
 → review cycle 1..N
@@ -41,6 +42,8 @@ The DESIGN steward owns that handoff until it is durably checked in on `main`.
 - `Status: ACTIVE` is required before an external implementation agent begins work.
 - The implementation agent must not create, land, activate, or materially redesign its own implementation handoff unless the explicitly assigned slice is itself design/architecture work.
 - A predecessor merge does not automatically activate a successor. The steward re-anchors and performs the explicit BLOCKED → ACTIVE transition.
+- Every ACTIVE handoff declares `PR topology: serial | stacked | parallel-independent` and the one PR action authorized for this worker.
+- The worker opens the one assigned PR without asking for separate confirmation once ACTIVE; it does not infer authority for any additional PR.
 
 Handoff filenames use:
 
@@ -74,7 +77,7 @@ Therefore:
 
 The completion record should capture the total review-cycle count and the material finding classes that caused re-review.
 
-## Write lease and parallel-agent invariant
+## Write lease, PR topology, and parallel-agent invariant
 
 HANDOFF §4 is both the expected diff allowlist and the lane's **exclusive expected write lease only while the handoff is ACTIVE**.
 
@@ -84,6 +87,14 @@ HANDOFF §4 is both the expected diff allowlist and the lane's **exclusive expec
 - If a worker discovers a required path outside §4 or owned by another active lane, stop and report it before changing the path.
 - The steward must split the seam, serialize the work, explicitly transfer ownership, or re-brief the slice.
 - Git merge conflicts are not the normal collision detector.
+
+PR topology is separate from permission to execute the assigned PR:
+
+- `serial` is default: one open implementation PR in the workstream; successor repairs return to the steward and do not open until predecessor merge/sync/re-anchor.
+- `stacked` must be explicit: the handoff names the exact unmerged parent and merge/rebase order.
+- `parallel-independent` must be explicit: no unmerged behavioral dependency and safe write/runtime/state ownership.
+- “Do not ask before opening the PR” means open the PR named by the ACTIVE handoff. It never means “open the next PR too.”
+- A new dogfood STOP on a synthetic combined head is evidence for steward re-decomposition, not self-authorizing PR fan-out.
 
 Parallel worktree/checkout source isolation does not prove runtime isolation; shared ports, services, DBs, `out/`, caches, generated state, fixtures, or external resources must be handled separately when relevant.
 
@@ -103,6 +114,7 @@ Parallel worktree/checkout source isolation does not prove runtime isolation; sh
 12. **Stable authorities change only when their claims change.** Architecture/contracts/reference docs are not mandatory merge bookkeeping.
 13. **The judgment/rubric is a learning surface.** Accepted review findings should tighten future critique, evidence, or repository law when the lesson generalizes. Copying an unchanged rubric forever is a smell.
 14. **Stale-note discipline.** Notes about what a PR did age well; notes about what is still pending age badly. Re-verify temporal claims before quoting them downstream.
+15. **PR topology is not delegated to the CODE worker.** The handoff, authored by the steward, decides whether the assigned PR is serial, stacked, or parallel-independent. If topology is absent/ambiguous, default serial. A worker may open/update its assigned PR without asking, but a new defect, successor, repair, or cleanup does not authorize another PR; stop and return that decision to the steward.
 
 ## Atomic state-authority sync contract
 
@@ -131,6 +143,9 @@ Do not add unrelated architecture churn to satisfy "atomic." Atomic refers to **
 - Treating a BLOCKED checked-in handoff as an active lane or reserved write lease.
 - Dispatching before invariant/evidence critique.
 - Dispatching from a handoff whose status is not ACTIVE.
+- Opening a successor/repair PR merely because the worker found the next defect while another workstream PR is still open.
+- Inferring stacked or parallel PR topology after multiple PRs already exist.
+- Treating “don't ask before opening the PR” as blanket permission to open additional PRs.
 - Treating §4 as documentation rather than an active lane write lease.
 - Parallel agents silently editing the same file because "Git will catch it."
 - Assuming separate worktrees imply separate runtime state.
