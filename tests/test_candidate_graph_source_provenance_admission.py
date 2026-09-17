@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import hashlib
 import json
 import shutil
@@ -35,7 +36,6 @@ from apps.live_control_server.models.world_graph_mutation_context import (
 from apps.live_control_server.ports.world_graph_source_admission import (
     AdmittedSourceIdentity,
     WorldGraphSourceAdmissionError,
-    WorldGraphSourceAdmissionRequest,
 )
 from apps.live_control_server.services.candidate_graph_admission import (
     confirm_candidate_graph_admission,
@@ -91,6 +91,18 @@ class RecordingAdmission:
             source_revision_id=source_revision_id,
             source_revision_token=source_revision_token,
         )
+
+
+def _candidate_bound_to(artifact_id: str) -> dict:
+    candidate = copy.deepcopy(_candidate())
+    candidate["source_artifact_ids"] = [artifact_id]
+    for node in candidate.get("nodes") or []:
+        for ref in node.get("evidence_refs") or []:
+            ref["source_artifact_id"] = artifact_id
+    for edge in candidate.get("edges") or []:
+        for ref in edge.get("evidence_refs") or []:
+            ref["source_artifact_id"] = artifact_id
+    return candidate
 
 
 def _source_file(tmp_path: Path) -> tuple[Path, str]:
@@ -380,7 +392,9 @@ def test_non_recap_source_domain_rejected_before_admission(tmp_path: Path) -> No
     assert snapshot.get_artifact(ARTIFACT_ID) is None
 
 
-def test_same_token_different_artifacts_use_catalog_aware_suffix(tmp_path: Path) -> None:
+def test_same_token_different_artifacts_collision_safe_through_prepare(
+    tmp_path: Path,
+) -> None:
     admission = RecordingAdmission()
     first = _prepare(tmp_path, source_admission=admission)
     token = first.review_package["effect"]["source_admission"]["buddy_source_revision_id"]
@@ -393,30 +407,41 @@ def test_same_token_different_artifacts_use_catalog_aware_suffix(tmp_path: Path)
         source_artifact_id=other_id,
         source_domain="session_recap",
     )
-    second = admission.prove_or_admit(
-        WorldGraphSourceAdmissionRequest(
+    second = prepare_candidate_graph_admission(
+        candidate_graph=_candidate_bound_to(other_id),
+        source_uri=str(source),
+        source_revision_id=token,
+        prepared_by="gm@test",
+        world_id=WORLD_ID,
+        source_artifact_id=other_id,
+        source_artifact=other,
+        campaign_scope=CAMPAIGN_ID,
+        candidate_graph_path=str(tmp_path / "candidate_graph.json"),
+        repo_root=tmp_path,
+        mutation_context=WorldGraphMutationContext(
             world_id=WORLD_ID,
-            campaign_id=CAMPAIGN_ID,
-            source_artifact=other,
-            source_revision_token=token,
-            source_uri=str(source),
-        )
+            revision_id="rev:d0",
+            head_revision_id="rev:d0",
+            objects={},
+        ),
+        source_admission=admission,
     )
+    second_dm = second.review_package["effect"]["source_admission"]["source_revision_id"]
     assert first_dm == token
-    assert second.source_revision_id == f"{token}::{other_id}"
+    assert second_dm == f"{token}::{other_id}"
     mapped = catalog_aware_source_revision_ids(
         admission.sources,
         WORLD_ID,
         {(ARTIFACT_ID, token), (other_id, token)},
     )
     assert mapped[(ARTIFACT_ID, token)] == first_dm
-    assert mapped[(other_id, token)] == second.source_revision_id
+    assert mapped[(other_id, token)] == second_dm
     snapshot = admission.sources.get_provenance_snapshot(
         artifact_ids=[ARTIFACT_ID, other_id],
-        revision_ids=[first_dm, second.source_revision_id],
+        revision_ids=[first_dm, second_dm],
     )
     assert snapshot.get_revision(first_dm) is not None
-    assert snapshot.get_revision(second.source_revision_id) is not None
+    assert snapshot.get_revision(second_dm) is not None
 
 
 def test_product_prepare_fails_closed_when_canonical_source_artifact_missing(
@@ -494,6 +519,52 @@ def test_confirm_rejects_missing_sealed_source_admission(tmp_path: Path) -> None
             governed_confirm=lambda: "nope",
         )
     assert [item.code for item in excinfo.value.diagnostics] == ["source_admission_missing"]
+
+
+def test_confirm_skips_write_when_sealed_source_goes_missing(tmp_path: Path) -> None:
+    admission = RecordingAdmission()
+    result = _prepare(tmp_path, source_admission=admission)
+    published = {"ran": False}
+    admission.fail_code = "source_not_admitted"
+    with pytest.raises(CandidateAdmissionNotConfirmableError):
+        confirm_candidate_graph_admission(
+            review_package=result.review_package,
+            candidate_graph=_candidate(),
+            source_admission=admission,
+            governed_confirm=lambda: published.__setitem__("ran", True) or "published",
+        )
+    assert published["ran"] is False
+    assert admission.calls[-1] == "prove"
+    sealed = result.review_package["effect"]["source_admission"]
+    still = admission.sources.get_provenance_snapshot(
+        artifact_ids=[sealed["source_artifact_id"]],
+        revision_ids=[sealed["source_revision_id"]],
+    )
+    assert still.get_revision(sealed["source_revision_id"]) is not None
+
+
+def test_confirm_skips_write_when_sealed_source_fingerprint_drifts(
+    tmp_path: Path,
+) -> None:
+    admission = RecordingAdmission()
+    result = _prepare(tmp_path, source_admission=admission)
+    sealed = result.review_package["effect"]["source_admission"]
+    stored = admission.sources.get_revision(sealed["source_revision_id"])
+    assert stored is not None
+    admission.sources._revisions[sealed["source_revision_id"]] = stored.model_copy(
+        update={"content_sha256": "00" * 32}
+    )
+    published = {"ran": False}
+    with pytest.raises(CandidateAdmissionIntegrityError) as excinfo:
+        confirm_candidate_graph_admission(
+            review_package=result.review_package,
+            candidate_graph=_candidate(),
+            source_admission=admission,
+            governed_confirm=lambda: published.__setitem__("ran", True) or "published",
+        )
+    assert [item.code for item in excinfo.value.diagnostics] == ["source_identity_conflict"]
+    assert published["ran"] is False
+    assert admission.calls[-1] == "prove"
 
 
 def test_recap_evidence_view_maps_session_recap_not_other() -> None:
@@ -674,6 +745,9 @@ def _confirm_via_product_seam(prepared) -> dict[str, Any]:
     return confirm_candidate_graph_admission(
         review_package=prepared.package,
         candidate_graph=prepared.candidate,
+        source_admission=DungeonMindWorldGraphSourceAdmissionAdapter(
+            database_url=prepared.dsn
+        ),
         governed_confirm=lambda: confirm_extract_promote_via_dungeonmind(
             request,
             database_url=prepared.dsn,
@@ -830,10 +904,6 @@ def test_confirm_fails_closed_when_admitted_source_disappears(
 ) -> None:
     import psycopg
 
-    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
-        WorldGraphWriteError,
-    )
-
     prepared = _prepared_native_recap(tmp_path, monkeypatch, application_state_dsn)
     sealed = prepared.result.review_package["effect"]["source_admission"]
     artifact_id = sealed["source_artifact_id"]
@@ -847,7 +917,29 @@ def test_confirm_fails_closed_when_admitted_source_disappears(
             (artifact_id,),
         )
         conn.commit()
-    with pytest.raises(WorldGraphWriteError) as excinfo:
+    with pytest.raises(CandidateAdmissionNotConfirmableError):
         _confirm_via_product_seam(prepared)
-    assert excinfo.value.code == "governed_write_inexpressible"
+    assert prepared.graph_authority.current_head(prepared.world_id).revision_id == prepared.d0
+
+
+@pytest.mark.integration
+def test_confirm_fails_closed_when_admitted_source_fingerprint_drifts(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+
+    prepared = _prepared_native_recap(tmp_path, monkeypatch, application_state_dsn)
+    sealed = prepared.result.review_package["effect"]["source_admission"]
+    with psycopg.connect(prepared.dsn) as conn:
+        conn.execute(
+            "UPDATE dungeonmind.source_revisions SET content_sha256 = %s "
+            "WHERE source_revision_id = %s",
+            ("00" * 32, sealed["source_revision_id"]),
+        )
+        conn.commit()
+    with pytest.raises(CandidateAdmissionIntegrityError) as excinfo:
+        _confirm_via_product_seam(prepared)
+    assert [item.code for item in excinfo.value.diagnostics] == ["source_identity_conflict"]
     assert prepared.graph_authority.current_head(prepared.world_id).revision_id == prepared.d0

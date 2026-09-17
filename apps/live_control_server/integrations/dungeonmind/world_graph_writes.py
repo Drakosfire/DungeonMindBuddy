@@ -1096,7 +1096,7 @@ def _reprove_source_extraction(
         )
     adapter = DungeonMindWorldGraphSourceAdmissionAdapter(sources=bundle.sources)
     try:
-        adapter.prove(
+        identity = adapter.prove(
             world_id=world_id,
             source_artifact_id=artifact_id,
             source_revision_id=dm_revision_id,
@@ -1108,6 +1108,28 @@ def _reprove_source_extraction(
             code="governed_write_inexpressible",
             details={"world_id": world_id, "reason": exc.code, **dict(exc.details or {})},
         ) from exc
+    except Exception as exc:
+        from dungeonmind.domain.errors import PersistenceIntegrityError
+
+        if not isinstance(exc, PersistenceIntegrityError):
+            raise
+        raise WorldGraphWriteError(
+            str(exc),
+            code="governed_write_inexpressible",
+            details={"world_id": world_id, "reason": "source_identity_conflict"},
+        ) from exc
+    sealed_sha = str(sealed.get("content_sha256") or "").strip()
+    if sealed_sha and identity.content_sha256 != sealed_sha:
+        raise WorldGraphWriteError(
+            "Sealed recap source fingerprint drifted from the admitted pair.",
+            code="governed_write_inexpressible",
+            details={
+                "world_id": world_id,
+                "reason": "source_identity_conflict",
+                "source_artifact_id": artifact_id,
+                "source_revision_id": dm_revision_id,
+            },
+        )
 
 
 def _candidate_endpoint_kinds(

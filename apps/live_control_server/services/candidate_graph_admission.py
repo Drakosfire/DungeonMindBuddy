@@ -657,14 +657,75 @@ def verify_candidate_graph_admission_confirmation(
     return binding
 
 
+def _reprove_sealed_recap_source(
+    *,
+    review_package: Mapping[str, Any],
+    source_admission: Any | None,
+    candidate_digest: str,
+) -> None:
+    """Snapshot-prove the sealed prepare pair before governed confirm.
+
+    This proves the already-admitted artifact/revision and its fingerprint, not
+    a newly proposed identity. ``source_identity_conflict`` during prepare must
+    not reach here via a ``prove()`` fallback. Uninjected callers keep the
+    existing verify-only confirm path; product native confirms inject an
+    authority, and ``world_graph_writes`` re-proofs independently.
+    """
+    if source_admission is None:
+        return
+    effect = dict(review_package.get("effect") or {})
+    sealed = effect.get(_SOURCE_ADMISSION_EFFECT_KEY)
+    if not isinstance(sealed, Mapping):
+        return
+    try:
+        admitted = _source_admission_authority(source_admission).prove(
+            world_id=str(effect.get("world_id") or ""),
+            source_artifact_id=str(sealed.get("source_artifact_id") or ""),
+            source_revision_id=str(sealed.get("source_revision_id") or ""),
+            source_revision_token=str(sealed.get("buddy_source_revision_id") or "")
+            or None,
+        )
+    except WorldGraphSourceAdmissionError as exc:
+        _raise_source_admission(exc, candidate_digest=candidate_digest)
+        raise
+    except Exception as exc:
+        from dungeonmind.domain.errors import PersistenceIntegrityError
+
+        if not isinstance(exc, PersistenceIntegrityError):
+            raise
+        _raise_source_admission(
+            WorldGraphSourceAdmissionError(
+                str(exc),
+                code="source_identity_conflict",
+            ),
+            candidate_digest=candidate_digest,
+        )
+        raise
+    sealed_sha = str(sealed.get("content_sha256") or "").strip()
+    if sealed_sha and admitted.content_sha256 != sealed_sha:
+        _raise_source_admission(
+            WorldGraphSourceAdmissionError(
+                "Sealed recap source fingerprint drifted from the admitted pair.",
+                code="source_identity_conflict",
+            ),
+            candidate_digest=candidate_digest,
+        )
+
+
 def confirm_candidate_graph_admission(
     *,
     review_package: Mapping[str, Any],
     candidate_graph: Mapping[str, Any],
     governed_confirm: Callable[[], _T],
+    source_admission: Any | None = None,
 ) -> _T:
-    """Verify admission, then invoke the existing governed write exactly once."""
+    """Verify admission, re-prove the sealed source pair, then write once."""
     verify_candidate_graph_admission_confirmation(
         review_package=review_package, candidate_graph=candidate_graph
+    )
+    _reprove_sealed_recap_source(
+        review_package=review_package,
+        source_admission=source_admission,
+        candidate_digest=canonical_candidate_digest(candidate_graph),
     )
     return governed_confirm()

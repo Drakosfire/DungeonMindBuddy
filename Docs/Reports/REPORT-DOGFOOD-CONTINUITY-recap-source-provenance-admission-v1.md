@@ -98,7 +98,7 @@ Four blockers were real. This Cycle 2 head repairs them in place on #729:
 1. Removed the `prove()` fallback on `source_identity_conflict`. Same-token / divergent artifact fingerprint now fails closed without proving the stored pair.
 2. Product `extract_promote.prepare()` no longer synthesizes a source artifact when the canonical registry record is missing.
 3. Non-recap domains are rejected in both `_canonical_recap_source_artifact` and `_scope_check_recap_source_artifact` before admission.
-4. Added prepare→source-missing→confirm/head-unchanged and collision-safe same-token/different-artifact regressions. Native confirm now goes through `confirm_candidate_graph_admission` → `confirm_extract_promote_via_dungeonmind`. Out-of-lease edits to `tests/test_candidate_graph_admission_contract.py` and `tests/test_graph_preview_runner.py` were reverted.
+4. Added prepare→source-drift→confirm/head-unchanged and collision-safe same-token/different-artifact regressions through `prepare_candidate_graph_admission` / `confirm_candidate_graph_admission`. Confirm re-proves the sealed pair and fingerprint on that seam when an authority is injected, and `world_graph_writes` re-proofs independently. Out-of-lease edits to `tests/test_candidate_graph_admission_contract.py` and `tests/test_graph_preview_runner.py` remain reverted.
 
 ```text
 FRESH GOVERNED RECAP WRITE CONTRACT = awaiting Cycle 2
@@ -131,7 +131,8 @@ native search "Brin"                   matched
 native neighborhood seed               candidate:brin present
 native evidence(node)                  session_recap anchors; not OTHER
 prepare then delete source then confirm fail closed; head unchanged
-same token, different artifacts        catalog-aware `token::{artifact_id}` suffix
+prepare then fingerprint-drift then confirm fail closed; head unchanged
+same token, different artifacts        catalog-aware `token::{artifact_id}` suffix through prepare
 same token, divergent fingerprint      source_identity_conflict; prove() not used
 missing canonical registry artifact    extract_promote.prepare fails closed
 non-recap source domain                rejected before admission
