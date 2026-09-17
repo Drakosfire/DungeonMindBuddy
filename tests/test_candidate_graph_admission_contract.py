@@ -17,6 +17,9 @@ from apps.live_control_server.models.world_graph_mutation_context import (
     MutationObject,
     WorldGraphMutationContext,
 )
+from apps.live_control_server.ports.world_graph_source_admission import (
+    AdmittedSourceIdentity,
+)
 from apps.live_control_server.services.candidate_graph_admission import (
     canonical_candidate_digest,
     confirm_candidate_graph_admission,
@@ -124,6 +127,63 @@ def _candidate(*, unsupported: bool = False) -> dict:
     }
 
 
+class _FakeSourceAdmission:
+    def prove_or_admit(self, request) -> AdmittedSourceIdentity:
+        artifact = request.source_artifact
+        artifact_id = str(artifact.source_artifact_id)
+        token = str(request.source_revision_token)
+        digest = str(
+            getattr(artifact, "content_sha256", "") or token.removeprefix("sha256:")
+        )
+        return AdmittedSourceIdentity(
+            source_artifact_id=artifact_id,
+            source_revision_id=token,
+            content_sha256=digest,
+            buddy_source_revision_id=token,
+        )
+
+    def prove(
+        self,
+        *,
+        world_id: str,
+        source_artifact_id: str,
+        source_revision_id: str,
+        source_revision_token: str | None = None,
+    ) -> AdmittedSourceIdentity:
+        token = str(source_revision_token or source_revision_id)
+        return AdmittedSourceIdentity(
+            source_artifact_id=source_artifact_id,
+            source_revision_id=source_revision_id,
+            content_sha256=token.removeprefix("sha256:"),
+            buddy_source_revision_id=token,
+        )
+
+
+def _recap_source_artifact(source: Path, revision: str):
+    from types import SimpleNamespace
+
+    digest = revision.removeprefix("sha256:")
+    return SimpleNamespace(
+        source_artifact_id="artifact:recap:longmont-c2:session-9",
+        source_domain="recap",
+        campaign_id="longmont-c2",
+        session_id="session-9",
+        uri=str(source),
+        content_sha256=digest,
+        artifact_kind="markdown",
+        document_class="recap",
+        authority_state="reviewed",
+        visibility_state="internal",
+        world_id="eldyrwild",
+        workspace_document_id=None,
+        workspace_document_revision=None,
+        lineage={},
+        status="active",
+        created_at="1970-01-01T00:00:00+00:00",
+        updated_at="1970-01-01T00:00:00+00:00",
+    )
+
+
 def _prepare(
     tmp_path,
     candidate: dict,
@@ -144,11 +204,13 @@ def _prepare(
         prepared_by="gm@test",
         world_id="eldyrwild",
         source_artifact_id="artifact:recap:longmont-c2:session-9",
+        source_artifact=_recap_source_artifact(source, revision),
         campaign_scope="longmont-c2",
         candidate_graph_path=str(tmp_path / "candidate_graph.json"),
         repo_root=tmp_path,
         mutation_context=context,
         registry_context_graph=registry_context_graph,
+        source_admission=_FakeSourceAdmission(),
     )
 
 

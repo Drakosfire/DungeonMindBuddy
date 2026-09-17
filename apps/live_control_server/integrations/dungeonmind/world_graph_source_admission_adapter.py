@@ -58,6 +58,19 @@ def _map_source_domain(raw: str) -> Any:
     }.get(raw)
 
 
+def _canonical_source_domain_key(raw: str) -> str:
+    """Store Buddy recap producers under the DungeonMind session_recap family key.
+
+    Graph Review and governed recap admission must put the same SourceArtifactV2
+    fingerprint for the same artifact/token. The enum family was already mapped;
+    the durable key must converge here too.
+    """
+    key = str(raw or "").strip()
+    if key == "recap":
+        return "session_recap"
+    return key
+
+
 def _store_artifact_v2(
     artifact: Any,
     *,
@@ -74,7 +87,7 @@ def _store_artifact_v2(
     )
     from dungeonmind.contracts.vocabulary import Visibility
 
-    domain_key = str(artifact.source_domain)
+    domain_key = _canonical_source_domain_key(str(artifact.source_domain))
     domain = _map_source_domain(domain_key) or SourceDomain.OTHER
     workspace_ref = None
     if artifact.workspace_document_id is not None:

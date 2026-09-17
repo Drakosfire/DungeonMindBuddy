@@ -43,6 +43,38 @@ def _ingest_application_state(application_state_dsn: str) -> str:
     return application_state_dsn
 
 
+class _ContractFakeSourceAdmission:
+    def prove_or_admit(self, request):
+        from apps.live_control_server.ports.world_graph_source_admission import (
+            AdmittedSourceIdentity,
+        )
+
+        artifact = request.source_artifact
+        token = str(request.source_revision_token)
+        digest = str(
+            getattr(artifact, "content_sha256", "") or token.removeprefix("sha256:")
+        )
+        return AdmittedSourceIdentity(
+            source_artifact_id=str(artifact.source_artifact_id),
+            source_revision_id=token,
+            content_sha256=digest,
+            buddy_source_revision_id=token,
+        )
+
+    def prove(self, *, world_id, source_artifact_id, source_revision_id, source_revision_token=None):
+        from apps.live_control_server.ports.world_graph_source_admission import (
+            AdmittedSourceIdentity,
+        )
+
+        token = str(source_revision_token or source_revision_id)
+        return AdmittedSourceIdentity(
+            source_artifact_id=source_artifact_id,
+            source_revision_id=source_revision_id,
+            content_sha256=token.removeprefix("sha256:"),
+            buddy_source_revision_id=token,
+        )
+
+
 def _normalized_from_artifact(root: Path, source_artifact_id: str) -> NormalizedExtractionSource:
     from apps.live_control_server.services.source_artifact_registry import (
         load_registered_source_artifact_text,
@@ -693,6 +725,10 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
     revision = source.source_sha256
     if not revision.startswith("sha256:"):
         revision = f"sha256:{revision}"
+    from apps.live_control_server.services.source_artifact_registry import (
+        get_source_artifact,
+    )
+
     prepared = prepare_candidate_graph_admission(
         candidate_graph=candidate,
         source_uri=source.source_uri,
@@ -700,6 +736,7 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
         prepared_by="gm@test",
         world_id="eldyrwild",
         source_artifact_id=source.source_artifact_id,
+        source_artifact=get_source_artifact(tmp_path, source.source_artifact_id),
         campaign_scope="longmont-c2",
         candidate_graph_path=str(tmp_path / "candidate_graph.json"),
         repo_root=tmp_path,
@@ -709,6 +746,7 @@ def test_reviewable_unsupported_candidate_is_exact_admission_input(
             head_revision_id="rev:d0",
             objects={},
         ),
+        source_admission=_ContractFakeSourceAdmission(),
     )
     binding = prepared.review_package["effect"]["candidate_admission"]
     assert candidate == frozen

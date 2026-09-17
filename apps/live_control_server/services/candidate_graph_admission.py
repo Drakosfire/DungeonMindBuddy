@@ -13,7 +13,6 @@ import hashlib
 import json
 from collections.abc import Callable, Mapping
 from dataclasses import replace
-from datetime import UTC, datetime
 from typing import Any, TypeVar
 
 from apps.live_control_server.models.candidate_graph_admission import (
@@ -50,7 +49,6 @@ from apps.live_control_server.ports.world_graph_source_admission import (
     WorldGraphSourceAdmissionError,
     WorldGraphSourceAdmissionRequest,
 )
-from graph_memory.evidence.source_artifact import GraphMemorySourceArtifact
 
 _T = TypeVar("_T")
 _SOURCE_ADMISSION_EFFECT_KEY = "source_admission"
@@ -258,7 +256,6 @@ def _integrity_and_eligibility(
 
 
 _RECAP_SOURCE_DOMAIN_KEYS = frozenset({"recap", "session_recap"})
-_CANONICAL_RECAP_SOURCE_DOMAIN_KEY = "session_recap"
 
 
 def _scope_check_recap_source_artifact(
@@ -288,82 +285,23 @@ def _scope_check_recap_source_artifact(
         )
 
 
-def _canonical_recap_source_artifact(artifact: Any) -> Any:
-    """Admit recap sources under the DungeonMind session_recap family key.
-
-    DungeonMind lifts v1 evidence with ``source_domain_key = SESSION_RECAP.value``.
-    Buddy's producer domain ``recap`` must therefore be stored as that same key
-    or native projection rejects the published object as domain mismatch.
-    Non-recap domains are rejected before admission.
-    """
-    domain = str(getattr(artifact, "source_domain", "") or "").strip()
+def _require_recap_source_artifact(source_artifact: Any) -> Any:
+    """Reject non-recap domains. Recap key canonicalization lives on the adapter."""
+    if source_artifact is None:
+        raise CandidateAdmissionNotConfirmableError(
+            "confirmable recap admission requires the canonical source artifact"
+        )
+    domain = str(getattr(source_artifact, "source_domain", "") or "").strip()
     if domain not in _RECAP_SOURCE_DOMAIN_KEYS:
         raise CandidateAdmissionNotConfirmableError(
             "governed recap admission requires a recap source artifact"
         )
-    if domain == _CANONICAL_RECAP_SOURCE_DOMAIN_KEY:
-        return artifact
-    if hasattr(artifact, "model_copy"):
-        return artifact.model_copy(
-            update={"source_domain": _CANONICAL_RECAP_SOURCE_DOMAIN_KEY}
-        )
-    copied = copy.copy(artifact)
-    copied.source_domain = _CANONICAL_RECAP_SOURCE_DOMAIN_KEY
-    return copied
-
-
-def _buddy_recap_source_artifact(
-    *,
-    candidate_graph: Mapping[str, Any],
-    world_id: str,
-    verified_revision_id: str,
-    source_artifact: Any | None,
-    source_artifact_id: str,
-    source_uri: str,
-    campaign_id: str,
-) -> Any:
-    if source_artifact is not None:
-        return _canonical_recap_source_artifact(source_artifact)
-    session_id = str(candidate_graph.get("session_id") or "").strip()
-    digest = verified_revision_id.removeprefix("sha256:")
-    now = datetime.now(UTC).isoformat()
-    return GraphMemorySourceArtifact(
-        source_artifact_id=source_artifact_id,
-        source_domain=_CANONICAL_RECAP_SOURCE_DOMAIN_KEY,
-        campaign_id=campaign_id or None,
-        session_id=session_id or None,
-        uri=source_uri,
-        content_sha256=digest,
-        artifact_kind="markdown",
-        document_class="recap",
-        authority_state="reviewed",
-        visibility_state="internal",
-        world_id=world_id,
-        status="active",
-        created_at=now,
-        updated_at=now,
-    )
+    return source_artifact
 
 
 def _source_admission_authority(source_admission: Any | None) -> Any:
     if source_admission is not None:
         return source_admission
-    import os
-
-    # Unit tests that do not inject an authority must not write a live World
-    # Graph. Native witnesses inject the mounted adapter with the disposable
-    # cutover DSN. Production never sets PYTEST_CURRENT_TEST.
-    if os.environ.get("PYTEST_CURRENT_TEST"):
-        from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
-            DungeonMindWorldGraphSourceAdmissionAdapter,
-        )
-        from dungeonmind.infrastructure.memory.repositories import (
-            InMemorySourceRepository,
-        )
-
-        return DungeonMindWorldGraphSourceAdmissionAdapter(
-            sources=InMemorySourceRepository()
-        )
     from apps.live_control_server.ports.world_graph_source_admission_access import (
         get_world_graph_source_admission_authority,
     )
@@ -392,7 +330,6 @@ def _raise_source_admission(
 
 def _admit_confirmable_recap_source(
     *,
-    candidate_graph: Mapping[str, Any],
     world_id: str,
     campaign_id: str,
     source_uri: str,
@@ -406,15 +343,7 @@ def _admit_confirmable_recap_source(
         raise CandidateAdmissionNotConfirmableError(
             "confirmable recap admission requires source artifact, revision, and URI"
         )
-    artifact = _buddy_recap_source_artifact(
-        candidate_graph=candidate_graph,
-        world_id=world_id,
-        verified_revision_id=verified_revision_id,
-        source_artifact=source_artifact,
-        source_artifact_id=source_artifact_id,
-        source_uri=source_uri,
-        campaign_id=campaign_id,
-    )
+    artifact = _require_recap_source_artifact(source_artifact)
     _scope_check_recap_source_artifact(
         artifact, world_id=world_id, campaign_id=campaign_id
     )
@@ -564,7 +493,6 @@ def prepare_candidate_graph_admission(
     )
     if confirmable:
         admitted = _admit_confirmable_recap_source(
-            candidate_graph=candidate_graph,
             world_id=result.world_id,
             campaign_id=str(
                 prepare_kwargs.get("campaign_scope")

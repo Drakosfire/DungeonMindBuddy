@@ -1,13 +1,13 @@
 # REPORT — DOGFOOD-CONTINUITY: recap source provenance admission v1
 
-**Status:** Cycle 1 HOLD repaired in place; awaiting Review Cycle 2. Historical accepted World unchanged.
+**Status:** Cycle 2 HOLD repaired in place; awaiting Review Cycle 3. Historical accepted World unchanged.
 **Handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md)
 **Implementation branch:** `dogfood-continuity/recap-source-provenance-admission-v1`
 **Dispatch base:** `main@933d347990b96a6dc84eb7e0881dba476dd3d462`
 **Classification:** P3 — source pair was never admitted (P1) and recap evidence was incompatible with the admitted artifact (P2)
 **Witness World:** `world:recap-provenance-pg` on disposable `dmb_cutover_test`
 **Accepted World:** not mutated
-**GOVERNED RECAP SOURCE PROVENANCE CONTRACT:** Cycle 1 HOLD — not yet accepted
+**GOVERNED RECAP SOURCE PROVENANCE CONTRACT:** Cycle 2 HOLD — not yet accepted
 **PRODUCT LOADABILITY:** `NOT_READY` (historical accepted World still unread)
 **OPERATOR DOGFOOD:** `NOT_READY`
 
@@ -107,6 +107,20 @@ PRODUCT LOADABILITY = NOT_READY
 
 ---
 
+## Review Cycle 2 HOLD (head `c2a7b1819728409e1b1113ac08cea94b4332345b`)
+
+Two authority-boundary blockers remained after Cycle 1. This Cycle 3 head repairs them in place on #729:
+
+1. Removed the `PYTEST_CURRENT_TEST` in-memory catalog. Production `_source_admission_authority()` uses the mounted factory. Confirmable recap admission now requires the canonical source artifact; synthesis is gone. Existing contract/preview tests inject artifact + authority under the steward lease expansion.
+2. Canonicalized Buddy `recap` → DungeonMind `session_recap` once in `DungeonMindWorldGraphSourceAdmissionAdapter._store_artifact_v2`. Candidate admission no longer rewrites the caller domain. Graph Review and recap candidate admission of the same artifact/token are exact no-op identity in both orders.
+
+```text
+FRESH GOVERNED RECAP WRITE CONTRACT = awaiting Cycle 3
+PRODUCT LOADABILITY = NOT_READY
+```
+
+---
+
 ## Fresh native witness
 
 Disposable database `dmb_cutover_test` (not `dmb_current_corpus_acceptance_v1`). Command:
@@ -135,16 +149,19 @@ prepare then fingerprint-drift then confirm fail closed; head unchanged
 same token, different artifacts        catalog-aware `token::{artifact_id}` suffix through prepare
 same token, divergent fingerprint      source_identity_conflict; prove() not used
 missing canonical registry artifact    extract_promote.prepare fails closed
+missing candidate source artifact      confirmable prepare fails closed; no synthesis
+graph review then recap admission      exact no-op identity; stored key session_recap
+recap admission then graph review      exact no-op identity; stored key session_recap
 non-recap source domain                rejected before admission
 unknown object id                      empty; no prefix guess
 foreign campaign / fingerprint drift   fail closed before publication
 ```
 
-Unit/contract companions stay unmodified: `tests/test_candidate_graph_admission_contract.py`, `tests/test_graph_preview_runner.py::test_reviewable_unsupported_candidate_is_exact_admission_input`. The first-world postgres sequence is out of lease and may still pre-admit `recap` against this canonical `session_recap` admission.
+Contract/preview companions inject source artifact + source-admission authority: `tests/test_candidate_graph_admission_contract.py`, `tests/test_graph_preview_runner.py::test_reviewable_unsupported_candidate_is_exact_admission_input`. `tests/test_cutover_dungeonmind_first_world_initialization.py::test_candidate_admission_real_postgres_sequence` remains out of lease and may fail closed without an explicit source artifact.
 
 ---
 
-## What this Cycle 2 request does not establish
+## What this Cycle 3 request does not establish
 
 ```text
 historical accepted World repaired

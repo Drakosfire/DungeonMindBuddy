@@ -120,6 +120,7 @@ def _artifact(
     source_domain: str = "recap",
     campaign_id: str = CAMPAIGN_ID,
     session_id: str = "session-9",
+    world_id: str = WORLD_ID,
 ) -> SimpleNamespace:
     recap_family = source_domain in {"recap", "session_recap"}
     return SimpleNamespace(
@@ -133,7 +134,7 @@ def _artifact(
         document_class="recap" if recap_family else source_domain,
         authority_state="reviewed",
         visibility_state="internal",
-        world_id=WORLD_ID,
+        world_id=world_id,
         workspace_document_id=None,
         workspace_document_revision=None,
         lineage={},
@@ -153,6 +154,11 @@ def _prepare(
     mutation_context: WorldGraphMutationContext | None = None,
 ):
     source, revision = _source_file(tmp_path)
+    token = source_revision_id or revision
+    artifact = _artifact(
+        uri=str(source),
+        content_sha256=token.removeprefix("sha256:"),
+    )
     context = mutation_context or WorldGraphMutationContext(
         world_id=WORLD_ID,
         revision_id="rev:d0",
@@ -162,10 +168,11 @@ def _prepare(
     return prepare_candidate_graph_admission(
         candidate_graph=candidate or _candidate(),
         source_uri=str(source),
-        source_revision_id=source_revision_id or revision,
+        source_revision_id=token,
         prepared_by="gm@test",
         world_id=WORLD_ID,
         source_artifact_id=ARTIFACT_ID,
+        source_artifact=artifact,
         campaign_scope=campaign_scope,
         candidate_graph_path=str(tmp_path / "candidate_graph.json"),
         repo_root=tmp_path,
@@ -208,6 +215,34 @@ def test_nonconfirmable_prepare_does_not_admit(tmp_path: Path) -> None:
     result = _prepare(tmp_path, source_admission=admission, candidate=candidate)
     assert result.confirmable is False
     assert "source_admission" not in result.review_package["effect"]
+    assert admission.calls == []
+
+
+def test_confirmable_prepare_requires_canonical_source_artifact(tmp_path: Path) -> None:
+    admission = RecordingAdmission()
+    source, revision = _source_file(tmp_path)
+    with pytest.raises(
+        CandidateAdmissionNotConfirmableError,
+        match="canonical source artifact",
+    ):
+        prepare_candidate_graph_admission(
+            candidate_graph=_candidate(),
+            source_uri=str(source),
+            source_revision_id=revision,
+            prepared_by="gm@test",
+            world_id=WORLD_ID,
+            source_artifact_id=ARTIFACT_ID,
+            campaign_scope=CAMPAIGN_ID,
+            candidate_graph_path=str(tmp_path / "candidate_graph.json"),
+            repo_root=tmp_path,
+            mutation_context=WorldGraphMutationContext(
+                world_id=WORLD_ID,
+                revision_id="rev:d0",
+                head_revision_id="rev:d0",
+                objects={},
+            ),
+            source_admission=admission,
+        )
     assert admission.calls == []
 
 
@@ -442,6 +477,78 @@ def test_same_token_different_artifacts_collision_safe_through_prepare(
     )
     assert snapshot.get_revision(first_dm) is not None
     assert snapshot.get_revision(second_dm) is not None
+
+
+@pytest.mark.parametrize("graph_review_first", [True, False])
+def test_graph_review_and_candidate_admission_share_recap_fingerprint(
+    tmp_path: Path, graph_review_first: bool
+) -> None:
+    from apps.live_control_server.services.graph_object_authoring_prepare import (
+        prove_or_admit_graph_review_source,
+    )
+
+    admission = RecordingAdmission()
+    source, revision = _source_file(tmp_path)
+    recap = _artifact(
+        uri=str(source),
+        content_sha256=revision.removeprefix("sha256:"),
+        source_domain="recap",
+    )
+    resolved = SimpleNamespace(
+        source_artifact=recap,
+        source_artifact_id=ARTIFACT_ID,
+        source_revision_id=revision,
+        sealed_source_uri=str(source),
+    )
+
+    def via_graph_review() -> tuple[str, str]:
+        return prove_or_admit_graph_review_source(
+            world_id=WORLD_ID,
+            campaign_id=CAMPAIGN_ID,
+            resolved_source=resolved,
+            source_admission=admission,
+        )
+
+    def via_candidate() -> tuple[str, str]:
+        result = prepare_candidate_graph_admission(
+            candidate_graph=_candidate(),
+            source_uri=str(source),
+            source_revision_id=revision,
+            prepared_by="gm@test",
+            world_id=WORLD_ID,
+            source_artifact_id=ARTIFACT_ID,
+            source_artifact=recap,
+            campaign_scope=CAMPAIGN_ID,
+            candidate_graph_path=str(tmp_path / "candidate_graph.json"),
+            repo_root=tmp_path,
+            mutation_context=WorldGraphMutationContext(
+                world_id=WORLD_ID,
+                revision_id="rev:d0",
+                head_revision_id="rev:d0",
+                objects={},
+            ),
+            source_admission=admission,
+        )
+        sealed = result.review_package["effect"]["source_admission"]
+        return sealed["source_artifact_id"], sealed["source_revision_id"]
+
+    first, second = (
+        (via_graph_review, via_candidate)
+        if graph_review_first
+        else (via_candidate, via_graph_review)
+    )
+    first_id, first_rev = first()
+    second_id, second_rev = second()
+    assert (first_id, first_rev) == (second_id, second_rev)
+    snapshot = admission.sources.get_provenance_snapshot(
+        artifact_ids=[first_id],
+        revision_ids=[first_rev],
+    )
+    stored = snapshot.get_artifact(first_id)
+    assert stored is not None
+    assert str(stored.source_domain_key) == "session_recap"
+    assert stored.source_domain == SourceDomain.SESSION_RECAP
+    assert admission.calls == ["prove_or_admit", "prove_or_admit"]
 
 
 def test_product_prepare_fails_closed_when_canonical_source_artifact_missing(
@@ -695,6 +802,11 @@ def _prepared_native_recap(
     candidate = _candidate()
     candidate_path = tmp_path / "candidate_graph.json"
     candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+    recap = _artifact(
+        uri=str(source),
+        content_sha256=source_revision.removeprefix("sha256:"),
+        world_id=world_id,
+    )
     result = prepare_candidate_graph_admission(
         candidate_graph=candidate,
         source_uri=str(source),
@@ -702,6 +814,7 @@ def _prepared_native_recap(
         prepared_by="recap-provenance-test",
         world_id=world_id,
         source_artifact_id=ARTIFACT_ID,
+        source_artifact=recap,
         campaign_scope=CAMPAIGN_ID,
         repo_root=repo,
         mutation_context=context,
