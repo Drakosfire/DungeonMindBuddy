@@ -299,6 +299,7 @@ This table is the exclusive expected write set for the one authorized PR.
 | MODIFY | `apps/live_control_server/integrations/dungeonmind/world_graph_writes.py` | re-prove sealed source identity before confirm/publication; use admitted source identity while building the v2 candidate |
 | MODIFY if P2/P3 proven | `apps/live_control_server/integrations/dungeonmind/contribution_mapping.py` | remove the recap-specific dependency on generic OTHER fallback; map verified recap evidence from admitted provenance |
 | MODIFY if canonical source resolution must stay at the live run boundary | `apps/live_control_server/services/extract_promote.py` | supply the already-authoritative run/source artifact into candidate admission without client invention |
+| MODIFY | `apps/live_control_server/integrations/dungeonmind/world_graph_source_admission_adapter.py` | Cycle 2 HOLD — canonicalize Buddy `recap` → DungeonMind `session_recap` once at the shared mapping boundary so Graph Review and recap candidate admission put the same SourceArtifactV2 fingerprint |
 
 ### Tests / report
 
@@ -306,6 +307,17 @@ This table is the exclusive expected write set for the one authorized PR.
 |---|---|---|
 | CREATE | `tests/test_candidate_graph_source_provenance_admission.py` | deterministic source admission, confirm proof, idempotency, failure, and provenance mapping regressions |
 | CREATE | `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md` | root localization, implemented repair, fresh native witness, and remaining readiness claims |
+| MODIFY | `tests/test_candidate_graph_admission_contract.py` | Cycle 2 HOLD — inject explicit source artifact + source-admission authority; do not change production to satisfy pytest |
+| MODIFY | `tests/test_graph_preview_runner.py` | Cycle 2 HOLD — inject explicit source artifact + source-admission authority for the admission-input witness |
+
+### Cycle 2 HOLD steward lease expansion
+
+Review `5229979719` on `c2a7b181` required:
+
+1. Remove the `PYTEST_CURRENT_TEST` second catalog. Confirmable recap admission requires an explicit canonical source artifact. Isolated tests inject the artifact and authority.
+2. Canonicalize `recap` → `session_recap` in the shared adapter, not in the recap caller. Add Graph Review ↔ candidate admission idempotency in both orders.
+
+This expansion is the steward authorization for those paths. It does not reopen DungeonMind pin, provenance-validation, or accepted-World mutation.
 
 ### Backward-looking predecessor state sync in the implementation PR
 
@@ -321,7 +333,6 @@ Those edits record the already-completed Case B predecessor and that this proven
 ### Read-only unless a stop condition is hit
 
 ```text
-apps/live_control_server/integrations/dungeonmind/world_graph_source_admission_adapter.py
 apps/live_control_server/ports/world_graph_source_admission.py
 apps/live_control_server/ports/world_graph_source_admission_access.py
 src/graph_memory/candidate_graph_to_contribution.py
@@ -335,7 +346,7 @@ corpus recap bytes
 accepted World database contents
 ```
 
-The source-admission adapter is presumed to already implement the required SourceRepository contract. If the worker proves the adapter itself is defective, stop and return the exact failure before expanding the lease.
+The source-admission adapter is leased only for Cycle 2 HOLD recap-key canonicalization. Do not expand further into ports, DungeonMind pin, or provenance-validation semantics.
 
 ---
 
