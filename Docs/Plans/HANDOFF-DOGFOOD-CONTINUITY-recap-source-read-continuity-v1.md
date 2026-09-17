@@ -1,19 +1,23 @@
 # HANDOFF — DOGFOOD-CONTINUITY: recap source-read continuity v1
 
-**Created:** 2026-09-17  
-**Status:** BLOCKED — successor to current-corpus candidate replay; do not dispatch until PR #730 is reviewed, merged, and predecessor state is synchronized  
-**Canonical path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-read-continuity-v1.md`  
-**Workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
-**Flow / owner:** `DOGFOOD-CONTINUITY / product loadability / recap source navigation`  
-**Direction:** DESIGN → CODE → REVIEW → TARGETED PRODUCT LOADABILITY  
-**Design authority base:** `main@ba005c52d892020c4a0dd4a632db38f62c0fda9a` with PR #730 open at design time  
-**Predecessor PR:** `#730` — `DOGFOOD-CONTINUITY: replay accepted candidates into a pristine World`  
-**Predecessor head at design time:** `634f8d4b0807058a8309d5b19978855b9c7d4cc5`  
-**Predecessor durable report path:** `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md` (currently branch-only until #730 merges)  
-**PR topology:** `serial`  
-**Authorized branch after activation:** `dogfood-continuity/recap-source-read-continuity-v1`  
-**Authorized PR title after activation:** `DOGFOOD-CONTINUITY: make recap evidence source-readable`  
-**PR authorization:** when and only when this handoff is ACTIVE, open exactly one implementation PR for this capability. No replay rerun, model work, UI, Hermes, gauntlet, backfill, or successor PR from the same worker.
+**Created:** 2026-09-17
+**Activated:** 2026-09-17
+**Status:** ACTIVE — recap source-read continuity; serial implementation PR authorized
+**Canonical path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-read-continuity-v1.md`
+**Workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`
+**Flow / owner:** `DOGFOOD-CONTINUITY / product loadability / recap source navigation`
+**Direction:** DESIGN → CODE → REVIEW → TARGETED PRODUCT LOADABILITY
+**Design authority base:** `main@ba005c52d892020c4a0dd4a632db38f62c0fda9a` with PR #730 open at design time
+**Predecessor PR:** `#730` — `DOGFOOD-CONTINUITY: replay accepted candidates into a pristine World`
+**Predecessor merge:** `ec286369409bc7b0f86cc1d1c5ff9a31bdd8487d`
+**Reviewed predecessor head:** `634f8d4b0807058a8309d5b19978855b9c7d4cc5`
+**Predecessor review:** Cycle 1 APPROVE (GitHub COMMENT fallback, self-review)
+**Predecessor durable report path:** `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md`
+**Dispatch base:** `main@ec286369409bc7b0f86cc1d1c5ff9a31bdd8487d` — #730 merge; create the implementation branch from current `origin/main` at or after this activation commit
+**PR topology:** `serial`
+**Authorized branch:** `dogfood-continuity/recap-source-read-continuity-v1`
+**Authorized PR title:** `DOGFOOD-CONTINUITY: make recap evidence source-readable`
+**PR authorization:** open exactly one implementation PR for this capability. No replay rerun, model work, UI, Hermes, gauntlet, backfill, or successor PR from this worker.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Sequencing authority: [`STEWARDS-ANCHOR-con-ready.md`](STEWARDS-ANCHOR-con-ready.md). Readiness doctrine: [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md).
 
@@ -21,7 +25,17 @@
 
 ## §0 Activation gate
 
-This handoff is deliberately durable but BLOCKED while #730 is open.
+Activation is complete. The write lease in §6 is now exclusive for the one authorized PR.
+
+```text
+1. satisfied — PR #730 Review Cycle 1 APPROVE on head 634f8d4b0807058a8309d5b19978855b9c7d4cc5
+2. satisfied — PR #730 merged as ec286369409bc7b0f86cc1d1c5ff9a31bdd8487d
+3. satisfied — replay report durable on main; PASS / NOT_READY / source-read first owning boundary
+4. satisfied — this activation records #730 merge/review and releases the replay lease
+5. satisfied — no other open implementation PR owns the leased production paths
+```
+
+Historical activation requirements, now closed:
 
 Activate only after all of the following are true on `main`:
 
@@ -39,7 +53,7 @@ first owning boundary              = ordinary recap source-read locator/span con
 4. predecessor state-authority sync records the #730 merge SHA/review count and closes/releases the replay lane;
 5. no other open implementation PR in this workstream owns the production paths leased below.
 
-On activation, the steward records the exact post-merge `main` SHA as dispatch base. The worker does not activate or materially rewrite this handoff itself.
+The worker does not activate or materially rewrite this handoff itself.
 
 ---
 
@@ -290,9 +304,9 @@ Existing supported source forms such as heading/json-pointer/worldbuilding spans
 
 ---
 
-## §6 Files in scope — BLOCKED write lease
+## §6 Files in scope — exclusive write lease
 
-Because this handoff is BLOCKED, this table reserves no paths yet. It becomes the exclusive expected write set only when the steward activates this handoff.
+This table is the exclusive expected write set while this handoff is ACTIVE.
 
 ### Production paths
 

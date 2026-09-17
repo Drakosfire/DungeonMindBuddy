@@ -1,9 +1,10 @@
 # REPORT — DOGFOOD-CONTINUITY: current-corpus candidate replay v1
 
-**Status:** evaluation complete — replay PASS; product loadability NOT_READY
+**Status:** MERGED as PR #730 @ `ec286369409bc7b0f86cc1d1c5ff9a31bdd8487d`. Reviewed head `634f8d4b0807058a8309d5b19978855b9c7d4cc5`. Review cycles: 1 (Cycle 1 APPROVE, GitHub COMMENT fallback). Replay PASS; product loadability NOT_READY.
 **Handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md)
 **Implementation branch:** `dogfood-continuity/current-corpus-candidate-replay-v1`
 **Dispatch / activation:** `main@ba005c52d892020c4a0dd4a632db38f62c0fda9a`
+**Merge:** `ec286369409bc7b0f86cc1d1c5ff9a31bdd8487d`
 **Predecessor:** PR #729 merged `074d4f66f94d4b391a7aaf485b69030a20d576e4` (reviewed head `5cc8a89ce67d2cc9abefe66c7f343f6dd3cb01c3`, review cycle 4 APPROVE `5230245572`)
 
 ## Claim

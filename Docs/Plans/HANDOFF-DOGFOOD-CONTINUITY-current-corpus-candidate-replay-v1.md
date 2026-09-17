@@ -1,21 +1,21 @@
 # HANDOFF — DOGFOOD-CONTINUITY: current-corpus candidate replay v1
 
-**Created:** 2026-09-16  
-**Activated:** 2026-09-16  
-**Status:** ACTIVE — pristine zero-model-call replay acceptance; serial evaluation PR authorized  
-**Canonical path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md`  
-**Workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
-**Flow / owner:** `DOGFOOD-CONTINUITY / product loadability / provenance-correct replay`  
-**Direction:** DESIGN → EVALUATE → REVIEW → TARGETED PRODUCT DOGFOOD  
-**Design authority base:** `main@074d4f66f94d4b391a7aaf485b69030a20d576e4` — PR #729 merged  
-**Predecessor:** `HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md` — merged as PR #729  
-**Predecessor merge:** `074d4f66f94d4b391a7aaf485b69030a20d576e4`  
-**Reviewed predecessor head:** `5cc8a89ce67d2cc9abefe66c7f343f6dd3cb01c3`  
-**Predecessor review:** Cycle 4 APPROVE, review `5230245572`  
-**PR topology:** `serial`  
-**Authorized branch:** `dogfood-continuity/current-corpus-candidate-replay-v1`  
-**Authorized PR title:** `DOGFOOD-CONTINUITY: replay accepted candidates into a pristine World`  
-**PR authorization:** open exactly one evaluation PR for this handoff. No repair, model-rerun, backfill, UI, Hermes, or successor PR from this worker.  
+**Created:** 2026-09-16
+**Activated:** 2026-09-16
+**Status:** DONE — MERGED as PR #730 @ `ec286369409bc7b0f86cc1d1c5ff9a31bdd8487d`; reviewed head `634f8d4b0807058a8309d5b19978855b9c7d4cc5`; Review Cycle 1 APPROVE (GitHub COMMENT fallback, self-review); replay PASS; product loadability NOT_READY at recap source-read; lease released
+**Canonical path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md`
+**Workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`
+**Flow / owner:** `DOGFOOD-CONTINUITY / product loadability / provenance-correct replay`
+**Direction:** DESIGN → EVALUATE → REVIEW → TARGETED PRODUCT DOGFOOD
+**Design authority base:** `main@074d4f66f94d4b391a7aaf485b69030a20d576e4` — PR #729 merged
+**Predecessor:** `HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md` — merged as PR #729
+**Predecessor merge:** `074d4f66f94d4b391a7aaf485b69030a20d576e4`
+**Reviewed predecessor head:** `5cc8a89ce67d2cc9abefe66c7f343f6dd3cb01c3`
+**Predecessor review:** Cycle 4 APPROVE, review `5230245572`
+**PR topology:** `serial`
+**Authorized branch:** `dogfood-continuity/current-corpus-candidate-replay-v1`
+**Authorized PR title:** `DOGFOOD-CONTINUITY: replay accepted candidates into a pristine World`
+**PR authorization:** open exactly one evaluation PR for this handoff. No repair, model-rerun, backfill, UI, Hermes, or successor PR from this worker.
 **Dispatch rule:** branch from current `origin/main` after this handoff is present; never branch from a pre-#729 base.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Sequencing authority: [`STEWARDS-ANCHOR-con-ready.md`](STEWARDS-ANCHOR-con-ready.md). Readiness doctrine: [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md).

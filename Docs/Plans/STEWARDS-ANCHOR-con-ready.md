@@ -1,18 +1,19 @@
 # STEWARD'S ANCHOR — CON-READY
 
-**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
-**Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
-**Updated:** 2026-09-17  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main@9f24018c02cba6f98eb0da89501ee2d1b50e2f4f` — #730 active; recap source-read continuity successor designed BLOCKED  
-**Structural current-corpus acceptance:** PASS  
-**Fresh governed recap source-provenance contract:** PASS — PR #729 merged `074d4f66f94d4b391a7aaf485b69030a20d576e4`  
-**Product readiness:** NOT READY  
-**Active lane:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md) — PR #730 open  
-**Blocked successor:** [`HANDOFF-DOGFOOD-CONTINUITY-recap-source-read-continuity-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-recap-source-read-continuity-v1.md) — do not dispatch before #730 review/merge/state sync  
-**Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
-**Benchmark authority:** [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md)  
-**Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)  
+**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
+**Line of work:** `CON-READY / DOGFOOD-CONTINUITY`
+**Updated:** 2026-09-17
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**Re-anchor base:** `main@ec286369409bc7b0f86cc1d1c5ff9a31bdd8487d` — #730 merged; recap source-read continuity ACTIVE
+**Structural current-corpus acceptance:** PASS
+**Fresh governed recap source-provenance contract:** PASS — PR #729 merged `074d4f66f94d4b391a7aaf485b69030a20d576e4`
+**Exact accepted-candidate replay:** PASS — PR #730 merged `ec286369409bc7b0f86cc1d1c5ff9a31bdd8487d`
+**Product readiness:** NOT READY — ordinary recap source-read remains the Gate B STOP
+**Active lane:** [`HANDOFF-DOGFOOD-CONTINUITY-recap-source-read-continuity-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-recap-source-read-continuity-v1.md) — ACTIVE; serial PR authorized
+**Closed predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md) — MERGED #730; lease released
+**Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)
+**Benchmark authority:** [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md)
+**Campaign graph architecture:** [`../Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Steward process:** [`../Process/STEWARD-CYCLE.md`](../Process/STEWARD-CYCLE.md)
 
 > This is the current sequencing authority. Repository truth supersedes chat summaries, branch-only reports, and stale current-state prose elsewhere.
@@ -29,12 +30,11 @@ Read, in order:
 
 1. `Docs/Design/ACCEPTANCE-dogfood-readiness.md`;
 2. this anchor;
-3. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md` for the ACTIVE lane;
-4. PR #730 and its branch report while that PR remains open;
-5. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-read-continuity-v1.md` only as the BLOCKED successor design;
-6. the accepted predecessor reports when historical evidence is needed.
+3. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-read-continuity-v1.md` for the ACTIVE lane;
+4. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-current-corpus-candidate-replay-v1.md` for the accepted #730 evaluation claim;
+5. the accepted predecessor reports when historical evidence is needed.
 
-Do not dispatch the blocked successor while #730 is open. Do not open UI, Hermes, gauntlet, model-selection, backfill, or another graph repair PR from this sequence.
+Do not reopen #730. Do not open UI, Hermes, gauntlet, model-selection, backfill, or another graph-admission PR from this sequence.
 
 ---
 
@@ -102,19 +102,17 @@ FRESH GOVERNED RECAP SOURCE PROVENANCE CONTRACT = PASS
 
 It did not rewrite or repair the historical 44-session World.
 
-### 1.4 Current lane: exact accepted-candidate replay
+### 1.4 PR #730 replayed the exact accepted candidates
 
-The ACTIVE lane replays the exact retained 44 candidates from the accepted structural run into a pristine World, with zero model regeneration, through the repaired #729 path.
-
-PR #730:
+PR #730 merged as:
 
 ```text
-DOGFOOD-CONTINUITY: replay accepted candidates into a pristine World
-head at this re-anchor: 634f8d4b0807058a8309d5b19978855b9c7d4cc5
-state: OPEN / not yet formally reviewed
+merge: ec286369409bc7b0f86cc1d1c5ff9a31bdd8487d
+reviewed head: 634f8d4b0807058a8309d5b19978855b9c7d4cc5
+formal review: Cycle 1 APPROVE (GitHub COMMENT fallback, self-review)
 ```
 
-Branch evidence currently reports:
+Accepted bounded evaluation claim:
 
 ```text
 PRISTINE ACCEPTED-CANDIDATE REPLAY = PASS
@@ -123,16 +121,18 @@ genesis + 44 confirms = complete
 terminal replay head = rev:aa435599cb957b666987503b7bef585c
 C1 projection = 514 nodes
 C2 projection = 527 nodes
-emitted IDs reopening through object/complete/neighborhood/evidence = 1041 / 1041
+GRAPH IDENTITY ROUND-TRIP = PASS on the replay witness
 Mireward opens at new C2S22 revision
 C1S10 replay pin exists and is an ancestor of terminal head
+PRODUCT LOADABILITY = NOT_READY
+OPERATOR DOGFOOD = NOT_MEASURED
 ```
 
-These are **branch-reported evaluation results until #730 receives formal review and merges**. Do not promote them to accepted main authority early.
+The graph itself is no longer the active problem. The 1041/1041 emitted-ID sweep is accepted as diagnostic identity evidence from a pre-fail-closed smoke; the merge verdict rests on exact 44-candidate replay plus a truthful source-read STOP.
 
-### 1.5 The remaining reported Gate B failure is source navigation
+### 1.5 The remaining Gate B failure is source navigation
 
-The #730 branch report says the graph itself now opens, but ordinary recap source-read does not.
+Ordinary recap source-read does not reopen the cited span.
 
 Mireward witness:
 
@@ -149,7 +149,7 @@ source_span_ref_id: empty
 line span: represented only inside evidence_ref_id
 ```
 
-If accepted in formal review, this means the failure has moved past graph identity, source admission, projection, object lookup, neighborhood, and evidence lookup. The first owning boundary is the source locator/span contract used by ordinary Buddy source-read.
+The first owning boundary is the source locator/span contract used by ordinary Buddy source-read.
 
 ---
 
@@ -160,6 +160,9 @@ Accepted repository authority now supports:
 ```text
 STRUCTURAL CURRENT-CORPUS ACCEPTANCE = PASS
 FRESH GOVERNED RECAP SOURCE PROVENANCE CONTRACT = PASS
+PRISTINE ACCEPTED-CANDIDATE REPLAY = PASS
+GRAPH IDENTITY ROUND-TRIP = PASS on the replay witness
+SOURCE NAVIGATION = NOT_READY
 PRODUCT LOADABILITY = NOT_READY
 OPERATOR DOGFOOD = NOT_MEASURED / NOT_READY for the workflow
 SEMANTIC COVERAGE = NOT_MEASURED by the current formal gauntlet
@@ -168,14 +171,6 @@ SEMANTIC MODEL SELECTION = HOLD
 ```
 
 Do not use the old pre-fix `4/16` oracle diagnostic as a current semantic score.
-
-If #730 is formally accepted, add the bounded result:
-
-```text
-PRISTINE ACCEPTED-CANDIDATE REPLAY = PASS
-GRAPH IDENTITY ROUND-TRIP = PASS on the replay witness
-SOURCE NAVIGATION = NOT_READY
-```
 
 Product Gate B remains NOT_READY until ordinary source-read returns digest-verified source content for recap evidence.
 
@@ -197,31 +192,22 @@ COMPLETE. PR #729 merged. Fresh governed recap source provenance is accepted.
 
 ### Step 4 — exact current-corpus candidate replay
 
-ACTIVE. PR #730 is the only active implementation/evaluation lane in this sequence.
-
-Its job is to establish whether the repaired write contract produces a product-loadable World from the exact already-accepted semantics, without model variance.
-
-Do not repair production inside #730. Evaluation STOPs are handbacks.
+COMPLETE. PR #730 merged. Exact accepted-candidate replay is accepted. Product loadability remains NOT_READY at source-read.
 
 ### Step 5 — recap source-read continuity
 
-DESIGNED but BLOCKED:
+ACTIVE:
 
 `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-read-continuity-v1.md`
 
-Activation requires:
+Authorized implementation PR:
 
 ```text
-#730 final head formally reviewed and accepted
-→ #730 merged
-→ replay report durable on main
-→ predecessor state-authority sync complete
-→ replay lease released
-→ no production-path collision
-→ steward records new dispatch base and changes BLOCKED → ACTIVE
+DOGFOOD-CONTINUITY: make recap evidence source-readable
+branch: dogfood-continuity/recap-source-read-continuity-v1
 ```
 
-Only then may exactly one serial implementation PR open.
+First worker action is localization across candidate → stored evidence → source-anchor → Buddy read. Do not parse `evidence_ref_id` as the production locator.
 
 ### Step 6 — after source-read continuity
 
@@ -241,7 +227,7 @@ Hermes/model tuning remains downstream.
 
 ---
 
-## 4. BLOCKED successor invariant
+## 4. ACTIVE source-read invariant
 
 The recap source-read continuity handoff owns one bounded invariant:
 
@@ -285,7 +271,7 @@ Do not:
 - regenerate candidates/models to fix source navigation;
 - reopen graph identity/admission semantics unless localization proves the defect is there;
 - modify UI/Hermes/Agent/benchmark gold in the source-read repair;
-- dispatch the blocked successor before #730 closes.
+- open a second implementation PR while this serial lane is ACTIVE.
 
 ---
 
