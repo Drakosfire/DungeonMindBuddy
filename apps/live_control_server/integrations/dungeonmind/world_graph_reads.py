@@ -1802,6 +1802,38 @@ def _retrieval_attribute_views(
     return views
 
 
+_RECAP_PARAGRAPH_SPAN = re.compile(r"(?:^|:)paragraph:(\d+)$")
+_DIGEST_BOUND_LINE_SPAN = re.compile(r":span:([0-9a-f]{12}):(\d+)-(\d+)$", re.IGNORECASE)
+_RECAP_SOURCE_DOMAINS = frozenset({"session_recap", "recap"})
+
+
+def _supported_recap_span_identity(value: str | None) -> str | None:
+    """Return ``value`` when it is an explicit recap paragraph or digest-bound line span."""
+    text = (value or "").strip()
+    if not text:
+        return None
+    if _RECAP_PARAGRAPH_SPAN.search(text) or _DIGEST_BOUND_LINE_SPAN.search(text):
+        return text
+    return None
+
+
+def _product_source_span_ref_id(anchor: SourceAnchorMetadata) -> str | None:
+    """Canonical span identity for ordinary recap source-read.
+
+    DungeonMind's v1→v2 lift copies EvidenceRef.locator but hardcodes
+    ``source_span_ref_id=None``. Recap writes stamp the verified span onto
+    ``locator``, which retrieval exposes as ``locator_identity``. That typed
+    field is locator authority. ``evidence_ref_id`` is never parsed.
+    """
+    explicit = (anchor.source_span_ref_id or "").strip()
+    if explicit:
+        return explicit
+    domain = str(getattr(anchor.evidence, "source_domain", "") or "")
+    if domain in _RECAP_SOURCE_DOMAINS:
+        return _supported_recap_span_identity(anchor.locator_identity)
+    return None
+
+
 def _classify_locator_kind(anchor: SourceAnchorMetadata) -> str:
     domain = str(getattr(anchor.evidence, "source_domain", "") or "")
     span = (anchor.source_span_ref_id or "").strip()
@@ -1816,6 +1848,9 @@ def _classify_locator_kind(anchor: SourceAnchorMetadata) -> str:
         return "heading"
     if parse_graph_data_uri(uri) is not None and parse_json_pointer_locator(locator) is not None:
         return "json_pointer"
+    recap_span = _product_source_span_ref_id(anchor)
+    if recap_span and parse_repo_uri(uri) is not None:
+        return "source_span"
     if span and parse_repo_uri(uri) is not None:
         return "source_span"
     return "unsupported"
@@ -1837,7 +1872,7 @@ def _source_anchor_views(
                 source_artifact_id=anchor.source_artifact_id,
                 source_domain=anchor.evidence.source_domain,
                 session_id=_evidence_session_id(anchor.evidence),
-                source_span_ref_id=anchor.source_span_ref_id,
+                source_span_ref_id=_product_source_span_ref_id(anchor),
                 supporting_graph_object_ids=list(anchor.supporting_object_ids),
                 supporting_assertion_ids=list(anchor.supporting_assertion_ids),
                 readable=bool(anchor.can_open_source) and locator_kind != "unsupported",
@@ -2003,7 +2038,7 @@ def _complete_object_source_bindings(
                 "source_binding_unavailable",
                 "span_unresolvable",
             ] = "source_binding_unavailable"
-        elif not (anchor.source_span_ref_id or "").strip():
+        elif not (_product_source_span_ref_id(anchor) or "").strip():
             status = "no_source_span"
         else:
             status = "span_unresolvable"
@@ -2013,7 +2048,7 @@ def _complete_object_source_bindings(
                 source_artifact_id=anchor.source_artifact_id,
                 source_revision_id=revision_id,
                 content_sha256=digest,
-                source_span_ref_id=anchor.source_span_ref_id,
+                source_span_ref_id=_product_source_span_ref_id(anchor),
                 source_domain=getattr(anchor.evidence, "source_domain", None),
                 session_id=_evidence_session_id(anchor.evidence),
                 provenance_status=status,
@@ -2373,10 +2408,6 @@ def read_source_anchor_direct(
         raise _map_direct_error(exc) from exc
 
 
-_RECAP_PARAGRAPH_SPAN = re.compile(r"(?:^|:)paragraph:(\d+)$")
-_DIGEST_BOUND_LINE_SPAN = re.compile(r":span:([0-9a-f]{12}):(\d+)-(\d+)$", re.IGNORECASE)
-
-
 def split_recap_body_paragraphs(text: str) -> list[str]:
     """Split a digest-pinned recap into body paragraphs after YAML frontmatter."""
     body = text
@@ -2461,7 +2492,7 @@ def _read_admitted_repo_span(
     """
     uri = getattr(anchor.artifact, "uri", None) or ""
     relative_path = parse_repo_uri(uri)
-    span_id = (anchor.source_span_ref_id or "").strip()
+    span_id = (_product_source_span_ref_id(anchor) or "").strip()
     digest = _source_revision_digest(services, anchor.source_revision_id)
     expected = (digest or "").removeprefix("sha256:").strip().lower()
     if relative_path is None or not span_id or not expected:
@@ -2553,13 +2584,14 @@ def _anchor_read_view(
         )
     anchor = resolution.anchor
     locator_kind = _classify_locator_kind(anchor)
+    product_span = _product_source_span_ref_id(anchor)
     base: dict[str, Any] = dict(
         snapshot=snapshot,
         anchor_id=request.anchor_id,
         evidence_ref_id=anchor.evidence_ref_id,
         source_artifact_id=anchor.source_artifact_id,
         source_domain=anchor.evidence.source_domain,
-        source_span_ref_id=anchor.source_span_ref_id,
+        source_span_ref_id=product_span,
         locator_kind=locator_kind,
         trust_boundary=_retrieval_trust_boundary(),
     )
@@ -2593,7 +2625,7 @@ def _anchor_read_view(
                 return read_admitted_worldbuilding_span(
                     root=repo_root,
                     source_artifact_id=anchor.source_artifact_id,
-                    source_span_ref_id=str(anchor.source_span_ref_id),
+                    source_span_ref_id=str(product_span),
                     graph_content_sha256=digest,
                     max_chars=request.max_chars,
                     anchor_id=request.anchor_id,

@@ -98,6 +98,7 @@ class _BuddyEvidenceRecord:
     can_highlight_span: bool
     locator: str | None
     uri: str | None
+    source_span_ref_id: str | None = None
 
 
 def _graph_review_evidence_view(
@@ -144,6 +145,30 @@ def _graph_review_evidence_view(
     return _EmptyEvidenceView(evidence=records)
 
 
+def _embedded_recap_span_ref_id(assertion: Any, evidence_id: str) -> str | None:
+    """Return the first-class recap span identity already on the assertion.
+
+    Candidate-graph mapping stores verified ``source_span_ref_id`` on
+    ``assertion.value["evidence"]``. That field is the locator authority.
+    ``evidence_ref_id`` is identity only and is never parsed for a span.
+    """
+    raw_value = getattr(assertion, "value", None)
+    if not isinstance(raw_value, dict):
+        return None
+    rows = raw_value.get("evidence")
+    if not isinstance(rows, list):
+        return None
+    wanted = str(evidence_id)
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("evidence_ref_id") or "") != wanted:
+            continue
+        span = str(row.get("source_span_ref_id") or "").strip()
+        return span or None
+    return None
+
+
 def _recap_extraction_evidence_view(
     contribution: Any,
     *,
@@ -155,6 +180,11 @@ def _recap_extraction_evidence_view(
     The empty-store fallback stamps SourceDomain.OTHER, which native
     projection rejects against a recap SourceArtifactV2 as
     ``evidence_source_domain_mismatch`` / SCOPE_UNKNOWN.
+
+    Canonical recap span identity is stamped onto ``locator`` so DungeonMind's
+    v1→v2 lift (which copies ``locator``/``uri`` but hardcodes
+    ``source_span_ref_id=None``) still persists a typed span pointer. ``uri``
+    remains the admitted ``repo://`` revision locator used to open the file.
     """
     records: dict[str, Any] = {}
     assertions = [
@@ -166,24 +196,26 @@ def _recap_extraction_evidence_view(
         artifact_id = str(getattr(assertion, "source_artifact_id", "") or "")
         token = str(getattr(assertion, "source_revision_id", "") or "")
         dm_revision_id = pair_to_dm.get((artifact_id, token), token)
-        locator = None
+        revision_locator = None
         if sources is not None and dm_revision_id:
             try:
                 revision = sources.get_revision(dm_revision_id)
             except Exception:
                 revision = None
             if revision is not None:
-                locator = str(getattr(revision, "locator", None) or "") or None
+                revision_locator = str(getattr(revision, "locator", None) or "") or None
         for evidence_id in list(getattr(assertion, "evidence_ref_ids", None) or []):
+            span_id = _embedded_recap_span_ref_id(assertion, evidence_id)
             records[str(evidence_id)] = _BuddyEvidenceRecord(
                 evidence_ref_id=str(evidence_id),
                 source_artifact_id=artifact_id,
                 source_domain="session_recap",
                 evidence_role="support",
-                can_open_source=bool(locator),
-                can_highlight_span=False,
-                locator=locator,
-                uri=locator,
+                can_open_source=bool(revision_locator),
+                can_highlight_span=bool(span_id),
+                locator=span_id or revision_locator,
+                uri=revision_locator,
+                source_span_ref_id=span_id,
             )
     return _EmptyEvidenceView(evidence=records)
 
