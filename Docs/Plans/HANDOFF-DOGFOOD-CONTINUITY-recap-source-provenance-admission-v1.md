@@ -2,7 +2,7 @@
 
 **Created:** 2026-09-16  
 **Activated:** 2026-09-16  
-**Status:** ACTIVE — governed recap source-provenance admission; Case B predecessor closed; serial implementation PR authorized  
+**Status:** DONE — MERGED as PR #729 @ `074d4f66f94d4b391a7aaf485b69030a20d576e4`; reviewed head `5cc8a89ce67d2cc9abefe66c7f343f6dd3cb01c3`; 4 review cycles (Cycle 4 APPROVE `5230245572`); fresh governed recap provenance contract PASS; historical accepted World remains unread / NOT_READY
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / product loadability / governed recap provenance`  

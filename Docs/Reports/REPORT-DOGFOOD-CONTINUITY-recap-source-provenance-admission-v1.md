@@ -1,13 +1,13 @@
 # REPORT — DOGFOOD-CONTINUITY: recap source provenance admission v1
 
-**Status:** Cycle 2 HOLD repaired in place; awaiting Review Cycle 3. Historical accepted World unchanged.
+**Status:** MERGED as PR #729 @ `074d4f66f94d4b391a7aaf485b69030a20d576e4`. Reviewed head `5cc8a89ce67d2cc9abefe66c7f343f6dd3cb01c3`. Review cycles: 4 (Cycle 4 APPROVE `5230245572`). Historical accepted World unchanged.
 **Handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md)
 **Implementation branch:** `dogfood-continuity/recap-source-provenance-admission-v1`
 **Dispatch base:** `main@933d347990b96a6dc84eb7e0881dba476dd3d462`
 **Classification:** P3 — source pair was never admitted (P1) and recap evidence was incompatible with the admitted artifact (P2)
 **Witness World:** `world:recap-provenance-pg` on disposable `dmb_cutover_test`
 **Accepted World:** not mutated
-**GOVERNED RECAP SOURCE PROVENANCE CONTRACT:** Cycle 2 HOLD — not yet accepted
+**GOVERNED RECAP SOURCE PROVENANCE CONTRACT:** PASS for fresh writes
 **PRODUCT LOADABILITY:** `NOT_READY` (historical accepted World still unread)
 **OPERATOR DOGFOOD:** `NOT_READY`
 
