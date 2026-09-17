@@ -1,13 +1,13 @@
 # REPORT — DOGFOOD-CONTINUITY: recap source provenance admission v1
 
-**Status:** PASS for fresh governed recap writes. Historical accepted World unchanged.
+**Status:** Cycle 1 HOLD repaired in place; awaiting Review Cycle 2. Historical accepted World unchanged.
 **Handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-recap-source-provenance-admission-v1.md)
 **Implementation branch:** `dogfood-continuity/recap-source-provenance-admission-v1`
 **Dispatch base:** `main@933d347990b96a6dc84eb7e0881dba476dd3d462`
 **Classification:** P3 — source pair was never admitted (P1) and recap evidence was incompatible with the admitted artifact (P2)
 **Witness World:** `world:recap-provenance-pg` on disposable `dmb_cutover_test`
 **Accepted World:** not mutated
-**GOVERNED RECAP SOURCE PROVENANCE CONTRACT:** `PASS` for fresh writes
+**GOVERNED RECAP SOURCE PROVENANCE CONTRACT:** Cycle 1 HOLD — not yet accepted
 **PRODUCT LOADABILITY:** `NOT_READY` (historical accepted World still unread)
 **OPERATOR DOGFOOD:** `NOT_READY`
 
@@ -80,12 +80,30 @@ Reuse the mounted `WorldGraphSourceAdmissionAuthority`. No second catalog, no di
 | Boundary | Change |
 |---|---|
 | Prepare | After a candidate is structurally confirmable, prove/admit the exact recap source pair and seal `effect.source_admission`. Nonconfirmable inspects do not admit. |
-| Canonical key | Buddy producer domain `recap` is admitted as DungeonMind family key `session_recap`, matching v1→v2 evidence lift. Already-admitted exact pairs prove rather than overwrite. |
+| Canonical key | Buddy producer domain `recap` is admitted as DungeonMind family key `session_recap`, matching v1→v2 evidence lift. Exact replay is the SourceRepository idempotent put, not a `prove()` fallback. |
 | Confirm | Missing/drifting sealed admission fails closed. Writes-layer `_reprove_source_extraction()` snapshot-proves before `_build_pair_to_dm()`. |
 | Evidence | `source_extraction` uses `_recap_extraction_evidence_view` (`session_recap`, admitted revision locator) instead of the generic OTHER fallback. OTHER remains the missing-evidence default for unrelated contributions. |
-| Live run | `extract_promote.prepare` passes the registry `source_artifact` into candidate admission. |
+| Live run | `extract_promote.prepare` requires the canonical registry `source_artifact` and fails closed when it is missing. Synthesis remains test/non-product only. |
+| Domain | Non-recap source domains are rejected before admission so evidence cannot be stamped `session_recap` over a worldbuilding/other artifact. |
+| Conflict | `source_identity_conflict` from `prove_or_admit()` is not converted into success via `prove()`. Exact replay stays on the idempotent SourceRepository contract. |
 
 `contribution_mapping.py` was not changed. The OTHER fallback is still correct for empty stores; recap writes no longer depend on it.
+
+---
+
+## Review Cycle 1 HOLD (head `5827f7b360c2ae1adf4eff2df2757bd8fa9bdabe`)
+
+Four blockers were real. This Cycle 2 head repairs them in place on #729:
+
+1. Removed the `prove()` fallback on `source_identity_conflict`. Same-token / divergent artifact fingerprint now fails closed without proving the stored pair.
+2. Product `extract_promote.prepare()` no longer synthesizes a source artifact when the canonical registry record is missing.
+3. Non-recap domains are rejected in both `_canonical_recap_source_artifact` and `_scope_check_recap_source_artifact` before admission.
+4. Added prepare→source-missing→confirm/head-unchanged and collision-safe same-token/different-artifact regressions. Native confirm now goes through `confirm_candidate_graph_admission` → `confirm_extract_promote_via_dungeonmind`. Out-of-lease edits to `tests/test_candidate_graph_admission_contract.py` and `tests/test_graph_preview_runner.py` were reverted.
+
+```text
+FRESH GOVERNED RECAP WRITE CONTRACT = awaiting Cycle 2
+PRODUCT LOADABILITY = NOT_READY
+```
 
 ---
 
@@ -105,22 +123,27 @@ source artifact exists                 yes (session_recap / SESSION_RECAP)
 source revision exists                 yes
 source pair snapshot-provable          yes at prepare; graph head unchanged
 confirmable without admission          no
-head advances exactly once on confirm  yes
-exact retry                            same published revision; head unchanged
+head advances exactly once on confirm  yes (product confirm seam)
+exact retry                            same committed revision; already_applied
 published object in scoped projection  yes
 native exact-object                    outcome != empty; resolved_node_id = candidate:brin
 native search "Brin"                   matched
 native neighborhood seed               candidate:brin present
 native evidence(node)                  session_recap anchors; not OTHER
+prepare then delete source then confirm fail closed; head unchanged
+same token, different artifacts        catalog-aware `token::{artifact_id}` suffix
+same token, divergent fingerprint      source_identity_conflict; prove() not used
+missing canonical registry artifact    extract_promote.prepare fails closed
+non-recap source domain                rejected before admission
 unknown object id                      empty; no prefix guess
 foreign campaign / fingerprint drift   fail closed before publication
 ```
 
-Unit/contract companions: `tests/test_candidate_graph_admission_contract.py`, `tests/test_graph_preview_runner.py::test_reviewable_unsupported_candidate_is_exact_admission_input`, `tests/test_cutover_dungeonmind_first_world_initialization.py::test_candidate_admission_real_postgres_sequence`.
+Unit/contract companions stay unmodified: `tests/test_candidate_graph_admission_contract.py`, `tests/test_graph_preview_runner.py::test_reviewable_unsupported_candidate_is_exact_admission_input`. The first-world postgres sequence is out of lease and may still pre-admit `recap` against this canonical `session_recap` admission.
 
 ---
 
-## What this PASS does not establish
+## What this Cycle 2 request does not establish
 
 ```text
 historical accepted World repaired

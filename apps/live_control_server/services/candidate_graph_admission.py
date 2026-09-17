@@ -278,11 +278,14 @@ def _scope_check_recap_source_artifact(
             "source artifact belongs to a different world"
         )
     domain = str(getattr(artifact, "source_domain", "") or "").strip()
-    if domain in _RECAP_SOURCE_DOMAIN_KEYS:
-        if not art_campaign or not str(getattr(artifact, "session_id", "") or "").strip():
-            raise CandidateAdmissionNotConfirmableError(
-                "recap source artifact requires campaign_id and session_id"
-            )
+    if domain not in _RECAP_SOURCE_DOMAIN_KEYS:
+        raise CandidateAdmissionNotConfirmableError(
+            "governed recap admission requires a recap source artifact"
+        )
+    if not art_campaign or not str(getattr(artifact, "session_id", "") or "").strip():
+        raise CandidateAdmissionNotConfirmableError(
+            "recap source artifact requires campaign_id and session_id"
+        )
 
 
 def _canonical_recap_source_artifact(artifact: Any) -> Any:
@@ -291,11 +294,14 @@ def _canonical_recap_source_artifact(artifact: Any) -> Any:
     DungeonMind lifts v1 evidence with ``source_domain_key = SESSION_RECAP.value``.
     Buddy's producer domain ``recap`` must therefore be stored as that same key
     or native projection rejects the published object as domain mismatch.
+    Non-recap domains are rejected before admission.
     """
     domain = str(getattr(artifact, "source_domain", "") or "").strip()
+    if domain not in _RECAP_SOURCE_DOMAIN_KEYS:
+        raise CandidateAdmissionNotConfirmableError(
+            "governed recap admission requires a recap source artifact"
+        )
     if domain == _CANONICAL_RECAP_SOURCE_DOMAIN_KEY:
-        return artifact
-    if domain not in _RECAP_SOURCE_DOMAIN_KEYS and domain:
         return artifact
     if hasattr(artifact, "model_copy"):
         return artifact.model_copy(
@@ -342,6 +348,22 @@ def _buddy_recap_source_artifact(
 def _source_admission_authority(source_admission: Any | None) -> Any:
     if source_admission is not None:
         return source_admission
+    import os
+
+    # Unit tests that do not inject an authority must not write a live World
+    # Graph. Native witnesses inject the mounted adapter with the disposable
+    # cutover DSN. Production never sets PYTEST_CURRENT_TEST.
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        from apps.live_control_server.integrations.dungeonmind.world_graph_source_admission_adapter import (
+            DungeonMindWorldGraphSourceAdmissionAdapter,
+        )
+        from dungeonmind.infrastructure.memory.repositories import (
+            InMemorySourceRepository,
+        )
+
+        return DungeonMindWorldGraphSourceAdmissionAdapter(
+            sources=InMemorySourceRepository()
+        )
     from apps.live_control_server.ports.world_graph_source_admission_access import (
         get_world_graph_source_admission_authority,
     )
@@ -403,20 +425,9 @@ def _admit_confirmable_recap_source(
         source_revision_token=verified_revision_id,
         source_uri=source_uri,
     )
-    authority = _source_admission_authority(source_admission)
     try:
-        return authority.prove_or_admit(request)
+        return _source_admission_authority(source_admission).prove_or_admit(request)
     except WorldGraphSourceAdmissionError as exc:
-        if exc.code == "source_identity_conflict":
-            try:
-                return authority.prove(
-                    world_id=world_id,
-                    source_artifact_id=source_artifact_id,
-                    source_revision_id=verified_revision_id,
-                    source_revision_token=verified_revision_id,
-                )
-            except WorldGraphSourceAdmissionError:
-                pass
         _raise_source_admission(exc, candidate_digest=candidate_digest)
         raise
 

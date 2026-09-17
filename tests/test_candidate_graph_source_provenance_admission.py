@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import shutil
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -22,6 +23,7 @@ from apps.live_control_server.integrations.dungeonmind.world_graph_writes import
     _EmptyEvidenceView,
     _recap_extraction_evidence_view,
     bind_identity_ledger_to_package,
+    catalog_aware_source_revision_ids,
 )
 from apps.live_control_server.models.candidate_graph_admission import (
     CandidateAdmissionIntegrityError,
@@ -33,6 +35,7 @@ from apps.live_control_server.models.world_graph_mutation_context import (
 from apps.live_control_server.ports.world_graph_source_admission import (
     AdmittedSourceIdentity,
     WorldGraphSourceAdmissionError,
+    WorldGraphSourceAdmissionRequest,
 )
 from apps.live_control_server.services.candidate_graph_admission import (
     confirm_candidate_graph_admission,
@@ -95,6 +98,37 @@ def _source_file(tmp_path: Path) -> tuple[Path, str]:
     source.write_text("Brin visits the Medical Wing.\n", encoding="utf-8")
     revision = f"sha256:{hashlib.sha256(source.read_bytes()).hexdigest()}"
     return source, revision
+
+
+def _artifact(
+    *,
+    uri: str,
+    content_sha256: str,
+    source_artifact_id: str = ARTIFACT_ID,
+    source_domain: str = "recap",
+    campaign_id: str = CAMPAIGN_ID,
+    session_id: str = "session-9",
+) -> SimpleNamespace:
+    recap_family = source_domain in {"recap", "session_recap"}
+    return SimpleNamespace(
+        source_artifact_id=source_artifact_id,
+        source_domain=source_domain,
+        campaign_id=campaign_id,
+        session_id=session_id,
+        uri=uri,
+        content_sha256=content_sha256,
+        artifact_kind="markdown",
+        document_class="recap" if recap_family else source_domain,
+        authority_state="reviewed",
+        visibility_state="internal",
+        world_id=WORLD_ID,
+        workspace_document_id=None,
+        workspace_document_revision=None,
+        lineage={},
+        status="active",
+        created_at=datetime.now(UTC).isoformat(),
+        updated_at=datetime.now(UTC).isoformat(),
+    )
 
 
 def _prepare(
@@ -257,11 +291,190 @@ def test_fingerprint_conflict_fails_closed(tmp_path: Path) -> None:
             source_admission=admission,
         )
     assert [item.code for item in excinfo.value.diagnostics] == ["source_identity_conflict"]
+    assert admission.calls == ["prove_or_admit", "prove_or_admit"]
     still = admission.sources.get_provenance_snapshot(
         artifact_ids=[sealed["source_artifact_id"]],
         revision_ids=[sealed["source_revision_id"]],
     )
     assert still.get_revision(sealed["source_revision_id"]) is not None
+
+
+def test_same_token_divergent_artifact_fingerprint_fails_closed(tmp_path: Path) -> None:
+    admission = RecordingAdmission()
+    first = _prepare(tmp_path, source_admission=admission)
+    sealed = first.review_package["effect"]["source_admission"]
+    token = sealed["buddy_source_revision_id"]
+    relocated = tmp_path / "relocated-session-9.md"
+    relocated.write_text((tmp_path / "session-9.md").read_text(encoding="utf-8"), encoding="utf-8")
+    colliding = _artifact(
+        uri=str(relocated),
+        content_sha256=token.removeprefix("sha256:"),
+    )
+    with pytest.raises(CandidateAdmissionIntegrityError) as excinfo:
+        prepare_candidate_graph_admission(
+            candidate_graph=_candidate(),
+            source_uri=str(relocated),
+            source_revision_id=token,
+            prepared_by="gm@test",
+            world_id=WORLD_ID,
+            source_artifact_id=ARTIFACT_ID,
+            source_artifact=colliding,
+            campaign_scope=CAMPAIGN_ID,
+            candidate_graph_path=str(tmp_path / "candidate_graph.json"),
+            repo_root=tmp_path,
+            mutation_context=WorldGraphMutationContext(
+                world_id=WORLD_ID,
+                revision_id="rev:d0",
+                head_revision_id="rev:d0",
+                objects={},
+            ),
+            source_admission=admission,
+        )
+    assert [item.code for item in excinfo.value.diagnostics] == ["source_identity_conflict"]
+    assert admission.calls == ["prove_or_admit", "prove_or_admit"]
+    still = admission.sources.get_provenance_snapshot(
+        artifact_ids=[sealed["source_artifact_id"]],
+        revision_ids=[sealed["source_revision_id"]],
+    )
+    stored = still.get_artifact(sealed["source_artifact_id"])
+    assert stored is not None
+    assert str(stored.uri) != str(relocated)
+
+
+def test_non_recap_source_domain_rejected_before_admission(tmp_path: Path) -> None:
+    admission = RecordingAdmission()
+    source, revision = _source_file(tmp_path)
+    artifact = _artifact(
+        uri=str(source),
+        content_sha256=revision.removeprefix("sha256:"),
+        source_domain="worldbuilding",
+    )
+    with pytest.raises(
+        CandidateAdmissionNotConfirmableError,
+        match="recap source artifact",
+    ):
+        prepare_candidate_graph_admission(
+            candidate_graph=_candidate(),
+            source_uri=str(source),
+            source_revision_id=revision,
+            prepared_by="gm@test",
+            world_id=WORLD_ID,
+            source_artifact_id=ARTIFACT_ID,
+            source_artifact=artifact,
+            campaign_scope=CAMPAIGN_ID,
+            candidate_graph_path=str(tmp_path / "candidate_graph.json"),
+            repo_root=tmp_path,
+            mutation_context=WorldGraphMutationContext(
+                world_id=WORLD_ID,
+                revision_id="rev:d0",
+                head_revision_id="rev:d0",
+                objects={},
+            ),
+            source_admission=admission,
+        )
+    assert admission.calls == []
+    snapshot = admission.sources.get_provenance_snapshot(
+        artifact_ids=[ARTIFACT_ID],
+        revision_ids=[revision],
+    )
+    assert snapshot.get_artifact(ARTIFACT_ID) is None
+
+
+def test_same_token_different_artifacts_use_catalog_aware_suffix(tmp_path: Path) -> None:
+    admission = RecordingAdmission()
+    first = _prepare(tmp_path, source_admission=admission)
+    token = first.review_package["effect"]["source_admission"]["buddy_source_revision_id"]
+    first_dm = first.review_package["effect"]["source_admission"]["source_revision_id"]
+    other_id = "artifact:recap:longmont-c2:session-9-copy"
+    source = tmp_path / "session-9.md"
+    other = _artifact(
+        uri=str(source),
+        content_sha256=token.removeprefix("sha256:"),
+        source_artifact_id=other_id,
+        source_domain="session_recap",
+    )
+    second = admission.prove_or_admit(
+        WorldGraphSourceAdmissionRequest(
+            world_id=WORLD_ID,
+            campaign_id=CAMPAIGN_ID,
+            source_artifact=other,
+            source_revision_token=token,
+            source_uri=str(source),
+        )
+    )
+    assert first_dm == token
+    assert second.source_revision_id == f"{token}::{other_id}"
+    mapped = catalog_aware_source_revision_ids(
+        admission.sources,
+        WORLD_ID,
+        {(ARTIFACT_ID, token), (other_id, token)},
+    )
+    assert mapped[(ARTIFACT_ID, token)] == first_dm
+    assert mapped[(other_id, token)] == second.source_revision_id
+    snapshot = admission.sources.get_provenance_snapshot(
+        artifact_ids=[ARTIFACT_ID, other_id],
+        revision_ids=[first_dm, second.source_revision_id],
+    )
+    assert snapshot.get_revision(first_dm) is not None
+    assert snapshot.get_revision(second.source_revision_id) is not None
+
+
+def test_product_prepare_fails_closed_when_canonical_source_artifact_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.models.extract_promote import (
+        ExtractPromotePrepareRequest,
+    )
+    from apps.live_control_server.services import extract_promote as extract_promote_service
+    from apps.live_control_server.services.extract_promote import ExtractPromoteError
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+    )
+
+    source, revision = _source_file(tmp_path)
+    candidate_path = tmp_path / "candidate_graph.json"
+    candidate_path.write_text(json.dumps(_candidate()), encoding="utf-8")
+    resolved = SimpleNamespace(
+        run_id="run:missing-source",
+        campaign_id=CAMPAIGN_ID,
+        session_id="session-9",
+        status="ready",
+        extraction_profile="current_default",
+        source_artifact_id=ARTIFACT_ID,
+        source_revision_id=revision,
+        normalized_recap_path=source,
+        candidate_graph_path=candidate_path,
+        preview_union_store_path=tmp_path / "union.json",
+        manifest_path=tmp_path / "manifest.json",
+        run_dir=tmp_path,
+        registry_root=tmp_path,
+        sealed_source_uri=str(source),
+        registry_context_graph_path=None,
+        diagnostics=[],
+        source_domain="recap",
+        world_id=WORLD_ID,
+        source_span_index_path=None,
+    )
+    monkeypatch.setattr(
+        extract_promote_service,
+        "resolve_promotable_ingest_run",
+        lambda *_args, **_kwargs: resolved,
+    )
+    monkeypatch.setattr(
+        extract_promote_service,
+        "assert_sealed_source_uri_allowed",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "apps.live_control_server.services.source_artifact_registry.get_source_artifact",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            SourceArtifactRegistryError(f"source artifact not found: {ARTIFACT_ID}")
+        ),
+    )
+    with pytest.raises(ExtractPromoteError) as excinfo:
+        extract_promote_service.prepare(ExtractPromotePrepareRequest(run_id="run:missing-source"))
+    assert excinfo.value.code == "invalid_request"
+    assert "source_artifact_missing" in {item.code for item in excinfo.value.diagnostics}
 
 
 def test_confirm_rejects_missing_sealed_source_admission(tmp_path: Path) -> None:
@@ -328,47 +541,25 @@ def test_unknown_object_id_is_not_prefix_guessed(tmp_path: Path) -> None:
     assert result.confirmable is True
 
 
-@pytest.mark.integration
-def test_fresh_recap_publication_survives_native_scoped_reads(
+def _prepared_native_recap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     application_state_dsn: str,
-) -> None:
+):
     from apps.live_control_server.integrations.dungeonmind.world_graph_authority_adapter import (
         DungeonMindWorldGraphAuthorityAdapter,
     )
     from apps.live_control_server.integrations.dungeonmind.world_graph_initialization_adapter import (
         DungeonMindWorldGraphInitializationAdapter,
     )
-    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
-        build_direct_world_graph_read_services,
-        get_evidence_direct,
-        get_neighborhood_direct,
-        get_object_direct,
-        project_world_graph_direct,
-        search_world_graph_direct,
-    )
     from apps.live_control_server.models.recap_world_genesis import (
         RecapWorldGenesisConfirmRequest,
         RecapWorldGenesisPrepareRequest,
     )
-    from graph_memory.projection.world_projection import WorldGraphProjectionRequest
-    from graph_memory.retrieval.models import (
-        RETRIEVAL_EVIDENCE_REQUEST_SCHEMA,
-        RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
-        RETRIEVAL_OBJECT_REQUEST_SCHEMA,
-        RETRIEVAL_SEARCH_REQUEST_SCHEMA,
-        WorldGraphEvidenceRequest,
-        WorldGraphNeighborhoodRequest,
-        WorldGraphObjectRequest,
-        WorldGraphSearchRequest,
-    )
-    from apps.live_control_server.ports.world_graph_authority import WorldGraphPublishRequest
     from apps.live_control_server.services.recap_world_genesis import (
         confirm_recap_world_genesis,
         prepare_recap_world_genesis,
     )
-    from graph_memory.extract_promote_ops import resolve_merged_contribution_from_package
     from tests._cutover_d3a_blocker_safe_fixtures import (
         TRUNCATE_SQL,
         ensure_migrated,
@@ -430,8 +621,11 @@ def test_fresh_recap_publication_survives_native_scoped_reads(
     source_revision = f"sha256:{hashlib.sha256(source.read_bytes()).hexdigest()}"
     graph_authority = DungeonMindWorldGraphAuthorityAdapter(database_url=dsn)
     context = graph_authority.mutation_context(world_id, d0)
+    candidate = _candidate()
+    candidate_path = tmp_path / "candidate_graph.json"
+    candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
     result = prepare_candidate_graph_admission(
-        candidate_graph=_candidate(),
+        candidate_graph=candidate,
         source_uri=str(source),
         source_revision_id=source_revision,
         prepared_by="recap-provenance-test",
@@ -440,66 +634,101 @@ def test_fresh_recap_publication_survives_native_scoped_reads(
         campaign_scope=CAMPAIGN_ID,
         repo_root=repo,
         mutation_context=context,
-        candidate_graph_path=str(tmp_path / "candidate_graph.json"),
+        candidate_graph_path=str(candidate_path),
+        source_admission=DungeonMindWorldGraphSourceAdmissionAdapter(database_url=dsn),
     )
+    package = bind_identity_ledger_to_package(result.review_package, context)
+    return SimpleNamespace(
+        dsn=dsn,
+        database=database,
+        world_id=world_id,
+        d0=d0,
+        repo=repo,
+        graph_authority=graph_authority,
+        context=context,
+        candidate=candidate,
+        candidate_path=candidate_path,
+        result=result,
+        package=package,
+    )
+
+
+def _confirm_via_product_seam(prepared) -> dict[str, Any]:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        confirm_extract_promote_via_dungeonmind,
+    )
+    from apps.live_control_server.models.extract_promote import (
+        ExtractPromoteConfirmRequest,
+    )
+
+    assertion_ids = [
+        str(item["assertion_id"])
+        for item in (prepared.package.get("effect") or {}).get("accepted_proposals")
+        or []
+        if item.get("assertion_id")
+    ]
+    request = ExtractPromoteConfirmRequest(
+        review_package=prepared.package,
+        assertion_ids=assertion_ids,
+    )
+    return confirm_candidate_graph_admission(
+        review_package=prepared.package,
+        candidate_graph=prepared.candidate,
+        governed_confirm=lambda: confirm_extract_promote_via_dungeonmind(
+            request,
+            database_url=prepared.dsn,
+            confirming_principal="recap-provenance-test",
+            assertion_ids=tuple(assertion_ids),
+            repo_root=prepared.repo,
+        ),
+    )
+
+
+@pytest.mark.integration
+def test_fresh_recap_publication_survives_native_scoped_reads(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind.world_graph_reads import (
+        build_direct_world_graph_read_services,
+        get_evidence_direct,
+        get_neighborhood_direct,
+        get_object_direct,
+        project_world_graph_direct,
+        search_world_graph_direct,
+    )
+    from graph_memory.projection.world_projection import WorldGraphProjectionRequest
+    from graph_memory.retrieval.models import (
+        RETRIEVAL_EVIDENCE_REQUEST_SCHEMA,
+        RETRIEVAL_NEIGHBORHOOD_REQUEST_SCHEMA,
+        RETRIEVAL_OBJECT_REQUEST_SCHEMA,
+        RETRIEVAL_SEARCH_REQUEST_SCHEMA,
+        WorldGraphEvidenceRequest,
+        WorldGraphNeighborhoodRequest,
+        WorldGraphObjectRequest,
+        WorldGraphSearchRequest,
+    )
+
+    prepared = _prepared_native_recap(tmp_path, monkeypatch, application_state_dsn)
+    result = prepared.result
+    world_id = prepared.world_id
+    d0 = prepared.d0
+    dsn = prepared.dsn
+    graph_authority = prepared.graph_authority
     assert result.confirmable is True
     assert graph_authority.current_head(world_id).revision_id == d0
     sealed = result.review_package["effect"]["source_admission"]
     services = build_direct_world_graph_read_services(dsn, world_id)
     assert services.bundle.sources.get_artifact(sealed["source_artifact_id"]) is not None
     assert services.bundle.sources.get_revision(sealed["source_revision_id"]) is not None
-    package = bind_identity_ledger_to_package(result.review_package, context)
-    _verified, contribution = resolve_merged_contribution_from_package(
-        review_package=package,
-        confirming_principal="recap-provenance-test",
-        world_id_hint=world_id,
-        expected_parent_revision_id=context.revision_id,
-        assertion_ids=None,
-        mutation_context=context,
-        verify_source=True,
-        repo_root=repo,
-    )
-    published = confirm_candidate_graph_admission(
-        review_package=package,
-        candidate_graph=_candidate(),
-        governed_confirm=lambda: graph_authority.publish(
-            WorldGraphPublishRequest(
-                world_id=world_id,
-                expected_parent_revision_id=context.revision_id,
-                authority_operation_id=contribution.contribution_id,
-                actor="recap-provenance-test",
-                contribution=contribution,
-                accepted_assertion_ids=tuple(
-                    item.assertion_id for item in contribution.accepted_assertions
-                ),
-                decision="create_new",
-                threat_node_id="candidate:brin",
-                operation_namespace="threat",
-            )
-        ),
-    )
-    child = published.published_revision_id
+
+    published = _confirm_via_product_seam(prepared)
+    child = published["committed_revision_id"]
     assert child != d0
-    retry = confirm_candidate_graph_admission(
-        review_package=package,
-        candidate_graph=_candidate(),
-        governed_confirm=lambda: graph_authority.publish(
-            WorldGraphPublishRequest(
-                world_id=world_id,
-                expected_parent_revision_id=context.revision_id,
-                authority_operation_id=contribution.contribution_id,
-                actor="recap-provenance-test",
-                contribution=contribution,
-                accepted_assertion_ids=tuple(
-                    item.assertion_id for item in contribution.accepted_assertions
-                ),
-                decision="create_new",
-                threat_node_id="candidate:brin",
-                operation_namespace="threat",
-            )
-        ),
-    )
-    assert retry.published_revision_id == child
+    retry = _confirm_via_product_seam(prepared)
+    assert retry["committed_revision_id"] == child
+    assert retry["outcome"] == "already_applied"
     assert graph_authority.current_head(world_id).revision_id == child
 
     services = build_direct_world_graph_read_services(dsn, world_id)
@@ -591,3 +820,34 @@ def test_fresh_recap_publication_survives_native_scoped_reads(
         ),
     )
     assert missing.outcome == "empty"
+
+
+@pytest.mark.integration
+def test_confirm_fails_closed_when_admitted_source_disappears(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+
+    from apps.live_control_server.integrations.dungeonmind.world_graph_writes import (
+        WorldGraphWriteError,
+    )
+
+    prepared = _prepared_native_recap(tmp_path, monkeypatch, application_state_dsn)
+    sealed = prepared.result.review_package["effect"]["source_admission"]
+    artifact_id = sealed["source_artifact_id"]
+    with psycopg.connect(prepared.dsn) as conn:
+        conn.execute(
+            "DELETE FROM dungeonmind.source_revisions WHERE source_artifact_id = %s",
+            (artifact_id,),
+        )
+        conn.execute(
+            "DELETE FROM dungeonmind.source_artifacts WHERE source_artifact_id = %s",
+            (artifact_id,),
+        )
+        conn.commit()
+    with pytest.raises(WorldGraphWriteError) as excinfo:
+        _confirm_via_product_seam(prepared)
+    assert excinfo.value.code == "governed_write_inexpressible"
+    assert prepared.graph_authority.current_head(prepared.world_id).revision_id == prepared.d0
