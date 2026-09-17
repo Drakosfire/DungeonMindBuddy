@@ -65,7 +65,7 @@ describe("sessionCampaignContext", () => {
       .toEqual(["longmont-c1", "longmont-c2"]);
   });
 
-  it("treats bare ?campaign= as world union on Plan and single campaign on Build", () => {
+  it("treats bare ?campaign= as world union on Plan and single campaign on Build and Ingest", () => {
     expect(
       resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1", { surfacePath: "/plan" })
         .selectedCampaignIds,
@@ -74,6 +74,14 @@ describe("sessionCampaignContext", () => {
       resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1", { surfacePath: "/build" })
         .selectedCampaignIds,
     ).toEqual(["longmont-c1"]);
+    expect(
+      resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1&session=session-2", {
+        surfacePath: "/ingest",
+      }),
+    ).toEqual({
+      selectedCampaignIds: ["longmont-c1"],
+      focus: { campaignId: "longmont-c1", sessionNumber: 2 },
+    });
   });
 
   it("deriveApiLens maps one/both/empty", () => {

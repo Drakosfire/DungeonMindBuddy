@@ -533,142 +533,20 @@ describe("GraphReviewGenericRun", () => {
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
   });
 
-  it("Load recap clears exact-run handoff and keeps catalog exact review for REVIEWABLE", async () => {
-    const recapRun: ExtractionRunRecord = {
-      schema_version: "dmb_extraction_run_v1",
-      version: "1.0",
-      run_id: "er_run_a",
-      source_artifact_id: "sa_1",
-      source_domain: "recap",
-      status: "reviewable",
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-    };
-    vi.spyOn(liveApi, "getGoldReviewSessions").mockResolvedValue({
-      schema_version: "dmb_graph_gold_review_sessions_v1",
-      version: "0.1",
-      sessions: [
-        {
-          session_id: "session-23",
-          session_number: 23,
-          campaign_id: "longmont-c2",
-          gold_fixture_id: "gold-23",
-          gold_manifest_path: "m23",
-          gold_graph_path: "g23",
-          gold_counts: { nodes: 2, edges: 1, evidence_refs: 1, beats: 0 },
-          available_runs: [],
-        },
-      ],
-    });
-    vi.spyOn(liveApi, "getManualReviewBeds").mockResolvedValue({
-      schema_version: "dmb_graph_manual_review_beds_v1",
-      version: "0.1",
-      beds: [],
-    });
+  it("keeps exact-run review primary without Load recap tooling", async () => {
+    mockCatalogApis();
     vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(exactRun);
     vi.spyOn(liveApi, "getExtractionRunStatus").mockResolvedValue(buildContext);
-    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockImplementation(
-      async (runId: string) => {
-        if (runId === recapRun.run_id) {
-          return {
-            schema: "dmb_extract_promote_exact_run_review_v1",
-            runId: recapRun.run_id,
-            sourceDomain: "recap",
-            sourceArtifactId: recapRun.source_artifact_id,
-            sourceRevisionId: "sha256:recap",
-            campaignId: "longmont-c2",
-            sessionId: "session-23",
-            sourceProse: "# Recap\n\nCatalog-loaded prose.\n",
-            assertions: [],
-            diagnostics: [],
-            promotable: true,
-            promotableReason: null,
-          };
-        }
-        return reviewPackage;
-      },
-    );
-    vi.spyOn(liveApi, "getGoldReviewCompare").mockResolvedValue({
-      schema_version: "dmb_graph_gold_review_compare_v1",
-      version: "0.1",
-      session_id: "session-23",
-      campaign_id: "longmont-c2",
-      gold_fixture_id: "gold-23",
-      gold_manifest_path: "m23",
-      gold_graph_path: "g23",
-      live_run: null,
-      comparison: {
-        scores: {
-          node_recall: 0,
-          edge_recall: 0,
-          beat_recall: 0,
-          proposed_write_recall: 0,
-        },
-        coverage: {
-          missing_gold_nodes: [],
-          gold_nodes_total: 0,
-          candidate_nodes_total: 0,
-          matched_nodes: [],
-        },
-        soft_misses: [],
-      },
-      object_index: { gold: {}, live: {} },
-      match_pairs: {},
-    });
-    vi.spyOn(liveApi, "getUnionSupergraphProjection").mockResolvedValue({
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      graph_id: "graph-a",
-      markdown: "Recap prose after load",
-      focus: {
-        focus_session_id: "session-23",
-        focused_evidence_ref_ids: [],
-        focused_edge_ids: [],
-        focused_node_ids: [],
-      },
-      node_views: {},
-      source_spans: [],
-      mentions: [],
-    });
-    vi.spyOn(liveApi, "getGoldGraphProjection").mockResolvedValue({
-      campaign_id: "longmont-c2",
-      session_id: "session-23",
-      graph_id: "gold-graph",
-      markdown: "Gold prose",
-      focus: {
-        focus_session_id: "session-23",
-        focused_evidence_ref_ids: [],
-        focused_edge_ids: [],
-        focused_node_ids: [],
-      },
-      node_views: {},
-      source_spans: [],
-      mentions: [],
-      source_kind: "gold_fixture",
-      gold_fixture_id: "gold-23",
-      gold_fixture_relpath: "gold/session-23.json",
-    });
+    mockExactRunReviewPackage();
 
-    renderModule([recapRun]);
+    renderModule();
     await waitFor(() => {
       expect(screen.getByTestId("graph-review-exact-run-banner")).toBeInTheDocument();
     });
 
-    await userEvent.click(screen.getByRole("button", { name: "Load recap" }));
-    await userEvent.click(screen.getByRole("button", { name: "Load" }));
-
-    await waitFor(() => {
-      expect(window.location.search).not.toContain("extractionRunId=");
-    });
-    expect(window.location.search).not.toContain("sourceArtifactId=");
-    expect(window.location.search).not.toContain("documentId=");
-    expect(window.location.search).toContain("run=er_run_a");
-    // SI-5B: catalog Load of a REVIEWABLE run keeps exact review (panel + banner),
-    // but Build handoff query identity is gone.
+    expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
     expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent("er_run_a");
-    expect(screen.getByTestId("graph-review-exact-run-banner")).not.toHaveTextContent(
-      "extraction-run-wb-1",
-    );
+    expect(screen.queryByLabelText("Published recap")).not.toBeInTheDocument();
+    expect(window.location.search).toContain("extractionRunId=extraction-run-wb-1");
   });
 });

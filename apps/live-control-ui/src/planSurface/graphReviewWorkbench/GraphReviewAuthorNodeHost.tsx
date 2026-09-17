@@ -8,9 +8,8 @@ import { authorNodeProjectionReady } from "./GraphReviewAuthorNodePanel";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 
 interface GraphReviewAuthorNodeHostProps {
-  onRequestLoad: () => void;
   /** Always visible chrome (empty states, session toolbar). */
-  chrome: ReactNode;
+  chrome?: ReactNode;
   /** Read-only main projection; hidden while Author Node shows TipTap workspace. */
   projection?: ReactNode;
 }
@@ -20,8 +19,7 @@ interface GraphReviewAuthorNodeHostProps {
  * while the authorable TipTap workspace is showing.
  */
 export function GraphReviewAuthorNodeHost({
-  onRequestLoad,
-  chrome,
+  chrome = null,
   projection = null,
 }: GraphReviewAuthorNodeHostProps) {
   const [open, setOpen] = useState(false);
@@ -49,7 +47,6 @@ export function GraphReviewAuthorNodeHost({
       <GraphReviewAuthorNodeDrawer
         open={open}
         onOpenChange={setOpen}
-        onRequestLoad={onRequestLoad}
       />
     </>
   );

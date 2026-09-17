@@ -22,13 +22,11 @@ export function consumeLegacyAuthorDraftToolQuery(): boolean {
 interface GraphReviewAuthorNodeDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRequestLoad?: () => void;
 }
 
 export function GraphReviewAuthorNodeDrawer({
   open,
   onOpenChange,
-  onRequestLoad,
 }: GraphReviewAuthorNodeDrawerProps) {
   const { authorDraft, projectionStatus, projection, liveRun } =
     useGraphReviewLiveState();
@@ -106,7 +104,7 @@ export function GraphReviewAuthorNodeDrawer({
           </button>
         </header>
         <div className="graph-review-author-node-body">
-          {open ? <GraphReviewAuthorNodePanel onRequestLoad={onRequestLoad} /> : null}
+          {open ? <GraphReviewAuthorNodePanel /> : null}
         </div>
       </aside>
     </div>

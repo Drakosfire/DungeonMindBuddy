@@ -1,4 +1,4 @@
-/** Persist Graph Review "Load recap" selection across browser refresh. */
+/** Persist Graph Review catalog run selection across browser refresh. */
 
 export interface GraphReviewAppliedSelection {
   campaignId: string;
@@ -51,6 +51,7 @@ export function writeAppliedSelectionToUrl(
   const params = new URLSearchParams(search ?? "");
   params.set("session", selection.sessionId);
   params.set("campaign", selection.campaignId);
+  params.set("scopeMode", "campaign");
   const runId = admissibleRunId(selection.runId);
   if (runId) {
     params.set("run", runId);

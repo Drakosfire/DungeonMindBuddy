@@ -52,6 +52,7 @@ describe("graphReviewAppliedSelection", () => {
     expect(window.location.pathname).toBe("/ingest");
     expect(window.location.search).toContain("session=session-23");
     expect(window.location.search).toContain("campaign=longmont-c2");
+    expect(window.location.search).toContain("scopeMode=campaign");
     expect(window.location.search).toContain("run=er_run_a");
     expect(window.location.search).not.toContain("manifest");
     expect(window.location.search).toContain("tool=graph-review-diagnostics");

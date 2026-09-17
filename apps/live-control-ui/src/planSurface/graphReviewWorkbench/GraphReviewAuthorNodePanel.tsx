@@ -13,11 +13,7 @@ export function authorNodeProjectionReady(args: {
   );
 }
 
-export function GraphReviewAuthorNodePanel({
-  onRequestLoad,
-}: {
-  onRequestLoad?: () => void;
-}) {
+export function GraphReviewAuthorNodePanel() {
   const { projectionStatus, projection, liveRun, projectionError } =
     useGraphReviewLiveState();
 
@@ -44,7 +40,7 @@ export function GraphReviewAuthorNodePanel({
   if (projectionStatus === "error") {
     return (
       <p className="plan-projection-empty" data-testid="graph-review-author-node-empty">
-        {projectionError ?? "Projection failed to load. Retry from Load recap."}
+        {projectionError ?? "Projection failed to load."}
       </p>
     );
   }
@@ -54,12 +50,7 @@ export function GraphReviewAuthorNodePanel({
       className="plan-projection-empty graph-review-author-node-empty"
       data-testid="graph-review-author-node-empty"
     >
-      <p>Load an ingested session to author graph nodes from the projected recap.</p>
-      {onRequestLoad ? (
-        <button type="button" onClick={onRequestLoad}>
-          Load recap
-        </button>
-      ) : null}
+      <p>Open Author Node from Tools after a published recap is on screen.</p>
     </div>
   );
 }

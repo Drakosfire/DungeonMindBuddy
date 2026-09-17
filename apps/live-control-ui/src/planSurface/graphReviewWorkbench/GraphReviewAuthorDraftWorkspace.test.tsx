@@ -412,7 +412,7 @@ describe("GraphReviewAuthorNodePanel", () => {
 
     expect(
       screen.getByText(
-        "Load an ingested session to author graph nodes from the projected recap.",
+        "Open Author Node from Tools after a published recap is on screen.",
       ),
     ).toBeInTheDocument();
   });

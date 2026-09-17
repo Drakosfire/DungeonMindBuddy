@@ -1,43 +1,22 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { GraphReviewWorkbenchHeader } from "./GraphReviewWorkbenchHeader";
 
 describe("GraphReviewWorkbenchHeader", () => {
-  it("shows empty-state copy and Load recap button when nothing is loaded", () => {
-    render(
-      <GraphReviewWorkbenchHeader loaded={false} sessionLabel={null} onOpenLoad={vi.fn()} />,
-    );
+  it("shows workbench title without Load recap tooling", () => {
+    render(<GraphReviewWorkbenchHeader />);
 
     expect(screen.getByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
     expect(screen.getByText("Prose-first review tool")).toBeInTheDocument();
-    expect(screen.getByText("No session loaded")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
-    expect(screen.queryByTestId("graph-authoring-mode-toggle")).not.toBeInTheDocument();
-  });
-
-  it("shows compact session label and Load recap when loaded", () => {
-    render(
-      <GraphReviewWorkbenchHeader
-        loaded
-        sessionLabel="Session 1 · Longmont C1"
-        onOpenLoad={vi.fn()}
-      />,
-    );
-
-    expect(screen.getByText("Session 1 · Longmont C1")).toBeInTheDocument();
-    expect(screen.queryByText(/category_decomposed/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Author graph objects" })).not.toBeInTheDocument();
+    expect(screen.queryByText("No session loaded")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-authoring-mode-toggle")).not.toBeInTheDocument();
   });
 
   it("keeps ingest identity behind Advanced details when an exact run is loaded", () => {
     render(
       <GraphReviewWorkbenchHeader
-        loaded
-        sessionLabel={null}
-        onOpenLoad={vi.fn()}
         exactRun={{
           extractionRunId: "graph-ingest:longmont-c1:session-17:20260724T031527Z",
           sourceDomain: "recap",
@@ -61,6 +40,7 @@ describe("GraphReviewWorkbenchHeader", () => {
     expect(screen.getByText("Read-only")).toBeInTheDocument();
     expect(screen.getByText("Advanced details")).toBeInTheDocument();
     expect(screen.queryByText("Exact run loaded")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
     expect(screen.getByTestId("graph-review-exact-run-banner")).toHaveTextContent(
       "graph-ingest:longmont-c1:session-17:20260724T031527Z",
     );
@@ -72,9 +52,6 @@ describe("GraphReviewWorkbenchHeader", () => {
   it("uses exact-run identity over a stale catalog session label", () => {
     render(
       <GraphReviewWorkbenchHeader
-        loaded
-        sessionLabel="Session 23 · Longmont C2"
-        onOpenLoad={vi.fn()}
         exactRun={{
           extractionRunId: "er_handoff_b",
           sourceDomain: "recap",
@@ -102,4 +79,3 @@ describe("GraphReviewWorkbenchHeader", () => {
     );
   });
 });
-

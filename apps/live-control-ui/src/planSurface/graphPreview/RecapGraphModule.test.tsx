@@ -43,11 +43,39 @@ function mockArtifacts() {
   });
 }
 
+function mockCompleteObject() {
+  vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockImplementation(async (request) => {
+    const node = session23WorldGraphRecapFixture.nodeViews[request.nodeId] ?? null;
+    const withOriginProse = node
+      ? {
+          ...node,
+          adjacency: node.adjacency.map((edge, index) =>
+            index === 0
+              ? { ...edge, sourceExcerpt: "Held the Mireward gate during the incident." }
+              : edge,
+          ),
+        }
+      : null;
+    return {
+      schema: "dmb_world_graph_object_projection_v1",
+      found: Boolean(withOriginProse),
+      completeness: { status: "complete", truncatedFields: [] },
+      snapshot: session23WorldGraphRecapFixture.snapshot,
+      requestedNodeId: request.nodeId,
+      resolvedNodeId: withOriginProse ? request.nodeId : null,
+      node: withOriginProse,
+      relatedNodes: [],
+      semanticFingerprint: "fp-test",
+    };
+  });
+}
+
 describe("RecapGraphModule", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     window.history.replaceState({}, "", "/plan?tool=recap&session=session-24");
     mockArtifacts();
+    mockCompleteObject();
   });
 
   it("requests World Graph recap projection for the URL session", async () => {
@@ -68,7 +96,7 @@ describe("RecapGraphModule", () => {
         admissibility: "gm",
       });
     });
-    expect((await screen.findAllByText(/Published World Graph/i)).length).toBeGreaterThan(0);
+    expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
   });
 
   it("defaults to the latest ingested recap artifact when no URL session is provided", async () => {
@@ -95,7 +123,7 @@ describe("RecapGraphModule", () => {
 
     render(<RecapGraphModule context={context} />);
 
-    expect((await screen.findAllByText(/Published World Graph/i)).length).toBeGreaterThan(0);
+    expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: /Caelynn/i })).toBeInTheDocument();
   });
 
@@ -142,6 +170,7 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     vi.restoreAllMocks();
     window.history.replaceState({}, "", "/plan?tool=recap&session=session-24");
     mockArtifacts();
+    mockCompleteObject();
   });
 
   it("does not call Union/latest-ingest selectors", async () => {
@@ -149,7 +178,7 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
 
     render(<RecapGraphModule context={context} />);
-    await screen.findByText(/Published World Graph/i);
+    await screen.findByLabelText("Published recap");
     expect(getUnion).not.toHaveBeenCalled();
   });
 
@@ -158,20 +187,28 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     render(<RecapGraphModule context={context} />);
     const chip = await screen.findByRole("button", { name: /Caelynn/i });
     fireEvent.click(chip);
+    await waitFor(() => {
+      expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
+        expect.objectContaining({ nodeId: "pc_caelynn", campaignId: "longmont-c2" }),
+      );
+    });
     const continueLink = await screen.findByRole("link", { name: /Continue in Build/i });
     expect(continueLink.getAttribute("href")).toContain("campaign=longmont-c2");
     expect(continueLink.getAttribute("href")).toContain("graphNodeId=pc_caelynn");
     expect(continueLink.getAttribute("href")).toContain(`graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`);
+    expect(
+      screen.getByTestId("graph-object-projection-card").textContent,
+    ).toContain("Held the Mireward gate during the incident.");
   });
 
-  it("does not render preview-candidate or evidence-highlight copy for published World Graph recap", async () => {
+  it("does not render preview-candidate or recap-lens metadata copy", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
-    expect(
-      await screen.findByText(/Graph chips open exact durable World Graph node ids/i),
-    ).toBeInTheDocument();
+    expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
+    expect(screen.queryByText(/Session focus lens/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Published World Graph · session recap/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/graph mentions projected/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/preview memory candidates/i)).not.toBeInTheDocument();
-    // Backend recap projection ships source_spans=[]; do not promise paragraph highlights.
     expect(screen.queryByText(/evidence highlights/i)).not.toBeInTheDocument();
   });
 
