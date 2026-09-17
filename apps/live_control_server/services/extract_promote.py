@@ -831,6 +831,28 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
         ) from exc
 
 
+def _require_canonical_source_artifact(source_artifact_id: str):
+    """Resolve the run's registry source artifact or fail closed.
+
+    Product prepare must not synthesize a recap SourceArtifact from candidate
+    fields when the canonical registry record is missing or malformed.
+    """
+    from apps.live_control_server.services.source_artifact_registry import (
+        SourceArtifactRegistryError,
+        get_source_artifact,
+    )
+
+    try:
+        return get_source_artifact(repo_root(), source_artifact_id)
+    except SourceArtifactRegistryError as exc:
+        raise ExtractPromoteError(
+            "canonical source artifact is unavailable for recap prepare",
+            code="invalid_request",
+            status_code=getattr(exc, "status_code", 422) or 422,
+            diagnostics=[_diagnostic("source_artifact_missing", str(exc))],
+        ) from exc
+
+
 def prepare(
     request: ExtractPromotePrepareRequest,
 ) -> ExtractPromotePrepareResponse:
@@ -999,6 +1021,8 @@ def prepare(
     from apps.live_control_server import config as _config
 
 
+    source_artifact = _require_canonical_source_artifact(resolved.source_artifact_id)
+
     prepare_kwargs = dict(
         candidate_graph=payload,
         source_uri=resolved.sealed_source_uri,
@@ -1006,6 +1030,7 @@ def prepare(
         prepared_by=SERVER_PREPARED_BY,
         world_id=DEFAULT_WORLD_ID,
         source_artifact_id=resolved.source_artifact_id,
+        source_artifact=source_artifact,
         campaign_scope=resolved.campaign_id,
         extraction_profile=extraction_profile,
         node_ids=request.node_ids,

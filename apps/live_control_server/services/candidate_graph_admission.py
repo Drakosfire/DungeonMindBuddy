@@ -44,8 +44,14 @@ from graph_memory.extract_promote_proposal import (
 from apps.live_control_server.models.world_graph_mutation_context import (
     mutation_context_from_world_root,
 )
+from apps.live_control_server.ports.world_graph_source_admission import (
+    AdmittedSourceIdentity,
+    WorldGraphSourceAdmissionError,
+    WorldGraphSourceAdmissionRequest,
+)
 
 _T = TypeVar("_T")
+_SOURCE_ADMISSION_EFFECT_KEY = "source_admission"
 
 
 def canonical_candidate_digest(candidate_graph: Mapping[str, Any]) -> str:
@@ -249,10 +255,137 @@ def _integrity_and_eligibility(
     return projected, dispositions, digest
 
 
+_RECAP_SOURCE_DOMAIN_KEYS = frozenset({"recap", "session_recap"})
+
+
+def _scope_check_recap_source_artifact(
+    artifact: Any,
+    *,
+    world_id: str,
+    campaign_id: str,
+) -> None:
+    art_campaign = str(getattr(artifact, "campaign_id", "") or "").strip()
+    if art_campaign and campaign_id and art_campaign != campaign_id:
+        raise CandidateAdmissionNotConfirmableError(
+            "source artifact belongs to a different campaign"
+        )
+    art_world = str(getattr(artifact, "world_id", "") or "").strip()
+    if art_world and world_id and art_world != world_id:
+        raise CandidateAdmissionNotConfirmableError(
+            "source artifact belongs to a different world"
+        )
+    domain = str(getattr(artifact, "source_domain", "") or "").strip()
+    if domain not in _RECAP_SOURCE_DOMAIN_KEYS:
+        raise CandidateAdmissionNotConfirmableError(
+            "governed recap admission requires a recap source artifact"
+        )
+    if not art_campaign or not str(getattr(artifact, "session_id", "") or "").strip():
+        raise CandidateAdmissionNotConfirmableError(
+            "recap source artifact requires campaign_id and session_id"
+        )
+
+
+def _require_recap_source_artifact(source_artifact: Any) -> Any:
+    """Reject non-recap domains. Recap key canonicalization lives on the adapter."""
+    if source_artifact is None:
+        raise CandidateAdmissionNotConfirmableError(
+            "confirmable recap admission requires the canonical source artifact"
+        )
+    domain = str(getattr(source_artifact, "source_domain", "") or "").strip()
+    if domain not in _RECAP_SOURCE_DOMAIN_KEYS:
+        raise CandidateAdmissionNotConfirmableError(
+            "governed recap admission requires a recap source artifact"
+        )
+    return source_artifact
+
+
+def _source_admission_authority(source_admission: Any | None) -> Any:
+    if source_admission is not None:
+        return source_admission
+    from apps.live_control_server.ports.world_graph_source_admission_access import (
+        get_world_graph_source_admission_authority,
+    )
+
+    return get_world_graph_source_admission_authority()
+
+
+def _raise_source_admission(
+    exc: WorldGraphSourceAdmissionError,
+    *,
+    candidate_digest: str,
+) -> None:
+    if exc.code == "source_identity_conflict":
+        raise CandidateAdmissionIntegrityError(
+            [
+                CandidateIntegrityDiagnostic(
+                    code="source_identity_conflict",
+                    field="source_revision_id",
+                    message=str(exc),
+                )
+            ],
+            candidate_digest=candidate_digest,
+        ) from exc
+    raise CandidateAdmissionNotConfirmableError(str(exc)) from exc
+
+
+def _admit_confirmable_recap_source(
+    *,
+    world_id: str,
+    campaign_id: str,
+    source_uri: str,
+    verified_revision_id: str,
+    source_artifact_id: str,
+    source_artifact: Any | None,
+    source_admission: Any | None,
+    candidate_digest: str,
+) -> AdmittedSourceIdentity:
+    if not source_artifact_id or not verified_revision_id or not source_uri:
+        raise CandidateAdmissionNotConfirmableError(
+            "confirmable recap admission requires source artifact, revision, and URI"
+        )
+    artifact = _require_recap_source_artifact(source_artifact)
+    _scope_check_recap_source_artifact(
+        artifact, world_id=world_id, campaign_id=campaign_id
+    )
+    request = WorldGraphSourceAdmissionRequest(
+        world_id=world_id,
+        campaign_id=campaign_id,
+        source_artifact=artifact,
+        source_revision_token=verified_revision_id,
+        source_uri=source_uri,
+    )
+    try:
+        return _source_admission_authority(source_admission).prove_or_admit(request)
+    except WorldGraphSourceAdmissionError as exc:
+        _raise_source_admission(exc, candidate_digest=candidate_digest)
+        raise
+
+
+def _seal_source_admission(
+    package: Mapping[str, Any],
+    admitted: AdmittedSourceIdentity,
+) -> dict[str, Any]:
+    from graph_memory.extract_promote_proposal import compute_proposal_digest
+
+    sealed = dict(package)
+    effect = dict(sealed.get("effect") or {})
+    effect[_SOURCE_ADMISSION_EFFECT_KEY] = {
+        "source_artifact_id": admitted.source_artifact_id,
+        "source_revision_id": admitted.source_revision_id,
+        "buddy_source_revision_id": admitted.buddy_source_revision_id,
+        "content_sha256": admitted.content_sha256,
+    }
+    sealed["effect"] = effect
+    sealed["proposal_digest"] = compute_proposal_digest(effect)
+    return sealed
+
+
 def prepare_candidate_graph_admission(
     *, candidate_graph: Mapping[str, Any], **prepare_kwargs: Any
 ) -> ExtractPromotePrepareResult:
     """Prepare and seal one exact candidate against one pinned parent."""
+    source_admission = prepare_kwargs.pop("source_admission", None)
+    source_artifact = prepare_kwargs.pop("source_artifact", None)
     projected, dispositions, digest = _integrity_and_eligibility(candidate_graph)
     has_structurally_admissible_nodes = bool(projected.get("nodes"))
     has_standing_context = prepare_kwargs.get("registry_context_graph") is not None
@@ -358,6 +491,26 @@ def prepare_candidate_graph_admission(
     package = bind_candidate_admission_to_proposal(
         result.review_package, binding.as_effect_payload()
     )
+    if confirmable:
+        admitted = _admit_confirmable_recap_source(
+            world_id=result.world_id,
+            campaign_id=str(
+                prepare_kwargs.get("campaign_scope")
+                or candidate_graph.get("campaign_id")
+                or ""
+            ).strip(),
+            source_uri=str(prepare_kwargs.get("source_uri") or "").strip(),
+            verified_revision_id=str(effect.get("source_revision_id") or "").strip(),
+            source_artifact_id=str(
+                effect.get("source_artifact_id")
+                or prepare_kwargs.get("source_artifact_id")
+                or ""
+            ).strip(),
+            source_artifact=source_artifact,
+            source_admission=source_admission,
+            candidate_digest=digest,
+        )
+        package = _seal_source_admission(package, admitted)
     return replace(
         result,
         review_package=package,
@@ -385,6 +538,19 @@ def verify_candidate_graph_admission_confirmation(
     if not binding.confirmable:
         raise CandidateAdmissionNotConfirmableError(
             "candidate admission is not confirmable: no admissible assertions"
+        )
+    source_admission = effect.get(_SOURCE_ADMISSION_EFFECT_KEY)
+    if not isinstance(source_admission, Mapping) or not str(
+        source_admission.get("source_artifact_id") or ""
+    ).strip() or not str(source_admission.get("source_revision_id") or "").strip():
+        raise CandidateAdmissionIntegrityError(
+            [
+                CandidateIntegrityDiagnostic(
+                    code="source_admission_missing",
+                    message="confirmable proposal is missing sealed source admission",
+                )
+            ],
+            candidate_digest=canonical_candidate_digest(candidate_graph),
         )
     sealed_pairs = {
         "world_id": str(effect.get("world_id") or ""),
@@ -419,14 +585,75 @@ def verify_candidate_graph_admission_confirmation(
     return binding
 
 
+def _reprove_sealed_recap_source(
+    *,
+    review_package: Mapping[str, Any],
+    source_admission: Any | None,
+    candidate_digest: str,
+) -> None:
+    """Snapshot-prove the sealed prepare pair before governed confirm.
+
+    This proves the already-admitted artifact/revision and its fingerprint, not
+    a newly proposed identity. ``source_identity_conflict`` during prepare must
+    not reach here via a ``prove()`` fallback. Uninjected callers keep the
+    existing verify-only confirm path; product native confirms inject an
+    authority, and ``world_graph_writes`` re-proofs independently.
+    """
+    if source_admission is None:
+        return
+    effect = dict(review_package.get("effect") or {})
+    sealed = effect.get(_SOURCE_ADMISSION_EFFECT_KEY)
+    if not isinstance(sealed, Mapping):
+        return
+    try:
+        admitted = _source_admission_authority(source_admission).prove(
+            world_id=str(effect.get("world_id") or ""),
+            source_artifact_id=str(sealed.get("source_artifact_id") or ""),
+            source_revision_id=str(sealed.get("source_revision_id") or ""),
+            source_revision_token=str(sealed.get("buddy_source_revision_id") or "")
+            or None,
+        )
+    except WorldGraphSourceAdmissionError as exc:
+        _raise_source_admission(exc, candidate_digest=candidate_digest)
+        raise
+    except Exception as exc:
+        from dungeonmind.domain.errors import PersistenceIntegrityError
+
+        if not isinstance(exc, PersistenceIntegrityError):
+            raise
+        _raise_source_admission(
+            WorldGraphSourceAdmissionError(
+                str(exc),
+                code="source_identity_conflict",
+            ),
+            candidate_digest=candidate_digest,
+        )
+        raise
+    sealed_sha = str(sealed.get("content_sha256") or "").strip()
+    if sealed_sha and admitted.content_sha256 != sealed_sha:
+        _raise_source_admission(
+            WorldGraphSourceAdmissionError(
+                "Sealed recap source fingerprint drifted from the admitted pair.",
+                code="source_identity_conflict",
+            ),
+            candidate_digest=candidate_digest,
+        )
+
+
 def confirm_candidate_graph_admission(
     *,
     review_package: Mapping[str, Any],
     candidate_graph: Mapping[str, Any],
     governed_confirm: Callable[[], _T],
+    source_admission: Any | None = None,
 ) -> _T:
-    """Verify admission, then invoke the existing governed write exactly once."""
+    """Verify admission, re-prove the sealed source pair, then write once."""
     verify_candidate_graph_admission_confirmation(
         review_package=review_package, candidate_graph=candidate_graph
+    )
+    _reprove_sealed_recap_source(
+        review_package=review_package,
+        source_admission=source_admission,
+        candidate_digest=canonical_candidate_digest(candidate_graph),
     )
     return governed_confirm()
