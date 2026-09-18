@@ -3,11 +3,22 @@ import { useCallback, useMemo, useState } from "react";
 import type { WorldGraphRecapProjection } from "../../api/types";
 import {
   GraphObjectProjectionCard,
-  resolveExactProjectedNode,
 } from "../../graphObjectCard/GraphObjectProjectionCard";
+import { CompleteObjectPartialWarning } from "../../graphReference/CompleteObjectPartialWarning";
+import { CompleteWorldObjectAdvancedDetails } from "../../graphReference/CompleteWorldObjectAdvancedDetails";
+import {
+  useCompleteWorldObject,
+  usesCompleteWorldObjectPayload,
+} from "../../graphReference/fullWorldObjectProjection";
+import { PeekClaim } from "../../surfaceInteraction/peekHost";
 import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
+
+function recapOriginSurface(): "ingest" | "plan" {
+  if (typeof window === "undefined") return "plan";
+  return window.location.pathname.replace(/\/+$/, "") === "/ingest" ? "ingest" : "plan";
+}
 
 interface WorldGraphRecapProjectionProps {
   payload: WorldGraphRecapProjection;
@@ -45,12 +56,21 @@ export function WorldGraphRecapProjectionView({
   );
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
-
-  const activeNodeView = activeNodeId
-    ? resolveExactProjectedNode(adaptedNodeViews, activeNodeId)
-    : null;
-
   const revisionId = payload.snapshot.revisionId;
+  const objectOpen = Boolean(activeNodeId);
+  const complete = useCompleteWorldObject({
+    enabled: objectOpen,
+    worldId: payload.snapshot.worldId,
+    campaignId: selectedCampaignId,
+    nodeId: activeNodeId,
+    revisionPin: revisionId,
+    originSurface: recapOriginSurface(),
+    focus: {
+      kind: "session",
+      sessionId: selectedSessionId,
+      campaignId: selectedCampaignId,
+    },
+  });
 
   const handleInspectNode = useCallback((nodeId: string) => {
     setSelectedRelationshipId(null);
@@ -59,10 +79,13 @@ export function WorldGraphRecapProjectionView({
 
   const handleSelectRelationshipTarget = useCallback((targetId: string) => {
     setSelectedRelationshipId(targetId);
-    if (resolveExactProjectedNode(adaptedNodeViews, targetId)) {
-      setActiveNodeId(targetId);
-    }
-  }, [adaptedNodeViews]);
+    setActiveNodeId(targetId);
+  }, []);
+
+  const handleCloseObject = useCallback(() => {
+    setSelectedRelationshipId(null);
+    setActiveNodeId(null);
+  }, []);
 
   const continueInBuildHref =
     activeNodeId && revisionId
@@ -88,31 +111,7 @@ export function WorldGraphRecapProjectionView({
   return (
     <div className="recap-reader-root world-graph-recap-root">
       {reviewToolbar}
-      <header className="recap-reader-header">
-        <div>
-          <p className="plan-surface-kicker">Published World Graph · session recap</p>
-          <h2>Session focus lens</h2>
-          <p>
-            This view reads the selected canonical recap against the campaign&apos;s durable World Graph
-            memory. Chips open exact durable node ids from the published projection — not preview-union
-            candidates.
-          </p>
-          <p className="union-supergraph-source-note">
-            Source: published World Graph revision <code>{revisionId}</code>.
-            {payload.snapshot.isHead ? " Current head." : " Pinned read from this response."}
-          </p>
-        </div>
-        <span className="union-supergraph-graph-id">{payload.graphId}</span>
-      </header>
-
-      <p className="recap-reader-hint world-graph-recap-mentions-hint">
-        Read-only TipTap projection of the published session recap. Editing and corpus writes are intentionally out of
-        scope here. Graph chips open exact durable World Graph node ids from the published projection.{" "}
-        {payload.mentions.length} graph mention
-        {payload.mentions.length === 1 ? "" : "s"} projected.
-      </p>
-
-      <div className={`recap-reader-layout union-supergraph-layout${activeNodeView ? " graph-explorer-open" : ""}`}>
+      <div className="recap-reader-layout union-supergraph-layout">
         <GraphProjectionReader
           markdown={payload.markdown}
           nodeViews={adaptedNodeViews}
@@ -125,23 +124,53 @@ export function WorldGraphRecapProjectionView({
           onActiveNodeChange={setActiveNodeId}
           className="world-graph-recap-reader"
         />
-        {activeNodeView ? (
+      </div>
+      <PeekClaim
+        kind="world-object"
+        active={objectOpen}
+        label="World object"
+        onDismiss={handleCloseObject}
+      >
+        {objectOpen ? (
           <aside className="recap-graph-object-panel" aria-label="Graph object">
-            <GraphObjectProjectionCard
-              nodeView={activeNodeView}
-              onSelectRelationshipTarget={handleSelectRelationshipTarget}
-              selectedRelationshipId={selectedRelationshipId}
-              actions={
-                continueInBuildHref ? (
-                  <a className="graph-object-card__action" href={continueInBuildHref}>
-                    Continue in Build
-                  </a>
-                ) : null
-              }
-            />
+            <header className="recap-graph-object-panel__header">
+              <span>World object</span>
+              <button type="button" onClick={handleCloseObject} aria-label="Close World object">
+                ×
+              </button>
+            </header>
+            {complete.status === "loading" || complete.status === "idle" ? (
+              <p className="module-muted">Loading complete World object…</p>
+            ) : null}
+            {complete.status === "error" || complete.status === "missing" ? (
+              <p className="graph-preview-error" role="alert">
+                {complete.error}
+              </p>
+            ) : null}
+            <CompleteObjectPartialWarning result={complete.result} />
+            {usesCompleteWorldObjectPayload(complete.status) && complete.nodeView ? (
+              <GraphObjectProjectionCard
+                nodeView={complete.nodeView}
+                onSelectRelationshipTarget={handleSelectRelationshipTarget}
+                selectedRelationshipId={selectedRelationshipId}
+                actions={
+                  continueInBuildHref ? (
+                    <a className="graph-object-card__action" href={continueInBuildHref}>
+                      Continue in Build
+                    </a>
+                  ) : null
+                }
+                advancedSlot={complete.result ? (
+                  <CompleteWorldObjectAdvancedDetails
+                    result={complete.result}
+                    originSurface={recapOriginSurface()}
+                  />
+                ) : undefined}
+              />
+            ) : null}
           </aside>
         ) : null}
-      </div>
+      </PeekClaim>
     </div>
   );
 }

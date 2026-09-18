@@ -39,13 +39,21 @@ export function verifyWorldGraphProjectionResponse(input: {
   if (snapshot.worldId !== request.worldId) {
     return `Projection world ${snapshot.worldId} does not match requested world ${request.worldId}.`;
   }
-  if (snapshot.campaignId !== request.campaignId) {
+  const requestCampaign = request.campaignId?.trim() ?? "";
+  const snapshotCampaign = snapshot.campaignId?.trim() ?? "";
+  const requestScope = request.scopeMode ?? null;
+  if (requestScope === "world") {
+    // WORLD_CROSS_CAMPAIGN snapshots omit campaign identity (`campaign_id=None` → "").
+    // request.campaignId is only the standing API-mapping campaign for a C1+C2 union.
+    if (snapshotCampaign && snapshotCampaign !== requestCampaign) {
+      return `Projection campaign ${snapshot.campaignId} does not match requested campaign ${request.campaignId}.`;
+    }
+  } else if (snapshotCampaign !== requestCampaign) {
     return `Projection campaign ${snapshot.campaignId} does not match requested campaign ${request.campaignId}.`;
   }
   if (snapshot.admissibility !== request.admissibility) {
     return `Projection admissibility ${snapshot.admissibility} does not match requested ${request.admissibility}.`;
   }
-  const requestScope = request.scopeMode ?? null;
   const responseScope = snapshot.scopeMode ?? null;
   if (responseScope !== requestScope) {
     return `Projection scopeMode ${responseScope ?? "∅"} does not match requested ${requestScope ?? "∅"}.`;

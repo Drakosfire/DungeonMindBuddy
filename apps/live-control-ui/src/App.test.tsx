@@ -376,7 +376,10 @@ describe("App inspector integration", () => {
     expect(await screen.findByRole("heading", { name: "Graph Review Workbench" })).toBeInTheDocument();
     expect(screen.queryByText(/Review extracted graph runs against gold/i)).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Ingest" })).toHaveClass("active");
-    expect(await screen.findByText(/No canonical ExtractionRuns are stored yet/i)).toBeInTheDocument();
+    expect(await screen.findByLabelText("Campaign")).toBeInTheDocument();
+    expect(screen.getByLabelText("Focus session")).toBeInTheDocument();
+    expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
     expect(liveApi.getPlanView).toHaveBeenCalled();
     expect(ingestRunCatalogApi.getExtractionRunCatalog).toHaveBeenCalled();
     expect(liveApi.getGraphIngestRuns).not.toHaveBeenCalled();

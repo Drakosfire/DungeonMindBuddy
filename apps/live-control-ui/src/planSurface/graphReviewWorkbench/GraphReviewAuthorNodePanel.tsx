@@ -13,13 +13,24 @@ export function authorNodeProjectionReady(args: {
   );
 }
 
-export function GraphReviewAuthorNodePanel({
-  onRequestLoad,
-}: {
+export function GraphReviewAuthorNodePanel(_props: {
   onRequestLoad?: () => void;
-}) {
+} = {}) {
   const { projectionStatus, projection, liveRun, projectionError } =
     useGraphReviewLiveState();
+
+  if (!liveRun) {
+    return (
+      <div
+        className="plan-projection-empty graph-review-author-node-empty"
+        data-testid="graph-review-author-node-empty"
+      >
+        <p data-testid="graph-review-author-node-missing-authority">
+          Authoring requires an explicit source/run context.
+        </p>
+      </div>
+    );
+  }
 
   if (authorNodeProjectionReady({ projectionStatus, projection, liveRun })) {
     return (
@@ -44,7 +55,7 @@ export function GraphReviewAuthorNodePanel({
   if (projectionStatus === "error") {
     return (
       <p className="plan-projection-empty" data-testid="graph-review-author-node-empty">
-        {projectionError ?? "Projection failed to load. Retry from Load recap."}
+        {projectionError ?? "Projection failed to load."}
       </p>
     );
   }
@@ -54,12 +65,9 @@ export function GraphReviewAuthorNodePanel({
       className="plan-projection-empty graph-review-author-node-empty"
       data-testid="graph-review-author-node-empty"
     >
-      <p>Load an ingested session to author graph nodes from the projected recap.</p>
-      {onRequestLoad ? (
-        <button type="button" onClick={onRequestLoad}>
-          Load recap
-        </button>
-      ) : null}
+      <p data-testid="graph-review-author-node-missing-authority">
+        Authoring requires an explicit source/run context.
+      </p>
     </div>
   );
 }

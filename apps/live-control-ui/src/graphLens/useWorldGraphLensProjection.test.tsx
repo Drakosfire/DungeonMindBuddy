@@ -91,6 +91,58 @@ describe("WorldGraphLensProjectionProvider", () => {
     expect(result.current.projectionError).toMatch(/campaign longmont-c1 does not match requested campaign longmont-c2/);
   });
 
+  it("treats Ingest recap ?campaign= as that campaign, not C1+C2 world union", async () => {
+    window.history.pushState({}, "", "/ingest?campaign=longmont-c1&session=session-2");
+    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) =>
+      headProjection({
+        campaignId: request.campaignId,
+        scopeMode: request.scopeMode,
+        focus:
+          request.focus.kind === "session"
+            ? {
+                kind: "session",
+                sessionId: request.focus.sessionId,
+                campaignId: request.focus.campaignId ?? null,
+              }
+            : { kind: "none", sessionId: null },
+      }),
+    );
+
+    const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper });
+
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+    expect(spy.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        campaignId: "longmont-c1",
+        scopeMode: "campaign",
+      }),
+    );
+    expect(spy.mock.calls.some((call) => call[0].scopeMode === "world")).toBe(false);
+    expect(result.current.projectionError).toBeNull();
+  });
+
+  it("accepts C1+C2 world-union snapshots that omit campaignId", async () => {
+    window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
+      headProjection({
+        campaignId: "",
+        scopeMode: "world",
+        focus: { kind: "none", sessionId: null },
+      }),
+    );
+
+    const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper });
+
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+    expect(spy.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        campaignId: "longmont-c2",
+        scopeMode: "world",
+      }),
+    );
+    expect(result.current.projectionError).toBeNull();
+  });
+
   it("fails closed when head claim is inconsistent", async () => {
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
       headProjection({ isHead: true, revisionId: "rev-a", headRevisionId: "rev-b" }),

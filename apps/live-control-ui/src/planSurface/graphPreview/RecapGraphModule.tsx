@@ -12,7 +12,6 @@ import type { PlanContextDescriptor } from "../types";
 import {
   resolveInitialReviewCampaignId,
   resolveSessionRecapContext,
-  syncReviewCampaignUrl,
 } from "../sessionCampaignContext";
 import {
   filterNumericRecapArtifactRecords,
@@ -40,6 +39,20 @@ function requestedSessionFromLocation(): string | null {
   if (typeof window === "undefined") return null;
   const session = new URLSearchParams(window.location.search).get("session")?.trim();
   return session || null;
+}
+
+function syncRecapSurfaceUrl(campaignId: string, sessionId?: string) {
+  if (typeof window === "undefined") return;
+  const params = new URLSearchParams(window.location.search);
+  params.set("campaign", campaignId);
+  params.set("scopeMode", "campaign");
+  params.delete("run");
+  if (sessionId) {
+    params.set("session", sessionId);
+  }
+  const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
+  const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
+  window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
 }
 
 function recapUnavailableMessage(error: unknown, sessionId: string, campaignId: string): string {
@@ -161,17 +174,12 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
 
   const handleCampaignSelect = (campaignId: string) => {
     setSelectedCampaignId(campaignId);
-    syncReviewCampaignUrl(campaignId);
+    syncRecapSurfaceUrl(campaignId);
   };
 
   const handleSessionSelect = (sessionId: string) => {
     setSelectedSessionId(sessionId);
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      params.set("session", sessionId);
-      params.set("campaign", selectedCampaignId);
-      window.history.replaceState({}, "", `/plan?${params.toString()}`);
-    }
+    syncRecapSurfaceUrl(selectedCampaignId, sessionId);
   };
 
   const reviewToolbar = (
@@ -191,7 +199,12 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   );
 
   if (status === "loading") {
-    return <p className="plan-projection-empty">Loading published World Graph recap…</p>;
+    return (
+      <div className="recap-reader-root">
+        {reviewToolbar}
+        <p className="plan-projection-empty">Loading published World Graph recap…</p>
+      </div>
+    );
   }
 
   if (status === "error") {
@@ -221,5 +234,10 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     );
   }
 
-  return <p className="plan-projection-empty">No published World Graph recap loaded.</p>;
+  return (
+    <div className="recap-reader-root">
+      {reviewToolbar}
+      <p className="plan-projection-empty">No published World Graph recap loaded.</p>
+    </div>
+  );
 }

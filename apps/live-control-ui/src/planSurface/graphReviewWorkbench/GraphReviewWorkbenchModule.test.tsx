@@ -35,6 +35,7 @@ import {
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "./graphReviewWorkbenchUtils";
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewCommittedProjectionPanel } from "./GraphReviewCommittedProjectionPanel";
+import { session23WorldGraphRecapFixture } from "../graphPreview/worldGraphRecapFixture";
 import { AgentInteractionProjectionTestHost } from "../projection/projectionTestHost";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
 
@@ -427,6 +428,13 @@ function mockWorkbenchApis() {
     gold_fixture_relpath: "gold/session-23.json",
   });
   mockExactRunReviewPackage();
+  vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({ records: [] });
+  vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+    ...session23WorldGraphRecapFixture,
+    campaignId: "longmont-c2",
+    sessionId: "session-23",
+  });
+  vi.spyOn(liveApi, "getHistoricalRecapWorldProjection");
   vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockImplementation(async (request) => {
     const node = historicalProjection().nodeViews["node-1"];
     const found = request.nodeId === "node-1" && node != null;
@@ -457,19 +465,22 @@ describe("GraphReviewWorkbenchModule", () => {
     window.history.replaceState({}, "", "/ingest");
   });
 
-  it("starts empty on a fresh visit without a session query param", async () => {
+  it("loads published recap from Campaign and Focus session without Load recap tooling", async () => {
     window.history.replaceState({}, "", "/ingest");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+      expect(screen.getByLabelText("Campaign")).toBeInTheDocument(),
     );
-
+    expect(screen.getByLabelText("Focus session")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Load an ingested session to review extracted objects/i),
-    ).toBeInTheDocument();
+      screen.queryByText(/Load a session recap from the published World Graph/i),
+    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+    );
     expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Campaign")).not.toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Tools" })).toBeInTheDocument(),
     );
@@ -492,20 +503,20 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.getByRole("button", { name: "Author Node" })).toBeInTheDocument();
   });
 
-  it("does not auto-load a same-session default when the URL has no exact run_id", async () => {
+  it("loads the URL session recap without a catalog Load dialog", async () => {
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
-    expect(
-      screen.getByText(/Load an ingested session to review extracted objects/i),
-    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Campaign")).toBeInTheDocument();
+    expect(screen.getByLabelText("Focus session")).toHaveValue("session-23");
+    expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
   });
 
-  it("W9: vanished explicit run_id stays missing instead of falling back to latest", async () => {
+  it("W9: vanished explicit run_id does not block published recap", async () => {
     window.history.replaceState(
       {},
       "",
@@ -514,70 +525,46 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([canonicalRun({ run_id: "er_other" })]);
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-selected-run-missing")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
-    expect(screen.getByText(/er_vanished/)).toBeInTheDocument();
-    expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
-    expect(window.location.search).toContain("run=er_vanished");
+    expect(screen.queryByTestId("graph-review-selected-run-missing")).not.toBeInTheDocument();
+    expect(screen.queryByText(/er_vanished/)).not.toBeInTheDocument();
   });
 
   it("W17: gold catalog failure does not empty a healthy APP-STATE catalog", async () => {
-    const user = userEvent.setup();
     vi.spyOn(liveApi, "getGoldReviewSessions").mockRejectedValue(new Error("gold down"));
     window.history.replaceState({}, "", "/ingest");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole("button", { name: "Load recap" }));
-    await user.click(screen.getByRole("button", { name: "Load" }));
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument(),
-    );
-    expect(screen.getByTestId("graph-review-exact-run-scope")).toHaveTextContent(
-      "session session-23",
-    );
+    expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-banner")).not.toBeInTheDocument();
   });
 
-  it("loads exact-run review after choosing a session in the load dialog", async () => {
-    const user = userEvent.setup();
+  it("loads the published World Graph recap from campaign and session pickers", async () => {
     const reviewPackageSpy = mockExactRunReviewPackage();
     window.history.replaceState({}, "", "/ingest");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
-
-    await user.click(screen.getByRole("button", { name: "Load recap" }));
-    await user.click(screen.getByRole("button", { name: "Load" }));
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument(),
-    );
-    expect(reviewPackageSpy).toHaveBeenCalledWith("er_run_a");
-    expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument();
-    expect(window.location.search).toContain("session=session-23");
-    expect(window.location.search).toContain("campaign=longmont-c2");
-    expect(window.location.search).toContain("run=er_run_a");
+    expect(reviewPackageSpy).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Campaign")).toBeInTheDocument();
+    expect(screen.getByLabelText("Focus session")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-union-preview-retired")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-panel")).not.toBeInTheDocument();
   });
 
-  it("keeps the loaded exact-run panel after a remount that simulates browser refresh", async () => {
-    const user = userEvent.setup();
-    mockExactRunReviewPackage();
-    window.history.replaceState({}, "", "/ingest");
+  it("keeps the published recap after a remount that simulates browser refresh", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23");
     const first = renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
-    );
-    await user.click(screen.getByRole("button", { name: "Load recap" }));
-    await user.click(screen.getByRole("button", { name: "Load" }));
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
 
     const restoredUrl = `${window.location.pathname}${window.location.search}`;
@@ -586,12 +573,116 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
-    expect(screen.getByTestId("graph-review-exact-run-scope")).toHaveTextContent(
-      "session session-23",
+    expect(screen.getByLabelText("Focus session")).toHaveValue("session-23");
+  });
+
+  it("mounts published recap while the ExtractionRun catalog is still loading", async () => {
+    const catalogChannel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
+      INGEST_RUN_CATALOG_DESCRIPTOR,
     );
-    expect(window.location.search).toContain("run=er_run_a");
+    catalogChannel.beginObservation();
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    renderWorkbench(undefined, context, { catalogChannel });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/Loading graph review sessions/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-write-authority",
+      "none",
+    );
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-browse-session",
+      "session-27",
+    );
+  });
+
+  it("does not show ExtractionRun catalog empty state on ordinary published-memory browse", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    renderWorkbench([]);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Campaign")).toBeInTheDocument();
+    expect(screen.getByLabelText("Focus session")).toHaveValue("session-27");
+  });
+
+  it("does not leak ExtractionRun catalog unavailability into published-memory browse", async () => {
+    const catalogChannel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
+      INGEST_RUN_CATALOG_DESCRIPTOR,
+    );
+    const ticket = catalogChannel.beginObservation();
+    if (ticket) {
+      catalogChannel.commit(
+        ticket,
+        mapIngestRunCatalogObservation({ error: new Error("catalog unavailable") }),
+      );
+    }
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    renderWorkbench(undefined, context, { catalogChannel });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
+    expect(screen.queryByText(/catalog unavailable/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
+  });
+
+  it("does not attach write authority from a stale persisted catalog run", async () => {
+    window.sessionStorage.setItem(
+      "dmb.graph-review.applied-selection.v2",
+      JSON.stringify({
+        campaignId: "longmont-c2",
+        sessionId: "session-27",
+        runId: "er_run_a",
+      }),
+    );
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    const prepareSpy = vi.spyOn(extractPromoteApi, "prepareExtractPromote");
+    const authorPrepareSpy = vi.spyOn(liveApi, "prepareGraphObjectAuthoringWrite");
+    renderWorkbench();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-write-authority",
+      "none",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Author Node" }));
+    expect(
+      await screen.findByTestId("graph-review-author-node-missing-authority"),
+    ).toHaveTextContent("Authoring requires an explicit source/run context.");
+    expect(prepareSpy).not.toHaveBeenCalled();
+    expect(authorPrepareSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps invalid exact-run identity fail-closed instead of degrading to browse write controls", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-27&extractionRunId=er_missing&sourceArtifactId=sa_1",
+    );
+    vi.spyOn(liveApi, "getExtractionRun").mockRejectedValue(new Error("run not found"));
+    renderWorkbench();
+
+    expect(
+      await screen.findByTestId("graph-review-exact-run-error"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Published recap")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Author Node" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-write-authority",
+      "none",
+    );
   });
 
   it("opens toolbox with Diagnostics and without a Recap View overlay", async () => {
@@ -601,7 +692,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
@@ -618,7 +709,7 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
 
     await user.click(screen.getByRole("button", { name: "Tools" }));
@@ -634,7 +725,12 @@ describe("GraphReviewWorkbenchModule", () => {
 
   it("does not mount Author Node while exact-run review is primary", async () => {
     mockExactRunReviewPackage();
-    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-23&run=er_run_a");
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(canonicalRun());
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?extractionRunId=er_run_a&sourceArtifactId=sa_1",
+    );
     renderWorkbench();
 
     await waitFor(() =>
@@ -643,15 +739,20 @@ describe("GraphReviewWorkbenchModule", () => {
 
     expect(screen.queryByRole("button", { name: "Author Node" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-author-node-empty")).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-write-authority",
+      "exact_run",
+    );
   });
 
   it("prefers exact-run review over legacy author-draft tool query", async () => {
     window.history.replaceState(
       {},
       "",
-      "/ingest?campaign=longmont-c2&session=session-23&run=er_run_a&tool=graph-review-author-draft",
+      "/ingest?extractionRunId=er_run_a&sourceArtifactId=sa_1&tool=graph-review-author-draft",
     );
     mockExactRunReviewPackage();
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(canonicalRun());
     renderWorkbench();
 
     await waitFor(() =>
@@ -661,7 +762,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-author-node-empty")).not.toBeInTheDocument();
   });
 
-  it("preserves tool query param when applying a new session from the load dialog", async () => {
+  it("preserves tool query param when changing Focus session", async () => {
     const user = userEvent.setup();
     window.history.replaceState(
       {},
@@ -689,12 +790,10 @@ describe("GraphReviewWorkbenchModule", () => {
     ]);
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
 
-    await user.click(screen.getByRole("button", { name: "Load recap" }));
-    await user.click(screen.getByRole("tab", { name: /Session 22/i }));
-    await user.click(screen.getByRole("button", { name: "Load" }));
+    await user.selectOptions(screen.getByLabelText("Focus session"), "session-22");
 
     await waitFor(() =>
       expect(window.location.search).toContain("session=session-22"),
@@ -728,40 +827,27 @@ describe("GraphReviewWorkbenchModule", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-panel")).toBeInTheDocument(),
-    );
-    expect(screen.getByTestId("graph-review-exact-run-scope")).toHaveTextContent(
-      "session session-2",
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
     expect(compareSpy).not.toHaveBeenCalled();
     expect(screen.queryByText(/Loading gold fixture projection/i)).not.toBeInTheDocument();
   });
 
-  it("W10: catalog review-package failure shows error without legacy ingest runs fetch", async () => {
-    const user = userEvent.setup();
+  it("W10: catalog recap reads published World Graph without extract-promote", async () => {
     const ingestRunsSpy = vi.spyOn(liveApi, "getGraphIngestRuns");
-    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockRejectedValue(
+    const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockRejectedValue(
       new ExtractPromoteApiError("Exact-run review package unavailable", 404, "run_not_promotable"),
     );
     window.history.replaceState({}, "", "/ingest");
     renderWorkbench();
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
-    await user.click(screen.getByRole("button", { name: "Load recap" }));
-    await user.click(screen.getByRole("button", { name: "Load" }));
-
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-review-error")).toHaveTextContent(
-        "Exact-run review package unavailable",
-      ),
-    );
-    expect(screen.getByTestId("graph-review-exact-run-scope")).toHaveTextContent(
-      "session session-23",
-    );
-    expect(extractPromoteApi.getExactRunReviewPackage).toHaveBeenCalledWith("er_run_a");
+    expect(reviewPackageSpy).not.toHaveBeenCalled();
     expect(ingestRunsSpy).not.toHaveBeenCalled();
+    expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
   });
 
   it("W14: catalog refresh keeps structural projection surface bound across LOADING and EMPTY/UNAVAILABLE", async () => {
@@ -795,7 +881,7 @@ describe("GraphReviewWorkbenchModule", () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
+      expect(screen.getByLabelText("Campaign")).toBeInTheDocument(),
     );
     expect(publishCalls.some((call) => call !== null)).toBe(true);
     const nullPublishesBeforeRefresh = publishCalls.filter((call) => call === null).length;
@@ -842,7 +928,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(publishCalls.some((call) => call !== null)).toBe(true);
   });
 
-  it("selectedRunMissing when the whole session vanished from the READY catalog", async () => {
+  it("does not surface a vanished catalog run when the URL session recap loads", async () => {
     window.history.replaceState(
       {},
       "",
@@ -851,13 +937,14 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([canonicalRun({ session_id: "session-23", run_id: "er_other" })]);
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-selected-run-missing")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Campaign")).toBeInTheDocument(),
     );
-    expect(screen.getByText(/er_only/)).toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-selected-run-missing")).not.toBeInTheDocument();
+    expect(screen.queryByText(/er_only/)).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-exact-run-panel")).not.toBeInTheDocument();
   });
 
-  it("loads PROMOTED run as visible history without exact review package", async () => {
+  it("loads a catalog PROMOTED run as published World Graph recap", async () => {
     const promoted = canonicalRun({ status: "promoted", run_id: "er_promoted" });
     const reviewPackageSpy = mockExactRunReviewPackage(promoted);
     window.history.replaceState(
@@ -868,10 +955,12 @@ describe("GraphReviewWorkbenchModule", () => {
     renderWorkbench([promoted]);
 
     await waitFor(() =>
-      expect(screen.getByTestId("graph-review-exact-run-unreviewable")).toBeInTheDocument(),
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
     );
     expect(reviewPackageSpy).not.toHaveBeenCalled();
-    expect(screen.queryByTestId("graph-review-exact-run-source-prose")).not.toBeInTheDocument();
+    expect(liveApi.getHistoricalRecapWorldProjection).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("graph-review-exact-run-unreviewable")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-exact-run-panel")).not.toBeInTheDocument();
   });
 
   it("loads validated recap through durable World projection, not review package", async () => {
@@ -888,10 +977,11 @@ describe("GraphReviewWorkbenchModule", () => {
     vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(
       completeHistoricalObject("complete"),
     );
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
     window.history.replaceState(
       {},
       "",
-      "/ingest?campaign=longmont-c2&session=session-23&run=er_validated",
+      "/ingest?extractionRunId=er_validated&sourceArtifactId=sa_1",
     );
     renderWorkbench([validated]);
 
@@ -969,10 +1059,11 @@ describe("GraphReviewWorkbenchModule", () => {
     vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(
       completeHistoricalObject("partial"),
     );
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
     window.history.replaceState(
       {},
       "",
-      "/ingest?campaign=longmont-c2&session=session-23&run=er_partial",
+      "/ingest?extractionRunId=er_partial&sourceArtifactId=sa_1",
     );
     renderWorkbench([validated]);
 
@@ -986,35 +1077,18 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps Advanced details after ordinary Load recap of a validated historical run", async () => {
-    const user = userEvent.setup();
+  it("ordinary catalog recap of a validated run uses published World Graph recap", async () => {
     const validated = canonicalRun({ status: "validated", run_id: "er_load_validated" });
     const reviewPackageSpy = vi.spyOn(extractPromoteApi, "getExactRunReviewPackage");
-    vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockResolvedValue(
-      historicalProjection({
-        runId: "er_load_validated",
-        markdown: "# Loaded recap\n\n[Bonogo](dmb-node:node-1) arrives.\n",
-      }),
-    );
     window.history.replaceState({}, "", "/ingest");
     renderWorkbench([validated]);
 
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Load recap" })).toBeInTheDocument(),
-    );
-    await user.click(screen.getByRole("button", { name: "Load recap" }));
-    await user.selectOptions(screen.getByLabelText("Live run"), "er_load_validated");
-    await user.click(screen.getByRole("button", { name: "Load" }));
-
     await waitFor(() => {
-      expect(screen.getByTestId("graph-review-historical-recap-meta")).toHaveTextContent(
-        "validated",
-      );
-      expect(screen.getByText("Advanced details")).toBeInTheDocument();
-      expect(screen.getByText("Read-only")).toBeInTheDocument();
-      expect(document.body.textContent).toMatch(/Loaded recap/);
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument();
     });
     expect(reviewPackageSpy).not.toHaveBeenCalled();
+    expect(liveApi.getHistoricalRecapWorldProjection).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Load recap" })).not.toBeInTheDocument();
   });
 
   it("loads exact-handoff validated recap through historical projection without review package", async () => {
@@ -1106,10 +1180,11 @@ describe("GraphReviewWorkbenchModule", () => {
     vi.spyOn(liveApi, "getHistoricalRecapWorldProjection").mockRejectedValue(
       new Error("exact historical source is not adopted into APP-STATE"),
     );
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
     window.history.replaceState(
       {},
       "",
-      "/ingest?campaign=longmont-c2&session=session-23&run=er_missing_source",
+      "/ingest?extractionRunId=er_missing_source&sourceArtifactId=sa_1",
     );
     renderWorkbench([validated]);
 
@@ -1128,10 +1203,11 @@ describe("GraphReviewWorkbenchModule", () => {
         markdown: "# Wrong identity\n",
       }),
     );
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(validated);
     window.history.replaceState(
       {},
       "",
-      "/ingest?campaign=longmont-c2&session=session-23&run=er_prepared",
+      "/ingest?extractionRunId=er_prepared&sourceArtifactId=sa_1",
     );
     renderWorkbench([validated]);
 

@@ -142,7 +142,7 @@ export function requestedLensFocusFromLocation(
  * Resolve Plan graph lens from URL + plan campaign.
  * Default with no URL: active plan campaign only (safer than whole-world union).
  * Back-compat: single `?campaign=` + `?scopeMode=` map into a selected set.
- * On Build, bare `?campaign=` is document workspace identity → that campaign only
+ * On Build and Ingest, bare `?campaign=` is workspace / recap identity → that campaign only
  * (not C1+C2 union). Plan still treats bare `?campaign=` without scopeMode as world union.
  */
 export function resolvePlanGraphLens(
@@ -158,7 +158,7 @@ export function resolvePlanGraphLens(
     ?? (typeof window !== "undefined"
       ? window.location.pathname.replace(/\/+$/, "") || "/"
       : null);
-  const bareCampaignSelectsSingle = surfacePath === "/build";
+  const bareCampaignSelectsSingle = surfacePath === "/build" || surfacePath === "/ingest";
 
   let selectedCampaignIds: ReviewCampaignId[];
   if (fromCampaigns) {
