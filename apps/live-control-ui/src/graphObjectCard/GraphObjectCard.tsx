@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import {
+  campaignMemoryRelationshipCopy,
   humanizeRelationshipPredicate,
   MAX_DEFAULT_RELATIONSHIP_ROWS,
   relationshipRowPrimaryCopy,
@@ -107,10 +108,33 @@ export function GraphObjectEvidenceRows({
 function RelationshipRowBody({
   relationship,
   showProvenance,
+  subjectLabel,
+  campaignMemory,
 }: {
   relationship: GraphObjectRelationshipViewModel;
   showProvenance: boolean;
+  subjectLabel: string;
+  campaignMemory: boolean;
 }) {
+  if (campaignMemory) {
+    const copy = campaignMemoryRelationshipCopy(subjectLabel, relationship);
+    const session = relationshipSessionStamp(
+      (relationship.sessionIds ?? []).filter((sessionId) => /^(?:session-)?\d+$/i.test(sessionId.trim())),
+      relationship.campaignScope,
+    );
+    const sentence = session && copy.endsWith(` ${session}`)
+      ? copy.slice(0, -(session.length + 1)).replace(/\.$/, "")
+      : copy.replace(/\.$/, "");
+    return (
+      <span className="graph-object-card__relationship-pill-line">
+        {session ? (
+          <span className="graph-object-card__relationship-session">{session}</span>
+        ) : null}
+        <strong>{sentence}</strong>
+      </span>
+    );
+  }
+
   const predicate = humanizeRelationshipPredicate(relationship.predicate);
   const session = relationshipSessionStamp(relationship.sessionIds, relationship.campaignScope);
   const excerpt = relationship.sourceExcerpt?.trim() || null;
@@ -149,12 +173,14 @@ export function GraphObjectRelationships({
   selectedRelationshipId,
   relationshipsDisabled,
   showProvenance,
+  campaignMemory = false,
 }: {
   model: GraphObjectCardViewModel;
   onSelectRelationship?: (relationship: GraphObjectRelationshipViewModel) => void;
   selectedRelationshipId?: string | null;
   relationshipsDisabled?: boolean;
   showProvenance: boolean;
+  campaignMemory?: boolean;
 }) {
   const source = model.relationships ?? [];
   const [expanded, setExpanded] = useState(false);
@@ -176,13 +202,15 @@ export function GraphObjectRelationships({
       aria-label="Connected objects and relationships"
       data-provenance={showProvenance ? "expanded" : "compact"}
     >
-      <h5>Related objects</h5>
+      {campaignMemory ? null : <h5>Related objects</h5>}
       <ul className="graph-object-card__relationship-list">
         {rows.map((relationship) => {
           const body = (
             <RelationshipRowBody
               relationship={relationship}
               showProvenance={showProvenance}
+              subjectLabel={model.label}
+              campaignMemory={campaignMemory}
             />
           );
 
@@ -219,7 +247,11 @@ export function GraphObjectRelationships({
                     : "graph-object-card__relationship-button"
                 }
                 disabled={relationshipsDisabled}
-                aria-label={`Open related object ${relationshipRowPrimaryCopy(relationship)}`}
+                aria-label={`Open related object ${
+                  campaignMemory
+                    ? campaignMemoryRelationshipCopy(model.label, relationship)
+                    : relationshipRowPrimaryCopy(relationship)
+                }`}
                 onClick={() => onSelectRelationship(relationship)}
               >
                 {body}
@@ -276,8 +308,28 @@ function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel 
   );
 }
 
-function GraphObjectSummary({ model }: { model: GraphObjectCardViewModel }) {
+function GraphObjectSummary({
+  model,
+  campaignMemory,
+}: {
+  model: GraphObjectCardViewModel;
+  campaignMemory: boolean;
+}) {
   const summary = model.gameSummary ?? model.summary;
+  if (campaignMemory) {
+    if (!summary) return null;
+    return (
+      <section aria-label="Campaign summary">
+        <p className="graph-object-card__summary-clamp">{summary}</p>
+        {summary.length > 280 ? (
+          <details className="graph-object-card__details">
+            <summary>Show full summary</summary>
+            <p>{summary}</p>
+          </details>
+        ) : null}
+      </section>
+    );
+  }
   if (!summary && !model.whyItMattersNow) return null;
 
   return (
@@ -364,11 +416,13 @@ function DefaultDetails({
   onReadSourceEvidence,
   resolvingEvidenceId,
   evidenceErrors,
+  bare = false,
 }: {
   model: GraphObjectCardViewModel;
   onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
   resolvingEvidenceId?: string | null;
   evidenceErrors?: Record<string, string>;
+  bare?: boolean;
 }) {
   const details = model.details;
   const evidence = model.evidence ?? [];
@@ -384,9 +438,8 @@ function DefaultDetails({
 
   if (!hasBody) return null;
 
-  return (
-    <details className="graph-object-card__details">
-      <summary>Details</summary>
+  const body = (
+    <>
       {(details?.visibilityLabel || model.visibilityLabel || model.freshnessLabel) ? (
         <section className="graph-object-card__details-section" aria-label="Memory and visibility">
           {details?.visibilityLabel || model.visibilityLabel ? (
@@ -428,6 +481,17 @@ function DefaultDetails({
           ))}
         </section>
       ) : null}
+    </>
+  );
+
+  if (bare) {
+    return body;
+  }
+
+  return (
+    <details className="graph-object-card__details">
+      <summary>Details</summary>
+      {body}
     </details>
   );
 }
@@ -457,6 +521,16 @@ export function GraphObjectCard({
   "aria-label": ariaLabel,
 }: GraphObjectCardProps) {
   const rootRef = useRef<HTMLElement>(null);
+  const campaignMemory = mode === "campaign-memory";
+  const details = detailsSlot ?? (
+    <DefaultDetails
+      model={model}
+      onReadSourceEvidence={onReadSourceEvidence}
+      resolvingEvidenceId={resolvingEvidenceId}
+      evidenceErrors={evidenceErrors}
+      bare={campaignMemory}
+    />
+  );
 
   return (
     <article
@@ -466,26 +540,32 @@ export function GraphObjectCard({
       aria-label={ariaLabel ?? `${model.label} game card`}
     >
       <GraphObjectIdentityHeader model={model} />
-      <GraphObjectSummary model={model} />
+      <GraphObjectSummary model={model} campaignMemory={campaignMemory} />
       {relationshipsSlot ?? (
         <GraphObjectRelationships
           model={model}
           onSelectRelationship={onSelectRelationship}
           selectedRelationshipId={selectedRelationshipId}
           relationshipsDisabled={relationshipsDisabled}
-          showProvenance={showRelationshipProvenance}
+          showProvenance={campaignMemory ? false : showRelationshipProvenance}
+          campaignMemory={campaignMemory}
         />
       )}
-      {detailsSlot ?? (
-        <DefaultDetails
-          model={model}
-          onReadSourceEvidence={onReadSourceEvidence}
-          resolvingEvidenceId={resolvingEvidenceId}
-          evidenceErrors={evidenceErrors}
-        />
+      {campaignMemory ? (
+        <details className="graph-object-card__details">
+          <summary>Source</summary>
+          {details}
+          {advancedSlot}
+        </details>
+      ) : (
+        <>
+          {details}
+          {advancedSlot}
+        </>
       )}
-      {advancedSlot}
-      {actionsSlot ?? (mode === "plan" ? <PlanMemoryTools model={model} rootRef={rootRef} /> : null)}
+      {actionsSlot === undefined
+        ? (mode === "plan" ? <PlanMemoryTools model={model} rootRef={rootRef} /> : null)
+        : actionsSlot}
     </article>
   );
 }

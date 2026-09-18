@@ -61,9 +61,9 @@ describe("GraphNodeHoverToken", () => {
 
     expect(glance).toHaveTextContent("Bubbles the Float Goat");
     expect(glance).toHaveTextContent("A float goat rescued from the flooded river.");
-    expect(glance).toHaveTextContent("Why it matters here");
+    expect(glance).not.toHaveTextContent("Why it matters here");
     expect(glance).toHaveTextContent("Helped the party secure the south gate this session.");
-    expect(glance?.querySelector(".recap-node-kind")?.textContent).toBe("creature");
+    expect(glance?.querySelector(".recap-node-kind")?.textContent).toBe("Creature");
     expect(glance?.textContent).not.toMatch(/creature\s*·\s*creature/i);
     expect(glance).not.toHaveTextContent("Known before");
     expect(glance).not.toHaveTextContent("Tied to Mirathorn politics");
@@ -142,7 +142,7 @@ describe("GraphNodeHoverToken", () => {
 
     const glance = document.querySelector(".recap-node-hover-card")!;
     expect(glance).toHaveTextContent("Bubbles the Float Goat");
-    expect(glance).toHaveTextContent("creature");
+    expect(glance).toHaveTextContent("Creature");
     expect(glance).not.toHaveTextContent("Why it matters here");
     expect(glance).not.toHaveTextContent(/node:bubbles|unknown|unavailable/i);
   });
@@ -196,7 +196,7 @@ describe("GraphNodeHoverToken", () => {
     );
 
     const kind = document.querySelector(".recap-node-hover-card .recap-node-kind");
-    expect(kind?.textContent).toBe("NPC · creature");
+    expect(kind?.textContent).toBe("NPC · Creature");
   });
 
   it("flips the glance above when Ask DungeonBuddy would cover it", () => {

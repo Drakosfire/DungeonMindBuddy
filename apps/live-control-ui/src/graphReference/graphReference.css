@@ -12,10 +12,10 @@
 }
 
 .recap-node-token {
-  border: 1px solid rgba(156, 163, 175, 0.46);
+  border: 1px solid rgba(122, 162, 247, 0.5);
   border-radius: 999px;
-  background: rgba(156, 163, 175, 0.1);
-  color: var(--fg, #e8eaef);
+  background: rgba(122, 162, 247, 0.16);
+  color: #dbeafe;
   cursor: pointer;
   display: inline;
   font: inherit;
@@ -47,20 +47,6 @@
   border-top-color: transparent;
   border-radius: 0 0 8px 8px;
   box-shadow: none;
-}
-
-.recap-node-token.role-npc,
-.recap-node-token.role-character,
-.recap-node-token.role-person {
-  border-color: rgba(251, 191, 36, 0.48);
-  background: rgba(251, 191, 36, 0.13);
-  color: #fde68a;
-}
-
-.recap-node-token.role-pc {
-  border-color: rgba(196, 181, 253, 0.55);
-  background: rgba(139, 92, 246, 0.14);
-  color: #ddd6fe;
 }
 
 .recap-node-token.session-active {
@@ -146,24 +132,6 @@
   color: #bfdbfe;
 }
 
-.recap-node-token.role-location {
-  border-color: rgba(45, 212, 191, 0.48);
-  background: rgba(45, 212, 191, 0.12);
-  color: #99f6e4;
-}
-
-.recap-node-token.role-faction {
-  border-color: rgba(96, 165, 250, 0.48);
-  background: rgba(96, 165, 250, 0.12);
-  color: #bfdbfe;
-}
-
-.recap-node-token.role-item {
-  border-color: rgba(250, 204, 21, 0.48);
-  background: rgba(250, 204, 21, 0.12);
-  color: #fef08a;
-}
-
 .recap-node-glance .recap-node-hover-card {
   background: linear-gradient(165deg, #151b28 0%, #0f141f 100%);
   border: 1px solid rgba(122, 162, 247, 0.38);
@@ -204,11 +172,11 @@
 }
 
 .recap-node-glance .recap-node-hover-card > .recap-node-kind {
-  color: var(--accent, #7aa2f7);
+  color: var(--fg-mute, #9aa3b5);
   font-size: 0.68rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 
 .recap-node-glance .recap-node-hover-card small {
@@ -345,4 +313,18 @@
 
 .graph-reference-search__button--primary {
   border-color: rgba(122, 162, 247, 0.45);
+}
+
+.graph-object-card[data-graph-object-card-mode="campaign-memory"] .graph-object-card__summary-clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+  line-height: 1.4;
+  overflow: hidden;
+}
+
+.graph-object-card[data-graph-object-card-mode="campaign-memory"] .graph-object-card__type-badge {
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }

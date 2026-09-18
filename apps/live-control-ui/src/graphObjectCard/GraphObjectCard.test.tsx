@@ -379,4 +379,54 @@ describe("GraphObjectCard", () => {
       }),
     );
   });
+
+  it("renders campaign-memory rows as subject-aware facts without World-object chrome", async () => {
+    const user = userEvent.setup();
+    const model: GraphObjectCardViewModel = {
+      ...planModel,
+      id: "npc-ogonob",
+      label: "Ogonob",
+      kind: "npc",
+      role: "npc",
+      typeBadgeLabel: "NPC",
+      gameSummary: "A swarm-host who already possesses Misty Step.".repeat(12),
+      whyItMattersNow: "Why it matters here should not be the recap heading.",
+      relationships: [
+        {
+          id: "edge-misty",
+          label: "Misty Step",
+          predicate: "possesses",
+          direction: "outgoing",
+          targetId: "feat:misty-step",
+          sourceExcerpt: "A wall of captured recap prose that must stay secondary.",
+          sourceDomains: ["session_recap"],
+          sessionIds: ["session-27"],
+        },
+        {
+          id: "edge-c2",
+          label: "Dustwalker Leads",
+          predicate: "associated_with",
+          direction: "outgoing",
+          targetId: "faction:dustwalker",
+          campaignScope: "longmont-c2",
+          sessionIds: ["session-15"],
+        },
+      ],
+    };
+
+    render(<GraphObjectCard mode="campaign-memory" model={model} onSelectRelationship={vi.fn()} />);
+
+    const card = screen.getByLabelText(/Ogonob game card/i);
+    expect(card).toHaveAttribute("data-graph-object-card-mode", "campaign-memory");
+    expect(within(card).queryByRole("heading", { name: "Related objects" })).not.toBeInTheDocument();
+    expect(within(card).queryByText("Why it matters here should not be the recap heading.")).not.toBeInTheDocument();
+    expect(within(card).getByRole("button", { name: /Ogonob possesses Misty Step/ })).toBeInTheDocument();
+    expect(within(card).queryByText("Misty Step · possesses")).not.toBeInTheDocument();
+    expect(within(card).queryByText(/wall of captured recap prose/)).not.toBeInTheDocument();
+    expect(within(card).queryByText(/session_recap/)).not.toBeInTheDocument();
+    expect(within(card).getByText("C2 · S15")).toBeInTheDocument();
+    expect(within(card).queryByText("Details")).not.toBeInTheDocument();
+    await user.click(within(card).getByText("Source"));
+    expect(within(card).getByText(/1 evidence badge/)).toBeInTheDocument();
+  });
 });

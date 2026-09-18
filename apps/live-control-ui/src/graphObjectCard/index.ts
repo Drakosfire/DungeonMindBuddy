@@ -17,6 +17,7 @@ export {
   friendlyVisibilityCopy,
   graphObjectSecondaryRoleLabel,
   graphObjectTypeBadgeLabel,
+  campaignMemoryRelationshipCopy,
   humanizeRelationshipPredicate,
   isPlaceholderNodeSummary,
   MAX_DEFAULT_RELATIONSHIP_ROWS,

@@ -1,4 +1,4 @@
-export type GraphObjectCardMode = "plan" | "review";
+export type GraphObjectCardMode = "plan" | "review" | "campaign-memory";
 
 export type GraphObjectActionKind =
   | "open-source"
