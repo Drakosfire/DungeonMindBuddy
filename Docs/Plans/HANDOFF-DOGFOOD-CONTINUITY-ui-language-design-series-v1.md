@@ -2,7 +2,7 @@
 
 **Purpose:** Brief the design agent on the 2026-09-10 shell/language work after `#698` / `#699`. This is not an implementation lease and not permission to dispatch code.
 
-**Status:** DESIGN ACCEPTED — UI-01/UI-02/UI-03 merged; Stage 4 WOW work active
+**Status:** ACTIVE HUMAN UX/WOW PASS — UI-01/UI-02/UI-03 + Stage 4B mechanics merged; campaign-memory sidequest closed through #732; resume product dogfood before new code dispatch
 **Created:** 2026-09-10  
 **From:** steward + operator after `#699` merge, Mobbin research, and Of Conks styling capture  
 **To:** the next design agent for the bounded UI design / implementation series  
@@ -32,6 +32,80 @@ STAGE 4B                     ACTIVE — recap World-reference glance; WOW gate r
 Accepted decomposition: Ingest is the first implementation consumer of the shared Peek primitive; Play remains the visual grammar north star. UI-02 owns Agent dock/absence behavior and UI-03 owns responsive secondary context. Their merges do not pre-complete the series or Stage 4; Stage 4B is the current WOW-gate slice.
 
 > Repository law: `AGENTS.md`. Steward judgment: `Docs/Process/STEWARD-CYCLE.md`. Language (feel/compose): `Docs/Design/ui-language/`. Chrome **ownership**: `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`. Product goals (non-status): root `Backlog.md` Captured UI section.
+
+
+---
+
+## 0A. 2026-09-17 re-anchor — resume the interrupted UX pass
+
+Current merged authority:
+
+```text
+main                         b3d1a146f6ccc8ff84e5b4be65d8a84a4d98cb44
+UI-01                        #700 MERGED — shared Peek
+UI-02                        #701 MERGED — truthful Agent dock/presence
+UI-03                        #702 MERGED — responsive secondary context
+Stage 4B                     #704 MERGED — recap World-reference glance mechanics
+
+campaign-memory sidequest
+  #705–#709                 measurement / benchmark foundations
+  #716–#721                 governed identity/genesis/contracts/admission alignment
+  #728                      question-gauntlet STOP localized product unreadiness
+  #729                      fresh recap source-provenance write contract PASS
+  #730                      exact 44-candidate zero-model replay PASS; source-read STOP
+  #731                      recap source-read continuity PASS
+  #732                      published-memory browse authority PASS; merged on main
+```
+
+Why the sidequest existed:
+
+> Stage 4B's mechanics were good enough to test, but the WOW dogfood could not honestly evaluate the UX because accumulated campaign memory was inaccessible, too thin, or trapped behind product/read authority failures.
+
+That is the interruption. The campaign-memory work was not a replacement roadmap; it was the prerequisite for making the UI pass real.
+
+### Current action
+
+**Resume the Stage 4 recap/UI WOW human pass on current `main`.**
+
+There is **no implementation PR active** from this re-anchor.
+
+Dogfood first. Read multiple real C1/C2 recaps and use the product naturally:
+
+```text
+choose campaign/session
+→ read recap
+→ use token glances
+→ open complete World objects
+→ follow relationships/provenance
+→ close and keep reading position
+→ switch sessions/campaigns
+→ refresh and continue
+```
+
+Evaluate the original UI-language questions, now against real campaign memory:
+
+- Does the recap feel like the expensive current work rather than debug output?
+- Are tokens/glances informative without becoming noise?
+- Does opening an object feel like a useful peek rather than navigation?
+- Is relationship/source context useful at the table?
+- Can sessions be traversed with low friction?
+- Does the shell feel like one application?
+- What still feels assembled rather than designed?
+- Which pain is visual/interaction debt versus semantic-memory quality?
+
+The operator's answers decide the next bounded UI slice.
+
+### Do not dispatch yet
+
+Until this human pass is recorded:
+
+- do **not** automatically run the 16-question semantic gauntlet as the next work item;
+- do **not** dispatch 7A1 contextual Ask;
+- do **not** reopen graph ingestion/provenance architecture without a newly observed blocker;
+- do **not** mark Stage 4 / DEMO-R4 complete merely because #732 merged;
+- do **not** start a broad styling rewrite.
+
+If the human pass is satisfying, record the Stage 4/Operator dogfood disposition and then re-sequence the remaining UI-language successors versus semantic/Agent work.
 
 ---
 
