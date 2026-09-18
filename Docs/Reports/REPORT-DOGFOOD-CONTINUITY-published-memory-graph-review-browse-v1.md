@@ -1,6 +1,6 @@
 # REPORT — DOGFOOD-CONTINUITY: published-memory Graph Review browse authority v1
 
-**Status:** OPEN — implementation on authorized serial PR #732  
+**Status:** IMPLEMENTATION ACCEPTED — PR #732 merged; post-merge human UX/WOW witness remains  
 **Handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md)  
 **Implementation branch:** `dogfood/graph-review-recap-campaign-session`  
 **Base:** `main@b7a300cedd47a738b06054ac75a20bbd97568a2c`  
@@ -125,3 +125,24 @@ All executed files: PASS.
 - New graph-writing workflow.
 - Cleanup of remaining unused catalog/gold-compare internals inside the workbench module.
 - Semantic gauntlet / Agent answerability.
+
+
+---
+
+## Merge disposition
+
+PR #732 merged to `main`:
+
+`b3d1a146f6ccc8ff84e5b4be65d8a84a4d98cb44`
+
+Accepted implementation head:
+
+`2ae0718f2976a1fee5ee299a997ec3292d64fab1`
+
+Formal Review Cycle 5:
+
+`APPROVE` — review `5243724921`
+
+The implementation is accepted. The operator had already demonstrated that the spike interaction model unlocked useful dogfood, but this rewritten merged implementation has not yet received the handoff §8 human witness.
+
+Current product sequencing therefore returns to the interrupted Stage 4/UI-language UX pass. The next question is not another infrastructure or semantic benchmark question; it is whether the now-real campaign-memory experience is pleasant, legible, fast enough, and coherent across actual recap exploration.
