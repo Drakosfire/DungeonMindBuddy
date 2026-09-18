@@ -371,6 +371,22 @@ apps/live-control-ui/src/worldGraph/verifyWorldGraphProjectionResponse.test.ts
 
 One additional directly adjacent Graph Review test file is allowed when needed to prove the browse/write authority split.
 
+### Steward lease expansion after Review Cycle 3 handback
+
+The Cycle 3 worker handback proved the following adjacent paths are required to implement or regress the authority split cleanly. They are now explicitly leased:
+
+| Action | Path | Purpose |
+|---|---|---|
+| CREATE/MODIFY | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewAuthority.ts` | first-class browse-vs-write authority model required by §4 |
+| CREATE/MODIFY | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewAuthority.test.ts` | focused authority-state regression |
+| MODIFY | `apps/live-control-ui/src/App.test.tsx` | top-level /ingest witness that ordinary browse does not leak catalog empty/error chrome |
+| MODIFY | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewGenericRun.test.tsx` | exact-run authority remains explicit and primary |
+| MODIFY | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorDraftWorkspace.test.tsx` | preserve pre-existing authoring regression coverage while adapting test setup to explicit write-ready authority |
+
+This expansion does **not** authorize production changes to `graphReviewAppliedSelection.ts`, `GraphReviewAuthorNodeDrawer.tsx`, or `useIngestRunCatalogInformation.ts`; those were correctly reverted after Cycle 3.
+
+The existing authoring regression suite remains behavioral authority. Adapting its fixture/setup is allowed; weakening or deleting unrelated assertions is not.
+
 ### Durable report
 
 CREATE:
