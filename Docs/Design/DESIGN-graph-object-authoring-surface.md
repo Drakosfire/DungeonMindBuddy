@@ -8,7 +8,7 @@
 **Closeout:** `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`
 **Related docs:**
 
-- `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` — **active product bridge** from preview ingest run → Graph Review → World Graph head (PR011A*)
+- `Docs/Design/DESIGN-extract-promote-graph-review-bridge.md` — historical bridge ancestry from preview ingest run → Graph Review → World Graph head (PR011A*); V2-0 must verify current equivalents
 - `Docs/Plans/HANDOFF-prime-design-graph-review-workbench-authoring-next.md`
 - `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md`
 - `Docs/Plans/DOGFOOD-graph-review-authoring-loop-session-1.md`
@@ -62,7 +62,7 @@ Agent/LLM assistance remains downstream of a proven manual proposal/review/write
 
 The core authored-memory loop has landed through PR #305. Graph Review is the **correction cockpit**: a GM-facing surface for inspecting a live projection, authoring campaign graph assertions, and reviewing the resulting memory.
 
-**TRANSITIONAL (current runtime — not the target durable path):**
+**HISTORICAL TRANSITIONAL RUNTIME NOTE — re-census before assuming any of this remains active authority:**
 
 - Authored object, link-existing, relationship, and merge-object assertions write to a campaign-scoped **authored overlay and event log** (not yet GraphContribution → Kernel → atomic graph-head).
 - Normal staged work uses prepare → review → commit. The create-object wizard prepares and commits one object in a compact review+confirm flow — **object creation is NOT implicit confirmation**; the operator still explicitly confirms that single proposal.
