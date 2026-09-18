@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: UI-05 floating world-object Peek inspector
 
 **Created:** 2026-09-18  
-**Status:** ACTIVE — one serial implementation lane may be opened from this handoff  
+**Status:** COMPLETE — PR #735 merged; deterministic/browser implementation claim accepted; Stage 4 remains human-gated  
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui05-floating-world-object-peek-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY / UI language / Stage 4 WOW`  
 **Flow / owner:** `DOGFOOD-CONTINUITY`  
@@ -10,7 +10,7 @@
 **Activation gate:** `none — satisfied` (predecessor #733 merged; unauthorized #734 closed without merge on HOLD head `a9b43ed7`)  
 **Dispatch base rule:** fresh current `main` containing this checked-in handoff; record the exact implementation branch base at dispatch/review  
 **PR topology:** `serial`  
-**PR authorization:** open/update exactly one implementation PR for this handoff only; no successor/repair PRs  
+**PR authorization:** consumed by merged PR #735; no further implementation authority remains in this handoff  
 **PR title:** `DOGFOOD-CONTINUITY: float world-object Peek as an independent inspector`  
 **Proposed branch:** `dogfood-continuity/ui05-floating-world-object-peek-v1`
 
@@ -235,3 +235,38 @@ When dispatched, the implementation worker must:
 3. implement remaining-viewport independent Peek scroll + sticky identity dismiss;
 4. stop on any required production path outside §4;
 5. leave Backlog IDEA extraction/rollup entries untouched as authorization.
+
+
+---
+
+## §10 Completion
+
+PR #735 merged to `main`:
+
+`586a3dcb53b481ef2cf21890872a3f1e8465a925`
+
+Accepted implementation head:
+
+`f69163a2f4bca22d00c432c6c6419cd1b024d44d`
+
+Formal Review Cycle 1:
+
+`APPROVE` — review `5251493236`
+
+Accepted claim:
+
+```text
+UI-05 FLOATING WORLD-OBJECT PEEK = PASS
+```
+
+Still human-gated:
+
+```text
+STAGE 4 / RECAP WOW = HOLD
+```
+
+UI-05 is not an active implementation lane after this merge. Current CON-READY direction moves to the Authoring v2 design frontier recorded in:
+
+`Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
+
+Do not dispatch extraction/model ablation, 7A1, or another UI slice from this completed handoff.
