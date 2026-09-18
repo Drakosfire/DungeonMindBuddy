@@ -94,7 +94,7 @@ export function PeekRegionSlot() {
       aria-label="Secondary context"
       hidden={winner === null}
     >
-      {winner ? (
+      {winner && winner.kind !== "world-object" ? (
         <header className="app-peek-region__nav">
           <button type="button" onClick={winner.onDismiss}>
             ← Back

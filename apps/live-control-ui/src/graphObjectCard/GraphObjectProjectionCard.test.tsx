@@ -16,6 +16,21 @@ describe("GraphObjectProjectionCard", () => {
     render(<GraphObjectProjectionCard nodeView={nodeView} />);
     expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
     expect(screen.getByText("Caelynn")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Close Caelynn/i })).not.toBeInTheDocument();
+  });
+
+  it("places campaign-memory dismiss on the card identity row", () => {
+    const onDismiss = vi.fn();
+    render(
+      <GraphObjectProjectionCard
+        mode="campaign-memory"
+        nodeView={nodeView}
+        onDismiss={onDismiss}
+        dismissLabel="Close Caelynn"
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close Caelynn" }));
+    expect(onDismiss).toHaveBeenCalledOnce();
   });
 
   it("emits exact relationship target ids", () => {

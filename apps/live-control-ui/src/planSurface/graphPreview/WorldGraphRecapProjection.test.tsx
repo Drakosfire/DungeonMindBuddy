@@ -43,6 +43,7 @@ describe("WorldGraphRecapProjectionView", () => {
 
     expect(screen.queryByText("World object")).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Continue in Build/i })).not.toBeInTheDocument();
+    expect(document.querySelector(".recap-graph-object-panel__header")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 4 })).toHaveTextContent("Caelynn");
     expect(screen.getByLabelText("Caelynn graph object")).toHaveAttribute(
       "data-graph-object-card-mode",
@@ -50,6 +51,7 @@ describe("WorldGraphRecapProjectionView", () => {
     );
 
     const peek = screen.getByLabelText("Caelynn graph object");
+    expect(within(peek).getByRole("button", { name: /Close Caelynn/i })).toBeInTheDocument();
     expect(within(peek).queryByText("Advanced")).not.toBeInTheDocument();
     expect(peek.querySelectorAll("details")).toHaveLength(1);
     fireEvent.click(within(peek).getByText("Source"));

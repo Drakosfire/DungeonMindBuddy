@@ -30,14 +30,19 @@ This slice does **not** claim semantic coverage, kind quality, mention/pill reca
 - Ordinary recap pills keep one interactive treatment. Role/kind palettes no longer imply trustworthy ontology.
 - Glance scan is label, quiet type, summary, then one focus fact. `Why it matters here` and redundant `this session` are gone.
 - Recap Peek identity is the object label. Redundant `World Object` chrome and primary `Continue in Build` are gone.
+- Recap Peek close lives on the graph-object card identity row, not in a separate Peek header strip. Loading/error still have a compact close so Peek can be dismissed before the card exists.
+- World-object Peek no longer shows the Peek-region `← Back` / label bar. Tools and Projection keep that bar.
+- Ingest no longer renders the extra header `{label} Close` strip (`app-secondary-context-dismiss`). Recap Peek still closes from the panel; Tools and Projection keep their own close controls.
 - Relationship copy is subject-aware (`Ogonob possesses Misty Step.`) and incoming edges reverse. `session_recap` is not ordinary-row copy.
 - Recap Peek has **one** secondary `Source` disclosure. Technical identity is inlined there; there is no nested `Advanced`.
 - Summary stays visually clamped to four lines. Expansion is offered when the rendered text overflows (or cannot be measured), not only when the string is longer than 280 characters. Stored bytes are preserved.
 - Plan/default card grammar is unchanged unless `mode="campaign-memory"`.
 
-## Cycle 1 lease note
+## Cycle 1 / chrome lease note
 
 `apps/live-control-ui/src/graphReference/CompleteWorldObjectAdvancedDetails.tsx` gained an additive `bare` prop so recap Peek can reuse the existing technical body without a second `<details>`. Build/Play/Graph Review keep the default Advanced disclosure.
+
+Ingest Peek close chrome was duplicated in `AppChrome` (`app-secondary-context-dismiss`). That strip is removed; Peek still dismisses from the recap panel (and from Tools/Projection hosts). `AppChrome.tsx`, `AppChrome.test.tsx`, and the matching unused rules in `styles.css` are the bounded chrome write.
 
 ## Evidence
 

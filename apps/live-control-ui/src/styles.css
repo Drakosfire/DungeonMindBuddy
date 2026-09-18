@@ -170,24 +170,6 @@ code {
   display: none;
 }
 
-.app-secondary-context-dismiss {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.65rem;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid #2a3142;
-  border-top: none;
-  border-radius: 0 0 10px 10px;
-  background: rgba(18, 20, 26, 0.96);
-}
-
-.app-secondary-context-dismiss span {
-  color: #c0caf5;
-  font-size: 0.8rem;
-}
-
-.app-secondary-context-dismiss button,
 .app-peek-region__nav button {
   border: 1px solid #565f89;
   border-radius: 999px;
@@ -2157,10 +2139,6 @@ button:disabled {
   }
 
   .app-chrome-workspace:has(> .app-peek-region:not([hidden])) > .app-chrome-center {
-    display: none;
-  }
-
-  .app-secondary-context-dismiss {
     display: none;
   }
 

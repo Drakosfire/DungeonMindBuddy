@@ -147,6 +147,38 @@ PR #694 removed full-document loads among the primary React surfaces and the pos
 
 ---
 
+# IDEA
+
+## [IDEA] DeepSeek ablation of recap node and edge extraction
+**Kind:** EVALUATION / EXTRACTION  
+**Owner:** Graph extraction  
+**Captured:** 2026-09-18  
+**Trigger:** after UI-04 Peek chrome; when isolated recap nodes / thin adjacency are the next extraction quality question.
+
+**Problem:** Recap ingest is functional enough to pill and Peek objects, but the admitted graph is not rich, beautiful, or fully functional. Nodes exist without edges because node passes and the later fail-closed edge pass are independent; mention linking does not create relationships. Grobnok-class NPCs can look structured while items/places named in the same recap (rockie-talkie, camp, city) stay edgeless.
+
+**Insight:** Presentation grouping cannot invent missing edges. The next quality move is a top-to-bottom audit of node-pass vs edge-pass contracts, then a new ablation that uses DeepSeek to critique and propose extraction improvements against current recap gold/dogfood — without relaxing “do not infer” into hallucinated predicates.
+
+**Next slice on trigger:** Audit current recap node/edge prompts, catalog omit-rules, party-anchor endpoint gaps, and mention-vs-adjacency trust boundary. Run a DeepSeek-backed ablation on a bounded C1/C2 recap set (include Grobnok vs isolated-item cases). Compare proposed prompt/catalog changes against the existing vocabulary ablation; do not ship richer edges without quote-backed predicates and both endpoints already admitted.
+
+**Refs:** UI-04 Session 22 Grobnok Peek; `src/graph_memory/extraction/recap_extraction_profile.py`; `src/graph_memory/extraction/category_candidate_graph_extractor.py`; `src/graph_memory/extraction/staged_edge_extraction.py`; `Docs/Reports/GRAPH-MEMORY-VOCABULARY-ABLATION-DOGFOOD-MANUAL-REVIEW.md`; `Docs/Plans/HANDOFF-prime-design-graph-memory-extraction-taxonomy.md`
+
+## [IDEA] Roll up recap Peek relationships by predicate family
+**Kind:** DESIGN / PRESENTATION  
+**Owner:** UI / campaign-memory Peek  
+**Captured:** 2026-09-18  
+**Trigger:** next campaign-memory relationship presentation slice after UI-04 Peek chrome.
+
+**Problem:** Recap Peek currently lists every edge as a flat chronological row. Grobnok dogfood showed standard predicates a GM can parse as groups: `located in` is fairly static, while `works with` and `knows about` are sets. Session stamps on every row hide that structure.
+
+**Insight:** Campaign-memory relationships should be grouped/rolled up by predicate family rather than presented as an untyped chronology. Do not invent missing edges. Do not change Plan/default card grammar.
+
+**Next slice on trigger:** Group campaign-memory rows by predicate family (location, collaboration, knowledge, remaining) with a rollup the GM can scan; keep chronology as secondary within a group when it actually changes. Exit proof is Grobnok/similar NPC Peek reading as grouped facts, not a session-stamped adjacency list.
+
+**Refs:** UI-04 Grobnok Peek; `apps/live-control-ui/src/graphObjectCard/GraphObjectCard.tsx`; `apps/live-control-ui/src/graphObjectCard/graphObjectDisplay.ts`
+
+---
+
 # Delegated workstreams — pointers only, no root status
 
 The rows below preserve discoverability for capabilities removed from root without creating a second status owner.

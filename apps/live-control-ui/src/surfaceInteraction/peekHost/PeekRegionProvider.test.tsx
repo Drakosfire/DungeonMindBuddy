@@ -21,6 +21,7 @@ function Harness() {
       <PeekRegionSlot />
       <PeekClaim kind="world-object" active={world} label="World object" onDismiss={() => setWorld(false)}>
         <StatefulObject />
+        <button type="button" onClick={() => setWorld(false)}>Close object</button>
       </PeekClaim>
       <PeekClaim kind="tools" active={tools} label="Tools" onDismiss={() => setTools(false)}>
         <p>Tools content</p>
@@ -62,8 +63,8 @@ describe("PeekRegionProvider", () => {
     expect(slot).toHaveAttribute("data-active-peek", "world-object");
     expect(screen.getByRole("button", { name: "Object state 1" })).toBeVisible();
 
-    expect(slot).toHaveTextContent("World object");
-    await user.click(screen.getByRole("button", { name: "← Back" }));
+    expect(slot).not.toHaveTextContent("← Back");
+    await user.click(screen.getByRole("button", { name: "Close object" }));
     expect(slot).toHaveAttribute("hidden");
   });
 
