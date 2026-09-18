@@ -1,8 +1,8 @@
 # HANDOFF — DOGFOOD-CONTINUITY: UI language design series
 
-**Purpose:** Brief the design agent on the UI-language series after `#698` / `#699`. Design input. The ACTIVE implementation lease is UI-05, not this file.
+**Purpose:** Durable design history for the UI-language series after `#698` / `#699`. UI-01 through UI-05 are merged; this file is no longer an implementation lease.
 
-**Status:** UI-05 ACTIVE — UI-01/UI-02/UI-03 + Stage 4B + UI-04 merged; human WOW pass recorded HOLD; current implementation slice is floating world-object Peek inspector  
+**Status:** SERIES IMPLEMENTATION PAUSED AFTER UI-05 MERGE — UI-01 through UI-05 merged; Stage 4 WOW remains human-gated; current CON-READY frontier is Authoring v2 design  
 **Created:** 2026-09-10  
 **From:** steward + operator after `#699` merge, Mobbin research, and Of Conks styling capture  
 **To:** the next design agent for the bounded UI design / implementation series  
@@ -31,7 +31,7 @@ UI-05                        ACTIVE — floating world-object Peek inspector
 7A1                          DESIGN READY / QUEUED behind this series
 ```
 
-Accepted decomposition: Ingest is the first implementation consumer of the shared Peek primitive; Play remains the visual grammar north star. UI-02 owns Agent dock/absence behavior and UI-03 owns responsive secondary context. Their merges do not pre-complete the series or Stage 4. **UI-05 is the current implementation slice.** Stage 4 WOW remains a human gate.
+Accepted decomposition: Ingest is the first implementation consumer of the shared Peek primitive; Play remains the visual grammar north star. UI-02 owns Agent dock/absence behavior and UI-03 owns responsive secondary context. Their merges do not pre-complete the series or Stage 4. **UI-05 is merged.** Stage 4 WOW remains a human gate, but no additional UI implementation slice is preselected. Current CON-READY direction is Authoring v2.
 
 > Repository law: `AGENTS.md`. Steward judgment: `Docs/Process/STEWARD-CYCLE.md`. Language (feel/compose): `Docs/Design/ui-language/`. Chrome **ownership**: `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`. Product goals (non-status): root `Backlog.md` Captured UI section.
 
@@ -111,6 +111,51 @@ Protect: UI-03 CENTER XOR SECONDARY; recap not remounted; Tools/Projection Back 
 Do **not** absorb parked Backlog IDEA work (DeepSeek extraction ablation; predicate-family relationship rollup).
 
 Do not dispatch 7A1, Agent work, or authoring changes from this series file. One serial implementation PR may be opened from the UI-05 handoff only.
+
+
+---
+
+## 0D. 2026-09-18 re-anchor — UI series yields to Authoring v2
+
+UI-05 / PR #735 merged to `main` at:
+
+`586a3dcb53b481ef2cf21890872a3f1e8465a925`
+
+Accepted head:
+
+`f69163a2f4bca22d00c432c6c6419cd1b024d44d`
+
+The UI series has now supplied enough interaction grammar to stop choosing polish by default:
+
+```text
+UI-01 shared Peek                         MERGED
+UI-02 truthful Agent presence             MERGED
+UI-03 responsive secondary context        MERGED
+UI-04 campaign-information glance + Peek  MERGED
+UI-05 floating world-object Peek          MERGED
+```
+
+Stage 4 / recap WOW is still formally human-gated until the post-UI-05 operator witness is recorded.
+
+That pending witness does not make another UI slice the default successor.
+
+Current CON-READY design authority is:
+
+`Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
+
+The product sequencing decision is:
+
+```text
+manual source-grounded authoring
+→ governed World commit
+→ derived gold/eval
+→ extraction/model ablation
+→ Agent-assisted assessment later
+```
+
+Do not dispatch a new UI slice from this series unless fresh operator dogfood identifies a bounded interaction regression that blocks authoring or ordinary campaign-memory use.
+
+Do not dispatch 7A1 or the extraction/model ablation directly from this series.
 
 ---
 
