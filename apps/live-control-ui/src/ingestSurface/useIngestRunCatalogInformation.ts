@@ -34,9 +34,8 @@ function loadCatalog(channel: SurfaceInformationChannel<ExtractionRunCatalogResp
  *
  * Channel lifetime is bound to the mount effect (create + dispose), not to a
  * useState singleton. Disposing a useState channel on effect cleanup permanently
- * kills observation under React StrictMode remounts. Published recap browsing
- * no longer waits on this catalog; the channel still serves diagnostics and
- * exact-run/authoring workflows.
+ * kills observation under React StrictMode remounts and leaves /ingest stuck on
+ * "Loading graph review sessions…".
  */
 export function useIngestRunCatalogInformation(): UseIngestRunCatalogInformationResult {
   const [channel, setChannel] = useState(() =>

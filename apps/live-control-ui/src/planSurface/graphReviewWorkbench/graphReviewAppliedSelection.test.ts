@@ -52,7 +52,6 @@ describe("graphReviewAppliedSelection", () => {
     expect(window.location.pathname).toBe("/ingest");
     expect(window.location.search).toContain("session=session-23");
     expect(window.location.search).toContain("campaign=longmont-c2");
-    expect(window.location.search).toContain("scopeMode=campaign");
     expect(window.location.search).toContain("run=er_run_a");
     expect(window.location.search).not.toContain("manifest");
     expect(window.location.search).toContain("tool=graph-review-diagnostics");
@@ -65,7 +64,7 @@ describe("graphReviewAppliedSelection", () => {
     expect(storage.getItem("dmb.graph-review.applied-selection.v1")).toBeNull();
   });
 
-  it("does not restore an ExtractionRun from sessionStorage as browse truth", () => {
+  it("fills missing run from sessionStorage for the same URL session only", () => {
     const storage: Storage = {
       getItem: () =>
         JSON.stringify({
@@ -87,7 +86,7 @@ describe("graphReviewAppliedSelection", () => {
     ).toEqual({
       campaignId: "longmont-c2",
       sessionId: "session-23",
-      runId: null,
+      runId: "er_run_a",
     });
     expect(
       resolvePersistedAppliedSelection({

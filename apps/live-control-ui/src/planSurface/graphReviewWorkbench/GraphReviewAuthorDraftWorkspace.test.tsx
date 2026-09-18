@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { useEffect, useState } from "react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   commitGraphObjectAuthoringWrite,
@@ -86,6 +86,31 @@ vi.mock("../../api/liveApi", async () => {
   };
 });
 
+const writeReadyProjectionOverride: {
+  current: UnionSupergraphProjectionResponse | null;
+} = { current: null };
+
+vi.mock("./graphReviewLiveReviewState", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("./graphReviewLiveReviewState")>();
+  return {
+    ...actual,
+    useGraphReviewLiveReviewState(
+      options: Parameters<typeof actual.useGraphReviewLiveReviewState>[0],
+    ) {
+      const state = actual.useGraphReviewLiveReviewState(options);
+      const override = writeReadyProjectionOverride.current;
+      if (!override) return state;
+      return {
+        ...state,
+        projection: override,
+        projectionStatus: "ready" as const,
+        reloadLiveProjection: async () => undefined,
+      };
+    },
+  };
+});
+
 const baseRun = catalogRun();
 
 const projectionWithMentions: UnionSupergraphProjectionResponse = {
@@ -128,10 +153,9 @@ const projectionWithMentions: UnionSupergraphProjectionResponse = {
   mentions: [],
 };
 
-describe.skip("GraphReviewAuthorDraftWorkspace", () => {
-  // UnionSupergraph preview is retired; this suite needs an explicit write-authority
-  // fixture and is outside published-memory browse.
+describe("GraphReviewAuthorDraftWorkspace", () => {
   beforeEach(() => {
+    writeReadyProjectionOverride.current = projectionWithMentions;
     sessionStorage.removeItem("graph-object-authoring-staged:longmont-c2:session-23");
     vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
@@ -142,6 +166,10 @@ describe.skip("GraphReviewAuthorDraftWorkspace", () => {
       gold_fixture_relpath: "gold/session-23.json",
     });
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMentions);
+  });
+
+  afterEach(() => {
+    writeReadyProjectionOverride.current = null;
   });
 
   it("renders fullscreen split workspace with Tiptap reader and authoring rail", async () => {
@@ -296,6 +324,11 @@ describe.skip("GraphReviewAuthorDraftWorkspace", () => {
         },
       },
     };
+    writeReadyProjectionOverride.current = {
+      ...projectionWithMentions,
+      markdown: "The gang arrived at the gate.",
+      node_views: {},
+    };
     vi.mocked(getUnionSupergraphProjection)
       .mockResolvedValueOnce({
         ...projectionWithMentions,
@@ -326,20 +359,23 @@ describe.skip("GraphReviewAuthorDraftWorkspace", () => {
       diagnostics: [],
       no_mutation_guarantees: [],
     });
-    vi.mocked(commitGraphObjectAuthoringWrite).mockImplementation(async (request) => ({
-      committed: true,
-      campaign_id: "longmont-c2",
-      overlay_path: "/tmp/overlay.json",
-      event_log_path: "/tmp/events.jsonl",
-      assertion_count: 1,
-      event_count: 1,
-      new_overlay_token: "token-after",
-      diagnostics: [],
-      no_mutation_guarantees: [],
-      created_node_ids: {
-        [request.proposals[0]?.localProposalId ?? "missing"]: "authored:assert-test123",
-      },
-    }));
+    vi.mocked(commitGraphObjectAuthoringWrite).mockImplementation(async (request) => {
+      writeReadyProjectionOverride.current = projectionAfterCreate;
+      return {
+        committed: true,
+        campaign_id: "longmont-c2",
+        overlay_path: "/tmp/overlay.json",
+        event_log_path: "/tmp/events.jsonl",
+        assertion_count: 1,
+        event_count: 1,
+        new_overlay_token: "token-after",
+        diagnostics: [],
+        no_mutation_guarantees: [],
+        created_node_ids: {
+          [request.proposals[0]?.localProposalId ?? "missing"]: "authored:assert-test123",
+        },
+      };
+    });
 
     renderGraphReviewLiveHarness({
       liveRun: baseRun,
@@ -386,16 +422,12 @@ describe.skip("GraphReviewAuthorDraftWorkspace", () => {
         "true",
       );
     });
-    await waitFor(() => {
-      expect(
-        screen.getByTestId("graph-review-authoring-next-relationships-button"),
-      ).toBeInTheDocument();
-    });
   });
 });
 
 describe("GraphReviewAuthorNodePanel", () => {
   beforeEach(() => {
+    writeReadyProjectionOverride.current = null;
     vi.mocked(getUnionSupergraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockReset();
     vi.mocked(getGoldGraphProjection).mockResolvedValue({

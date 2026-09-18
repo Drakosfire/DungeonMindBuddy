@@ -13,7 +13,9 @@ export function authorNodeProjectionReady(args: {
   );
 }
 
-export function GraphReviewAuthorNodePanel() {
+export function GraphReviewAuthorNodePanel(_props: {
+  onRequestLoad?: () => void;
+} = {}) {
   const { projectionStatus, projection, liveRun, projectionError } =
     useGraphReviewLiveState();
 

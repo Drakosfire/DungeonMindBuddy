@@ -7,7 +7,8 @@
 **Spike evidence:** `dd4db027994f326af4434d2c0dd74f18abbb2509` (Review Cycle 1 HOLD)  
 **Authorized PR:** [#732](https://github.com/Drakosfire/DungeonMindBuddy/pull/732)
 
-**Review Cycle 2 HOLD:** `00fc66a9b7ea8180c1f12f0fa701fb68c631a5b9` review `5243098493`
+**Review Cycle 2 HOLD:** `00fc66a9b7ea8180c1f12f0fa701fb68c631a5b9` review `5243098493`  
+**Review Cycle 3 HOLD:** `0d3b132992330605d6d9d35122568e51e5f427d0` review `5243376461`
 
 ```text
 PUBLISHED-MEMORY GRAPH REVIEW BROWSE AUTHORITY = PASS
@@ -55,6 +56,27 @@ Ordinary browse no longer renders ExtractionRun catalog empty/error chrome. Cata
 
 ---
 
+## Review Cycle 3 repairs
+
+Formal HOLD `5243376461` on `0d3b132992330605d6d9d35122568e51e5f427d0`.
+
+Reverted to `origin/main` (no behavioral need in this slice):
+
+- `apps/live-control-ui/src/ingestSurface/useIngestRunCatalogInformation.ts` (comment-only)
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewAppliedSelection.ts` + test
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodeDrawer.tsx`
+
+`GraphReviewAuthorNodePanel` (leased) still accepts unused optional `onRequestLoad` so the restored Drawer API type-checks. Host does not pass it; ordinary browse still has no Load recap ceremony. Write isolation remains `liveRun={null}` on ordinary browse, not a persisted-selection change.
+
+Cycle 3 HOLD named these adjacent files as required if retained. They stay in the PR; this report records the lease expansion (worker cannot edit the `main` HANDOFF):
+
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphReviewAuthority.ts` + `graphReviewAuthority.test.ts` — `PublishedMemoryBrowseContext != GraphReviewWriteAuthority`
+- `apps/live-control-ui/src/App.test.tsx` — `/ingest` Campaign/Focus session and no catalog empty chrome
+
+Restored `GraphReviewAuthorDraftWorkspace.test.tsx` without `describe.skip`. Workspace tests inject a write-ready projection fixture; Panel tests leave UnionSupergraph retired so a catalog `liveRun` does not open the workspace.
+
+---
+
 ## Review Cycle 2 repairs
 
 1. Restored from `origin/main` without re-wiring into ordinary browse:
@@ -80,7 +102,7 @@ Focused vitest (live-control-ui):
 - `useWorldGraphLensProjection.test.tsx`
 - `verifyWorldGraphProjectionResponse.test.ts`
 - `graphReviewAppliedSelection.test.ts`
-- `GraphReviewAuthorDraftWorkspace.test.tsx` (Author Node panel authority copy; Union-preview workspace suite skipped as retired)
+- `GraphReviewAuthorDraftWorkspace.test.tsx` (workspace suite restored with write-ready fixture; Panel authority copy)
 - `GraphReviewLoadSurface.test.tsx` / `GraphReviewLoadBar.test.tsx` (restored modules)
 - `App.test.tsx` ingest route (catalog chrome must not appear)
 
