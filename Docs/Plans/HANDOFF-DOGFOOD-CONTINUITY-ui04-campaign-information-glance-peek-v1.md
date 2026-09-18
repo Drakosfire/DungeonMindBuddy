@@ -446,6 +446,20 @@ Use a strict subset where possible.
 | MODIFY | existing focused graph-object card/display tests | protect Plan defaults + prove campaign-memory behavior |
 | CREATE if no focused projection test exists | `apps/live-control-ui/src/planSurface/graphPreview/WorldGraphRecapProjection.test.tsx` | recap Peek witness only |
 
+## Steward lease expansion after Review Cycle 1 handback
+
+Review Cycle 1 localized the remaining disclosure problem to the existing technical-details wrapper. The worker's repair requires one adjacent production path not named in the original §7 table.
+
+Explicitly add to the UI-04 Peek lease:
+
+| Action | Path | Purpose |
+|---|---|---|
+| MODIFY | `apps/live-control-ui/src/graphReference/CompleteWorldObjectAdvancedDetails.tsx` | allow recap campaign-memory Peek to reuse the existing technical identity body inside the single Source disclosure without nesting a second Advanced disclosure; default behavior for all non-recap consumers must remain unchanged |
+
+The accepted shape is additive/fail-safe: recap may request a bare body; default callers still receive the existing `Advanced` disclosure.
+
+This expansion does not authorize broader changes to complete-object semantics or non-recap presentation.
+
 ## Durable report
 
 CREATE:
