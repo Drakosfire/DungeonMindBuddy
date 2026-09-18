@@ -578,6 +578,78 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.getByLabelText("Focus session")).toHaveValue("session-23");
   });
 
+  it("mounts published recap while the ExtractionRun catalog is still loading", async () => {
+    const catalogChannel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
+      INGEST_RUN_CATALOG_DESCRIPTOR,
+    );
+    catalogChannel.beginObservation();
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    renderWorkbench(undefined, context, { catalogChannel });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/Loading graph review sessions/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-write-authority",
+      "none",
+    );
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-browse-session",
+      "session-27",
+    );
+  });
+
+  it("does not attach write authority from a stale persisted catalog run", async () => {
+    window.sessionStorage.setItem(
+      "dmb.graph-review.applied-selection.v2",
+      JSON.stringify({
+        campaignId: "longmont-c2",
+        sessionId: "session-27",
+        runId: "er_run_a",
+      }),
+    );
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    const prepareSpy = vi.spyOn(extractPromoteApi, "prepareExtractPromote");
+    const authorPrepareSpy = vi.spyOn(liveApi, "prepareGraphObjectAuthoringWrite");
+    renderWorkbench();
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-write-authority",
+      "none",
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Author Node" }));
+    expect(
+      await screen.findByTestId("graph-review-author-node-missing-authority"),
+    ).toHaveTextContent("Authoring requires an explicit source/run context.");
+    expect(prepareSpy).not.toHaveBeenCalled();
+    expect(authorPrepareSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps invalid exact-run identity fail-closed instead of degrading to browse write controls", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-27&extractionRunId=er_missing&sourceArtifactId=sa_1",
+    );
+    vi.spyOn(liveApi, "getExtractionRun").mockRejectedValue(new Error("run not found"));
+    renderWorkbench();
+
+    expect(
+      await screen.findByTestId("graph-review-exact-run-error"),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText("Published recap")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Author Node" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-write-authority",
+      "none",
+    );
+  });
+
   it("opens toolbox with Diagnostics and without a Recap View overlay", async () => {
     const user = userEvent.setup();
     mockExactRunReviewPackage();
@@ -632,6 +704,10 @@ describe("GraphReviewWorkbenchModule", () => {
 
     expect(screen.queryByRole("button", { name: "Author Node" })).not.toBeInTheDocument();
     expect(screen.queryByTestId("graph-review-author-node-empty")).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-review-workbench")).toHaveAttribute(
+      "data-write-authority",
+      "exact_run",
+    );
   });
 
   it("prefers exact-run review over legacy author-draft tool query", async () => {

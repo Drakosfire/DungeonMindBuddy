@@ -65,7 +65,7 @@ describe("graphReviewAppliedSelection", () => {
     expect(storage.getItem("dmb.graph-review.applied-selection.v1")).toBeNull();
   });
 
-  it("fills missing run from sessionStorage for the same URL session only", () => {
+  it("does not restore an ExtractionRun from sessionStorage as browse truth", () => {
     const storage: Storage = {
       getItem: () =>
         JSON.stringify({
@@ -87,7 +87,7 @@ describe("graphReviewAppliedSelection", () => {
     ).toEqual({
       campaignId: "longmont-c2",
       sessionId: "session-23",
-      runId: "er_run_a",
+      runId: null,
     });
     expect(
       resolvePersistedAppliedSelection({

@@ -40,7 +40,6 @@ import { GraphReviewLiveStateProvider } from "./GraphReviewLiveStateContext";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 import { GraphReviewCommittedProjectionPanel } from "./GraphReviewCommittedProjectionPanel";
 import {
-  catalogRunBindingKey,
   exactRunBindingKey,
   type GraphReviewCommittedBinding,
 } from "./graphReviewCommittedAuthority";
@@ -51,21 +50,20 @@ import { GraphReviewHistoricalRecapProjection } from "./GraphReviewHistoricalRec
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
 import { GraphReviewFirstWorldPublishSheet } from "./GraphReviewFirstWorldPublishSheet";
 import {
+  resolveGraphReviewWriteAuthority,
+  resolvePublishedMemoryBrowseContext,
+} from "./graphReviewAuthority";
+import {
   type GraphReviewAppliedSelection,
   resolvePersistedAppliedSelection,
-  writeAppliedSelectionToStorage,
-  writeAppliedSelectionToUrl,
 } from "./graphReviewAppliedSelection";
 import {
   buildGraphReviewCatalog,
-  catalogRunToLane,
-  catalogSessionToGoldLane,
   catalogSessionsForReviewCampaign,
   type GraphReviewCatalogSession,
   isCatalogRunHistoricalRecapInspectable,
   isCatalogRunPromotedHistory,
   pickDefaultCatalogSession,
-  pickDefaultWorkbenchRun,
 } from "./graphReviewWorkbenchUtils";
 import { manualVariantToLaneView } from "./graphReviewVariantReferenceUtils";
 import {
@@ -96,11 +94,10 @@ function buildDefaultDraft(
     fallbackSessionId,
   );
   if (!session) return null;
-  const run = pickDefaultWorkbenchRun(session.availableRuns);
   return {
     campaignId,
     sessionId: session.sessionId,
-    runId: run?.run.run_id ?? null,
+    runId: null,
   };
 }
 
@@ -128,11 +125,6 @@ function resolveSelectionAgainstCatalog(
   };
 }
 
-function persistAppliedSelection(selection: GraphReviewAppliedSelection): void {
-  writeAppliedSelectionToUrl(selection);
-  writeAppliedSelectionToStorage(selection);
-}
-
 export function GraphReviewWorkbenchModule({
   context,
   catalogChannel,
@@ -140,6 +132,10 @@ export function GraphReviewWorkbenchModule({
 }: GraphReviewWorkbenchModuleProps) {
   const fallbackSessionId = `session-${context.ingestSession}`;
   const requestedSessionId = requestedSessionFromLocation();
+  const browseContext = resolvePublishedMemoryBrowseContext({
+    fallbackCampaignId: resolveInitialReviewCampaignId(context.campaignId),
+    fallbackSessionId,
+  });
   const toolboxConfig = useMemo(() => createIngestSurfaceConfig(context), [context]);
   const { publishProjectionSurface, updateProjectionSurfaceConfig } = useAgentInteraction();
 
@@ -180,10 +176,6 @@ export function GraphReviewWorkbenchModule({
     || catalogState.status === "empty"
     || catalogState.status === "unavailable"
     || catalogState.status === "integrity_error";
-  const [catalogEverSettled, setCatalogEverSettled] = useState(false);
-  useEffect(() => {
-    if (catalogSettled) setCatalogEverSettled(true);
-  }, [catalogSettled]);
   const canonicalRuns =
     catalogState.status === "ready" ? catalogState.value.runs : [];
   const sessionsError =
@@ -274,14 +266,6 @@ export function GraphReviewWorkbenchModule({
     );
   }, [appliedSelection, appliedSession]);
 
-  const goldLane = useMemo(
-    () => (appliedSession ? catalogSessionToGoldLane(appliedSession) : null),
-    [appliedSession],
-  );
-  const liveLane = useMemo(
-    () => (appliedLiveRun ? catalogRunToLane(appliedLiveRun) : null),
-    [appliedLiveRun],
-  );
   const selectedVariantLaneView = useMemo(
     () =>
       selectedManualBed && selectedManualVariantName
@@ -312,10 +296,6 @@ export function GraphReviewWorkbenchModule({
     if (draftSource) {
       setDraftCampaignId(draftSource.campaignId);
       setDraftSessionId(draftSource.sessionId);
-    }
-    if (persistedHint?.runId) {
-      const restored = resolveSelectionAgainstCatalog(persistedHint, catalogSessions);
-      if (restored?.runId) persistAppliedSelection(restored);
     }
   }, [
     catalogSettled,
@@ -728,12 +708,17 @@ export function GraphReviewWorkbenchModule({
     }
   }, [exactConfirmInFlight, exactHandoff?.extractionRunId, exactPreparing, exactRun?.run_id, exactRunPromotable]);
 
-  const hasAppliedLoad = Boolean(appliedSelection && appliedSession && appliedLiveRun);
   const hasExactRunLoad = Boolean(
     exactHandoff
     && exactRunStatus === "ready"
     && exactRun
   );
+  const writeAuthority = resolveGraphReviewWriteAuthority({
+    exactHandoff,
+    exactHandoffErrors,
+    exactRun,
+    exactRunStatus,
+  });
   // Keep live-state (and the Tools drawer) mounted even before a session is loaded so
   // Diagnostics remains reachable from the empty /ingest landing state.
   // Exact campaignless runs must not inherit applied/draft/context campaign lenses.
@@ -741,88 +726,64 @@ export function GraphReviewWorkbenchModule({
     ? (exactRun?.campaign_id ?? "").trim()
     : null;
   const reviewCampaignId =
-    hasExactRunLoad
-      ? (exactRunCampaignId ?? "")
-      : appliedSession?.campaignId ?? draftCampaignId ?? context.campaignId;
+    writeAuthority?.kind === "exact_run"
+      ? (writeAuthority.campaignId ?? "")
+      : browseContext.campaignId;
   // Exact worldbuilding runs keep session null — never invent a session lens.
-  // A rejected or unresolved handoff must not degrade the recap lens either.
-  const reviewSessionId = hasExactRunLoad
-    ? exactRun?.session_id?.trim() || ""
-    : appliedSession?.sessionId || draftSessionId || fallbackSessionId;
+  // A rejected or unresolved handoff must not degrade into browse while write
+  // controls remain mounted.
+  const reviewSessionId =
+    writeAuthority?.kind === "exact_run"
+      ? writeAuthority.sessionId ?? ""
+      : browseContext.sessionId;
 
   const committedBinding = useMemo<GraphReviewCommittedBinding | null>(() => {
-    if (hasExactRunLoad && exactRun?.run_id) {
-      const sourceArtifactId =
-        exactRun.source_artifact_id?.trim()
-        || exactHandoff?.sourceArtifactId?.trim()
-        || "";
-      if (!sourceArtifactId) return null;
-      const campaignId =
-        (exactRunCampaignId ?? exactRun.campaign_id ?? "").trim() || null;
-      const sessionId = exactRun.session_id?.trim() || null;
-      return {
-        kind: "exact_run",
-        key: exactRunBindingKey({
-          runId: exactRun.run_id,
-          sourceArtifactId,
-          campaignId,
-          sessionId,
-        }),
+    if (writeAuthority?.kind !== "exact_run" || !exactRun?.run_id) return null;
+    const sourceArtifactId =
+      exactRun.source_artifact_id?.trim()
+      || exactHandoff?.sourceArtifactId?.trim()
+      || "";
+    if (!sourceArtifactId) return null;
+    const campaignId =
+      (exactRunCampaignId ?? exactRun.campaign_id ?? "").trim() || null;
+    const sessionId = exactRun.session_id?.trim() || null;
+    return {
+      kind: "exact_run",
+      key: exactRunBindingKey({
         runId: exactRun.run_id,
         sourceArtifactId,
         campaignId,
         sessionId,
-      };
-    }
-    if (hasAppliedLoad && appliedLiveRun?.run.run_id) {
-      return {
-        kind: "catalog_run",
-        key: catalogRunBindingKey({
-          runId: appliedLiveRun.run.run_id,
-          campaignId: reviewCampaignId,
-          sessionId: reviewSessionId,
-        }),
-        runId: appliedLiveRun.run.run_id,
-        campaignId: reviewCampaignId,
-        sessionId: reviewSessionId,
-      };
-    }
-    return null;
+      }),
+      runId: exactRun.run_id,
+      sourceArtifactId,
+      campaignId,
+      sessionId,
+    };
   }, [
-    appliedLiveRun?.run.run_id,
     exactHandoff?.sourceArtifactId,
     exactRun?.campaign_id,
     exactRun?.run_id,
     exactRun?.session_id,
     exactRun?.source_artifact_id,
     exactRunCampaignId,
-    hasAppliedLoad,
-    hasExactRunLoad,
-    reviewCampaignId,
-    reviewSessionId,
+    writeAuthority,
   ]);
 
-  if (!catalogEverSettled && !exactHandoff && catalogState.status === "loading") {
-    return (
-      <div className="graph-review-workbench-root">
-        <GraphReviewWorkbenchHeader />
-        <p className="plan-projection-empty">Loading graph review sessions…</p>
-      </div>
-    );
-  }
+  const showPublishedMemoryBrowse = !exactHandoff;
 
   return (
     <GraphReviewLiveStateProvider
         campaignId={reviewCampaignId}
         sessionId={reviewSessionId}
-        liveRun={hasAppliedLoad ? appliedLiveRun : null}
+        liveRun={null}
         committedBinding={committedBinding}
-        hasGold={hasAppliedLoad ? Boolean(appliedSession?.hasGold) : false}
-        compare={hasAppliedLoad ? compare : null}
-        compareStatus={hasAppliedLoad ? compareStatus : "idle"}
-        compareError={hasAppliedLoad ? compareError : null}
-        goldLane={hasAppliedLoad ? goldLane : null}
-        liveLane={hasAppliedLoad ? liveLane : null}
+        hasGold={false}
+        compare={null}
+        compareStatus="idle"
+        compareError={null}
+        goldLane={null}
+        liveLane={null}
         manualBeds={manualBeds}
         manualBedsStatus={manualBedsStatus}
         manualBedsError={manualBedsError}
@@ -839,7 +800,13 @@ export function GraphReviewWorkbenchModule({
         onSelectSelection={setSelection}
       >
         <GraphReviewDiagnosticsProjectionBinding />
-        <div className="graph-review-workbench-root">
+        <div
+          className="graph-review-workbench-root"
+          data-testid="graph-review-workbench"
+          data-write-authority={writeAuthority?.kind ?? "none"}
+          data-browse-campaign={browseContext.campaignId}
+          data-browse-session={browseContext.sessionId}
+        >
           <GraphReviewWorkbenchHeader
             exactRun={hasExactRunLoad ? loadedRunSummary : null}
           />
@@ -861,7 +828,11 @@ export function GraphReviewWorkbenchModule({
             <p className="plan-projection-empty">Loading exact extraction run…</p>
           ) : null}
 
-          {hasExactRunLoad ? (
+          {showPublishedMemoryBrowse ? (
+            <GraphReviewAuthorNodeHost
+              projection={<RecapGraphModule context={context} />}
+            />
+          ) : hasExactRunLoad ? (
             <GraphReviewExactRunBranch
               exactRun={exactRun!}
               exactReview={exactReview}
@@ -885,11 +856,7 @@ export function GraphReviewWorkbenchModule({
               onConfirmInFlightChange={setExactConfirmInFlight}
               onCatalogRefresh={onCatalogRefresh}
             />
-          ) : (
-            <GraphReviewAuthorNodeHost
-              projection={<RecapGraphModule context={context} />}
-            />
-          )}
+          ) : null}
         </div>
       </GraphReviewLiveStateProvider>
   );

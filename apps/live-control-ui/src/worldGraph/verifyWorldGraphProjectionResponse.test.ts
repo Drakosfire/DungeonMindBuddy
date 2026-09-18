@@ -71,6 +71,16 @@ describe("verifyWorldGraphProjectionResponse", () => {
     ).toMatch(/does not match requested campaign longmont-c2/);
   });
 
+  it("fails when a campaign-scoped snapshot omits campaign identity", () => {
+    expect(
+      verifyWorldGraphProjectionResponse({
+        request: request({ campaignId: "longmont-c2" }),
+        response: projection({ campaignId: "" }),
+        revisionKind: "head",
+      }),
+    ).toMatch(/does not match requested campaign longmont-c2/);
+  });
+
   it("fails when a world-union snapshot claims a different standing campaign", () => {
     expect(
       verifyWorldGraphProjectionResponse({

@@ -17,6 +17,19 @@ export function GraphReviewAuthorNodePanel() {
   const { projectionStatus, projection, liveRun, projectionError } =
     useGraphReviewLiveState();
 
+  if (!liveRun) {
+    return (
+      <div
+        className="plan-projection-empty graph-review-author-node-empty"
+        data-testid="graph-review-author-node-empty"
+      >
+        <p data-testid="graph-review-author-node-missing-authority">
+          Authoring requires an explicit source/run context.
+        </p>
+      </div>
+    );
+  }
+
   if (authorNodeProjectionReady({ projectionStatus, projection, liveRun })) {
     return (
       <section
@@ -50,7 +63,9 @@ export function GraphReviewAuthorNodePanel() {
       className="plan-projection-empty graph-review-author-node-empty"
       data-testid="graph-review-author-node-empty"
     >
-      <p>Open Author Node from Tools after a published recap is on screen.</p>
+      <p data-testid="graph-review-author-node-missing-authority">
+        Authoring requires an explicit source/run context.
+      </p>
     </div>
   );
 }

@@ -128,26 +128,12 @@ export function clearAppliedSelectionStorage(
 }
 
 /**
- * Prefer an explicit URL selection. Session storage only fills a missing `run`
- * for the same campaign/session — it never restores a load onto a bare `/ingest`.
- * Legacy path-shaped `run` values are ignored, not migrated by file scan.
+ * Prefer an explicit URL campaign/session. Persisted ExtractionRun ids are never
+ * browse truth and must not restore write authority onto a published recap.
  */
 export function resolvePersistedAppliedSelection(options?: {
   search?: string | null;
   storage?: Pick<Storage, "getItem"> | null;
 }): GraphReviewAppliedSelection | null {
-  const fromUrl = readAppliedSelectionFromUrl(options?.search);
-  if (!fromUrl) return null;
-  const fromStorage = readAppliedSelectionFromStorage(options?.storage);
-  if (
-    fromStorage &&
-    fromStorage.campaignId === fromUrl.campaignId &&
-    fromStorage.sessionId === fromUrl.sessionId
-  ) {
-    return {
-      ...fromUrl,
-      runId: fromUrl.runId ?? fromStorage.runId,
-    };
-  }
-  return fromUrl;
+  return readAppliedSelectionFromUrl(options?.search);
 }

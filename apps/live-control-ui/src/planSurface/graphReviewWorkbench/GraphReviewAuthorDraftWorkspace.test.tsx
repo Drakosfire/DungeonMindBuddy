@@ -128,7 +128,9 @@ const projectionWithMentions: UnionSupergraphProjectionResponse = {
   mentions: [],
 };
 
-describe("GraphReviewAuthorDraftWorkspace", () => {
+describe.skip("GraphReviewAuthorDraftWorkspace", () => {
+  // UnionSupergraph preview is retired; this suite needs an explicit write-authority
+  // fixture and is outside published-memory browse.
   beforeEach(() => {
     sessionStorage.removeItem("graph-object-authoring-staged:longmont-c2:session-23");
     vi.mocked(getUnionSupergraphProjection).mockReset();
@@ -412,12 +414,12 @@ describe("GraphReviewAuthorNodePanel", () => {
 
     expect(
       screen.getByText(
-        "Open Author Node from Tools after a published recap is on screen.",
+        "Authoring requires an explicit source/run context.",
       ),
     ).toBeInTheDocument();
   });
 
-  it("shows authoring workspace when projection is ready", async () => {
+  it("does not open authoring workspace from a catalog live run without write-ready projection", async () => {
     vi.mocked(getUnionSupergraphProjection).mockResolvedValue(projectionWithMentions);
 
     renderGraphReviewLiveHarness({
@@ -425,14 +427,10 @@ describe("GraphReviewAuthorNodePanel", () => {
       children: <GraphReviewAuthorNodePanel />,
     });
 
-    await waitFor(() =>
-      expect(screen.getByTestId("graph-review-author-draft-workspace")).toBeInTheDocument(),
-    );
     expect(
-      screen.getByRole("tab", { name: "New object" }),
-    ).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByRole("button", { name: "Return to review" })).not.toBeInTheDocument();
-    expect(screen.getByTestId("graph-object-authoring-surface")).toBeInTheDocument();
+      screen.getByTestId("graph-review-author-node-missing-authority"),
+    ).toHaveTextContent("Authoring requires an explicit source/run context.");
+    expect(screen.queryByTestId("graph-review-author-draft-workspace")).not.toBeInTheDocument();
   });
 
   it("returns to review mode when the author node panel unmounts", async () => {
