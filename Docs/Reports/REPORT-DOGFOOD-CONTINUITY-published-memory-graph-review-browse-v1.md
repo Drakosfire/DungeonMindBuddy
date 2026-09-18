@@ -8,7 +8,8 @@
 **Authorized PR:** [#732](https://github.com/Drakosfire/DungeonMindBuddy/pull/732)
 
 **Review Cycle 2 HOLD:** `00fc66a9b7ea8180c1f12f0fa701fb68c631a5b9` review `5243098493`  
-**Review Cycle 3 HOLD:** `0d3b132992330605d6d9d35122568e51e5f427d0` review `5243376461`
+**Review Cycle 3 HOLD:** `0d3b132992330605d6d9d35122568e51e5f427d0` review `5243376461`  
+**Review Cycle 4 HOLD:** `cd1630e1071ab8ec10355eca7dfd0b5d91826a4a` review `5243667046`
 
 ```text
 PUBLISHED-MEMORY GRAPH REVIEW BROWSE AUTHORITY = PASS
@@ -74,6 +75,14 @@ Cycle 3 HOLD named these adjacent files as required if retained. They stay in th
 - `apps/live-control-ui/src/App.test.tsx` — `/ingest` Campaign/Focus session and no catalog empty chrome
 
 Restored `GraphReviewAuthorDraftWorkspace.test.tsx` without `describe.skip`. Workspace tests inject a write-ready projection fixture; Panel tests leave UnionSupergraph retired so a catalog `liveRun` does not open the workspace.
+
+---
+
+## Review Cycle 4 repairs
+
+Formal HOLD `5243667046` on `cd1630e1071ab8ec10355eca7dfd0b5d91826a4a`.
+
+Restored the post-create `Next: Relationships` assertion in the Author Draft workspace suite. The write-ready fixture now refreshes live projection after commit so the created object is selected and that action appears, matching production.
 
 ---
 

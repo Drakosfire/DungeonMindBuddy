@@ -91,6 +91,7 @@ const writeReadyProjectionOverride: {
 } = { current: null };
 
 vi.mock("./graphReviewLiveReviewState", async (importOriginal) => {
+  const { useState } = await import("react");
   const actual =
     await importOriginal<typeof import("./graphReviewLiveReviewState")>();
   return {
@@ -98,6 +99,7 @@ vi.mock("./graphReviewLiveReviewState", async (importOriginal) => {
     useGraphReviewLiveReviewState(
       options: Parameters<typeof actual.useGraphReviewLiveReviewState>[0],
     ) {
+      const [, setReloadTick] = useState(0);
       const state = actual.useGraphReviewLiveReviewState(options);
       const override = writeReadyProjectionOverride.current;
       if (!override) return state;
@@ -105,7 +107,9 @@ vi.mock("./graphReviewLiveReviewState", async (importOriginal) => {
         ...state,
         projection: override,
         projectionStatus: "ready" as const,
-        reloadLiveProjection: async () => undefined,
+        reloadLiveProjection: async () => {
+          setReloadTick((tick) => tick + 1);
+        },
       };
     },
   };
@@ -421,6 +425,11 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
         "aria-selected",
         "true",
       );
+    });
+    await waitFor(() => {
+      expect(
+        screen.getByTestId("graph-review-authoring-next-relationships-button"),
+      ).toBeInTheDocument();
     });
   });
 });
