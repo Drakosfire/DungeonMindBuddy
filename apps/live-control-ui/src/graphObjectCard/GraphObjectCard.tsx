@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
 import {
   campaignMemoryRelationshipCopy,
@@ -308,6 +308,51 @@ function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel 
   );
 }
 
+function CampaignMemorySummary({ summary }: { summary: string }) {
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [overflows, setOverflows] = useState(true);
+
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (!el || expanded) {
+      return;
+    }
+    const measure = () => {
+      const measurable = el.clientHeight > 0;
+      setOverflows(!measurable || el.scrollHeight > el.clientHeight + 1);
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") {
+      return;
+    }
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [expanded, summary]);
+
+  return (
+    <section aria-label="Campaign summary">
+      <p
+        ref={textRef}
+        className={expanded ? undefined : "graph-object-card__summary-clamp"}
+      >
+        {summary}
+      </p>
+      {overflows || expanded ? (
+        <button
+          type="button"
+          className="graph-object-card__summary-expand"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((current) => !current)}
+        >
+          {expanded ? "Show less" : "Show full summary"}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
 function GraphObjectSummary({
   model,
   campaignMemory,
@@ -318,17 +363,7 @@ function GraphObjectSummary({
   const summary = model.gameSummary ?? model.summary;
   if (campaignMemory) {
     if (!summary) return null;
-    return (
-      <section aria-label="Campaign summary">
-        <p className="graph-object-card__summary-clamp">{summary}</p>
-        {summary.length > 280 ? (
-          <details className="graph-object-card__details">
-            <summary>Show full summary</summary>
-            <p>{summary}</p>
-          </details>
-        ) : null}
-      </section>
-    );
+    return <CampaignMemorySummary summary={summary} />;
   }
   if (!summary && !model.whyItMattersNow) return null;
 
@@ -555,7 +590,11 @@ export function GraphObjectCard({
         <details className="graph-object-card__details">
           <summary>Source</summary>
           {details}
-          {advancedSlot}
+          {advancedSlot ? (
+            <section className="graph-object-card__details-section" aria-label="Technical identity">
+              {advancedSlot}
+            </section>
+          ) : null}
         </details>
       ) : (
         <>

@@ -323,6 +323,18 @@
   overflow: hidden;
 }
 
+.graph-object-card[data-graph-object-card-mode="campaign-memory"] .graph-object-card__summary-expand {
+  background: none;
+  border: 0;
+  color: var(--accent, #7aa2f7);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  margin-top: 0.2rem;
+  padding: 0;
+  text-decoration: underline;
+}
+
 .graph-object-card[data-graph-object-card-mode="campaign-memory"] .graph-object-card__type-badge {
   font-size: 0.68rem;
   letter-spacing: 0.02em;

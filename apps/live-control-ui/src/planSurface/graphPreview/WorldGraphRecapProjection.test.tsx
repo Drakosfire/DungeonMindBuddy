@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
@@ -48,6 +48,14 @@ describe("WorldGraphRecapProjectionView", () => {
       "data-graph-object-card-mode",
       "campaign-memory",
     );
+
+    const peek = screen.getByLabelText("Caelynn graph object");
+    expect(within(peek).queryByText("Advanced")).not.toBeInTheDocument();
+    expect(peek.querySelectorAll("details")).toHaveLength(1);
+    fireEvent.click(within(peek).getByText("Source"));
+    expect(within(peek).queryByText("Advanced")).not.toBeInTheDocument();
+    expect(within(peek).getByText("World ID")).toBeInTheDocument();
+    expect(peek.querySelectorAll("details details")).toHaveLength(0);
 
     fireEvent.click(screen.getByRole("button", { name: /Close Caelynn/i }));
     expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();

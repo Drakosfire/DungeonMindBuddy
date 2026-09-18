@@ -426,7 +426,38 @@ describe("GraphObjectCard", () => {
     expect(within(card).queryByText(/session_recap/)).not.toBeInTheDocument();
     expect(within(card).getByText("C2 · S15")).toBeInTheDocument();
     expect(within(card).queryByText("Details")).not.toBeInTheDocument();
+    expect(within(card).queryByText("Advanced")).not.toBeInTheDocument();
+    expect(card.querySelectorAll("details")).toHaveLength(1);
     await user.click(within(card).getByText("Source"));
     expect(within(card).getByText(/1 evidence badge/)).toBeInTheDocument();
+    expect(within(card).queryByText("Advanced")).not.toBeInTheDocument();
+    expect(card.querySelectorAll("details details")).toHaveLength(0);
+  });
+
+  it("offers a full-summary path for campaign-memory text that is visually clamped, not only 280+ characters", async () => {
+    const user = userEvent.setup();
+    const shortWrappedSummary =
+      "Swarms located in the hole after the wall cracked and the tunnel opened beneath it.";
+    render(
+      <GraphObjectCard
+        mode="campaign-memory"
+        model={{
+          ...planModel,
+          id: "loc-hole",
+          label: "the hole",
+          gameSummary: shortWrappedSummary,
+          whyItMattersNow: null,
+          relationships: [],
+        }}
+      />,
+    );
+
+    const card = screen.getByLabelText(/the hole game card/i);
+    const expand = within(card).getByRole("button", { name: "Show full summary" });
+    expect(shortWrappedSummary.length).toBeLessThan(280);
+    expect(expand).toHaveAttribute("aria-expanded", "false");
+    await user.click(expand);
+    expect(within(card).getByRole("button", { name: "Show less" })).toHaveAttribute("aria-expanded", "true");
+    expect(within(card).getByText(shortWrappedSummary)).not.toHaveClass("graph-object-card__summary-clamp");
   });
 });

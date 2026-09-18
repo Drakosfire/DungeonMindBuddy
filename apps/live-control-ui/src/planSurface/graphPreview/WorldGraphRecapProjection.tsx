@@ -141,6 +141,7 @@ export function WorldGraphRecapProjectionView({
                   <CompleteWorldObjectAdvancedDetails
                     result={complete.result}
                     originSurface={recapOriginSurface()}
+                    bare
                   />
                 ) : undefined}
               />
