@@ -67,7 +67,7 @@ That is the interruption. The campaign-memory work was not a replacement roadmap
 
 ### Current action
 
-This 0A section is historical. The human pass is recorded. UI-04 is merged. Current implementation authority is UI-05 (see §0C).
+This 0A section is historical. The human pass is recorded; UI-04 and UI-05 are both merged. Current sequencing authority has moved to the Authoring v2 plan.
 
 ---
 
