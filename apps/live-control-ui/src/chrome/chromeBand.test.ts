@@ -49,4 +49,25 @@ describe("app chrome band", () => {
       /@media[^{}]*\(max-width:\s*900px\)[\s\S]*?:root\s*\{[^}]*--app-chrome-top:\s*10rem;[^}]*--app-chrome-bottom:\s*0rem;/,
     );
   });
+
+  it("floats populated Peek as remaining-viewport independent scroll panes without guessed chrome math", () => {
+    const css = readCss("styles.css");
+    expect(css).toMatch(
+      /\.app-chrome-workspace:has\(>\s*\.app-peek-region:not\(\[hidden\]\)\)\s*>\s*\.app-chrome-center[\s\S]*?overflow:\s*auto/,
+    );
+    expect(css).toMatch(
+      /\.app-chrome-workspace:has\(>\s*\.app-peek-region:not\(\[hidden\]\)\)\s*>\s*\.app-peek-region[\s\S]*?overflow:\s*auto/,
+    );
+    expect(css).not.toMatch(
+      /\.app-chrome-workspace:has\(>\s*\.app-peek-region:not\(\[hidden\]\)\)[^\{]*\{[^}]*100vh\s*-/,
+    );
+    expect(css).not.toMatch(/app-secondary-context-dismiss/);
+  });
+
+  it("keeps world-object dismiss sticky inside Peek overflow", () => {
+    const plan = readCss("planSurface/planSurface.css");
+    expect(plan).toMatch(
+      /\.graph-object-card__identity-header--sticky\s*\{[^}]*position:\s*sticky;[^}]*top:\s*0;/s,
+    );
+  });
 });

@@ -2397,6 +2397,7 @@ body.surface-projection-open .plan-agent-shell {
 }
 
 .recap-graph-object-panel {
+  position: relative;
   min-width: 0;
 }
 
@@ -2414,10 +2415,25 @@ body.surface-projection-open .plan-agent-shell {
   text-transform: uppercase;
 }
 
-.recap-graph-object-panel__header button {
+.recap-graph-object-panel__header button,
+.recap-graph-object-panel__close {
   min-width: 2rem;
   min-height: 2rem;
   padding: 0.25rem;
+}
+
+.recap-graph-object-panel__close {
+  position: sticky;
+  top: 0.35rem;
+  float: right;
+  z-index: 2;
+  margin: 0.35rem 0.35rem 0 0;
+  border: 1px solid #565f89;
+  border-radius: 999px;
+  background: #171b24;
+  color: #e8eaef;
+  cursor: pointer;
+  line-height: 1;
 }
 
 .recap-reader-document,
@@ -5070,6 +5086,31 @@ body.surface-projection-open .plan-agent-shell {
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.45rem 0.55rem;
+}
+
+.graph-object-card__identity-header--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0 -0.15rem;
+  padding: 0.35rem 0.15rem 0.45rem;
+  background: #171b24;
+  border-bottom: 1px solid rgba(42, 49, 66, 0.85);
+}
+
+.graph-object-card__dismiss {
+  margin-left: auto;
+  align-self: flex-start;
+  flex-shrink: 0;
+  min-width: 2rem;
+  min-height: 2rem;
+  padding: 0.25rem;
+  border: 1px solid #565f89;
+  border-radius: 999px;
+  background: #171b24;
+  color: #e8eaef;
+  cursor: pointer;
+  line-height: 1;
 }
 
 .graph-review-node-identity-header h4,

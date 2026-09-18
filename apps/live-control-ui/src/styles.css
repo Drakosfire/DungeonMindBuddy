@@ -24,6 +24,12 @@
   box-sizing: border-box;
 }
 
+html,
+body,
+#root {
+  height: 100%;
+}
+
 body {
   margin: 0;
 }
@@ -45,7 +51,10 @@ code {
 }
 
 .app-shell {
-  min-height: 100vh;
+  min-height: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-wrap {
@@ -148,8 +157,30 @@ code {
   min-width: 0;
 }
 
+/* Populated Peek: remaining-viewport independent scroll panes (no guessed chrome offsets). */
+.app-wrap:has(.app-chrome-workspace > .app-peek-region:not([hidden])) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-wrap:has(.app-chrome-workspace > .app-peek-region:not([hidden])) > .app-chrome-header {
+  flex: 0 0 auto;
+}
+
 .app-chrome-workspace:has(> .app-peek-region:not([hidden])) {
   grid-template-columns: minmax(0, 1fr) minmax(20rem, 28rem);
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+}
+
+.app-chrome-workspace:has(> .app-peek-region:not([hidden])) > .app-chrome-center,
+.app-chrome-workspace:has(> .app-peek-region:not([hidden])) > .app-peek-region {
+  min-height: 0;
+  overflow: auto;
+  align-self: stretch;
 }
 
 .app-chrome-center,
@@ -170,24 +201,6 @@ code {
   display: none;
 }
 
-.app-secondary-context-dismiss {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.65rem;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid #2a3142;
-  border-top: none;
-  border-radius: 0 0 10px 10px;
-  background: rgba(18, 20, 26, 0.96);
-}
-
-.app-secondary-context-dismiss span {
-  color: #c0caf5;
-  font-size: 0.8rem;
-}
-
-.app-secondary-context-dismiss button,
 .app-peek-region__nav button {
   border: 1px solid #565f89;
   border-radius: 999px;
@@ -407,6 +420,10 @@ code {
 
 .app-shell-layout {
   width: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .app-edit-toolbox.open .app-edit-toolbox-drawer {
@@ -2160,8 +2177,9 @@ button:disabled {
     display: none;
   }
 
-  .app-secondary-context-dismiss {
-    display: none;
+  .app-chrome-workspace:has(> .app-peek-region:not([hidden])) > .app-peek-region {
+    min-height: 0;
+    overflow: auto;
   }
 
   .app-peek-region {
@@ -2173,7 +2191,7 @@ button:disabled {
   .app-peek-region__nav {
     position: sticky;
     top: 0;
-    z-index: 1;
+    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;

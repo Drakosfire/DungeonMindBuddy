@@ -38,6 +38,8 @@ export interface GraphObjectProjectionCardProps {
   resolvingEvidenceId?: string | null;
   evidenceErrors?: Record<string, string>;
   advancedSlot?: ReactNode;
+  onDismiss?: () => void;
+  dismissLabel?: string;
   className?: string;
   "aria-label"?: string;
 }
@@ -57,6 +59,8 @@ export function GraphObjectProjectionCard({
   resolvingEvidenceId = null,
   evidenceErrors = {},
   advancedSlot,
+  onDismiss,
+  dismissLabel,
   className,
   "aria-label": ariaLabel,
 }: GraphObjectProjectionCardProps) {
@@ -107,6 +111,8 @@ export function GraphObjectProjectionCard({
         resolvingEvidenceId={resolvingEvidenceId}
         evidenceErrors={evidenceErrors}
         advancedSlot={advancedSlot}
+        onDismiss={onDismiss}
+        dismissLabel={dismissLabel}
         actionsSlot={mode === "campaign-memory" ? null : actions ?? undefined}
       />
     </div>
