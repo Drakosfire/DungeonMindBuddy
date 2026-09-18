@@ -160,8 +160,11 @@ PR #705 Stage 4C comparison MERGED (`29c50b985091f590d2d6212b10cd79dcc8be5288`; 
 PR #706 Stage 4D/P0b1 MERGED (`4af440b2cc4102972ad6212590885248e58375c1`; accepted head `97df142cfee328c689a32ced19cfe2a9755f1b98`; 2 review cycles); exact-merge paid one-source smoke PASS on 2026-09-12 (`comparable=true`, `$0.8686`)
 PR #707 Stage 4E/P0b2a MERGED (`4227f97da35e384e995263d5c6a62d9711333488`; accepted head `4ca2c12c3ad15e6e6c18b0fab8fb5acb2a76ebcc`; 2 review cycles); exact-merge 3-repetition paid gate PASS (`3/3 comparable`, stable identity, `$2.7019`)
 PR #708 Stage 4F/P1a MERGED (`444b39963286667400c827b8765f8246763b8701`; accepted head `8da461e21b69291d9f61b1d7309cb883a9dc06e5`; 2 review cycles); seven-source campaign-memory benchmark authority frozen
-CURRENT — Stage 4G/P1a.1 campaign-memory temporal intent; Stage 4 remains NOT DONE
-Stage 7A1 Agent-on-Ingest remains DESIGN READY / QUEUED behind the UI series
+Stage 4G/P1a.1 temporal-intent work is historical evidence, not the current dispatch frontier
+UI-04 / PR #733 campaign-information glance + Peek MERGED
+UI-05 / PR #735 floating world-object Peek MERGED (`586a3dcb53b481ef2cf21890872a3f1e8465a925`)
+CURRENT — Authoring v2 DESIGN: source-grounded human adjudication → governed World commit → derived gold → ablation
+Stage 7A1 Agent-on-Ingest remains QUEUED behind the manual authoring loop
 ```
 
 The graph-object usefulness lane may still run in parallel wherever its lease remains disjoint.
@@ -289,7 +292,21 @@ STOP 2 dogfood (2026-09-08) accepted a split. Full DFC-NAV1 remains Stage 5. Sta
 
 **Completed benchmark predecessor:** [`HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md`](../Plans/HANDOFF-DOGFOOD-CONTINUITY-stage4f-campaign-memory-development-benchmark-v1.md) — PR #708 merged at `444b39963286667400c827b8765f8246763b8701` after 2 review cycles. Its seven-source C2/Mireward benchmark and human entity/fact gold are frozen; identity expectations remain explicitly unscored.
 
-**CURRENT Stage 4 action (2026-09-17 re-anchor): HUMAN UX/WOW DOGFOOD — no implementation PR active.** UI-01/#700, UI-02/#701, UI-03/#702, and Stage 4B/#704 supplied the interaction mechanics. Stage 4B's WOW gate then exposed that accumulated campaign memory was not honestly product-loadable/useful enough to judge the UX, triggering the campaign-memory sidequest. That detour now has a merged product path through #729 provenance, #730 exact replay, #731 source-read continuity, and #732 published-memory browse authority. Resume STOP 4 against current `main`: read multiple real C1/C2 recaps, use glances/complete objects/relationships/provenance/session navigation, and record the first human-visible UX or semantic failures. Do not auto-dispatch another benchmark/semantic slice or 7A1 before this pass.
+**CURRENT Stage 4 / CON-READY posture (2026-09-18): UI implementation series has reached UI-05; Stage 4 WOW remains human-gated, but the next design frontier is Authoring v2.** The guided human pass exposed semantic thinness only after the interaction path became usable. UI-04/#733 repaired campaign-information glance/Peek and session continuity; UI-05/#735 made the world-object Peek a floating independent inspector with singular reachable dismiss. A post-UI-05 human witness still decides whether Stage 4 / recap WOW becomes PASS, but another UI slice is not preselected.
+
+Current sequencing authority: [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](../Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md).
+
+The chosen loop is:
+
+```text
+manual source-grounded authoring
+→ governed World commit
+→ derived gold/eval from human adjudication
+→ extraction/model ablation
+→ Agent-assisted assessment later
+```
+
+Do not auto-dispatch the semantic gauntlet, DeepSeek/model ablation, relationship-rollup presentation, or 7A1 before the manual authoring loop establishes better human-authored evaluation authority.
 
 ### Human outcome
 
