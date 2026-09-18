@@ -26,17 +26,43 @@ export function requestedCampaignFromLocation(
   return campaign || null;
 }
 
-/** Accepts `session-24` or bare `24`. */
+const RECAP_SESSION_ID_PATTERN = /^(?:session-)?(\d+)$/i;
+const QUALIFIED_LENS_SESSION_PATTERN = /^(?:longmont-c\d+|c\d+):(?:session-)?(\d+)$/i;
+
+/** Recap identity (`session-24`) from a URL/session raw value. Qualified Plan lens syntax is recovered, not forwarded. */
+export function recapSessionIdFromRaw(raw: string | null | undefined): string | null {
+  const trimmed = raw?.trim();
+  if (!trimmed) return null;
+  const recap = trimmed.match(RECAP_SESSION_ID_PATTERN);
+  if (recap) {
+    const session = Number.parseInt(recap[1], 10);
+    return Number.isFinite(session) && session > 0 ? `session-${session}` : null;
+  }
+  const qualified = trimmed.match(QUALIFIED_LENS_SESSION_PATTERN);
+  if (!qualified) return null;
+  const session = Number.parseInt(qualified[1], 10);
+  return Number.isFinite(session) && session > 0 ? `session-${session}` : null;
+}
+
+/** Accepts `session-24` or bare `24`. Plan-qualified `longmont-c2:24` is not a recap session number. */
 export function requestedSessionNumberFromLocation(
   search: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
 ): number | null {
   if (search == null) return null;
   const raw = new URLSearchParams(search).get("session")?.trim();
   if (!raw) return null;
-  const match = raw.match(/^(?:session-)?(\d+)$/i);
+  const match = raw.match(RECAP_SESSION_ID_PATTERN);
   if (!match) return null;
   const session = Number.parseInt(match[1], 10);
   return Number.isFinite(session) && session > 0 ? session : null;
+}
+
+/** Ingest/Recap URL session identity. Always `session-N`; never `longmont-c2:N`. */
+export function requestedRecapSessionIdFromLocation(
+  search: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
+): string | null {
+  if (search == null) return null;
+  return recapSessionIdFromRaw(new URLSearchParams(search).get("session"));
 }
 
 /** Optional `?documentId=<uuid>` selects a workspace document. */
@@ -240,13 +266,18 @@ export function formatPlanGraphLensSummary(
 /** Write `campaigns` + qualified `session`; preserve other params (e.g. documentId) and current path. */
 export function syncPlanGraphLensUrl(lens: PlanGraphLens): void {
   if (typeof window === "undefined") return;
+  const path = window.location.pathname.replace(/\/+$/, "") || "/";
+  // Ingest recap owns `?session=session-N`. The shared lens may consume that
+  // context but must not rewrite it into Plan-qualified `campaign:N` syntax.
+  if (path === "/ingest") {
+    return;
+  }
   const params = new URLSearchParams(window.location.search);
   if (lens.selectedCampaignIds.length > 0) {
     params.set("campaigns", lens.selectedCampaignIds.join(","));
   } else {
     params.delete("campaigns");
   }
-  const path = window.location.pathname.replace(/\/+$/, "") || "/";
   // Plan legacy single-campaign param is superseded by `campaigns`.
   // Build keeps `campaign` for document bare-entry / workspace identity.
   if (path === "/plan") {
@@ -281,6 +312,13 @@ export function syncReviewCampaignUrl(campaignId: string): void {
   const path = window.location.pathname.replace(/\/+$/, "") || "/plan";
   const surfacePath = path === "/ingest" ? "/ingest" : "/plan";
   window.history.replaceState({}, "", `${surfacePath}?${params.toString()}`);
+}
+
+export function defaultRecapSessionIdForCampaign(
+  records: RecapArtifactRecord[],
+  fallbackSessionId: string,
+): string {
+  return records.at(-1)?.session_id ?? fallbackSessionId;
 }
 
 export function resolveSessionRecapContext(

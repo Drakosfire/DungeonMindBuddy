@@ -29,19 +29,6 @@ interface WorldGraphRecapProjectionProps {
   onSelectCampaign: (campaignId: string) => void;
 }
 
-function buildContinueInBuildHref(
-  campaignId: string,
-  nodeId: string,
-  revisionId: string,
-): string {
-  const params = new URLSearchParams({
-    campaign: campaignId,
-    graphNodeId: nodeId,
-    graphRevision: revisionId,
-  });
-  return `/build?${params.toString()}`;
-}
-
 export function WorldGraphRecapProjectionView({
   payload,
   selectedSessionId,
@@ -87,10 +74,7 @@ export function WorldGraphRecapProjectionView({
     setActiveNodeId(null);
   }, []);
 
-  const continueInBuildHref =
-    activeNodeId && revisionId
-      ? buildContinueInBuildHref(selectedCampaignId, activeNodeId, revisionId)
-      : null;
+  const peekLabel = complete.nodeView?.label?.trim() || "Campaign memory";
 
   const reviewToolbar = (
     <div className="recap-reader-toolbar">
@@ -128,19 +112,18 @@ export function WorldGraphRecapProjectionView({
       <PeekClaim
         kind="world-object"
         active={objectOpen}
-        label="World object"
+        label={peekLabel}
         onDismiss={handleCloseObject}
       >
         {objectOpen ? (
-          <aside className="recap-graph-object-panel" aria-label="Graph object">
+          <aside className="recap-graph-object-panel" aria-label={peekLabel}>
             <header className="recap-graph-object-panel__header">
-              <span>World object</span>
-              <button type="button" onClick={handleCloseObject} aria-label="Close World object">
+              <button type="button" onClick={handleCloseObject} aria-label={`Close ${peekLabel}`}>
                 ×
               </button>
             </header>
             {complete.status === "loading" || complete.status === "idle" ? (
-              <p className="module-muted">Loading complete World object…</p>
+              <p className="module-muted">Loading campaign memory…</p>
             ) : null}
             {complete.status === "error" || complete.status === "missing" ? (
               <p className="graph-preview-error" role="alert">
@@ -150,20 +133,15 @@ export function WorldGraphRecapProjectionView({
             <CompleteObjectPartialWarning result={complete.result} />
             {usesCompleteWorldObjectPayload(complete.status) && complete.nodeView ? (
               <GraphObjectProjectionCard
+                mode="campaign-memory"
                 nodeView={complete.nodeView}
                 onSelectRelationshipTarget={handleSelectRelationshipTarget}
                 selectedRelationshipId={selectedRelationshipId}
-                actions={
-                  continueInBuildHref ? (
-                    <a className="graph-object-card__action" href={continueInBuildHref}>
-                      Continue in Build
-                    </a>
-                  ) : null
-                }
                 advancedSlot={complete.result ? (
                   <CompleteWorldObjectAdvancedDetails
                     result={complete.result}
                     originSurface={recapOriginSurface()}
+                    bare
                   />
                 ) : undefined}
               />

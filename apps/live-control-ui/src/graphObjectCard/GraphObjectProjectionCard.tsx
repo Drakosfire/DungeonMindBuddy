@@ -99,7 +99,7 @@ export function GraphObjectProjectionCard({
         mode={mode}
         model={cardModel}
         aria-label={ariaLabel ?? `${cardModel.label} graph object`}
-        showRelationshipProvenance={showRelationshipProvenance}
+        showRelationshipProvenance={mode === "campaign-memory" ? false : showRelationshipProvenance}
         onSelectRelationship={handleSelectRelationship}
         selectedRelationshipId={selectedRelationshipId}
         relationshipsDisabled={disabled}
@@ -107,7 +107,7 @@ export function GraphObjectProjectionCard({
         resolvingEvidenceId={resolvingEvidenceId}
         evidenceErrors={evidenceErrors}
         advancedSlot={advancedSlot}
-        actionsSlot={actions ?? undefined}
+        actionsSlot={mode === "campaign-memory" ? null : actions ?? undefined}
       />
     </div>
   );

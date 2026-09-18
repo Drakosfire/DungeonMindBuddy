@@ -182,7 +182,7 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     expect(getUnion).not.toHaveBeenCalled();
   });
 
-  it("exposes Continue in Build with pointer-only URL fields", async () => {
+  it("does not put Continue in Build on the ordinary recap Peek", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
     const chip = await screen.findByRole("button", { name: /Caelynn/i });
@@ -192,13 +192,13 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
         expect.objectContaining({ nodeId: "pc_caelynn", campaignId: "longmont-c2" }),
       );
     });
-    const continueLink = await screen.findByRole("link", { name: /Continue in Build/i });
-    expect(continueLink.getAttribute("href")).toContain("campaign=longmont-c2");
-    expect(continueLink.getAttribute("href")).toContain("graphNodeId=pc_caelynn");
-    expect(continueLink.getAttribute("href")).toContain(`graphRevision=${session23WorldGraphRecapFixture.snapshot.revisionId}`);
-    expect(
-      screen.getByTestId("graph-object-projection-card").textContent,
-    ).toContain("Held the Mireward gate during the incident.");
+    expect(screen.queryByRole("link", { name: /Continue in Build/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("World object")).not.toBeInTheDocument();
+    expect(screen.queryByText("Why it matters here")).not.toBeInTheDocument();
+    const card = screen.getByTestId("graph-object-projection-card");
+    expect(card).toHaveAttribute("data-testid", "graph-object-projection-card");
+    expect(card.textContent).not.toContain("Held the Mireward gate during the incident.");
+    expect(card.textContent).not.toMatch(/session_recap/i);
   });
 
   it("does not render preview-candidate or recap-lens metadata copy", async () => {
@@ -233,5 +233,105 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "Canonical normalized recap is unavailable for session-99 in longmont-c2.",
     );
+  });
+
+  it("keeps Ingest recap session-27 identity instead of Plan-qualified lens syntax", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      records: [artifactRecord(26), artifactRecord(27)],
+    });
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+      ...session23WorldGraphRecapFixture,
+      sessionId: "session-27",
+    });
+
+    render(<RecapGraphModule context={context} />);
+
+    await waitFor(() => {
+      expect(postRecap).toHaveBeenCalledWith(
+        expect.objectContaining({
+          campaignId: "longmont-c2",
+          focus: expect.objectContaining({ sessionId: "session-27" }),
+        }),
+      );
+    });
+    expect(window.location.pathname).toBe("/ingest");
+    expect(window.location.search).toContain("session=session-27");
+    expect(window.location.search).not.toMatch(/longmont-c2:27/);
+  });
+
+  it("recovers Ingest recap identity if the URL was already rewritten to qualified lens syntax", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=longmont-c2:27");
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      records: [artifactRecord(27)],
+    });
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+      ...session23WorldGraphRecapFixture,
+      sessionId: "session-27",
+    });
+
+    render(<RecapGraphModule context={context} />);
+
+    await waitFor(() => {
+      expect(postRecap).toHaveBeenCalledWith(
+        expect.objectContaining({
+          focus: expect.objectContaining({ sessionId: "session-27" }),
+        }),
+      );
+    });
+    expect(window.location.search).toContain("session=session-27");
+    expect(window.location.search).not.toMatch(/longmont-c2:27/);
+  });
+
+  it("chooses a valid C1 recap session when switching from C2 session-26", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-26");
+    vi.spyOn(liveApi, "getRecapArtifacts").mockImplementation(async (campaignId) => {
+      if (campaignId === "longmont-c1") {
+        return {
+          records: [
+            { ...artifactRecord(15), campaign_id: "longmont-c1", session_id: "session-15" },
+            { ...artifactRecord(16), campaign_id: "longmont-c1", session_id: "session-16" },
+          ],
+        };
+      }
+      return { records: [artifactRecord(26)] };
+    });
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockImplementation(async (request) => ({
+      ...session23WorldGraphRecapFixture,
+      campaignId: request.campaignId,
+      sessionId: request.focus.kind === "session" ? request.focus.sessionId : "session-26",
+    }));
+
+    render(<RecapGraphModule context={context} />);
+    await waitFor(() => {
+      expect(postRecap).toHaveBeenCalledWith(
+        expect.objectContaining({
+          campaignId: "longmont-c2",
+          focus: expect.objectContaining({ sessionId: "session-26" }),
+        }),
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText("Campaign"), { target: { value: "longmont-c1" } });
+
+    await waitFor(() => {
+      expect(postRecap).toHaveBeenCalledWith(
+        expect.objectContaining({
+          campaignId: "longmont-c1",
+          focus: expect.objectContaining({ sessionId: "session-16" }),
+        }),
+      );
+    });
+    expect(
+      postRecap.mock.calls.some(
+        (call) =>
+          call[0]?.campaignId === "longmont-c1"
+          && call[0]?.focus?.kind === "session"
+          && call[0]?.focus?.sessionId === "session-26",
+      ),
+    ).toBe(false);
+    expect(window.location.search).toContain("campaign=longmont-c1");
+    expect(window.location.search).toContain("session=session-16");
+    expect(screen.getByLabelText("Focus session")).toHaveValue("session-16");
   });
 });

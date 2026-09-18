@@ -23,7 +23,10 @@ function typeLabel(role: string, kind: string): string | null {
     if (normalized === "npc" || normalized === "non_player_character") {
       return "NPC";
     }
-    return value.replace(/_/g, " ").trim();
+    return value
+      .replace(/_/g, " ")
+      .trim()
+      .replace(/\b([a-z])/g, (char) => char.toUpperCase());
   };
   const normalizedRole = displayType(role);
   const normalizedKind = displayType(kind);
@@ -230,7 +233,6 @@ export function GraphNodeHoverToken({
             ) : null}
             {presentation.whyNow ? (
               <div className="recap-node-glance-context">
-                <span>Why it matters here</span>
                 <small>{presentation.whyNow}</small>
               </div>
             ) : null}

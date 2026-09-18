@@ -95,8 +95,8 @@ function focusRelationshipText(node: GraphProjectionNodeView): string | null {
     return null;
   }
   return focusRelationship.direction === "incoming"
-    ? `${focusRelationship.label} ${relationship} ${node.label} this session.`
-    : `${node.label} ${relationship} ${focusRelationship.label} this session.`;
+    ? `${focusRelationship.label} ${relationship} ${node.label}.`
+    : `${node.label} ${relationship} ${focusRelationship.label}.`;
 }
 
 function buildThreadHints(node: GraphProjectionNodeView): GraphNodeGlanceThreadHint[] {

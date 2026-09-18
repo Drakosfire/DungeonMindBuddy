@@ -58,7 +58,7 @@ describe("buildGraphNodeGlancePresentation", () => {
       }),
     );
 
-    expect(presentation.whyNow).toBe("Lysandra commands Karsemine this session.");
+    expect(presentation.whyNow).toBe("Lysandra commands Karsemine.");
   });
 
   it("prefers labeled focus evidence and does not synthesize context without a focus relationship", () => {
@@ -84,5 +84,39 @@ describe("buildGraphNodeGlancePresentation", () => {
     ).toBe("Held the south gate during the attack.");
 
     expect(buildGraphNodeGlancePresentation(nodeFixture()).whyNow).toBeNull();
+  });
+
+  it("states a compact location fact without this-session suffix", () => {
+    const presentation = buildGraphNodeGlancePresentation(
+      nodeFixture({
+        node_id: "loc:the-hole",
+        label: "the hole",
+        kind: "location",
+        role: "location",
+        evidence_badges: [],
+        suggested_expansions: [
+          {
+            edge_id: "edge:swarms:located_in:the-hole",
+            node_id: "threat:swarms",
+            label: "Swarms",
+            kind: "item",
+            predicate: "located_in",
+            direction: "incoming",
+            anchored_to_focus_session: true,
+            source_domains: ["session_recap"],
+            evidence_ref_ids: [],
+            edge_label: "located in",
+            session_ids: ["session-27"],
+            rank: 1,
+            rank_reason: "current session",
+          },
+        ],
+      }),
+    );
+
+    expect(presentation.label).toBe("the hole");
+    expect(presentation.kind).toBe("location");
+    expect(presentation.whyNow).toBe("Swarms located in the hole.");
+    expect(presentation.whyNow).not.toMatch(/this session/i);
   });
 });

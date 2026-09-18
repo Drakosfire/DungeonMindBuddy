@@ -165,3 +165,30 @@ export function relationshipRowPrimaryCopy(relationship: GraphObjectRelationship
   const core = predicate ? `${relationship.label} · ${predicate}` : relationship.label;
   return session ? `${session} · ${core}` : core;
 }
+
+function recapSafeSessionIds(sessionIds: string[] | null | undefined): string[] {
+  return (sessionIds ?? []).filter((sessionId) => /^(?:session-)?\d+$/i.test(sessionId.trim()));
+}
+
+/** Campaign-memory sentence: `Ogonob possesses Misty Step.` Incoming edges reverse subject/object. */
+export function campaignMemoryRelationshipCopy(
+  subjectLabel: string,
+  relationship: GraphObjectRelationshipViewModel,
+): string {
+  const predicate = humanizeRelationshipPredicate(relationship.predicate);
+  const subject = subjectLabel.trim();
+  const other = relationship.label.trim();
+  const sentence =
+    relationship.direction === "incoming"
+      ? predicate
+        ? `${other} ${predicate} ${subject}`
+        : other
+      : predicate
+        ? `${subject} ${predicate} ${other}`
+        : other;
+  const session = relationshipSessionStamp(
+    recapSafeSessionIds(relationship.sessionIds),
+    relationship.campaignScope,
+  );
+  return session ? `${sentence}. ${session}` : `${sentence}.`;
+}

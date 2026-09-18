@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  campaignMemoryRelationshipCopy,
   formatCampaignScopeCompact,
   humanizeRelationshipPredicate,
   MAX_DEFAULT_RELATIONSHIP_ROWS,
@@ -91,6 +92,52 @@ describe("relationshipRowPrimaryCopy", () => {
         }),
       ),
     ).toBe("C2 · S2 · Harbor · met at");
+  });
+});
+
+describe("campaignMemoryRelationshipCopy", () => {
+  it("puts the selected object in subject position for outgoing edges", () => {
+    expect(
+      campaignMemoryRelationshipCopy(
+        "Ogonob",
+        rel({
+          id: "e-misty",
+          label: "Misty Step",
+          predicate: "possesses",
+          direction: "outgoing",
+        }),
+      ),
+    ).toBe("Ogonob possesses Misty Step.");
+  });
+
+  it("reverses incoming edges so the related object is the subject", () => {
+    expect(
+      campaignMemoryRelationshipCopy(
+        "the hole",
+        rel({
+          id: "e-swarms",
+          label: "Swarms",
+          predicate: "located_in",
+          direction: "incoming",
+        }),
+      ),
+    ).toBe("Swarms located in the hole.");
+  });
+
+  it("keeps compact campaign stamps and omits session_recap source vocabulary", () => {
+    expect(
+      campaignMemoryRelationshipCopy(
+        "Cultists",
+        rel({
+          id: "e-dust",
+          label: "Dustwalker Leads",
+          predicate: "associated_with",
+          direction: "outgoing",
+          campaignScope: "longmont-c2",
+          sessionIds: ["session-15", "session_recap"],
+        }),
+      ),
+    ).toBe("Cultists associated with Dustwalker Leads. C2 · S15");
   });
 });
 

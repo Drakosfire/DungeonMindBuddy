@@ -3,10 +3,12 @@ import { describe, expect, it } from "vitest";
 import {
   deriveApiLens,
   formatPlanGraphLensSummary,
+  recapSessionIdFromRaw,
   requestedCampaignFromLocation,
   requestedCampaignsFromLocation,
   requestedDocumentIdFromLocation,
   requestedLensFocusFromLocation,
+  requestedRecapSessionIdFromLocation,
   requestedSessionNumberFromLocation,
   resolvePlanGraphLens,
   syncPlanGraphLensUrl,
@@ -143,5 +145,43 @@ describe("sessionCampaignContext", () => {
     expect(window.location.search).toContain("documentId=11111111-1111-4111-8111-111111111111");
     expect(window.location.search).toContain("campaign=longmont-c2");
     expect(window.location.search).toContain("campaigns=longmont-c2");
+  });
+
+  it("keeps Ingest recap session identity out of Plan-qualified lens URL writes", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-27",
+    );
+    syncPlanGraphLensUrl({
+      selectedCampaignIds: ["longmont-c2"],
+      focus: { campaignId: "longmont-c2", sessionNumber: 27 },
+    });
+    expect(window.location.pathname).toBe("/ingest");
+    expect(window.location.search).toBe("?campaign=longmont-c2&session=session-27");
+  });
+
+  it("does not delete Ingest recap session when the lens clears Plan focus", () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c2&session=session-27",
+    );
+    syncPlanGraphLensUrl({
+      selectedCampaignIds: ["longmont-c2"],
+      focus: null,
+    });
+    expect(window.location.search).toContain("session=session-27");
+    expect(window.location.search).not.toMatch(/longmont-c2:27/);
+  });
+
+  it("recovers recap session identity from Plan-qualified syntax without forwarding it", () => {
+    expect(recapSessionIdFromRaw("session-27")).toBe("session-27");
+    expect(recapSessionIdFromRaw("27")).toBe("session-27");
+    expect(recapSessionIdFromRaw("longmont-c2:27")).toBe("session-27");
+    expect(recapSessionIdFromRaw("not-a-session")).toBeNull();
+    expect(requestedRecapSessionIdFromLocation("?session=session-27")).toBe("session-27");
+    expect(requestedRecapSessionIdFromLocation("?session=longmont-c2:27")).toBe("session-27");
+    expect(requestedSessionNumberFromLocation("?session=longmont-c2:27")).toBeNull();
   });
 });
