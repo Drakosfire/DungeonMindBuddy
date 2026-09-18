@@ -4,15 +4,16 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-17  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor input base:** `main@05738195686cbfd4939891005db8b744c90d8d2a` — Stage 4 roadmap returned to human UX/WOW dogfood  
-**Current product frontier:** Stage 4 recap / UI-language **human WOW pass**  
+**Re-anchor input base:** `main@4ee958a70a6f43b7fdca6c34476f56aae28c78b6` — guided Stage 4 WOW operator pass recorded  
+**Current product frontier:** Stage 4 recap / UI-language — **human pass HOLD**; next slice is steward/design  
 **Active implementation PR:** **NONE**  
 **UI-language authority:** [`HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md)  
-**Current guided dogfood handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md)  
+**Recorded operator pass:** [`../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md)  
+**Completed dogfood handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md)  
 **Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
 **Execution roadmap:** [`../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md)
 
-> Repository truth supersedes chat reconstruction. The current instruction is: **dogfood the UX before dispatching more implementation.**
+> Repository truth supersedes chat reconstruction. The current instruction is: **design the next UI-language slice from the recorded human pass; do not dispatch 7A1 or the semantic gauntlet automatically.**
 
 ---
 
@@ -26,10 +27,10 @@ Read, in order:
 
 1. this anchor;
 2. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`;
-3. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`;
-4. `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`;
-5. `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`, Stage 4;
-6. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md`;
+3. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`;
+4. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`;
+5. `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`;
+6. `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`, Stage 4;
 7. older campaign-memory reports only when diagnosing a concrete failure.
 
 There is **no active implementation lease** from this anchor.
@@ -106,58 +107,17 @@ Campaign + Focus session
 
 without requiring ExtractionRun selection and without granting implicit write authority.
 
-The operator had already demonstrated that the spike version of this interaction model unlocked useful dogfood. The intentional rewrite is now merged. Its post-merge human UX witness is the current task.
+The operator had already demonstrated that the spike version of this interaction model unlocked useful dogfood. The intentional rewrite is merged. The post-merge human UX witness is **recorded**.
 
 ---
 
-## 3. Current action — resume the interrupted UX pass
+## 3. Current action — design from the recorded human pass
 
-**Do not code first.**
+**Do not code first. Do not dispatch 7A1 or the semantic gauntlet automatically.**
 
-Run the Stage 4/UI-language human pass against current `main` and real C1/C2 campaign memory.
+The guided operator pass is recorded in [`../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md).
 
-The ordinary journey should now be boring:
-
-```text
-choose campaign
-→ choose session
-→ read recap
-→ notice/use World references
-→ glance
-→ open complete object
-→ follow a relationship or provenance
-→ close
-→ continue reading where you were
-→ switch session/campaign
-→ refresh
-→ continue
-```
-
-Use multiple representative sessions rather than one synthetic smoke.
-
-### Judge the experience
-
-Record the first human-visible failures.
-
-Specifically ask:
-
-1. Is the recap pleasant to read, or does graph interaction make it noisy?
-2. Do tokens/glances answer enough before full inspection?
-3. Does opening an object feel like a contextual peek rather than navigation?
-4. Does the object view prioritize table-useful information?
-5. Are relationships and origin/source details understandable?
-6. Can a relationship be followed without losing orientation?
-7. Can sessions/campaigns be traversed with low friction?
-8. Does refresh preserve the expected context?
-9. Does the application now feel like one designed product rather than several systems assembled together?
-10. When something is disappointing, is it:
-   - presentation/interaction;
-   - semantic campaign-memory quality;
-   - missing source/provenance;
-   - performance;
-   - a separate authoring capability?
-
-That classification determines the next slice.
+Recommended steward outcome from that report: **B** — one UI-language successor for chip → glance → peek as campaign information. The `longmont-c2:27` session-identity abort may be serialized immediately before or inside that slice. Semantic thinness/wrong kind is real and is not the first dispatch.
 
 ---
 
@@ -171,9 +131,7 @@ The old anchor said to run it after #732. That sequencing was written while the 
 
 The sidequest now answers enough of that substrate question to resume the UI pass that originally triggered it.
 
-If the human UX pass reveals that the interface is sound but the memory itself is wrong/thin, then the semantic gauntlet becomes the correct next diagnostic.
-
-If the human UX pass reveals an interaction problem first, repair that earliest product boundary instead.
+The human pass showed both presentation failure on the first object *and* real semantic thinness/wrong kind. Presentation spoiled the first minutes; later C1 cultists still created pull. The gauntlet remains useful and is **not** the current dispatch unless the steward rejects B.
 
 ---
 
@@ -204,8 +162,8 @@ RECAP SOURCE-READ CONTINUITY                     PASS
 PUBLISHED-MEMORY GRAPH REVIEW BROWSE AUTHORITY   PASS
 GRAPH REVIEW BROWSE/WRITE AUTHORITY SEPARATION   PASS
 
-STAGE 4 / RECAP WOW                              HUMAN PASS REQUIRED
-OPERATOR DOGFOOD ON MERGED #732                  NOT YET RECORDED
+STAGE 4 / RECAP WOW                              HOLD — human pass recorded, not satisfying
+OPERATOR DOGFOOD ON MERGED #732                  RECORDED
 SEMANTIC COVERAGE                                NOT MEASURED
 AGENT ANSWERABILITY                              NOT MEASURED
 SEMANTIC MODEL SELECTION                         HOLD
@@ -219,13 +177,13 @@ Do not promote Stage 4 or operator dogfood from automated evidence alone.
 
 There is intentionally no preselected implementation PR.
 
-After the human UX/WOW pass, the steward must choose exactly one outcome:
+The human UX/WOW pass is recorded. The operator-pass report recommends **B**. The steward still chooses the dispatched outcome; do not treat the report as a write lease.
 
 ```text
 A. UX is good; semantic memory quality is now the earliest blocker
    → design/dispatch semantic gauntlet or semantic repair.
 
-B. One bounded UX defect dominates
+B. One bounded UX defect dominates          ← report recommendation
    → design one UI-language successor slice and land its handoff.
 
 C. Product path still fails structurally
@@ -235,5 +193,3 @@ D. UX is satisfying and no immediate blocker dominates
    → record Stage 4 disposition, re-anchor, then choose between
       remaining UI-language work, semantic evaluation, and queued 7A1.
 ```
-
-Do not choose that outcome before the operator uses the merged product.
