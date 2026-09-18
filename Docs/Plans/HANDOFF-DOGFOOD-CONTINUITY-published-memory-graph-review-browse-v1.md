@@ -1,7 +1,7 @@
 # HANDOFF — DOGFOOD-CONTINUITY: published-memory Graph Review browse authority v1
 
 **Created:** 2026-09-17  
-**Status:** ACTIVE — redesign/reimplementation of the successful #732 dogfood objectives; existing PR #732 is the one authorized serial PR  
+**Status:** COMPLETE — PR #732 merged; implementation claims accepted; post-merge human UX/WOW pass is the successor  
 **Canonical path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md`  
 **Workstream:** `CON-READY / DOGFOOD-CONTINUITY campaign memory`  
 **Flow / owner:** `DOGFOOD-CONTINUITY / Gate C operator dogfood / Graph Review browse authority`  
@@ -554,3 +554,31 @@ a human can simply use the campaign memory
 ```
 
 without smuggling extraction/debug authority into the ordinary product experience.
+
+
+---
+
+## §12 Completion
+
+PR #732 merged to `main` as:
+
+`b3d1a146f6ccc8ff84e5b4be65d8a84a4d98cb44`
+
+Accepted implementation head:
+
+`2ae0718f2976a1fee5ee299a997ec3292d64fab1`
+
+Formal Review Cycle 5:
+
+`APPROVE` — review `5243724921`
+
+Accepted claims:
+
+```text
+PUBLISHED-MEMORY GRAPH REVIEW BROWSE AUTHORITY = PASS
+GRAPH REVIEW BROWSE/WRITE AUTHORITY SEPARATION = PASS
+```
+
+This completion does **not** itself promote `OPERATOR DOGFOOD` to PASS. The next action is the resumed Stage 4/UI-language human UX/WOW pass on merged `main`.
+
+Do not automatically dispatch the semantic gauntlet or 7A1 from this completion. The campaign-memory infrastructure work was undertaken because Stage 4 UX dogfood could not honestly exercise accumulated campaign memory; #729–#732 close that blocking detour sufficiently to resume the product pass.
