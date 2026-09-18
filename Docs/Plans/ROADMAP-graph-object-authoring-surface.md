@@ -1,12 +1,53 @@
 # Roadmap — Graph Object Authoring Surface
 
-**Status:** Paused at stable authored-memory checkpoint
+**Status:** HISTORICAL IMPLEMENTATION ANCESTRY — sequencing superseded by `PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
 **Date:** 2026-07-09
 **Workstream:** Graph Memory / Memory Ingest / Graph Review / Graph Authoring  
 **Design doc:** `Docs/Design/DESIGN-graph-object-authoring-surface.md`  
 **Supersedes product direction in:** `Docs/Plans/ROADMAP-graph-review-gold-authoring-workbench.md` where that roadmap treats gold-fixture writes as the primary authoring destination.
 **Current checkpoint:** `Docs/Reports/SPIKE-CLOSEOUT-graph-review-authored-memory-2026-07.md`
 **Plan-consumption boundary:** `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`
+
+---
+
+## Current re-anchor — 2026-09-18 Authoring v2
+
+This roadmap remains valuable because it records the manual-authoring interaction, staging, relationship, correction, and gold-export ideas already proven or explored.
+
+Its **storage/write sequence is no longer current authority**.
+
+Since this roadmap was written:
+
+- DungeonMind became the durable World authority;
+- Buddy-owned graph storage/kernel paths were retired;
+- governed World publication and immutable revision advancement became the accepted write model;
+- Candidate Graph Admission and source/provenance continuity were hardened;
+- ordinary published-memory browse plus UI-01 through UI-05 now make real campaign memory inspectable through the product;
+- the surviving Graph Review authoring workspace was intentionally preserved through CUTOVER.
+
+Current sequencing authority:
+
+`Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
+
+Current direction:
+
+```text
+manual source-grounded authoring
+→ governed DungeonMind World commit
+→ derived gold from human adjudication
+→ extraction/model ablation
+→ Agent assistance later
+```
+
+Therefore:
+
+- A1/A2/A3 remain useful UX/design ancestry;
+- A4/A5 file-backed authored-overlay storage is **superseded as terminal authority**;
+- A6 should mean “committed World revision becomes visible through ordinary browse,” not “load Buddy overlay”;
+- A8/gold export becomes important again, but only as a **derived product of committed human adjudication**;
+- A10/LLM assistance remains after the manual loop.
+
+Do not dispatch old milestone labels directly. Re-census current code/contracts and issue a fresh bounded v2 handoff.
 
 ---
 
