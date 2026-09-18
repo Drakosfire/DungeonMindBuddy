@@ -38,6 +38,9 @@ export interface GraphObjectCardProps {
   detailsSlot?: ReactNode;
   /** Technical identity/debug information, closed behind an explicit disclosure. */
   advancedSlot?: ReactNode;
+  /** Optional dismiss control, rendered at the top-right of the identity row. */
+  onDismiss?: () => void;
+  dismissLabel?: string;
   /** Invoked when the GM chooses Read source on one explicit evidence row. */
   onReadSourceEvidence?: (evidence: GraphObjectEvidenceViewModel) => void;
   /** Disables the clicked evidence row while source navigation resolves. */
@@ -276,11 +279,25 @@ export function GraphObjectRelationships({
   );
 }
 
-function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel }) {
+function GraphObjectIdentityHeader({
+  model,
+  onDismiss,
+  dismissLabel,
+}: {
+  model: GraphObjectCardViewModel;
+  onDismiss?: () => void;
+  dismissLabel?: string;
+}) {
   const aliases = model.aliases ?? [];
 
   return (
-    <header className="graph-object-card__identity-header">
+    <header
+      className={
+        onDismiss
+          ? "graph-object-card__identity-header graph-object-card__identity-header--sticky"
+          : "graph-object-card__identity-header"
+      }
+    >
       <div className="graph-object-card__title-row">
         <span
           className="graph-object-card__type-badge"
@@ -296,6 +313,16 @@ function GraphObjectIdentityHeader({ model }: { model: GraphObjectCardViewModel 
           >
             {model.campaignLabel}
           </span>
+        ) : null}
+        {onDismiss ? (
+          <button
+            type="button"
+            className="graph-object-card__dismiss"
+            onClick={onDismiss}
+            aria-label={dismissLabel ?? `Close ${model.label}`}
+          >
+            ×
+          </button>
         ) : null}
       </div>
       {model.secondaryRoleLabel ? (
@@ -549,6 +576,8 @@ export function GraphObjectCard({
   actionsSlot,
   detailsSlot,
   advancedSlot,
+  onDismiss,
+  dismissLabel,
   onReadSourceEvidence,
   resolvingEvidenceId = null,
   evidenceErrors = {},
@@ -574,7 +603,11 @@ export function GraphObjectCard({
       data-graph-object-card-mode={mode}
       aria-label={ariaLabel ?? `${model.label} game card`}
     >
-      <GraphObjectIdentityHeader model={model} />
+      <GraphObjectIdentityHeader
+        model={model}
+        onDismiss={onDismiss}
+        dismissLabel={dismissLabel}
+      />
       <GraphObjectSummary model={model} campaignMemory={campaignMemory} />
       {relationshipsSlot ?? (
         <GraphObjectRelationships

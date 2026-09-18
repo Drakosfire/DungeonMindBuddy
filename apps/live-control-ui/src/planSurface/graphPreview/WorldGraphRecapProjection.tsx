@@ -117,11 +117,16 @@ export function WorldGraphRecapProjectionView({
       >
         {objectOpen ? (
           <aside className="recap-graph-object-panel" aria-label={peekLabel}>
-            <header className="recap-graph-object-panel__header">
-              <button type="button" onClick={handleCloseObject} aria-label={`Close ${peekLabel}`}>
+            {usesCompleteWorldObjectPayload(complete.status) && complete.nodeView ? null : (
+              <button
+                type="button"
+                className="recap-graph-object-panel__close"
+                onClick={handleCloseObject}
+                aria-label={`Close ${peekLabel}`}
+              >
                 ×
               </button>
-            </header>
+            )}
             {complete.status === "loading" || complete.status === "idle" ? (
               <p className="module-muted">Loading campaign memory…</p>
             ) : null}
@@ -137,6 +142,8 @@ export function WorldGraphRecapProjectionView({
                 nodeView={complete.nodeView}
                 onSelectRelationshipTarget={handleSelectRelationshipTarget}
                 selectedRelationshipId={selectedRelationshipId}
+                onDismiss={handleCloseObject}
+                dismissLabel={`Close ${peekLabel}`}
                 advancedSlot={complete.result ? (
                   <CompleteWorldObjectAdvancedDetails
                     result={complete.result}

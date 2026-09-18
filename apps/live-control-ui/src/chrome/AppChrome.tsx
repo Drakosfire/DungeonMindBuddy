@@ -330,12 +330,6 @@ export function AppChrome({
           <AppChromeWorldGraphStatus />
         </nav>
         <SurfaceContextHost />
-        {activeRoute === "ingest" && secondaryContext ? (
-          <div className="app-secondary-context-dismiss" data-testid="secondary-context-dismiss">
-            <span>{secondaryContext.label}</span>
-            <button type="button" onClick={secondaryContext.onDismiss}>Close</button>
-          </div>
-        ) : null}
       </header>
 
       {activeRoute === "ingest" ? (

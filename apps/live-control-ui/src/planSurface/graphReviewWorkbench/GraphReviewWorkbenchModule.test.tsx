@@ -1042,7 +1042,7 @@ describe("GraphReviewWorkbenchModule", () => {
       }),
     );
     expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledTimes(1);
-    await user.click(screen.getByRole("button", { name: "Close World object" }));
+    await user.click(screen.getByRole("button", { name: "Close Bonogo" }));
     expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
     expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
   });

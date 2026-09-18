@@ -55,6 +55,8 @@ export function GraphReviewHistoricalRecapProjection({
     setActiveNodeId(null);
   }, []);
 
+  const peekLabel = complete.nodeView?.label?.trim() || "Campaign memory";
+
   return (
     <div
       className="graph-review-historical-recap-projection"
@@ -77,19 +79,23 @@ export function GraphReviewHistoricalRecapProjection({
       <PeekClaim
         kind="world-object"
         active={objectOpen}
-        label="World object"
+        label={peekLabel}
         onDismiss={handleCloseObject}
       >
         {objectOpen ? (
-          <aside className="recap-graph-object-panel" aria-label="Graph object">
-            <header className="recap-graph-object-panel__header">
-              <span>World object</span>
-              <button type="button" onClick={handleCloseObject} aria-label="Close World object">
+          <aside className="recap-graph-object-panel" aria-label={peekLabel}>
+            {usesCompleteWorldObjectPayload(complete.status) && complete.nodeView ? null : (
+              <button
+                type="button"
+                className="recap-graph-object-panel__close"
+                onClick={handleCloseObject}
+                aria-label={`Close ${peekLabel}`}
+              >
                 ×
               </button>
-            </header>
+            )}
             {complete.status === "loading" || complete.status === "idle" ? (
-              <p className="module-muted">Loading complete World object…</p>
+              <p className="module-muted">Loading campaign memory…</p>
             ) : null}
             {complete.status === "error" || complete.status === "missing" ? (
               <p className="graph-preview-error" role="alert">
@@ -102,6 +108,8 @@ export function GraphReviewHistoricalRecapProjection({
                 nodeView={complete.nodeView}
                 onSelectRelationshipTarget={handleSelectRelationshipTarget}
                 selectedRelationshipId={selectedRelationshipId}
+                onDismiss={handleCloseObject}
+                dismissLabel={`Close ${peekLabel}`}
                 advancedSlot={complete.result ? (
                   <CompleteWorldObjectAdvancedDetails
                     result={complete.result}

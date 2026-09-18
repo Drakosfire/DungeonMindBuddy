@@ -414,10 +414,19 @@ describe("GraphObjectCard", () => {
       ],
     };
 
-    render(<GraphObjectCard mode="campaign-memory" model={model} onSelectRelationship={vi.fn()} />);
+    render(
+      <GraphObjectCard
+        mode="campaign-memory"
+        model={model}
+        onSelectRelationship={vi.fn()}
+        onDismiss={vi.fn()}
+      />,
+    );
 
     const card = screen.getByLabelText(/Ogonob game card/i);
     expect(card).toHaveAttribute("data-graph-object-card-mode", "campaign-memory");
+    expect(within(card).getByRole("button", { name: "Close Ogonob" })).toBeInTheDocument();
+    expect(card.querySelector(".graph-object-card__identity-header--sticky")).not.toBeNull();
     expect(within(card).queryByRole("heading", { name: "Related objects" })).not.toBeInTheDocument();
     expect(within(card).queryByText("Why it matters here should not be the recap heading.")).not.toBeInTheDocument();
     expect(within(card).getByRole("button", { name: /Ogonob possesses Misty Step/ })).toBeInTheDocument();

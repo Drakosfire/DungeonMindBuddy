@@ -15,6 +15,7 @@ function renderIngestChrome(withPeek: boolean) {
         <AppChrome activeRoute="ingest"><main>Recap center</main></AppChrome>
         <PeekClaim kind="world-object" active={withPeek} label="World object" onDismiss={onDismiss}>
           <p>World peek</p>
+          <button type="button" onClick={onDismiss}>Close peek</button>
         </PeekClaim>
       </PeekRegionProvider>
     </AgentInteractionProvider>,
@@ -36,6 +37,7 @@ function ResponsiveHarness() {
         </AppChrome>
         <PeekClaim kind="world-object" active={open} label="World object" onDismiss={() => setOpen(false)}>
           <p>World peek</p>
+          <button type="button" onClick={() => setOpen(false)}>Close peek</button>
         </PeekClaim>
       </PeekRegionProvider>
     </AgentInteractionProvider>
@@ -60,7 +62,12 @@ describe("AppChrome Ingest peek composition", () => {
     expect(screen.getByText("Recap center")).toBeInTheDocument();
     expect(screen.getByTestId("app-peek-region")).not.toHaveAttribute("hidden");
     expect(screen.getByText("World peek")).toBeVisible();
-    screen.getByTestId("secondary-context-dismiss").querySelector("button")?.click();
+    expect(screen.queryByTestId("secondary-context-dismiss")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "← Back" })).not.toBeInTheDocument();
+    const workspace = document.querySelector(".app-chrome-workspace");
+    expect(workspace?.querySelector(".app-chrome-center")).not.toBeNull();
+    expect(workspace?.querySelector(".app-peek-region")).not.toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Close peek" }));
     expect(onDismiss).toHaveBeenCalledOnce();
   });
 
@@ -85,7 +92,7 @@ describe("AppChrome Ingest peek composition", () => {
     expect(scrollTo).toHaveBeenCalledWith({ top: 0, behavior: "auto" });
     readingRegion.scrollTop = 0;
 
-    await user.click(screen.getByTestId("secondary-context-dismiss").querySelector("button")!);
+    await user.click(screen.getByRole("button", { name: "Close peek" }));
     expect(sentinel).toBeInTheDocument();
     expect(scrollTo).toHaveBeenLastCalledWith({ top: 432, behavior: "auto" });
     expect(readingRegion.scrollTop).toBe(275);
