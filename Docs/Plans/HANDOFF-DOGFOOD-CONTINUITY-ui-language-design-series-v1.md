@@ -13,8 +13,8 @@
 **Re-anchor at write time:**
 
 ```text
-main                         fd9a42501c8616d27fa1436a7b66fc6a6dfe3347
-                             UI-04 / #733 merged; UI-05 ACTIVE handoff landed
+main                         586a3dcb53b481ef2cf21890872a3f1e8465a925
+                             UI-05 / #735 merged; Authoring v2 is current design frontier
 #698                         MERGED — compact opened World objects
 #699                         MERGED — Recap overlay gone; Tools between nav and Ask;
                              Ask Open is a bottom sheet; chrome-band is
@@ -24,11 +24,12 @@ UI-02                        MERGED — PR #701 at d515904c2bf4d196be70efc7419dc
 UI-03                        MERGED — PR #702 at 92a50db8bd41d632e54e5bbbd265738f546e0a5b
 STAGE 4B                     MERGED — PR #704 recap World-reference glance mechanics
 UI-04                        MERGED — PR #733 campaign-information glance + peek
-UI-05                        ACTIVE — floating world-object Peek inspector
-                             Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui05-floating-world-object-peek-v1.md
+UI-05                        MERGED — PR #735 at 586a3dcb53b481ef2cf21890872a3f1e8465a925
+                             accepted head f69163a2f4bca22d00c432c6c6419cd1b024d44d
 #734                         CLOSED without merge — HOLD on chrome singularity without
                              persistent dismiss; evidence head a9b43ed7 only
-7A1                          DESIGN READY / QUEUED behind this series
+AUTHORING V2                 CURRENT DESIGN FRONTIER — manual authoring before ablation
+7A1                          QUEUED behind manual authoring / derived-gold loop
 ```
 
 Accepted decomposition: Ingest is the first implementation consumer of the shared Peek primitive; Play remains the visual grammar north star. UI-02 owns Agent dock/absence behavior and UI-03 owns responsive secondary context. Their merges do not pre-complete the series or Stage 4. **UI-05 is merged.** Stage 4 WOW remains a human gate, but no additional UI implementation slice is preselected. Current CON-READY direction is Authoring v2.
@@ -91,9 +92,9 @@ Post-merge dogfood then exposed duplicate close chrome. Unauthorized #734 collap
 
 ---
 
-## 0C. 2026-09-18 re-anchor — UI-05 is ACTIVE
+## 0C. 2026-09-18 re-anchor — UI-05 completed; UI series pauses
 
-Current implementation authority:
+Completed implementation authority:
 
 [`HANDOFF-DOGFOOD-CONTINUITY-ui05-floating-world-object-peek-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui05-floating-world-object-peek-v1.md)
 
@@ -110,7 +111,13 @@ Protect: UI-03 CENTER XOR SECONDARY; recap not remounted; Tools/Projection Back 
 
 Do **not** absorb parked Backlog IDEA work (DeepSeek extraction ablation; predicate-family relationship rollup).
 
-Do not dispatch 7A1, Agent work, or authoring changes from this series file. One serial implementation PR may be opened from the UI-05 handoff only.
+UI-05 is merged; this series file authorizes no further implementation PR.
+
+Current sequencing has moved to:
+
+`Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
+
+Do not dispatch 7A1, DeepSeek/model ablation, relationship rollup, or a new UI slice from this file.
 
 
 ---
