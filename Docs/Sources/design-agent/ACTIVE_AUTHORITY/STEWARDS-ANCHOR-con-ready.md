@@ -4,261 +4,234 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-17  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor base:** `main@65b0c6a369a012dd1ba2c5a7a3410b07b7ac6345` — published-memory Graph Review browse handoff landed  
-**Structural current-corpus acceptance:** PASS  
-**Fresh governed recap source-provenance contract:** PASS — PR #729  
-**Exact accepted-candidate replay:** PASS — PR #730  
-**Recap source-read continuity:** PASS — PR #731 merged `9e739057540e52e763ba9fc6a62d2f1ef5ac2f96`  
-**Product loadability contracts:** PASS for fresh provenance-correct publication/read path; historical/replay Worlds remain immutable witnesses  
-**Operator dogfood:** successful on #732 spike behavior, not yet accepted as durable `main` authority  
-**Active lane:** [`HANDOFF-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md)  
-**Active PR:** existing #732 only — implementation may be substantially rewritten  
+**Re-anchor input base:** `main@05738195686cbfd4939891005db8b744c90d8d2a` — Stage 4 roadmap returned to human UX/WOW dogfood  
+**Current product frontier:** Stage 4 recap / UI-language **human WOW pass**  
+**Active implementation PR:** **NONE**  
+**UI-language authority:** [`HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md)  
 **Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
-**Benchmark authority:** [`../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md`](../Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md)
+**Execution roadmap:** [`../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md)
 
-> This is the current sequencing authority. Repository truth supersedes chat summaries, branch-only reports, and stale current-state prose elsewhere.
+> Repository truth supersedes chat reconstruction. The current instruction is: **dogfood the UX before dispatching more implementation.**
 
 ---
 
 ## 0. Pickup rule
 
-Every steward/worker begins with:
+Begin with:
 
 > **If the operator cannot dogfood it through the normal product, it is not ready.**
 
 Read, in order:
 
-1. `Docs/Design/ACCEPTANCE-dogfood-readiness.md`;
-2. this anchor;
-3. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md`;
-4. PR #732 Review Cycle 1 only as spike/review evidence, not implementation authority;
-5. accepted predecessor reports when historical context is needed.
+1. this anchor;
+2. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`;
+3. `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`;
+4. `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`, Stage 4;
+5. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md`;
+6. older campaign-memory reports only when diagnosing a concrete failure.
 
-There is one serial implementation lane: **PR #732**.
+There is **no active implementation lease** from this anchor.
 
-Do not open a second PR.
-
----
-
-## 1. Where we are
-
-The campaign-memory line has removed the upstream structural blockers in sequence.
-
-### Graph/write/read foundation
-
-Accepted results:
-
-```text
-44-session structural ingestion                     PASS
-fresh governed recap source provenance             PASS
-exact 44-candidate zero-model replay                PASS
-published object identity round-trip                PASS
-recap evidence → digest-verified exact source span  PASS for fresh post-#731 writes
-```
-
-PR #731 closed the source-read contract:
-
-```text
-candidate canonical source_span_ref_id
-→ governed recap evidence stamp
-→ DungeonMind persisted locator + admitted repo URI
-→ Buddy source anchor
-→ digest-verified exact recap span
-```
-
-The graph machinery is no longer the current frontier.
-
-### Gate C dogfood exposed the product-authority problem
-
-The operator then attempted real Graph Review dogfood.
-
-PR #732 changed the ordinary interaction so the operator could:
-
-```text
-select Campaign + Focus session
-→ read published recap directly
-→ click graph mentions
-→ inspect complete durable objects + useful relationship/origin prose
-→ switch C1/C2 and sessions
-```
-
-With those behaviors present, the operator was able to dogfood and reported satisfaction with the workflow.
-
-That is accepted **empirical product evidence**.
-
-PR #732's implementation itself is **not accepted architecture**. Formal Review Cycle 1 on head:
-
-`dd4db027994f326af4434d2c0dd74f18abbb2509`
-
-was HOLD, review:
-
-`5242516505`
-
-because:
-
-1. no steward handoff had authorized the broad UI rewrite;
-2. published recap selection could diverge from Graph Review's run/write authority;
-3. the supposedly ordinary published-memory browse path still waited on ExtractionRun catalog settlement.
-
-The correct conclusion is not “discard the dogfood result.”
-
-It is:
-
-> **Keep the interaction model that unlocked dogfood; redesign the authority boundaries deliberately.**
+Do not open a PR merely because an old successor was queued.
 
 ---
 
-## 2. Current product model
+## 1. What journey we were actually on
 
-The active handoff establishes two separate authorities.
+The product-level mission before the campaign-memory detour was the UI-language / Stage 4 WOW pass.
 
-### Published-memory browse authority
-
-Ordinary Graph Review browsing is governed by:
+The accepted design grammar was:
 
 ```text
-world
-campaign
-focus session
-revision/head policy
-admissibility
+cheap chrome
+expensive current work
+chip → glance → peek
+related objects do not navigate away
+one coherent secondary context
+Agent cheap/absent when not useful
 ```
 
-Its source is the published World Graph.
-
-It does **not** require an ExtractionRun.
-
-### Write/author authority
-
-Anything capable of prepare/confirm/promote/write requires an explicit write-capable binding.
-
-A visible published recap does not grant mutation authority.
-
-Exact-run handoff remains a separate explicit authority path.
-
-This distinction is the current design center:
+That line produced:
 
 ```text
-PublishedMemoryBrowseContext != GraphReviewWriteAuthority
+#700 / UI-01   shared Peek                         MERGED
+#701 / UI-02   truthful Agent dock/presence        MERGED
+#702 / UI-03   responsive secondary context        MERGED
+#704 / Stage4B recap World-reference glance        MERGED
 ```
+
+Stage 4B then reached its **human WOW gate** and exposed a deeper problem:
+
+> the interaction mechanics were becoming testable, but accumulated campaign memory was inaccessible, incomplete in ordinary product reads, or too awkwardly addressed to judge the UX honestly.
+
+That was the sidequest.
+
+It did **not** replace the UX roadmap.
 
 ---
 
-## 3. ACTIVE lane
+## 2. What the sidequest established
 
-Canonical handoff:
+The detour progressively made real campaign memory usable enough to return to product design.
 
-`Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md`
+Accepted foundation:
 
-Topology:
+```text
+44-session structural current-corpus acceptance             PASS
+candidate admission / governed write continuity             PASS
+fresh recap source-provenance admission                     PASS  (#729)
+exact 44-candidate zero-model pristine replay               PASS  (#730)
+recap evidence → digest-verified exact source read           PASS  (#731)
+published-memory browse authority                           PASS  (#732)
+browse/write authority separation                           PASS  (#732)
+```
 
-`serial`
+PR #732:
 
-Authorized PR:
+- accepted implementation head: `2ae0718f2976a1fee5ee299a997ec3292d64fab1`;
+- formal Review Cycle 5: **APPROVE**, review `5243724921`;
+- merged to `main`: `b3d1a146f6ccc8ff84e5b4be65d8a84a4d98cb44`.
 
-`#732`
+#732 makes ordinary Graph Review browsing mean:
 
-Authorized branch:
+```text
+Campaign + Focus session
+→ published recap
+→ token/glance
+→ complete durable World object
+→ relationships / origin / evidence
+```
 
-`dogfood/graph-review-recap-campaign-session`
+without requiring ExtractionRun selection and without granting implicit write authority.
 
-Required title after update:
-
-`DOGFOOD-CONTINUITY: make published campaign memory the Graph Review browse authority`
-
-The worker must rebase/update #732 onto the `main` commit containing the handoff.
-
-The current #732 diff is disposable. The worker may replace it substantially.
-
-The behavior/objectives are not disposable.
+The operator had already demonstrated that the spike version of this interaction model unlocked useful dogfood. The intentional rewrite is now merged. Its post-merge human UX witness is the current task.
 
 ---
 
-## 4. Merge-ready product invariants
+## 3. Current action — resume the interrupted UX pass
 
-The active slice must prove:
+**Do not code first.**
 
-1. ordinary Graph Review loads published recap memory from Campaign + Focus session without run-selection ceremony;
-2. valid published recap browsing mounts independently of ExtractionRun catalog latency/emptiness/failure;
-3. recap projection, World Graph lens, URL, complete-object inspection, and revision context remain coherent;
-4. graph mention click opens the complete durable World object at the same revision/focus;
-5. useful relationship/source/origin context appears when complete-object returns it;
-6. Ingest bare `?campaign=` is campaign-scoped;
-7. legitimate world-union responses may omit a single campaign identity without false mismatch;
-8. campaign-scoped mismatches still fail closed;
-9. browsing does not silently acquire stale/default run/write authority;
-10. explicit exact-run review remains exact-run authority and still fails closed on identity mismatch.
+Run the Stage 4/UI-language human pass against current `main` and real C1/C2 campaign memory.
 
-Do not solve ordinary browsing by weakening write authority.
+The ordinary journey should now be boring:
 
-Do not solve authoring by making browsing depend on ExtractionRun state again.
+```text
+choose campaign
+→ choose session
+→ read recap
+→ notice/use World references
+→ glance
+→ open complete object
+→ follow a relationship or provenance
+→ close
+→ continue reading where you were
+→ switch session/campaign
+→ refresh
+→ continue
+```
+
+Use multiple representative sessions rather than one synthetic smoke.
+
+### Judge the experience
+
+Record the first human-visible failures.
+
+Specifically ask:
+
+1. Is the recap pleasant to read, or does graph interaction make it noisy?
+2. Do tokens/glances answer enough before full inspection?
+3. Does opening an object feel like a contextual peek rather than navigation?
+4. Does the object view prioritize table-useful information?
+5. Are relationships and origin/source details understandable?
+6. Can a relationship be followed without losing orientation?
+7. Can sessions/campaigns be traversed with low friction?
+8. Does refresh preserve the expected context?
+9. Does the application now feel like one designed product rather than several systems assembled together?
+10. When something is disappointing, is it:
+   - presentation/interaction;
+   - semantic campaign-memory quality;
+   - missing source/provenance;
+   - performance;
+   - a separate authoring capability?
+
+That classification determines the next slice.
 
 ---
 
-## 5. #732 disposition
+## 4. Why the semantic gauntlet is not automatically next
 
-PR #732 remains open and is intentionally reused as the one implementation lane.
+The fixed C1S1–10 question gauntlet remains useful evidence.
 
-The next worker action is:
+It is **not the current dispatch**.
 
-```text
-rebase/update #732 onto current main
-read the new handoff
-rewrite as needed
-request formal review on a distinct head SHA
-```
+The old anchor said to run it after #732. That sequencing was written while the primary question was still whether campaign memory could be product-loaded at all.
 
-Do not preserve code merely because it existed in the spike.
+The sidequest now answers enough of that substrate question to resume the UI pass that originally triggered it.
 
-Do not open a replacement PR.
+If the human UX pass reveals that the interface is sound but the memory itself is wrong/thin, then the semantic gauntlet becomes the correct next diagnostic.
 
-The reviewer will judge the handoff invariants, not similarity to `dd4db027...`.
+If the human UX pass reveals an interaction problem first, repair that earliest product boundary instead.
 
 ---
 
-## 6. Human acceptance
+## 5. Queued work that remains queued
 
-The final Gate C witness must reproduce the interaction that worked during dogfood:
+Do not dispatch these merely because #732 merged:
 
-```text
-pick campaign/session
-read recap
-click campaign-memory mentions
-explore complete objects and relationships
-follow provenance when useful
-switch campaign/session
-refresh
-continue
-```
+- Stage 7A1 contextual Ask on the loaded recap;
+- the 16-question semantic gauntlet as an automatic successor;
+- Agent tuning;
+- broad graph-ingestion redesign;
+- Play parchment/whole-app paint rewrite;
+- Combat;
+- cleanup of legacy Graph Review catalog components;
+- historical accepted-World backfill.
 
-And separately prove:
-
-```text
-browse-only context cannot mutate through stale run authority
-explicit exact-run mode still works
-```
-
-If the intentional implementation reproduces the successful experience, steward may record:
-
-```text
-PUBLISHED-MEMORY GRAPH REVIEW BROWSE AUTHORITY = PASS
-GRAPH REVIEW BROWSE/WRITE AUTHORITY SEPARATION = PASS
-OPERATOR DOGFOOD = PASS
-```
-
-for this campaign-memory exploration workflow.
+7A1 remains a valid capability. It was explicitly queued **behind the UI design series**. That sequencing still applies.
 
 ---
 
-## 7. After this slice
+## 6. Current acceptance labels
 
-Once #732 is intentionally implemented, reviewed, merged, and re-dogfooded:
+```text
+STRUCTURAL CURRENT-CORPUS ACCEPTANCE             PASS
+FRESH GOVERNED RECAP WRITE                       PASS
+EXACT ACCEPTED-CANDIDATE REPLAY                  PASS
+RECAP SOURCE-READ CONTINUITY                     PASS
+PUBLISHED-MEMORY GRAPH REVIEW BROWSE AUTHORITY   PASS
+GRAPH REVIEW BROWSE/WRITE AUTHORITY SEPARATION   PASS
 
-1. sync/re-anchor;
-2. return to the fixed 16-question C1S1–10 semantic gauntlet on the provenance-correct World/revision;
-3. distinguish semantic graph failures from Agent failures;
-4. repair earliest A/B/C/E boundary before Agent tuning.
+STAGE 4 / RECAP WOW                              HUMAN PASS REQUIRED
+OPERATOR DOGFOOD ON MERGED #732                  NOT YET RECORDED
+SEMANTIC COVERAGE                                NOT MEASURED
+AGENT ANSWERABILITY                              NOT MEASURED
+SEMANTIC MODEL SELECTION                         HOLD
+```
 
-The next phase is intended to answer:
+Do not promote Stage 4 or operator dogfood from automated evidence alone.
 
-> **Now that a human can actually use campaign memory, is that memory semantically good enough?**
+---
+
+## 7. Next state transition
+
+There is intentionally no preselected implementation PR.
+
+After the human UX/WOW pass, the steward must choose exactly one outcome:
+
+```text
+A. UX is good; semantic memory quality is now the earliest blocker
+   → design/dispatch semantic gauntlet or semantic repair.
+
+B. One bounded UX defect dominates
+   → design one UI-language successor slice and land its handoff.
+
+C. Product path still fails structurally
+   → localize earliest broken boundary and repair only that boundary.
+
+D. UX is satisfying and no immediate blocker dominates
+   → record Stage 4 disposition, re-anchor, then choose between
+      remaining UI-language work, semantic evaluation, and queued 7A1.
+```
+
+Do not choose that outcome before the operator uses the merged product.
