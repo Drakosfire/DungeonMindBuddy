@@ -8,6 +8,7 @@
 **Current product frontier:** Stage 4 recap / UI-language **human WOW pass**  
 **Active implementation PR:** **NONE**  
 **UI-language authority:** [`HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md)  
+**Current guided dogfood handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md)  
 **Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
 **Execution roadmap:** [`../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md)
 
@@ -25,10 +26,11 @@ Read, in order:
 
 1. this anchor;
 2. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`;
-3. `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`;
-4. `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`, Stage 4;
-5. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md`;
-6. older campaign-memory reports only when diagnosing a concrete failure.
+3. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`;
+4. `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`;
+5. `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`, Stage 4;
+6. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-published-memory-graph-review-browse-v1.md`;
+7. older campaign-memory reports only when diagnosing a concrete failure.
 
 There is **no active implementation lease** from this anchor.
 
