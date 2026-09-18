@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
   LiveApiError,
@@ -10,6 +10,8 @@ import { buildWorldGraphRecapProjectionRequest } from "../../worldGraph/worldGra
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 import type { PlanContextDescriptor } from "../types";
 import {
+  defaultRecapSessionIdForCampaign,
+  requestedRecapSessionIdFromLocation,
   resolveInitialReviewCampaignId,
   resolveSessionRecapContext,
 } from "../sessionCampaignContext";
@@ -36,9 +38,7 @@ interface RecapGraphModuleProps {
 const DOGFOOD_SESSION_OPTIONS = ["session-1", "session-21", "session-22", "session-23"];
 
 function requestedSessionFromLocation(): string | null {
-  if (typeof window === "undefined") return null;
-  const session = new URLSearchParams(window.location.search).get("session")?.trim();
-  return session || null;
+  return requestedRecapSessionIdFromLocation();
 }
 
 function syncRecapSurfaceUrl(campaignId: string, sessionId?: string) {
@@ -79,11 +79,17 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   const [error, setError] = useState<string | null>(null);
   const [recapPayload, setRecapPayload] = useState<WorldGraphRecapProjection | null>(null);
   const [sessionRecords, setSessionRecords] = useState<RecapArtifactRecord[]>([]);
-  const [artifactsLoaded, setArtifactsLoaded] = useState(false);
   const [selectedSessionId, setSelectedSessionId] = useState(defaultSessionId);
   const [selectedCampaignId, setSelectedCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(context.campaignId),
   );
+  const [readyRecapContext, setReadyRecapContext] = useState<{
+    campaignId: string;
+    sessionId: string;
+  } | null>(null);
+  const honorExplicitUrlSessionRef = useRef(requestedSessionId != null);
+  const selectedSessionIdRef = useRef(selectedSessionId);
+  selectedSessionIdRef.current = selectedSessionId;
 
   const campaignSessionRecords = useMemo(
     () => sessionRecords.filter((record) => record.campaign_id === selectedCampaignId),
@@ -93,14 +99,17 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   const sessionOptions = useMemo(() => {
     const options = new Set(campaignSessionRecords.length > 0 ? [] : DOGFOOD_SESSION_OPTIONS);
     options.add(`session-${context.ingestSession}`);
-    options.add(defaultSessionId);
+    options.add(selectedSessionId);
+    if (honorExplicitUrlSessionRef.current && requestedSessionId) {
+      options.add(requestedSessionId);
+    }
     campaignSessionRecords.forEach((record) => options.add(record.session_id));
     return [...options].sort((left, right) => {
       const leftNum = Number.parseInt(left.replace("session-", ""), 10);
       const rightNum = Number.parseInt(right.replace("session-", ""), 10);
       return leftNum - rightNum;
     });
-  }, [campaignSessionRecords, context.ingestSession, defaultSessionId]);
+  }, [campaignSessionRecords, context.ingestSession, requestedSessionId, selectedSessionId]);
 
   const loadRecapProjection = useCallback(async (sessionId = selectedSessionId) => {
     setStatus("loading");
@@ -131,7 +140,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
 
   useEffect(() => {
     let cancelled = false;
-    setArtifactsLoaded(false);
+    setReadyRecapContext(null);
 
     void getRecapArtifacts(selectedCampaignId)
       .then((response) => {
@@ -143,42 +152,58 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         );
         setSessionRecords(records);
         const campaignRecords = records.filter((record) => record.campaign_id === selectedCampaignId);
-        // Explicit ?session= must reach the recap endpoint unchanged, even when the
-        // artifact listing is stale or missing that session. Artifacts only choose a
-        // default when the URL omitted a session.
-        const nextSessionId =
-          requestedSessionId
-            ?? (campaignRecords.at(-1)?.session_id ?? fallbackSessionId);
+        const honorExplicitUrl = honorExplicitUrlSessionRef.current;
+        const explicitSessionId = honorExplicitUrl ? requestedRecapSessionIdFromLocation() : null;
+        const currentSessionId = selectedSessionIdRef.current;
+        const stillValid = campaignRecords.some((record) => record.session_id === currentSessionId);
+        // Explicit hard-load ?session= reaches the recap endpoint unchanged, even when
+        // the artifact listing is stale. Interactive campaign switch must not carry a
+        // previous campaign's session into a campaign that does not offer it.
+        const nextSessionId = honorExplicitUrl
+          ? (explicitSessionId ?? defaultRecapSessionIdForCampaign(campaignRecords, fallbackSessionId))
+          : (stillValid
+            ? currentSessionId
+            : defaultRecapSessionIdForCampaign(campaignRecords, fallbackSessionId));
         setSelectedSessionId(nextSessionId);
-        setArtifactsLoaded(true);
+        syncRecapSurfaceUrl(selectedCampaignId, nextSessionId);
+        setReadyRecapContext({ campaignId: selectedCampaignId, sessionId: nextSessionId });
       })
       .catch(() => {
         if (!cancelled) {
           setSessionRecords([]);
-          setSelectedSessionId(defaultSessionId);
-          setArtifactsLoaded(true);
+          const honorExplicitUrl = honorExplicitUrlSessionRef.current;
+          const nextSessionId = honorExplicitUrl
+            ? (requestedRecapSessionIdFromLocation() ?? fallbackSessionId)
+            : fallbackSessionId;
+          setSelectedSessionId(nextSessionId);
+          syncRecapSurfaceUrl(selectedCampaignId, nextSessionId);
+          setReadyRecapContext({ campaignId: selectedCampaignId, sessionId: nextSessionId });
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [defaultSessionId, fallbackSessionId, requestedSessionId, selectedCampaignId]);
+  }, [fallbackSessionId, selectedCampaignId]);
 
   useEffect(() => {
-    if (!artifactsLoaded) {
+    if (!readyRecapContext) {
       return;
     }
-    void loadRecapProjection(selectedSessionId);
-  }, [artifactsLoaded, loadRecapProjection, selectedSessionId]);
+    if (readyRecapContext.campaignId !== selectedCampaignId) {
+      return;
+    }
+    void loadRecapProjection(readyRecapContext.sessionId);
+  }, [loadRecapProjection, readyRecapContext, selectedCampaignId]);
 
   const handleCampaignSelect = (campaignId: string) => {
+    honorExplicitUrlSessionRef.current = false;
     setSelectedCampaignId(campaignId);
-    syncRecapSurfaceUrl(campaignId);
   };
 
   const handleSessionSelect = (sessionId: string) => {
     setSelectedSessionId(sessionId);
+    setReadyRecapContext({ campaignId: selectedCampaignId, sessionId });
     syncRecapSurfaceUrl(selectedCampaignId, sessionId);
   };
 
