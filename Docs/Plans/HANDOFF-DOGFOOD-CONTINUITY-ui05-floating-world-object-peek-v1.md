@@ -119,6 +119,18 @@ Evidence-only head for chrome singularity (do not merge #734): `a9b43ed7fb7af4d8
 
 ---
 
+## Steward lease expansion during Review Cycle 1
+
+The implementation added one focused CSS falsification test outside the original §4 table:
+
+| Action | Path | Purpose |
+|---|---|---|
+| MODIFY | `apps/live-control-ui/src/chrome/chromeBand.test.ts` | prove remaining-viewport CENTER/PEEK overflow, absence of guessed `100vh - ...` math, removal of legacy secondary dismiss chrome, and sticky world-object identity dismiss |
+
+This is test-only authority. It does not expand the production lease beyond §4.
+
+---
+
 ## §5 Explicitly out of scope / collision boundary
 
 | Path / topic | Why |
