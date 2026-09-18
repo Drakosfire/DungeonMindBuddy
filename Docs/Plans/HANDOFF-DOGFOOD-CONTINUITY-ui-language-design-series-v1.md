@@ -1,8 +1,8 @@
 # HANDOFF — DOGFOOD-CONTINUITY: UI language design series
 
-**Purpose:** Brief the design agent on the 2026-09-10 shell/language work after `#698` / `#699`. This is not an implementation lease and not permission to dispatch code.
+**Purpose:** Brief the design agent on the UI-language series after `#698` / `#699`. Design input. The ACTIVE implementation lease is UI-04, not this file.
 
-**Status:** ACTIVE HUMAN UX/WOW PASS — UI-01/UI-02/UI-03 + Stage 4B mechanics merged; campaign-memory sidequest closed through #732; resume product dogfood before new code dispatch
+**Status:** UI-04 ACTIVE — UI-01/UI-02/UI-03 + Stage 4B merged; human WOW pass recorded HOLD; current implementation slice is campaign-information glance + peek  
 **Created:** 2026-09-10  
 **From:** steward + operator after `#699` merge, Mobbin research, and Of Conks styling capture  
 **To:** the next design agent for the bounded UI design / implementation series  
@@ -13,8 +13,8 @@
 **Re-anchor at write time:**
 
 ```text
-main                         d23c8b0efcd8b882046cc6cc52a4f33f5e5fe4eb
-                             DOCUMENTS: capture what we liked in Of Conks styling
+main                         55ff36b4847b19063ad84f3937b7eae57441bf9d
+                             UI-04 ACTIVE handoff landed
 #698                         MERGED — compact opened World objects
 #699                         MERGED — Recap overlay gone; Tools between nav and Ask;
                              Ask Open is a bottom sheet; chrome-band is
@@ -22,17 +22,16 @@ main                         d23c8b0efcd8b882046cc6cc52a4f33f5e5fe4eb
 UI-01                        MERGED — PR #700 at 5810a253239a53d731da831a9ac4ccd2548f10d9
 UI-02                        MERGED — PR #701 at d515904c2bf4d196be70efc7419dc8485e991515
 UI-03                        MERGED — PR #702 at 92a50db8bd41d632e54e5bbbd265738f546e0a5b
-STAGE 4B                     ACTIVE — recap World-reference glance; WOW gate remains human
-7A1                          DESIGN READY / QUEUED on
-                             origin/dogfood-continuity/stage-7a1-ingest-contextual-ask-v1
-                             @ e34f68915e0ca535bed7aa9bc13a8bdd2fabea0a
-                             handoff lives on that branch, not on main
+STAGE 4B                     MERGED — PR #704 recap World-reference glance mechanics
+UI-04                        ACTIVE — campaign-information glance + peek
+                             Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md
+                             Gate 0 session continuity is serialized in the same lane
+7A1                          DESIGN READY / QUEUED behind this series
 ```
 
-Accepted decomposition: Ingest is the first implementation consumer of the shared Peek primitive; Play remains the visual grammar north star. UI-02 owns Agent dock/absence behavior and UI-03 owns responsive secondary context. Their merges do not pre-complete the series or Stage 4; Stage 4B is the current WOW-gate slice.
+Accepted decomposition: Ingest is the first implementation consumer of the shared Peek primitive; Play remains the visual grammar north star. UI-02 owns Agent dock/absence behavior and UI-03 owns responsive secondary context. Their merges do not pre-complete the series or Stage 4. **UI-04 is the current implementation slice.** Stage 4 WOW remains a human gate after UI-04.
 
 > Repository law: `AGENTS.md`. Steward judgment: `Docs/Process/STEWARD-CYCLE.md`. Language (feel/compose): `Docs/Design/ui-language/`. Chrome **ownership**: `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`. Product goals (non-status): root `Backlog.md` Captured UI section.
-
 
 ---
 
@@ -65,47 +64,42 @@ That is the interruption. The campaign-memory work was not a replacement roadmap
 
 ### Current action
 
-**Resume the Stage 4 recap/UI WOW human pass on current `main`.**
+This 0A section is historical. The human pass is recorded. Current implementation authority is UI-04 (see §0B).
 
-There is **no implementation PR active** from this re-anchor.
+---
 
-Dogfood first. Read multiple real C1/C2 recaps and use the product naturally:
+## 0B. 2026-09-18 re-anchor — UI-04 is ACTIVE
+
+Human evidence: [`../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md)
+
+Steward outcome **B** is chosen. Current implementation authority:
+
+[`HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md)
 
 ```text
-choose campaign/session
-→ read recap
-→ use token glances
-→ open complete World objects
-→ follow relationships/provenance
-→ close and keep reading position
-→ switch sessions/campaigns
-→ refresh and continue
+recap pill
+→ truthful compact campaign glance
+→ table-readable campaign-memory Peek
+→ related campaign fact/object
+→ close
+→ same recap context
 ```
 
-Evaluate the original UI-language questions, now against real campaign memory:
+Protect: pills as attention; hole-style factual glance; Peek is not navigation; C1 Cultists → C2 Dustwalker pull.
 
-- Does the recap feel like the expensive current work rather than debug output?
-- Are tokens/glances informative without becoming noise?
-- Does opening an object feel like a useful peek rather than navigation?
-- Is relationship/source context useful at the table?
-- Can sessions be traversed with low friction?
-- Does the shell feel like one application?
-- What still feels assembled rather than designed?
-- Which pain is visual/interaction debt versus semantic-memory quality?
+Change: ordinary pill color is not ontology truth; glance drops `Why it matters here` and redundant `this session`; Peek drops redundant `World Object` framing, bounds giant prose, uses subject-aware relationship copy, demotes raw excerpt/debug, and removes `Continue in Build` from the primary recap-information path.
 
-The operator's answers decide the next bounded UI slice.
+Do **not** disguise semantic problems (wrong kind, missing PC/swarm pills). Those remain semantic successors.
 
-### Do not dispatch yet
+Parked, not authorized:
 
-Until this human pass is recorded:
+```text
+highlight recap text
+→ tell Agent "this is a node"
+→ have it author the rest
+```
 
-- do **not** automatically run the 16-question semantic gauntlet as the next work item;
-- do **not** dispatch 7A1 contextual Ask;
-- do **not** reopen graph ingestion/provenance architecture without a newly observed blocker;
-- do **not** mark Stage 4 / DEMO-R4 complete merely because #732 merged;
-- do **not** start a broad styling rewrite.
-
-If the human pass is satisfying, record the Stage 4/Operator dogfood disposition and then re-sequence the remaining UI-language successors versus semantic/Agent work.
+Do not dispatch 7A1, Agent work, or authoring changes from this series file. One serial implementation PR may be opened from the UI-04 handoff only.
 
 ---
 

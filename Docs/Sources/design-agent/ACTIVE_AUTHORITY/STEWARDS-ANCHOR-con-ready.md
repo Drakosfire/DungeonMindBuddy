@@ -2,18 +2,19 @@
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
-**Updated:** 2026-09-17  
+**Updated:** 2026-09-18  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor input base:** `main@4ee958a70a6f43b7fdca6c34476f56aae28c78b6` — guided Stage 4 WOW operator pass recorded  
-**Current product frontier:** Stage 4 recap / UI-language — **human pass HOLD**; next slice is steward/design  
-**Active implementation PR:** **NONE**  
+**Re-anchor input base:** `main@55ff36b4847b19063ad84f3937b7eae57441bf9d` — UI-04 ACTIVE handoff landed  
+**Current product frontier:** UI-04 campaign-information glance + peek (Gate 0 session continuity serialized in the same lane)  
+**Active implementation PR:** **NONE** — one serial PR is authorized by the ACTIVE handoff, not yet opened  
+**Active implementation handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md)  
 **UI-language authority:** [`HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md)  
 **Recorded operator pass:** [`../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md)  
 **Completed dogfood handoff:** [`HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md)  
 **Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)  
 **Execution roadmap:** [`../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md)
 
-> Repository truth supersedes chat reconstruction. The current instruction is: **design the next UI-language slice from the recorded human pass; do not dispatch 7A1 or the semantic gauntlet automatically.**
+> Repository truth supersedes chat reconstruction. The current instruction is: **implement UI-04 from the checked-in ACTIVE handoff; do not dispatch 7A1, the semantic gauntlet, or a second PR.**
 
 ---
 
@@ -26,16 +27,14 @@ Begin with:
 Read, in order:
 
 1. this anchor;
-2. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`;
-3. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`;
-4. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`;
+2. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md`;
+3. `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`;
+4. `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`;
 5. `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`;
 6. `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`, Stage 4;
 7. older campaign-memory reports only when diagnosing a concrete failure.
 
-There is **no active implementation lease** from this anchor.
-
-Do not open a PR merely because an old successor was queued.
+The ACTIVE write lease is **UI-04 §4 / §7**, not this anchor. Do not open a second PR. Do not open a PR for a queued successor.
 
 ---
 
@@ -111,13 +110,28 @@ The operator had already demonstrated that the spike version of this interaction
 
 ---
 
-## 3. Current action — design from the recorded human pass
+## 3. Current action — implement UI-04
 
-**Do not code first. Do not dispatch 7A1 or the semantic gauntlet automatically.**
+**Do not redesign the slice. Do not dispatch 7A1 or the semantic gauntlet.**
 
-The guided operator pass is recorded in [`../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md).
+Outcome **B** is chosen. The ACTIVE handoff is:
 
-Recommended steward outcome from that report: **B** — one UI-language successor for chip → glance → peek as campaign information. The `longmont-c2:27` session-identity abort may be serialized immediately before or inside that slice. Semantic thinness/wrong kind is real and is not the first dispatch.
+[`HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md)
+
+```text
+recap pill
+→ truthful compact campaign glance
+→ table-readable campaign-memory Peek
+→ related campaign fact/object
+→ close
+→ same recap context
+```
+
+Gate 0 (same lane): Ingest must not rewrite `session-27` into `longmont-c2:27`; an interactive C2→C1 campaign switch must select a valid C1 recap session.
+
+Wrong kinds and missing pills remain **semantic successors**. Highlight-text → tell Agent it is a node → author the rest remains **parked**.
+
+One serial implementation PR may be opened from that handoff. No application code belongs in this authority-pointer sync.
 
 ---
 
@@ -175,21 +189,18 @@ Do not promote Stage 4 or operator dogfood from automated evidence alone.
 
 ## 7. Next state transition
 
-There is intentionally no preselected implementation PR.
-
-The human UX/WOW pass is recorded. The operator-pass report recommends **B**. The steward still chooses the dispatched outcome; do not treat the report as a write lease.
+There is one authorized serial implementation PR, not yet opened. Outcome **B** is already landed as UI-04. Do not reopen A/C/D as if the design choice were still open.
 
 ```text
 A. UX is good; semantic memory quality is now the earliest blocker
-   → design/dispatch semantic gauntlet or semantic repair.
+   → not chosen; semantic successors remain after UI-04.
 
-B. One bounded UX defect dominates          ← report recommendation
-   → design one UI-language successor slice and land its handoff.
+B. One bounded UX defect dominates          ← CHOSEN / ACTIVE
+   → UI-04 campaign-information glance + peek + Gate 0.
 
 C. Product path still fails structurally
-   → localize earliest broken boundary and repair only that boundary.
+   → Gate 0 is inside UI-04, not a separate substrate lane.
 
 D. UX is satisfying and no immediate blocker dominates
-   → record Stage 4 disposition, re-anchor, then choose between
-      remaining UI-language work, semantic evaluation, and queued 7A1.
+   → not chosen; Stage 4 WOW remains HOLD until the UI-04 human witness.
 ```
