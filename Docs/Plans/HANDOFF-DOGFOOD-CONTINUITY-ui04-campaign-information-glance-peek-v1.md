@@ -1,16 +1,15 @@
 # HANDOFF — DOGFOOD-CONTINUITY: UI-04 campaign-information glance + peek v1
 
 **Created:** 2026-09-17  
-**Status:** ACTIVE — one serial implementation lane may be opened from this handoff  
+**Status:** MERGED — PR #733 at `fd9a42501c8616d27fa1436a7b66fc6a6dfe3347` (accepted head `d10c66dcd980d3b9dd9d7594938feb22413677a0`)  
 **Canonical path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md`  
 **Workstream:** `CON-READY / DOGFOOD-CONTINUITY / UI language / Stage 4 WOW`  
 **Steward outcome:** **B — one bounded UX defect dominates**  
 **Design base:** `main@b7d44a07bdbfc420f64396456704aba2fabb5af8`  
 **Human evidence:** `Docs/Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`  
 **PR topology:** `serial`  
-**Authorized implementation PR:** exactly one, not yet opened  
-**Proposed branch:** `dogfood-continuity/ui04-campaign-information-glance-peek-v1`  
-**Proposed PR title:** `DOGFOOD-CONTINUITY: make recap references read like campaign information`
+**Implementation branch / PR:** `dogfood-continuity/ui04-campaign-information-glance-peek-v1` / #733  
+**Named successor:** [`HANDOFF-DOGFOOD-CONTINUITY-ui05-floating-world-object-peek-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui05-floating-world-object-peek-v1.md) — floating Peek inspector after post-merge duplicate-close dogfood; unauthorized #734 closed without merge
 
 > This is an implementation handoff, not permission to redesign campaign-memory semantics. The first click must become useful without pretending the graph knows things it does not know.
 

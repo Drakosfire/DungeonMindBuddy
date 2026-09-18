@@ -1,8 +1,8 @@
 # HANDOFF — DOGFOOD-CONTINUITY: UI language design series
 
-**Purpose:** Brief the design agent on the UI-language series after `#698` / `#699`. Design input. The ACTIVE implementation lease is UI-04, not this file.
+**Purpose:** Brief the design agent on the UI-language series after `#698` / `#699`. Design input. The ACTIVE implementation lease is UI-05, not this file.
 
-**Status:** UI-04 ACTIVE — UI-01/UI-02/UI-03 + Stage 4B merged; human WOW pass recorded HOLD; current implementation slice is campaign-information glance + peek  
+**Status:** UI-05 ACTIVE — UI-01/UI-02/UI-03 + Stage 4B + UI-04 merged; human WOW pass recorded HOLD; current implementation slice is floating world-object Peek inspector  
 **Created:** 2026-09-10  
 **From:** steward + operator after `#699` merge, Mobbin research, and Of Conks styling capture  
 **To:** the next design agent for the bounded UI design / implementation series  
@@ -13,8 +13,8 @@
 **Re-anchor at write time:**
 
 ```text
-main                         55ff36b4847b19063ad84f3937b7eae57441bf9d
-                             UI-04 ACTIVE handoff landed
+main                         fd9a42501c8616d27fa1436a7b66fc6a6dfe3347
+                             UI-04 / #733 merged; UI-05 ACTIVE handoff landed
 #698                         MERGED — compact opened World objects
 #699                         MERGED — Recap overlay gone; Tools between nav and Ask;
                              Ask Open is a bottom sheet; chrome-band is
@@ -23,13 +23,15 @@ UI-01                        MERGED — PR #700 at 5810a253239a53d731da831a9ac4c
 UI-02                        MERGED — PR #701 at d515904c2bf4d196be70efc7419dc8485e991515
 UI-03                        MERGED — PR #702 at 92a50db8bd41d632e54e5bbbd265738f546e0a5b
 STAGE 4B                     MERGED — PR #704 recap World-reference glance mechanics
-UI-04                        ACTIVE — campaign-information glance + peek
-                             Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md
-                             Gate 0 session continuity is serialized in the same lane
+UI-04                        MERGED — PR #733 campaign-information glance + peek
+UI-05                        ACTIVE — floating world-object Peek inspector
+                             Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-ui05-floating-world-object-peek-v1.md
+#734                         CLOSED without merge — HOLD on chrome singularity without
+                             persistent dismiss; evidence head a9b43ed7 only
 7A1                          DESIGN READY / QUEUED behind this series
 ```
 
-Accepted decomposition: Ingest is the first implementation consumer of the shared Peek primitive; Play remains the visual grammar north star. UI-02 owns Agent dock/absence behavior and UI-03 owns responsive secondary context. Their merges do not pre-complete the series or Stage 4. **UI-04 is the current implementation slice.** Stage 4 WOW remains a human gate after UI-04.
+Accepted decomposition: Ingest is the first implementation consumer of the shared Peek primitive; Play remains the visual grammar north star. UI-02 owns Agent dock/absence behavior and UI-03 owns responsive secondary context. Their merges do not pre-complete the series or Stage 4. **UI-05 is the current implementation slice.** Stage 4 WOW remains a human gate.
 
 > Repository law: `AGENTS.md`. Steward judgment: `Docs/Process/STEWARD-CYCLE.md`. Language (feel/compose): `Docs/Design/ui-language/`. Chrome **ownership**: `Docs/Design/ARCHITECTURE-surface-interaction-layer.md`. Product goals (non-status): root `Backlog.md` Captured UI section.
 
@@ -64,17 +66,17 @@ That is the interruption. The campaign-memory work was not a replacement roadmap
 
 ### Current action
 
-This 0A section is historical. The human pass is recorded. Current implementation authority is UI-04 (see §0B).
+This 0A section is historical. The human pass is recorded. UI-04 is merged. Current implementation authority is UI-05 (see §0C).
 
 ---
 
-## 0B. 2026-09-18 re-anchor — UI-04 is ACTIVE
+## 0B. 2026-09-18 re-anchor — UI-04 (historical; now MERGED)
 
 Human evidence: [`../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md`](../Reports/REPORT-DOGFOOD-CONTINUITY-guided-stage4-wow-operator-pass-v1.md)
 
-Steward outcome **B** is chosen. Current implementation authority:
+Steward outcome **B** chose UI-04. That slice is now **MERGED** as PR #733 at `fd9a42501c8616d27fa1436a7b66fc6a6dfe3347` (accepted head `d10c66dcd980d3b9dd9d7594938feb22413677a0`).
 
-[`HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui04-campaign-information-glance-peek-v1.md)
+UI-04 delivered:
 
 ```text
 recap pill
@@ -85,21 +87,30 @@ recap pill
 → same recap context
 ```
 
-Protect: pills as attention; hole-style factual glance; Peek is not navigation; C1 Cultists → C2 Dustwalker pull.
+Post-merge dogfood then exposed duplicate close chrome. Unauthorized #734 collapsed chrome without restoring UI-03 persistent dismiss and was closed without merge (HOLD on `a9b43ed7`).
 
-Change: ordinary pill color is not ontology truth; glance drops `Why it matters here` and redundant `this session`; Peek drops redundant `World Object` framing, bounds giant prose, uses subject-aware relationship copy, demotes raw excerpt/debug, and removes `Continue in Build` from the primary recap-information path.
+---
 
-Do **not** disguise semantic problems (wrong kind, missing PC/swarm pills). Those remain semantic successors.
+## 0C. 2026-09-18 re-anchor — UI-05 is ACTIVE
 
-Parked, not authorized:
+Current implementation authority:
+
+[`HANDOFF-DOGFOOD-CONTINUITY-ui05-floating-world-object-peek-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui05-floating-world-object-peek-v1.md)
 
 ```text
-highlight recap text
-→ tell Agent "this is a node"
-→ have it author the rest
+recap pill
+→ glance
+→ Peek inspector (viewport-bounded; does not scroll with recap)
+→ one identity-row × that stays reachable
+→ close
+→ same recap
 ```
 
-Do not dispatch 7A1, Agent work, or authoring changes from this series file. One serial implementation PR may be opened from the UI-04 handoff only.
+Protect: UI-03 CENTER XOR SECONDARY; recap not remounted; Tools/Projection Back chrome; no guessed `--app-chrome-*` overlay math.
+
+Do **not** absorb parked Backlog IDEA work (DeepSeek extraction ablation; predicate-family relationship rollup).
+
+Do not dispatch 7A1, Agent work, or authoring changes from this series file. One serial implementation PR may be opened from the UI-05 handoff only.
 
 ---
 
