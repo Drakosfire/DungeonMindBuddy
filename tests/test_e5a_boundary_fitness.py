@@ -242,6 +242,10 @@ BASELINE_DUNGEONMIND_IMPORTS: frozenset[tuple[str, str]] = frozenset(
             "dungeonmind_dnd.application.world_object_vocabulary",
         ),
         (
+            "apps/live_control_server/services/candidate_graph_admission.py",
+            "dungeonmind.domain.errors",
+        ),
+        (
             "apps/live_control_server/services/runtime_preflight.py",
             "dungeonmind.infrastructure.postgres",
         ),
@@ -250,6 +254,7 @@ BASELINE_DUNGEONMIND_IMPORTS: frozenset[tuple[str, str]] = frozenset(
 
 BASELINE_DUNGEONMIND_OUTSIDE_INTEGRATION: frozenset[str] = frozenset(
     {
+        "apps/live_control_server/services/candidate_graph_admission.py",
         "apps/live_control_server/services/runtime_preflight.py",
     }
 )
