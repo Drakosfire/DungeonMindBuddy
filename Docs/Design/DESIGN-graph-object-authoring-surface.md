@@ -1,6 +1,6 @@
 # Design — Graph Object Authoring Surface
 
-**Status:** Current architecture checkpoint; implementation trail retained below
+**Status:** HISTORICAL INTERACTION/IMPLEMENTATION CHECKPOINT — current authority/sequencing moved to Authoring v2 plan
 **Date:** 2026-07-09
 **Workstream:** Graph Memory / Memory Ingest / Graph Review / Graph Authoring  
 **Companion roadmap:** `Docs/Plans/ROADMAP-graph-object-authoring-surface.md`  
@@ -17,6 +17,44 @@
 - `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md`
 - `Docs/Design/DESIGN-plan-surface-session-prep-current-goal-2026-07.md`
 - `Docs/Design/ARCHITECTURE-campaign-supergraph.md`
+
+---
+
+## Current authority note — 2026-09-18
+
+This document remains the best record of the manual graph-authoring interaction work and the product principle that authored campaign memory—not gold fixtures—is the primary destination.
+
+It predates the completed DungeonMind authority cutover.
+
+Current design/sequencing authority:
+
+`Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
+
+Standing reinterpretation:
+
+```text
+KEEP
+  source-first authoring UX
+  exact selection/context
+  staged human intent
+  explicit relationship authoring
+  correction/supersession
+  prepare/review/confirm shape
+  derived evaluation output
+
+SUPERSEDED AS AUTHORITY
+  Buddy-owned durable graph store
+  file-backed authored overlay as terminal truth
+  gold fixture as primary write target
+
+CURRENT TARGET
+  Buddy authors/reviews
+  → governed DungeonMind World publication
+  → immutable World revision
+  → derived gold from human adjudication
+```
+
+Agent/LLM assistance remains downstream of a proven manual proposal/review/write loop.
 
 ---
 
