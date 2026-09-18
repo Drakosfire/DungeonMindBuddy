@@ -414,6 +414,7 @@ dependencies = [
     { name = "blake3" },
     { name = "dungeonmind", extra = ["postgres"] },
     { name = "fastapi" },
+    { name = "generationengine", extra = ["openai"] },
     { name = "hermes-agent" },
     { name = "httpx" },
     { name = "jsonschema" },
@@ -442,6 +443,7 @@ requires-dist = [
     { name = "blake3", specifier = ">=0.3.3" },
     { name = "dungeonmind", extras = ["postgres"], git = "https://github.com/Drakosfire/DungeonMind.git?rev=63ec810a02f18c4e25af228f6fdb19d99d12579e#63ec810a02f18c4e25af228f6fdb19d99d12579e" },
     { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "generationengine", extras = ["openai"], git = "https://github.com/Drakosfire/GenerationEngine.git?rev=80288d7b467ac3c3586f4e3c964385cefe69f931#80288d7b467ac3c3586f4e3c964385cefe69f931" },
     { name = "hermes-agent", git = "https://github.com/NousResearch/hermes-agent.git?rev=861d69c7bba8d2ea6a1cd170e989c901c74d32d1#861d69c7bba8d2ea6a1cd170e989c901c74d32d1" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "jsonschema", specifier = ">=4.25.1" },
@@ -517,6 +519,22 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/1e/e3/23f4be7d5626878a6297c728f5f8db83bd9b135da481935d4c1bb82efc21/genai_prices-0.1.4.tar.gz", hash = "sha256:f3b8a0bf0c21b01f5af3ca42babcab2f17728bf3c602f87f42b72d1d2bf61d98", size = 94678 }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e6/54/911961e926a4c4ea30bf1fa0bf9d8ffc5c9ac5ed6a3f77b3d9e0ab5bb9a5/genai_prices-0.1.4-py3-none-any.whl", hash = "sha256:1d1b01cc7ab1adfa17c3a1121f4c13990bd0a4377640ecd37ebfde5836768240", size = 99160 },
+]
+
+[[package]]
+name = "generationengine"
+version = "0.1.0"
+source = { git = "https://github.com/Drakosfire/GenerationEngine.git?rev=80288d7b467ac3c3586f4e3c964385cefe69f931#80288d7b467ac3c3586f4e3c964385cefe69f931" }
+dependencies = [
+    { name = "httpx" },
+    { name = "jsonschema" },
+    { name = "pydantic" },
+    { name = "tenacity" },
+]
+
+[package.optional-dependencies]
+openai = [
+    { name = "openai" },
 ]
 
 [[package]]

@@ -297,7 +297,7 @@ def classify_live_turn(
 
     mid = _resolve_classifier_model(model)
     try:
-        adapter = OpenAILiveTurnClassifierClient(sdk_client=client)
+        adapter = OpenAILiveTurnClassifierClient(client=client)
         parsed = adapter.classify_turn(model=mid, text=stripped)
     except Exception as exc:
         if mode == "llm_with_heuristic_fallback":

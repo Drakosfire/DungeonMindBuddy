@@ -1,70 +1,112 @@
-"""OpenAI Responses API adapter for live-turn classification."""
+"""GenerationEngine adapter for live-turn classification."""
 
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+import threading
+from collections.abc import Awaitable, Callable
+from typing import Any, TypeVar
 
-from src.live_play.live_turn_classification_schema import LiveTurnClassificationModel
+from generationengine import (
+    GenerationClient,
+    InferenceObservation,
+    ObservationState,
+    TextRequest,
+    TextResult,
+)
+
+from src.live_play.live_turn_classification_schema import (
+    LiveTurnClassificationModel,
+    live_turn_classification_json_schema,
+)
 from src.live_play.prompts.live_turn_classifier import LIVE_TURN_CLASSIFIER_INSTRUCTIONS
-from src.llm.api_client import DungeonMindApiClient
+
+T = TypeVar("T")
+
+_SCHEMA_NAME = "live_turn_classification"
+
+
+def _run_awaitable_sync(factory: Callable[[], Awaitable[T]]) -> T:
+    """Run a GE coroutine to completion without nested ``asyncio.run()``.
+
+    Ordinary sync callers get a fresh event loop. If this thread already has a
+    running loop, the coroutine runs on a dedicated worker thread with its own
+    loop and this call blocks until that worker finishes.
+    """
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(factory())
+
+    holder: list[T] = []
+    error: list[BaseException] = []
+
+    def _worker() -> None:
+        try:
+            holder.append(asyncio.run(factory()))
+        except BaseException as exc:
+            error.append(exc)
+
+    thread = threading.Thread(target=_worker, name="live-turn-ge-bridge")
+    thread.start()
+    thread.join()
+    if error:
+        raise error[0]
+    return holder[0]
 
 
 class OpenAILiveTurnClassifierClient:
-    """Adapter for OpenAI Responses API structured live-turn routing."""
+    """Synchronous Buddy adapter over GenerationEngine structured generation."""
 
-    def __init__(self, *, sdk_client: Any | None = None) -> None:
-        if sdk_client is not None:
-            self._client = sdk_client
-            self._api_client = DungeonMindApiClient.wrap(self._client)
-            return
-        try:
-            from openai import OpenAI  # type: ignore[import-untyped]
-        except Exception as exc:  # pragma: no cover
-            raise RuntimeError(
-                "OpenAI SDK is required for OpenAILiveTurnClassifierClient. Install 'openai'."
-            ) from exc
-        self._client = OpenAI()
-        self._api_client = DungeonMindApiClient.wrap(self._client)
+    def __init__(self, *, client: Any | None = None) -> None:
+        self._client = client
 
     def classify_turn(self, *, model: str, text: str) -> LiveTurnClassificationModel:
-        response = self._api_client.responses_parse(
-            action="live_play.classify_turn",
+        request = TextRequest(
+            user_prompt=text,
+            system_prompt=LIVE_TURN_CLASSIFIER_INSTRUCTIONS,
+            provider="openai",
             model=model,
-            instructions=LIVE_TURN_CLASSIFIER_INSTRUCTIONS,
-            input=[{"role": "user", "content": text}],
-            text_format=LiveTurnClassificationModel,
-        ).response
-        parsed = getattr(response, "output_parsed", None)
+            temperature=None,
+            json_schema=live_turn_classification_json_schema(),
+            schema_name=_SCHEMA_NAME,
+        )
+        result = _run_awaitable_sync(lambda: self._generate_structured(request))
+        parsed = getattr(result, "parsed", None)
         if parsed is None:
-            raise ValueError("Live turn classifier returned no output_parsed.")
-        if isinstance(parsed, LiveTurnClassificationModel):
-            return parsed
+            raise ValueError("Live turn classifier returned no parsed structured output.")
         return LiveTurnClassificationModel.model_validate(parsed)
 
+    async def _generate_structured(self, request: TextRequest) -> Any:
+        if self._client is not None:
+            return await self._client.generate_structured(request)
+        ge_client = GenerationClient.from_env()
+        return await ge_client.generate_structured(request)
 
-class _FakeClassifierResponse:
-    __slots__ = ("output_parsed",)
 
-    def __init__(self, parsed: LiveTurnClassificationModel) -> None:
-        self.output_parsed = parsed
+def _queued_structured_result(parsed: dict[str, Any]) -> TextResult:
+    return TextResult(
+        parsed=parsed,
+        observation=InferenceObservation(
+            latency_ms=0,
+            retry_count=0,
+            state=ObservationState.COMPLETED,
+        ),
+    )
 
 
 class SequenceLiveTurnClassifierClient:
-    """Test double: ``responses.parse`` returns queued structured classifications in order."""
+    """Test double: ``generate_structured`` returns queued classifications in order."""
 
     def __init__(self, models: list[LiveTurnClassificationModel]) -> None:
         self._models = list(models)
         self._i = 0
-        self.responses = self._Responses(self)
+        self.requests: list[TextRequest] = []
 
-    class _Responses:
-        def __init__(self, outer: SequenceLiveTurnClassifierClient) -> None:
-            self._outer = outer
-
-        def parse(self, **kwargs: Any) -> _FakeClassifierResponse:
-            o = self._outer
-            if o._i >= len(o._models):
-                raise RuntimeError("SequenceLiveTurnClassifierClient: no more queued responses")
-            parsed = o._models[o._i]
-            o._i += 1
-            return _FakeClassifierResponse(parsed)
+    async def generate_structured(self, request: TextRequest) -> TextResult:
+        self.requests.append(request)
+        if self._i >= len(self._models):
+            raise RuntimeError("SequenceLiveTurnClassifierClient: no more queued responses")
+        parsed = self._models[self._i]
+        self._i += 1
+        return _queued_structured_result(parsed.model_dump(mode="json"))
