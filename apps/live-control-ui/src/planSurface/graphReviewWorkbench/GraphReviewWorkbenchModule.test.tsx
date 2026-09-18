@@ -600,6 +600,41 @@ describe("GraphReviewWorkbenchModule", () => {
     );
   });
 
+  it("does not show ExtractionRun catalog empty state on ordinary published-memory browse", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    renderWorkbench([]);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+    );
+    expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Campaign")).toBeInTheDocument();
+    expect(screen.getByLabelText("Focus session")).toHaveValue("session-27");
+  });
+
+  it("does not leak ExtractionRun catalog unavailability into published-memory browse", async () => {
+    const catalogChannel = createSurfaceInformationChannel<ExtractionRunCatalogResponse>(
+      INGEST_RUN_CATALOG_DESCRIPTOR,
+    );
+    const ticket = catalogChannel.beginObservation();
+    if (ticket) {
+      catalogChannel.commit(
+        ticket,
+        mapIngestRunCatalogObservation({ error: new Error("catalog unavailable") }),
+      );
+    }
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-27");
+    renderWorkbench(undefined, context, { catalogChannel });
+
+    await waitFor(() =>
+      expect(screen.getByLabelText("Published recap")).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId("graph-review-catalog-error")).not.toBeInTheDocument();
+    expect(screen.queryByText(/catalog unavailable/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
+  });
+
   it("does not attach write authority from a stale persisted catalog run", async () => {
     window.sessionStorage.setItem(
       "dmb.graph-review.applied-selection.v2",

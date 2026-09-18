@@ -81,6 +81,8 @@ interface GraphReviewWorkbenchModuleProps {
   onCatalogRefresh: () => void;
 }
 
+const EMPTY_EXTRACTION_RUNS: ExtractionRunRecord[] = [];
+
 function buildDefaultDraft(
   sessions: GraphReviewCatalogSession[],
   campaignId: string,
@@ -177,11 +179,7 @@ export function GraphReviewWorkbenchModule({
     || catalogState.status === "unavailable"
     || catalogState.status === "integrity_error";
   const canonicalRuns =
-    catalogState.status === "ready" ? catalogState.value.runs : [];
-  const sessionsError =
-    catalogState.status === "unavailable" || catalogState.status === "integrity_error"
-      ? catalogState.reason
-      : null;
+    catalogState.status === "ready" ? catalogState.value.runs : EMPTY_EXTRACTION_RUNS;
   const [goldSessions, setGoldSessions] = useState<GoldReviewSessionSummary[]>([]);
 
   // W14: structural Ingest surface stays mounted across catalog observation
@@ -811,14 +809,6 @@ export function GraphReviewWorkbenchModule({
             exactRun={hasExactRunLoad ? loadedRunSummary : null}
           />
 
-          {sessionsError ? (
-            <p className="graph-review-error" data-testid="graph-review-catalog-error">
-              {sessionsError}
-            </p>
-          ) : null}
-          {catalogState.status === "empty" ? (
-            <p className="plan-projection-empty">No canonical ExtractionRuns are stored yet.</p>
-          ) : null}
           {exactRunError ? (
             <p className="graph-review-error" data-testid="graph-review-exact-run-error">
               {exactRunError}

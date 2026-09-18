@@ -7,6 +7,8 @@
 **Spike evidence:** `dd4db027994f326af4434d2c0dd74f18abbb2509` (Review Cycle 1 HOLD)  
 **Authorized PR:** [#732](https://github.com/Drakosfire/DungeonMindBuddy/pull/732)
 
+**Review Cycle 2 HOLD:** `00fc66a9b7ea8180c1f12f0fa701fb68c631a5b9` review `5243098493`
+
 ```text
 PUBLISHED-MEMORY GRAPH REVIEW BROWSE AUTHORITY = PASS
 GRAPH REVIEW BROWSE/WRITE AUTHORITY SEPARATION = PASS
@@ -32,7 +34,7 @@ AGENT ANSWERABILITY                            = not measured
 | `appliedSelection` / catalog restore as implicit `liveRun` | **discarded** | Review Cycle 1 HOLD #1: visible recap was treated as authorable catalog state |
 | Gate Recap on `catalogEverSettled` | **discarded** | Review Cycle 1 HOLD #2 / Invariant B |
 | Empty Author Node copy “open after a published recap is on screen” | **redesigned** | That copy implied recap visibility is write authority |
-| Mass-delete Load recap files | **kept deletions already on the spike** | Ordinary Load recap *is* the ceremony O2 forbids; leftover unused catalog/run modules were not hunted |
+| Mass-delete Load recap files | **restored after Cycle 2 HOLD** | Handoff forbade cleanup deletions; files are back on the tree and unused by ordinary browse |
 
 ---
 
@@ -49,6 +51,21 @@ PublishedMemoryBrowseContext  !=  GraphReviewWriteAuthority
 
 Author Node in browse-only mode stays openable and states: **Authoring requires an explicit source/run context.** Prepare/confirm/write APIs are not invoked.
 
+Ordinary browse no longer renders ExtractionRun catalog empty/error chrome. Catalog observation still exists for diagnostics/exact-run, but it is not part of `Campaign → Focus session → recap → objects`.
+
+---
+
+## Review Cycle 2 repairs
+
+1. Restored from `origin/main` without re-wiring into ordinary browse:
+   - `GraphReviewLanePicker.tsx`
+   - `GraphReviewLoadBar.tsx` + test
+   - `GraphReviewLoadLaneSummary.tsx`
+   - `GraphReviewLoadSurface.tsx` + test
+2. Removed workbench catalog empty/error copy from the published-memory surface.
+   Stabilized empty/unavailable catalog snapshots so browse does not re-render-loop.
+3. Adjacent test update outside the original §6 table: `apps/live-control-ui/src/App.test.tsx` — `/ingest` now asserts Campaign/Focus session and the absence of catalog empty chrome. Required to stop locking in the leak.
+
 ---
 
 ## Verification
@@ -64,6 +81,8 @@ Focused vitest (live-control-ui):
 - `verifyWorldGraphProjectionResponse.test.ts`
 - `graphReviewAppliedSelection.test.ts`
 - `GraphReviewAuthorDraftWorkspace.test.tsx` (Author Node panel authority copy; Union-preview workspace suite skipped as retired)
+- `GraphReviewLoadSurface.test.tsx` / `GraphReviewLoadBar.test.tsx` (restored modules)
+- `App.test.tsx` ingest route (catalog chrome must not appear)
 
 All executed files: PASS.
 
