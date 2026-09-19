@@ -54,7 +54,6 @@ BASELINE_PROVIDER_IMPORTS: frozenset[tuple[str, str]] = frozenset(
         ("src/ingestion/openai_batch_pipeline.py", "openai.lib._parsing._responses"),
         ("src/ingestion/schema_repair_batch.py", "openai"),
         ("src/live_play/live_query_context.py", "openai"),
-        ("src/npc_statblock_pipeline/canonical_intent.py", "openai"),
     }
 )
 
@@ -262,6 +261,7 @@ BASELINE_DUNGEONMIND_OUTSIDE_INTEGRATION: frozenset[str] = frozenset(
 BASELINE_GENERATIONENGINE_IMPORTS: frozenset[tuple[str, str]] = frozenset(
     {
         ("src/live_play/live_turn_classifier_client.py", "generationengine"),
+        ("src/npc_statblock_pipeline/canonical_intent.py", "generationengine"),
     }
 )
 

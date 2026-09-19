@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
+from typing import Any
+
 import pytest
 
 from evals.lysandra_vertical_slice.step0_corpus_environment import resolve_corpus_dir
@@ -18,6 +22,14 @@ from evals.lysandra_vertical_slice.step2_canonical_intent import (
     run_step2_intent_fixture_gates,
     evaluate_step2_post_planner_benchmark,
     statblock_trace_reads_matching_policy,
+)
+from src.npc_statblock_pipeline.canonical_intent import (
+    SequenceIntentClassifierClient,
+    _INTENT_CLASSIFIER_INSTRUCTIONS,
+    _intent_classification_from_payload,
+    _resolve_intent_classifier_model,
+    classify_intent as classify_intent_src,
+    intent_classification_json_schema,
 )
 
 
@@ -293,3 +305,241 @@ def test_statblock_trace_reads_matching_policy_configurable() -> None:
     assert matched == [
         "Elderwyld/Cities and Towns/Mirathorn/NPCs/torbin_jove/torbin_jove_statblock.md"
     ]
+
+
+def test_generationengine_request_uses_explicit_openai_target(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NPC_INTENT_CLASSIFIER_MODEL", raising=False)
+    user_text = "Bump Lysandra to CR 5 for the boss fight."
+    client = intent_client_for_gold_expect(
+        {
+            "intent_mode": "upgrade_request",
+            "power_axis": "challenge_rating",
+            "clarifier_required": False,
+        }
+    )
+    classify_intent(user_text, client=client)
+    assert len(client.requests) == 1
+    request = client.requests[0]
+    assert request.provider == "openai"
+    assert request.model == "gpt-5.3-codex"
+    assert request.profile is None
+    assert request.temperature is None
+    assert request.system_prompt == _INTENT_CLASSIFIER_INSTRUCTIONS
+    assert request.user_prompt == user_text
+    assert request.json_schema == intent_classification_json_schema()
+    assert request.schema_name == "npc_intent_classification"
+
+
+def test_explicit_model_override_reaches_generationengine_request() -> None:
+    client = intent_client_for_gold_expect(
+        {
+            "intent_mode": "factual_lookup",
+            "power_axis": "unknown",
+            "clarifier_required": False,
+        }
+    )
+    classify_intent("What is her AC?", client=client, model="gpt-4o-mini")
+    assert client.requests[0].model == "gpt-4o-mini"
+
+
+def test_env_model_override_reaches_generationengine_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("NPC_INTENT_CLASSIFIER_MODEL", "gpt-4o-mini")
+    client = intent_client_for_gold_expect(
+        {
+            "intent_mode": "factual_lookup",
+            "power_axis": "unknown",
+            "clarifier_required": False,
+        }
+    )
+    classify_intent("What is her AC?", client=client)
+    assert client.requests[0].model == "gpt-4o-mini"
+
+
+def test_policy_model_resolution_still_returns_gpt_53_codex(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("NPC_INTENT_CLASSIFIER_MODEL", raising=False)
+    assert _resolve_intent_classifier_model(None) == "gpt-5.3-codex"
+
+
+def test_wire_schema_validates_types_not_domain_enums() -> None:
+    schema = intent_classification_json_schema()
+    mode = schema["properties"]["intent_mode"]
+    axis = schema["properties"]["power_axis"]
+    assert "enum" not in mode
+    assert "enum" not in axis
+    assert set(mode["type"]) == {"string", "null"}
+    assert set(axis["type"]) == {"string", "null"}
+    schema["properties"]["intent_mode"]["type"] = ["number"]
+    assert intent_classification_json_schema()["properties"]["intent_mode"]["type"] == [
+        "string",
+        "null",
+    ]
+
+
+def test_missing_and_null_fields_use_buddy_defaults() -> None:
+    missing = classify_intent("What is her AC?", client=SequenceIntentClassifierClient([{}]))
+    assert missing.intent_mode == "factual_lookup"
+    assert missing.power_axis == "unknown"
+    assert missing.clarifier_required is False
+    assert missing.clarifier_question == ""
+
+    nulls = classify_intent(
+        "What is her AC?",
+        client=SequenceIntentClassifierClient(
+            [
+                {
+                    "intent_mode": None,
+                    "power_axis": None,
+                    "clarifier_required": None,
+                    "clarifier_question": None,
+                }
+            ]
+        ),
+    )
+    assert nulls.intent_mode == "factual_lookup"
+    assert nulls.power_axis == "unknown"
+    assert nulls.clarifier_required is False
+    assert nulls.clarifier_question == ""
+
+
+def test_unknown_domain_values_normalize_in_buddy() -> None:
+    got = classify_intent(
+        "What is her AC?",
+        client=SequenceIntentClassifierClient(
+            [
+                {
+                    "intent_mode": "not_a_known_mode",
+                    "power_axis": "something_new",
+                    "clarifier_required": False,
+                    "clarifier_question": "",
+                }
+            ]
+        ),
+    )
+    assert got.intent_mode == "factual_lookup"
+    assert got.power_axis == "unknown"
+    payload = _intent_classification_from_payload(
+        {"intent_mode": "not_a_known_mode", "power_axis": "something_new"}
+    )
+    assert payload.intent_mode == "factual_lookup"
+    assert payload.power_axis == "unknown"
+
+
+def test_clarifier_required_without_question_uses_default() -> None:
+    got = classify_intent(
+        "I want to level her up before next session.",
+        client=SequenceIntentClassifierClient(
+            [
+                {
+                    "intent_mode": "upgrade_request",
+                    "power_axis": "unknown",
+                    "clarifier_required": True,
+                    "clarifier_question": None,
+                }
+            ]
+        ),
+    )
+    assert got.clarifier_required is True
+    assert got.clarifier_question == (
+        "Should this use CR-based NPC math, class-style levels, or both?"
+    )
+
+
+def test_non_required_clarifier_clears_question() -> None:
+    got = classify_intent(
+        "What is her AC?",
+        client=SequenceIntentClassifierClient(
+            [
+                {
+                    "intent_mode": "factual_lookup",
+                    "power_axis": "challenge_rating",
+                    "clarifier_required": False,
+                    "clarifier_question": "leftover question",
+                }
+            ]
+        ),
+    )
+    assert got.clarifier_required is False
+    assert got.clarifier_question == ""
+
+
+def test_blank_input_does_not_call_generationengine() -> None:
+    class _Boom:
+        async def generate_structured(self, request: Any) -> Any:
+            raise AssertionError("blank input must not call GenerationEngine")
+
+    got = classify_intent("   ", client=_Boom())
+    assert got.intent_mode == "factual_lookup"
+    assert got.power_axis == "unknown"
+    assert got.clarifier_required is False
+    assert got.clarifier_question == ""
+
+
+def test_ordinary_synchronous_call_succeeds_without_running_loop() -> None:
+    client = intent_client_for_gold_expect(
+        {
+            "intent_mode": "upgrade_request",
+            "power_axis": "challenge_rating",
+            "clarifier_required": False,
+        }
+    )
+    got = classify_intent("Bump Lysandra to CR 5 for the boss fight.", client=client)
+    assert got.intent_mode == "upgrade_request"
+    assert len(client.requests) == 1
+
+
+def test_synchronous_classifier_succeeds_from_running_event_loop() -> None:
+    client = intent_client_for_gold_expect(
+        {
+            "intent_mode": "upgrade_request",
+            "power_axis": "challenge_rating",
+            "clarifier_required": False,
+        }
+    )
+
+    async def _inside_running_loop() -> Any:
+        return classify_intent("Bump Lysandra to CR 5 for the boss fight.", client=client)
+
+    got = asyncio.run(_inside_running_loop())
+    assert got.intent_mode == "upgrade_request"
+    assert len(client.requests) == 1
+
+
+def test_classifier_does_not_retry_generationengine_failures() -> None:
+    class _CountingFailClient:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def generate_structured(self, request: Any) -> Any:
+            self.calls += 1
+            raise RuntimeError("structured generation failed")
+
+    client = _CountingFailClient()
+    with pytest.raises(RuntimeError, match="structured generation failed"):
+        classify_intent("What is her AC?", client=client)
+    assert client.calls == 1
+
+
+def test_running_event_loop_raises_original_generationengine_failure() -> None:
+    class _FailClient:
+        async def generate_structured(self, request: Any) -> Any:
+            raise RuntimeError("structured generation failed")
+
+    async def _inside_running_loop() -> Any:
+        return classify_intent("What is her AC?", client=_FailClient())
+
+    with pytest.raises(RuntimeError, match="structured generation failed"):
+        asyncio.run(_inside_running_loop())
+
+
+def test_production_path_no_longer_owns_openai_json_parsing() -> None:
+    source = inspect.getsource(classify_intent_src)
+    assert "json.loads" not in source
+    assert "responses.create" not in source
+    assert "_strip_json_fence" not in source
+    assert "generate_structured" in source

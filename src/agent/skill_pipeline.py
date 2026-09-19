@@ -63,8 +63,8 @@ def route_user_line_to_skill(
     model: str | None = None,
 ) -> RoutedTurn:
     """
-    **Runtime / product path:** ``classify_intent`` (Responses API; model from ``MODEL_POLICY`` by default)
-    then Cursor skill selection.
+    **Runtime / product path:** ``classify_intent`` (GenerationEngine structured
+    generation; model from ``MODEL_POLICY`` by default) then Cursor skill selection.
 
     Today only **upgrade_request** maps to ``npc-power-increase``; other modes
     return ``skill_cursor_id=None`` until additional skills exist.

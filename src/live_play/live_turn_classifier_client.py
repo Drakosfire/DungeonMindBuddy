@@ -2,10 +2,7 @@
 
 from __future__ import annotations
 
-import asyncio
-import threading
-from collections.abc import Awaitable, Callable
-from typing import Any, TypeVar
+from typing import Any
 
 from generationengine import (
     GenerationClient,
@@ -20,39 +17,9 @@ from src.live_play.live_turn_classification_schema import (
     live_turn_classification_json_schema,
 )
 from src.live_play.prompts.live_turn_classifier import LIVE_TURN_CLASSIFIER_INSTRUCTIONS
-
-T = TypeVar("T")
+from src.llm.generation_sync import run_awaitable_sync
 
 _SCHEMA_NAME = "live_turn_classification"
-
-
-def _run_awaitable_sync(factory: Callable[[], Awaitable[T]]) -> T:
-    """Run a GE coroutine to completion without nested ``asyncio.run()``.
-
-    Ordinary sync callers get a fresh event loop. If this thread already has a
-    running loop, the coroutine runs on a dedicated worker thread with its own
-    loop and this call blocks until that worker finishes.
-    """
-    try:
-        asyncio.get_running_loop()
-    except RuntimeError:
-        return asyncio.run(factory())
-
-    holder: list[T] = []
-    error: list[BaseException] = []
-
-    def _worker() -> None:
-        try:
-            holder.append(asyncio.run(factory()))
-        except BaseException as exc:
-            error.append(exc)
-
-    thread = threading.Thread(target=_worker, name="live-turn-ge-bridge")
-    thread.start()
-    thread.join()
-    if error:
-        raise error[0]
-    return holder[0]
 
 
 class OpenAILiveTurnClassifierClient:
@@ -71,7 +38,7 @@ class OpenAILiveTurnClassifierClient:
             json_schema=live_turn_classification_json_schema(),
             schema_name=_SCHEMA_NAME,
         )
-        result = _run_awaitable_sync(lambda: self._generate_structured(request))
+        result = run_awaitable_sync(lambda: self._generate_structured(request))
         parsed = getattr(result, "parsed", None)
         if parsed is None:
             raise ValueError("Live turn classifier returned no parsed structured output.")

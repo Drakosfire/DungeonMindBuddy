@@ -11,15 +11,23 @@ See ``Docs/Plans/NAMING-benchmark-vs-runtime.md`` for benchmark vs runtime vocab
 from __future__ import annotations
 
 import copy
-import json
 import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
+from generationengine import (
+    GenerationClient,
+    InferenceObservation,
+    ObservationState,
+    TextRequest,
+    TextResult,
+)
+
 from src.agent.corpus_path_tools import read_paths_from_tool_trace
 from src.agent.synthesis import _load_api_key
+from src.llm.generation_sync import run_awaitable_sync
 
 IntentMode = Literal["factual_lookup", "upgrade_request", "comparison_request"]
 
@@ -130,6 +138,22 @@ Definitions:
 If the line mixes prep/research tone with "level up" or power increase without saying CR vs class, use upgrade_request, power_axis unknown, clarifier_required true.
 """
 
+_INTENT_SCHEMA_NAME = "npc_intent_classification"
+_INTENT_CLASSIFICATION_JSON_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "intent_mode": {"type": ["string", "null"]},
+        "power_axis": {"type": ["string", "null"]},
+        "clarifier_required": {"type": ["boolean", "null"]},
+        "clarifier_question": {"type": ["string", "null"]},
+    },
+}
+
+
+def intent_classification_json_schema() -> dict[str, Any]:
+    """Caller-owned wire schema: types only, no NPC-domain enums."""
+    return copy.deepcopy(_INTENT_CLASSIFICATION_JSON_SCHEMA)
+
 
 def _resolve_intent_classifier_model(model: str | None) -> str:
     """
@@ -157,15 +181,6 @@ def _resolve_intent_classifier_model(model: str | None) -> str:
         if isinstance(cheapest, str) and cheapest.strip():
             return cheapest.strip()
     return _DEFAULT_INTENT_CLASSIFIER_MODEL
-
-
-def _strip_json_fence(text: str) -> str:
-    t = text.strip()
-    if t.startswith("```"):
-        t = re.sub(r"^```[a-zA-Z0-9]*\s*", "", t)
-        if "```" in t:
-            t = t.rsplit("```", 1)[0]
-    return t.strip()
 
 
 _VALID_INTENT_MODES: frozenset[str] = frozenset(
@@ -219,66 +234,68 @@ def _intent_classification_from_gold_expect(expect: dict[str, Any]) -> IntentCla
     )
 
 
-def _intent_json_from_classification(c: IntentClassification) -> str:
-    return json.dumps(
-        {
-            "intent_mode": c.intent_mode,
-            "power_axis": c.power_axis,
-            "clarifier_required": c.clarifier_required,
-            "clarifier_question": c.clarifier_question,
-        },
-        ensure_ascii=False,
+def _intent_payload_from_classification(c: IntentClassification) -> dict[str, Any]:
+    return {
+        "intent_mode": c.intent_mode,
+        "power_axis": c.power_axis,
+        "clarifier_required": c.clarifier_required,
+        "clarifier_question": c.clarifier_question,
+    }
+
+
+def _queued_structured_result(parsed: dict[str, Any]) -> TextResult:
+    return TextResult(
+        parsed=parsed,
+        observation=InferenceObservation(
+            latency_ms=0,
+            retry_count=0,
+            state=ObservationState.COMPLETED,
+        ),
     )
 
 
-class _FakeIntentResponse:
-    __slots__ = ("id", "output_text", "model")
-
-    def __init__(self, output_text: str) -> None:
-        self.id = "fake-intent-response"
-        self.output_text = output_text
-        self.model = "fake-intent-model"
-
-
 class SequenceIntentClassifierClient:
-    """
-    Test double: ``client.responses.create`` returns queued JSON bodies in order.
+    """Test double: ``generate_structured`` returns queued parsed objects in order."""
 
-    Use ``build_step2_intent_fixture_sequence_client`` for gold-driven queues, or construct
-    directly for custom sequences.
-    """
-
-    def __init__(self, json_texts: list[str]) -> None:
-        self._json_texts = list(json_texts)
+    def __init__(self, payloads: list[dict[str, Any]]) -> None:
+        self._payloads = [dict(p) for p in payloads]
         self._i = 0
-        self.responses = self._Responses(self)
+        self.requests: list[TextRequest] = []
 
-    class _Responses:
-        def __init__(self, outer: SequenceIntentClassifierClient) -> None:
-            self._outer = outer
-
-        def create(self, **kwargs: Any) -> _FakeIntentResponse:
-            o = self._outer
-            if o._i >= len(o._json_texts):
-                raise RuntimeError("SequenceIntentClassifierClient: no more queued responses")
-            body = o._json_texts[o._i]
-            o._i += 1
-            return _FakeIntentResponse(body)
+    async def generate_structured(self, request: TextRequest) -> TextResult:
+        self.requests.append(request)
+        if self._i >= len(self._payloads):
+            raise RuntimeError("SequenceIntentClassifierClient: no more queued responses")
+        parsed = self._payloads[self._i]
+        self._i += 1
+        return _queued_structured_result(parsed)
 
 
 def build_step2_intent_fixture_sequence_client(step2_gold: dict[str, Any]) -> SequenceIntentClassifierClient:
-    """Fake OpenAI client: one ``responses.create`` JSON per ``step2_gold.fixtures`` row (order preserved)."""
-    seq: list[str] = []
+    """Fake GE client: one ``generate_structured`` payload per ``step2_gold.fixtures`` row."""
+    seq: list[dict[str, Any]] = []
     for fx in step2_gold.get("fixtures") or []:
         ex = fx.get("expect") or {}
-        seq.append(_intent_json_from_classification(_intent_classification_from_gold_expect(ex)))
+        seq.append(_intent_payload_from_classification(_intent_classification_from_gold_expect(ex)))
     return SequenceIntentClassifierClient(seq)
 
 
 def intent_client_for_gold_expect(expect: dict[str, Any]) -> SequenceIntentClassifierClient:
-    """Single-response fake client returning JSON for one gold-style ``expect`` dict."""
+    """Single-response fake client returning a parsed object for one gold-style ``expect`` dict."""
     c = _intent_classification_from_gold_expect(expect)
-    return SequenceIntentClassifierClient([_intent_json_from_classification(c)])
+    return SequenceIntentClassifierClient([_intent_payload_from_classification(c)])
+
+
+async def _generate_structured(client: Any | None, request: TextRequest) -> Any:
+    if client is not None:
+        generate = getattr(client, "generate_structured", None)
+        if not callable(generate):
+            raise TypeError(
+                "client must have generate_structured (GenerationEngine structured generation)."
+            )
+        return await generate(request)
+    ge_client = GenerationClient.from_env()
+    return await ge_client.generate_structured(request)
 
 
 def classify_intent(
@@ -288,7 +305,7 @@ def classify_intent(
     model: str | None = None,
 ) -> IntentClassification:
     """
-    One OpenAI ``responses.create`` call (cheap model from ``MODEL_POLICY.json`` by default).
+    One GenerationEngine structured-generation call (model from ``MODEL_POLICY.json`` by default).
 
     Tests and offline harnesses should pass ``client=`` (e.g.
     ``build_step2_intent_fixture_sequence_client``). With ``client=None``, ``OPENAI_API_KEY`` is required.
@@ -309,29 +326,24 @@ def classify_intent(
                 "OPENAI_API_KEY is required for classify_intent unless you pass client=... "
                 "(use build_step2_intent_fixture_sequence_client in tests)."
             )
-        try:
-            from openai import OpenAI
-        except ImportError as exc:  # pragma: no cover
-            raise RuntimeError("openai package is required for classify_intent.") from exc
-        client = OpenAI(api_key=api_key)
-    create_fn = getattr(getattr(client, "responses", None), "create", None)
-    if create_fn is None:
-        raise TypeError("client must have responses.create (OpenAI Responses API).")
-    response = create_fn(
+    request = TextRequest(
+        user_prompt=text,
+        system_prompt=_INTENT_CLASSIFIER_INSTRUCTIONS,
+        provider="openai",
         model=mid,
-        instructions=_INTENT_CLASSIFIER_INSTRUCTIONS,
-        input=[{"type": "message", "role": "user", "content": text}],
+        temperature=None,
+        json_schema=intent_classification_json_schema(),
+        schema_name=_INTENT_SCHEMA_NAME,
     )
-    out = (getattr(response, "output_text", None) or "").strip()
-    if not out:
-        raise RuntimeError("Intent classifier model returned empty output_text.")
-    try:
-        payload = json.loads(_strip_json_fence(out))
-    except json.JSONDecodeError as exc:
-        raise RuntimeError(f"Intent classifier returned non-JSON: {out[:500]!r}") from exc
-    if not isinstance(payload, dict):
-        raise RuntimeError(f"Intent classifier JSON must be an object, got {type(payload).__name__}")
-    return _intent_classification_from_payload(payload)
+    result = run_awaitable_sync(lambda: _generate_structured(client, request))
+    parsed = getattr(result, "parsed", None)
+    if parsed is None:
+        raise RuntimeError("Intent classifier returned no parsed structured output.")
+    if not isinstance(parsed, dict):
+        raise RuntimeError(
+            f"Intent classifier parsed output must be an object, got {type(parsed).__name__}"
+        )
+    return _intent_classification_from_payload(parsed)
 
 
 def run_step2_canonical_gates(
