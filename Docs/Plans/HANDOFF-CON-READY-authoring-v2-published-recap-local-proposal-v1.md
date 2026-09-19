@@ -323,6 +323,111 @@ pnpm --dir apps/live-control-ui build
 
 V2-2 remains the named successor and is not authorized.
 
+### Operator dogfood findings — review-time design exploration, not V2-1 merge blockers
+
+Recorded 2026-09-19 on `/ingest?campaign=longmont-c2&session=session-27` against this PR's UI. These are **feel / composition / identity-vocabulary** findings. They do **not** by themselves falsify the V2-1 local-stage invariant (published browse stayed non-write; proposals were local). **Do not expand #738** into Surface Context, Author Node, Peek kinds, or merge. Explore them while reviewing so the next slice is designed from operator evidence rather than re-derived from chat.
+
+#### What landed and was accepted
+
+- Highlighting recap prose immediately surfaces **Author graph object**. That trigger is correct. Keep it.
+- Bind or Create **does recognize** a known node (Karsemine). Matching existing campaign objects is valuable; the verb and destination are what are wrong.
+
+#### Placement: the author action sits under the campaign loader
+
+Current published-recap stack:
+
+```text
+site nav + World Graph chrome
+SurfaceContextHost          ← empty on Ingest
+CENTER:
+  recap-reader-toolbar      ← Campaign + Focus session
+  Author graph object       ← appears here on highlight
+  recap markdown
+  GraphObjectAuthoringSurface  ← the actual form, below the prose
+```
+
+The operator's intended home is the **per-surface sub-nav** already in the product as **Surface Context** (`SurfaceContextHost` under `app-chrome-header`). Plan publishes `PREP`. Build publishes `DOCUMENT`. Ingest publishes nothing, so campaign loading, session selection, surface name, and interactive actions (Author graph / bind-or-create) remain in the recap body.
+
+Review should treat this as chrome composition, not a V2-1 write-path defect:
+
+| Band | Owns |
+|---|---|
+| World Graph in site nav | what world is available |
+| Surface Context | what this surface has loaded + its actions |
+| Center | recap prose only |
+
+Campaign, Focus session, surface name (`INGEST` / recap), and the highlight action belong in Surface Context, not in `recap-reader-toolbar` / `graph-authoring-selection-action-bar`.
+
+#### Workflow: Author graph does not change the view
+
+Clicking **Author graph object** calls `draft.openWithSelection` on `PublishedRecapLocalAuthoring`. Nothing in the viewport moves. The form is `GraphObjectAuthoringSurface` stacked **under the markdown**, so the operator must scroll past the recap to interact. That is confusing and not intuitive.
+
+Exact-run already owns **Author Node** (`GraphReviewAuthorNodeHost` / `GraphReviewAuthorNodeDrawer`) as a chrome-band drawer. Published browse already wraps `RecapGraphModule` in that host, but `GraphReviewAuthorNodePanel` refuses to open a workflow without `liveRun` (`Authoring requires an explicit source/run context.`). V2-1 bypassed the empty drawer by inlining the form under the recap. That is why the toggle exists and still does not help.
+
+Operator direction to explore (do not implement in this PR):
+
+```text
+highlight phrase
+  → small decision chip / compact peek
+      known-node matches
+      + Create new
+  → Create new
+      → open Author Node workflow
+      → not a form below the markdown
+```
+
+Keep three existing surfaces. Do not invent a fourth:
+
+| Moment | Surface |
+|---|---|
+| Highlight a phrase | Compact bind/create chip (near the selection or in Surface Context) |
+| Phrase *is* a known node | Chip names the node; choosing it opens existing campaign-memory Peek |
+| Phrase is a different name | Chip offers alias bind |
+| Create new | Author Node drawer, seeded with the highlight, still local-only |
+
+Do **not** put bind/create into the full Peek region. Peek is already the world-object / campaign-memory card (`PeekClaim kind="world-object"`). A second Peek for suggestions will fight pill inspect.
+
+Author Node may open for **local staging** from ordinary published recap without granting prepare/commit. The current `liveRun` empty state conflates **write authority** with **drawer usefulness**. Exact-run write remains the later gate.
+
+#### Identity: Karsemine is that node, not an alias
+
+Authoring Karsemine from highlighted recap text:
+
+- Bind or Create finds the known node. Keep that recognition.
+- The only bind verb is **Add as alias** (`GraphObjectAuthoringBindExistingPanel`). Copy says “Most of the time this is an alias of an existing node.”
+- That verb is for a *different string* attached to an existing node. Highlighting **Karsemine** when Karsemine is already in the graph is **identity**: that *is* the node.
+- Clicking the Karsemine **pill** already does the right thing (Peek the existing object). Highlighting the same name in prose currently takes the alias/create path instead.
+
+The World graph currently has **Karsemine as PC** and **Karsemine as character**. Those are duplicate identity records. They should stay visible as two known nodes and wait for **merge**. Alias-linking will not collapse them. `merge_objects` remains out of V2-1 vocabulary and is not required for this slice to prove local staging.
+
+Default vocabulary to explore after merge:
+
+```text
+exact selected text = an existing node's primary label
+  → "this is that node" (inspect / Peek), not Add as alias
+
+selected text ≠ canonical label, resolver match
+  → alias bind is legitimate
+
+two same-name nodes (PC vs character)
+  → show both; merge later; do not pick a winner via alias
+```
+
+#### Seams to inspect on the #738 diff (read-only during this review)
+
+- `WorldGraphRecapProjection.tsx` / `RecapGraphModule.tsx` — in-document `recap-reader-toolbar`
+- `PublishedRecapLocalAuthoring.tsx` — reader then `GraphObjectAuthoringSurface`; `onGraphAuthoringAction` does not open Author Node or scroll/focus
+- `GraphProjectionReader.tsx` — inline **Author graph object** bar
+- `GraphObjectAuthoringBindExistingPanel.tsx` / `GraphObjectAuthoringSelectedSource.tsx` — alias-first copy; only bind action is Add as alias
+- `GraphReviewAuthorNodeHost.tsx` / `GraphReviewAuthorNodePanel.tsx` — drawer already mounted on published browse; `liveRun` gate
+- `SurfaceContextHost` — Ingest contributes nothing; Plan/Build already do
+
+#### Review disposition
+
+Judge #738 against the §1 local-stage invariant and §9 rubric. Record these findings in the review handback as **successor design evidence**, not as required #738 code changes, unless a finding actually violates non-write / source-identity / scope-isolation.
+
+Do not dispatch V2-2, Surface Context, Author Node local-stage, or merge from this note. After #738 merges and the workstream is re-anchored, the designing steward decomposes the next independently useful slice from this evidence.
+
 ---
 
 ## §8 Required review handback
@@ -340,7 +445,7 @@ Record:
 9. focused test/build results with provenance;
 10. actual changed paths vs §4 / bounded discovery;
 11. named V2-2 successor still false;
-12. any baseline failure or waiver.
+13. operator dogfood findings disposition: invariant-failing vs successor design evidence (see Implementation record).
 
 ---
 

@@ -31,7 +31,7 @@ Read, in order:
 
 The V2-1 handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. Implementation is [#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738) on `con-ready/v2-1-published-recap-local-proposal-v1` from dispatch base `026fd546cb564f3262dbbe6aaf94fc1cee6df84a`, rebased onto `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D #737 merged.
 
-The next steward action is to review that one serial V2-1 implementation PR (#738) against the handoff invariant. V2-2 remains false.
+The next steward action is to review that one serial V2-1 implementation PR (#738) against the handoff invariant. While reviewing, read the HANDOFF **Operator dogfood findings** section: Surface Context placement, highlight chip → Author Node, and identity-vs-alias (Karsemine). Those are successor design evidence, not #738 merge blockers. V2-2 remains false.
 
 ---
 
@@ -318,4 +318,4 @@ V2-0 current-contract census                    PASS
 → one serial V2-1 implementation PR authorized  DISPATCHED — PENDING REVIEW
 ```
 
-Review the dispatched V2-1 PR. Do not dispatch V2-2, derived gold, extraction/model ablation, or Agent-assisted authoring until V2-1 merges and the workstream is re-anchored.
+Review the dispatched V2-1 PR (#738) against the local-stage invariant. Explore the HANDOFF operator dogfood findings during that review; do not fold Surface Context, Author Node, or merge into this PR. Do not dispatch V2-2, derived gold, extraction/model ablation, or Agent-assisted authoring until V2-1 merges and the workstream is re-anchored.

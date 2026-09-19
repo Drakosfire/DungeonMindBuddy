@@ -448,4 +448,4 @@ V2-5 Agent-assisted assessment                  PARKED BEHIND MANUAL LOOP
 
 Exactly one V2-1 implementation PR is authorized by the ACTIVE handoff above. The plan does not authorize any successor, repair, write-path, Agent, gold-export, or extraction PR.
 
-The next steward action is to review that one V2-1 PR (#738). V2-2 remains blocked until V2-1 merges, state authority is synchronized, and the workstream is re-anchored.
+The next steward action is to review that one V2-1 PR (#738). The HANDOFF now records operator dogfood findings (Surface Context, highlight chip → Author Node, identity vs alias) as review-time design exploration, not as authorized successor work. V2-2 remains blocked until V2-1 merges, state authority is synchronized, and the workstream is re-anchored.
