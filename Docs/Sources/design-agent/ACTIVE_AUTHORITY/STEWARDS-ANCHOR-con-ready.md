@@ -2,12 +2,14 @@
 
 **Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
-**Updated:** 2026-09-18  
+**Updated:** 2026-09-19  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor input:** `main@3b6e46221f1ae142313118fbe3f2fbe5c1dd0c7a`  
+**Re-anchor input:** `main@11c1c4a469b509d9f8a2286f74f5ff087122fcbd` — V2-0 census landed  
 **Current product frontier:** **Authoring v2 → derived gold → extraction ablation**  
-**Active implementation PR:** **NONE**  
+**Active implementation PR:** **NONE YET — V2-1 handoff is ACTIVE and ready for dispatch**  
 **Current sequencing authority:** [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md)  
+**Completed V2-0 census:** [`../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`](../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md)  
+**ACTIVE V2-1 handoff:** [`HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`](HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md)  
 **Historical authoring ancestry:** [`ROADMAP-graph-object-authoring-surface.md`](ROADMAP-graph-object-authoring-surface.md) + [`../Design/DESIGN-graph-object-authoring-surface.md`](../Design/DESIGN-graph-object-authoring-surface.md)  
 **Completed UI series authority:** [`HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md)  
 **Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)
@@ -22,15 +24,14 @@ Read, in order:
 
 1. this anchor;
 2. `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`;
-3. `Docs/Plans/ROADMAP-graph-object-authoring-surface.md`;
-4. `Docs/Design/DESIGN-graph-object-authoring-surface.md`;
-5. `Docs/Design/DESIGN-magic-moment-contextual-source-to-world-graph.md`;
-6. `Docs/Design/ARCHITECTURE-campaign-supergraph.md`;
-7. UI-05/report only when diagnosing the completed inspection surface.
+3. `Docs/Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`;
+4. `Docs/Plans/HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`;
+5. historical authoring ancestry only when needed to understand surviving implementation seams;
+6. `Docs/Design/ARCHITECTURE-campaign-supergraph.md` when checking durable World authority.
 
-There is **no implementation lease active** from this anchor.
+The V2-1 handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. No V2-1 branch/PR has been dispatched yet.
 
-The next steward work is **V2-0 current manual-authoring contract census**. It must end in exactly one bounded V2-1 implementation handoff before any coding PR is authorized.
+The next steward action is to dispatch exactly that one V2-1 implementation PR from fresh current `main`, then review by the handoff invariant.
 
 ---
 
@@ -132,39 +133,42 @@ Authority:
 
 `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
 
-### V2-0 — CURRENT
+### V2-0 — COMPLETE / PASS
 
-**Current manual-authoring contract census.**
+The current-contract census is recorded in:
 
-Inventory current code and contracts for:
+`Docs/Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`
 
-- surviving Graph Review selection/authoring UX;
-- explicit browse-vs-write authority gating;
-- current DungeonMind/manual World write ports;
-- `GraphContribution` / authored source-kind semantics;
-- exact source/evidence admission requirements;
-- prepare / confirm / revision-drift behavior;
-- correction / supersession of extracted assertions;
-- how a committed World revision becomes visible through ordinary browse.
-
-The census must answer:
-
-> **What exact current governed contract receives a human-authored node / claim / edge / correction proposal and turns it into an immutable World revision while preserving source/evidence identity?**
-
-Do not assume the old authored-overlay path is still valid.
-
-### V2-1 — NOT YET AUTHORIZED
+It found the surviving governed World-write seam:
 
 ```text
-highlight source text OR start from existing pill
-→ Author memory
-→ inspect exact source context
-→ link/create/add claim/add relationship/correct
-→ source-only or ambiguous when appropriate
-→ stage human proposal
+POST /api/live/graph-authoring/prepare
+→ POST /api/live/graph-authoring/commit
+→ DungeonMind immutable World revision
 ```
 
-Manual first. No model required.
+It also proved that ordinary published-memory browse must remain non-write authority and that its current recap projection has no canonical evidence-span binding.
+
+### V2-1 — ACTIVE
+
+Authority:
+
+`Docs/Plans/HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`
+
+```text
+published Campaign + Focus-session recap
+→ highlight source text OR start from existing pill
+→ inspect exact source context
+→ stage local object / link-existing / relationship proposal
+→ review/remove staged proposal
+→ continue reading
+```
+
+This slice is **local-only**. It must not call prepare/commit, quick-commit, merge materialization, or acquire `ExplicitAuthoringAuthority`.
+
+Campaign/session switching must isolate staged proposals by scope and restore the correct scope's local drafts when revisited.
+
+Negative/source-only, ambiguity, arbitrary claim editing, generalized correction schema, Agent assistance, and durable write remain later slices.
 
 ### V2-2 — NOT YET AUTHORIZED
 
@@ -288,9 +292,9 @@ UI-05 FLOATING WORLD-OBJECT PEEK                 PASS / MERGED
 
 STAGE 4 / RECAP WOW                              HOLD — post-UI-05 human witness pending
 
-AUTHORING V2                                     CURRENT DESIGN FRONTIER
-V2-0 CONTRACT CENSUS                             CURRENT
-V2-1 MANUAL SOURCE-GROUNDED PROPOSAL             NOT AUTHORIZED
+AUTHORING V2                                     CURRENT IMPLEMENTATION FRONTIER
+V2-0 CONTRACT CENSUS                             COMPLETE / PASS
+V2-1 PUBLISHED-RECAP LOCAL PROPOSAL               ACTIVE — HANDOFF CHECKED IN
 V2-2 GOVERNED WORLD COMMIT                       NOT AUTHORIZED
 V2-3 DERIVED GOLD EXPORT                         NOT AUTHORIZED
 V2-4 EXTRACTION/MODEL ABLATION                   PARKED BEHIND GOLD
@@ -305,15 +309,13 @@ SEMANTIC MODEL SELECTION                         HOLD
 
 ## 7. Next steward transition
 
-The next durable artifact is not an implementation PR.
-
-It is:
+The design transition is complete:
 
 ```text
-V2-0 current-contract census
-→ exact owning write boundary identified
-→ one bounded V2-1 handoff landed ACTIVE
-→ one serial implementation PR authorized
+V2-0 current-contract census                    PASS
+→ exact governed write boundary identified      PASS
+→ bounded V2-1 handoff landed ACTIVE            PASS
+→ one serial V2-1 implementation PR authorized  READY FOR DISPATCH
 ```
 
-If the census discovers that manual human-authored correction requires a missing DungeonMind authority contract, stop there and design that contract boundary rather than resurrecting the historical Buddy overlay.
+Dispatch V2-1 from fresh current `main`. Do not dispatch V2-2, derived gold, extraction/model ablation, or Agent-assisted authoring until V2-1 merges and the workstream is re-anchored.
