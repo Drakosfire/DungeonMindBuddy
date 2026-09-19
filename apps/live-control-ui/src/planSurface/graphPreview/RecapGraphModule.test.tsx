@@ -387,4 +387,106 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     expect(window.location.search).toContain("session=session-16");
     expect(screen.getByLabelText("Focus session")).toHaveValue("session-16");
   });
+
+  it("makes the previous recap non-authorable as soon as campaign changes", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-26");
+    vi.spyOn(liveApi, "getRecapArtifacts").mockImplementation(async (campaignId) => {
+      if (campaignId === "longmont-c1") {
+        return {
+          records: [
+            { ...artifactRecord(16), campaign_id: "longmont-c1", session_id: "session-16" },
+          ],
+        };
+      }
+      return { records: [artifactRecord(26)] };
+    });
+    const postRecap = vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockImplementation(async (request) => ({
+      ...session23WorldGraphRecapFixture,
+      campaignId: request.campaignId,
+      sessionId: request.focus.kind === "session" ? request.focus.sessionId : "session-26",
+    }));
+
+    render(<RecapGraphModule context={context} />);
+    await waitFor(() => {
+      expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+        "data-campaign-id",
+        "longmont-c2",
+      );
+    });
+    expect(postRecap).toHaveBeenCalled();
+
+    fireEvent.change(screen.getByLabelText("Campaign"), { target: { value: "longmont-c1" } });
+
+    expect(screen.queryByTestId("published-recap-local-authoring")).not.toBeInTheDocument();
+    expect(screen.getByText(/Loading published World Graph recap/i)).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+        "data-campaign-id",
+        "longmont-c1",
+      );
+    });
+    expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+      "data-session-id",
+      "session-16",
+    );
+  });
+
+  it("rejects a slower previous projection after session switch", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-26");
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
+      records: [artifactRecord(26), artifactRecord(27)],
+    });
+    let resolveFirst: ((value: typeof session23WorldGraphRecapFixture) => void) | undefined;
+    const firstProjection = new Promise<typeof session23WorldGraphRecapFixture>((resolve) => {
+      resolveFirst = resolve;
+    });
+    let calls = 0;
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockImplementation(async (request) => {
+      const sessionId = request.focus.kind === "session" ? request.focus.sessionId : "session-26";
+      const payload = {
+        ...session23WorldGraphRecapFixture,
+        campaignId: request.campaignId,
+        sessionId,
+      };
+      calls += 1;
+      if (calls === 1) {
+        return firstProjection;
+      }
+      return payload;
+    });
+
+    render(<RecapGraphModule context={context} />);
+    await waitFor(() => {
+      expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.change(screen.getByLabelText("Focus session"), { target: { value: "session-27" } });
+    expect(screen.queryByTestId("published-recap-local-authoring")).not.toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+        "data-session-id",
+        "session-27",
+      );
+    });
+
+    resolveFirst?.({
+      ...session23WorldGraphRecapFixture,
+      campaignId: "longmont-c2",
+      sessionId: "session-26",
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+        "data-session-id",
+        "session-27",
+      );
+    });
+    expect(screen.queryByText(/Loading published World Graph recap/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("published-recap-local-authoring")).not.toHaveAttribute(
+      "data-session-id",
+      "session-26",
+    );
+  });
 });

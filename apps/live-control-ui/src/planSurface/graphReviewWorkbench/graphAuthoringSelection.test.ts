@@ -52,6 +52,19 @@ describe("graphAuthoringSelection", () => {
     expect(isManualGraphAuthoringSelection(selection)).toBe(true);
   });
 
+  it("preserves supplied recap path, hash, and artifact id on a manual selection without inventing a span", () => {
+    const selection = buildManualGraphAuthoringSelection({
+      ...authoringContext,
+    });
+
+    expect(selection.selectedText).toBe("");
+    expect(selection.sourceArtifactPath).toBe("artifacts/run/manifest.json");
+    expect(selection.sourceArtifactSha256).toBe("sha256:manifest");
+    expect(selection.sourceArtifactId).toBe("artifact:recap:longmont-c1:session-2");
+    expect(selection.sourceSpanRefId).toBeNull();
+    expect(isManualGraphAuthoringSelection(selection)).toBe(true);
+  });
+
   it("does not flag a recap-grounded selection as manual", () => {
     const selection = buildManualGraphAuthoringSelection({
       campaignId: "longmont-c1",

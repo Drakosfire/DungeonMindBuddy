@@ -90,6 +90,19 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   const honorExplicitUrlSessionRef = useRef(requestedSessionId != null);
   const selectedSessionIdRef = useRef(selectedSessionId);
   selectedSessionIdRef.current = selectedSessionId;
+  const loadGenerationRef = useRef(0);
+  const [loadedScope, setLoadedScope] = useState<{
+    campaignId: string;
+    sessionId: string;
+  } | null>(null);
+
+  const invalidateLoadedProjection = useCallback(() => {
+    loadGenerationRef.current += 1;
+    setStatus("loading");
+    setError(null);
+    setRecapPayload(null);
+    setLoadedScope(null);
+  }, []);
 
   const campaignSessionRecords = useMemo(
     () => sessionRecords.filter((record) => record.campaign_id === selectedCampaignId),
@@ -118,8 +131,11 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   }, [campaignSessionRecords, context.ingestSession, requestedSessionId, selectedSessionId]);
 
   const loadRecapProjection = useCallback(async (sessionId = selectedSessionId) => {
+    const generation = ++loadGenerationRef.current;
     setStatus("loading");
     setError(null);
+    setRecapPayload(null);
+    setLoadedScope(null);
     const { campaignId } = resolveSessionRecapContext(
       sessionId,
       selectedCampaignId,
@@ -127,7 +143,11 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     );
     const request = buildWorldGraphRecapProjectionRequest({ campaignId, sessionId });
     if (!request) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setRecapPayload(null);
+      setLoadedScope(null);
       setError(`World Graph mapping is unavailable for campaign ${campaignId}.`);
       setStatus("error");
       return;
@@ -135,10 +155,18 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
 
     try {
       const projection = await postWorldGraphRecapProjection(request);
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setRecapPayload(projection);
+      setLoadedScope({ campaignId, sessionId });
       setStatus("ready");
     } catch (loadError) {
+      if (generation !== loadGenerationRef.current) {
+        return;
+      }
       setRecapPayload(null);
+      setLoadedScope(null);
       setError(recapUnavailableMessage(loadError, sessionId, campaignId));
       setStatus("error");
     }
@@ -204,14 +232,26 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
 
   const handleCampaignSelect = (campaignId: string) => {
     honorExplicitUrlSessionRef.current = false;
+    invalidateLoadedProjection();
+    setReadyRecapContext(null);
     setSelectedCampaignId(campaignId);
   };
 
   const handleSessionSelect = (sessionId: string) => {
+    invalidateLoadedProjection();
     setSelectedSessionId(sessionId);
     setReadyRecapContext({ campaignId: selectedCampaignId, sessionId });
     syncRecapSurfaceUrl(selectedCampaignId, sessionId);
   };
+
+  const authorableRecap =
+    status === "ready" &&
+    recapPayload &&
+    loadedScope &&
+    loadedScope.campaignId === selectedCampaignId &&
+    loadedScope.sessionId === selectedSessionId
+      ? recapPayload
+      : null;
 
   const reviewToolbar = (
     <div className="recap-reader-toolbar">
@@ -252,10 +292,10 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     );
   }
 
-  if (recapPayload) {
+  if (authorableRecap) {
     return (
       <WorldGraphRecapProjectionView
-        payload={recapPayload}
+        payload={authorableRecap}
         selectedSessionId={selectedSessionId}
         onSelectSession={handleSessionSelect}
         sessionOptions={sessionOptions}

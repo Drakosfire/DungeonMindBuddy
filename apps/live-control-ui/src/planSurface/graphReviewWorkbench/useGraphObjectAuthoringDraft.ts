@@ -35,7 +35,7 @@ export interface UseGraphObjectAuthoringDraftResult {
     field: K,
     value: GraphObjectAuthoringRelationshipFormState[K],
   ) => void;
-  stageRelationshipProposal: () => void;
+  stageRelationshipProposal: (selection?: GraphAuthoringSelection | null) => void;
   stageMergeProposal: (input: {
     survivorObjectRef: import("./graphObjectAuthoringDraft").GraphObjectAuthoringObjectRef;
     mergedObjectRefs: import("./graphObjectAuthoringDraft").GraphObjectAuthoringObjectRef[];
@@ -172,10 +172,10 @@ export function useGraphObjectAuthoringDraft(
     [],
   );
 
-  const stageRelationshipProposal = useCallback(() => {
+  const stageRelationshipProposal = useCallback((selectionOverride?: GraphAuthoringSelection | null) => {
     const proposal = buildGraphObjectAuthoringRelationshipProposal(
       relationshipFormState,
-      selectedSource,
+      selectionOverride !== undefined ? selectionOverride : selectedSource,
       createLocalGraphObjectProposalId(),
     );
     if (!proposal) {

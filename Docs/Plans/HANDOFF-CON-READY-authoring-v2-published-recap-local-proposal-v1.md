@@ -283,7 +283,24 @@ No V2-1 merge claim depends on a backend World revision.
 **Rebased onto:** `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D `#737` merge (no §4 frontend overlap)  
 **PR:** [#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738)  
 **PR topology at dispatch:** serial within CON-READY  
-**Bounded discovery used:** `apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphAuthoringSelection.ts` — include `sourceArtifactId` in authoring context identity
+**Bounded discovery used (3 of 3):**
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphAuthoringSelection.ts` — include `sourceArtifactId` in authoring context identity (original V2-1)
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphAuthoringSelection.test.ts` — original V2-1 proof of selection/source identity; omitted from the pre-review implementation record (review cycle 1 correction)
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringStagingTray.tsx` — expose staged-proposal source identity on the actual proposal row (review cycle 1 repair)
+
+### Review cycle 1 (2026-09-19)
+
+**Head reviewed:** `4697f1ed44aea755278d51a9ecb35d055ea168c5`  
+**Formal GitHub review:** not posted. The connected account is also the PR author; GitHub rejected `REQUEST_CHANGES` on own PR. The review is still complete as steward judgment.
+
+**Invariant disposition:** local-stage / non-write contract held. Visible authoring UI stays in V2-1. Operator dogfood findings remain successor design evidence, not work to strip from this PR.
+
+**Merge blockers (repaired on this head's successor commits):**
+
+1. Campaign/session switch could pair the previous recap payload with the new authoring scope, and `loadRecapProjection` had no stale-response guard. Repair: immediately invalidate/clear the loaded projection on scope change so it is non-authorable, and ignore late responses whose generation no longer matches.
+2. Manual draft and relationship staging could create proposals without recap path/hash/optional artifact id. Repair: those controls remain; they now copy exact supplied recap identity and leave `sourceSpanRefId` null. Tests inspect the staged proposal attributes, including a non-null `source_artifact_id` case.
+
+**UX findings:** keep the current visible UI for continued dogfood. Do not fold Surface Context, Author Node chip composition, Karsemine identity-vs-alias, or duplicate merge into these two correctness repairs.
 
 ### Source identity actually preserved
 
@@ -304,16 +321,20 @@ No V2-1 merge claim depends on a backend World revision.
 
 `useGraphObjectAuthoringDraft` rehydrates/resets on campaign/session key change and does not write the previous scope's proposals onto the destination key.
 
+`RecapGraphModule` also keeps loaded recap and authoring scope atomic: a campaign/session change immediately clears the previous projection (non-authorable loading chrome remains), and stale `postWorldGraphRecapProjection` responses are ignored.
+
 ### §7 commands
 
 ```text
 vitest run RecapGraphModule.test.tsx WorldGraphRecapProjection.test.tsx
   PublishedRecapLocalAuthoring.test.tsx useGraphObjectAuthoringDraft.test.ts
   graphAuthoringSelection.test.ts GraphProjectionReader.test.tsx
-→ 6 files, 43 passed
+  GraphObjectAuthoringStagingTray.test.tsx
+→ 7 files, 53 passed
 
 vitest run GraphObjectAuthoringSurface.test.tsx
 → 35 passed (exact-run default semantics unchanged)
+```
 
 pnpm --dir apps/live-control-ui build
 → tsc fails on pre-existing unused locals in GraphReviewWorkbenchModule.tsx
@@ -325,7 +346,7 @@ V2-2 remains the named successor and is not authorized.
 
 ### Operator dogfood findings — review-time design exploration, not V2-1 merge blockers
 
-Recorded 2026-09-19 on `/ingest?campaign=longmont-c2&session=session-27` against this PR's UI. These are **feel / composition / identity-vocabulary** findings. They do **not** by themselves falsify the V2-1 local-stage invariant (published browse stayed non-write; proposals were local). **Do not expand #738** into Surface Context, Author Node, Peek kinds, or merge. Explore them while reviewing so the next slice is designed from operator evidence rather than re-derived from chat.
+Recorded 2026-09-19 on `/ingest?campaign=longmont-c2&session=session-27` against this PR's UI. These are **feel / composition / identity-vocabulary** findings. They do **not** by themselves falsify the V2-1 local-stage invariant. **Do not expand #738** into Surface Context, Author Node, Peek kinds, or merge. **Do not remove the visible authoring UI** to “fix” review; that UI is how dogfood exposed the composition problems. Review cycle 1 confirmed this: keep highlight → Author graph, local staging form, resolver, relationship controls, and staged-proposal tray in V2-1. The two merge blockers above are separate correctness repairs.
 
 #### What landed and was accepted
 

@@ -165,23 +165,34 @@ export function PublishedRecapLocalAuthoring({
     ],
   );
 
-  const handleGraphAuthoringAction = useCallback(
-    (selection: GraphAuthoringSelection) => {
-      draft.openWithSelection(preserveSourceIdentity(selection));
-    },
-    [draft, preserveSourceIdentity],
-  );
-
-  const handleStartManualDraft = useCallback(() => {
-    draft.openWithSelection(
-      buildManualGraphAuthoringSelection({
+  const recapGroundedSelection = useCallback(
+    (selection?: GraphAuthoringSelection | null): GraphAuthoringSelection => {
+      if (selection) {
+        return preserveSourceIdentity(selection);
+      }
+      return buildManualGraphAuthoringSelection({
         campaignId,
         sessionId,
         graphId,
         laneRole: "live",
-      }),
-    );
-  }, [campaignId, draft, graphId, sessionId]);
+        sourceArtifactPath: authoringContext.sourceArtifactPath,
+        sourceArtifactSha256: authoringContext.sourceArtifactSha256,
+        sourceArtifactId: authoringContext.sourceArtifactId,
+      });
+    },
+    [authoringContext, campaignId, graphId, preserveSourceIdentity, sessionId],
+  );
+
+  const handleGraphAuthoringAction = useCallback(
+    (selection: GraphAuthoringSelection) => {
+      draft.openWithSelection(recapGroundedSelection(selection));
+    },
+    [draft, recapGroundedSelection],
+  );
+
+  const handleStartManualDraft = useCallback(() => {
+    draft.openWithSelection(recapGroundedSelection());
+  }, [draft, recapGroundedSelection]);
 
   const selectedSourceIdentity = draft.selectedSource ?? pendingSelection;
 
@@ -227,7 +238,7 @@ export function PublishedRecapLocalAuthoring({
         onStartManualDraft={handleStartManualDraft}
         pendingSelection={pendingSelection}
         onUseSelectedText={(selection) =>
-          draft.openWithSelection(preserveSourceIdentity(selection))
+          draft.openWithSelection(recapGroundedSelection(selection))
         }
         onStageLinkExisting={(candidate) => {
           const selected = draft.selectedSource;
@@ -235,14 +246,16 @@ export function PublishedRecapLocalAuthoring({
             return false;
           }
           return draft.stageLinkExistingFromResolver({
-            selection: preserveSourceIdentity(selected),
+            selection: recapGroundedSelection(selected),
             candidate,
           });
         }}
         onStageLinkExistingComplete={draft.dismissSelection}
         relationshipFormState={draft.relationshipFormState}
         onRelationshipFieldChange={draft.updateRelationshipField}
-        onStageRelationshipProposal={draft.stageRelationshipProposal}
+        onStageRelationshipProposal={() => {
+          draft.stageRelationshipProposal(recapGroundedSelection(draft.selectedSource));
+        }}
         campaignId={campaignId}
         sessionId={sessionId}
         existingNodes={existingNodes}

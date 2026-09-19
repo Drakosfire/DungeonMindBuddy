@@ -237,13 +237,16 @@ export function buildManualGraphAuthoringSelection(context: {
   sessionId: string;
   graphId?: string | null;
   laneRole?: GraphAuthoringLaneRole | null;
+  sourceArtifactPath?: string | null;
+  sourceArtifactSha256?: string | null;
+  sourceArtifactId?: string | null;
 }): GraphAuthoringSelection {
   return {
     ...baseSelectionFields({
       ...context,
-      sourceArtifactPath: null,
-      sourceArtifactSha256: null,
-      sourceArtifactId: null,
+      sourceArtifactPath: context.sourceArtifactPath ?? null,
+      sourceArtifactSha256: context.sourceArtifactSha256 ?? null,
+      sourceArtifactId: context.sourceArtifactId ?? null,
     }),
     selectionKind: "text_span",
     selectedText: "",

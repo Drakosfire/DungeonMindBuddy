@@ -54,7 +54,7 @@ const recapRecord: RecapArtifactRecord = {
   artifact_id: "longmont-c2/session-27",
   campaign_id: "longmont-c2",
   session_id: "session-27",
-  source_artifact_id: null,
+  source_artifact_id: "artifact:recap:longmont-c2:session-27",
   source_recap_path: "corpus/eldyrwild-markdown/Session 27 - Recap.md",
   breadcrumb_seed_path: null,
   session_memory_records_path: null,
@@ -70,6 +70,15 @@ const recapRecord: RecapArtifactRecord = {
   updated_at: "2026-06-28T00:00:00Z",
   registry_source: "scan",
 };
+
+function expectStagedRecapIdentity(staged: HTMLElement, record: RecapArtifactRecord) {
+  expect(staged).toHaveAttribute("data-campaign-id", record.campaign_id);
+  expect(staged).toHaveAttribute("data-session-id", record.session_id);
+  expect(staged).toHaveAttribute("data-source-artifact-id", record.source_artifact_id ?? "null");
+  expect(staged).toHaveAttribute("data-source-artifact-path", record.source_recap_path);
+  expect(staged).toHaveAttribute("data-source-artifact-sha256", record.source_sha256);
+  expect(staged).toHaveAttribute("data-source-span-ref-id", "null");
+}
 
 function renderHost(overrides: Partial<Parameters<typeof PublishedRecapLocalAuthoring>[0]> = {}) {
   const onInspectNode = vi.fn();
@@ -94,12 +103,12 @@ describe("PublishedRecapLocalAuthoring", () => {
     sessionStorage.clear();
   });
 
-  it("keeps published browse non-write and preserves null recap source identity", async () => {
+  it("keeps published browse non-write and preserves exact recap source identity", async () => {
     renderHost();
 
     const host = await screen.findByTestId("published-recap-local-authoring");
     expect(host).toHaveAttribute("data-write-authority", "none");
-    expect(host).toHaveAttribute("data-source-artifact-id", "null");
+    expect(host).toHaveAttribute("data-source-artifact-id", "artifact:recap:longmont-c2:session-27");
     expect(host).toHaveAttribute(
       "data-source-artifact-path",
       "corpus/eldyrwild-markdown/Session 27 - Recap.md",
@@ -139,6 +148,7 @@ describe("PublishedRecapLocalAuthoring", () => {
     const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(staged).toHaveAttribute("data-proposal-kind", "object");
     expect(staged).toHaveTextContent("gang");
+    expectStagedRecapIdentity(staged, recapRecord);
     expect(screen.getByText(/Local drafts only/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-object-authoring-prepare-commit-panel")).not.toBeInTheDocument();
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
@@ -217,6 +227,7 @@ describe("PublishedRecapLocalAuthoring", () => {
     const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(staged).toHaveAttribute("data-proposal-kind", "link_existing");
     expect(staged).toHaveTextContent("Questionable Company");
+    expectStagedRecapIdentity(staged, recapRecord);
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
     expect(commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
   });
@@ -239,9 +250,34 @@ describe("PublishedRecapLocalAuthoring", () => {
     expect(staged).toHaveAttribute("data-proposal-kind", "relationship");
     expect(staged).toHaveTextContent("Caelynn");
     expect(staged).toHaveTextContent("Mirathorn");
+    expectStagedRecapIdentity(staged, recapRecord);
     fireEvent.click(within(staged).getByRole("button", { name: "Remove" }));
     expect(screen.queryByTestId("graph-object-authoring-staged-proposal")).not.toBeInTheDocument();
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
     expect(commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+  });
+
+  it("stages a manual object draft with recap path, hash, and artifact id and no span", async () => {
+    renderHost();
+    fireEvent.click(screen.getByTestId("graph-object-authoring-start-manual-draft-button"));
+    fireEvent.change(screen.getByLabelText("Label"), { target: { value: "New contact" } });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+
+    const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(staged).toHaveAttribute("data-proposal-kind", "object");
+    expectStagedRecapIdentity(staged, recapRecord);
+  });
+
+  it("does not invent an artifact id when the recap record has none", async () => {
+    renderHost({ recapRecord: { ...recapRecord, source_artifact_id: null } });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-start-manual-draft-button"));
+    fireEvent.change(screen.getByLabelText("Label"), { target: { value: "New contact" } });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
+
+    const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
+    expect(staged).toHaveAttribute("data-source-artifact-id", "null");
+    expect(staged).toHaveAttribute("data-source-artifact-path", recapRecord.source_recap_path);
+    expect(staged).toHaveAttribute("data-source-artifact-sha256", recapRecord.source_sha256);
+    expect(staged).toHaveAttribute("data-source-span-ref-id", "null");
   });
 });
