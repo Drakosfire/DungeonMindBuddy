@@ -283,10 +283,11 @@ No V2-1 merge claim depends on a backend World revision.
 **Rebased onto:** `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D `#737` merge (no §4 frontend overlap)  
 **PR:** [#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738)  
 **PR topology at dispatch:** serial within CON-READY  
-**Bounded discovery used (3 of 3):**
+**Bounded discovery used (2 of 3):**
 - `apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphAuthoringSelection.ts` — include `sourceArtifactId` in authoring context identity (original V2-1)
 - `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphAuthoringSelection.test.ts` — original V2-1 proof of selection/source identity; omitted from the pre-review implementation record (review cycle 1 correction)
-- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringStagingTray.tsx` — expose staged-proposal source identity on the actual proposal row (review cycle 1 repair)
+
+`GraphObjectAuthoringStagingTray.tsx` was temporarily modified in review cycle 1 to add `data-*` observability. Review cycle 2 rejected that as outside §4 and outside the focused-test / extracted-helper discovery allowance. The production file is reverted. Identity proof now inspects the scoped `sessionStorage` JSON from `PublishedRecapLocalAuthoring.test.tsx`.
 
 ### Review cycle 1 (2026-09-19)
 
@@ -298,9 +299,22 @@ No V2-1 merge claim depends on a backend World revision.
 **Merge blockers (repaired on this head's successor commits):**
 
 1. Campaign/session switch could pair the previous recap payload with the new authoring scope, and `loadRecapProjection` had no stale-response guard. Repair: immediately invalidate/clear the loaded projection on scope change so it is non-authorable, and ignore late responses whose generation no longer matches.
-2. Manual draft and relationship staging could create proposals without recap path/hash/optional artifact id. Repair: those controls remain; they now copy exact supplied recap identity and leave `sourceSpanRefId` null. Tests inspect the staged proposal attributes, including a non-null `source_artifact_id` case.
+2. Manual draft and relationship staging could create proposals without recap path/hash/optional artifact id. Repair: those controls remain; they now copy exact supplied recap identity and leave `sourceSpanRefId` null. Cycle 2 identity proof inspects the persisted proposal selection in scoped `sessionStorage`, including a non-null `source_artifact_id` case.
 
 **UX findings:** keep the current visible UI for continued dogfood. Do not fold Surface Context, Author Node chip composition, Karsemine identity-vs-alias, existing-node edit, or duplicate merge into these two correctness repairs.
+
+### Review cycle 2 (2026-09-19)
+
+**Head reviewed:** `d6e05bb16f840b53691043732709710ece5f0805`  
+**Formal GitHub review:** [#738 review `5257362094`](https://github.com/Drakosfire/DungeonMindBuddy/pull/738#pullrequestreview-5257362094) — HOLD
+
+**Cycle 1 blockers:** fixed. Campaign/session transitions immediately make the previous recap non-authorable and reject stale projection responses. Manual-object and relationship proposals retain supplied recap path/hash/artifact ID with `sourceSpanRefId=null`. Visible authoring UI remains.
+
+**Remaining blocker (repaired on this head's successor commits):** `GraphObjectAuthoringStagingTray.tsx` was modified outside §4. Adding `data-*` fields for test observability is not a focused test or a narrowly extracted helper. Repair: revert the production file; `PublishedRecapLocalAuthoring.test.tsx` asserts the actual persisted proposal selection in scoped `sessionStorage`.
+
+**Non-blocking cleanup also landed:** close the malformed §7 Markdown fence around build evidence; update `buildManualGraphAuthoringSelection` comment so it no longer claims “no recap grounding.”
+
+**UX findings:** successor design evidence only. V2-2 remains unauthorized.
 
 ### Source identity actually preserved
 
@@ -329,12 +343,9 @@ No V2-1 merge claim depends on a backend World revision.
 vitest run RecapGraphModule.test.tsx WorldGraphRecapProjection.test.tsx
   PublishedRecapLocalAuthoring.test.tsx useGraphObjectAuthoringDraft.test.ts
   graphAuthoringSelection.test.ts GraphProjectionReader.test.tsx
-  GraphObjectAuthoringStagingTray.test.tsx
-→ 7 files, 53 passed
-
-vitest run GraphObjectAuthoringSurface.test.tsx
-→ 35 passed (exact-run default semantics unchanged)
-```
+  GraphObjectAuthoringSurface.test.tsx
+→ 7 files, 83 passed
+  (GraphObjectAuthoringSurface 35; remaining 48; exact-run default semantics unchanged)
 
 pnpm --dir apps/live-control-ui build
 → tsc fails on pre-existing unused locals in GraphReviewWorkbenchModule.tsx

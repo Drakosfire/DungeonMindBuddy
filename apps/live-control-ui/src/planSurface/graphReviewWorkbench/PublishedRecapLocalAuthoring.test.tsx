@@ -23,6 +23,8 @@ import {
   resolveGraphReviewExistingObjectCandidates,
 } from "../../api/liveApi";
 import type { GraphProjectionNodeView, RecapArtifactRecord } from "../../api/types";
+import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
+import type { GraphObjectAuthoringProposal } from "./graphObjectAuthoringDraft";
 import { PublishedRecapLocalAuthoring } from "./PublishedRecapLocalAuthoring";
 
 const caelynn: GraphProjectionNodeView = {
@@ -71,13 +73,42 @@ const recapRecord: RecapArtifactRecord = {
   registry_source: "scan",
 };
 
-function expectStagedRecapIdentity(staged: HTMLElement, record: RecapArtifactRecord) {
-  expect(staged).toHaveAttribute("data-campaign-id", record.campaign_id);
-  expect(staged).toHaveAttribute("data-session-id", record.session_id);
-  expect(staged).toHaveAttribute("data-source-artifact-id", record.source_artifact_id ?? "null");
-  expect(staged).toHaveAttribute("data-source-artifact-path", record.source_recap_path);
-  expect(staged).toHaveAttribute("data-source-artifact-sha256", record.source_sha256);
-  expect(staged).toHaveAttribute("data-source-span-ref-id", "null");
+const STAGED_STORAGE_KEY = "graph-object-authoring-staged:longmont-c2:session-27";
+
+function readPersistedProposals(): GraphObjectAuthoringProposal[] {
+  const raw = sessionStorage.getItem(STAGED_STORAGE_KEY);
+  expect(raw).toBeTruthy();
+  const parsed = JSON.parse(raw as string) as unknown;
+  expect(Array.isArray(parsed)).toBe(true);
+  return parsed as GraphObjectAuthoringProposal[];
+}
+
+function selectionFromPersistedProposal(
+  proposal: GraphObjectAuthoringProposal,
+): GraphAuthoringSelection | null {
+  return proposal.proposalKind === "merge_objects" ? null : (proposal.selection ?? null);
+}
+
+async function expectPersistedRecapIdentity(
+  record: RecapArtifactRecord,
+  proposalKind?: GraphObjectAuthoringProposal["proposalKind"],
+) {
+  await waitFor(() => {
+    const proposals = readPersistedProposals();
+    const proposal = proposalKind
+      ? proposals.find((item) => item.proposalKind === proposalKind)
+      : proposals[proposals.length - 1];
+    expect(proposal).toBeDefined();
+    const selection = selectionFromPersistedProposal(proposal!);
+    expect(selection).toMatchObject({
+      campaignId: record.campaign_id,
+      sessionId: record.session_id,
+      sourceArtifactPath: record.source_recap_path,
+      sourceArtifactSha256: record.source_sha256,
+      sourceArtifactId: record.source_artifact_id,
+      sourceSpanRefId: null,
+    });
+  });
 }
 
 function renderHost(overrides: Partial<Parameters<typeof PublishedRecapLocalAuthoring>[0]> = {}) {
@@ -148,7 +179,7 @@ describe("PublishedRecapLocalAuthoring", () => {
     const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(staged).toHaveAttribute("data-proposal-kind", "object");
     expect(staged).toHaveTextContent("gang");
-    expectStagedRecapIdentity(staged, recapRecord);
+    await expectPersistedRecapIdentity(recapRecord, "object");
     expect(screen.getByText(/Local drafts only/i)).toBeInTheDocument();
     expect(screen.queryByTestId("graph-object-authoring-prepare-commit-panel")).not.toBeInTheDocument();
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
@@ -227,7 +258,7 @@ describe("PublishedRecapLocalAuthoring", () => {
     const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(staged).toHaveAttribute("data-proposal-kind", "link_existing");
     expect(staged).toHaveTextContent("Questionable Company");
-    expectStagedRecapIdentity(staged, recapRecord);
+    await expectPersistedRecapIdentity(recapRecord, "link_existing");
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
     expect(commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
   });
@@ -250,9 +281,12 @@ describe("PublishedRecapLocalAuthoring", () => {
     expect(staged).toHaveAttribute("data-proposal-kind", "relationship");
     expect(staged).toHaveTextContent("Caelynn");
     expect(staged).toHaveTextContent("Mirathorn");
-    expectStagedRecapIdentity(staged, recapRecord);
+    await expectPersistedRecapIdentity(recapRecord, "relationship");
     fireEvent.click(within(staged).getByRole("button", { name: "Remove" }));
     expect(screen.queryByTestId("graph-object-authoring-staged-proposal")).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(sessionStorage.getItem(STAGED_STORAGE_KEY)).toBeNull();
+    });
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
     expect(commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
   });
@@ -265,7 +299,7 @@ describe("PublishedRecapLocalAuthoring", () => {
 
     const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(staged).toHaveAttribute("data-proposal-kind", "object");
-    expectStagedRecapIdentity(staged, recapRecord);
+    await expectPersistedRecapIdentity(recapRecord, "object");
   });
 
   it("does not invent an artifact id when the recap record has none", async () => {
@@ -274,10 +308,6 @@ describe("PublishedRecapLocalAuthoring", () => {
     fireEvent.change(screen.getByLabelText("Label"), { target: { value: "New contact" } });
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-button"));
 
-    const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
-    expect(staged).toHaveAttribute("data-source-artifact-id", "null");
-    expect(staged).toHaveAttribute("data-source-artifact-path", recapRecord.source_recap_path);
-    expect(staged).toHaveAttribute("data-source-artifact-sha256", recapRecord.source_sha256);
-    expect(staged).toHaveAttribute("data-source-span-ref-id", "null");
+    await expectPersistedRecapIdentity({ ...recapRecord, source_artifact_id: null }, "object");
   });
 });

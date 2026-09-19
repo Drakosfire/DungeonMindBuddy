@@ -226,11 +226,12 @@ export function buildGraphAuthoringSelectionFromEditor(
 }
 
 /**
- * A selection with no recap grounding, used to start an object draft directly
- * from the New object tab without first highlighting text in the recap. Kept
- * as `selectionKind: "text_span"` with an empty `selectedText` so the backend
- * source-anchor contract (which only recognizes a fixed set of anchor kinds)
- * accepts it unchanged.
+ * Starts an object draft from the New object tab without first highlighting
+ * recap text. Campaign/session and any supplied recap path, hash, or artifact
+ * id are copied through; `sourceSpanRefId` stays null because there is no
+ * authoritative span. Kept as `selectionKind: "text_span"` with empty
+ * `selectedText` so the backend source-anchor contract (which only recognizes
+ * a fixed set of anchor kinds) accepts it unchanged.
  */
 export function buildManualGraphAuthoringSelection(context: {
   campaignId: string;

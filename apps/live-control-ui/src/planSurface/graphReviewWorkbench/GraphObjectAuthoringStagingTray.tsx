@@ -195,21 +195,12 @@ export function GraphObjectAuthoringStagingTray({
         <p className="graph-object-authoring-staging-tray-empty">{emptyMessage}</p>
       ) : (
         <ul className="graph-object-authoring-staging-tray-list">
-          {proposals.map((proposal) => {
-            const selection =
-              proposal.proposalKind === "merge_objects" ? null : (proposal.selection ?? null);
-            return (
+          {proposals.map((proposal) => (
             <li
               key={proposal.localProposalId}
               className="graph-object-authoring-staging-tray-item"
               data-testid="graph-object-authoring-staged-proposal"
               data-proposal-kind={proposal.proposalKind}
-              data-campaign-id={selection?.campaignId ?? "null"}
-              data-session-id={selection?.sessionId ?? "null"}
-              data-source-artifact-id={selection?.sourceArtifactId ?? "null"}
-              data-source-artifact-path={selection?.sourceArtifactPath ?? "null"}
-              data-source-artifact-sha256={selection?.sourceArtifactSha256 ?? "null"}
-              data-source-span-ref-id={selection?.sourceSpanRefId ?? "null"}
             >
               {proposal.proposalKind === "object" ? (
                 <ObjectProposalCard proposal={proposal} />
@@ -237,8 +228,7 @@ export function GraphObjectAuthoringStagingTray({
                 Remove
               </button>
             </li>
-            );
-          })}
+          ))}
         </ul>
       )}
     </div>

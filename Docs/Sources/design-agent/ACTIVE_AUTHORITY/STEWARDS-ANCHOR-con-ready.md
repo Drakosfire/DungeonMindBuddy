@@ -6,7 +6,7 @@
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Re-anchor input:** `main@026fd546cb564f3262dbbe6aaf94fc1cee6df84a` — V2-1 dispatch base; rebased onto `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after #737  
 **Current product frontier:** **Authoring v2 → derived gold → extraction ablation**  
-**Active implementation PR:** **[#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738)** — `con-ready/v2-1-published-recap-local-proposal-v1`; serial CON-READY PR; review cycle 1 repairs awaiting re-review  
+**Active implementation PR:** **[#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738)** — `con-ready/v2-1-published-recap-local-proposal-v1`; serial CON-READY PR; review cycle 2 HOLD repair awaiting re-review  
 **Current sequencing authority:** [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md)  
 **Completed V2-0 census:** [`../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`](../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md)  
 **ACTIVE V2-1 handoff:** [`HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`](HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md)  
@@ -31,7 +31,7 @@ Read, in order:
 
 The V2-1 handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. Implementation is [#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738) on `con-ready/v2-1-published-recap-local-proposal-v1` from dispatch base `026fd546cb564f3262dbbe6aaf94fc1cee6df84a`, rebased onto `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D #737 merged.
 
-The next steward action is to re-review #738 after review-cycle-1 repairs (atomic recap/authoring scope + recap-contextualized manual/relationship proposals). Operator dogfood findings remain successor design evidence, including existing-node edit/author; the visible V2-1 authoring UI stays. V2-2 remains false.
+The next steward action is to re-review #738 after the review-cycle-2 lease repair (revert `GraphObjectAuthoringStagingTray.tsx`; persist identity proof in `PublishedRecapLocalAuthoring.test.tsx` sessionStorage). Operator dogfood findings remain successor design evidence, including existing-node edit/author; the visible V2-1 authoring UI stays. V2-2 remains false.
 
 ---
 
@@ -315,7 +315,7 @@ The design transition is complete:
 V2-0 current-contract census                    PASS
 → exact governed write boundary identified      PASS
 → bounded V2-1 handoff landed ACTIVE            PASS
-→ one serial V2-1 implementation PR authorized  REVIEW CYCLE 1 — REPAIRS LANDED, AWAITING RE-REVIEW
+→ one serial V2-1 implementation PR authorized  REVIEW CYCLE 2 — HOLD REPAIR LANDED, AWAITING RE-REVIEW
 ```
 
-Re-review #738 after the review-cycle-1 correctness repairs. Keep the visible authoring UI. Explore the HANDOFF operator dogfood findings during that review; do not fold Surface Context, Author Node, existing-node edit, or merge into this PR. Do not dispatch V2-2, derived gold, extraction/model ablation, or Agent-assisted authoring until V2-1 merges and the workstream is re-anchored.
+Re-review #738 after the review-cycle-2 lease repair. Keep the visible authoring UI. Explore the HANDOFF operator dogfood findings during that review; do not fold Surface Context, Author Node, existing-node edit, or merge into this PR. Do not dispatch V2-2, derived gold, extraction/model ablation, or Agent-assisted authoring until V2-1 merges and the workstream is re-anchored.
