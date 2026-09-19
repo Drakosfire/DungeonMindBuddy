@@ -55,6 +55,22 @@ Before dispatching or adding a parallel lane:
 
 Do not use eventual Git conflicts as the ordinary signal that two agents crossed domains.
 
+## Cursor workspace vs worktree lifetime
+
+The Cursor window cwd and Git worktree lifetime are different objects. **Switch the window, then delete the old worktree.**
+
+Required order:
+
+1. `git fetch origin main`
+2. `git worktree add -b <branch> <new-path> origin/main` (never from a checked-out `main`)
+3. Switch the Cursor workspace / agent root onto `<new-path>`
+4. Confirm a new terminal launches in `<new-path>` (`pwd`, `git branch --show-current` is not `main`)
+5. Only then `git worktree remove` / `move` the previous checkout
+
+Deleting the currently open worktree first is a stop-the-line failure: terminals crash with a missing worktree path, and `move_agent_to_root` cannot repair it. That tool also fetches `origin/<branch>`; local-only branches abort the switch—push or open the folder first.
+
+Canonical statement: `AGENTS.md` section **Worktree / Cursor workspace switch order**.
+
 ## Write-lease collision rule
 
 When an active worker discovers that a required path is outside its §4 allowlist or is leased by another active lane, it must stop and report:
