@@ -829,6 +829,7 @@ def test_ingest_passes_concurrency_options_to_extractors(tmp_path: Path, monkeyp
 def test_confirm_inferred_frontmatter_uses_heuristic_without_openai_key(
     tmp_path: Path, monkeypatch
 ) -> None:
+    monkeypatch.setattr("src.cli._load_env", lambda: None)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     recorded: dict[str, object] = {}
 
@@ -857,6 +858,7 @@ def test_confirm_inferred_frontmatter_uses_heuristic_without_openai_key(
 def test_confirm_inferred_frontmatter_selects_inference_when_openai_key_present(
     tmp_path: Path, monkeypatch
 ) -> None:
+    monkeypatch.setattr("src.cli._load_env", lambda: None)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     constructed: list[tuple[tuple[object, ...], dict[str, object]]] = []
 
