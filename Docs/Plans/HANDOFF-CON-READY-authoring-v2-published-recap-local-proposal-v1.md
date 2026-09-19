@@ -300,7 +300,7 @@ No V2-1 merge claim depends on a backend World revision.
 1. Campaign/session switch could pair the previous recap payload with the new authoring scope, and `loadRecapProjection` had no stale-response guard. Repair: immediately invalidate/clear the loaded projection on scope change so it is non-authorable, and ignore late responses whose generation no longer matches.
 2. Manual draft and relationship staging could create proposals without recap path/hash/optional artifact id. Repair: those controls remain; they now copy exact supplied recap identity and leave `sourceSpanRefId` null. Tests inspect the staged proposal attributes, including a non-null `source_artifact_id` case.
 
-**UX findings:** keep the current visible UI for continued dogfood. Do not fold Surface Context, Author Node chip composition, Karsemine identity-vs-alias, or duplicate merge into these two correctness repairs.
+**UX findings:** keep the current visible UI for continued dogfood. Do not fold Surface Context, Author Node chip composition, Karsemine identity-vs-alias, existing-node edit, or duplicate merge into these two correctness repairs.
 
 ### Source identity actually preserved
 
@@ -346,12 +346,13 @@ V2-2 remains the named successor and is not authorized.
 
 ### Operator dogfood findings — review-time design exploration, not V2-1 merge blockers
 
-Recorded 2026-09-19 on `/ingest?campaign=longmont-c2&session=session-27` against this PR's UI. These are **feel / composition / identity-vocabulary** findings. They do **not** by themselves falsify the V2-1 local-stage invariant. **Do not expand #738** into Surface Context, Author Node, Peek kinds, or merge. **Do not remove the visible authoring UI** to “fix” review; that UI is how dogfood exposed the composition problems. Review cycle 1 confirmed this: keep highlight → Author graph, local staging form, resolver, relationship controls, and staged-proposal tray in V2-1. The two merge blockers above are separate correctness repairs.
+Recorded 2026-09-19 on `/ingest?campaign=longmont-c2&session=session-27` against this PR's UI. These are **feel / composition / identity-vocabulary** findings. They do **not** by themselves falsify the V2-1 local-stage invariant. **Do not expand #738** into Surface Context, Author Node, existing-node edit, Peek kinds, or merge. **Do not remove the visible authoring UI** to “fix” review; that UI is how dogfood exposed the composition problems. Review cycle 1 confirmed this: keep highlight → Author graph, local staging form, resolver, relationship controls, and staged-proposal tray in V2-1. The two merge blockers above are separate correctness repairs.
 
 #### What landed and was accepted
 
 - Highlighting recap prose immediately surfaces **Author graph object**. That trigger is correct. Keep it.
 - Bind or Create **does recognize** a known node (Karsemine). Matching existing campaign objects is valuable; the verb and destination are what are wrong.
+- Clicking an existing pill still opens Peek. Keep that inspect path. It also silently seeds the local draft with the node id/label, but that is not a visible **edit this node** affordance.
 
 #### Placement: the author action sits under the campaign loader
 
@@ -402,7 +403,7 @@ Keep three existing surfaces. Do not invent a fourth:
 | Moment | Surface |
 |---|---|
 | Highlight a phrase | Compact bind/create chip (near the selection or in Surface Context) |
-| Phrase *is* a known node | Chip names the node; choosing it opens existing campaign-memory Peek |
+| Phrase *is* a known node | Chip names the node; Peek remains inspect; Author / edit that existing node should also be available |
 | Phrase is a different name | Chip offers alias bind |
 | Create new | Author Node drawer, seeded with the highlight, still local-only |
 
@@ -434,10 +435,29 @@ two same-name nodes (PC vs character)
   → show both; merge later; do not pick a winner via alias
 ```
 
+#### Existing nodes should be authorable, not only new highlights
+
+A later dogfood note on the same published-recap surface: **node editing and authoring should be available on existing nodes as well.**
+
+Current V2-1 is biased toward **create from highlighted prose**. An existing pill still Peeks (correct) and `handleInspectNode` silently `openWithSelection`s that node's identity plus relationship seed, but Peek itself is inspect-only, the form stays below the markdown, and Bind or Create on a matching name still offers alias/create rather than **edit this node**. There is no visible authoring entry on the existing object comparable to highlight → Author graph.
+
+Operator direction to explore (do not implement in this PR):
+
+```text
+existing pill / known-node chip / identity match
+  → Peek remains inspect
+  → Author / edit that existing node is also available
+      same Author Node / local-stage workflow as Create new
+      seeded with exact node id/label
+      still no prepare/commit from published browse
+```
+
+This is the same composition family as the chip → Author Node and Karsemine identity notes: existing-object edit vs new-object create. Do not fold it into the two review-cycle-1 correctness repairs.
+
 #### Seams to inspect on the #738 diff (read-only during this review)
 
 - `WorldGraphRecapProjection.tsx` / `RecapGraphModule.tsx` — in-document `recap-reader-toolbar`
-- `PublishedRecapLocalAuthoring.tsx` — reader then `GraphObjectAuthoringSurface`; `onGraphAuthoringAction` does not open Author Node or scroll/focus
+- `PublishedRecapLocalAuthoring.tsx` — reader then `GraphObjectAuthoringSurface`; `onGraphAuthoringAction` does not open Author Node or scroll/focus; pill inspect silently seeds a draft but is not a visible existing-node edit path
 - `GraphProjectionReader.tsx` — inline **Author graph object** bar
 - `GraphObjectAuthoringBindExistingPanel.tsx` / `GraphObjectAuthoringSelectedSource.tsx` — alias-first copy; only bind action is Add as alias
 - `GraphReviewAuthorNodeHost.tsx` / `GraphReviewAuthorNodePanel.tsx` — drawer already mounted on published browse; `liveRun` gate
