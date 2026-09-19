@@ -826,6 +826,66 @@ def test_ingest_passes_concurrency_options_to_extractors(tmp_path: Path, monkeyp
     assert captured["fact_batch_size"] == 5
 
 
+def test_confirm_inferred_frontmatter_uses_heuristic_without_openai_key(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    recorded: dict[str, object] = {}
+
+    def _fake_infer(**kwargs):  # noqa: ANN003
+        recorded.update(kwargs)
+        from src.ingestion.frontmatter_inference import infer_frontmatter_metadata_heuristic
+
+        return infer_frontmatter_metadata_heuristic(kwargs["path"], kwargs["text"])
+
+    class _ForbiddenAdapter:
+        def __init__(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            raise AssertionError("OPENAI_API_KEY absent must not construct inference adapter")
+
+    monkeypatch.setattr("src.cli.infer_frontmatter_metadata", _fake_infer)
+    monkeypatch.setattr("src.cli.OpenAIFrontmatterInferenceClient", _ForbiddenAdapter)
+    monkeypatch.setattr("builtins.input", lambda *_: "n")
+    source = tmp_path / "notes.md"
+    source.write_text("Session recap body.\n", encoding="utf-8")
+    cli = DungeonBuddyCLI(store_dir=tmp_path / "store", verbose=False)
+    with redirect_stdout(io.StringIO()):
+        confirmed = cli._confirm_inferred_frontmatter(source, source.read_text(encoding="utf-8"))
+    assert confirmed is False
+    assert recorded["openai_client"] is None
+
+
+def test_confirm_inferred_frontmatter_selects_inference_when_openai_key_present(
+    tmp_path: Path, monkeypatch
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    constructed: list[tuple[tuple[object, ...], dict[str, object]]] = []
+
+    class _SpyAdapter:
+        def __init__(self, *args, **kwargs):  # noqa: ANN002, ANN003
+            constructed.append((args, kwargs))
+
+    recorded: dict[str, object] = {}
+
+    def _fake_infer(**kwargs):  # noqa: ANN003
+        recorded.update(kwargs)
+        from src.ingestion.frontmatter_inference import infer_frontmatter_metadata_heuristic
+
+        return infer_frontmatter_metadata_heuristic(kwargs["path"], kwargs["text"])
+
+    monkeypatch.setattr("src.cli.OpenAIFrontmatterInferenceClient", _SpyAdapter)
+    monkeypatch.setattr("src.cli.infer_frontmatter_metadata", _fake_infer)
+    monkeypatch.setattr("builtins.input", lambda *_: "n")
+    source = tmp_path / "notes.md"
+    source.write_text("Session recap body.\n", encoding="utf-8")
+    cli = DungeonBuddyCLI(store_dir=tmp_path / "store", verbose=False)
+    with redirect_stdout(io.StringIO()):
+        confirmed = cli._confirm_inferred_frontmatter(source, source.read_text(encoding="utf-8"))
+    assert confirmed is False
+    assert constructed == [((), {})]
+    assert recorded["openai_client"] is not None
+    assert isinstance(recorded["openai_client"], _SpyAdapter)
+
+
 def test_anchor_lint_command_runs(tmp_path: Path, monkeypatch) -> None:
     monkeypatch.setattr("src.cli._load_env", lambda: None)
     corpus_root = tmp_path / "corpus" / "eldyrwild-markdown"

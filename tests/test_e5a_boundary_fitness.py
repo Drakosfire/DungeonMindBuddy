@@ -49,7 +49,6 @@ BASELINE_PROVIDER_IMPORTS: frozenset[tuple[str, str]] = frozenset(
         ("src/graph_memory/extraction/staged_edge_extraction.py", "openai"),
         ("src/ingestion/entity_extractor.py", "openai"),
         ("src/ingestion/fact_extractor.py", "openai"),
-        ("src/ingestion/frontmatter_inference.py", "openai"),
         ("src/ingestion/openai_batch_pipeline.py", "openai"),
         ("src/ingestion/openai_batch_pipeline.py", "openai.lib._parsing._responses"),
         ("src/ingestion/schema_repair_batch.py", "openai"),
@@ -262,6 +261,7 @@ BASELINE_GENERATIONENGINE_IMPORTS: frozenset[tuple[str, str]] = frozenset(
     {
         ("src/live_play/live_turn_classifier_client.py", "generationengine"),
         ("src/npc_statblock_pipeline/canonical_intent.py", "generationengine"),
+        ("src/ingestion/frontmatter_inference.py", "generationengine"),
     }
 )
 

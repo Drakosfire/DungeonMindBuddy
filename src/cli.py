@@ -501,7 +501,7 @@ class DungeonBuddyCLI:
         inference_client = None
         api_key = os.getenv("OPENAI_API_KEY")
         if api_key:
-            inference_client = OpenAIFrontmatterInferenceClient(api_key=api_key)
+            inference_client = OpenAIFrontmatterInferenceClient()
         inferred = infer_frontmatter_metadata(
             path=source_path,
             text=text,

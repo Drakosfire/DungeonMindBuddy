@@ -4,10 +4,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+from generationengine import GenerationClient, TextRequest
 from pydantic import BaseModel
 
 from src.ingestion.frontmatter import DocumentMetadata
-from src.llm.api_client import DungeonMindApiClient
+from src.llm.generation_sync import run_awaitable_sync
+
+_SCHEMA_NAME = "frontmatter_metadata_proposal"
 
 
 class ProposedDocumentMetadata(BaseModel):
@@ -96,55 +99,71 @@ def infer_frontmatter_metadata_heuristic(path: Path, text: str) -> DocumentMetad
     )
 
 
+def _frontmatter_inference_prompt(*, path: Path, text: str) -> str:
+    return (
+        "Infer frontmatter metadata for a markdown source document.\n"
+        "Return JSON with keys: title, document_class, canon_layer, campaign_id, temporal_scope, session, origin_session, last_updated_session, source_class.\n"
+        "Allowed document_class: world|play|planning|reference.\n"
+        "Allowed canon_layer: world|campaign.\n"
+        "Allowed temporal_scope: session_specific|campaign_stateful|evergreen.\n"
+        "Allowed source_class: seed_reference|observed_session_recap|planning_document|ledger_or_dossier|other.\n"
+        f"Path: {path}\n\n"
+        f"Document excerpt:\n{text[:4000]}"
+    )
+
+
+def _document_metadata_from_proposal(proposal: ProposedDocumentMetadata) -> DocumentMetadata:
+    payload = proposal.model_dump()
+    return DocumentMetadata(
+        title=payload["title"],
+        document_class=payload["document_class"],
+        canon_layer=payload["canon_layer"],
+        campaign_id=payload["campaign_id"],
+        temporal_scope=payload["temporal_scope"],
+        session=payload["session"],
+        origin_session=payload.get("origin_session"),
+        last_updated_session=payload.get("last_updated_session"),
+        source_class=payload["source_class"],
+    )
+
+
 class OpenAIFrontmatterInferenceClient:
     """Optional OpenAI-backed inference adapter for document metadata."""
 
-    def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
-        if sdk_client is not None:
-            self._client = sdk_client
-            self._api_client = DungeonMindApiClient.wrap(self._client)
-            return
-        from openai import OpenAI  # type: ignore[import-untyped]
-
-        self._client = OpenAI(api_key=api_key)
-        self._api_client = DungeonMindApiClient.wrap(self._client)
+    def __init__(self, *, client: Any | None = None) -> None:
+        self._client = client
 
     def propose(self, *, model: str, path: Path, text: str) -> DocumentMetadata:
-        prompt = (
-            "Infer frontmatter metadata for a markdown source document.\n"
-            "Return JSON with keys: title, document_class, canon_layer, campaign_id, temporal_scope, session, origin_session, last_updated_session, source_class.\n"
-            "Allowed document_class: world|play|planning|reference.\n"
-            "Allowed canon_layer: world|campaign.\n"
-            "Allowed temporal_scope: session_specific|campaign_stateful|evergreen.\n"
-            "Allowed source_class: seed_reference|observed_session_recap|planning_document|ledger_or_dossier|other.\n"
-            f"Path: {path}\n\n"
-            f"Document excerpt:\n{text[:4000]}"
-        )
-        response = self._api_client.responses_parse(
-            action="frontmatter_inference.propose",
+        request = TextRequest(
+            user_prompt=_frontmatter_inference_prompt(path=path, text=text),
+            provider="openai",
             model=model,
-            input=[{"role": "user", "content": prompt}],
-            text_format=ProposedDocumentMetadata,
-        ).response
-        parsed = getattr(response, "output_parsed", None)
+            temperature=None,
+            json_schema=ProposedDocumentMetadata.model_json_schema(),
+            schema_name=_SCHEMA_NAME,
+        )
+        result = run_awaitable_sync(lambda: self._generate_structured(request))
+        parsed = getattr(result, "parsed", None)
         if parsed is None:
-            raise ValueError("OpenAI inference returned no parsed metadata.")
-        payload = (
-            parsed.model_dump()
-            if isinstance(parsed, ProposedDocumentMetadata)
-            else ProposedDocumentMetadata.model_validate(parsed).model_dump()
-        )
-        return DocumentMetadata(
-            title=payload["title"],
-            document_class=payload["document_class"],
-            canon_layer=payload["canon_layer"],
-            campaign_id=payload["campaign_id"],
-            temporal_scope=payload["temporal_scope"],
-            session=payload["session"],
-            origin_session=payload.get("origin_session"),
-            last_updated_session=payload.get("last_updated_session"),
-            source_class=payload["source_class"],
-        )
+            raise ValueError("Frontmatter inference returned no parsed metadata.")
+        if not isinstance(parsed, dict):
+            raise ValueError(
+                "Frontmatter inference parsed output must be an object, "
+                f"got {type(parsed).__name__}"
+            )
+        proposal = ProposedDocumentMetadata.model_validate(parsed)
+        return _document_metadata_from_proposal(proposal)
+
+    async def _generate_structured(self, request: TextRequest) -> Any:
+        if self._client is not None:
+            generate = getattr(self._client, "generate_structured", None)
+            if not callable(generate):
+                raise TypeError(
+                    "client must have generate_structured (GenerationEngine structured generation)."
+                )
+            return await generate(request)
+        ge_client = GenerationClient.from_env()
+        return await ge_client.generate_structured(request)
 
 
 def infer_frontmatter_metadata(
