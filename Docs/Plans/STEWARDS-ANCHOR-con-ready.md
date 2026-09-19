@@ -6,7 +6,7 @@
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Re-anchor input:** `main@026fd546cb564f3262dbbe6aaf94fc1cee6df84a` — V2-1 dispatch base; rebased onto `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after #737  
 **Current product frontier:** **Authoring v2 → derived gold → extraction ablation**  
-**Active implementation PR:** **V2-1 branch `con-ready/v2-1-published-recap-local-proposal-v1` dispatched; serial CON-READY PR pending review**  
+**Active implementation PR:** **[#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738)** — `con-ready/v2-1-published-recap-local-proposal-v1`; serial CON-READY PR pending review  
 **Current sequencing authority:** [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md)  
 **Completed V2-0 census:** [`../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`](../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md)  
 **ACTIVE V2-1 handoff:** [`HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`](HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md)  
@@ -29,9 +29,9 @@ Read, in order:
 5. historical authoring ancestry only when needed to understand surviving implementation seams;
 6. `Docs/Design/ARCHITECTURE-campaign-supergraph.md` when checking durable World authority.
 
-The V2-1 handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. Implementation is on `con-ready/v2-1-published-recap-local-proposal-v1` from dispatch base `026fd546cb564f3262dbbe6aaf94fc1cee6df84a`, rebased onto `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D #737 merged.
+The V2-1 handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. Implementation is [#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738) on `con-ready/v2-1-published-recap-local-proposal-v1` from dispatch base `026fd546cb564f3262dbbe6aaf94fc1cee6df84a`, rebased onto `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D #737 merged.
 
-The next steward action is to review that one serial V2-1 implementation PR against the handoff invariant. V2-2 remains false.
+The next steward action is to review that one serial V2-1 implementation PR (#738) against the handoff invariant. V2-2 remains false.
 
 ---
 

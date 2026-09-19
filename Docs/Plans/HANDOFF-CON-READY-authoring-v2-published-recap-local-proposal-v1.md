@@ -281,7 +281,7 @@ No V2-1 merge claim depends on a backend World revision.
 
 **Dispatch base:** `026fd546cb564f3262dbbe6aaf94fc1cee6df84a` (`origin/main` at dispatch)  
 **Rebased onto:** `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D `#737` merge (no §4 frontend overlap)  
-**Branch:** `con-ready/v2-1-published-recap-local-proposal-v1`  
+**PR:** [#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738)  
 **PR topology at dispatch:** serial within CON-READY  
 **Bounded discovery used:** `apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphAuthoringSelection.ts` — include `sourceArtifactId` in authoring context identity
 
