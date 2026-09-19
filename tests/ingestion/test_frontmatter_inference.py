@@ -144,7 +144,9 @@ def test_policy_model_resolution_still_returns_gpt_53_codex() -> None:
 
 
 def test_prompt_preserves_4000_character_excerpt() -> None:
-    text = "a" * 5000
+    prefix = "a" * 4000
+    suffix = "TAIL-MARKER-E5E"
+    text = prefix + suffix
     client = RecordingStructuredClient()
     infer_frontmatter_metadata(
         path=_PLAY_PATH,
@@ -153,9 +155,9 @@ def test_prompt_preserves_4000_character_excerpt() -> None:
     )
     prompt = client.requests[0].user_prompt
     assert prompt == _frontmatter_inference_prompt(_PLAY_PATH, text)
-    assert text[:4000] in prompt
-    assert text[4000:] not in prompt
-    assert prompt.endswith("a" * 4000)
+    assert prefix in prompt
+    assert suffix not in prompt
+    assert prompt.endswith(prefix)
 
 
 def test_request_schema_is_proposal_shape_not_product_document_schema() -> None:
@@ -332,6 +334,7 @@ def test_cli_selects_heuristic_when_openai_api_key_absent(
         captured.update(kwargs)
         return infer_frontmatter_metadata_heuristic(kwargs["path"], kwargs["text"])
 
+    monkeypatch.setattr("src.cli._load_env", lambda: None)
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
     monkeypatch.setattr("src.cli.infer_frontmatter_metadata", _fake_infer)
     monkeypatch.setattr("builtins.input", lambda _: "n")
@@ -352,6 +355,7 @@ def test_cli_selects_inference_adapter_when_openai_api_key_present(
         captured.update(kwargs)
         return infer_frontmatter_metadata_heuristic(kwargs["path"], kwargs["text"])
 
+    monkeypatch.setattr("src.cli._load_env", lambda: None)
     monkeypatch.setenv("OPENAI_API_KEY", "test-key")
     monkeypatch.setattr("src.cli.infer_frontmatter_metadata", _fake_infer)
     monkeypatch.setattr("builtins.input", lambda _: "n")
