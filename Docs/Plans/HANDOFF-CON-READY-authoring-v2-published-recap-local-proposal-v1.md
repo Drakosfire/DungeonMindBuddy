@@ -277,6 +277,54 @@ No V2-1 merge claim depends on a backend World revision.
 
 ---
 
+## Implementation record (pre-review)
+
+**Dispatch base:** `026fd546cb564f3262dbbe6aaf94fc1cee6df84a` (`origin/main` at dispatch)  
+**Rebased onto:** `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D `#737` merge (no §4 frontend overlap)  
+**Branch:** `con-ready/v2-1-published-recap-local-proposal-v1`  
+**PR topology at dispatch:** serial within CON-READY  
+**Bounded discovery used:** `apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphAuthoringSelection.ts` — include `sourceArtifactId` in authoring context identity
+
+### Source identity actually preserved
+
+| RecapArtifactRecord | GraphAuthoringSelection |
+|---|---|
+| `campaign_id` | `campaignId` |
+| `session_id` | `sessionId` |
+| `source_recap_path` | `sourceArtifactPath` |
+| `source_sha256` | `sourceArtifactSha256` |
+| `source_artifact_id` | `sourceArtifactId` (nullable; never synthesized) |
+| canonical span | `sourceSpanRefId` remains null unless already on the selection |
+
+### Write-authority proof
+
+`PublishedRecapLocalAuthoring` exposes `data-write-authority="none"`. `GraphObjectAuthoringSurface` `localStageOnly` never renders `GraphObjectAuthoringPrepareCommitPanel`, even if campaign/session ids are present for the resolver. Focused tests spy `prepareGraphObjectAuthoringWrite` and `commitGraphObjectAuthoringWrite`. Quick-commit and merge materialization are not imported.
+
+### C2 → C1 → C2
+
+`useGraphObjectAuthoringDraft` rehydrates/resets on campaign/session key change and does not write the previous scope's proposals onto the destination key.
+
+### §7 commands
+
+```text
+vitest run RecapGraphModule.test.tsx WorldGraphRecapProjection.test.tsx
+  PublishedRecapLocalAuthoring.test.tsx useGraphObjectAuthoringDraft.test.ts
+  graphAuthoringSelection.test.ts GraphProjectionReader.test.tsx
+→ 6 files, 43 passed
+
+vitest run GraphObjectAuthoringSurface.test.tsx
+→ 35 passed (exact-run default semantics unchanged)
+
+pnpm --dir apps/live-control-ui build
+→ tsc fails on pre-existing unused locals in GraphReviewWorkbenchModule.tsx
+  (out of lease; same unused bindings exist on dispatch-base main).
+  No new tsc errors in §4 / bounded-discovery files.
+```
+
+V2-2 remains the named successor and is not authorized.
+
+---
+
 ## §8 Required review handback
 
 Record:

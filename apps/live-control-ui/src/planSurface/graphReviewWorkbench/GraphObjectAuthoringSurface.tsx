@@ -81,6 +81,7 @@ export interface GraphObjectAuthoringSurfaceProps {
   liveRunManifestPath?: string | null;
   previewUnionStorePath?: string | null;
   projectionNodeViews?: Record<string, GraphProjectionNodeView>;
+  localStageOnly?: boolean;
 }
 
 export function GraphObjectAuthoringSurface({
@@ -114,6 +115,7 @@ export function GraphObjectAuthoringSurface({
   liveRunManifestPath = null,
   previewUnionStorePath = null,
   projectionNodeViews,
+  localStageOnly = false,
 }: GraphObjectAuthoringSurfaceProps) {
   const supportsRelationship = Boolean(relationshipFormState && onRelationshipFieldChange && onStageRelationshipProposal);
   const [bindingAlias, setBindingAlias] = useState(false);
@@ -195,8 +197,14 @@ export function GraphObjectAuthoringSurface({
     }
   };
 
-  const headerCopy =
-    focusPanel === "create_new"
+  const headerCopy = localStageOnly
+    ? {
+        kicker: "Local campaign-memory proposal",
+        title: "Stage a local correction",
+        hint:
+          "These drafts stay in this browser for this campaign and focus session. They are not committed to World memory.",
+      }
+    : focusPanel === "create_new"
       ? {
           kicker: "New object",
           title: "Bind highlighted text or create a node",
@@ -227,6 +235,7 @@ export function GraphObjectAuthoringSurface({
       aria-label="Graph object authoring"
       data-testid="graph-object-authoring-surface"
       data-focus-panel={focusPanel}
+      data-local-stage-only={localStageOnly ? "true" : "false"}
     >
       <header className="graph-object-authoring-surface-header">
         <p className="plan-surface-kicker">{headerCopy.kicker}</p>
@@ -278,8 +287,9 @@ export function GraphObjectAuthoringSurface({
                 <header className="graph-object-authoring-create-new-header">
                   <h4>Create a new object</h4>
                   <p className="graph-object-authoring-surface-hint">
-                    Use when no existing node fits. Create object saves to authored
-                    memory immediately.
+                    {localStageOnly
+                      ? "Use when no existing node fits. Stage a local object draft; nothing is written to World memory."
+                      : "Use when no existing node fits. Create object saves to authored memory immediately."}
                   </p>
                 </header>
                 <GraphObjectAuthoringObjectForm formState={formState} onChange={onFormFieldChange} />
@@ -295,7 +305,7 @@ export function GraphObjectAuthoringSurface({
                     disabled={!canStage || creatingObject}
                     onClick={onStageProposal}
                   >
-                    {creatingObject ? "Creating…" : "Create object"}
+                    {creatingObject ? "Creating…" : localStageOnly ? "Stage locally" : "Create object"}
                   </button>
                 </div>
                 {createObjectError ? (
@@ -373,7 +383,9 @@ export function GraphObjectAuthoringSurface({
           <header className="graph-object-authoring-review-staged-memory-header">
             <h4>Review staged memory</h4>
             <p className="graph-object-authoring-review-staged-memory-lede">
-              These drafts are local until you prepare and commit them.
+              {localStageOnly
+                ? "Local drafts only. Not committed to World memory."
+                : "These drafts are local until you prepare and commit them."}
             </p>
           </header>
         ) : null}
@@ -383,15 +395,17 @@ export function GraphObjectAuthoringSurface({
           onRemove={onRemoveProposal}
           overlapContext={overlapContext}
           projectionNodeViews={projectionNodeViews}
-          onReviewMerge={onReviewMerge}
+          onReviewMerge={localStageOnly ? undefined : onReviewMerge}
           emptyMessage={
-            focusPanel === "stage_overlay"
-              ? GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE_WORKFLOW
-              : GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE
+            localStageOnly
+              ? "No local proposals yet. Highlight recap text or use a graph pill to stage a draft."
+              : focusPanel === "stage_overlay"
+                ? GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE_WORKFLOW
+                : GRAPH_OBJECT_AUTHORING_STAGING_TRAY_EMPTY_MESSAGE
           }
         />
 
-        {campaignId && sessionId && onCommittedProposals ? (
+        {!localStageOnly && campaignId && sessionId && onCommittedProposals ? (
           <GraphObjectAuthoringPrepareCommitPanel
             campaignId={campaignId}
             sessionId={sessionId}

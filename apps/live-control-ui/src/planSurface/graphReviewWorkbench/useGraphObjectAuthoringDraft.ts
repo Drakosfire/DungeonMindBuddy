@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import {
@@ -92,6 +92,13 @@ function readStagedProposalsFromSession(
   }
 }
 
+function storageScopeKey(scope: GraphObjectAuthoringDraftStorageScope | undefined): string {
+  if (!scope) {
+    return "";
+  }
+  return `${scope.campaignId}:${scope.sessionId}`;
+}
+
 export function useGraphObjectAuthoringDraft(
   storageScope?: GraphObjectAuthoringDraftStorageScope,
 ): UseGraphObjectAuthoringDraftResult {
@@ -106,10 +113,20 @@ export function useGraphObjectAuthoringDraft(
   const [proposals, setProposals] = useState<GraphObjectAuthoringProposal[]>(() =>
     readStagedProposalsFromSession(storageScope),
   );
+  const scopeKey = storageScopeKey(storageScope);
+  const scopeKeyRef = useRef(scopeKey);
 
   useEffect(() => {
+    if (scopeKeyRef.current !== scopeKey) {
+      scopeKeyRef.current = scopeKey;
+      setSelectedSource(null);
+      setFormState(createDefaultGraphObjectAuthoringFormState(null));
+      setRelationshipFormState(createDefaultGraphObjectAuthoringRelationshipFormState());
+      setProposals(readStagedProposalsFromSession(storageScope));
+      return;
+    }
     writeStagedProposalsToSession(storageScope, proposals);
-  }, [proposals, storageScope]);
+  }, [proposals, scopeKey, storageScope]);
 
   const openWithSelection = useCallback((selection: GraphAuthoringSelection) => {
     setSelectedSource(selection);

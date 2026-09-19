@@ -175,3 +175,61 @@ describe("useGraphObjectAuthoringDraft stageLinkExistingFromResolver", () => {
     sessionStorage.removeItem(storageKey);
   });
 });
+
+describe("useGraphObjectAuthoringDraft campaign/session isolation", () => {
+  const c2Scope = { campaignId: "longmont-c2", sessionId: "session-27" };
+  const c1Scope = { campaignId: "longmont-c1", sessionId: "session-16" };
+  const c2Key = `graph-object-authoring-staged:${c2Scope.campaignId}:${c2Scope.sessionId}`;
+  const c1Key = `graph-object-authoring-staged:${c1Scope.campaignId}:${c1Scope.sessionId}`;
+
+  it("does not leak C2/S27 drafts into C1/S16 and rehydrates C2 on return", () => {
+    sessionStorage.removeItem(c2Key);
+    sessionStorage.removeItem(c1Key);
+
+    const { result, rerender } = renderHook(
+      ({ scope }) => useGraphObjectAuthoringDraft(scope),
+      { initialProps: { scope: c2Scope } },
+    );
+
+    act(() => {
+      result.current.openWithSelection({
+        campaignId: c2Scope.campaignId,
+        sessionId: c2Scope.sessionId,
+        selectionKind: "text_span",
+        selectedText: "Questionable Company",
+        normalizedSelectedText: "Questionable Company",
+        sourceArtifactId: null,
+        sourceArtifactPath: "corpus/c2/session-27.md",
+        sourceSpanRefId: null,
+      });
+    });
+    act(() => {
+      result.current.stageProposal();
+    });
+
+    expect(result.current.proposals).toHaveLength(1);
+    const c2ProposalId = result.current.proposals[0]?.localProposalId;
+    expect(c2ProposalId).toBeTruthy();
+    expect(sessionStorage.getItem(c2Key)).toBeTruthy();
+
+    act(() => {
+      rerender({ scope: c1Scope });
+    });
+
+    expect(result.current.proposals).toHaveLength(0);
+    expect(result.current.selectedSource).toBeNull();
+    expect(sessionStorage.getItem(c1Key)).toBeNull();
+    expect(sessionStorage.getItem(c2Key)).toBeTruthy();
+
+    act(() => {
+      rerender({ scope: c2Scope });
+    });
+
+    expect(result.current.proposals).toHaveLength(1);
+    expect(result.current.proposals[0]?.localProposalId).toBe(c2ProposalId);
+    expect(result.current.proposals[0]?.proposalKind).toBe("object");
+
+    sessionStorage.removeItem(c2Key);
+    sessionStorage.removeItem(c1Key);
+  });
+});

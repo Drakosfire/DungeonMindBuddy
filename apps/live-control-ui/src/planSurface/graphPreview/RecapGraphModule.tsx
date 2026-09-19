@@ -96,6 +96,12 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     [selectedCampaignId, sessionRecords],
   );
 
+  const selectedRecapRecord = useMemo(
+    () =>
+      campaignSessionRecords.find((record) => record.session_id === selectedSessionId) ?? null,
+    [campaignSessionRecords, selectedSessionId],
+  );
+
   const sessionOptions = useMemo(() => {
     const options = new Set(campaignSessionRecords.length > 0 ? [] : DOGFOOD_SESSION_OPTIONS);
     options.add(`session-${context.ingestSession}`);
@@ -255,6 +261,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         sessionOptions={sessionOptions}
         selectedCampaignId={selectedCampaignId}
         onSelectCampaign={handleCampaignSelect}
+        recapRecord={selectedRecapRecord}
       />
     );
   }

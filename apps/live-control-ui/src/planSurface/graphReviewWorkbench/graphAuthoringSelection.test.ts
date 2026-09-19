@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
 import {
   buildGraphAuthoringSelectionFromEditor,
+  buildGraphAuthoringSelectionFromRecapNode,
   buildManualGraphAuthoringSelection,
   graphAuthoringSelectionsEqual,
   isManualGraphAuthoringSelection,
@@ -18,6 +19,8 @@ const authoringContext = {
   graphId: "graph-c1s2",
   laneRole: "live" as const,
   sourceArtifactPath: "artifacts/run/manifest.json",
+  sourceArtifactSha256: "sha256:manifest",
+  sourceArtifactId: "artifact:recap:longmont-c1:session-2",
 };
 
 function createAuthoringEditor(content: Parameters<Editor["commands"]["setContent"]>[0]) {
@@ -44,6 +47,8 @@ describe("graphAuthoringSelection", () => {
 
     expect(selection.selectedText).toBe("");
     expect(selection.sourceArtifactPath).toBeNull();
+    expect(selection.sourceArtifactId).toBeNull();
+    expect(selection.sourceSpanRefId).toBeNull();
     expect(isManualGraphAuthoringSelection(selection)).toBe(true);
   });
 
@@ -81,6 +86,9 @@ describe("graphAuthoringSelection", () => {
       tiptapFrom: 5,
       tiptapTo: 9,
     });
+    expect(selection?.sourceArtifactId).toBe("artifact:recap:longmont-c1:session-2");
+    expect(selection?.sourceArtifactPath).toBe("artifacts/run/manifest.json");
+    expect(selection?.sourceArtifactSha256).toBe("sha256:manifest");
     expect(selection?.surroundingTextBefore).toContain("The");
     expect(selection?.surroundingTextAfter).toContain("arrived");
 
@@ -138,7 +146,33 @@ describe("graphAuthoringSelection", () => {
     const right = { ...left };
     expect(graphAuthoringSelectionsEqual(left, right)).toBe(true);
     expect(graphAuthoringSelectionsEqual(left, { ...left, selectedText: "gate" })).toBe(false);
+    expect(
+      graphAuthoringSelectionsEqual(left, { ...left, sourceArtifactId: "artifact:other" }),
+    ).toBe(false);
   });
+
+  it("preserves supplied recap source identity and does not invent a span id", () => {
+    const selection = buildGraphAuthoringSelectionFromRecapNode({
+      campaignId: "longmont-c2",
+      sessionId: "session-27",
+      graphId: "graph-c2s27",
+      sourceArtifactPath: "corpus/recaps/Session 27.md",
+      sourceArtifactSha256: "sha256:session-27",
+      sourceArtifactId: null,
+      node: { node_id: "pc_caelynn", label: "Caelynn" },
+    });
+
+    expect(selection).toMatchObject({
+      selectionKind: "graph_node_reference",
+      existingNodeId: "pc_caelynn",
+      existingLabel: "Caelynn",
+      sourceArtifactPath: "corpus/recaps/Session 27.md",
+      sourceArtifactSha256: "sha256:session-27",
+      sourceArtifactId: null,
+      sourceSpanRefId: null,
+    });
+  });
+
 
   it("builds a graph_node_reference selection when a graph chip atom is selected", () => {
     const editor = createAuthoringEditor({

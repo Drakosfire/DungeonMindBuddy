@@ -70,12 +70,39 @@ function mockCompleteObject() {
   });
 }
 
+function mockAuthoringWrites() {
+  vi.spyOn(liveApi, "prepareGraphObjectAuthoringWrite");
+  vi.spyOn(liveApi, "commitGraphObjectAuthoringWrite");
+  vi.spyOn(liveApi, "resolveGraphReviewExistingObjectCandidates").mockResolvedValue({
+    schema: "dmb_graph_review_existing_object_resolver_response_v1",
+    campaign_id: "longmont-c2",
+    session_id: "session-24",
+    selected_node_id: "selection",
+    selected_label: "selection",
+    candidates: [],
+    warnings: [],
+    diagnostics: [],
+    scopes_searched: [],
+  });
+}
+
+async function findRecapPill(name: RegExp | string) {
+  return waitFor(() => {
+    const pill = screen
+      .getAllByRole("button", { name })
+      .find((button) => button.classList.contains("recap-node-token"));
+    expect(pill).toBeTruthy();
+    return pill as HTMLButtonElement;
+  }, { timeout: 8000 });
+}
+
 describe("RecapGraphModule", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
     window.history.replaceState({}, "", "/plan?tool=recap&session=session-24");
     mockArtifacts();
     mockCompleteObject();
+    mockAuthoringWrites();
   });
 
   it("requests World Graph recap projection for the URL session", async () => {
@@ -124,8 +151,8 @@ describe("RecapGraphModule", () => {
     render(<RecapGraphModule context={context} />);
 
     expect(await screen.findByLabelText("Published recap")).toBeInTheDocument();
-    expect(await screen.findByRole("button", { name: /Caelynn/i })).toBeInTheDocument();
-  });
+    expect(await findRecapPill(/Caelynn/i)).toBeInTheDocument();
+  }, 15000);
 
   it("shows unavailable message for recap_markdown_unavailable without preview fallback", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockRejectedValue(
@@ -163,6 +190,24 @@ describe("RecapGraphModule", () => {
     const body = postRecap.mock.calls[0]?.[0];
     expect(body).not.toHaveProperty("revisionPin");
   });
+
+  it("passes the selected recap record source identity into local authoring without synthesizing a span", async () => {
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+      ...session23WorldGraphRecapFixture,
+      sessionId: "session-24",
+    });
+
+    render(<RecapGraphModule context={context} />);
+
+    const host = await screen.findByTestId("published-recap-local-authoring");
+    expect(host).toHaveAttribute("data-write-authority", "none");
+    expect(host).toHaveAttribute("data-source-artifact-id", "null");
+    expect(host).toHaveAttribute("data-source-artifact-path", artifactRecord(24).source_recap_path);
+    expect(host).toHaveAttribute("data-source-artifact-sha256", "sha256:session-24");
+    expect(host).toHaveAttribute("data-source-span-ref-id", "null");
+    expect(liveApi.prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+  });
 });
 
 describe("RecapGraphModule PR380B World Graph authority", () => {
@@ -171,6 +216,7 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     window.history.replaceState({}, "", "/plan?tool=recap&session=session-24");
     mockArtifacts();
     mockCompleteObject();
+    mockAuthoringWrites();
   });
 
   it("does not call Union/latest-ingest selectors", async () => {
@@ -185,8 +231,8 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
   it("does not put Continue in Build on the ordinary recap Peek", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);
     render(<RecapGraphModule context={context} />);
-    const chip = await screen.findByRole("button", { name: /Caelynn/i });
-    fireEvent.click(chip);
+    await screen.findByLabelText("Published recap");
+    fireEvent.click(await findRecapPill(/Caelynn/i));
     await waitFor(() => {
       expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
         expect.objectContaining({ nodeId: "pc_caelynn", campaignId: "longmont-c2" }),
@@ -199,7 +245,14 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     expect(card).toHaveAttribute("data-testid", "graph-object-projection-card");
     expect(card.textContent).not.toContain("Held the Mireward gate during the incident.");
     expect(card.textContent).not.toMatch(/session_recap/i);
-  });
+    expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+      "data-existing-node-id",
+      "pc_caelynn",
+    );
+    expect(screen.getByTestId("graph-object-projection-card")).toBeInTheDocument();
+    expect(liveApi.prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+    expect(liveApi.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+  }, 15000);
 
   it("does not render preview-candidate or recap-lens metadata copy", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue(session23WorldGraphRecapFixture);

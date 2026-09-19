@@ -26,6 +26,7 @@ function authoringContextKey(context: GraphAuthoringContext | null | undefined):
     context.laneRole ?? "",
     context.sourceArtifactPath ?? "",
     context.sourceArtifactSha256 ?? "",
+    context.sourceArtifactId ?? "",
   ].join("|");
 }
 

@@ -138,6 +138,58 @@ describe("GraphProjectionReader", () => {
     );
   });
 
+  it("preserves optional source artifact identity from the authoring context", async () => {
+    const onGraphAuthoringSelection = vi.fn();
+
+    render(
+      <GraphProjectionReader
+        markdown="The gang arrived at the gate."
+        nodeViews={{}}
+        sourceSpans={[]}
+        authoringEnabled
+        authoringContext={{
+          campaignId: "longmont-c2",
+          sessionId: "session-27",
+          graphId: "graph-c2s27",
+          laneRole: "live",
+          sourceArtifactPath: "corpus/recaps/Session 27.md",
+          sourceArtifactSha256: "sha256:session-27",
+          sourceArtifactId: null,
+        }}
+        onGraphAuthoringSelection={onGraphAuthoringSelection}
+        onGraphAuthoringAction={vi.fn()}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector(".ProseMirror")).toBeTruthy();
+    });
+
+    const proseMirror = document.querySelector(".ProseMirror") as HTMLElement;
+    const paragraph = proseMirror.querySelector("p");
+    const range = document.createRange();
+    const textNode = paragraph!.firstChild as Text;
+    const startIndex = textNode.textContent!.indexOf("gang");
+    range.setStart(textNode, startIndex);
+    range.setEnd(textNode, startIndex + 4);
+    window.getSelection()?.removeAllRanges();
+    window.getSelection()?.addRange(range);
+    fireEvent.mouseUp(proseMirror);
+
+    await waitFor(() => {
+      expect(onGraphAuthoringSelection).toHaveBeenCalledWith(
+        expect.objectContaining({
+          selectedText: "gang",
+          sourceArtifactPath: "corpus/recaps/Session 27.md",
+          sourceArtifactSha256: "sha256:session-27",
+          sourceArtifactId: null,
+        }),
+      );
+    });
+    const forwarded = onGraphAuthoringSelection.mock.calls.at(-1)?.[0];
+    expect(forwarded?.sourceSpanRefId).toBeUndefined();
+  });
+
   it("does not render graphId by default even when graphId is passed", async () => {
     render(
       <GraphProjectionReader

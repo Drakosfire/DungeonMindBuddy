@@ -4,9 +4,9 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-19  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor input:** `main@11c1c4a469b509d9f8a2286f74f5ff087122fcbd` — V2-0 census landed  
+**Re-anchor input:** `main@026fd546cb564f3262dbbe6aaf94fc1cee6df84a` — V2-1 dispatch base; rebased onto `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after #737  
 **Current product frontier:** **Authoring v2 → derived gold → extraction ablation**  
-**Active implementation PR:** **NONE YET — V2-1 handoff is ACTIVE and ready for dispatch**  
+**Active implementation PR:** **V2-1 branch `con-ready/v2-1-published-recap-local-proposal-v1` dispatched; serial CON-READY PR pending review**  
 **Current sequencing authority:** [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md)  
 **Completed V2-0 census:** [`../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`](../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md)  
 **ACTIVE V2-1 handoff:** [`HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`](HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md)  
@@ -29,9 +29,9 @@ Read, in order:
 5. historical authoring ancestry only when needed to understand surviving implementation seams;
 6. `Docs/Design/ARCHITECTURE-campaign-supergraph.md` when checking durable World authority.
 
-The V2-1 handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. No V2-1 branch/PR has been dispatched yet.
+The V2-1 handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. Implementation is on `con-ready/v2-1-published-recap-local-proposal-v1` from dispatch base `026fd546cb564f3262dbbe6aaf94fc1cee6df84a`, rebased onto `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D #737 merged.
 
-The next steward action is to dispatch exactly that one V2-1 implementation PR from fresh current `main`, then review by the handoff invariant.
+The next steward action is to review that one serial V2-1 implementation PR against the handoff invariant. V2-2 remains false.
 
 ---
 
@@ -294,7 +294,7 @@ STAGE 4 / RECAP WOW                              HOLD — post-UI-05 human witne
 
 AUTHORING V2                                     CURRENT IMPLEMENTATION FRONTIER
 V2-0 CONTRACT CENSUS                             COMPLETE / PASS
-V2-1 PUBLISHED-RECAP LOCAL PROPOSAL               ACTIVE — HANDOFF CHECKED IN
+V2-1 PUBLISHED-RECAP LOCAL PROPOSAL               ACTIVE — IMPLEMENTATION DISPATCHED
 V2-2 GOVERNED WORLD COMMIT                       NOT AUTHORIZED
 V2-3 DERIVED GOLD EXPORT                         NOT AUTHORIZED
 V2-4 EXTRACTION/MODEL ABLATION                   PARKED BEHIND GOLD
@@ -315,7 +315,7 @@ The design transition is complete:
 V2-0 current-contract census                    PASS
 → exact governed write boundary identified      PASS
 → bounded V2-1 handoff landed ACTIVE            PASS
-→ one serial V2-1 implementation PR authorized  READY FOR DISPATCH
+→ one serial V2-1 implementation PR authorized  DISPATCHED — PENDING REVIEW
 ```
 
-Dispatch V2-1 from fresh current `main`. Do not dispatch V2-2, derived gold, extraction/model ablation, or Agent-assisted authoring until V2-1 merges and the workstream is re-anchored.
+Review the dispatched V2-1 PR. Do not dispatch V2-2, derived gold, extraction/model ablation, or Agent-assisted authoring until V2-1 merges and the workstream is re-anchored.
