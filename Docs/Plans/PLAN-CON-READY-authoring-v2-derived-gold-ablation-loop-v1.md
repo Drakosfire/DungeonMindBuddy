@@ -1,13 +1,15 @@
 # PLAN — CON-READY: Authoring v2 → derived gold → extraction ablation loop
 
 **Created:** 2026-09-18  
-**Status:** ACTIVE DESIGN / SEQUENCING AUTHORITY — no implementation PR authorized yet  
+**Status:** ACTIVE SEQUENCING AUTHORITY — V2-0 complete; V2-1 ACTIVE  
 **Canonical path:** `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`  
 **Workstream:** `CON-READY / DOGFOOD-CONTINUITY / campaign memory authoring`  
 **Re-anchor input:** `main@586a3dcb53b481ef2cf21890872a3f1e8465a925` — UI-05 / PR #735 merged  
 **Predecessor UI series:** UI-01 through UI-05 merged; Stage 4 WOW remains human-gated  
 **Historical authoring ancestry:** `ROADMAP-graph-object-authoring-surface.md`, `DESIGN-graph-object-authoring-surface.md`, July authored-memory checkpoint  
-**Current World authority:** DungeonMind-owned immutable World revisions / governed World publication
+**Current World authority:** DungeonMind-owned immutable World revisions / governed World publication  
+**V2-0 census:** `Docs/Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md` — COMPLETE / PASS  
+**Active implementation handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`
 
 > The next useful loop is not “improve extraction, then hope the benchmark represents what we want.”  
 > It is **human authoring → durable campaign truth → derived gold → extraction ablation → better extraction**.
@@ -195,10 +197,25 @@ The proposal is source-grounded human judgment. It is not a prompt to silently r
 
 Each row is a separate steward slice unless implementation evidence proves two adjacent rows share one safe authority boundary.
 
-## V2-0 — Current manual-authoring contract census
+## V2-0 — Current manual-authoring contract census — COMPLETE
 
-**Type:** DESIGN / RECONNAISSANCE  
+**Type:** DESIGN / RECONNAISSANCE — COMPLETE  
 **Implementation:** none
+
+Census result:
+
+```text
+existing governed write seam:
+  POST /api/live/graph-authoring/prepare
+  → POST /api/live/graph-authoring/commit
+  → DungeonMind immutable World revision
+
+ordinary published browse:
+  may stage source-contextualized local proposals
+  may not acquire write authority in V2-1
+```
+
+The census found no missing backend World-write architecture blocking Authoring v2. It also confirmed that ordinary recap projection currently has no canonical evidence span binding, so V2-1 must preserve exact recap source identity without synthesizing `sourceSpanRefId`.
 
 Inventory:
 
@@ -215,18 +232,22 @@ Inventory:
 
 ---
 
-## V2-1 — Source selection / pill → manual source-grounded proposal
+## V2-1 — Source selection / pill → manual source-grounded proposal — ACTIVE
 
 **Goal:** acquire high-quality human judgment without writing yet.
+
+**Active handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`
 
 The GM can:
 
 - highlight source text or start from an existing graph reference;
 - see exact selected text + surrounding/source identity;
 - find/link an existing World object or propose a new one;
-- stage kind/role/alias/claim/relationship/correction intent;
-- mark source-only or ambiguity;
-- inspect the staged proposal.
+- stage currently expressible local object / link-existing / relationship intent;
+- inspect the staged proposal;
+- switch campaign/session without cross-scope proposal leakage.
+
+Negative/source-only adjudication, ambiguity, arbitrary claim editing, and generalized correction schema remain later work. They are not to be encoded as fake object kinds or operator-note conventions in V2-1.
 
 No model assistance required.
 
@@ -416,15 +437,15 @@ UI-05 floating world-object Peek               MERGED (#735)
 
 Stage 4 / recap WOW                            HOLD — post-UI-05 human witness pending
 
-Authoring v2                                   CURRENT DESIGN FRONTIER
-V2-0 current manual-authoring contract census  NEXT
-V2-1 manual source-grounded proposal            NOT YET AUTHORIZED
+Authoring v2                                   CURRENT IMPLEMENTATION FRONTIER
+V2-0 current manual-authoring contract census  COMPLETE / PASS
+V2-1 published-recap local proposal             ACTIVE — handoff checked in
 V2-2 governed World commit                      NOT YET AUTHORIZED
 V2-3 derived gold export                        NOT YET AUTHORIZED
 V2-4 extraction/model ablation                  PARKED BEHIND GOLD
 V2-5 Agent-assisted assessment                  PARKED BEHIND MANUAL LOOP
 ```
 
-There is **no implementation PR authorized by this plan yet**.
+Exactly one V2-1 implementation PR is now authorized by the ACTIVE handoff above. The plan does not authorize any successor, repair, write-path, Agent, gold-export, or extraction PR.
 
-The next steward artifact should be the V2-0 census result plus exactly one bounded V2-1 implementation handoff.
+The next steward action is to dispatch/review that one V2-1 PR from fresh current `main`. V2-2 remains blocked until V2-1 merges, state authority is synchronized, and the workstream is re-anchored.
