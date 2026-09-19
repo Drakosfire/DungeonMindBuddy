@@ -119,12 +119,13 @@ Adversarial proof sequences:
 | Modify | `apps/live-control-ui/src/planSurface/graphPreview/WorldGraphRecapProjection.tsx` | enable source/pill authoring entry points and host local proposal workflow without changing Peek behavior |
 | Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/PublishedRecapLocalAuthoring.tsx` | local-only authoring composition; no write-authority or commit APIs |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringSurface.tsx` | support truthful local-stage-only labels/controls without changing exact-run default semantics |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphAuthoringSelection.ts` | preserve optional `sourceArtifactId` alongside path/hash through local selection context; include it in equality/context identity |
 | Modify if needed | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphObjectAuthoringDraft.ts` | make scope changes rehydrate/reset safely instead of retaining stale proposals |
 | Modify | `apps/live-control-ui/src/planSurface/graphPreview/RecapGraphModule.test.tsx` | prove source-record continuity and ordinary published browse integration |
 | Modify | `apps/live-control-ui/src/planSurface/graphPreview/WorldGraphRecapProjection.test.tsx` | prove highlight/pill → local proposal and no loss of normal Peek |
 | Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/PublishedRecapLocalAuthoring.test.tsx` | focused local-only workflow and no-write proof |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphObjectAuthoringDraft.test.ts` | prove campaign/session storage isolation + rehydration |
-| Modify if needed | `apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.test.tsx` | preserve shared reader selection/pill authoring behavior if wiring requires it |
+| Modify | `apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.test.tsx` | prove shared reader selection preserves exact optional source artifact id/path/hash and existing authoring behavior |
 | Modify | `Docs/Plans/HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md` | implementation/review evidence and completion handback |
 | Modify | `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md` | backward-looking V2-0 sync / current V2-1 state only |
 | Modify | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` | backward-looking V2-0 sync / current V2-1 state only |
@@ -177,7 +178,7 @@ Input:
   PublishedMemoryBrowseContext
   selected RecapArtifactRecord for the exact campaign/session
   WorldGraphRecapProjection
-  GraphAuthoringSelection
+  GraphAuthoringSelection including optional sourceArtifactId/path/hash
   existing GraphObjectAuthoringProposal primitives
 
 Output:
@@ -219,7 +220,7 @@ Failure behavior:
 | `RecapArtifactRecord.session_id` | `GraphAuthoringSelection.sessionId` | exact |
 | `source_recap_path` | `sourceArtifactPath` | exact value; do not parse identity from path |
 | `source_sha256` | `sourceArtifactSha256` | exact value when supplied |
-| `source_artifact_id` | local source-context display/record where current proposal model can preserve it truthfully | optional; do not synthesize when null |
+| `source_artifact_id` | `GraphAuthoringSelection.sourceArtifactId` | exact optional value; add the nullable field rather than dropping or synthesizing identity |
 | canonical source span | `sourceSpanRefId` | null unless already authoritative input supplies it |
 | Tiptap offsets / paragraph ordinal | local interaction context only | not canonical evidence identity |
 
