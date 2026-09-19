@@ -101,7 +101,7 @@ def test_heuristic_matches_session_22_gold(fixture: dict[str, Any]) -> None:
     ids=lambda row: row["id"],
 )
 def test_sequence_client_matches_session_22_gold(fixture: dict[str, Any]) -> None:
-    """Proves the Responses parse path accepts each gold shape (no network)."""
+    """Proves the GenerationEngine structured path accepts each gold shape (no network)."""
     expected = _expect_to_turn_classification(fixture["expect"])
     client = build_live_turn_classifier_sequence_client([expected])
     result = classify_live_turn(

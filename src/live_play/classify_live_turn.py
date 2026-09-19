@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 import os
 import re
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any, Literal
 
 from src.agent.synthesis import _load_api_key
@@ -297,7 +295,7 @@ def classify_live_turn(
 
     mid = _resolve_classifier_model(model)
     try:
-        adapter = OpenAILiveTurnClassifierClient(sdk_client=client)
+        adapter = OpenAILiveTurnClassifierClient(client=client)
         parsed = adapter.classify_turn(model=mid, text=stripped)
     except Exception as exc:
         if mode == "llm_with_heuristic_fallback":

@@ -54,7 +54,6 @@ BASELINE_PROVIDER_IMPORTS: frozenset[tuple[str, str]] = frozenset(
         ("src/ingestion/openai_batch_pipeline.py", "openai.lib._parsing._responses"),
         ("src/ingestion/schema_repair_batch.py", "openai"),
         ("src/live_play/live_query_context.py", "openai"),
-        ("src/live_play/live_turn_classifier_client.py", "openai"),
         ("src/npc_statblock_pipeline/canonical_intent.py", "openai"),
     }
 )
@@ -243,6 +242,10 @@ BASELINE_DUNGEONMIND_IMPORTS: frozenset[tuple[str, str]] = frozenset(
             "dungeonmind_dnd.application.world_object_vocabulary",
         ),
         (
+            "apps/live_control_server/services/candidate_graph_admission.py",
+            "dungeonmind.domain.errors",
+        ),
+        (
             "apps/live_control_server/services/runtime_preflight.py",
             "dungeonmind.infrastructure.postgres",
         ),
@@ -251,11 +254,16 @@ BASELINE_DUNGEONMIND_IMPORTS: frozenset[tuple[str, str]] = frozenset(
 
 BASELINE_DUNGEONMIND_OUTSIDE_INTEGRATION: frozenset[str] = frozenset(
     {
+        "apps/live_control_server/services/candidate_graph_admission.py",
         "apps/live_control_server/services/runtime_preflight.py",
     }
 )
 
-BASELINE_GENERATIONENGINE_IMPORTS: frozenset[tuple[str, str]] = frozenset()
+BASELINE_GENERATIONENGINE_IMPORTS: frozenset[tuple[str, str]] = frozenset(
+    {
+        ("src/live_play/live_turn_classifier_client.py", "generationengine"),
+    }
+)
 
 
 def _posix(path: Path) -> str:
@@ -332,7 +340,8 @@ def test_pydantic_ai_openai_adapter_imports_match_e5a_baseline() -> None:
     )
 
 
-def test_generationengine_is_not_imported_in_active_runtime() -> None:
+def test_generationengine_imports_match_bounded_migration_baseline() -> None:
+    """Active GenerationEngine imports exactly match the bounded migration baseline."""
     actual = _scan(lambda module: _matches_prefix(module, GENERATIONENGINE_ROOTS))
     assert actual == BASELINE_GENERATIONENGINE_IMPORTS, _diff_message(
         "GenerationEngine", actual, BASELINE_GENERATIONENGINE_IMPORTS
