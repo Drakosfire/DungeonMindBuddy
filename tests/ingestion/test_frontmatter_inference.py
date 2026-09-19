@@ -142,12 +142,12 @@ def test_prompt_preserves_4000_character_excerpt() -> None:
     infer_frontmatter_metadata(path=path, text=text, openai_client=adapter)
     prompt = client.requests[0].user_prompt
     assert prompt == _frontmatter_inference_prompt(path=path, text=text)
-        assert text[:4000] in prompt
-        excerpt = prompt.rsplit("Document excerpt:\n", 1)[1]
-        assert len(excerpt) == 4000
-        assert excerpt == text[:4000]
-        assert prompt.endswith("A" * 4000)
-        assert not prompt.endswith("A" * 4001)
+    assert text[:4000] in prompt
+    excerpt = prompt.rsplit("Document excerpt:\n", 1)[1]
+    assert len(excerpt) == 4000
+    assert excerpt == text[:4000]
+    assert prompt.endswith("A" * 4000)
+    assert not prompt.endswith("A" * 4001)
 
 
 def test_request_schema_is_proposal_shape_not_product_document_schema() -> None:
