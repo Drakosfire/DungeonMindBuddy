@@ -21,6 +21,7 @@ export interface GraphAuthoringContext {
   laneRole?: GraphAuthoringLaneRole | null;
   sourceArtifactPath?: string | null;
   sourceArtifactSha256?: string | null;
+  sourceArtifactId?: string | null;
 }
 
 export interface GraphAuthoringSelection {
@@ -28,6 +29,7 @@ export interface GraphAuthoringSelection {
   sessionId: string;
   sourceArtifactPath?: string | null;
   sourceArtifactSha256?: string | null;
+  sourceArtifactId?: string | null;
 
   selectionKind: GraphAuthoringSelectionKind;
   selectedText: string;
@@ -74,7 +76,11 @@ export function graphAuthoringSelectionsEqual(
     left.campaignId === right.campaignId &&
     left.sessionId === right.sessionId &&
     left.graphId === right.graphId &&
-    left.laneRole === right.laneRole
+    left.laneRole === right.laneRole &&
+    (left.sourceArtifactId ?? null) === (right.sourceArtifactId ?? null) &&
+    (left.sourceArtifactPath ?? null) === (right.sourceArtifactPath ?? null) &&
+    (left.sourceArtifactSha256 ?? null) === (right.sourceArtifactSha256 ?? null) &&
+    (left.sourceSpanRefId ?? null) === (right.sourceSpanRefId ?? null)
   );
 }
 
@@ -124,6 +130,7 @@ function baseSelectionFields(
   | "sessionId"
   | "sourceArtifactPath"
   | "sourceArtifactSha256"
+  | "sourceArtifactId"
   | "graphId"
   | "laneRole"
 > {
@@ -132,6 +139,7 @@ function baseSelectionFields(
     sessionId: context.sessionId,
     sourceArtifactPath: context.sourceArtifactPath ?? null,
     sourceArtifactSha256: context.sourceArtifactSha256 ?? null,
+    sourceArtifactId: context.sourceArtifactId ?? null,
     graphId: context.graphId ?? null,
     laneRole: context.laneRole ?? null,
   };
@@ -218,23 +226,33 @@ export function buildGraphAuthoringSelectionFromEditor(
 }
 
 /**
- * A selection with no recap grounding, used to start an object draft directly
- * from the New object tab without first highlighting text in the recap. Kept
- * as `selectionKind: "text_span"` with an empty `selectedText` so the backend
- * source-anchor contract (which only recognizes a fixed set of anchor kinds)
- * accepts it unchanged.
+ * Starts an object draft from the New object tab without first highlighting
+ * recap text. Campaign/session and any supplied recap path, hash, or artifact
+ * id are copied through; `sourceSpanRefId` stays null because there is no
+ * authoritative span. Kept as `selectionKind: "text_span"` with empty
+ * `selectedText` so the backend source-anchor contract (which only recognizes
+ * a fixed set of anchor kinds) accepts it unchanged.
  */
 export function buildManualGraphAuthoringSelection(context: {
   campaignId: string;
   sessionId: string;
   graphId?: string | null;
   laneRole?: GraphAuthoringLaneRole | null;
+  sourceArtifactPath?: string | null;
+  sourceArtifactSha256?: string | null;
+  sourceArtifactId?: string | null;
 }): GraphAuthoringSelection {
   return {
-    ...baseSelectionFields({ ...context, sourceArtifactPath: null, sourceArtifactSha256: null }),
+    ...baseSelectionFields({
+      ...context,
+      sourceArtifactPath: context.sourceArtifactPath ?? null,
+      sourceArtifactSha256: context.sourceArtifactSha256 ?? null,
+      sourceArtifactId: context.sourceArtifactId ?? null,
+    }),
     selectionKind: "text_span",
     selectedText: "",
     normalizedSelectedText: "",
+    sourceSpanRefId: null,
   };
 }
 
@@ -247,6 +265,8 @@ export function buildGraphAuthoringSelectionFromRecapNode(input: {
   sessionId: string;
   graphId?: string | null;
   sourceArtifactPath?: string | null;
+  sourceArtifactSha256?: string | null;
+  sourceArtifactId?: string | null;
   laneRole?: GraphAuthoringLaneRole | null;
   node: {
     node_id: string;
@@ -260,15 +280,20 @@ export function buildGraphAuthoringSelectionFromRecapNode(input: {
     input.node.node_id;
 
   return {
-    campaignId: input.campaignId,
-    sessionId: input.sessionId,
-    sourceArtifactPath: input.sourceArtifactPath ?? null,
+    ...baseSelectionFields({
+      campaignId: input.campaignId,
+      sessionId: input.sessionId,
+      graphId: input.graphId,
+      laneRole: input.laneRole ?? "live",
+      sourceArtifactPath: input.sourceArtifactPath,
+      sourceArtifactSha256: input.sourceArtifactSha256,
+      sourceArtifactId: input.sourceArtifactId,
+    }),
     selectionKind: "graph_node_reference",
     selectedText,
     normalizedSelectedText: normalizeAuthoringSelectedText(selectedText),
     existingNodeId: input.node.node_id,
     existingLabel: input.node.label,
-    graphId: input.graphId ?? null,
-    laneRole: input.laneRole ?? "live",
+    sourceSpanRefId: null,
   };
 }

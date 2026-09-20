@@ -277,6 +277,211 @@ No V2-1 merge claim depends on a backend World revision.
 
 ---
 
+## Implementation record (pre-review)
+
+**Dispatch base:** `026fd546cb564f3262dbbe6aaf94fc1cee6df84a` (`origin/main` at dispatch)  
+**Rebased onto:** `main@bdcabc513b7cb7f68aa5198c4932d92815fbf871` after E5D `#737` merge (no §4 frontend overlap)  
+**PR:** [#738](https://github.com/Drakosfire/DungeonMindBuddy/pull/738)  
+**PR topology at dispatch:** serial within CON-READY  
+**Bounded discovery used (2 of 3):**
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphAuthoringSelection.ts` — include `sourceArtifactId` in authoring context identity (original V2-1)
+- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphAuthoringSelection.test.ts` — original V2-1 proof of selection/source identity; omitted from the pre-review implementation record (review cycle 1 correction)
+
+`GraphObjectAuthoringStagingTray.tsx` was temporarily modified in review cycle 1 to add `data-*` observability. Review cycle 2 rejected that as outside §4 and outside the focused-test / extracted-helper discovery allowance. The production file is reverted. Identity proof now inspects the scoped `sessionStorage` JSON from `PublishedRecapLocalAuthoring.test.tsx`.
+
+### Review cycle 1 (2026-09-19)
+
+**Head reviewed:** `4697f1ed44aea755278d51a9ecb35d055ea168c5`  
+**Formal GitHub review:** not posted. The connected account is also the PR author; GitHub rejected `REQUEST_CHANGES` on own PR. The review is still complete as steward judgment.
+
+**Invariant disposition:** local-stage / non-write contract held. Visible authoring UI stays in V2-1. Operator dogfood findings remain successor design evidence, not work to strip from this PR.
+
+**Merge blockers (repaired on this head's successor commits):**
+
+1. Campaign/session switch could pair the previous recap payload with the new authoring scope, and `loadRecapProjection` had no stale-response guard. Repair: immediately invalidate/clear the loaded projection on scope change so it is non-authorable, and ignore late responses whose generation no longer matches.
+2. Manual draft and relationship staging could create proposals without recap path/hash/optional artifact id. Repair: those controls remain; they now copy exact supplied recap identity and leave `sourceSpanRefId` null. Cycle 2 identity proof inspects the persisted proposal selection in scoped `sessionStorage`, including a non-null `source_artifact_id` case.
+
+**UX findings:** keep the current visible UI for continued dogfood. Do not fold Surface Context, Author Node chip composition, Karsemine identity-vs-alias, existing-node edit, or duplicate merge into these two correctness repairs.
+
+### Review cycle 2 (2026-09-19)
+
+**Head reviewed:** `d6e05bb16f840b53691043732709710ece5f0805`  
+**Formal GitHub review:** [#738 review `5257362094`](https://github.com/Drakosfire/DungeonMindBuddy/pull/738#pullrequestreview-5257362094) — HOLD
+
+**Cycle 1 blockers:** fixed. Campaign/session transitions immediately make the previous recap non-authorable and reject stale projection responses. Manual-object and relationship proposals retain supplied recap path/hash/artifact ID with `sourceSpanRefId=null`. Visible authoring UI remains.
+
+**Remaining blocker (repaired on this head's successor commits):** `GraphObjectAuthoringStagingTray.tsx` was modified outside §4. Adding `data-*` fields for test observability is not a focused test or a narrowly extracted helper. Repair: revert the production file; `PublishedRecapLocalAuthoring.test.tsx` asserts the actual persisted proposal selection in scoped `sessionStorage`.
+
+**Non-blocking cleanup also landed:** close the malformed §7 Markdown fence around build evidence; update `buildManualGraphAuthoringSelection` comment so it no longer claims “no recap grounding.”
+
+**UX findings:** successor design evidence only. V2-2 remains unauthorized.
+
+### Source identity actually preserved
+
+| RecapArtifactRecord | GraphAuthoringSelection |
+|---|---|
+| `campaign_id` | `campaignId` |
+| `session_id` | `sessionId` |
+| `source_recap_path` | `sourceArtifactPath` |
+| `source_sha256` | `sourceArtifactSha256` |
+| `source_artifact_id` | `sourceArtifactId` (nullable; never synthesized) |
+| canonical span | `sourceSpanRefId` remains null unless already on the selection |
+
+### Write-authority proof
+
+`PublishedRecapLocalAuthoring` exposes `data-write-authority="none"`. `GraphObjectAuthoringSurface` `localStageOnly` never renders `GraphObjectAuthoringPrepareCommitPanel`, even if campaign/session ids are present for the resolver. Focused tests spy `prepareGraphObjectAuthoringWrite` and `commitGraphObjectAuthoringWrite`. Quick-commit and merge materialization are not imported.
+
+### C2 → C1 → C2
+
+`useGraphObjectAuthoringDraft` rehydrates/resets on campaign/session key change and does not write the previous scope's proposals onto the destination key.
+
+`RecapGraphModule` also keeps loaded recap and authoring scope atomic: a campaign/session change immediately clears the previous projection (non-authorable loading chrome remains), and stale `postWorldGraphRecapProjection` responses are ignored.
+
+### §7 commands
+
+```text
+vitest run RecapGraphModule.test.tsx WorldGraphRecapProjection.test.tsx
+  PublishedRecapLocalAuthoring.test.tsx useGraphObjectAuthoringDraft.test.ts
+  graphAuthoringSelection.test.ts GraphProjectionReader.test.tsx
+  GraphObjectAuthoringSurface.test.tsx
+→ 7 files, 83 passed
+  (GraphObjectAuthoringSurface 35; remaining 48; exact-run default semantics unchanged)
+
+pnpm --dir apps/live-control-ui build
+→ tsc fails on pre-existing unused locals in GraphReviewWorkbenchModule.tsx
+  (out of lease; same unused bindings exist on dispatch-base main).
+  No new tsc errors in §4 / bounded-discovery files.
+```
+
+V2-2 remains the named successor and is not authorized.
+
+### Operator dogfood findings — review-time design exploration, not V2-1 merge blockers
+
+Recorded 2026-09-19 on `/ingest?campaign=longmont-c2&session=session-27` against this PR's UI. These are **feel / composition / identity-vocabulary** findings. They do **not** by themselves falsify the V2-1 local-stage invariant. **Do not expand #738** into Surface Context, Author Node, existing-node edit, Peek kinds, or merge. **Do not remove the visible authoring UI** to “fix” review; that UI is how dogfood exposed the composition problems. Review cycle 1 confirmed this: keep highlight → Author graph, local staging form, resolver, relationship controls, and staged-proposal tray in V2-1. The two merge blockers above are separate correctness repairs.
+
+#### What landed and was accepted
+
+- Highlighting recap prose immediately surfaces **Author graph object**. That trigger is correct. Keep it.
+- Bind or Create **does recognize** a known node (Karsemine). Matching existing campaign objects is valuable; the verb and destination are what are wrong.
+- Clicking an existing pill still opens Peek. Keep that inspect path. It also silently seeds the local draft with the node id/label, but that is not a visible **edit this node** affordance.
+
+#### Placement: the author action sits under the campaign loader
+
+Current published-recap stack:
+
+```text
+site nav + World Graph chrome
+SurfaceContextHost          ← empty on Ingest
+CENTER:
+  recap-reader-toolbar      ← Campaign + Focus session
+  Author graph object       ← appears here on highlight
+  recap markdown
+  GraphObjectAuthoringSurface  ← the actual form, below the prose
+```
+
+The operator's intended home is the **per-surface sub-nav** already in the product as **Surface Context** (`SurfaceContextHost` under `app-chrome-header`). Plan publishes `PREP`. Build publishes `DOCUMENT`. Ingest publishes nothing, so campaign loading, session selection, surface name, and interactive actions (Author graph / bind-or-create) remain in the recap body.
+
+Review should treat this as chrome composition, not a V2-1 write-path defect:
+
+| Band | Owns |
+|---|---|
+| World Graph in site nav | what world is available |
+| Surface Context | what this surface has loaded + its actions |
+| Center | recap prose only |
+
+Campaign, Focus session, surface name (`INGEST` / recap), and the highlight action belong in Surface Context, not in `recap-reader-toolbar` / `graph-authoring-selection-action-bar`.
+
+#### Workflow: Author graph does not change the view
+
+Clicking **Author graph object** calls `draft.openWithSelection` on `PublishedRecapLocalAuthoring`. Nothing in the viewport moves. The form is `GraphObjectAuthoringSurface` stacked **under the markdown**, so the operator must scroll past the recap to interact. That is confusing and not intuitive.
+
+Exact-run already owns **Author Node** (`GraphReviewAuthorNodeHost` / `GraphReviewAuthorNodeDrawer`) as a chrome-band drawer. Published browse already wraps `RecapGraphModule` in that host, but `GraphReviewAuthorNodePanel` refuses to open a workflow without `liveRun` (`Authoring requires an explicit source/run context.`). V2-1 bypassed the empty drawer by inlining the form under the recap. That is why the toggle exists and still does not help.
+
+Operator direction to explore (do not implement in this PR):
+
+```text
+highlight phrase
+  → small decision chip / compact peek
+      known-node matches
+      + Create new
+  → Create new
+      → open Author Node workflow
+      → not a form below the markdown
+```
+
+Keep three existing surfaces. Do not invent a fourth:
+
+| Moment | Surface |
+|---|---|
+| Highlight a phrase | Compact bind/create chip (near the selection or in Surface Context) |
+| Phrase *is* a known node | Chip names the node; Peek remains inspect; Author / edit that existing node should also be available |
+| Phrase is a different name | Chip offers alias bind |
+| Create new | Author Node drawer, seeded with the highlight, still local-only |
+
+Do **not** put bind/create into the full Peek region. Peek is already the world-object / campaign-memory card (`PeekClaim kind="world-object"`). A second Peek for suggestions will fight pill inspect.
+
+Author Node may open for **local staging** from ordinary published recap without granting prepare/commit. The current `liveRun` empty state conflates **write authority** with **drawer usefulness**. Exact-run write remains the later gate.
+
+#### Identity: Karsemine is that node, not an alias
+
+Authoring Karsemine from highlighted recap text:
+
+- Bind or Create finds the known node. Keep that recognition.
+- The only bind verb is **Add as alias** (`GraphObjectAuthoringBindExistingPanel`). Copy says “Most of the time this is an alias of an existing node.”
+- That verb is for a *different string* attached to an existing node. Highlighting **Karsemine** when Karsemine is already in the graph is **identity**: that *is* the node.
+- Clicking the Karsemine **pill** already does the right thing (Peek the existing object). Highlighting the same name in prose currently takes the alias/create path instead.
+
+The World graph currently has **Karsemine as PC** and **Karsemine as character**. Those are duplicate identity records. They should stay visible as two known nodes and wait for **merge**. Alias-linking will not collapse them. `merge_objects` remains out of V2-1 vocabulary and is not required for this slice to prove local staging.
+
+Default vocabulary to explore after merge:
+
+```text
+exact selected text = an existing node's primary label
+  → "this is that node" (inspect / Peek), not Add as alias
+
+selected text ≠ canonical label, resolver match
+  → alias bind is legitimate
+
+two same-name nodes (PC vs character)
+  → show both; merge later; do not pick a winner via alias
+```
+
+#### Existing nodes should be authorable, not only new highlights
+
+A later dogfood note on the same published-recap surface: **node editing and authoring should be available on existing nodes as well.**
+
+Current V2-1 is biased toward **create from highlighted prose**. An existing pill still Peeks (correct) and `handleInspectNode` silently `openWithSelection`s that node's identity plus relationship seed, but Peek itself is inspect-only, the form stays below the markdown, and Bind or Create on a matching name still offers alias/create rather than **edit this node**. There is no visible authoring entry on the existing object comparable to highlight → Author graph.
+
+Operator direction to explore (do not implement in this PR):
+
+```text
+existing pill / known-node chip / identity match
+  → Peek remains inspect
+  → Author / edit that existing node is also available
+      same Author Node / local-stage workflow as Create new
+      seeded with exact node id/label
+      still no prepare/commit from published browse
+```
+
+This is the same composition family as the chip → Author Node and Karsemine identity notes: existing-object edit vs new-object create. Do not fold it into the two review-cycle-1 correctness repairs.
+
+#### Seams to inspect on the #738 diff (read-only during this review)
+
+- `WorldGraphRecapProjection.tsx` / `RecapGraphModule.tsx` — in-document `recap-reader-toolbar`
+- `PublishedRecapLocalAuthoring.tsx` — reader then `GraphObjectAuthoringSurface`; `onGraphAuthoringAction` does not open Author Node or scroll/focus; pill inspect silently seeds a draft but is not a visible existing-node edit path
+- `GraphProjectionReader.tsx` — inline **Author graph object** bar
+- `GraphObjectAuthoringBindExistingPanel.tsx` / `GraphObjectAuthoringSelectedSource.tsx` — alias-first copy; only bind action is Add as alias
+- `GraphReviewAuthorNodeHost.tsx` / `GraphReviewAuthorNodePanel.tsx` — drawer already mounted on published browse; `liveRun` gate
+- `SurfaceContextHost` — Ingest contributes nothing; Plan/Build already do
+
+#### Review disposition
+
+Judge #738 against the §1 local-stage invariant and §9 rubric. Record these findings in the review handback as **successor design evidence**, not as required #738 code changes, unless a finding actually violates non-write / source-identity / scope-isolation.
+
+Do not dispatch V2-2, Surface Context, Author Node local-stage, or merge from this note. After #738 merges and the workstream is re-anchored, the designing steward decomposes the next independently useful slice from this evidence.
+
+---
+
 ## §8 Required review handback
 
 Record:
@@ -292,7 +497,7 @@ Record:
 9. focused test/build results with provenance;
 10. actual changed paths vs §4 / bounded discovery;
 11. named V2-2 successor still false;
-12. any baseline failure or waiver.
+13. operator dogfood findings disposition: invariant-failing vs successor design evidence (see Implementation record).
 
 ---
 

@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 
-import type { WorldGraphRecapProjection } from "../../api/types";
+import type { RecapArtifactRecord, WorldGraphRecapProjection } from "../../api/types";
 import {
   GraphObjectProjectionCard,
 } from "../../graphObjectCard/GraphObjectProjectionCard";
@@ -12,7 +12,7 @@ import {
 } from "../../graphReference/fullWorldObjectProjection";
 import { PeekClaim } from "../../surfaceInteraction/peekHost";
 import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewAdapter";
-import { GraphProjectionReader } from "../graphProjectionReader/GraphProjectionReader";
+import { PublishedRecapLocalAuthoring } from "../graphReviewWorkbench/PublishedRecapLocalAuthoring";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 
 function recapOriginSurface(): "ingest" | "plan" {
@@ -27,6 +27,7 @@ interface WorldGraphRecapProjectionProps {
   sessionOptions: string[];
   selectedCampaignId: string;
   onSelectCampaign: (campaignId: string) => void;
+  recapRecord?: RecapArtifactRecord | null;
 }
 
 export function WorldGraphRecapProjectionView({
@@ -36,6 +37,7 @@ export function WorldGraphRecapProjectionView({
   sessionOptions,
   selectedCampaignId,
   onSelectCampaign,
+  recapRecord = null,
 }: WorldGraphRecapProjectionProps) {
   const adaptedNodeViews = useMemo(
     () => adaptWorldGraphNodeViewMap(payload.nodeViews),
@@ -95,20 +97,16 @@ export function WorldGraphRecapProjectionView({
   return (
     <div className="recap-reader-root world-graph-recap-root">
       {reviewToolbar}
-      <div className="recap-reader-layout union-supergraph-layout">
-        <GraphProjectionReader
-          markdown={payload.markdown}
-          nodeViews={adaptedNodeViews}
-          sourceSpans={[]}
-          graphId={payload.graphId}
-          showGraphId={false}
-          documentLabel="Published recap"
-          resetKey={`${payload.graphId}:${selectedSessionId}`}
-          onInspectNode={handleInspectNode}
-          onActiveNodeChange={setActiveNodeId}
-          className="world-graph-recap-reader"
-        />
-      </div>
+      <PublishedRecapLocalAuthoring
+        campaignId={selectedCampaignId}
+        sessionId={selectedSessionId}
+        graphId={payload.graphId}
+        markdown={payload.markdown}
+        nodeViews={adaptedNodeViews}
+        recapRecord={recapRecord}
+        onInspectNode={handleInspectNode}
+        onActiveNodeChange={setActiveNodeId}
+      />
       <PeekClaim
         kind="world-object"
         active={objectOpen}

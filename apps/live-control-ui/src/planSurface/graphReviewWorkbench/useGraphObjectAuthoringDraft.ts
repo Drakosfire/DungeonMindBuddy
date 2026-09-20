@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import {
@@ -35,7 +35,7 @@ export interface UseGraphObjectAuthoringDraftResult {
     field: K,
     value: GraphObjectAuthoringRelationshipFormState[K],
   ) => void;
-  stageRelationshipProposal: () => void;
+  stageRelationshipProposal: (selection?: GraphAuthoringSelection | null) => void;
   stageMergeProposal: (input: {
     survivorObjectRef: import("./graphObjectAuthoringDraft").GraphObjectAuthoringObjectRef;
     mergedObjectRefs: import("./graphObjectAuthoringDraft").GraphObjectAuthoringObjectRef[];
@@ -92,6 +92,13 @@ function readStagedProposalsFromSession(
   }
 }
 
+function storageScopeKey(scope: GraphObjectAuthoringDraftStorageScope | undefined): string {
+  if (!scope) {
+    return "";
+  }
+  return `${scope.campaignId}:${scope.sessionId}`;
+}
+
 export function useGraphObjectAuthoringDraft(
   storageScope?: GraphObjectAuthoringDraftStorageScope,
 ): UseGraphObjectAuthoringDraftResult {
@@ -106,10 +113,20 @@ export function useGraphObjectAuthoringDraft(
   const [proposals, setProposals] = useState<GraphObjectAuthoringProposal[]>(() =>
     readStagedProposalsFromSession(storageScope),
   );
+  const scopeKey = storageScopeKey(storageScope);
+  const scopeKeyRef = useRef(scopeKey);
 
   useEffect(() => {
+    if (scopeKeyRef.current !== scopeKey) {
+      scopeKeyRef.current = scopeKey;
+      setSelectedSource(null);
+      setFormState(createDefaultGraphObjectAuthoringFormState(null));
+      setRelationshipFormState(createDefaultGraphObjectAuthoringRelationshipFormState());
+      setProposals(readStagedProposalsFromSession(storageScope));
+      return;
+    }
     writeStagedProposalsToSession(storageScope, proposals);
-  }, [proposals, storageScope]);
+  }, [proposals, scopeKey, storageScope]);
 
   const openWithSelection = useCallback((selection: GraphAuthoringSelection) => {
     setSelectedSource(selection);
@@ -155,10 +172,10 @@ export function useGraphObjectAuthoringDraft(
     [],
   );
 
-  const stageRelationshipProposal = useCallback(() => {
+  const stageRelationshipProposal = useCallback((selectionOverride?: GraphAuthoringSelection | null) => {
     const proposal = buildGraphObjectAuthoringRelationshipProposal(
       relationshipFormState,
-      selectedSource,
+      selectionOverride !== undefined ? selectionOverride : selectedSource,
       createLocalGraphObjectProposalId(),
     );
     if (!proposal) {

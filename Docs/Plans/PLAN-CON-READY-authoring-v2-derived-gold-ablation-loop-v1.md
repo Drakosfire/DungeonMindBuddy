@@ -439,13 +439,13 @@ Stage 4 / recap WOW                            HOLD — post-UI-05 human witness
 
 Authoring v2                                   CURRENT IMPLEMENTATION FRONTIER
 V2-0 current manual-authoring contract census  COMPLETE / PASS
-V2-1 published-recap local proposal             ACTIVE — handoff checked in
+V2-1 published-recap local proposal             ACTIVE — review cycle 2 HOLD repair awaiting re-review (#738)
 V2-2 governed World commit                      NOT YET AUTHORIZED
 V2-3 derived gold export                        NOT YET AUTHORIZED
 V2-4 extraction/model ablation                  PARKED BEHIND GOLD
 V2-5 Agent-assisted assessment                  PARKED BEHIND MANUAL LOOP
 ```
 
-Exactly one V2-1 implementation PR is now authorized by the ACTIVE handoff above. The plan does not authorize any successor, repair, write-path, Agent, gold-export, or extraction PR.
+Exactly one V2-1 implementation PR is authorized by the ACTIVE handoff above. The plan does not authorize any successor, repair, write-path, Agent, gold-export, or extraction PR.
 
-The next steward action is to dispatch/review that one V2-1 PR from fresh current `main`. V2-2 remains blocked until V2-1 merges, state authority is synchronized, and the workstream is re-anchored.
+The next steward action is to re-review V2-1 PR (#738) after the review-cycle-2 lease repair. Operator dogfood findings remain review-time design exploration, not authorized successor work, and the visible authoring UI stays in V2-1. V2-2 remains blocked until V2-1 merges, state authority is synchronized, and the workstream is re-anchored.
