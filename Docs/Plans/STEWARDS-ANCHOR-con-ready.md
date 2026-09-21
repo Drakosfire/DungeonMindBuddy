@@ -4,17 +4,17 @@
 **Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
 **Updated:** 2026-09-20  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor input:** `main@b9067303b6f88acf51429c2dfc331e3f2a48bd35` — V2-1 / PR #738 merged; V2-1A dispatch base  
+**Re-anchor input:** `main@28754d1fdda15be97475f35e08127833b088a256` — V2-1A / PR #741 merged; V2-2 design re-anchor  
 **Current product frontier:** **Authoring v2 → derived gold → extraction ablation**  
-**Active implementation PR:** **#741 OPEN** — `con-ready/authoring-v2-working-projection-ui-dogfood-v1`; serial CON-READY PR authorized by the ACTIVE V2-1A handoff
+**Active implementation PR:** **none at state sync** — exactly one V2-2 PR is authorized on `con-ready/authoring-v2-governed-world-commit-v1`; serial CON-READY topology
 **Current sequencing authority:** [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md)  
 **Completed V2-0 census:** [`../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`](../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md)  
-**ACTIVE V2-1A handoff:** [`HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`](HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md)  
+**ACTIVE V2-2 handoff:** [`HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md`](HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md)  
 **Historical authoring ancestry:** [`ROADMAP-graph-object-authoring-surface.md`](ROADMAP-graph-object-authoring-surface.md) + [`../Design/DESIGN-graph-object-authoring-surface.md`](../Design/DESIGN-graph-object-authoring-surface.md)  
 **Completed UI series authority:** [`HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md)  
 **Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)
 
-> Repository truth supersedes chat reconstruction. The current instruction is: **design the manual Authoring v2 loop before running the next extraction/model experiment.**
+> Repository truth supersedes chat reconstruction. The current instruction is: **ship and dogfood the governed published-recap World write before derived gold or the next extraction/model experiment.**
 
 ---
 
@@ -24,14 +24,15 @@ Read, in order:
 
 1. this anchor;
 2. `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`;
-3. `Docs/Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`;
-4. `Docs/Plans/HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`;
-5. historical authoring ancestry only when needed to understand surviving implementation seams;
-6. `Docs/Design/ARCHITECTURE-campaign-supergraph.md` when checking durable World authority.
+3. `Docs/Plans/HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md`;
+4. `Docs/Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`;
+5. `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md` and its report for completed V2-1A behavior/evidence;
+6. historical authoring ancestry only when needed to understand surviving implementation seams;
+7. `Docs/Design/ARCHITECTURE-campaign-supergraph.md` when checking durable World authority.
 
-V2-1 / PR #738 is **MERGED**. The V2-1A handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. This implementation is on `con-ready/authoring-v2-working-projection-ui-dogfood-v1` from dispatch base `b9067303b6f88acf51429c2dfc331e3f2a48bd35`.
+V2-1 / PR #738 and V2-1A / PR #741 are **MERGED**. The V2-2 governed-World-commit handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. The authorized implementation branch is `con-ready/authoring-v2-governed-world-commit-v1`; no implementation PR was open when this state sync was written.
 
-V2-1 predecessor state is synchronized here. V2-2 remains held behind V2-1A dogfood; no governed World commit, derived gold, extraction/model ablation, or Agent-authoring work is authorized.
+V2-1A predecessor state is synchronized here. V2-2 governed World commit is authorized; V2-3 derived gold, extraction/model ablation, Agent authoring, merge/reconciliation, and statblock successor work remain unauthorized.
 
 ---
 
@@ -170,32 +171,44 @@ Campaign/session switching must isolate staged proposals by scope and restore th
 
 Negative/source-only, ambiguity, arbitrary claim editing, generalized correction schema, Agent assistance, and durable write remain later slices.
 
-### V2-1A — ACTIVE
+### V2-1A — DONE / MERGED
 
 Authority:
 
 `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`
 
+Accepted result:
+
 ```text
-published recap source
-→ dock existing Author Node tool beside the recap
-→ stage local object / link-existing / relationship proposal
-→ show immediate local working-projection effect
-→ inspect truthful root prose and expand one connected object
+PR #741
+merge: 28754d1fdda15be97475f35e08127833b088a256
+accepted head: 9b5874e9b30663d4008427acebdff03d7c6531ae
+Review Cycle 3: PASS / MERGE-READY (5262735475)
 ```
 
-The canonical recap, World memory, and durable write authority remain unchanged.
+Published recap source now stays visible beside Author Node; local object/link/relationship adjudications immediately change a reversible working projection; root prose and one-hop related prose remain inspectable without acquiring durable write authority.
 
-### V2-2 — HELD BEHIND V2-1A DOGFOOD
+### V2-2 — ACTIVE
+
+Authority:
+
+`Docs/Plans/HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md`
 
 ```text
-staged human proposal
-→ prepare/diff
+published recap
+→ stage local human proposal
+→ explicit Review & publish
+→ server resolves recapArtifactId to canonical recap source
+→ prepare/diff against current World parent
 → revision-bound confirm
-→ governed World publication
-→ new immutable World revision
-→ ordinary recap/Peek reflects committed truth
+→ governed DungeonMind World publication
+→ immutable child revision + durable created node IDs
+→ same-scope refresh / exact read-back
 ```
+
+Published-recap writes use a mutually exclusive server-resolved `recapArtifactId` source selector alongside the existing exact-run `sourceRunId` path. Browser-supplied paths/digests are not write authority.
+
+A deliberate same-label **Create new** may produce a distinct durable node; this slice does not add merge/reconciliation/delete. Recap mention ambiguity must remain fail-safe rather than choosing an arbitrary node.
 
 No Buddy-only overlay as terminal World truth.
 
@@ -311,8 +324,8 @@ STAGE 4 / RECAP WOW                              HOLD — post-UI-05 human witne
 AUTHORING V2                                     CURRENT IMPLEMENTATION FRONTIER
 V2-0 CONTRACT CENSUS                             COMPLETE / PASS
 V2-1 PUBLISHED-RECAP LOCAL PROPOSAL               MERGED — PR #738
-V2-1A WORKING-PROJECTION UI DOGFOOD               ACTIVE — THIS HANDOFF/PR
-V2-2 GOVERNED WORLD COMMIT                       HELD BEHIND V2-1A DOGFOOD
+V2-1A WORKING-PROJECTION UI DOGFOOD               PASS / MERGED — PR #741
+V2-2 GOVERNED WORLD COMMIT                       ACTIVE — CURRENT HANDOFF
 V2-3 DERIVED GOLD EXPORT                         NOT AUTHORIZED
 V2-4 EXTRACTION/MODEL ABLATION                   PARKED BEHIND GOLD
 V2-5 AGENT-ASSISTED ASSESSMENT                   PARKED BEHIND MANUAL LOOP
@@ -326,13 +339,15 @@ SEMANTIC MODEL SELECTION                         HOLD
 
 ## 7. Next steward transition
 
-The design transition is complete:
+The transition into real human-authored World writes is complete:
 
 ```text
 V2-0 current-contract census                    PASS
-→ exact governed write boundary identified      PASS
-→ bounded V2-1 handoff landed ACTIVE            PASS
-→ bounded V2-1A handoff activated                PASS
+→ V2-1 published-recap local proposal           MERGED
+→ V2-1A working-projection dogfood              MERGED / PASS
+→ V2-2 governed World commit handoff            ACTIVE
 ```
 
-Implement the V2-1A working-projection UI dogfood slice, then review the exact final head. Do not dispatch V2-2, derived gold, extraction/model ablation, or Agent-assisted authoring until V2-1A merges, state authority is synchronized, and the workstream is re-anchored.
+Dispatch exactly the V2-2 governed published-recap write slice on the authorized branch and review the exact final head. The required live witness is one real new campaign object authored through the UI, published to an immutable World revision, and read back by its returned durable node ID. The duplicate/same-label case is required in disposable integration evidence unless the operator explicitly chooses a safe real-world target.
+
+Do not authorize V2-3 derived gold, extraction/model ablation, Agent-assisted authoring, merge/reconciliation, or statblock successor work until V2-2 merges, its live write/read-back witness is accepted, and state authority is synchronized again.
