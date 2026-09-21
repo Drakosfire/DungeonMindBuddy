@@ -554,6 +554,7 @@ Record:
 - Dispatch base: `main@28b1fdf494ffc6e53b99b311b2f4d5256fd5e8a2`.
 - Implementation branch: `con-ready/authoring-v2-governed-world-commit-v1`.
 - Implementation commit: `3a254140` — `CON-READY: publish staged recap memory to World`.
+- Assigned PR: #742 OPEN — `CON-READY: publish staged recap memory to World`; opened from this handback at `a441dc6d`.
 - PR topology: `serial`; no other CON-READY implementation PR was opened during implementation.
 - §1 invariant: backend selector binding, governed prepare/confirm, durable receipt IDs, same-scope refresh wiring, and duplicate-safe disposable proof are implemented. Live Witness A remains pending operator-selected real-world dogfood.
 - Source selector: `sourceRunId XOR recapArtifactId`; `recapArtifactId` resolves the server-owned `RecapArtifactRecord`, verifies campaign/session/path/digest, creates/loads the deterministic recap SourceArtifact, and binds its admitted pair into the confirmation intent.

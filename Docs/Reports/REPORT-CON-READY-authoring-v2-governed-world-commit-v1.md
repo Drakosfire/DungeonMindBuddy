@@ -8,7 +8,7 @@
 - Implementation branch: `con-ready/authoring-v2-governed-world-commit-v1`.
 - Implementation commit: `3a254140` — `CON-READY: publish staged recap memory to World`.
 - PR topology: serial; one V2-2 implementation PR is authorized.
-- PR: authorized title `CON-READY: publish staged recap memory to World`; PR transport is opened after this handback.
+- PR: #742 OPEN — `CON-READY: publish staged recap memory to World`; opened from the implementation handback at `a441dc6d`.
 - Review cycles: none yet.
 
 ## What shipped
