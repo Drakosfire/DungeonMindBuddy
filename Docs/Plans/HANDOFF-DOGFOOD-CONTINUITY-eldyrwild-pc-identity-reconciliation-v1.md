@@ -1,12 +1,36 @@
 # HANDOFF — reconcile Eldyrwild PC identity continuity
 
 **Created:** 2026-09-21
-**Status:** ACTIVE — prerequisite to finishing DungeonMindBuddy PR #742
+**Status:** ACTIVE — read-only live preflight green; explicit apply gate pending
 **Canonical handoff path:** `Docs/Plans/HANDOFF-DOGFOOD-CONTINUITY-eldyrwild-pc-identity-reconciliation-v1.md`
 **Primary implementation repository:** `Drakosfire/DungeonMind`
 **Blocked consumer:** DungeonMindBuddy PR #742
 **Suggested branch:** `recovery/eldyrwild-pc-identity-reconciliation-v1`
 **PR title:** `RECOVERY: reconcile Eldyrwild PC identities`
+
+## Re-anchor — 2026-09-21
+
+The prerequisite atomic publisher is now landed and the blocked consumer is
+unchanged:
+
+```text
+DungeonMind PR #70:
+  MERGED
+  implementation head: 5ce0b07e623abcbcc65c05bcd9807d88df785a1e
+  merge: 57f382352f4ae6e0145553461de9493a6fadfa1b
+  disposition: WORLD_ATOMIC_IDENTITY_RECONCILIATION_ACCEPTED
+
+Buddy reconciliation handoff:
+  landed on main: bcc3780811bdfdbb3b2b2b68ee55dc7fe94a7c9b
+
+DungeonMindBuddy PR #742:
+  OPEN / BLOCKED
+  head: 8fcbbc28e6da7c4d9652232a3316d591f1a5504d
+```
+
+The live read-only preflight below was run against the durable local authority
+after this re-anchor. It did not publish a revision, append a decision, or
+change the World head.
 
 > Land this handoff durably on DungeonMindBuddy `main` before worker dispatch.
 >
@@ -40,7 +64,7 @@ instead of failing `orphan_accepted_assertion`.
 
 #742 dogfood stopped correctly at its Case B gate.
 
-Observed live authority:
+Observed live authority, reconfirmed by the read-only preflight on 2026-09-21:
 
 ```text
 world:
@@ -269,6 +293,32 @@ Against the actual current `eldyrwild` head, prove:
 Any unexpected identity state is a STOP, not permission to “repair until green.”
 
 ## §9 Required proof before merge
+
+### Read-only live preflight result — 2026-09-21
+
+The durable local `eldyrwild` authority was inspected through the merged PR #70
+repository adapters. No apply path was called.
+
+```text
+parent world                 = eldyrwild
+parent revision              = rev:e570042d33a30d07e053c578dedbc804
+parent payload sha256        = 2ff482a3465947c5936b9fe05e043730a6cbc16ffa3893dc63ca55665cba5a22
+parent graph                 = 1047 objects / 559 relationships / 447 evidence refs
+existing reconciliation      = 0 decisions
+relationship endpoints       = 0 graph relationships touch the six legacy IDs
+evidence inventory            = one party-registry support ref per PC object
+materialized decision count  = 6
+expected child               = rev:97c5ace529f940fb80bc4d73dff2e974
+transformed graph             = 1047 objects / 559 relationships
+dangling endpoints            = none
+legacy IDs in child           = absent
+canonical pc:* IDs in child   = all six present
+```
+
+The six source objects are present and `canonical`; all six `pc:*` targets are
+absent from the parent. The materializer accepted the complete batch and
+produced six deterministic reconciliation decision IDs without mutating the
+authority. The parent head still equals the recorded parent revision.
 
 ### Synthetic / isolated owning-boundary proof
 
