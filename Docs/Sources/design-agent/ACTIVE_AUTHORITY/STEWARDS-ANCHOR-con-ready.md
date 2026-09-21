@@ -6,7 +6,7 @@
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Re-anchor input:** `main@b9067303b6f88acf51429c2dfc331e3f2a48bd35` — V2-1 / PR #738 merged; V2-1A dispatch base  
 **Current product frontier:** **Authoring v2 → derived gold → extraction ablation**  
-**Active implementation PR:** **#741 OPEN** — `con-ready/authoring-v2-working-projection-ui-dogfood-v1` at `3726fa71157364c2adfa042195a1bb2fc0786296`; serial CON-READY PR authorized by the ACTIVE V2-1A handoff  
+**Active implementation PR:** **#741 OPEN** — `con-ready/authoring-v2-working-projection-ui-dogfood-v1`; serial CON-READY PR authorized by the ACTIVE V2-1A handoff
 **Current sequencing authority:** [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md)  
 **Completed V2-0 census:** [`../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`](../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md)  
 **ACTIVE V2-1A handoff:** [`HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`](HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md)  

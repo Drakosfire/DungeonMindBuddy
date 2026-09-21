@@ -209,6 +209,10 @@ describe("WorldGraphRecapProjectionView", () => {
 
   it("keeps root prose visible when a related-object expansion is unavailable", async () => {
     const root = session23WorldGraphRecapFixture.nodeViews.pc_caelynn;
+    const { node_id: missingTargetNodeId, ...missingTargetEdge } = {
+      ...root.adjacency[0]!,
+      node_id: "loc_missing",
+    };
     const missingTargetPayload = {
       ...session23WorldGraphRecapFixture,
       nodeViews: {
@@ -216,11 +220,7 @@ describe("WorldGraphRecapProjectionView", () => {
         pc_caelynn: {
           ...root,
           adjacency: [
-            {
-              ...root.adjacency[0]!,
-              nodeId: "loc_missing",
-              label: "Missing place",
-            },
+            { ...missingTargetEdge, nodeId: missingTargetNodeId, label: "Missing place" },
           ],
         },
       },
