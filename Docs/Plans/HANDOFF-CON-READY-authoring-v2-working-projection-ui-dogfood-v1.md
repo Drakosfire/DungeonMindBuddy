@@ -1,7 +1,7 @@
 # HANDOFF — CON-READY: Authoring v2 working projection UI dogfood
 
 **Created:** 2026-09-20
-**Status:** ACTIVE — one UI/dogfood implementation capability
+**Status:** DONE — MERGED as PR #741 @ `28754d1fdda15be97475f35e08127833b088a256`; accepted implementation head `9b5874e9b30663d4008427acebdff03d7c6531ae`; Review Cycle 3 PASS / MERGE-READY (`5262735475`)
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY / campaign memory authoring`
 **Flow / owner:** `CON-READY`
