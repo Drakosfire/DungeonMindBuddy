@@ -79,6 +79,7 @@ export function buildPublishedRecapAuthoringContext(input: {
 export interface PublishedRecapLocalAuthoringProps {
   campaignId: string;
   sessionId: string;
+  worldId?: string | null;
   graphId?: string | null;
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
@@ -94,6 +95,7 @@ export interface PublishedRecapLocalAuthoringProps {
 export function PublishedRecapLocalAuthoring({
   campaignId,
   sessionId,
+  worldId,
   graphId,
   markdown,
   nodeViews,
@@ -294,6 +296,7 @@ export function PublishedRecapLocalAuthoring({
       }}
       campaignId={campaignId}
       sessionId={sessionId}
+      worldId={worldId}
       recapArtifactId={recapRecord?.artifact_id ?? null}
       onCommittedProposals={
         recapRecord?.artifact_id ? draft.clearCommittedProposals : undefined

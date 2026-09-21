@@ -308,6 +308,7 @@ function CommitSuccessPrimary({
 export interface GraphObjectAuthoringPrepareCommitPanelProps {
   campaignId: string;
   sessionId: string;
+  worldId?: string | null;
   campaignRel?: string | null;
   sourceRunId?: string | null;
   recapArtifactId?: string | null;
@@ -321,6 +322,7 @@ export interface GraphObjectAuthoringPrepareCommitPanelProps {
 export function GraphObjectAuthoringPrepareCommitPanel({
   campaignId,
   sessionId,
+  worldId,
   campaignRel,
   sourceRunId,
   recapArtifactId,
@@ -331,6 +333,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
   onRefreshProjection,
 }: GraphObjectAuthoringPrepareCommitPanelProps) {
   const isPublishedRecap = Boolean(recapArtifactId);
+  const resolvedWorldId = worldId?.trim() || null;
   const [prepared, setPrepared] = useState<GraphObjectAuthoringPrepareResponse | null>(null);
   const [committed, setCommitted] = useState<GraphObjectAuthoringCommitResponse | null>(null);
   const [preparedForFingerprint, setPreparedForFingerprint] = useState<string>("");
@@ -366,12 +369,17 @@ export function GraphObjectAuthoringPrepareCommitPanel({
     setCommitError(null);
     setCommitted(null);
     setPreparing(true);
+    if (isPublishedRecap && !resolvedWorldId) {
+      setPrepareError("Published recap is missing its World identity. Reload the recap and try again.");
+      setPreparing(false);
+      return;
+    }
     try {
       const response = await prepareGraphObjectAuthoringWrite({
         campaignId,
         campaignRel,
         sessionId,
-        worldId: campaignId,
+        worldId: resolvedWorldId,
         sourceRunId,
         recapArtifactId,
         sourceGraphId,
@@ -398,7 +406,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
         campaignId,
         campaignRel,
         sessionId,
-        worldId: campaignId,
+        worldId: resolvedWorldId,
         sourceRunId,
         recapArtifactId,
         sourceGraphId,
@@ -452,9 +460,15 @@ export function GraphObjectAuthoringPrepareCommitPanel({
           "The prepared preview no longer matches these proposals. Prepare again before confirming.",
         );
       } else if (code === "governed_write_inexpressible") {
-        setCommitError(
-          "This Graph Review operation cannot be published through DungeonMind.",
-        );
+        if (message.toLowerCase().includes("orphan_accepted_assertion")) {
+          setCommitError(
+            "This target is visible in the recap projection, but it is not in the governed World yet. Create or publish the object first, then add this alias.",
+          );
+        } else {
+          setCommitError(
+            message || "This Graph Review operation cannot be published through DungeonMind.",
+          );
+        }
       } else if (
         code === "source_unresolved" ||
         code === "source_artifact_not_found" ||

@@ -162,6 +162,7 @@ export function WorldGraphRecapProjectionView({
       <PublishedRecapLocalAuthoring
         campaignId={selectedCampaignId}
         sessionId={selectedSessionId}
+        worldId={payload.snapshot.worldId}
         graphId={payload.graphId}
         markdown={payload.markdown}
         nodeViews={adaptedNodeViews}

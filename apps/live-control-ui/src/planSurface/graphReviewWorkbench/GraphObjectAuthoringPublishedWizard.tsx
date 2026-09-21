@@ -68,6 +68,7 @@ export interface GraphObjectAuthoringPublishedWizardProps {
   onSelectContextTab?: (selection: GraphAuthoringSelection) => void;
   campaignId?: string;
   sessionId?: string;
+  worldId?: string | null;
   campaignRel?: string | null;
   sourceRunId?: string | null;
   recapArtifactId?: string | null;
@@ -137,6 +138,7 @@ export function GraphObjectAuthoringPublishedWizard({
   onSelectContextTab,
   campaignId,
   sessionId,
+  worldId,
   campaignRel,
   sourceRunId,
   recapArtifactId,
@@ -407,6 +409,7 @@ export function GraphObjectAuthoringPublishedWizard({
             <GraphObjectAuthoringPrepareCommitPanel
               campaignId={campaignId}
               sessionId={sessionId}
+              worldId={worldId}
               campaignRel={campaignRel}
               sourceRunId={sourceRunId}
               recapArtifactId={recapArtifactId}

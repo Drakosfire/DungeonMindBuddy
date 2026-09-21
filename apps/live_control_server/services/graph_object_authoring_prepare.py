@@ -1244,6 +1244,11 @@ def resolve_graph_review_source(
             raise GraphObjectAuthoringError(
                 str(exc), code=code, status_code=exc.status_code
             ) from exc
+        # Recap registry records predate the governed World topology and may
+        # therefore carry no world_id. The request's server-resolved World is
+        # authoritative for this publication and must reach source admission.
+        if not (getattr(artifact, "world_id", None) or "").strip():
+            artifact = artifact.model_copy(update={"world_id": authored_world})
         return SimpleNamespace(
             source_artifact_id=artifact.source_artifact_id,
             source_revision_id=f"sha256:{artifact.content_sha256}",

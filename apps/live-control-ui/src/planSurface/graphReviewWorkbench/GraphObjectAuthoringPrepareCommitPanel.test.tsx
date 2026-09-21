@@ -72,7 +72,7 @@ const prepareResponse = {
     "Prepare wrote nothing.",
     "Source markdown was not mutated.",
   ],
-  world_id: "longmont-c1",
+  world_id: "eldyrwild",
   expected_parent_revision_id: "rev:d0",
   authority_operation_id: "grauth:abc",
   contribution_digest: "contribution-digest",
@@ -90,7 +90,7 @@ const commitResponse = {
   new_overlay_token: null,
   diagnostics: [],
   no_mutation_guarantees: ["Published through DungeonMind World Graph authority."],
-  world_id: "longmont-c1",
+  world_id: "eldyrwild",
   parent_revision_id: "rev:d0",
   published_revision_id: "rev:d1",
   operation_id: "grauth:abc",
@@ -171,6 +171,7 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
       <GraphObjectAuthoringPrepareCommitPanel
         campaignId="longmont-c1"
         sessionId="session-2"
+        worldId="eldyrwild"
         recapArtifactId="longmont-c1/session-2"
         proposals={[stagedProposal]}
         onCommitted={() => undefined}
@@ -182,6 +183,7 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
       expect(prepareGraphObjectAuthoringWrite).toHaveBeenCalledWith(
         expect.objectContaining({
           recapArtifactId: "longmont-c1/session-2",
+          worldId: "eldyrwild",
           sourceRunId: undefined,
         }),
       );
@@ -191,6 +193,7 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
       expect(commitGraphObjectAuthoringWrite).toHaveBeenCalledWith(
         expect.objectContaining({
           recapArtifactId: "longmont-c1/session-2",
+          worldId: "eldyrwild",
           sourceRunId: undefined,
         }),
       );
@@ -228,7 +231,7 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     await user.click(screen.getByText("Technical write details"));
     expect(technicalDetails).toHaveAttribute("open");
     expect(within(technicalDetails).getByText("rev:d0")).toBeInTheDocument();
-    expect(within(technicalDetails).getByText("longmont-c1")).toBeInTheDocument();
+    expect(within(technicalDetails).getByText("eldyrwild")).toBeInTheDocument();
     expect(within(technicalDetails).getByText("contribu…n-digest")).toBeInTheDocument();
   });
 
@@ -323,6 +326,7 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
       <GraphObjectAuthoringPrepareCommitPanel
         campaignId="longmont-c1"
         sessionId="session-2"
+        worldId="eldyrwild"
         sourceRunId="run-c1s2"
         sourceGraphId="graph-c1s2"
         previewUnionStorePath="/stores/preview_union.json"
@@ -341,7 +345,7 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     await waitFor(() => {
       expect(commitGraphObjectAuthoringWrite).toHaveBeenCalledWith(
         expect.objectContaining({
-          worldId: "longmont-c1",
+          worldId: "eldyrwild",
           sourceRunId: "run-c1s2",
           sourceGraphId: "graph-c1s2",
           confirmToken: "confirm-token",
@@ -452,6 +456,36 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
       expect(
         screen.getByText(/Prepare again against current truth/i),
       ).toBeInTheDocument();
+    });
+  });
+
+  it("explains when a recap target is not yet in the governed World", async () => {
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue(prepareResponse);
+    vi.mocked(commitGraphObjectAuthoringWrite).mockRejectedValue(
+      new Error(
+        '{"code":"governed_write_inexpressible","message":"DungeonMind v6 materialization rejected the Threat contribution: orphan_accepted_assertion"}',
+      ),
+    );
+
+    render(
+      <GraphObjectAuthoringPrepareCommitPanel
+        campaignId="longmont-c1"
+        sessionId="session-2"
+        proposals={[stagedProposal]}
+        onCommitted={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-commit-button")).toBeEnabled();
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-commit-button"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("graph-object-authoring-commit-error")).toHaveTextContent(
+        /visible in the recap projection, but it is not in the governed World yet/i,
+      );
     });
   });
 
