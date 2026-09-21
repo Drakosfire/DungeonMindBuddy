@@ -9,12 +9,11 @@ import os
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
-from pathlib import Path
 from typing import Any
 
-from openai import OpenAI
+from generationengine import GenerationClient, TextRequest
 
-from src.llm.api_client import DungeonMindApiClient
+from src.llm.generation_sync import run_awaitable_sync
 from src.reducer.canon_projection import project_entity_state
 from src.store import FactStore
 
@@ -178,6 +177,32 @@ def _format_facts_for_prompt(projection_entity: dict[str, Any]) -> str:
     return "\n".join(lines) if lines else "(no projected attributes)"
 
 
+def _wiki_user_prompt(
+    *,
+    entity_id: str,
+    display: str,
+    cls: str,
+    alias_line: str,
+    facts_block: str,
+) -> str:
+    return f"""Entity ID: {entity_id}
+Display name: {display}
+Class: {cls}
+Aliases: {alias_line}
+
+Projected facts (from the knowledge graph):
+{facts_block}
+
+Write the wiki article."""
+
+
+async def _generate_text(injected_client: Any | None, request: TextRequest) -> Any:
+    if injected_client is not None:
+        return await injected_client.generate_text(request)
+    ge_client = GenerationClient.from_env()
+    return await ge_client.generate_text(request)
+
+
 def _resolve_wiki_model() -> str:
     """Env override, then Buddy MODEL_POLICY actions.wiki_compile (else structured_generation), then models.cheapest."""
     env_model = os.environ.get(WIKI_COMPILE_MODEL_ENV, "").strip()
@@ -209,7 +234,7 @@ def compile_entity_page(
     entity_id: str,
     entity_meta: dict[str, Any],
     projection_entity: dict[str, Any],
-    client: OpenAI | None = None,
+    client: Any | None = None,
     model: str | None = None,
 ) -> str:
     """Single LLM call: projected facts -> prose wiki article."""
@@ -218,33 +243,29 @@ def compile_entity_page(
     aliases = [str(a).strip() for a in (entity_meta.get("aliases") or []) if str(a).strip()]
     alias_line = ", ".join(aliases[:8]) if aliases else "(none listed)"
     facts_block = _format_facts_for_prompt(projection_entity)
+    user_msg = _wiki_user_prompt(
+        entity_id=entity_id,
+        display=display,
+        cls=cls,
+        alias_line=alias_line,
+        facts_block=facts_block,
+    )
 
-    user_msg = f"""Entity ID: {entity_id}
-Display name: {display}
-Class: {cls}
-Aliases: {alias_line}
-
-Projected facts (from the knowledge graph):
-{facts_block}
-
-Write the wiki article."""
-
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        raise RuntimeError("OPENAI_API_KEY is required for compile_entity_page.")
-    oc = client or OpenAI(api_key=api_key)
-    api_client = DungeonMindApiClient.wrap(oc)
     mid = model or _resolve_wiki_model()
-    resp = api_client.chat_completions_create(
-        action="wiki_compiler.entity_page",
+    if client is None:
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            raise RuntimeError("OPENAI_API_KEY is required for compile_entity_page.")
+    request = TextRequest(
+        system_prompt=WIKI_SYSTEM_PROMPT,
+        user_prompt=user_msg,
+        provider="openai",
         model=mid,
-        messages=[
-            {"role": "system", "content": WIKI_SYSTEM_PROMPT},
-            {"role": "user", "content": user_msg},
-        ],
+        profile=None,
         temperature=0.35,
-    ).response
-    text = (resp.choices[0].message.content or "").strip()
+    )
+    result = run_awaitable_sync(lambda: _generate_text(client, request))
+    text = (result.text or "").strip()
     if not text:
         raise RuntimeError(f"Empty wiki article for {entity_id}")
     return text
@@ -321,7 +342,6 @@ def compile_wiki(
         return {}
 
     model = _resolve_wiki_model()
-    client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
     new_pages: dict[str, str] = {}
 
@@ -332,7 +352,6 @@ def compile_wiki(
             entity_id=eid,
             entity_meta=meta,
             projection_entity=body,
-            client=client,
             model=model,
         )
         return eid, text
