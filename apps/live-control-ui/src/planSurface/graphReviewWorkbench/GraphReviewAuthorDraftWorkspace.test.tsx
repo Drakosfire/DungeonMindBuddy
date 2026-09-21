@@ -271,7 +271,7 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
     fireEvent.click(aldenPill);
     fireEvent.click(screen.getByRole("tab", { name: "Relationships" }));
 
-    expect(screen.getByLabelText("Source object")).toHaveValue("existing_node:alden");
+    expect(screen.getByLabelText("Source object")).toHaveValue("Alden");
   });
 
   it("stages a relationship after source and target pills without dialog churn", async () => {
@@ -298,8 +298,8 @@ describe("GraphReviewAuthorDraftWorkspace", () => {
     fireEvent.click(beraPill);
     fireEvent.click(screen.getByRole("tab", { name: "Relationships" }));
 
-    expect(screen.getByLabelText("Source object")).toHaveValue("existing_node:alden");
-    expect(screen.getByLabelText("Target object")).toHaveValue("existing_node:bera");
+    expect(screen.getByLabelText("Source object")).toHaveValue("Alden");
+    expect(screen.getByLabelText("Target object")).toHaveValue("Bera");
 
     fireEvent.click(screen.getByTestId("graph-object-authoring-stage-relationship-button"));
     fireEvent.click(screen.getByRole("tab", { name: "Stage & commit" }));

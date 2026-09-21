@@ -112,8 +112,9 @@ function ReadOnlyTiptapRecap({
       activeNodeId,
       onSelectNode,
       deltaByNodeId: nodeDeltaPresentations ?? {},
+      glanceInteraction: authoringEnabled ? ("click" as const) : ("hover" as const),
     }),
-    [nodeViews, activeNodeId, onSelectNode, nodeDeltaPresentations],
+    [nodeViews, activeNodeId, onSelectNode, nodeDeltaPresentations, authoringEnabled],
   );
 
   useEffect(() => {

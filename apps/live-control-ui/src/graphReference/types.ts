@@ -34,6 +34,8 @@ export interface GraphNodeChipRuntimeValue {
   activeNodeId: string | null;
   onSelectNode: (nodeId: string) => void;
   deltaByNodeId?: Record<string, GraphNodeChipDeltaPresentation>;
+  /** Authoring surfaces use deliberate click-first glances so text selection is not interrupted by hover cards. */
+  glanceInteraction?: "hover" | "click";
   /** Exact Plan World Graph snapshot scope for Threat hover mechanics hydration. */
   exactGraphScope?: ExactGraphReferenceScope | null;
 }

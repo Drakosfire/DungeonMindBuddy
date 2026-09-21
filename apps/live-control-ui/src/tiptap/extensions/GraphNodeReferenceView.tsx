@@ -9,7 +9,7 @@ import {
 import type { GraphNodeReferenceAttrs } from "./GraphNodeReferenceNode";
 
 export function GraphNodeReferenceView({ node }: NodeViewProps) {
-  const { nodeViews, activeNodeId, onSelectNode, deltaByNodeId } = useGraphNodeChipRuntime();
+  const { nodeViews, activeNodeId, onSelectNode, deltaByNodeId, glanceInteraction } = useGraphNodeChipRuntime();
   const attrs = node.attrs as GraphNodeReferenceAttrs;
   const presentation = presentationForNodeId(nodeViews, attrs.nodeId, attrs.label);
   const delta = deltaByNodeId?.[attrs.nodeId];
@@ -21,6 +21,7 @@ export function GraphNodeReferenceView({ node }: NodeViewProps) {
         label={attrs.label || attrs.nodeId}
         pinned={activeNodeId === attrs.nodeId}
         onSelect={() => onSelectNode(attrs.nodeId)}
+        glanceInteraction={glanceInteraction}
         deltaStatus={delta?.status}
         deltaLabel={delta?.label}
         deltaSummary={delta?.summary}

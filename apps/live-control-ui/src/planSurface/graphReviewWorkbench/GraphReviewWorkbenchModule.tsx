@@ -44,7 +44,6 @@ import {
   type GraphReviewCommittedBinding,
 } from "./graphReviewCommittedAuthority";
 import { GraphReviewDiagnosticsProjectionBinding } from "./GraphReviewDiagnosticsProjectionBinding";
-import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
 import { GraphReviewExactRunProjection } from "./GraphReviewExactRunProjection";
 import { GraphReviewHistoricalRecapProjection } from "./GraphReviewHistoricalRecapProjection";
 import { GraphReviewExtractPromoteSheet } from "./GraphReviewExtractPromoteSheet";
@@ -157,7 +156,7 @@ export function GraphReviewWorkbenchModule({
   const projectionInstanceKey = projectionPublication.identity.instanceKey;
   const projectionPublicationRef = useRef(projectionPublication);
   projectionPublicationRef.current = projectionPublication;
-  const [exactHandoff, setExactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
+  const [exactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
     parseGraphReviewRunHandoff(
       typeof window !== "undefined" ? window.location.search : "",
     ),
@@ -200,13 +199,13 @@ export function GraphReviewWorkbenchModule({
   const [appliedSelection, setAppliedSelection] = useState<GraphReviewAppliedSelection | null>(
     null,
   );
-  const [draftCampaignId, setDraftCampaignId] = useState(() =>
+  const [, setDraftCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(context.campaignId),
   );
-  const [draftSessionId, setDraftSessionId] = useState("");
-  const [compare, setCompare] = useState<GoldReviewCompareResponse | null>(null);
-  const [compareStatus, setCompareStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [compareError, setCompareError] = useState<string | null>(null);
+  const [, setDraftSessionId] = useState("");
+  const [, setCompare] = useState<GoldReviewCompareResponse | null>(null);
+  const [, setCompareStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
+  const [, setCompareError] = useState<string | null>(null);
   const [selection, setSelection] = useState<GoldReviewSelection | null>(null);
   const [manualBeds, setManualBeds] = useState<ManualReviewBedSummary[]>([]);
   const [manualBedsStatus, setManualBedsStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
@@ -819,9 +818,7 @@ export function GraphReviewWorkbenchModule({
           ) : null}
 
           {showPublishedMemoryBrowse ? (
-            <GraphReviewAuthorNodeHost
-              projection={<RecapGraphModule context={context} />}
-            />
+            <RecapGraphModule context={context} />
           ) : hasExactRunLoad ? (
             <GraphReviewExactRunBranch
               exactRun={exactRun!}

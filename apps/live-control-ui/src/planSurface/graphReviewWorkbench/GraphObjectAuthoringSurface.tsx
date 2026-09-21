@@ -9,6 +9,10 @@ import {
   type GraphAuthoringSelection,
 } from "./graphAuthoringSelection";
 import { GraphObjectAuthoringBindExistingPanel } from "./GraphObjectAuthoringBindExistingPanel";
+import {
+  GraphObjectAuthoringPublishedWizard,
+  type GraphObjectAuthoringContextTab,
+} from "./GraphObjectAuthoringPublishedWizard";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphObjectAuthoringObjectForm } from "./GraphObjectAuthoringObjectForm";
 import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
@@ -55,7 +59,10 @@ export interface GraphObjectAuthoringSurfaceProps {
   onStartManualDraft?: () => void;
   pendingSelection?: GraphAuthoringSelection | null;
   onUseSelectedText?: (selection: GraphAuthoringSelection) => void;
-  onStageLinkExisting?: (candidate: GraphReviewExistingObjectCandidate) => boolean;
+  onStageLinkExisting?: (
+    candidate: GraphReviewExistingObjectCandidate,
+    operation?: import("./graphObjectAuthoringDraft").GraphObjectAuthoringLinkExistingOperation,
+  ) => boolean;
   onStageLinkExistingComplete?: () => void;
   creatingObject?: boolean;
   createObjectError?: string | null;
@@ -82,6 +89,9 @@ export interface GraphObjectAuthoringSurfaceProps {
   previewUnionStorePath?: string | null;
   projectionNodeViews?: Record<string, GraphProjectionNodeView>;
   localStageOnly?: boolean;
+  publishedLocalWizard?: boolean;
+  contextTabs?: GraphObjectAuthoringContextTab[];
+  onSelectContextTab?: (selection: GraphAuthoringSelection) => void;
 }
 
 export function GraphObjectAuthoringSurface({
@@ -116,6 +126,9 @@ export function GraphObjectAuthoringSurface({
   previewUnionStorePath = null,
   projectionNodeViews,
   localStageOnly = false,
+  publishedLocalWizard = false,
+  contextTabs = [],
+  onSelectContextTab,
 }: GraphObjectAuthoringSurfaceProps) {
   const supportsRelationship = Boolean(relationshipFormState && onRelationshipFieldChange && onStageRelationshipProposal);
   const [bindingAlias, setBindingAlias] = useState(false);
@@ -184,18 +197,61 @@ export function GraphObjectAuthoringSurface({
       (!selectedSource || selectedSource.selectedText !== pendingSelection.selectedText),
   );
 
-  const handleBindAsAlias = (candidate: GraphReviewExistingObjectCandidate) => {
-    if (!onStageLinkExisting) return;
+  const handleBindExisting = (
+    candidate: GraphReviewExistingObjectCandidate,
+    operation: import("./graphObjectAuthoringDraft").GraphObjectAuthoringLinkExistingOperation,
+  ): boolean => {
+    if (!onStageLinkExisting) return false;
     setBindingAlias(true);
     try {
-      const staged = onStageLinkExisting(candidate);
+      const staged = onStageLinkExisting(candidate, operation);
       if (staged) {
         onStageLinkExistingComplete?.();
       }
+      return staged;
     } finally {
       setBindingAlias(false);
     }
   };
+
+  if (publishedLocalWizard) {
+    return (
+      <section
+        className="graph-object-authoring-surface graph-object-authoring-surface--wizard"
+        aria-label="Graph object authoring"
+        data-testid="graph-object-authoring-surface"
+        data-focus-panel={focusPanel}
+        data-local-stage-only={localStageOnly ? "true" : "false"}
+        data-workflow="published-local-wizard"
+      >
+        <GraphObjectAuthoringPublishedWizard
+          selectedSource={selectedSource}
+          formState={formState}
+          proposals={proposals}
+          onFormFieldChange={onFormFieldChange}
+          onStageProposal={onStageProposal}
+          onRemoveProposal={onRemoveProposal}
+          onStartManualDraft={onStartManualDraft}
+          bindSearchStatus={bindSearchStatus}
+          bindSearchError={bindSearchError}
+          scopeCandidates={scopeCandidates}
+          onBindExisting={handleBindExisting}
+          bindingAlias={bindingAlias}
+          creatingObject={creatingObject}
+          createObjectError={createObjectError}
+          relationshipFormState={relationshipFormState}
+          onRelationshipFieldChange={onRelationshipFieldChange}
+          onStageRelationshipProposal={onStageRelationshipProposal}
+          existingNodes={existingNodes}
+          projectionNodeViews={projectionNodeViews}
+          overlapContext={overlapContext}
+          objectFormOverlapWarnings={objectFormOverlapWarnings}
+          contextTabs={contextTabs}
+          onSelectContextTab={onSelectContextTab}
+        />
+      </section>
+    );
+  }
 
   const headerCopy = localStageOnly
     ? {
@@ -278,7 +334,7 @@ export function GraphObjectAuthoringSurface({
                   status={bindSearchStatus}
                   error={bindSearchError}
                   candidates={scopeCandidates}
-                  onBindAsAlias={handleBindAsAlias}
+                  onBindExisting={handleBindExisting}
                   binding={bindingAlias}
                 />
               ) : null}
@@ -365,7 +421,7 @@ export function GraphObjectAuthoringSurface({
               type="button"
               data-testid="graph-object-authoring-stage-relationship-button"
               disabled={!canStageRelationship}
-              onClick={onStageRelationshipProposal}
+              onClick={() => onStageRelationshipProposal?.()}
             >
               Stage relationship
             </button>

@@ -13,6 +13,8 @@ import {
 import { PeekClaim } from "../../surfaceInteraction/peekHost";
 import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewAdapter";
 import { PublishedRecapLocalAuthoring } from "../graphReviewWorkbench/PublishedRecapLocalAuthoring";
+import { useGraphObjectAuthoringDraft } from "../graphReviewWorkbench/useGraphObjectAuthoringDraft";
+import { derivePublishedRecapWorkingProjection } from "../graphReviewWorkbench/publishedRecapWorkingProjection";
 import { ReviewCampaignPicker } from "../ReviewCampaignPicker";
 
 function recapOriginSurface(): "ingest" | "plan" {
@@ -43,12 +45,28 @@ export function WorldGraphRecapProjectionView({
     () => adaptWorldGraphNodeViewMap(payload.nodeViews),
     [payload.nodeViews],
   );
+  const authoringDraft = useGraphObjectAuthoringDraft({
+    campaignId: selectedCampaignId,
+    sessionId: selectedSessionId,
+  });
+  const workingProjection = useMemo(
+    () => derivePublishedRecapWorkingProjection({
+      markdown: payload.markdown,
+      nodeViews: adaptedNodeViews,
+      proposals: authoringDraft.proposals,
+      sessionId: selectedSessionId,
+    }),
+    [adaptedNodeViews, authoringDraft.proposals, payload.markdown, selectedSessionId],
+  );
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
+  const [expandedRelatedNodeId, setExpandedRelatedNodeId] = useState<string | null>(null);
   const revisionId = payload.snapshot.revisionId;
   const objectOpen = Boolean(activeNodeId);
+  const activeWorkingNode = activeNodeId ? workingProjection.nodeViews[activeNodeId] ?? null : null;
+  const activeIsLocal = Boolean(activeWorkingNode?.authored && activeNodeId?.startsWith("local-authoring:"));
   const complete = useCompleteWorldObject({
-    enabled: objectOpen,
+    enabled: objectOpen && !activeIsLocal,
     worldId: payload.snapshot.worldId,
     campaignId: selectedCampaignId,
     nodeId: activeNodeId,
@@ -63,20 +81,51 @@ export function WorldGraphRecapProjectionView({
 
   const handleInspectNode = useCallback((nodeId: string) => {
     setSelectedRelationshipId(null);
+    setExpandedRelatedNodeId(null);
     setActiveNodeId(nodeId);
   }, []);
 
-  const handleSelectRelationshipTarget = useCallback((targetId: string) => {
-    setSelectedRelationshipId(targetId);
-    setActiveNodeId(targetId);
+  const handleSelectRelationship = useCallback((relationship: import("../../graphObjectCard/types").GraphObjectRelationshipViewModel) => {
+    setSelectedRelationshipId((current) => current === relationship.id ? null : relationship.id);
+    setExpandedRelatedNodeId((current) => current === relationship.targetId ? null : relationship.targetId ?? null);
   }, []);
 
   const handleCloseObject = useCallback(() => {
     setSelectedRelationshipId(null);
+    setExpandedRelatedNodeId(null);
     setActiveNodeId(null);
   }, []);
 
-  const peekLabel = complete.nodeView?.label?.trim() || "Campaign memory";
+  const peekLabel = activeWorkingNode?.label?.trim() || complete.nodeView?.label?.trim() || "Campaign memory";
+  const rootNodeView = useMemo(() => {
+    if (!activeNodeId) return null;
+    const workingNode = workingProjection.nodeViews[activeNodeId] ?? null;
+    if (activeIsLocal) return workingNode;
+    if (!complete.nodeView) return workingNode;
+    if (!workingNode) return complete.nodeView;
+    const localEdges = workingNode.adjacency.filter((edge) =>
+      edge.source_domains.includes("local_authoring"),
+    );
+    if (!localEdges.length) return complete.nodeView;
+    const existingEdgeIds = new Set(complete.nodeView.adjacency.map((edge) => edge.edge_id));
+    return {
+      ...complete.nodeView,
+      adjacency: [
+        ...complete.nodeView.adjacency,
+        ...localEdges.filter((edge) => !existingEdgeIds.has(edge.edge_id)),
+      ],
+      suggested_expansions: [
+        ...(complete.nodeView.suggested_expansions ?? []),
+        ...(workingNode.suggested_expansions ?? []).filter((edge) => !existingEdgeIds.has(edge.edge_id)),
+      ],
+    };
+  }, [activeIsLocal, activeNodeId, complete.nodeView, workingProjection.nodeViews]);
+  const expandedNodeView = useMemo(() => {
+    if (!expandedRelatedNodeId) return null;
+    return complete.nodeViews[expandedRelatedNodeId]
+      ?? workingProjection.nodeViews[expandedRelatedNodeId]
+      ?? null;
+  }, [complete.nodeViews, expandedRelatedNodeId, workingProjection.nodeViews]);
 
   const reviewToolbar = (
     <div className="recap-reader-toolbar">
@@ -106,6 +155,7 @@ export function WorldGraphRecapProjectionView({
         recapRecord={recapRecord}
         onInspectNode={handleInspectNode}
         onActiveNodeChange={setActiveNodeId}
+        draft={authoringDraft}
       />
       <PeekClaim
         kind="world-object"
@@ -134,11 +184,11 @@ export function WorldGraphRecapProjectionView({
               </p>
             ) : null}
             <CompleteObjectPartialWarning result={complete.result} />
-            {usesCompleteWorldObjectPayload(complete.status) && complete.nodeView ? (
+            {rootNodeView ? (
               <GraphObjectProjectionCard
                 mode="campaign-memory"
-                nodeView={complete.nodeView}
-                onSelectRelationshipTarget={handleSelectRelationshipTarget}
+                nodeView={rootNodeView}
+                onSelectRelationship={handleSelectRelationship}
                 selectedRelationshipId={selectedRelationshipId}
                 onDismiss={handleCloseObject}
                 dismissLabel={`Close ${peekLabel}`}
@@ -150,6 +200,29 @@ export function WorldGraphRecapProjectionView({
                   />
                 ) : undefined}
               />
+            ) : null}
+            {expandedRelatedNodeId && expandedNodeView ? (
+              <section
+                className="recap-graph-related-object-expansion"
+                data-testid="recap-graph-related-object-expansion"
+                aria-label={`Expanded related object ${expandedNodeView.label}`}
+              >
+                <p className="plan-surface-kicker">Connected object</p>
+                <GraphObjectProjectionCard
+                  mode="campaign-memory"
+                  nodeView={expandedNodeView}
+                  onSelectRelationship={handleSelectRelationship}
+                  selectedRelationshipId={selectedRelationshipId}
+                />
+              </section>
+            ) : expandedRelatedNodeId ? (
+              <p
+                className="graph-preview-error recap-graph-related-object-unavailable"
+                data-testid="recap-graph-related-object-unavailable"
+                role="status"
+              >
+                The connected object is unavailable in this recap projection. The root object remains open.
+              </p>
             ) : null}
           </aside>
         ) : null}

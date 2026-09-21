@@ -68,6 +68,7 @@ export interface GraphNodeHoverTokenProps {
   deltaStatus?: string;
   deltaLabel?: string;
   deltaSummary?: string | null;
+  glanceInteraction?: "hover" | "click";
   tokenClassName?: string;
   counterpartHighlighted?: boolean;
   /** Extra button attrs (e.g. Plan md-ref-chip data attributes). */
@@ -85,6 +86,7 @@ export function GraphNodeHoverToken({
   onSelect,
   deltaStatus,
   deltaLabel,
+  glanceInteraction = "hover",
   tokenClassName,
   counterpartHighlighted = false,
   buttonProps,
@@ -164,11 +166,15 @@ export function GraphNodeHoverToken({
       }`}
       data-open={open ? "true" : "false"}
       onMouseEnter={() => {
-        activate();
+        if (glanceInteraction === "hover") {
+          activate();
+        }
         onMouseEnter?.();
       }}
       onMouseLeave={() => {
-        deactivate();
+        if (glanceInteraction === "hover" || open) {
+          deactivate();
+        }
         onMouseLeave?.();
       }}
       onFocus={() => {
@@ -191,7 +197,11 @@ export function GraphNodeHoverToken({
         contentEditable={false}
         onClick={(event) => {
           event.stopPropagation();
-          deactivate();
+          if (glanceInteraction === "click") {
+            activate();
+          } else {
+            deactivate();
+          }
           onSelect();
         }}
       >

@@ -98,6 +98,15 @@ describe("WorldGraphRecapProjectionView", () => {
     expect(within(peek).getByText("World ID")).toBeInTheDocument();
     expect(peek.querySelectorAll("details details")).toHaveLength(0);
 
+    fireEvent.click(within(peek).getByRole("button", { name: /Open related object.*Mirathorn/i }));
+    expect(within(peek).getByRole("heading", { level: 4, name: "Caelynn" })).toBeInTheDocument();
+    expect(screen.getByTestId("recap-graph-related-object-expansion")).toHaveTextContent(
+      "Mirathorn",
+    );
+    expect(screen.getByTestId("recap-graph-related-object-expansion")).toHaveTextContent(
+      "Durable location referenced from earlier campaign context.",
+    );
+
     fireEvent.click(within(peek).getByRole("button", { name: /Close Caelynn/i }));
     expect(screen.queryByTestId("graph-object-projection-card")).not.toBeInTheDocument();
     expect(screen.getByLabelText("Published recap")).toBeInTheDocument();

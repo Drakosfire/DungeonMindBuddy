@@ -563,13 +563,12 @@ describe("GraphObjectAuthoringSurface", () => {
       />,
     );
 
-    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    const existingGroup = within(sourcePicker).getByRole("group", { name: "Current recap" });
-    const options = within(existingGroup).getAllByRole("option");
-    expect(options.map((option) => option.textContent)).toEqual([
-      "Alden · npc",
-      "Bonogo · pc",
-      "Grishna · npc",
+    fireEvent.focus(screen.getByLabelText("Source object"));
+    const results = screen.getByTestId("graph-object-authoring-search-results");
+    expect(within(results).getAllByRole("option").map((option) => option.textContent)).toEqual([
+      "AldenCurrent recap · npc · gate warden",
+      "BonogoCurrent recap · pc · rogue",
+      "GrishnaCurrent recap · npc · innkeeper",
     ]);
   });
 
@@ -583,9 +582,8 @@ describe("GraphObjectAuthoringSurface", () => {
       />,
     );
 
-    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    const existingGroup = within(sourcePicker).getByRole("group", { name: "Current recap" });
-    expect(within(existingGroup).getAllByRole("option")).toHaveLength(1);
+    fireEvent.focus(screen.getByLabelText("Source object"));
+    expect(within(screen.getByTestId("graph-object-authoring-search-results")).getAllByRole("option")).toHaveLength(1);
   });
 
   it("keeps existing object proposal staging working alongside the new proposal kinds", () => {
@@ -636,9 +634,68 @@ describe("GraphObjectAuthoringSurface", () => {
       />,
     );
 
-    const sourcePicker = screen.getByLabelText("Source object") as HTMLSelectElement;
-    expect(within(sourcePicker).getByRole("group", { name: "Authored memory" })).toBeInTheDocument();
-    expect(within(sourcePicker).getByRole("group", { name: "Current recap" })).toBeInTheDocument();
+    fireEvent.focus(screen.getByLabelText("Source object"));
+    const results = screen.getByTestId("graph-object-authoring-search-results");
+    expect(results).toHaveTextContent("Authored memory");
+    expect(results).toHaveTextContent("Current recap");
+  });
+
+  it("keeps duplicate labels distinguishable by their source context", () => {
+    render(
+      <Harness
+        existingNodes={[
+          {
+            node_id: "karsemine-recap",
+            label: "Karsemine",
+            kind: "pc",
+            sourceLabel: "Current recap",
+          },
+          {
+            node_id: "karsemine-party",
+            label: "Karsemine",
+            kind: "pc",
+            sourceLabel: "Party / PCs",
+          },
+        ]}
+      />,
+    );
+
+    fireEvent.focus(screen.getByLabelText("Source object"));
+    const results = screen.getByTestId("graph-object-authoring-search-results");
+    const karsemineOptions = within(results)
+      .getAllByRole("option")
+      .filter((option) => option.textContent?.startsWith("Karsemine"));
+
+    expect(karsemineOptions).toHaveLength(2);
+    expect(karsemineOptions.map((option) => option.textContent)).toEqual([
+      "KarsemineCurrent recap · pc",
+      "KarsemineParty / PCs · pc",
+    ]);
+  });
+
+  it("fuzzy-filters object refs and can expand the result list", () => {
+    render(
+      <Harness
+        existingNodes={Array.from({ length: 15 }, (_, index) => ({
+          node_id: `node-${index}`,
+          label: index === 14 ? "Questionable Company" : `Object ${index}`,
+          kind: index === 14 ? "party" : "npc",
+        }))}
+      />,
+    );
+
+    const sourcePicker = screen.getByLabelText("Source object");
+    fireEvent.focus(sourcePicker);
+    expect(screen.getByTestId("graph-object-authoring-show-all-objects")).toHaveTextContent(
+      "Show all objects (15)",
+    );
+    fireEvent.change(sourcePicker, { target: { value: "questionable company" } });
+    expect(within(screen.getByTestId("graph-object-authoring-search-results")).getByRole("option")).toHaveTextContent(
+      "Questionable Company",
+    );
+    fireEvent.change(sourcePicker, { target: { value: "" } });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-show-all-objects"));
+    expect(within(screen.getByTestId("graph-object-authoring-search-results")).getAllByRole("option")).toHaveLength(15);
   });
 
   it("does not show prepare button until proposals exist and prepare/commit wiring is enabled", () => {

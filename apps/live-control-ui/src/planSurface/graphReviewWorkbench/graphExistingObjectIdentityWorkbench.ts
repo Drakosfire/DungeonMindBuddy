@@ -86,13 +86,16 @@ export function resolveCandidateToProjectionNodeId(
 
 export function buildLinkExistingFormStateFromResolverCandidate(
   candidate: GraphReviewExistingObjectCandidate,
-  options?: { aliasText?: string | null },
+  options?: {
+    aliasText?: string | null;
+    operation?: GraphObjectAuthoringLinkExistingFormState["operation"];
+  },
 ): GraphObjectAuthoringLinkExistingFormState {
   const aliasText = (options?.aliasText ?? "").trim() || candidate.label;
   return {
     ...createDefaultGraphObjectAuthoringLinkExistingFormState(),
     existingObjectRef: buildObjectRefFromExistingObjectCandidate(candidate),
-    operation: "alias",
+    operation: options?.operation ?? "alias",
     aliasText,
   };
 }

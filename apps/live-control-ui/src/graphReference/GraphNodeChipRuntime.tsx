@@ -15,6 +15,7 @@ const defaultRuntime: GraphNodeChipRuntimeValue = {
   activeNodeId: null,
   onSelectNode: () => undefined,
   deltaByNodeId: {},
+  glanceInteraction: "hover",
   exactGraphScope: null,
 };
 
@@ -49,6 +50,7 @@ function publishRuntime(next: GraphNodeChipRuntimeValue) {
     activeNodeId: next.activeNodeId,
     onSelectNode: next.onSelectNode,
     deltaByNodeId: next.deltaByNodeId ?? {},
+    glanceInteraction: next.glanceInteraction ?? "hover",
     exactGraphScope: next.exactGraphScope ?? null,
   };
   emit();
@@ -84,11 +86,13 @@ export function GraphNodeChipRuntimeProvider({
       activeNodeId: value.activeNodeId,
       onSelectNode: value.onSelectNode,
       deltaByNodeId: value.deltaByNodeId ?? {},
+      glanceInteraction: value.glanceInteraction ?? "hover",
       exactGraphScope: value.exactGraphScope ?? null,
     }),
     [
       value.activeNodeId,
       value.deltaByNodeId,
+      value.glanceInteraction,
       value.exactGraphScope,
       value.nodeViews,
       value.onSelectNode,

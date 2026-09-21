@@ -87,8 +87,10 @@ function SourceDetailsPanel({ selection }: { selection: GraphAuthoringSelection 
 
 export function GraphObjectAuthoringSelectedSource({
   selection,
+  compact = false,
 }: {
   selection: GraphAuthoringSelection;
+  compact?: boolean;
 }) {
   const isManual = isManualGraphAuthoringSelection(selection);
 
@@ -112,10 +114,12 @@ export function GraphObjectAuthoringSelectedSource({
 
       {isManual ? null : <SelectedSourceContext selection={selection} />}
 
-      <p className="graph-object-authoring-selected-source-lede">
-        Prefer binding this phrase as an alias of an existing node when one
-        matches. Create object is for genuinely new nodes.
-      </p>
+      {compact ? null : (
+        <p className="graph-object-authoring-selected-source-lede">
+          Prefer binding this phrase as an alias of an existing node when one
+          matches. Create object is for genuinely new nodes.
+        </p>
+      )}
 
       <SourceDetailsPanel selection={selection} />
     </section>
