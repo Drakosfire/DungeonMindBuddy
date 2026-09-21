@@ -1,15 +1,15 @@
 # PLAN — CON-READY: Authoring v2 → derived gold → extraction ablation loop
 
 **Created:** 2026-09-18  
-**Status:** ACTIVE SEQUENCING AUTHORITY — V2-0 complete; V2-1 merged; V2-1A ACTIVE  
+**Status:** ACTIVE SEQUENCING AUTHORITY — V2-0 complete; V2-1 merged; V2-1A merged; V2-2 ACTIVE  
 **Canonical path:** `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`  
 **Workstream:** `CON-READY / DOGFOOD-CONTINUITY / campaign memory authoring`  
-**Re-anchor input:** `main@586a3dcb53b481ef2cf21890872a3f1e8465a925` — UI-05 / PR #735 merged  
+**Re-anchor input:** `main@28754d1fdda15be97475f35e08127833b088a256` — V2-1A / PR #741 merged  
 **Predecessor UI series:** UI-01 through UI-05 merged; Stage 4 WOW remains human-gated  
 **Historical authoring ancestry:** `ROADMAP-graph-object-authoring-surface.md`, `DESIGN-graph-object-authoring-surface.md`, July authored-memory checkpoint  
 **Current World authority:** DungeonMind-owned immutable World revisions / governed World publication  
 **V2-0 census:** `Docs/Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md` — COMPLETE / PASS  
-**Active implementation handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`
+**Active implementation handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md`
 
 > The next useful loop is not “improve extraction, then hope the benchmark represents what we want.”  
 > It is **human authoring → durable campaign truth → derived gold → extraction ablation → better extraction**.
@@ -257,48 +257,59 @@ No durable World write required unless the current authority boundary naturally 
 
 ---
 
-## V2-1A — Working-projection UI dogfood — ACTIVE
+## V2-1A — Working-projection UI dogfood — DONE / MERGED
 
 **Goal:** make the published recap a continuous source-oriented authoring and inspection workspace.
 
-**Predecessor:** V2-1 published-recap local proposal — MERGED / PR #738.
+**Result:** MERGED as PR #741 at `28754d1fdda15be97475f35e08127833b088a256`; accepted implementation head `9b5874e9b30663d4008427acebdff03d7c6531ae`; Review Cycle 3 PASS / MERGE-READY (`5262735475`).
 
-**Active handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`
+**Completed handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`
 
-The GM can keep the recap visible while using the existing Author Node tool, see local object/link adjudications immediately reflected as an uncommitted working projection, inspect truthful root prose, and expand one connected object without losing root context.
+The GM can keep the recap visible while using Author Node, see local object/link adjudications immediately reflected as an uncommitted working projection, inspect truthful root prose, and expand one connected object without losing root context.
 
-Canonical recap Markdown, World memory, prepare/commit, durable publication, extraction, and derived-gold contracts remain unchanged.
+Canonical recap Markdown and durable World memory remain unchanged until an explicit governed publication step.
 
 ---
 
-## V2-2 — Governed commit → immediately visible World memory — HELD BEHIND V2-1A DOGFOOD
+## V2-2 — Governed commit → immediately visible World memory — ACTIVE
 
-**Goal:** the GM can teach the actual campaign memory.
+**Goal:** the GM can teach the actual campaign memory from the published recap surface.
+
+**Active handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md`
 
 Required:
 
 ```text
-staged human proposal
-→ prepare/diff
+published recap
+→ staged human proposal
+→ explicit Review & publish
+→ server-proven recap source identity
+→ prepare/diff against current World parent
 → revision-bound confirm
-→ governed World publication
+→ governed DungeonMind World publication
 → new immutable World revision
-→ ordinary recap/Peek reflects committed truth
+→ durable created node ID(s)
+→ same-scope recap refresh / exact read-back
 ```
 
 Preserve:
 
-- exact source/evidence anchor where applicable;
+- canonical recap bytes as read-only source;
+- server-owned source authority rather than browser-supplied path/digest;
 - explicit GM authorship / authority class;
-- campaign/world scope;
+- campaign/world/session scope;
 - visibility;
-- correction/supersession semantics;
 - idempotency / stale-revision failure;
-- auditability.
+- auditability;
+- current exact-run `sourceRunId` compatibility.
+
+Published-recap authoring adds a mutually exclusive `recapArtifactId` source selector. The server resolves that selected recap record into the existing canonical recap SourceArtifact/source-admission path; it does not fabricate an extraction run.
+
+A deliberate same-label **Create new** may publish a second distinct durable node. This slice does not add automatic merge, reconciliation, delete, or duplicate cleanup. Existing recap mention ambiguity must remain fail-safe rather than choosing an arbitrary identity.
 
 Do not create a Buddy-only authored overlay as terminal truth.
 
-**Exit proof:** correct one real bad/thin graph fact through the product and observe the corrected/enriched object through normal browse.
+**Exit proof:** publish one real new campaign object through the product, capture its immutable World revision and durable node ID, reload/read it through ordinary World-backed browse, and prove the disposable same-label duplicate/ambiguity case required for later ablation work.
 
 ---
 
@@ -454,13 +465,13 @@ Stage 4 / recap WOW                            HOLD — post-UI-05 human witness
 Authoring v2                                   CURRENT IMPLEMENTATION FRONTIER
 V2-0 current manual-authoring contract census  COMPLETE / PASS
 V2-1 published-recap local proposal             MERGED — PR #738
-V2-1A working-projection UI dogfood             ACTIVE — this handoff/PR
-V2-2 governed World commit                      HELD BEHIND V2-1A DOGFOOD
+V2-1A working-projection UI dogfood             MERGED — PR #741
+V2-2 governed World commit                      ACTIVE — current handoff
 V2-3 derived gold export                        NOT YET AUTHORIZED
 V2-4 extraction/model ablation                  PARKED BEHIND GOLD
 V2-5 Agent-assisted assessment                  PARKED BEHIND MANUAL LOOP
 ```
 
-Exactly one V2-1A implementation PR is authorized by the ACTIVE handoff above. The plan does not authorize V2-2, repair fan-out, write-path, Agent, gold-export, or extraction PRs.
+Exactly one V2-2 implementation PR is authorized by the ACTIVE governed-World-commit handoff above. The plan does not authorize repair fan-out, V2-3 gold export, extraction/model ablation, Agent authoring, merge/reconciliation, or statblock successor PRs.
 
-V2-1 predecessor state is synchronized here. V2-2 remains held until V2-1A dogfood completes, state authority is synchronized, and the workstream is re-anchored.
+V2-1A / PR #741 predecessor state is synchronized here. V2-2 is the active frontier. After V2-2 merges and its exact live write/read-back witness is accepted, synchronize state authority again before authorizing V2-3.
