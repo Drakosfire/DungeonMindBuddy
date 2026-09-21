@@ -549,6 +549,23 @@ Record:
 
 ## §8 Required review handback
 
+### Implementation handback — pre-review
+
+- Dispatch base: `main@28b1fdf494ffc6e53b99b311b2f4d5256fd5e8a2`.
+- Implementation branch: `con-ready/authoring-v2-governed-world-commit-v1`.
+- Implementation commit: `3a254140` — `CON-READY: publish staged recap memory to World`.
+- PR topology: `serial`; no other CON-READY implementation PR was opened during implementation.
+- §1 invariant: backend selector binding, governed prepare/confirm, durable receipt IDs, same-scope refresh wiring, and duplicate-safe disposable proof are implemented. Live Witness A remains pending operator-selected real-world dogfood.
+- Source selector: `sourceRunId XOR recapArtifactId`; `recapArtifactId` resolves the server-owned `RecapArtifactRecord`, verifies campaign/session/path/digest, creates/loads the deterministic recap SourceArtifact, and binds its admitted pair into the confirmation intent.
+- Prepare/commit bindings: campaign, campaign relation, world, both source-selector fields, admitted source artifact/revision, expected parent, operation ID, proposal digest, contribution digest, and actor.
+- Evidence produced: backend focused suite **50 passed**; focused UI suite **79 passed**; UI typecheck **passed**; UI build **passed** with the existing chunk-size warning; compileall and `git diff --check` **passed**. Full command output and the live-dogfood boundary are recorded in `Docs/Reports/REPORT-CON-READY-authoring-v2-governed-world-commit-v1.md`.
+- Live Witness A: not performed by the implementation agent because the handoff requires the operator to choose a genuinely absent campaign fact before a real World write. No production object was seeded.
+- Duplicate integration witness: two same-label durable objects remain distinct and the recap linker emits `ambiguous_mention_surface` rather than selecting an arbitrary pill winner.
+- Actual implementation paths remain inside §4; the steward preflight reported pre-existing stale overlaps from older handoffs, which were not edited.
+- Baseline/waiver: the stale retired-module patch in the existing commit test was removed from the leased test file so the required backend suite runs green; remaining Pydantic field-shadow warnings are pre-existing.
+- Prior finding ledger: V2-1A review findings were closed before this dispatch; no new review cycle has occurred for V2-2.
+- V2-3 remains unimplemented.
+
 Record:
 
 1. `Review Cycle <N>` and exact PR/branch/head SHA;
