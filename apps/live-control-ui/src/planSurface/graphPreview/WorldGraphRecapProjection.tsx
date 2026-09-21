@@ -12,6 +12,7 @@ import {
 } from "../../graphReference/fullWorldObjectProjection";
 import { PeekClaim } from "../../surfaceInteraction/peekHost";
 import { adaptWorldGraphNodeViewMap } from "../../worldGraph/worldGraphNodeViewAdapter";
+import { useOptionalWorldGraphLensProjection } from "../../graphLens/useWorldGraphLensProjection";
 import { PublishedRecapLocalAuthoring } from "../graphReviewWorkbench/PublishedRecapLocalAuthoring";
 import { useGraphObjectAuthoringDraft } from "../graphReviewWorkbench/useGraphObjectAuthoringDraft";
 import { derivePublishedRecapWorkingProjection } from "../graphReviewWorkbench/publishedRecapWorkingProjection";
@@ -45,6 +46,16 @@ export function WorldGraphRecapProjectionView({
     () => adaptWorldGraphNodeViewMap(payload.nodeViews),
     [payload.nodeViews],
   );
+  const worldLensProjection = useOptionalWorldGraphLensProjection();
+  const governedWorldNodeViews = useMemo(() => {
+    if (worldLensProjection == null) return undefined;
+    if (worldLensProjection.projection == null) return null;
+    return adaptWorldGraphNodeViewMap(
+      Object.fromEntries(
+        worldLensProjection.projection.nodes.map((node) => [node.nodeId, node]),
+      ),
+    );
+  }, [worldLensProjection]);
   const authoringDraft = useGraphObjectAuthoringDraft({
     campaignId: selectedCampaignId,
     sessionId: selectedSessionId,
@@ -67,12 +78,12 @@ export function WorldGraphRecapProjectionView({
   const activeIsLocal = Boolean(activeWorkingNode?.authored && activeNodeId?.startsWith("local-authoring:"));
   const complete = useCompleteWorldObject({
     enabled: objectOpen && !activeIsLocal,
-    worldId: payload.snapshot.worldId,
-    campaignId: selectedCampaignId,
+    worldId: worldLensProjection?.request?.worldId ?? payload.snapshot.worldId,
+    campaignId: worldLensProjection?.request?.campaignId ?? selectedCampaignId,
     nodeId: activeNodeId,
-    revisionPin: revisionId,
+    revisionPin: worldLensProjection?.projection?.snapshot.revisionId ?? revisionId,
     originSurface: recapOriginSurface(),
-    focus: {
+    focus: worldLensProjection?.request?.focus ?? {
       kind: "session",
       sessionId: selectedSessionId,
       campaignId: selectedCampaignId,
@@ -152,6 +163,7 @@ export function WorldGraphRecapProjectionView({
         graphId={payload.graphId}
         markdown={payload.markdown}
         nodeViews={adaptedNodeViews}
+        governedWorldNodeViews={governedWorldNodeViews}
         recapRecord={recapRecord}
         onInspectNode={handleInspectNode}
         onActiveNodeChange={setActiveNodeId}

@@ -1,11 +1,18 @@
 import { useState } from "react";
 
-import type { GraphReviewExistingObjectCandidate } from "../../api/types";
+import type {
+  GraphProjectionNodeView,
+  GraphReviewExistingObjectCandidate,
+} from "../../api/types";
 import {
   candidateScopeLabel,
   formatResolverCandidateLabel,
 } from "./graphObjectCandidateScope";
 import type { GraphObjectAuthoringLinkExistingOperation } from "./graphObjectAuthoringDraft";
+import {
+  governedExistingTargetMessage,
+  isExactGovernedExistingTarget,
+} from "./graphExistingObjectEligibility";
 
 const MAX_BIND_CANDIDATES = 5;
 
@@ -57,6 +64,7 @@ export function GraphObjectAuthoringBindExistingPanel({
   binding = false,
   wizardMode = false,
   onChooseCreateNew,
+  governedWorldNodeViews,
 }: {
   selectedText: string;
   status: "idle" | "loading" | "ready" | "error";
@@ -69,6 +77,7 @@ export function GraphObjectAuthoringBindExistingPanel({
   binding?: boolean;
   wizardMode?: boolean;
   onChooseCreateNew?: () => void;
+  governedWorldNodeViews?: Record<string, GraphProjectionNodeView> | null;
 }) {
   const [showAllCandidates, setShowAllCandidates] = useState(false);
   const phrase = selectedText.trim();
@@ -80,7 +89,8 @@ export function GraphObjectAuthoringBindExistingPanel({
   const confidentDuplicateCandidates = topCandidates.filter(
     (candidate) =>
       candidate.confidence === "high" &&
-      candidate.label.trim().toLocaleLowerCase() === phrase.toLocaleLowerCase(),
+      candidate.label.trim().toLocaleLowerCase() === phrase.toLocaleLowerCase() &&
+      isExactGovernedExistingTarget(candidate, governedWorldNodeViews),
   );
   // A recap phrase is already known to be present in the current recap. When
   // the resolver finds both that projection row and a wider-scope identity,
@@ -208,6 +218,8 @@ export function GraphObjectAuthoringBindExistingPanel({
         >
           {topCandidates.map((candidate) => {
             const exactPrimaryLabel = candidate.label.trim().toLocaleLowerCase() === phrase.toLocaleLowerCase();
+            const governed = isExactGovernedExistingTarget(candidate, governedWorldNodeViews);
+            const unavailableMessage = governedExistingTargetMessage(candidate, governedWorldNodeViews);
             const operation: GraphObjectAuthoringLinkExistingOperation = exactPrimaryLabel
               ? "reference"
               : "alias";
@@ -226,6 +238,14 @@ export function GraphObjectAuthoringBindExistingPanel({
                     {candidate.reason ? ` · ${candidate.reason}` : ""}
                     {exactPrimaryLabel ? " · exact primary-label match" : " · different label"}
                   </p>
+                  {!governed ? (
+                    <p
+                      className="graph-object-authoring-bind-existing-unavailable"
+                      data-testid="graph-object-authoring-bind-existing-unavailable"
+                    >
+                      {unavailableMessage}
+                    </p>
+                  ) : null}
                 </div>
                 <button
                   type="button"
@@ -234,10 +254,12 @@ export function GraphObjectAuthoringBindExistingPanel({
                       ? "graph-object-authoring-bind-as-reference-button"
                       : "graph-object-authoring-bind-as-alias-button"
                   }
-                  disabled={binding}
+                  disabled={binding || !governed}
                   onClick={() => onBindExisting(candidate, operation)}
                 >
-                  {wizardMode
+                  {!governed
+                    ? "Unavailable until published"
+                    : wizardMode
                     ? exactPrimaryLabel
                       ? `Use ${candidate.label}`
                       : `Add “${phrase}” as alias`

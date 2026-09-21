@@ -44,6 +44,7 @@ export interface GraphObjectAuthoringPublishedWizardProps {
   bindSearchStatus: "idle" | "loading" | "ready" | "error";
   bindSearchError: string | null;
   scopeCandidates: GraphReviewExistingObjectCandidate[];
+  governedScopeCandidates: GraphReviewExistingObjectCandidate[];
   onBindExisting: (
     candidate: GraphReviewExistingObjectCandidate,
     operation: GraphObjectAuthoringLinkExistingOperation,
@@ -59,6 +60,7 @@ export interface GraphObjectAuthoringPublishedWizardProps {
   onStageRelationshipProposal?: () => void;
   existingNodes: GraphObjectAuthoringInspectedNode[];
   projectionNodeViews?: Record<string, GraphProjectionNodeView>;
+  governedWorldNodeViews?: Record<string, GraphProjectionNodeView> | null;
   overlapContext: GraphObjectAuthoringOverlapContext;
   objectFormOverlapWarnings: GraphObjectAuthoringOverlapWarning[];
   contextTabs?: GraphObjectAuthoringContextTab[];
@@ -109,6 +111,7 @@ export function GraphObjectAuthoringPublishedWizard({
   bindSearchStatus,
   bindSearchError,
   scopeCandidates,
+  governedScopeCandidates,
   onBindExisting,
   bindingAlias,
   creatingObject,
@@ -118,6 +121,7 @@ export function GraphObjectAuthoringPublishedWizard({
   onStageRelationshipProposal,
   existingNodes,
   projectionNodeViews,
+  governedWorldNodeViews,
   overlapContext,
   objectFormOverlapWarnings,
   contextTabs = [],
@@ -297,6 +301,7 @@ export function GraphObjectAuthoringPublishedWizard({
               candidates={scopeCandidates}
               onBindExisting={handleBindExisting}
               binding={bindingAlias}
+              governedWorldNodeViews={governedWorldNodeViews}
               wizardMode
               onChooseCreateNew={openNewObjectTab}
             />
@@ -348,7 +353,7 @@ export function GraphObjectAuthoringPublishedWizard({
                 onChange={onRelationshipFieldChange}
                 proposals={proposals}
                 existingNodes={existingNodes}
-                scopeCandidates={scopeCandidates}
+                scopeCandidates={governedScopeCandidates}
                 overlapContext={overlapContext}
                 compactGuidance
               />

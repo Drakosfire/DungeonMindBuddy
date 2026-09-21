@@ -7,6 +7,7 @@ import {
   requestedCampaignFromLocation,
   requestedCampaignsFromLocation,
   requestedDocumentIdFromLocation,
+  requestedGraphFocusFromLocation,
   requestedLensFocusFromLocation,
   requestedRecapSessionIdFromLocation,
   requestedSessionNumberFromLocation,
@@ -45,6 +46,14 @@ describe("sessionCampaignContext", () => {
       campaignId: "longmont-c2",
       sessionNumber: 24,
     });
+    expect(requestedGraphFocusFromLocation("?graphFocus=longmont-c2:24")).toEqual({
+      campaignId: "longmont-c2",
+      sessionNumber: 24,
+    });
+    expect(requestedGraphFocusFromLocation("?graphFocus=c2:24")).toEqual({
+      campaignId: "longmont-c2",
+      sessionNumber: 24,
+    });
   });
 
   it("defaults lens to active plan campaign when URL is empty", () => {
@@ -67,7 +76,7 @@ describe("sessionCampaignContext", () => {
       .toEqual(["longmont-c1", "longmont-c2"]);
   });
 
-  it("treats bare ?campaign= as world union on Plan and single campaign on Build and Ingest", () => {
+  it("treats bare ?campaign= as world union on Plan and single campaign on Build", () => {
     expect(
       resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1", { surfacePath: "/plan" })
         .selectedCampaignIds,
@@ -76,13 +85,17 @@ describe("sessionCampaignContext", () => {
       resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1", { surfacePath: "/build" })
         .selectedCampaignIds,
     ).toEqual(["longmont-c1"]);
-    expect(
-      resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1&session=session-2", {
-        surfacePath: "/ingest",
-      }),
-    ).toEqual({
-      selectedCampaignIds: ["longmont-c1"],
-      focus: { campaignId: "longmont-c1", sessionNumber: 2 },
+    expect(resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1&scopeMode=campaign&session=session-2", {
+      surfacePath: "/ingest",
+    })).toEqual({
+      selectedCampaignIds: ["longmont-c1", "longmont-c2"],
+      focus: null,
+    });
+    expect(resolvePlanGraphLens("longmont-c2", "?campaign=longmont-c1&session=session-2&graphFocus=longmont-c2:24", {
+      surfacePath: "/ingest",
+    })).toEqual({
+      selectedCampaignIds: ["longmont-c1", "longmont-c2"],
+      focus: { campaignId: "longmont-c2", sessionNumber: 24 },
     });
   });
 
@@ -147,21 +160,23 @@ describe("sessionCampaignContext", () => {
     expect(window.location.search).toContain("campaigns=longmont-c2");
   });
 
-  it("keeps Ingest recap session identity out of Plan-qualified lens URL writes", () => {
+  it("writes Ingest World lens state without taking ownership of recap campaign/session", () => {
     window.history.replaceState(
       {},
       "",
       "/ingest?campaign=longmont-c2&session=session-27",
     );
     syncPlanGraphLensUrl({
-      selectedCampaignIds: ["longmont-c2"],
+      selectedCampaignIds: ["longmont-c1", "longmont-c2"],
       focus: { campaignId: "longmont-c2", sessionNumber: 27 },
     });
     expect(window.location.pathname).toBe("/ingest");
-    expect(window.location.search).toBe("?campaign=longmont-c2&session=session-27");
+    expect(window.location.search).toBe(
+      "?campaign=longmont-c2&session=session-27&campaigns=longmont-c1%2Clongmont-c2&graphFocus=longmont-c2%3A27",
+    );
   });
 
-  it("does not delete Ingest recap session when the lens clears Plan focus", () => {
+  it("does not delete Ingest recap session when the World lens clears focus", () => {
     window.history.replaceState(
       {},
       "",
@@ -173,6 +188,7 @@ describe("sessionCampaignContext", () => {
     });
     expect(window.location.search).toContain("session=session-27");
     expect(window.location.search).not.toMatch(/longmont-c2:27/);
+    expect(window.location.search).not.toContain("scopeMode");
   });
 
   it("recovers recap session identity from Plan-qualified syntax without forwarding it", () => {

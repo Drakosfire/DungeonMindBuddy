@@ -38,6 +38,7 @@ import {
 } from "./graphObjectAuthoringOverlap";
 import type { GraphReviewProjectionLaneRole } from "./GraphReviewProjectionLane";
 import { useGraphObjectCrossScopeCandidates } from "./useGraphObjectCrossScopeCandidates";
+import { isExactGovernedExistingTarget } from "./graphExistingObjectEligibility";
 
 export type GraphObjectAuthoringFocusPanel =
   | "all"
@@ -88,6 +89,7 @@ export interface GraphObjectAuthoringSurfaceProps {
   liveRunManifestPath?: string | null;
   previewUnionStorePath?: string | null;
   projectionNodeViews?: Record<string, GraphProjectionNodeView>;
+  governedWorldNodeViews?: Record<string, GraphProjectionNodeView> | null;
   localStageOnly?: boolean;
   publishedLocalWizard?: boolean;
   contextTabs?: GraphObjectAuthoringContextTab[];
@@ -125,6 +127,7 @@ export function GraphObjectAuthoringSurface({
   liveRunManifestPath = null,
   previewUnionStorePath = null,
   projectionNodeViews,
+  governedWorldNodeViews,
   localStageOnly = false,
   publishedLocalWizard = false,
   contextTabs = [],
@@ -182,6 +185,13 @@ export function GraphObjectAuthoringSurface({
     enabled: Boolean(selectedSource?.selectedText.trim()),
   });
 
+  const governedScopeCandidates = useMemo(
+    () => scopeCandidates.filter((candidate) =>
+      isExactGovernedExistingTarget(candidate, governedWorldNodeViews),
+    ),
+    [governedWorldNodeViews, scopeCandidates],
+  );
+
   const objectFormOverlapWarnings = useMemo(
     () => detectObjectFormOverlapWarnings(formState, selectedSource, overlapContext),
     [formState, selectedSource, overlapContext],
@@ -202,6 +212,9 @@ export function GraphObjectAuthoringSurface({
     operation: import("./graphObjectAuthoringDraft").GraphObjectAuthoringLinkExistingOperation,
   ): boolean => {
     if (!onStageLinkExisting) return false;
+    if (!isExactGovernedExistingTarget(candidate, governedWorldNodeViews)) {
+      return false;
+    }
     setBindingAlias(true);
     try {
       const staged = onStageLinkExisting(candidate, operation);
@@ -235,6 +248,8 @@ export function GraphObjectAuthoringSurface({
           bindSearchStatus={bindSearchStatus}
           bindSearchError={bindSearchError}
           scopeCandidates={scopeCandidates}
+          governedScopeCandidates={governedScopeCandidates}
+          governedWorldNodeViews={governedWorldNodeViews}
           onBindExisting={handleBindExisting}
           bindingAlias={bindingAlias}
           creatingObject={creatingObject}
@@ -336,6 +351,7 @@ export function GraphObjectAuthoringSurface({
                   candidates={scopeCandidates}
                   onBindExisting={handleBindExisting}
                   binding={bindingAlias}
+                  governedWorldNodeViews={governedWorldNodeViews}
                 />
               ) : null}
 
@@ -406,7 +422,7 @@ export function GraphObjectAuthoringSurface({
             onChange={onRelationshipFieldChange}
             proposals={proposals}
             existingNodes={existingNodes}
-            scopeCandidates={scopeCandidates}
+            scopeCandidates={governedScopeCandidates}
             overlapContext={overlapContext}
           />
           <GraphObjectAuthoringVisibilitySection
