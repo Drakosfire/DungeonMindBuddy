@@ -46,6 +46,7 @@ export interface UseGraphObjectAuthoringDraftResult {
   stageLinkExistingFromResolver: (input: {
     selection: GraphAuthoringSelection;
     candidate: import("../../api/types").GraphReviewExistingObjectCandidate;
+    operation?: import("./graphObjectAuthoringDraft").GraphObjectAuthoringLinkExistingOperation;
   }) => boolean;
   clearCommittedProposals: (localProposalIds: string[]) => void;
 }
@@ -250,11 +251,13 @@ export function useGraphObjectAuthoringDraft(
     (input: {
       selection: GraphAuthoringSelection;
       candidate: import("../../api/types").GraphReviewExistingObjectCandidate;
+      operation?: import("./graphObjectAuthoringDraft").GraphObjectAuthoringLinkExistingOperation;
     }) => {
       const proposal = buildGraphObjectAuthoringLinkExistingProposal(
         input.selection,
         buildLinkExistingFormStateFromResolverCandidate(input.candidate, {
           aliasText: input.selection.selectedText,
+          operation: input.operation,
         }),
         createLocalGraphObjectProposalId(),
       );

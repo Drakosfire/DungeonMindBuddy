@@ -635,7 +635,7 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByText(/No canonical ExtractionRuns are stored yet/i)).not.toBeInTheDocument();
   });
 
-  it("does not attach write authority from a stale persisted catalog run", async () => {
+  it("opens published-local Author Node from a stale persisted catalog run without write authority", async () => {
     window.sessionStorage.setItem(
       "dmb.graph-review.applied-selection.v2",
       JSON.stringify({
@@ -658,9 +658,12 @@ describe("GraphReviewWorkbenchModule", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Author Node" }));
-    expect(
-      await screen.findByTestId("graph-review-author-node-missing-authority"),
-    ).toHaveTextContent("Authoring requires an explicit source/run context.");
+    expect(await screen.findByTestId("graph-review-published-local-author-node-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-surface")).toHaveAttribute(
+      "data-local-stage-only",
+      "true",
+    );
+    expect(screen.getByLabelText("Published recap")).toBeInTheDocument();
     expect(prepareSpy).not.toHaveBeenCalled();
     expect(authorPrepareSpy).not.toHaveBeenCalled();
   });

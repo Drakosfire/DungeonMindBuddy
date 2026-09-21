@@ -3,6 +3,7 @@ import {
   areSameObjectRef,
   isIdentityLikeRelationshipPredicate,
   isKnownRelationshipType,
+  relationshipGuidanceCopy,
   relationshipPreviewCopy,
   type GraphObjectAuthoringProposal,
   type GraphObjectAuthoringRelationshipDirection,
@@ -36,6 +37,7 @@ export function GraphObjectAuthoringRelationshipForm({
   existingNodes = [],
   scopeCandidates = [],
   overlapContext,
+  compactGuidance = false,
 }: {
   formState: GraphObjectAuthoringRelationshipFormState;
   onChange: <K extends keyof GraphObjectAuthoringRelationshipFormState>(
@@ -46,6 +48,7 @@ export function GraphObjectAuthoringRelationshipForm({
   existingNodes?: GraphObjectAuthoringInspectedNode[];
   scopeCandidates?: GraphReviewExistingObjectCandidate[];
   overlapContext?: GraphObjectAuthoringOverlapContext;
+  compactGuidance?: boolean;
 }) {
   const relationshipTypeSelect = relationshipTypeSelectValue(formState.relationshipType);
   const usingCustomRelationshipType = relationshipTypeSelect === CUSTOM_RELATIONSHIP_TYPE_VALUE;
@@ -60,13 +63,24 @@ export function GraphObjectAuthoringRelationshipForm({
   const identityLikePredicate =
     usingCustomRelationshipType &&
     isIdentityLikeRelationshipPredicate(formState.relationshipType);
+  const guidanceCopy = relationshipGuidanceCopy(formState);
+  const duplicateRelationship = proposals.some(
+    (proposal) =>
+      proposal.proposalKind === "relationship" &&
+      areSameObjectRef(proposal.sourceObjectRef, formState.sourceObjectRef) &&
+      areSameObjectRef(proposal.targetObjectRef, formState.targetObjectRef) &&
+      proposal.relationshipType.trim().toLocaleLowerCase() ===
+        formState.relationshipType.trim().toLocaleLowerCase(),
+  );
 
   return (
     <section className="graph-object-authoring-relationship-form" aria-label="Stage a relationship">
-      <p className="graph-object-authoring-relationship-lede">
-        Stage a relationship between two objects. This does not require a
-        current text selection. Nothing is written until a later authoring
-        step.
+      <p
+        className="graph-object-authoring-relationship-lede"
+        aria-live="polite"
+        data-testid="graph-object-authoring-relationship-guidance"
+      >
+        {compactGuidance ? guidanceCopy : `Relationship guidance: ${guidanceCopy}`}
       </p>
       <GraphObjectAuthoringObjectRefPicker
         label="Source object"
@@ -148,6 +162,15 @@ export function GraphObjectAuthoringRelationshipForm({
           data-testid="graph-object-authoring-same-object-warning"
         >
           {SAME_OBJECT_WARNING}
+        </p>
+      ) : null}
+      {duplicateRelationship ? (
+        <p
+          className="graph-object-authoring-relationship-warning"
+          role="status"
+          data-testid="graph-object-authoring-duplicate-relationship-warning"
+        >
+          This relationship is already staged with the same direction. Review the existing draft instead of adding it again.
         </p>
       ) : null}
       <div className="graph-object-authoring-field">

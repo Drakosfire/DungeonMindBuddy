@@ -13,8 +13,14 @@ import {
 } from "./graphAuthoringSelection";
 import { buildObjectRefFromInspectedNode } from "./graphObjectAuthoringDraft";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
+import type { GraphObjectAuthoringContextTab } from "./GraphObjectAuthoringPublishedWizard";
+import { GraphReviewAuthorNodeHost } from "./GraphReviewAuthorNodeHost";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
-import { useGraphObjectAuthoringDraft } from "./useGraphObjectAuthoringDraft";
+import {
+  useGraphObjectAuthoringDraft,
+  type UseGraphObjectAuthoringDraftResult,
+} from "./useGraphObjectAuthoringDraft";
+import { derivePublishedRecapWorkingProjection } from "./publishedRecapWorkingProjection";
 
 function nullableAttr(value: string | null | undefined): string {
   return value == null || value === "" ? "null" : value;
@@ -23,14 +29,34 @@ function nullableAttr(value: string | null | undefined): string {
 function existingNodesFromViews(
   nodeViews: Record<string, GraphProjectionNodeView>,
 ): GraphObjectAuthoringInspectedNode[] {
-  return Object.values(nodeViews).map((node) => ({
-    node_id: node.node_id,
-    label: node.label,
-    kind: node.kind,
-    role: node.role,
-    aliases: node.aliases,
-    sourceAnchorText: node.source_anchor_text,
-  }));
+  return Object.values(nodeViews).map((node) => {
+    const domains = new Set(node.source_domains.map((domain) => domain.trim().toLowerCase()));
+    const sourceLabel = node.authored || domains.has("authored_overlay")
+      ? "Authored memory"
+      : domains.has("party") || domains.has("party_pc") || node.role?.trim().toLowerCase() === "pc"
+        ? "Party / PCs"
+        : domains.has("worldbuilding")
+          ? "Worldbuilding"
+          : domains.has("campaign_memory")
+            ? "Campaign memory"
+            : domains.has("gm_private")
+              ? "GM private"
+              : domains.has("recap") || domains.has("current_recap_projection")
+                ? "Current recap"
+                : node.source ?? "Other source";
+    return {
+      node_id: node.node_id,
+      label: node.label,
+      kind: node.kind,
+      role: node.role,
+      aliases: node.aliases,
+      authored: node.authored,
+      graphScope: domains.values().next().value ?? null,
+      sourceLabel,
+      sourceAnchorText: node.source_anchor_text,
+      visibility: node.visibility,
+    };
+  });
 }
 
 export function buildPublishedRecapAuthoringContext(input: {
@@ -59,6 +85,7 @@ export interface PublishedRecapLocalAuthoringProps {
   recapRecord?: RecapArtifactRecord | null;
   onInspectNode: (nodeId: string) => void;
   onActiveNodeChange?: (nodeId: string | null) => void;
+  draft?: UseGraphObjectAuthoringDraftResult;
 }
 
 export function PublishedRecapLocalAuthoring({
@@ -70,9 +97,16 @@ export function PublishedRecapLocalAuthoring({
   recapRecord = null,
   onInspectNode,
   onActiveNodeChange,
+  draft: suppliedDraft,
 }: PublishedRecapLocalAuthoringProps) {
-  const draft = useGraphObjectAuthoringDraft({ campaignId, sessionId });
+  const ownedDraft = useGraphObjectAuthoringDraft(
+    suppliedDraft ? undefined : { campaignId, sessionId },
+  );
+  const draft = suppliedDraft ?? ownedDraft;
   const [pendingSelection, setPendingSelection] = useState<GraphAuthoringSelection | null>(null);
+  const [authorNodeOpen, setAuthorNodeOpen] = useState(false);
+  const [workingProjectionPreviewOpen, setWorkingProjectionPreviewOpen] = useState(false);
+  const [authoringContextTabs, setAuthoringContextTabs] = useState<GraphObjectAuthoringContextTab[]>([]);
 
   const authoringContext = useMemo(
     () =>
@@ -85,7 +119,19 @@ export function PublishedRecapLocalAuthoring({
     [campaignId, graphId, recapRecord, sessionId],
   );
 
-  const existingNodes = useMemo(() => existingNodesFromViews(nodeViews), [nodeViews]);
+  const workingProjection = useMemo(
+    () => derivePublishedRecapWorkingProjection({
+      markdown,
+      nodeViews,
+      proposals: draft.proposals,
+      sessionId,
+    }),
+    [draft.proposals, markdown, nodeViews, sessionId],
+  );
+  const existingNodes = useMemo(
+    () => existingNodesFromViews(workingProjection.nodeViews),
+    [workingProjection.nodeViews],
+  );
 
   const preserveSourceIdentity = useCallback(
     (selection: GraphAuthoringSelection): GraphAuthoringSelection => ({
@@ -128,41 +174,53 @@ export function PublishedRecapLocalAuthoring({
   const handleInspectNode = useCallback(
     (nodeId: string) => {
       onInspectNode(nodeId);
-      const node = nodeViews[nodeId];
+      const node = workingProjection.nodeViews[nodeId];
       if (!node) {
         return;
       }
-      draft.openWithSelection(
-        preserveSourceIdentity(
-          buildGraphAuthoringSelectionFromRecapNode({
-            campaignId,
-            sessionId,
-            graphId,
-            sourceArtifactPath: authoringContext.sourceArtifactPath,
-            sourceArtifactSha256: authoringContext.sourceArtifactSha256,
-            sourceArtifactId: authoringContext.sourceArtifactId,
-            laneRole: "live",
-            node: {
-              node_id: node.node_id,
-              label: node.label,
-              source_anchor_text: node.source_anchor_text,
-            },
-          }),
-        ),
+      const selection = preserveSourceIdentity(
+        buildGraphAuthoringSelectionFromRecapNode({
+          campaignId,
+          sessionId,
+          graphId,
+          sourceArtifactPath: authoringContext.sourceArtifactPath,
+          sourceArtifactSha256: authoringContext.sourceArtifactSha256,
+          sourceArtifactId: authoringContext.sourceArtifactId,
+          laneRole: "live",
+          node: {
+            node_id: node.node_id,
+            label: node.label,
+            source_anchor_text: node.source_anchor_text,
+          },
+        }),
       );
+      draft.openWithSelection(selection);
+      setAuthoringContextTabs((tabs) => [
+        ...tabs.filter((tab) => tab.key !== `node:${node.node_id}`),
+        { key: `node:${node.node_id}`, label: node.label, selection },
+      ]);
       seedRelationshipFromNode(node);
+      setAuthorNodeOpen(true);
     },
     [
       authoringContext,
       campaignId,
       draft,
       graphId,
-      nodeViews,
       onInspectNode,
       preserveSourceIdentity,
       seedRelationshipFromNode,
       sessionId,
+      workingProjection.nodeViews,
     ],
+  );
+
+  const handleSelectAuthoringContext = useCallback(
+    (selection: GraphAuthoringSelection) => {
+      draft.openWithSelection(preserveSourceIdentity(selection));
+      setAuthorNodeOpen(true);
+    },
+    [draft, preserveSourceIdentity],
   );
 
   const recapGroundedSelection = useCallback(
@@ -186,6 +244,7 @@ export function PublishedRecapLocalAuthoring({
   const handleGraphAuthoringAction = useCallback(
     (selection: GraphAuthoringSelection) => {
       draft.openWithSelection(recapGroundedSelection(selection));
+      setAuthorNodeOpen(true);
     },
     [draft, recapGroundedSelection],
   );
@@ -195,6 +254,86 @@ export function PublishedRecapLocalAuthoring({
   }, [draft, recapGroundedSelection]);
 
   const selectedSourceIdentity = draft.selectedSource ?? pendingSelection;
+  const authoringSurface = (
+    <GraphObjectAuthoringSurface
+      localStageOnly
+      selectedSource={draft.selectedSource}
+      formState={draft.formState}
+      proposals={draft.proposals}
+      onFormFieldChange={draft.updateFormField}
+      onStageProposal={draft.stageProposal}
+      onRemoveProposal={draft.removeProposal}
+      onStartManualDraft={handleStartManualDraft}
+      pendingSelection={pendingSelection}
+      onUseSelectedText={(selection) =>
+        draft.openWithSelection(recapGroundedSelection(selection))
+      }
+      onStageLinkExisting={(candidate, operation) => {
+        const selected = draft.selectedSource;
+        if (!selected) {
+          return false;
+        }
+        return draft.stageLinkExistingFromResolver({
+          selection: recapGroundedSelection(selected),
+          candidate,
+          operation,
+        });
+      }}
+      onStageLinkExistingComplete={draft.dismissSelection}
+      relationshipFormState={draft.relationshipFormState}
+      onRelationshipFieldChange={draft.updateRelationshipField}
+      onStageRelationshipProposal={() => {
+        draft.stageRelationshipProposal(recapGroundedSelection(draft.selectedSource));
+      }}
+      campaignId={campaignId}
+      sessionId={sessionId}
+      existingNodes={existingNodes}
+      laneRole="live"
+      projectionNodeViews={workingProjection.nodeViews}
+      publishedLocalWizard
+      contextTabs={authoringContextTabs}
+      onSelectContextTab={handleSelectAuthoringContext}
+    />
+  );
+
+  const workingProjectionPreview = (
+    <div
+      className="published-recap-working-projection-preview"
+      data-testid="published-recap-working-projection-preview"
+    >
+      <button
+        type="button"
+        className="published-recap-working-projection-preview-toggle"
+        data-testid="published-recap-working-projection-preview-toggle"
+        aria-expanded={workingProjectionPreviewOpen}
+        aria-controls="published-recap-working-projection-preview-content"
+        onClick={() => setWorkingProjectionPreviewOpen((current) => !current)}
+      >
+        <span>{workingProjectionPreviewOpen ? "Hide working projection" : "Show working projection"}</span>
+        <span aria-hidden="true">{workingProjectionPreviewOpen ? "−" : "+"}</span>
+      </button>
+      {workingProjectionPreviewOpen ? (
+        <div id="published-recap-working-projection-preview-content">
+          <div className="published-recap-working-projection-preview-header">
+            <strong>Working projection</strong>
+            <span>Updates as local drafts are staged.</span>
+          </div>
+          <GraphProjectionReader
+            markdown={workingProjection.markdown}
+            nodeViews={workingProjection.nodeViews}
+            nodeDeltaPresentations={workingProjection.nodeDeltaPresentations}
+            sourceSpans={[]}
+            graphId={graphId}
+            showGraphId={false}
+            documentLabel="Working projection preview"
+            resetKey={`preview:${campaignId}:${sessionId}:${graphId ?? ""}`}
+            onInspectNode={handleInspectNode}
+            className="published-recap-working-projection-preview-reader"
+          />
+        </div>
+      ) : null}
+    </div>
+  );
 
   return (
     <div
@@ -208,59 +347,48 @@ export function PublishedRecapLocalAuthoring({
       data-source-artifact-sha256={nullableAttr(authoringContext.sourceArtifactSha256)}
       data-source-span-ref-id={nullableAttr(selectedSourceIdentity?.sourceSpanRefId)}
       data-existing-node-id={nullableAttr(draft.selectedSource?.existingNodeId)}
+      data-local-proposal-count={draft.proposals.length}
     >
-      <div className="recap-reader-layout union-supergraph-layout">
-        <GraphProjectionReader
-          markdown={markdown}
-          nodeViews={nodeViews}
-          sourceSpans={[]}
-          graphId={graphId}
-          showGraphId={false}
-          documentLabel="Published recap"
-          resetKey={`${campaignId}:${sessionId}:${graphId ?? ""}`}
-          onInspectNode={handleInspectNode}
-          onActiveNodeChange={onActiveNodeChange}
-          className="world-graph-recap-reader"
-          authoringEnabled
-          authoringContext={authoringContext}
-          onGraphAuthoringSelection={setPendingSelection}
-          onGraphAuthoringAction={handleGraphAuthoringAction}
-        />
-      </div>
-      <GraphObjectAuthoringSurface
-        localStageOnly
-        selectedSource={draft.selectedSource}
-        formState={draft.formState}
-        proposals={draft.proposals}
-        onFormFieldChange={draft.updateFormField}
-        onStageProposal={draft.stageProposal}
-        onRemoveProposal={draft.removeProposal}
-        onStartManualDraft={handleStartManualDraft}
-        pendingSelection={pendingSelection}
-        onUseSelectedText={(selection) =>
-          draft.openWithSelection(recapGroundedSelection(selection))
-        }
-        onStageLinkExisting={(candidate) => {
-          const selected = draft.selectedSource;
-          if (!selected) {
-            return false;
-          }
-          return draft.stageLinkExistingFromResolver({
-            selection: recapGroundedSelection(selected),
-            candidate,
-          });
-        }}
-        onStageLinkExistingComplete={draft.dismissSelection}
-        relationshipFormState={draft.relationshipFormState}
-        onRelationshipFieldChange={draft.updateRelationshipField}
-        onStageRelationshipProposal={() => {
-          draft.stageRelationshipProposal(recapGroundedSelection(draft.selectedSource));
-        }}
-        campaignId={campaignId}
-        sessionId={sessionId}
-        existingNodes={existingNodes}
-        laneRole="live"
-        projectionNodeViews={nodeViews}
+      <GraphReviewAuthorNodeHost
+        mode="published-local"
+        open={authorNodeOpen}
+        onOpenChange={setAuthorNodeOpen}
+        publishedLocalPanel={authoringSurface}
+        publishedLocalPreview={workingProjectionPreview}
+        projection={(
+          <div className="published-recap-working-projection">
+            <div
+              className="published-recap-working-projection-notice"
+              data-testid="published-recap-working-projection-notice"
+              role="status"
+            >
+              <strong>Working projection</strong>
+              <span>Local and uncommitted. Canonical recap and World memory are unchanged.</span>
+              {workingProjection.diagnostics.length ? (
+                <span data-testid="published-recap-working-projection-diagnostics">
+                  {workingProjection.diagnostics[0]}
+                </span>
+              ) : null}
+            </div>
+            <GraphProjectionReader
+              markdown={workingProjection.markdown}
+              nodeViews={workingProjection.nodeViews}
+              nodeDeltaPresentations={workingProjection.nodeDeltaPresentations}
+              sourceSpans={[]}
+              graphId={graphId}
+              showGraphId={false}
+              documentLabel="Published recap"
+              resetKey={`${campaignId}:${sessionId}:${graphId ?? ""}`}
+              onInspectNode={handleInspectNode}
+              onActiveNodeChange={onActiveNodeChange}
+              className="world-graph-recap-reader"
+              authoringEnabled
+              authoringContext={authoringContext}
+              onGraphAuthoringSelection={setPendingSelection}
+              onGraphAuthoringAction={handleGraphAuthoringAction}
+            />
+          </div>
+        )}
       />
     </div>
   );

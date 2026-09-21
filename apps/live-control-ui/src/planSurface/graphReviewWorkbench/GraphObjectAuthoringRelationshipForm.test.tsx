@@ -77,6 +77,18 @@ describe("GraphObjectAuthoringRelationshipForm", () => {
     expect(screen.getByTestId("graph-object-authoring-relationship-preview")).toHaveTextContent(
       "Choose two objects to preview the relationship.",
     );
+    expect(screen.getByTestId("graph-object-authoring-relationship-guidance")).toHaveTextContent(
+      "Choose who the relationship starts with",
+    );
+  });
+
+  it("updates the guidance sentence as the relationship is filled in", () => {
+    renderForm({ targetObjectRef: null });
+
+    expect(screen.getByTestId("graph-object-authoring-relationship-guidance")).toHaveTextContent(
+      "the group has a relationship to",
+    );
+    expect(screen.queryByText(/This does not require a current text selection/i)).not.toBeInTheDocument();
   });
 
   it("warns when a custom predicate looks identity-like", () => {

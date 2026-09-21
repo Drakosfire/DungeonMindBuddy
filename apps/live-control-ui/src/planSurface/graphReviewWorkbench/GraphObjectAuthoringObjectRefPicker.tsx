@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 
+import type { GraphReviewExistingObjectCandidate } from "../../api/types";
 import {
   buildManualObjectRef,
   buildObjectRefFromInspectedNode,
@@ -10,7 +11,6 @@ import {
 } from "./graphObjectAuthoringDraft";
 import {
   findPickerCrossGroupHint,
-  formatPickerNodeLabel,
   type GraphObjectAuthoringOverlapContext,
 } from "./graphObjectAuthoringOverlap";
 import {
@@ -18,7 +18,10 @@ import {
   GRAPH_OBJECT_CANDIDATE_SCOPE_ORDER,
   resolverCandidateToInspectedNode,
 } from "./graphObjectCandidateScope";
-import type { GraphReviewExistingObjectCandidate } from "../../api/types";
+import {
+  rankGraphObjectAuthoringSearchItems,
+  type GraphObjectAuthoringSearchItem,
+} from "./graphObjectAuthoringSearch";
 
 export interface GraphObjectAuthoringInspectedNode {
   node_id: string;
@@ -36,11 +39,17 @@ export interface GraphObjectAuthoringInspectedNode {
 }
 
 type PickerOptionValue =
-  | { source: "empty" }
-  | { source: "manual" }
   | { source: "local_proposal"; localProposalId: string }
   | { source: "existing_node"; nodeId: string }
   | { source: "scope_candidate"; nodeId: string; scope: string };
+
+interface PickerOption extends GraphObjectAuthoringSearchItem {
+  encodedValue: string;
+  ref: GraphObjectAuthoringObjectRef;
+}
+
+const SEARCH_PREVIEW_LIMIT = 12;
+const SEARCH_MATCH_LIMIT = 60;
 
 function encodeOptionValue(value: PickerOptionValue): string {
   if (value.source === "local_proposal") {
@@ -49,10 +58,7 @@ function encodeOptionValue(value: PickerOptionValue): string {
   if (value.source === "existing_node") {
     return `existing_node:${value.nodeId}`;
   }
-  if (value.source === "scope_candidate") {
-    return `scope_candidate:${value.scope}:${value.nodeId}`;
-  }
-  return value.source;
+  return `scope_candidate:${value.scope}:${value.nodeId}`;
 }
 
 function stagedObjectProposals(
@@ -72,17 +78,9 @@ function dedupeAndSortNodes(
       byId.set(node.node_id, node);
     }
   }
-  return Array.from(byId.values()).sort((a, b) => a.label.localeCompare(b.label));
-}
-
-function formatScopeCandidateLabel(candidate: GraphReviewExistingObjectCandidate): string {
-  const kindSuffix = candidate.kind ? ` · ${candidate.kind}` : "";
-  const aliasSuffix =
-    candidate.aliases && candidate.aliases.length > 0
-      ? ` · aliases: ${candidate.aliases.join(", ")}`
-      : "";
-  const reasonSuffix = candidate.reason ? ` · ${candidate.reason}` : "";
-  return `${candidate.label}${kindSuffix}${aliasSuffix}${reasonSuffix}`;
+  return Array.from(byId.values()).sort((a, b) =>
+    a.label.localeCompare(b.label) || (a.sourceLabel ?? "").localeCompare(b.sourceLabel ?? ""),
+  );
 }
 
 function scopeCandidatesByGroup(
@@ -105,6 +103,33 @@ function scopeCandidatesByGroup(
     candidates: grouped.get(scope) ?? [],
   }));
 }
+
+function sourceMeta(
+  node: GraphObjectAuthoringInspectedNode,
+  fallbackGroup: string,
+): string {
+  return [
+    node.sourceLabel ?? fallbackGroup,
+    node.kind,
+    node.role && node.role !== node.kind ? node.role : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function candidateMeta(
+  candidate: GraphReviewExistingObjectCandidate,
+  fallbackGroup: string,
+): string {
+  return [
+    candidate.source_label ?? fallbackGroup,
+    candidate.kind,
+    candidate.role && candidate.role !== candidate.kind ? candidate.role : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function formatStagedProposalLabel(proposal: GraphObjectAuthoringObjectProposal): string {
   const kindSuffix = proposal.objectRef.kind ? ` · ${proposal.objectRef.kind}` : "";
   const aliasSuffix =
@@ -112,6 +137,49 @@ function formatStagedProposalLabel(proposal: GraphObjectAuthoringObjectProposal)
       ? ` · aliases: ${proposal.objectRef.aliases.join(", ")}`
       : "";
   return `${proposal.objectRef.label}${kindSuffix}${aliasSuffix}`;
+}
+
+function optionForNode(
+  node: GraphObjectAuthoringInspectedNode,
+  group: string,
+): PickerOption {
+  const ref = buildObjectRefFromInspectedNode(node);
+  return {
+    key: `existing:${node.node_id}`,
+    encodedValue: encodeOptionValue({ source: "existing_node", nodeId: node.node_id }),
+    label: node.label,
+    group,
+    meta: sourceMeta(node, group),
+    searchText: [node.label, ...(node.aliases ?? []), node.kind ?? "", node.role ?? "", node.sourceLabel ?? ""].join(" "),
+    ref,
+  };
+}
+
+function optionForCandidate(
+  candidate: GraphReviewExistingObjectCandidate,
+  group: string,
+): PickerOption {
+  const node = resolverCandidateToInspectedNode(candidate);
+  return {
+    key: `candidate:${candidate.graph_scope ?? "unknown"}:${candidate.candidate_id}`,
+    encodedValue: encodeOptionValue({
+      source: "scope_candidate",
+      scope: candidate.graph_scope ?? "unknown",
+      nodeId: candidate.candidate_id,
+    }),
+    label: candidate.label,
+    group,
+    meta: candidateMeta(candidate, group),
+    searchText: [
+      candidate.label,
+      ...(candidate.aliases ?? []),
+      candidate.kind ?? "",
+      candidate.role ?? "",
+      candidate.source_label ?? "",
+      candidate.reason ?? "",
+    ].join(" "),
+    ref: buildObjectRefFromInspectedNode(node),
+  };
 }
 
 export function GraphObjectAuthoringObjectRefPicker({
@@ -133,6 +201,12 @@ export function GraphObjectAuthoringObjectRefPicker({
   overlapContext?: GraphObjectAuthoringOverlapContext;
   manualPlaceholder?: string;
 }) {
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+  const listboxId = useId();
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [showAll, setShowAll] = useState(false);
+
   const objectProposals = stagedObjectProposals(proposals);
   const sortedExistingNodes = useMemo(() => dedupeAndSortNodes(existingNodes), [existingNodes]);
   const groupedScopeCandidates = useMemo(
@@ -155,21 +229,34 @@ export function GraphObjectAuthoringObjectRefPicker({
     () => sortedExistingNodes.filter((node) => !node.authored),
     [sortedExistingNodes],
   );
-  const showManualInput = value?.refKind === "manual_ref";
-  const manualLabelValue = value?.refKind === "manual_ref" ? value.label : "";
 
-  const selectedExistingNode =
-    value?.refKind === "existing_graph_node" && value.nodeId
-      ? allExistingNodes.find((node) => node.node_id === value.nodeId) ?? null
-      : null;
-  const crossGroupHint =
-    overlapContext && selectedExistingNode
-      ? findPickerCrossGroupHint(selectedExistingNode, overlapContext)
-      : null;
+  const pickerOptions = useMemo(() => {
+    const options: PickerOption[] = [];
+    for (const proposal of objectProposals) {
+      const ref = buildObjectRefFromObjectProposal(proposal);
+      options.push({
+        key: `local:${proposal.localProposalId}`,
+        encodedValue: encodeOptionValue({
+          source: "local_proposal",
+          localProposalId: proposal.localProposalId,
+        }),
+        label: ref.label,
+        group: "Staged local drafts",
+        meta: formatStagedProposalLabel(proposal),
+        searchText: [ref.label, ...proposal.objectRef.aliases, ref.kind ?? "", ref.role ?? ""].join(" "),
+        ref,
+      });
+    }
+    authoredNodes.forEach((node) => options.push(optionForNode(node, "Authored memory")));
+    extractedNodes.forEach((node) => options.push(optionForNode(node, "Current recap")));
+    groupedScopeCandidates.forEach((group) => {
+      group.candidates.forEach((candidate) => options.push(optionForCandidate(candidate, group.label)));
+    });
+    return options;
+  }, [authoredNodes, extractedNodes, groupedScopeCandidates, objectProposals]);
 
-  const selectedOptionValue: string = (() => {
-    if (!value) return encodeOptionValue({ source: "empty" });
-    if (value.refKind === "manual_ref") return encodeOptionValue({ source: "manual" });
+  const selectedOptionValue: string | null = (() => {
+    if (!value) return null;
     if (value.refKind === "local_proposal" && value.localProposalId) {
       return encodeOptionValue({ source: "local_proposal", localProposalId: value.localProposalId });
     }
@@ -186,121 +273,203 @@ export function GraphObjectAuthoringObjectRefPicker({
       }
       return encodeOptionValue({ source: "existing_node", nodeId: value.nodeId });
     }
-    return encodeOptionValue({ source: "empty" });
+    return null;
   })();
 
-  const handleSelectChange = (rawValue: string) => {
-    if (rawValue === "empty") {
-      onChange(null);
-      return;
+  const selectedExistingNode =
+    value?.refKind === "existing_graph_node" && value.nodeId
+      ? allExistingNodes.find((node) => node.node_id === value.nodeId) ?? null
+      : null;
+  const crossGroupHint =
+    overlapContext && selectedExistingNode
+      ? findPickerCrossGroupHint(selectedExistingNode, overlapContext)
+      : null;
+
+  const rankedOptions = useMemo(
+    () => rankGraphObjectAuthoringSearchItems(pickerOptions, query),
+    [pickerOptions, query],
+  );
+  const visibleOptions = rankedOptions.slice(
+    0,
+    showAll ? rankedOptions.length : query.trim() ? SEARCH_MATCH_LIMIT : SEARCH_PREVIEW_LIMIT,
+  );
+  const hasMoreOptions = visibleOptions.length < rankedOptions.length;
+  const selectedOption = pickerOptions.find((option) => option.encodedValue === selectedOptionValue);
+  const inputValue = open
+    ? query
+    : selectedOption?.label ?? (value?.refKind === "manual_ref" ? "" : value?.label ?? "");
+
+  useEffect(() => {
+    function handleOutsidePointerDown(event: PointerEvent) {
+      if (!pickerRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+        setQuery("");
+      }
     }
+    document.addEventListener("pointerdown", handleOutsidePointerDown);
+    return () => document.removeEventListener("pointerdown", handleOutsidePointerDown);
+  }, []);
+
+  const handleSelectChange = (rawValue: string) => {
     if (rawValue === "manual") {
-      onChange(buildManualObjectRef(manualLabelValue));
+      onChange(buildManualObjectRef(value?.refKind === "manual_ref" ? value.label : ""));
       return;
     }
     if (rawValue.startsWith("local_proposal:")) {
       const localProposalId = rawValue.slice("local_proposal:".length);
       const proposal = objectProposals.find((candidate) => candidate.localProposalId === localProposalId);
-      if (proposal) {
-        onChange(buildObjectRefFromObjectProposal(proposal));
-      }
+      if (proposal) onChange(buildObjectRefFromObjectProposal(proposal));
       return;
     }
     if (rawValue.startsWith("scope_candidate:")) {
-      const [, scope, nodeId] = rawValue.split(":");
+      const remainder = rawValue.slice("scope_candidate:".length);
+      const separatorIndex = remainder.indexOf(":");
+      const scope = separatorIndex < 0 ? remainder : remainder.slice(0, separatorIndex);
+      const nodeId = separatorIndex < 0 ? "" : remainder.slice(separatorIndex + 1);
       const candidate = scopeCandidates.find(
         (item) => item.candidate_id === nodeId && (item.graph_scope ?? "unknown") === scope,
       );
-      if (candidate) {
-        onChange(buildObjectRefFromInspectedNode(resolverCandidateToInspectedNode(candidate)));
-      }
+      if (candidate) onChange(buildObjectRefFromInspectedNode(resolverCandidateToInspectedNode(candidate)));
       return;
     }
     if (rawValue.startsWith("existing_node:")) {
       const nodeId = rawValue.slice("existing_node:".length);
       const node = allExistingNodes.find((candidate) => candidate.node_id === nodeId);
-      if (node) {
-        onChange(buildObjectRefFromInspectedNode(node));
-      }
+      if (node) onChange(buildObjectRefFromInspectedNode(node));
       return;
     }
     onChange(null);
   };
 
+  const handleInputChange = (rawValue: string) => {
+    const encodedOption = pickerOptions.some((option) => option.encodedValue === rawValue);
+    if (rawValue === "manual" || encodedOption) {
+      handleSelectChange(rawValue);
+      setQuery("");
+      setOpen(false);
+      setShowAll(false);
+      return;
+    }
+    setQuery(rawValue);
+    setOpen(true);
+    setShowAll(false);
+  };
+
+  const handleOptionSelect = (option: PickerOption) => {
+    onChange(option.ref);
+    setQuery("");
+    setOpen(false);
+    setShowAll(false);
+  };
+
   return (
-    <div className="graph-object-authoring-ref-picker">
+    <div className="graph-object-authoring-ref-picker" ref={pickerRef}>
       <label>
         {label}
-        <select
-          value={selectedOptionValue}
-          onChange={(event) => handleSelectChange(event.target.value)}
-        >
-          <option value="empty">— choose an object —</option>
-          {objectProposals.length ? (
-            <optgroup label="Staged local drafts">
-              {objectProposals.map((proposal) => (
-                <option
-                  key={proposal.localProposalId}
-                  value={encodeOptionValue({
-                    source: "local_proposal",
-                    localProposalId: proposal.localProposalId,
-                  })}
-                >
-                  {formatStagedProposalLabel(proposal)}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-          {authoredNodes.length ? (
-            <optgroup label="Authored memory">
-              {authoredNodes.map((node) => (
-                <option
-                  key={node.node_id}
-                  value={encodeOptionValue({ source: "existing_node", nodeId: node.node_id })}
-                >
-                  {formatPickerNodeLabel(node)}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-          {extractedNodes.length ? (
-            <optgroup label="Current recap">
-              {extractedNodes.map((node) => (
-                <option
-                  key={node.node_id}
-                  value={encodeOptionValue({ source: "existing_node", nodeId: node.node_id })}
-                >
-                  {formatPickerNodeLabel(node)}
-                </option>
-              ))}
-            </optgroup>
-          ) : null}
-          {groupedScopeCandidates.map((group) =>
-            group.candidates.length ? (
-              <optgroup key={group.scope} label={group.label}>
-                {group.candidates.map((candidate) => (
-                  <option
-                    key={`${group.scope}-${candidate.candidate_id}`}
-                    value={encodeOptionValue({
-                      source: "scope_candidate",
-                      scope: group.scope,
-                      nodeId: candidate.candidate_id,
-                    })}
-                  >
-                    {formatScopeCandidateLabel(candidate)}
-                  </option>
-                ))}
-              </optgroup>
-            ) : null,
-          )}
-          <option value="manual">Manual label entry…</option>
-        </select>
+        <input
+          type="search"
+          aria-label={label}
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-autocomplete="list"
+          placeholder={`Search ${label.toLocaleLowerCase()}…`}
+          value={inputValue}
+          onFocus={() => {
+            setQuery("");
+            setOpen(true);
+          }}
+          onChange={(event) => handleInputChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              setOpen(false);
+              setQuery("");
+            } else if (event.key === "Enter" && open && visibleOptions[0]) {
+              event.preventDefault();
+              handleOptionSelect(visibleOptions[0].item);
+            }
+          }}
+        />
       </label>
-      {showManualInput ? (
+      <div className="graph-object-authoring-ref-picker-actions">
+        {value ? (
+          <button
+            type="button"
+            className="graph-object-authoring-ref-picker-clear"
+            aria-label={`Clear ${label}`}
+            onClick={() => {
+              onChange(null);
+              setQuery("");
+              setOpen(false);
+            }}
+          >
+            Clear
+          </button>
+        ) : null}
+        <button
+          type="button"
+          className="graph-object-authoring-ref-picker-manual"
+          onClick={() => {
+            handleSelectChange("manual");
+            setOpen(false);
+            setQuery("");
+          }}
+        >
+          Enter manually
+        </button>
+      </div>
+      {open ? (
+        <div
+          id={listboxId}
+          className="graph-object-authoring-ref-picker-results"
+          role="listbox"
+          aria-label={`${label} search results`}
+          data-testid="graph-object-authoring-search-results"
+        >
+          {visibleOptions.map(({ item }) => (
+            <button
+              key={item.key}
+              type="button"
+              role="option"
+              aria-selected={item.encodedValue === selectedOptionValue}
+              className="graph-object-authoring-ref-picker-option"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => handleOptionSelect(item)}
+            >
+              <span className="graph-object-authoring-ref-picker-option-label">{item.label}</span>
+              <span className="graph-object-authoring-ref-picker-option-meta">
+                {item.meta ?? item.group}
+              </span>
+            </button>
+          ))}
+          {!visibleOptions.length ? (
+            <p className="graph-object-authoring-ref-picker-empty">
+              No objects match “{query}”. Try an alias, kind, or source.
+            </p>
+          ) : null}
+          {showAll || hasMoreOptions ? (
+            <button
+              type="button"
+              className="graph-object-authoring-ref-picker-show-all"
+              data-testid="graph-object-authoring-show-all-objects"
+              onMouseDown={(event) => event.preventDefault()}
+              onClick={() => setShowAll((current) => !current)}
+            >
+              {showAll
+                ? "Show fewer objects"
+                : query.trim()
+                  ? `Show all matches (${rankedOptions.length})`
+                  : `Show all objects (${rankedOptions.length})`}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {value?.refKind === "manual_ref" ? (
         <input
           type="text"
+          aria-label={`${label} manual label`}
           placeholder={manualPlaceholder}
-          value={manualLabelValue}
+          value={value.label}
           onChange={(event) => onChange(buildManualObjectRef(event.target.value))}
         />
       ) : null}

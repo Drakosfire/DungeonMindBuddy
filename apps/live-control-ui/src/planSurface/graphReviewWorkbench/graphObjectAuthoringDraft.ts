@@ -758,6 +758,45 @@ export function relationshipPreviewCopy(
   });
 }
 
+/**
+ * Short, human-facing guidance for the relationship wizard. This intentionally
+ * changes as the two endpoints and predicate become known so the operator is
+ * not asked to reread a generic instruction while authoring.
+ */
+export function relationshipGuidanceCopy(
+  formState: GraphObjectAuthoringRelationshipFormState,
+): string {
+  const sourceLabel = formState.sourceObjectRef?.label.trim();
+  const targetLabel = formState.targetObjectRef?.label.trim();
+
+  if (!sourceLabel && !targetLabel) {
+    return "Choose who the relationship starts with, then choose the object it points to.";
+  }
+  if (sourceLabel && !targetLabel) {
+    return `${sourceLabel} has a relationship to … Choose a target object.`;
+  }
+  if (!sourceLabel && targetLabel) {
+    return `Choose who has a relationship to ${targetLabel}.`;
+  }
+  if (areSameObjectRef(formState.sourceObjectRef, formState.targetObjectRef)) {
+    return `${sourceLabel} is selected on both sides. This looks like an identity or duplicate decision, not a relationship.`;
+  }
+  if (!formState.relationshipType.trim()) {
+    return `${sourceLabel} has a relationship to ${targetLabel}. Choose how to describe it.`;
+  }
+
+  const statement = formatAuthoringRelationshipStatement(
+    sourceLabel!,
+    targetLabel!,
+    formState.relationshipType,
+    {
+      relationshipLabel: formState.relationshipLabel,
+      direction: formState.direction,
+    },
+  );
+  return `${statement}. Check the direction, then review the draft.`;
+}
+
 export function canStageRelationshipForm(
   formState: GraphObjectAuthoringRelationshipFormState,
 ): formState is GraphObjectAuthoringRelationshipFormState & {

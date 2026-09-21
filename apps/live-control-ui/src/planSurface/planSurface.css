@@ -5603,6 +5603,182 @@ body.surface-projection-open .plan-agent-shell {
   pointer-events: auto;
 }
 
+/* Published recap dogfood keeps the source projection readable while the
+ * existing Author Node tool docks beside it. Exact-run authoring retains the
+ * full-surface presentation above. */
+.graph-review-author-node[data-mode="published-local"] .graph-review-author-node-backdrop {
+  display: none;
+}
+
+.graph-review-author-node[data-mode="published-local"] .graph-review-author-node-drawer {
+  left: auto;
+  width: min(34rem, 94vw);
+  border-left: 1px solid var(--border, #2a3142);
+  box-shadow: -18px 0 44px rgba(0, 0, 0, 0.28);
+  transform: translateX(100%);
+}
+
+.graph-review-author-node[data-mode="published-local"] .graph-review-author-node-toggle {
+  left: auto;
+  right: 3rem;
+  border-left: 1px solid var(--border, #2a3142);
+  border-right: none;
+  border-radius: 8px 0 0 8px;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.25);
+}
+
+.graph-review-author-node[data-mode="published-local"][data-expanded="true"] .graph-review-author-node-drawer {
+  width: min(54rem, calc(100vw - 2rem));
+}
+
+.graph-review-author-node[data-mode="published-local"].open .graph-review-author-node-drawer {
+  transform: translateX(0);
+}
+
+.graph-review-author-node[data-mode="published-local"] .graph-review-author-node-body {
+  display: block;
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 0;
+  height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: 0 0.85rem 1rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.graph-review-author-node-panel--published-local {
+  display: block;
+  min-height: max-content;
+  overflow: visible;
+}
+
+.graph-review-author-node-preview {
+  flex: 0 0 auto;
+  max-height: 15rem;
+  overflow: hidden;
+  padding: 0.65rem 0.85rem 0.75rem;
+  border-bottom: 1px solid var(--border, #2a3142);
+  background: rgba(9, 12, 18, 0.92);
+}
+
+.published-recap-working-projection-preview {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.published-recap-working-projection-preview-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  border: 0;
+  padding: 0.1rem 0;
+  background: transparent;
+  color: #fde68a;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-align: left;
+}
+
+.published-recap-working-projection-preview-toggle:hover {
+  color: #fef3c7;
+}
+
+.published-recap-working-projection-preview-toggle span:last-child {
+  color: #94a3b8;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.published-recap-working-projection-preview-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: #fde68a;
+  font-size: 0.78rem;
+}
+
+.published-recap-working-projection-preview-header span {
+  color: #94a3b8;
+  font-size: 0.72rem;
+}
+
+.published-recap-working-projection-preview-reader {
+  min-width: 0;
+}
+
+.published-recap-working-projection-preview-reader .recap-reader-layout,
+.published-recap-working-projection-preview-reader .recap-reader-document {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.published-recap-working-projection-preview-reader .recap-reader-document {
+  max-height: 10rem;
+  overflow: auto;
+  padding: 0.55rem 0.65rem;
+}
+
+/* Keep the recap node chips reachable on the narrow in-app browser viewport.
+ * The desktop starting size stays unchanged; compact view leaves a readable
+ * slice of the source projection beside the local staging drawer. */
+@media (max-width: 900px) {
+  .graph-review-author-node[data-mode="published-local"] .graph-review-author-node-drawer {
+    width: min(34rem, 62vw);
+  }
+
+  .graph-review-author-node[data-mode="published-local"][data-expanded="true"] .graph-review-author-node-drawer {
+    width: min(54rem, 82vw);
+  }
+}
+
+.published-recap-working-projection {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.published-recap-working-projection-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.65rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid rgba(245, 158, 11, 0.38);
+  border-radius: 0.65rem;
+  background: rgba(120, 53, 15, 0.2);
+  color: #fed7aa;
+  font-size: 0.82rem;
+}
+
+.published-recap-working-projection-notice strong {
+  color: #fde68a;
+}
+
+.published-recap-working-projection-notice span {
+  color: #cbd5e1;
+}
+
+.recap-graph-related-object-expansion {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.recap-graph-related-object-expansion .plan-surface-kicker {
+  margin: 0;
+}
+
+.recap-graph-related-object-unavailable {
+  margin-top: 0.8rem;
+}
+
 .graph-review-author-node-header {
   display: flex;
   align-items: flex-start;
@@ -5611,6 +5787,12 @@ body.surface-projection-open .plan-agent-shell {
   padding: 14px 18px;
   border-bottom: 1px solid var(--border, #2a3142);
   flex-shrink: 0;
+}
+
+.graph-review-author-node-header-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.35rem;
 }
 
 .graph-review-author-node-header h2 {
@@ -5629,6 +5811,10 @@ body.surface-projection-open .plan-agent-shell {
   font-size: 1.2rem;
   line-height: 1;
   cursor: pointer;
+}
+
+.graph-review-author-node-header .graph-review-author-node-expand-toggle {
+  font-size: 1rem;
 }
 
 .graph-review-author-node-body {
@@ -6031,6 +6217,84 @@ body.surface-projection-open .plan-agent-shell {
   font-size: 0.98rem;
 }
 
+.graph-object-authoring-duplicate-suggestion {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.75rem;
+  border: 1px solid rgba(251, 191, 36, 0.65);
+  border-radius: 0.7rem;
+  background: linear-gradient(135deg, rgba(120, 53, 15, 0.42), rgba(30, 41, 59, 0.68));
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.graph-object-authoring-duplicate-suggestion h5 {
+  margin: 0;
+  color: #fef3c7;
+  font-size: 0.98rem;
+}
+
+.graph-object-authoring-duplicate-suggestion p:not(.plan-surface-kicker) {
+  margin: 0;
+  color: #fde68a;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
+.graph-object-authoring-duplicate-details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+  margin: 0.15rem 0 0;
+}
+
+.graph-object-authoring-duplicate-details div {
+  min-width: 0;
+}
+
+.graph-object-authoring-duplicate-details dt {
+  color: rgba(253, 230, 138, 0.72);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.graph-object-authoring-duplicate-details dd {
+  margin: 0.12rem 0 0;
+  overflow-wrap: anywhere;
+  color: #fef3c7;
+  font-size: 0.78rem;
+}
+
+@media (max-width: 480px) {
+  .graph-object-authoring-duplicate-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.graph-object-authoring-see-all-matches {
+  justify-self: start;
+  border: 0;
+  padding: 0.15rem 0;
+  background: transparent;
+  color: #93c5fd;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+}
+
+.graph-object-authoring-see-all-matches:hover {
+  color: #dbeafe;
+  text-decoration: underline;
+}
+
+.graph-object-authoring-bind-existing-no-confident-match {
+  margin: 0;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+
 .graph-object-authoring-bind-existing-list {
   list-style: none;
   margin: 0;
@@ -6100,6 +6364,177 @@ body.surface-projection-open .plan-agent-shell {
 .graph-object-authoring-surface-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.5;
+}
+
+.graph-object-authoring-secondary-action {
+  border-color: rgba(148, 163, 184, 0.4) !important;
+  background: rgba(51, 65, 85, 0.38) !important;
+  color: #cbd5e1 !important;
+}
+
+.graph-object-authoring-published-wizard {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.graph-object-authoring-wizard-sticky-header {
+  position: sticky;
+  top: -0.05rem;
+  z-index: 4;
+  display: grid;
+  gap: 0.4rem;
+  margin: 0 -0.25rem;
+  padding: 0.35rem 0.25rem 0.45rem;
+  background: var(--bg-card, #171b24);
+}
+
+.graph-object-authoring-wizard-progress {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.graph-object-authoring-wizard-progress li {
+  display: flex;
+  justify-content: center;
+  color: #64748b;
+  line-height: 1;
+}
+
+.graph-object-authoring-wizard-progress-index {
+  display: grid;
+  place-items: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 50%;
+  color: #94a3b8;
+  font-size: 0.7rem;
+}
+
+.graph-object-authoring-wizard-progress-sr-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.graph-object-authoring-wizard-progress li.is-current,
+.graph-object-authoring-wizard-progress li.is-complete {
+  color: #bfdbfe;
+}
+
+.graph-object-authoring-wizard-progress li.is-current .graph-object-authoring-wizard-progress-index,
+.graph-object-authoring-wizard-progress li.is-complete .graph-object-authoring-wizard-progress-index {
+  border-color: rgba(96, 165, 250, 0.75);
+  background: rgba(37, 99, 235, 0.25);
+  color: #dbeafe;
+}
+
+.graph-object-authoring-context-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: flex-end;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.24);
+}
+
+.graph-object-authoring-context-tabs button {
+  max-width: 12rem;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  padding: 0.4rem 0.55rem 0.48rem;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-object-authoring-context-tabs button:hover,
+.graph-object-authoring-context-tabs button.is-active {
+  border-bottom-color: #7aa2f7;
+  color: #dbeafe;
+}
+
+.graph-object-authoring-wizard-header {
+  display: grid;
+  gap: 0;
+}
+
+.graph-object-authoring-wizard-header h4 {
+  margin: 0;
+  color: #f8fafc;
+  font-size: 0.96rem;
+}
+
+.graph-object-authoring-wizard-step {
+  display: grid;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.graph-object-authoring-object-details {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.graph-object-authoring-wizard-nav {
+  position: sticky;
+  bottom: -1rem;
+  z-index: 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  margin: 0 -0.15rem -0.15rem;
+  padding: 0.7rem 0.15rem 0.15rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+  background: linear-gradient(to bottom, rgba(15, 23, 42, 0), rgba(15, 23, 42, 0.98) 28%);
+}
+
+.graph-object-authoring-wizard-nav button {
+  border: 1px solid rgba(96, 165, 250, 0.55);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.24);
+  color: #dbeafe;
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 0.85rem;
+}
+
+.graph-object-authoring-wizard-nav button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.graph-object-authoring-wizard-final-state {
+  margin-left: auto;
+  display: grid;
+  gap: 0.1rem;
+  color: #bbf7d0;
+  font-size: 0.75rem;
+  line-height: 1.3;
+  text-align: right;
+}
+
+.graph-object-authoring-wizard-final-state strong {
+  color: #86efac;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .graph-object-authoring-selected-source {
@@ -6387,6 +6822,7 @@ body.surface-projection-open .plan-agent-shell {
   display: grid;
   gap: 0.35rem;
   min-width: 0;
+  position: relative;
 }
 
 .graph-object-authoring-ref-picker label {
@@ -6398,7 +6834,6 @@ body.surface-projection-open .plan-agent-shell {
   min-width: 0;
 }
 
-.graph-object-authoring-ref-picker select,
 .graph-object-authoring-ref-picker input {
   border: 1px solid rgba(148, 163, 184, 0.35);
   border-radius: 0.5rem;
@@ -6411,6 +6846,86 @@ body.surface-projection-open .plan-agent-shell {
   max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
+}
+
+.graph-object-authoring-ref-picker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0.35rem;
+}
+
+.graph-object-authoring-ref-picker-actions button,
+.graph-object-authoring-ref-picker-show-all {
+  border: 0;
+  padding: 0.15rem 0;
+  background: transparent;
+  color: #93c5fd;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  text-align: left;
+}
+
+.graph-object-authoring-ref-picker-actions button:hover,
+.graph-object-authoring-ref-picker-show-all:hover {
+  color: #dbeafe;
+  text-decoration: underline;
+}
+
+.graph-object-authoring-ref-picker-results {
+  position: relative;
+  z-index: 4;
+  display: grid;
+  max-height: min(22rem, 42vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 0.65rem;
+  background: #101722;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, 0.36);
+}
+
+.graph-object-authoring-ref-picker-option {
+  display: grid;
+  gap: 0.12rem;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  padding: 0.55rem 0.65rem;
+  background: transparent;
+  color: #f8fafc;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.graph-object-authoring-ref-picker-option:last-of-type {
+  border-bottom: 0;
+}
+
+.graph-object-authoring-ref-picker-option:hover,
+.graph-object-authoring-ref-picker-option[aria-selected="true"] {
+  background: rgba(59, 130, 246, 0.18);
+}
+
+.graph-object-authoring-ref-picker-option-label {
+  overflow-wrap: anywhere;
+  font-size: 0.84rem;
+  font-weight: 650;
+}
+
+.graph-object-authoring-ref-picker-option-meta,
+.graph-object-authoring-ref-picker-empty {
+  margin: 0;
+  color: #94a3b8;
+  font-size: 0.74rem;
+  overflow-wrap: anywhere;
+}
+
+.graph-object-authoring-ref-picker-show-all {
+  padding: 0.55rem 0.65rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
 }
 
 .graph-object-authoring-ref-picker-summary {

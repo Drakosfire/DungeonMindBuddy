@@ -1,8 +1,9 @@
-import { useEffect } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import {
   GraphReviewAuthorNodePanel,
   authorNodeProjectionReady,
+  type GraphReviewAuthorNodeMode,
 } from "./GraphReviewAuthorNodePanel";
 import { useGraphReviewLiveState } from "./GraphReviewLiveStateContext";
 
@@ -23,13 +24,84 @@ interface GraphReviewAuthorNodeDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onRequestLoad?: () => void;
+  mode?: GraphReviewAuthorNodeMode;
+  publishedLocalPanel?: ReactNode;
+  publishedLocalPreview?: ReactNode;
 }
 
 export function GraphReviewAuthorNodeDrawer({
   open,
   onOpenChange,
   onRequestLoad,
+  mode = "exact-run",
+  publishedLocalPanel,
+  publishedLocalPreview,
 }: GraphReviewAuthorNodeDrawerProps) {
+  if (mode === "published-local") {
+    return (
+      <GraphReviewPublishedAuthorNodeDrawer
+        open={open}
+        onOpenChange={onOpenChange}
+        publishedLocalPanel={publishedLocalPanel}
+        publishedLocalPreview={publishedLocalPreview}
+        onRequestLoad={onRequestLoad}
+      />
+    );
+  }
+
+  return (
+    <GraphReviewExactAuthorNodeDrawer
+      open={open}
+      onOpenChange={onOpenChange}
+      onRequestLoad={onRequestLoad}
+    />
+  );
+}
+
+function GraphReviewPublishedAuthorNodeDrawer({
+  open,
+  onOpenChange,
+  publishedLocalPanel,
+  publishedLocalPreview,
+  onRequestLoad,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  publishedLocalPanel?: ReactNode;
+  publishedLocalPreview?: ReactNode;
+  onRequestLoad?: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <GraphReviewAuthorNodeDrawerFrame
+      open={open}
+      onOpenChange={onOpenChange}
+      mode="published-local"
+      ready
+      expanded={expanded}
+      onToggleExpanded={() => setExpanded((current) => !current)}
+      preview={publishedLocalPreview}
+    >
+      <GraphReviewAuthorNodePanel
+        mode="published-local"
+        publishedLocalPanel={publishedLocalPanel}
+        onRequestLoad={onRequestLoad}
+      />
+    </GraphReviewAuthorNodeDrawerFrame>
+  );
+}
+
+function GraphReviewExactAuthorNodeDrawer({
+  open,
+  onOpenChange,
+  onRequestLoad,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onRequestLoad?: () => void;
+}) {
+
   const { authorDraft, projectionStatus, projection, liveRun } =
     useGraphReviewLiveState();
 
@@ -42,7 +114,7 @@ export function GraphReviewAuthorNodeDrawer({
     return () => {
       authorDraft.setAuthorMode("review");
     };
-  }, [open, authorDraft.setAuthorMode]);
+  }, [authorDraft.setAuthorMode, open]);
 
   useEffect(() => {
     if (!open) return;
@@ -65,10 +137,43 @@ export function GraphReviewAuthorNodeDrawer({
   });
 
   return (
+    <GraphReviewAuthorNodeDrawerFrame
+      open={open}
+      onOpenChange={onOpenChange}
+      mode="exact-run"
+      ready={ready}
+    >
+      <GraphReviewAuthorNodePanel onRequestLoad={onRequestLoad} />
+    </GraphReviewAuthorNodeDrawerFrame>
+  );
+}
+
+function GraphReviewAuthorNodeDrawerFrame({
+  open,
+  onOpenChange,
+  mode,
+  ready,
+  expanded = false,
+  onToggleExpanded,
+  preview = null,
+  children,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mode: GraphReviewAuthorNodeMode;
+  ready: boolean;
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
+  preview?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
     <div
       className={["graph-review-author-node", open ? "open" : ""].filter(Boolean).join(" ")}
       data-testid="graph-review-author-node"
       data-ready={ready ? "true" : "false"}
+      data-mode={mode}
+      data-expanded={expanded ? "true" : "false"}
     >
       <button
         type="button"
@@ -94,19 +199,37 @@ export function GraphReviewAuthorNodeDrawer({
       >
         <header className="graph-review-author-node-header">
           <div>
-            <p className="plan-surface-kicker">Graph Review</p>
-            <h2>Author Node</h2>
+            <p className="plan-surface-kicker">
+              {mode === "published-local" ? "Published recap" : "Graph Review"}
+            </p>
+            <h2>{mode === "published-local" ? "Author Node · local staging" : "Author Node"}</h2>
           </div>
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            aria-label="Close Author Node"
-          >
-            ×
-          </button>
+          <div className="graph-review-author-node-header-actions">
+            {onToggleExpanded ? (
+              <button
+                type="button"
+                className="graph-review-author-node-expand-toggle"
+                onClick={onToggleExpanded}
+                aria-label={expanded ? "Collapse Author Node" : "Expand Author Node"}
+                title={expanded ? "Use compact Author Node" : "Expand Author Node"}
+              >
+                {expanded ? "⇥" : "⇤"}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              aria-label="Close Author Node"
+            >
+              ×
+            </button>
+          </div>
         </header>
+        {mode === "published-local" && preview ? (
+          <div className="graph-review-author-node-preview">{preview}</div>
+        ) : null}
         <div className="graph-review-author-node-body">
-          {open ? <GraphReviewAuthorNodePanel onRequestLoad={onRequestLoad} /> : null}
+          {open || mode === "published-local" ? children : null}
         </div>
       </aside>
     </div>

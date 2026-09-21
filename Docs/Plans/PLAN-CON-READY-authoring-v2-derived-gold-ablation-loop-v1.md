@@ -1,7 +1,7 @@
 # PLAN — CON-READY: Authoring v2 → derived gold → extraction ablation loop
 
 **Created:** 2026-09-18  
-**Status:** ACTIVE SEQUENCING AUTHORITY — V2-0 complete; V2-1 ACTIVE  
+**Status:** ACTIVE SEQUENCING AUTHORITY — V2-0 complete; V2-1 merged; V2-1A ACTIVE  
 **Canonical path:** `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`  
 **Workstream:** `CON-READY / DOGFOOD-CONTINUITY / campaign memory authoring`  
 **Re-anchor input:** `main@586a3dcb53b481ef2cf21890872a3f1e8465a925` — UI-05 / PR #735 merged  
@@ -9,7 +9,7 @@
 **Historical authoring ancestry:** `ROADMAP-graph-object-authoring-surface.md`, `DESIGN-graph-object-authoring-surface.md`, July authored-memory checkpoint  
 **Current World authority:** DungeonMind-owned immutable World revisions / governed World publication  
 **V2-0 census:** `Docs/Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md` — COMPLETE / PASS  
-**Active implementation handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`
+**Active implementation handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`
 
 > The next useful loop is not “improve extraction, then hope the benchmark represents what we want.”  
 > It is **human authoring → durable campaign truth → derived gold → extraction ablation → better extraction**.
@@ -232,7 +232,7 @@ Inventory:
 
 ---
 
-## V2-1 — Source selection / pill → manual source-grounded proposal — ACTIVE
+## V2-1 — Source selection / pill → manual source-grounded proposal — COMPLETE / MERGED (PR #738)
 
 **Goal:** acquire high-quality human judgment without writing yet.
 
@@ -257,7 +257,21 @@ No durable World write required unless the current authority boundary naturally 
 
 ---
 
-## V2-2 — Governed commit → immediately visible World memory
+## V2-1A — Working-projection UI dogfood — ACTIVE
+
+**Goal:** make the published recap a continuous source-oriented authoring and inspection workspace.
+
+**Predecessor:** V2-1 published-recap local proposal — MERGED / PR #738.
+
+**Active handoff:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`
+
+The GM can keep the recap visible while using the existing Author Node tool, see local object/link adjudications immediately reflected as an uncommitted working projection, inspect truthful root prose, and expand one connected object without losing root context.
+
+Canonical recap Markdown, World memory, prepare/commit, durable publication, extraction, and derived-gold contracts remain unchanged.
+
+---
+
+## V2-2 — Governed commit → immediately visible World memory — HELD BEHIND V2-1A DOGFOOD
 
 **Goal:** the GM can teach the actual campaign memory.
 
@@ -439,13 +453,14 @@ Stage 4 / recap WOW                            HOLD — post-UI-05 human witness
 
 Authoring v2                                   CURRENT IMPLEMENTATION FRONTIER
 V2-0 current manual-authoring contract census  COMPLETE / PASS
-V2-1 published-recap local proposal             ACTIVE — review cycle 2 HOLD repair awaiting re-review (#738)
-V2-2 governed World commit                      NOT YET AUTHORIZED
+V2-1 published-recap local proposal             MERGED — PR #738
+V2-1A working-projection UI dogfood             ACTIVE — this handoff/PR
+V2-2 governed World commit                      HELD BEHIND V2-1A DOGFOOD
 V2-3 derived gold export                        NOT YET AUTHORIZED
 V2-4 extraction/model ablation                  PARKED BEHIND GOLD
 V2-5 Agent-assisted assessment                  PARKED BEHIND MANUAL LOOP
 ```
 
-Exactly one V2-1 implementation PR is authorized by the ACTIVE handoff above. The plan does not authorize any successor, repair, write-path, Agent, gold-export, or extraction PR.
+Exactly one V2-1A implementation PR is authorized by the ACTIVE handoff above. The plan does not authorize V2-2, repair fan-out, write-path, Agent, gold-export, or extraction PRs.
 
-The next steward action is to re-review V2-1 PR (#738) after the review-cycle-2 lease repair. Operator dogfood findings remain review-time design exploration, not authorized successor work, and the visible authoring UI stays in V2-1. V2-2 remains blocked until V2-1 merges, state authority is synchronized, and the workstream is re-anchored.
+V2-1 predecessor state is synchronized here. V2-2 remains held until V2-1A dogfood completes, state authority is synchronized, and the workstream is re-anchored.
