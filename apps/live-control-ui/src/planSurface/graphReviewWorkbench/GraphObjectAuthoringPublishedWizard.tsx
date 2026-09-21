@@ -9,6 +9,7 @@ import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { GraphObjectAuthoringObjectForm } from "./GraphObjectAuthoringObjectForm";
 import { GraphObjectAuthoringOverlapWarnings } from "./GraphObjectAuthoringOverlapWarnings";
+import { GraphObjectAuthoringPrepareCommitPanel } from "./GraphObjectAuthoringPrepareCommitPanel";
 import { GraphObjectAuthoringRelationshipForm } from "./GraphObjectAuthoringRelationshipForm";
 import { GraphObjectAuthoringSelectedSource } from "./GraphObjectAuthoringSelectedSource";
 import { GraphObjectAuthoringStagingTray } from "./GraphObjectAuthoringStagingTray";
@@ -65,6 +66,14 @@ export interface GraphObjectAuthoringPublishedWizardProps {
   objectFormOverlapWarnings: GraphObjectAuthoringOverlapWarning[];
   contextTabs?: GraphObjectAuthoringContextTab[];
   onSelectContextTab?: (selection: GraphAuthoringSelection) => void;
+  campaignId?: string;
+  sessionId?: string;
+  campaignRel?: string | null;
+  sourceRunId?: string | null;
+  recapArtifactId?: string | null;
+  sourceGraphId?: string | null;
+  onCommittedProposals?: (localProposalIds: string[]) => void;
+  onRefreshProjection?: () => Promise<unknown>;
 }
 
 const STEP_ORDER: PublishedLocalWizardStep[] = [
@@ -126,6 +135,14 @@ export function GraphObjectAuthoringPublishedWizard({
   objectFormOverlapWarnings,
   contextTabs = [],
   onSelectContextTab,
+  campaignId,
+  sessionId,
+  campaignRel,
+  sourceRunId,
+  recapArtifactId,
+  sourceGraphId,
+  onCommittedProposals,
+  onRefreshProjection,
 }: GraphObjectAuthoringPublishedWizardProps) {
   const [step, setStep] = useState<PublishedLocalWizardStep>("resolve");
   const [activeContextTab, setActiveContextTab] = useState("new");
@@ -386,6 +403,19 @@ export function GraphObjectAuthoringPublishedWizard({
             projectionNodeViews={projectionNodeViews}
             emptyMessage="No local proposals yet. Go back to choose an identity or add object details."
           />
+          {campaignId && sessionId && onCommittedProposals ? (
+            <GraphObjectAuthoringPrepareCommitPanel
+              campaignId={campaignId}
+              sessionId={sessionId}
+              campaignRel={campaignRel}
+              sourceRunId={sourceRunId}
+              recapArtifactId={recapArtifactId}
+              sourceGraphId={sourceGraphId}
+              proposals={proposals}
+              onCommitted={onCommittedProposals}
+              onRefreshProjection={onRefreshProjection}
+            />
+          ) : null}
         </section>
       ) : null}
 
@@ -471,8 +501,10 @@ export function GraphObjectAuthoringPublishedWizard({
             className="graph-object-authoring-wizard-final-state"
             data-testid="graph-object-authoring-wizard-final-state"
           >
-            <strong>Final step</strong>
-            <span>Review or remove local drafts, then close Author Node when you’re done.</span>
+            <strong>Local review complete</strong>
+            <span>
+              Review the staged local draft below. Publication is a separate explicit confirmation.
+            </span>
           </div>
         ) : null}
       </nav>

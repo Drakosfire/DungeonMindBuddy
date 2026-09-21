@@ -288,6 +288,12 @@ function CommitSuccessPrimary({
             <dt>Operation</dt>
             <dd>{committed.operation_id ?? "unknown"}</dd>
           </div>
+          {Object.entries(committed.created_node_ids ?? {}).map(([localProposalId, nodeId]) => (
+            <div key={localProposalId}>
+              <dt>Created node · {localProposalId}</dt>
+              <dd>{nodeId}</dd>
+            </div>
+          ))}
         </dl>
         <ul className="graph-object-authoring-no-mutation-list">
           {committed.no_mutation_guarantees.map((line) => (
@@ -304,6 +310,7 @@ export interface GraphObjectAuthoringPrepareCommitPanelProps {
   sessionId: string;
   campaignRel?: string | null;
   sourceRunId?: string | null;
+  recapArtifactId?: string | null;
   sourceGraphId?: string | null;
   previewUnionStorePath?: string | null;
   proposals: GraphObjectAuthoringProposal[];
@@ -316,12 +323,14 @@ export function GraphObjectAuthoringPrepareCommitPanel({
   sessionId,
   campaignRel,
   sourceRunId,
+  recapArtifactId,
   sourceGraphId,
   previewUnionStorePath: _previewUnionStorePath,
   proposals,
   onCommitted,
   onRefreshProjection,
 }: GraphObjectAuthoringPrepareCommitPanelProps) {
+  const isPublishedRecap = Boolean(recapArtifactId);
   const [prepared, setPrepared] = useState<GraphObjectAuthoringPrepareResponse | null>(null);
   const [committed, setCommitted] = useState<GraphObjectAuthoringCommitResponse | null>(null);
   const [preparedForFingerprint, setPreparedForFingerprint] = useState<string>("");
@@ -364,6 +373,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
         sessionId,
         worldId: campaignId,
         sourceRunId,
+        recapArtifactId,
         sourceGraphId,
         proposals: proposals.map(toProposalPayload),
       });
@@ -390,6 +400,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
         sessionId,
         worldId: campaignId,
         sourceRunId,
+        recapArtifactId,
         sourceGraphId,
         proposals: proposals.map(toProposalPayload),
         confirmToken: prepared.confirm_token,
@@ -405,7 +416,11 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       setCommitted(response);
       setPrepared(null);
       setPreparedForFingerprint("");
-      onCommitted(proposals.map((proposal) => proposal.localProposalId));
+      onCommitted(
+        response.committed_proposal_ids?.length
+          ? response.committed_proposal_ids
+          : proposals.map((proposal) => proposal.localProposalId),
+      );
       if (onRefreshProjection) {
         setRefreshProjectionError(null);
         setProjectionDiagnostics([]);
@@ -479,6 +494,14 @@ export function GraphObjectAuthoringPrepareCommitPanel({
       aria-label="Prepare and commit authored graph memory"
       data-testid="graph-object-authoring-prepare-commit-panel"
     >
+      <header className="graph-object-authoring-prepare-commit-header">
+        <h5>{isPublishedRecap ? "Review & publish" : "Prepare and commit"}</h5>
+        <p>
+          {isPublishedRecap
+            ? "Review the prepared World change, then explicitly confirm publication."
+            : "Prepare a safe preview before confirming the governed World write."}
+        </p>
+      </header>
       {proposals.length > 0 ? (
         <div className="graph-object-authoring-prepare-commit-actions">
           <button
@@ -487,7 +510,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
             disabled={!canPrepare}
             onClick={() => void handlePrepare()}
           >
-            {preparing ? "Preparing…" : "Prepare staged memory"}
+            {preparing ? "Preparing…" : isPublishedRecap ? "Review & publish" : "Prepare staged memory"}
           </button>
           {prepared ? (
             <button
@@ -496,7 +519,7 @@ export function GraphObjectAuthoringPrepareCommitPanel({
               disabled={!canCommit}
               onClick={() => void handleCommit()}
             >
-              {committing ? "Committing…" : "Commit authored graph memory"}
+              {committing ? "Publishing…" : isPublishedRecap ? "Confirm publish" : "Commit authored graph memory"}
             </button>
           ) : null}
         </div>

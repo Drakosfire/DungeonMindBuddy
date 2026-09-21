@@ -8,6 +8,7 @@ import json
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
@@ -240,6 +241,7 @@ class GraphObjectAuthoringPrepareRequest(BaseModel):
     session_id: str | None = Field(default=None, alias="sessionId")
     world_id: str | None = Field(default=None, alias="worldId")
     source_run_id: str | None = Field(default=None, alias="sourceRunId")
+    recap_artifact_id: str | None = Field(default=None, alias="recapArtifactId")
     source_graph_id: str | None = Field(default=None, alias="sourceGraphId")
     source_projection_id: str | None = Field(default=None, alias="sourceProjectionId")
     proposals: list[GraphObjectAuthoringProposalPayload]
@@ -254,6 +256,7 @@ class GraphObjectAuthoringCommitRequest(BaseModel):
     session_id: str | None = Field(default=None, alias="sessionId")
     world_id: str | None = Field(default=None, alias="worldId")
     source_run_id: str | None = Field(default=None, alias="sourceRunId")
+    recap_artifact_id: str | None = Field(default=None, alias="recapArtifactId")
     source_graph_id: str | None = Field(default=None, alias="sourceGraphId")
     source_projection_id: str | None = Field(default=None, alias="sourceProjectionId")
     proposals: list[GraphObjectAuthoringProposalPayload]
@@ -275,6 +278,7 @@ def authoring_prepare_request_from_write(
         session_id=request.session_id,
         world_id=request.world_id,
         source_run_id=request.source_run_id,
+        recap_artifact_id=request.recap_artifact_id,
         source_graph_id=request.source_graph_id,
         source_projection_id=request.source_projection_id,
         proposals=request.proposals,
@@ -370,6 +374,7 @@ class GraphObjectAuthoringCommitResponse(BaseModel):
     no_mutation_guarantees: list[str] = Field(default_factory=list)
     union_store_materialization: GraphObjectAuthoringUnionStoreMaterializationSummary | None = None
     created_node_ids: dict[str, str] = Field(default_factory=dict)
+    committed_proposal_ids: list[str] = Field(default_factory=list)
     world_id: str | None = None
     parent_revision_id: str | None = None
     published_revision_id: str | None = None
@@ -899,6 +904,7 @@ def publication_intent_payload(
     assertions_digest: str,
     expires_at: str,
     contribution_digest: str | None = None,
+    recap_artifact_id: str | None = None,
 ) -> dict[str, Any]:
     return {
         "schema": GRAPH_REVIEW_PREPARE_BINDING_SCHEMA,
@@ -906,6 +912,7 @@ def publication_intent_payload(
         "campaign_id": campaign_id,
         "campaign_rel": campaign_rel,
         "source_run_id": source_run_id,
+        "recap_artifact_id": recap_artifact_id,
         "source_artifact_id": source_artifact_id,
         "source_revision_id": source_revision_id,
         "expected_parent_revision_id": expected_parent_revision_id,
@@ -1145,7 +1152,22 @@ def resolve_graph_review_source(
     *,
     authored_world: str,
     resolved_source: Any | None = None,
+    source_root: Path | None = None,
 ):
+    run_id = (request.source_run_id or "").strip()
+    recap_artifact_id = (request.recap_artifact_id or "").strip()
+    if bool(run_id) == bool(recap_artifact_id):
+        if run_id and recap_artifact_id:
+            raise GraphObjectAuthoringError(
+                "Choose exactly one authoritative source selector: sourceRunId or recapArtifactId.",
+                code="source_selector_conflict",
+                status_code=422,
+            )
+        raise GraphObjectAuthoringError(
+            "Graph Review confirmation requires exactly one authoritative source selector: sourceRunId or recapArtifactId.",
+            code="source_unresolved",
+        )
+
     if resolved_source is not None:
         run_campaign = (getattr(resolved_source, "campaign_id", "") or "").strip()
         if run_campaign and run_campaign != request.campaign_id:
@@ -1160,12 +1182,78 @@ def resolve_graph_review_source(
                 code="source_inadmissible",
             )
         return resolved_source
-    run_id = (request.source_run_id or "").strip()
-    if not run_id:
-        raise GraphObjectAuthoringError(
-            "Graph Review confirmation requires an exact sourceRunId.",
-            code="source_unresolved",
+    if recap_artifact_id:
+        from apps.live_control_server.config import repo_root
+        from apps.live_control_server.services.recap_artifacts import (
+            RecapArtifactRegistryError,
+            resolve_recap_artifact_record,
         )
+        from apps.live_control_server.services.source_artifact_registry import (
+            SourceArtifactRegistryError,
+            create_recap_source_artifact,
+        )
+
+        root = (source_root or repo_root()).resolve()
+        try:
+            record = resolve_recap_artifact_record(root, artifact_id=recap_artifact_id)
+        except RecapArtifactRegistryError as exc:
+            raise GraphObjectAuthoringError(
+                str(exc),
+                code="source_artifact_not_found",
+                status_code=exc.status_code,
+            ) from exc
+        if record.campaign_id != request.campaign_id:
+            raise GraphObjectAuthoringError(
+                "recapArtifactId belongs to a different campaign",
+                code="source_inadmissible",
+            )
+        if (request.session_id or "").strip() != record.session_id:
+            raise GraphObjectAuthoringError(
+                "recapArtifactId belongs to a different session",
+                code="source_inadmissible",
+            )
+        if not record.source_sha256:
+            raise GraphObjectAuthoringError(
+                "recapArtifactId has no registered source digest",
+                code="source_unresolved",
+            )
+
+        recap_path = Path(record.source_recap_path)
+        if recap_path.is_absolute() or ".." in recap_path.parts:
+            raise GraphObjectAuthoringError(
+                "recapArtifactId resolved to an unsafe server-owned recap path",
+                code="source_inadmissible",
+            )
+        resolved_path = (root / recap_path).resolve()
+        if not resolved_path.is_relative_to(root) or not resolved_path.is_file():
+            raise GraphObjectAuthoringError(
+                "recapArtifactId resolved to a missing server-owned recap source",
+                code="source_artifact_not_found",
+                status_code=422,
+            )
+        try:
+            artifact = create_recap_source_artifact(
+                root,
+                campaign_id=record.campaign_id,
+                session_id=record.session_id,
+                recap_path=resolved_path,
+                expected_content_sha256=record.source_sha256,
+            )
+        except SourceArtifactRegistryError as exc:
+            code = "source_artifact_not_found" if exc.status_code == 404 else "source_inadmissible"
+            raise GraphObjectAuthoringError(
+                str(exc), code=code, status_code=exc.status_code
+            ) from exc
+        return SimpleNamespace(
+            source_artifact_id=artifact.source_artifact_id,
+            source_revision_id=f"sha256:{artifact.content_sha256}",
+            campaign_id=record.campaign_id,
+            session_id=record.session_id,
+            world_id=authored_world,
+            sealed_source_uri=artifact.uri,
+            source_artifact=artifact,
+        )
+
     from apps.live_control_server.services.promotable_ingest_run import (
         PromotableIngestRunError,
         resolve_promotable_ingest_run,
@@ -1399,6 +1487,7 @@ def prepare_graph_object_authoring_write(
             request,
             authored_world=world_id,
             resolved_source=resolved_source,
+            source_root=corpus_root,
         )
         buddy_artifact_id = str(getattr(resolved, "source_artifact_id"))
         buddy_revision_id = str(getattr(resolved, "source_revision_id"))
@@ -1449,6 +1538,7 @@ def prepare_graph_object_authoring_write(
         campaign_id=request.campaign_id,
         campaign_rel=request.campaign_rel,
         source_run_id=request.source_run_id,
+        recap_artifact_id=request.recap_artifact_id,
         source_artifact_id=source_artifact_id,
         source_revision_id=source_revision_id,
         expected_parent_revision_id=expected_parent,

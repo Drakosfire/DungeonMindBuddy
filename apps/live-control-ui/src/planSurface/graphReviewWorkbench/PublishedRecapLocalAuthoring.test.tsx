@@ -135,11 +135,11 @@ describe("PublishedRecapLocalAuthoring", () => {
     sessionStorage.clear();
   });
 
-  it("keeps published browse non-write and preserves exact recap source identity", async () => {
+  it("preserves exact recap source identity and exposes governed publish only after review", async () => {
     renderHost();
 
     const host = await screen.findByTestId("published-recap-local-authoring");
-    expect(host).toHaveAttribute("data-write-authority", "none");
+    expect(host).toHaveAttribute("data-write-authority", "governed-world");
     expect(host).toHaveAttribute("data-source-artifact-id", "artifact:recap:longmont-c2:session-27");
     expect(host).toHaveAttribute(
       "data-source-artifact-path",
@@ -213,9 +213,9 @@ describe("PublishedRecapLocalAuthoring", () => {
     expect(document.querySelector('button[data-graph-node-id^="local-authoring:"]')).toBeTruthy();
     await expectPersistedRecapIdentity(recapRecord, "object");
     expect(screen.getByTestId("graph-object-authoring-wizard-final-state")).toHaveTextContent(
-      "Review or remove local drafts",
+      "Local review complete",
     );
-    expect(screen.queryByTestId("graph-object-authoring-prepare-commit-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-prepare-commit-panel")).toBeInTheDocument();
     fireEvent.click(within(staged).getByRole("button", { name: "Remove" }));
     expect(document.querySelector('button[data-graph-node-id^="local-authoring:"]')).toBeNull();
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
@@ -439,10 +439,10 @@ describe("PublishedRecapLocalAuthoring", () => {
       "review",
     );
     expect(screen.getByTestId("graph-object-authoring-wizard-final-state")).toHaveTextContent(
-      "Final step",
+      "Local review complete",
     );
     expect(screen.getByTestId("graph-object-authoring-wizard-final-state")).toHaveTextContent(
-      "close Author Node",
+      "explicit confirmation",
     );
     expect(screen.getByRole("list", { name: "Authoring steps (status only)" })).toHaveAttribute(
       "data-step-indicator",

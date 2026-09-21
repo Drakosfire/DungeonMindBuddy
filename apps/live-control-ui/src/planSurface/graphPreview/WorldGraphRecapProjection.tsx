@@ -31,6 +31,7 @@ interface WorldGraphRecapProjectionProps {
   selectedCampaignId: string;
   onSelectCampaign: (campaignId: string) => void;
   recapRecord?: RecapArtifactRecord | null;
+  onRefreshProjection?: () => Promise<unknown>;
 }
 
 export function WorldGraphRecapProjectionView({
@@ -41,6 +42,7 @@ export function WorldGraphRecapProjectionView({
   selectedCampaignId,
   onSelectCampaign,
   recapRecord = null,
+  onRefreshProjection,
 }: WorldGraphRecapProjectionProps) {
   const adaptedNodeViews = useMemo(
     () => adaptWorldGraphNodeViewMap(payload.nodeViews),
@@ -165,6 +167,7 @@ export function WorldGraphRecapProjectionView({
         nodeViews={adaptedNodeViews}
         governedWorldNodeViews={governedWorldNodeViews}
         recapRecord={recapRecord}
+        onRefreshProjection={onRefreshProjection}
         onInspectNode={handleInspectNode}
         onActiveNodeChange={setActiveNodeId}
         draft={authoringDraft}

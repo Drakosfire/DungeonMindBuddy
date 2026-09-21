@@ -3273,6 +3273,7 @@ export interface GraphObjectAuthoringPrepareRequest {
   sessionId?: string | null;
   worldId?: string | null;
   sourceRunId?: string | null;
+  recapArtifactId?: string | null;
   sourceGraphId?: string | null;
   sourceProjectionId?: string | null;
   proposals: GraphObjectAuthoringProposalPayload[];
@@ -3328,6 +3329,7 @@ export interface GraphObjectAuthoringCommitRequest {
   sessionId?: string | null;
   worldId?: string | null;
   sourceRunId?: string | null;
+  recapArtifactId?: string | null;
   sourceGraphId?: string | null;
   sourceProjectionId?: string | null;
   proposals: GraphObjectAuthoringProposalPayload[];
@@ -3371,6 +3373,7 @@ export interface GraphObjectAuthoringCommitResponse {
   no_mutation_guarantees: string[];
   union_store_materialization?: GraphObjectAuthoringUnionStoreMaterializationSummary | null;
   created_node_ids?: Record<string, string>;
+  committed_proposal_ids?: string[];
   world_id?: string | null;
   parent_revision_id?: string | null;
   published_revision_id?: string | null;

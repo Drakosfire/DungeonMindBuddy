@@ -87,6 +87,7 @@ export interface PublishedRecapLocalAuthoringProps {
   recapRecord?: RecapArtifactRecord | null;
   onInspectNode: (nodeId: string) => void;
   onActiveNodeChange?: (nodeId: string | null) => void;
+  onRefreshProjection?: () => Promise<unknown>;
   draft?: UseGraphObjectAuthoringDraftResult;
 }
 
@@ -100,6 +101,7 @@ export function PublishedRecapLocalAuthoring({
   recapRecord = null,
   onInspectNode,
   onActiveNodeChange,
+  onRefreshProjection,
   draft: suppliedDraft,
 }: PublishedRecapLocalAuthoringProps) {
   const ownedDraft = useGraphObjectAuthoringDraft(
@@ -292,6 +294,11 @@ export function PublishedRecapLocalAuthoring({
       }}
       campaignId={campaignId}
       sessionId={sessionId}
+      recapArtifactId={recapRecord?.artifact_id ?? null}
+      onCommittedProposals={
+        recapRecord?.artifact_id ? draft.clearCommittedProposals : undefined
+      }
+      onRefreshProjection={onRefreshProjection}
       existingNodes={existingNodes}
       laneRole="live"
       projectionNodeViews={workingProjection.nodeViews}
@@ -345,7 +352,7 @@ export function PublishedRecapLocalAuthoring({
     <div
       className="published-recap-local-authoring"
       data-testid="published-recap-local-authoring"
-      data-write-authority="none"
+      data-write-authority={recapRecord?.artifact_id ? "governed-world" : "none"}
       data-campaign-id={campaignId}
       data-session-id={sessionId}
       data-source-artifact-id={nullableAttr(authoringContext.sourceArtifactId)}

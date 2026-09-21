@@ -302,6 +302,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         selectedCampaignId={selectedCampaignId}
         onSelectCampaign={handleCampaignSelect}
         recapRecord={selectedRecapRecord}
+        onRefreshProjection={() => loadRecapProjection(selectedSessionId)}
       />
     );
   }

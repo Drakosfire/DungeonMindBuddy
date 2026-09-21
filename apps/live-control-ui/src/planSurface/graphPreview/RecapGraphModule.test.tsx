@@ -228,7 +228,7 @@ describe("RecapGraphModule", () => {
     render(<RecapGraphModule context={context} />);
 
     const host = await screen.findByTestId("published-recap-local-authoring");
-    expect(host).toHaveAttribute("data-write-authority", "none");
+    expect(host).toHaveAttribute("data-write-authority", "governed-world");
     expect(host).toHaveAttribute("data-source-artifact-id", "null");
     expect(host).toHaveAttribute("data-source-artifact-path", artifactRecord(24).source_recap_path);
     expect(host).toHaveAttribute("data-source-artifact-sha256", "sha256:session-24");

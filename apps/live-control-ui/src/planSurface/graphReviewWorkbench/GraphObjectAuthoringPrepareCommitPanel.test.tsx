@@ -96,6 +96,8 @@ const commitResponse = {
   operation_id: "grauth:abc",
   result: "published",
   idempotency_status: "published",
+  created_node_ids: { "local-object-1": "node:durable-1" },
+  committed_proposal_ids: ["local-object-1"],
 };
 
 describe("GraphObjectAuthoringPrepareCommitPanel", () => {
@@ -159,6 +161,40 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     expect(screen.getByTestId("graph-object-authoring-write-safety-details")).not.toHaveAttribute("open");
     expect(screen.getByTestId("graph-object-authoring-technical-write-details")).not.toHaveAttribute("open");
     expect(screen.getByTestId("graph-object-authoring-commit-button")).toBeEnabled();
+  });
+
+  it("uses the published recap artifact selector for prepare and commit", async () => {
+    vi.mocked(prepareGraphObjectAuthoringWrite).mockResolvedValue(prepareResponse);
+    vi.mocked(commitGraphObjectAuthoringWrite).mockResolvedValue(commitResponse);
+
+    render(
+      <GraphObjectAuthoringPrepareCommitPanel
+        campaignId="longmont-c1"
+        sessionId="session-2"
+        recapArtifactId="longmont-c1/session-2"
+        proposals={[stagedProposal]}
+        onCommitted={() => undefined}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("graph-object-authoring-prepare-button"));
+    await waitFor(() => {
+      expect(prepareGraphObjectAuthoringWrite).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recapArtifactId: "longmont-c1/session-2",
+          sourceRunId: undefined,
+        }),
+      );
+    });
+    fireEvent.click(screen.getByTestId("graph-object-authoring-commit-button"));
+    await waitFor(() => {
+      expect(commitGraphObjectAuthoringWrite).toHaveBeenCalledWith(
+        expect.objectContaining({
+          recapArtifactId: "longmont-c1/session-2",
+          sourceRunId: undefined,
+        }),
+      );
+    });
   });
 
   it("shows technical write details only when expanded", async () => {
@@ -275,6 +311,7 @@ describe("GraphObjectAuthoringPrepareCommitPanel", () => {
     expect(writeDetails).toHaveAttribute("open");
     expect(within(writeDetails).getByText("rev:d0")).toBeInTheDocument();
     expect(within(writeDetails).getByText("rev:d1")).toBeInTheDocument();
+    expect(within(writeDetails).getByText("node:durable-1")).toBeInTheDocument();
   });
 
   it("commits successfully and notifies parent", async () => {

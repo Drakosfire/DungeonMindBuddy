@@ -79,6 +79,7 @@ export interface GraphObjectAuthoringSurfaceProps {
   sessionId?: string;
   campaignRel?: string | null;
   sourceRunId?: string | null;
+  recapArtifactId?: string | null;
   sourceGraphId?: string | null;
   onCommittedProposals?: (localProposalIds: string[]) => void;
   onRefreshProjection?: () => Promise<unknown>;
@@ -118,6 +119,7 @@ export function GraphObjectAuthoringSurface({
   sessionId,
   campaignRel,
   sourceRunId,
+  recapArtifactId,
   sourceGraphId,
   onCommittedProposals,
   onRefreshProjection,
@@ -263,6 +265,14 @@ export function GraphObjectAuthoringSurface({
           objectFormOverlapWarnings={objectFormOverlapWarnings}
           contextTabs={contextTabs}
           onSelectContextTab={onSelectContextTab}
+          campaignId={campaignId}
+          sessionId={sessionId}
+          campaignRel={campaignRel}
+          sourceRunId={sourceRunId}
+          recapArtifactId={recapArtifactId}
+          sourceGraphId={sourceGraphId}
+          onCommittedProposals={onCommittedProposals}
+          onRefreshProjection={onRefreshProjection}
         />
       </section>
     );
@@ -483,6 +493,7 @@ export function GraphObjectAuthoringSurface({
             sessionId={sessionId}
             campaignRel={campaignRel}
             sourceRunId={sourceRunId}
+            recapArtifactId={recapArtifactId}
             sourceGraphId={sourceGraphId}
             proposals={proposals}
             previewUnionStorePath={previewUnionStorePath}
