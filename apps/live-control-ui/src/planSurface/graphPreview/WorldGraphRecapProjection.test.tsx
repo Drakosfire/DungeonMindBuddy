@@ -30,6 +30,7 @@ const recapRecord = {
 describe("WorldGraphRecapProjectionView", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    sessionStorage.clear();
     vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockImplementation(async (request) => {
       const node = session23WorldGraphRecapFixture.nodeViews[request.nodeId] ?? null;
       return {
@@ -89,6 +90,9 @@ describe("WorldGraphRecapProjectionView", () => {
     expect(document.querySelector(".recap-graph-object-panel__header")).not.toBeInTheDocument();
     const peek = screen.getByLabelText("Caelynn graph object");
     expect(within(peek).getByRole("heading", { level: 4 })).toHaveTextContent("Caelynn");
+    expect(within(peek).getByRole("region", { name: "Campaign summary" })).toHaveTextContent(
+      "Held the Mireward gate during Session 23.",
+    );
     expect(peek).toHaveAttribute("data-graph-object-card-mode", "campaign-memory");
     expect(within(peek).getByRole("button", { name: /Close Caelynn/i })).toBeInTheDocument();
     expect(within(peek).queryByText("Advanced")).not.toBeInTheDocument();
@@ -114,8 +118,161 @@ describe("WorldGraphRecapProjectionView", () => {
       "data-existing-node-id",
       "pc_caelynn",
     );
-    expect(screen.getByLabelText("Label")).toHaveValue("Caelynn");
+    const authorNodeToggle = screen.getByRole("button", { name: "Author Node" });
+    if (authorNodeToggle.getAttribute("aria-expanded") !== "true") {
+      fireEvent.click(authorNodeToggle);
+    }
+    expect(screen.getByTestId("graph-object-authoring-published-wizard")).toHaveAttribute(
+      "data-wizard-step",
+      "resolve",
+    );
+    expect(document.querySelector(".graph-object-authoring-selected-source-phrase")).toHaveTextContent(
+      "Caelynn",
+    );
     expect(liveApi.prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
     expect(liveApi.commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
+  }, 15000);
+
+  it("shows a truthful local state instead of World-memory loading for a local object", async () => {
+    sessionStorage.setItem(
+      "graph-object-authoring-staged:longmont-c2:session-23",
+      JSON.stringify([
+        {
+          localProposalId: "local-object-world-graph-test",
+          proposalKind: "object",
+          status: "staged_local",
+          selection: {
+            campaignId: "longmont-c2",
+            sessionId: "session-23",
+            selectionKind: "graph_node_reference",
+            selectedText: "Caelynn",
+            normalizedSelectedText: "caelynn",
+            existingNodeId: "pc_caelynn",
+            graphId: session23WorldGraphRecapFixture.graphId,
+            laneRole: "live",
+          },
+          objectRef: {
+            label: "Caelynn",
+            kind: "concept",
+            role: null,
+            aliases: [],
+            summary: "A local authoring draft for the working projection.",
+          },
+          visibility: {
+            visibility: "gm_private",
+            revealState: "unrevealed",
+            visibilityNote: null,
+          },
+          graphScopes: ["recap_graph", "campaign_memory_graph"],
+          provenancePreview: {
+            origin: "human_authored",
+            authoringSurface: "memory_ingest_graph_authoring",
+            sourceGraphId: session23WorldGraphRecapFixture.graphId,
+            sourceArtifactPath: null,
+            operatorNote: null,
+          },
+        },
+      ]),
+    );
+
+    render(
+      <WorldGraphRecapProjectionView
+        payload={session23WorldGraphRecapFixture}
+        selectedSessionId="session-23"
+        onSelectSession={vi.fn()}
+        sessionOptions={["session-23"]}
+        selectedCampaignId="longmont-c2"
+        onSelectCampaign={vi.fn()}
+        recapRecord={recapRecord}
+      />,
+    );
+
+    const pill = await waitFor(() => {
+      const button = screen
+        .getAllByRole("button", { name: /Caelynn/i })
+        .find((item) => item.classList.contains("recap-node-token"));
+      expect(button).toBeTruthy();
+      return button as HTMLButtonElement;
+    });
+    fireEvent.click(pill);
+
+    const peek = await screen.findByLabelText("Caelynn graph object");
+    expect(liveApi.postWorldGraphCompleteObject).not.toHaveBeenCalled();
+    expect(screen.getByTestId("recap-graph-local-object-state")).toHaveTextContent(
+      "World memory was not loaded",
+    );
+    expect(screen.queryByText("Loading campaign memory…")).not.toBeInTheDocument();
+    expect(within(peek).getByRole("region", { name: "Campaign summary" })).toHaveTextContent(
+      "A local authoring draft for the working projection.",
+    );
+  });
+
+  it("keeps root prose visible when a related-object expansion is unavailable", async () => {
+    const root = session23WorldGraphRecapFixture.nodeViews.pc_caelynn;
+    const missingTargetPayload = {
+      ...session23WorldGraphRecapFixture,
+      nodeViews: {
+        ...session23WorldGraphRecapFixture.nodeViews,
+        pc_caelynn: {
+          ...root,
+          adjacency: [
+            {
+              ...root.adjacency[0]!,
+              nodeId: "loc_missing",
+              label: "Missing place",
+            },
+          ],
+        },
+      },
+    };
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockImplementation(async (request) => {
+      const node = missingTargetPayload.nodeViews[request.nodeId] ?? null;
+      return {
+        schema: "dmb_world_graph_object_projection_v1",
+        found: Boolean(node),
+        completeness: { status: "complete", truncatedFields: [] },
+        snapshot: missingTargetPayload.snapshot,
+        requestedNodeId: request.nodeId,
+        resolvedNodeId: node ? request.nodeId : null,
+        node,
+        relatedNodes: [],
+        semanticFingerprint: "fp-missing-related-test",
+      };
+    });
+
+    render(
+      <WorldGraphRecapProjectionView
+        payload={missingTargetPayload}
+        selectedSessionId="session-23"
+        onSelectSession={vi.fn()}
+        sessionOptions={["session-23"]}
+        selectedCampaignId="longmont-c2"
+        onSelectCampaign={vi.fn()}
+        recapRecord={recapRecord}
+      />,
+    );
+
+    const pill = await waitFor(() => {
+      const button = screen
+        .getAllByRole("button", { name: /Caelynn/i })
+        .find((item) => item.classList.contains("recap-node-token"));
+      expect(button).toBeTruthy();
+      return button as HTMLButtonElement;
+    });
+    fireEvent.click(pill);
+    const peek = await screen.findByLabelText("Caelynn graph object");
+    expect(within(peek).getByRole("region", { name: "Campaign summary" })).toHaveTextContent(
+      "Held the Mireward gate during Session 23.",
+    );
+
+    fireEvent.click(within(peek).getByRole("button", { name: /Missing place/i }));
+
+    expect(screen.getByTestId("recap-graph-related-object-unavailable")).toHaveTextContent(
+      "The connected object is unavailable",
+    );
+    expect(within(peek).getByRole("heading", { level: 4, name: "Caelynn" })).toBeInTheDocument();
+    expect(within(peek).getByRole("region", { name: "Campaign summary" })).toHaveTextContent(
+      "Held the Mireward gate during Session 23.",
+    );
   }, 15000);
 });

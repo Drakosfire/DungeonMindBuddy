@@ -22,17 +22,6 @@
       "created_at": "2026-07-29T03:57:25Z",
       "updated_at": "2026-07-29T04:02:16Z",
       "last_worker_pid": 19378
-    },
-    "longmont-c2::agent-thread-bf99a3fb-ef6d-4d70-82cf-260c96bf3e24": {
-      "schema": "dmb_hermes_session_pointer_binding_v1",
-      "pointer_id": "hptr-d23a7aa2e09f4aedaef80e3f",
-      "agent_thread_id": "agent-thread-bf99a3fb-ef6d-4d70-82cf-260c96bf3e24",
-      "campaign_id": "longmont-c2",
-      "hermes_session_id": "bd67d0bb-eebc-46e7-870f-75d762444238",
-      "status": "active",
-      "created_at": "2026-09-20T16:39:45Z",
-      "updated_at": "2026-09-20T16:39:45Z",
-      "last_worker_pid": 3800290
     }
   }
 }

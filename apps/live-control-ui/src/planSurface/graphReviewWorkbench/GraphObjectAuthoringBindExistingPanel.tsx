@@ -240,7 +240,7 @@ export function GraphObjectAuthoringBindExistingPanel({
                   {wizardMode
                     ? exactPrimaryLabel
                       ? `Use ${candidate.label}`
-                      : `Add ${candidate.label} as alias`
+                      : `Add “${phrase}” as alias`
                     : exactPrimaryLabel
                       ? "Use existing node"
                       : "Add as alias"}

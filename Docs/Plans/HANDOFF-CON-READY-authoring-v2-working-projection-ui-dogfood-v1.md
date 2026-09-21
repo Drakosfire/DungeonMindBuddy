@@ -125,9 +125,19 @@ Still false:
 
 V2-2 remains separately governed.
 
+### Lane, topology, and state-authority sync
+
+| Field | Current truth |
+|---|---|
+| PR topology | `serial` within CON-READY |
+| Implementation lane | `con-ready/authoring-v2-working-projection-ui-dogfood-v1` from `main@b9067303b6f88acf51429c2dfc331e3f2a48bd35` |
+| Authorized PR | PR #741 only; no successor or repair PR while this PR is open |
+| State-authority sync set after merge | This handoff, the CON-READY PLAN, both byte-identical STEWARDS anchors, and the dogfood report |
+| Named successor | V2-2 governed World commit remains held behind this slice |
+
 ---
 
-## §3 Operator findings that define this slice
+### Operator findings that define this slice
 
 ### A. Author Node is the right tool, but the workflow is in the wrong place
 
@@ -349,7 +359,7 @@ One-hop progressive expansion is sufficient to prove the interaction.
 
 ---
 
-## §4 Working-projection contract
+## §6 Implementation contract — working projection
 
 The local working projection is presentation state derived from already-authorized V2-1 state.
 
@@ -389,7 +399,7 @@ If replay cannot uniquely and safely identify the selected source occurrence, fa
 
 ---
 
-## §5 Author Node composition contract
+### Author Node composition contract
 
 Published recap authoring needs a dedicated presentation mode distinct from exact-run write authority.
 
@@ -438,28 +448,43 @@ Required:
 
 ---
 
-## §6 Files in scope — UI write lease
+## §4 Files in scope — UI write lease
 
-Expected production paths:
+Expected production, test, and state-authority paths:
 
 | Action           | Path                                                                                                  | Purpose                                                                       |
 | ---------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| Modify           | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx`            | connect published recap local-authoring state to existing Author Node host    |
-| Modify           | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodeHost.tsx`             | allow published-local Author Node without hiding source projection            |
-| Modify           | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodeDrawer.tsx`           | published-local presentation/open behavior                                    |
-| Modify           | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodePanel.tsx`            | separate drawer usefulness from exact-run write authority                     |
-| Modify           | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/PublishedRecapLocalAuthoring.tsx`          | move workflow out of below-recap composition; expose/shared local draft state |
-| Modify if needed | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringSurface.tsx`           | side-tool/local-working-projection presentation                               |
-| Modify if needed | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringBindExistingPanel.tsx` | identity vs alias decision vocabulary                                         |
-| Modify           | `apps/live-control-ui/src/planSurface/graphPreview/WorldGraphRecapProjection.tsx`                     | current working projection + non-destructive related-object expansion         |
-| Modify if needed | `apps/live-control-ui/src/planSurface/graphPreview/RecapGraphModule.tsx`                              | thread exact loaded recap/authoring state                                     |
-| Modify           | `apps/live-control-ui/src/planSurface/graphProjectionReader/GraphProjectionReader.tsx`                | render local authored references/working overlays                             |
-| Create if useful | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/publishedRecapWorkingProjection.ts`        | pure derivation of local working-projection effects                           |
-| Modify           | `apps/live-control-ui/src/graphObjectCard/GraphObjectCard.tsx`                                        | restore useful root prose + progressive related-object presentation           |
-| Modify if needed | `apps/live-control-ui/src/graphObjectCard/GraphObjectProjectionCard.tsx`                              | thread expansion composition                                                  |
-| Modify if needed | `apps/live-control-ui/src/graphObjectCard/buildGraphObjectCardFromNodeView.ts`                        | truthful prose/model mapping                                                  |
-| Modify if needed | `apps/live-control-ui/src/graphObjectCard/graphObjectDisplay.ts`                                      | truthful prose selection/display rules                                        |
-| Modify           | `apps/live-control-ui/src/planSurface/planSurface.css`                                                | source + Author Node working layout / progressive expansion                   |
+| Create / Modify | `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md` | canonical handoff, §4 lease, §7 evidence, and review handback |
+| Modify | `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md` | backward-looking V2-1 predecessor and V2-1A sequencing sync |
+| Modify | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` | active PR #741 anchor without marking V2-1A complete |
+| Create | `Docs/Reports/REPORT-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md` | durable dogfood design and flow learnings |
+| Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md` | byte-identical design-agent authority anchor |
+| Modify | `apps/live-control-ui/src/planSurface/graphPreview/WorldGraphRecapProjection.tsx` | local-object state and non-destructive related-object expansion |
+| Modify | `apps/live-control-ui/src/planSurface/graphPreview/WorldGraphRecapProjection.test.tsx` | root prose, local state, and failed expansion evidence |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx` | connect published recap local-authoring state to existing Author Node host |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.test.tsx` | module integration coverage |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodeHost.tsx` | allow published-local Author Node without hiding source projection |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodeDrawer.tsx` | published-local presentation, expansion, and scroll behavior |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorNodePanel.tsx` | separate drawer usefulness from exact-run write authority |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewAuthorDraftWorkspace.test.tsx` | local-authoring workspace regression coverage |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/PublishedRecapLocalAuthoring.tsx` | compose the recap-side Author Node workflow and context tabs |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/PublishedRecapLocalAuthoring.test.tsx` | published-local wizard, persistence, identity, and alias-copy coverage |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringSurface.tsx` | side-tool/local-working-projection presentation |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringSurface.test.tsx` | authoring surface regression coverage |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringBindExistingPanel.tsx` | identity vs alias decision vocabulary and duplicate suggestion |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringObjectRefPicker.tsx` | scoped fuzzy object search and anchored result list |
+| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringPublishedWizard.tsx` | linear local authoring workflow |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringRelationshipForm.tsx` | relationship guidance and target selection |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringRelationshipForm.test.tsx` | relationship search and guidance coverage |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringSelectedSource.tsx` | compact selected-source context |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphExistingObjectIdentityWorkbench.ts` | existing-node identity mapping |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphObjectAuthoringDraft.ts` | local proposal and reference semantics |
+| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphObjectAuthoringSearch.ts` | reusable fuzzy search helper |
+| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/graphObjectAuthoringSearch.test.ts` | fuzzy search helper coverage |
+| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/publishedRecapWorkingProjection.ts` | pure local working-projection derivation |
+| Create | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/publishedRecapWorkingProjection.test.ts` | overlay, reversal, persistence-shape, and scope coverage |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/useGraphObjectAuthoringDraft.ts` | campaign/session-scoped local proposal persistence |
+| Modify | `apps/live-control-ui/src/planSurface/planSurface.css` | recap + Author Node working layout and progressive expansion |
 
 Focused tests adjacent to these components are authorized and expected.
 
@@ -527,7 +552,7 @@ The cumulative PR must not contain:
 
 ---
 
-## §7 Explicitly out of scope
+## §5 Explicitly out of scope / collision boundary
 
 Do not modify or claim:
 
@@ -550,7 +575,7 @@ Immediate projection feedback is a **local working overlay**, not a shortcut dur
 
 ---
 
-## §8 Observable/adversarial paths
+## §3 Observable paths and adversarial sequences
 
 | Sequence                                        | Required outcome                                                         |
 | ----------------------------------------------- | ------------------------------------------------------------------------ |
@@ -574,7 +599,7 @@ Immediate projection feedback is a **local working overlay**, not a shortcut dur
 
 ---
 
-## §9 Evidence required to merge
+## §7 Evidence required to merge
 
 ### Automated proof
 
@@ -599,9 +624,11 @@ Run the focused test suite covering all modified owners.
 Also:
 
 ```bash
+pnpm --dir apps/live-control-ui exec vitest run src/planSurface/graphReviewWorkbench/PublishedRecapLocalAuthoring.test.tsx src/planSurface/graphReviewWorkbench/GraphObjectAuthoringSurface.test.tsx src/planSurface/graphPreview/WorldGraphRecapProjection.test.tsx src/graphObjectCard/GraphObjectCard.test.tsx
+pnpm --dir apps/live-control-ui typecheck
 pnpm --dir apps/live-control-ui build
 git diff --check
-git diff --name-only <dispatch-base>...HEAD
+git diff --name-only b9067303b6f88acf51429c2dfc331e3f2a48bd35...HEAD
 ```
 
 If the known baseline TypeScript failure still exists, compare exact base/head output and demonstrate this PR introduces no additional failure.
@@ -634,13 +661,13 @@ Minimum scenario:
 
 Record friction discovered during dogfood.
 
-Small UI fixes discovered here are authorized under §6.
+Small UI fixes discovered here are authorized under §4.
 
 If dogfood uncovers a **different product contract**, record it for successor work rather than swallowing it.
 
 ---
 
-## §10 UI quality bar
+### UI quality bar
 
 This is a dogfood PR, but “dogfood” does not mean temporary-quality UI.
 
@@ -659,7 +686,7 @@ Before review ask:
 
 ---
 
-## §11 State-authority synchronization
+### State-authority synchronization
 
 Because #738 is merged, this PR should perform backward-looking predecessor synchronization.
 
@@ -683,7 +710,7 @@ Do not pre-mark this UI slice complete before merge.
 
 ---
 
-## §12 Required review handback
+## §8 Required review handback
 
 Record:
 
@@ -708,30 +735,30 @@ Record:
 
 ---
 
-## §13 Acceptance rubric
+## §9 Acceptance rubric
 
-* [ ] #738 is recorded merged and V2-1 predecessor state is synchronized.
-* [ ] Highlight → Author graph opens the existing Author Node tool.
-* [ ] Published-local Author Node does not hide/replace the recap.
-* [ ] Authoring controls remain usable while reading source Markdown.
-* [ ] Local `link_existing` visibly creates an exact-node pill in the working projection.
-* [ ] Exact node identity is distinguished from true aliasing in the UI where resolvable.
-* [ ] Local new-object authoring visibly affects the working projection without pretending durable identity.
-* [ ] Local relationship authoring visibly affects working inspection.
-* [ ] Proposal removal reverses its local projection effect.
-* [ ] Local overlays rehydrate from existing scoped persistence.
-* [ ] Campaign/session isolation remains intact.
-* [ ] Root object presents truthful useful prose when available.
-* [ ] Connected-object prose can be expanded without replacing the root.
-* [ ] Expansion failure leaves root context intact.
-* [ ] Canonical recap Markdown remains unmodified.
-* [ ] Published browse remains non-write authority.
-* [ ] No prepare/commit/quick-commit/World publication is introduced.
-* [ ] Existing exact-run behavior remains truthful.
-* [ ] Dogfood tuning was followed by an explicit cleanup pass.
-* [ ] Final cumulative diff contains no abandoned experimental UI.
-* [ ] Changed paths remain within §6/bounded discovery.
-* [ ] V2-2 remains unimplemented and unauthorized.
+- [ ] #738 is recorded merged and V2-1 predecessor state is synchronized.
+- [ ] Highlight → Author graph opens the existing Author Node tool.
+- [ ] Published-local Author Node does not hide/replace the recap.
+- [ ] Authoring controls remain usable while reading source Markdown.
+- [ ] Local `link_existing` visibly creates an exact-node pill in the working projection.
+- [ ] Exact node identity is distinguished from true aliasing in the UI where resolvable.
+- [ ] Local new-object authoring visibly affects the working projection without pretending durable identity.
+- [ ] Local relationship authoring visibly affects working inspection.
+- [ ] Proposal removal reverses its local projection effect.
+- [ ] Local overlays rehydrate from existing scoped persistence.
+- [ ] Campaign/session isolation remains intact.
+- [ ] Root object presents truthful useful prose when available.
+- [ ] Connected-object prose can be expanded without replacing the root.
+- [ ] Expansion failure leaves root context intact.
+- [ ] Canonical recap Markdown remains unmodified.
+- [ ] Published browse remains non-write authority.
+- [ ] No prepare/commit/quick-commit/World publication is introduced.
+- [ ] Existing exact-run behavior remains truthful.
+- [ ] Dogfood tuning was followed by an explicit cleanup pass.
+- [ ] Final cumulative diff contains no abandoned experimental UI.
+- [ ] Changed paths remain within §4/bounded discovery.
+- [ ] V2-2 remains unimplemented and unauthorized.
 
 ---
 
@@ -752,4 +779,3 @@ Stop and return to the steward if:
 * dogfood uncovers a separate independently useful capability that should become its own PR.
 
 When stopping, preserve the experimental evidence and describe what the UI attempt revealed rather than quietly broadening the contract.
-

@@ -175,7 +175,14 @@ export function WorldGraphRecapProjectionView({
                 ×
               </button>
             )}
-            {complete.status === "loading" || complete.status === "idle" ? (
+            {activeIsLocal ? (
+              <p
+                className="module-muted"
+                data-testid="recap-graph-local-object-state"
+              >
+                Local object · staged in this campaign and session. World memory was not loaded.
+              </p>
+            ) : complete.status === "loading" || complete.status === "idle" ? (
               <p className="module-muted">Loading campaign memory…</p>
             ) : null}
             {complete.status === "error" || complete.status === "missing" ? (

@@ -125,6 +125,8 @@ keyboard focus → remains accessible
 
 Ordinary browse previews can retain hover behavior where it is useful, but authoring mode should not compete with text selection.
 
+This is retained as successor evidence rather than folded into this PR after review: the behavior crosses the current graph-reference and TipTap ownership boundary. The finding is still important, but it should land as a separately scoped interaction slice with its own regression coverage.
+
 ### 8. Duplicate evidence deserves a stronger moment in the flow
 
 Karsemine demonstrated that the duplicate signal can be confident enough to lead with a suggestion rather than burying it in a long list. The suggestion should be prominent, concise, and actionable, while the full candidate set stays available behind an explicit reveal.
@@ -172,3 +174,7 @@ Those boundaries are important: the dogfood proved the interaction model can bec
 The implementation was exercised against Campaign 1 and Campaign 2 recap flows, including selected existing nodes, new local objects, relationships, fuzzy target search, duplicate suggestions, close/reopen persistence, working-projection preview, and the terminal review state. Focused UI tests, TypeScript checking, and the production build pass.
 
 The next design/code pass should focus on information architecture and reusable decision controls, especially the Tools/Author Tools hierarchy, adaptive wizard copy, duplicate walkthrough, and standardized scoped fuzzy search. It should continue to preserve the current invariant: the GM remains oriented to the same source and working projection while local adjudications stay local and reversible.
+
+## Process follow-up
+
+This slice also exercised the branch-first handoff model in practice: the active branch was created from the current integration head, the implementation was reviewed at its exact branch head, and the PR carried the handoff plus its state-authority updates. Current repository law still describes a steward-landed-on-`main` handoff before branch allocation. No process-law change is bundled into this product PR; before the next slice, the steward should explicitly decide whether branch-first becomes the authoritative model and update the Steward/Code-agent process documents atomically if so.

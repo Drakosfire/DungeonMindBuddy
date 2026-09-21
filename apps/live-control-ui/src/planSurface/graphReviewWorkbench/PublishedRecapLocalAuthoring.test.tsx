@@ -327,7 +327,9 @@ describe("PublishedRecapLocalAuthoring", () => {
 
     fireEvent.click(await screen.findByTestId("graph-object-authoring-see-all-matches"));
     const bindList = await screen.findByTestId("graph-object-authoring-bind-existing-list");
-    fireEvent.click(within(bindList).getByTestId("graph-object-authoring-bind-as-alias-button"));
+    const aliasButton = within(bindList).getByTestId("graph-object-authoring-bind-as-alias-button");
+    expect(aliasButton).toHaveTextContent('Add “gang” as alias');
+    fireEvent.click(aliasButton);
 
     const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(staged).toHaveAttribute("data-proposal-kind", "link_existing");

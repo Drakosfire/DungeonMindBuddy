@@ -98,29 +98,6 @@ describe("GraphNodeHoverToken", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
-  it("keeps authoring glances closed during hover and opens them on click", () => {
-    const onSelect = vi.fn();
-    render(
-      <GraphNodeHoverToken
-        presentation={presentation}
-        label={presentation.label}
-        pinned={false}
-        onSelect={onSelect}
-        glanceInteraction="click"
-      />,
-    );
-
-    const button = screen.getByRole("button", { name: presentation.label });
-    const wrap = button.closest(".recap-node-token-wrap")!;
-    fireEvent.mouseEnter(wrap);
-    expect(wrap).toHaveAttribute("data-open", "false");
-
-    fireEvent.click(button);
-    expect(onSelect).toHaveBeenCalledTimes(1);
-    expect(wrap).toHaveAttribute("data-open", "true");
-    expect(button).toHaveAttribute("aria-describedby");
-  });
-
   it("dismisses the glance before selecting on click or Enter activation", () => {
     const onSelect = vi.fn();
     render(
