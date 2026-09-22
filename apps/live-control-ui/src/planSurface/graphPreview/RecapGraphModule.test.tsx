@@ -460,6 +460,14 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
       "data-session-id",
       "session-26",
     );
+    expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+      "data-source-artifact-path",
+      artifactRecord(26).source_recap_path,
+    );
+    expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+      "data-source-artifact-sha256",
+      "sha256:session-26",
+    );
 
     await waitFor(() => {
       expect(screen.getByLabelText("Focus session")).toHaveValue("session-16");

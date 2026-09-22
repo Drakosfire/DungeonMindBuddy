@@ -23,6 +23,15 @@ import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
 
 type LoadStatus = "loading" | "ready" | "error";
 
+interface LoadedRecapState {
+  payload: WorldGraphRecapProjection;
+  scope: {
+    campaignId: string;
+    sessionId: string;
+  };
+  record: RecapArtifactRecord | null;
+}
+
 /** Legacy Union recap source labels retained for GraphIngestProjectionPanel consumers. */
 export type RecapProjectionSource =
   | "latest-graph-ingest"
@@ -78,7 +87,6 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [catalogLoading, setCatalogLoading] = useState(true);
-  const [recapPayload, setRecapPayload] = useState<WorldGraphRecapProjection | null>(null);
   const [sessionRecords, setSessionRecords] = useState<RecapArtifactRecord[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState(defaultSessionId);
   const [selectedCampaignId, setSelectedCampaignId] = useState(() =>
@@ -97,26 +105,15 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   draftSessionIdRef.current = draftSessionId;
   const initialLoadStartedRef = useRef(false);
   const loadGenerationRef = useRef(0);
-  const [loadedScope, setLoadedScope] = useState<{
-    campaignId: string;
-    sessionId: string;
-  } | null>(null);
+  // Keep the payload and its server-owned source record together. The catalog
+  // is a draft-selection aid and may change when the operator edits Campaign;
+  // it must not invalidate the source authority for the recap currently on
+  // screen before a replacement Load succeeds.
+  const [loadedRecap, setLoadedRecap] = useState<LoadedRecapState | null>(null);
 
   const campaignSessionRecords = useMemo(
     () => sessionRecords.filter((record) => record.campaign_id === draftCampaignId),
     [draftCampaignId, sessionRecords],
-  );
-
-  const selectedRecapRecord = useMemo(
-    () =>
-      loadedScope
-        ? sessionRecords.find(
-            (record) =>
-              record.campaign_id === loadedScope.campaignId
-              && record.session_id === loadedScope.sessionId,
-          ) ?? null
-        : null,
-    [loadedScope, sessionRecords],
   );
 
   const sessionOptions = useMemo(() => {
@@ -141,8 +138,6 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     const generation = ++loadGenerationRef.current;
     setStatus("loading");
     setError(null);
-    setRecapPayload(null);
-    setLoadedScope(null);
     const { campaignId: resolvedCampaignId } = resolveSessionRecapContext(
       sessionId,
       campaignId,
@@ -156,8 +151,6 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       if (generation !== loadGenerationRef.current) {
         return;
       }
-      setRecapPayload(null);
-      setLoadedScope(null);
       setError(`World Graph mapping is unavailable for campaign ${resolvedCampaignId}.`);
       setStatus("error");
       return;
@@ -168,15 +161,20 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       if (generation !== loadGenerationRef.current) {
         return;
       }
-      setRecapPayload(projection);
-      setLoadedScope({ campaignId: resolvedCampaignId, sessionId });
+      setLoadedRecap({
+        payload: projection,
+        scope: { campaignId: resolvedCampaignId, sessionId },
+        record: sessionRecords.find(
+          (record) =>
+            record.campaign_id === resolvedCampaignId
+            && record.session_id === sessionId,
+        ) ?? null,
+      });
       setStatus("ready");
     } catch (loadError) {
       if (generation !== loadGenerationRef.current) {
         return;
       }
-      setRecapPayload(null);
-      setLoadedScope(null);
       setError(recapUnavailableMessage(loadError, sessionId, resolvedCampaignId));
       setStatus("error");
     }
@@ -274,9 +272,8 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
 
   const authorableRecap =
     status === "ready" &&
-    recapPayload &&
-    loadedScope
-      ? recapPayload
+    loadedRecap
+      ? loadedRecap.payload
       : null;
 
   const reviewToolbar = (
@@ -339,7 +336,7 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         draftSessionId={draftSessionId}
         onLoad={handleLoad}
         canLoad={!catalogLoading}
-        recapRecord={selectedRecapRecord}
+        recapRecord={loadedRecap?.record ?? null}
         onRefreshProjection={() => loadRecapProjection(selectedCampaignId, selectedSessionId)}
       />
     );
