@@ -1,6 +1,6 @@
 # Design — Graph Object Authoring Surface
 
-**Status:** HISTORICAL INTERACTION/IMPLEMENTATION CHECKPOINT — current authority/sequencing moved to Authoring v2 plan
+**Status:** HISTORICAL INTERACTION/IMPLEMENTATION CHECKPOINT — current interaction authority moved to the source-to-World authoring contract
 **Date:** 2026-07-09
 **Workstream:** Graph Memory / Memory Ingest / Graph Review / Graph Authoring  
 **Companion roadmap:** `Docs/Plans/ROADMAP-graph-object-authoring-surface.md`  
@@ -29,6 +29,10 @@ It predates the completed DungeonMind authority cutover.
 Current design/sequencing authority:
 
 `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
+
+Current interaction authority:
+
+`Docs/Design/DESIGN-source-to-world-authoring-interaction-contract.md`
 
 Standing reinterpretation:
 

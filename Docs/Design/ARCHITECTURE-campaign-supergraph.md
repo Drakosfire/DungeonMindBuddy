@@ -23,6 +23,7 @@
 - [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md) — **UI shell / shared bars** (cross-boundary pointer only)
 - [`ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md) — Plan domain composition
 - [`DESIGN-graph-object-authoring-surface.md`](DESIGN-graph-object-authoring-surface.md)
+- [`DESIGN-source-to-world-authoring-interaction-contract.md`](DESIGN-source-to-world-authoring-interaction-contract.md) — source/World authoring interaction and transaction-local reference contract
 - [`DESIGN-plan-surface-session-prep-current-goal-2026-07.md`](DESIGN-plan-surface-session-prep-current-goal-2026-07.md)
 - Evidence / identity / taxonomy contracts under `Docs/Design/GRAPH-MEMORY-*` that the audit marks KEEP
 

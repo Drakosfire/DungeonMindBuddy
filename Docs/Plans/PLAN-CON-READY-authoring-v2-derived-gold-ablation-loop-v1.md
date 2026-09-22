@@ -1,7 +1,7 @@
 # PLAN — CON-READY: Authoring v2 → derived gold → extraction ablation loop
 
 **Created:** 2026-09-18  
-**Status:** ACTIVE SEQUENCING AUTHORITY — V2-0 complete; V2-1 merged; V2-1A merged; V2-2 ACTIVE  
+**Status:** ACTIVE SEQUENCING AUTHORITY — V2-0 complete; V2-1 merged; V2-1A merged; V2-2 merged; successor design re-anchor BLOCKED
 **Canonical path:** `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`  
 **Workstream:** `CON-READY / DOGFOOD-CONTINUITY / campaign memory authoring`  
 **Re-anchor input:** `main@28754d1fdda15be97475f35e08127833b088a256` — V2-1A / PR #741 merged  
@@ -466,12 +466,23 @@ Authoring v2                                   CURRENT IMPLEMENTATION FRONTIER
 V2-0 current manual-authoring contract census  COMPLETE / PASS
 V2-1 published-recap local proposal             MERGED — PR #738
 V2-1A working-projection UI dogfood             MERGED — PR #741
-V2-2 governed World commit                      ACTIVE — current handoff
+V2-2 governed World commit                      MERGED — PR #742
+Source-to-World transaction semantics            BLOCKED — design re-anchor handoff
 V2-3 derived gold export                        NOT YET AUTHORIZED
 V2-4 extraction/model ablation                  PARKED BEHIND GOLD
 V2-5 Agent-assisted assessment                  PARKED BEHIND MANUAL LOOP
 ```
 
-Exactly one V2-2 implementation PR is authorized by the ACTIVE governed-World-commit handoff above. The plan does not authorize repair fan-out, V2-3 gold export, extraction/model ablation, Agent authoring, merge/reconciliation, or statblock successor PRs.
+V2-2 merged as PR #742. The next implementation capability is blocked behind
+the source-to-World interaction design re-anchor:
+`Docs/Plans/HANDOFF-CON-READY-source-to-world-transaction-semantics-v1.md`.
+No implementation lane is authorized until that handoff is activated from a
+fresh `main` re-anchor. The plan does not authorize repair fan-out, V2-3 gold
+export, extraction/model ablation, Agent authoring, merge/reconciliation, or
+statblock successor PRs.
 
-V2-1A / PR #741 predecessor state is synchronized here. V2-2 is the active frontier. After V2-2 merges and its exact live write/read-back witness is accepted, synchronize state authority again before authorizing V2-3.
+V2-1A / PR #741 and V2-2 / PR #742 are historical completed predecessors.
+The audit found that V2-2's durable-write seam is not yet a coherent authoring
+product loop; transaction-local dependency semantics must be repaired before
+inspection/publish continuity and authoring composition are sequenced. V2-3
+remains unauthorized.
