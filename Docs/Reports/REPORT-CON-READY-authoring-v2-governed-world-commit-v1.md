@@ -176,29 +176,24 @@ The same read explains the Questionable Company confusion. The exact durable nod
 That is correct for the narrower projection, but it is not currently usable from
 the C1/S1 authoring surface even when the application chrome says C1+C2 is ready.
 
-There is a second product boundary defect behind that behavior:
+### Historical pre-#744 observations
 
-1. The application chrome owns a shared World lens and can report `C1+C2 · Ready`.
-2. The recap authoring surface receives `payload.nodeViews` from the selected
-   C1/S1 recap projection and passes the resulting working projection to the
-   Author Node.
-3. Existing-target admission checks whether a resolver candidate ID exists in
-   those recap-local node views, not in the shared C1+C2 governed World projection.
+The following earlier diagnosis is retained as historical evidence only. It is
+superseded by merged #744 and must not be used as the current implementation
+description:
 
-Consequently, a C2 durable object can be visible in the union status while still
-being rejected as an existing target from C1/S1. The Ephanna resolver result is
-similarly misleading: it can find extracted/party-source candidates, but the
-bindable-target filter correctly rejects them because `pc:ephanna` is not present
-in the exact governed node map supplied to authoring. This is why the UI says two
-Ephanna matches while showing no main Ephanna PC object.
+- Author Node existing-target admission no longer uses recap-local `nodeViews`
+  as its governed authority. Current code derives eligibility from the active
+  governed World-lens projection and the canonical resolver target ID.
+- Ingest recap/session selection is now independent from the World Graph lens.
+  A recap session may be loaded while the World lens remains a separate union or
+  focused projection.
 
-The graph focus default is independently wrong for Ingest. The URL
-`?campaign=longmont-c1&scopeMode=campaign&session=session-1` uses `session-1` both
-as recap identity and as the shared graph-lens focus. On initial load this selects
-C1/S1 rather than a plain union. The Ingest recap selector and the World Graph
-lens are separate state machines, but they currently share the same URL session
-parameter. Ingest also declines to write the shared lens state back to the URL,
-so the chrome can remain at C1+C2/no-focus while the URL still describes C1/S1.
+The remaining C1/C2 behavior must therefore be diagnosed against the active
+World lens and its exact projection, not against the retired recap-local or
+shared-session explanation. The live identity gap remains independently real:
+`pc:ephanna` is absent from governed World truth even though the resolver can
+find the Party / PCs candidate.
 
 ### Design decision requested
 
@@ -208,12 +203,10 @@ following before #742 can claim the existing-object witness:
 
 - apply and prove the six-PC atomic reconciliation against the current
   `eldyrwild` head, including `node:ephanna → pc:ephanna`;
-- make Author Node existing-target validation use the exact governed World
-  projection for the active union, or move that authority check server-side;
-- keep recap/session selection separate from the graph lens, with Ingest opening
-  on plain union/no focus unless the operator explicitly chooses a graph focus;
 - distinguish `World projection loaded` from `party identities reconciled` in
   readiness/status copy;
+- keep the loaded recap payload and its server-owned `RecapArtifactRecord`
+  transactionally paired until a replacement `Load` succeeds;
 - prove the intended witness end to end:
 
 ```text
@@ -241,6 +234,113 @@ publication ready                = the selected target exists in governed World 
 ```
 
 No genesis or World creation was run for `longmont-c1`. The current UI explains the actionable condition: create or publish the object into the governed World first, then add the alias. This is the smallest successor/bootstrap decision; it is not a reason to create a campaign-level World.
+
+## Designing-agent escalation — current #742 review and identity-reconciliation blocker
+
+This section records the current implementation review and the handback to the
+designing agent. It is not a new formal GitHub review-cycle count.
+
+### Exact review anchor
+
+```text
+PR                         = #742
+implementation head        = 6272097e08e83f12e549a6588cdee4460e956a45
+base                        = main@8000fb607f418242e816c08b819d92fa764eac70
+branch                      = con-ready/authoring-v2-governed-world-commit-v1
+committed changed paths    = 22
+```
+
+The committed #742 surface is re-anchored onto merged #744 behavior. Focused
+verification at the current head is green: the six-file UI suite reports **102
+passed**, UI typecheck and production build pass, and `git diff --check` passes.
+The previously recorded focused backend evidence remains green with the
+opt-in real-PostgreSQL authority witness skipped. No live World mutation was
+performed by this review.
+
+### Review Cycle 3 finding
+
+Formal Review Cycle 3 was posted as `5273340663` against predecessor head
+`863b13f68af08cc35d18f7cd0de675ba243a240c` with a **HOLD** verdict. The #744
+rebase, governed-target eligibility, and
+relationship-picker canonical-ID seam are sound. The concrete new blocker was
+the explicit Load state boundary: changing the draft Campaign refreshed the
+artifact catalog while leaving the loaded recap visible, so the old
+`selectedRecapRecord` lookup could become `null` before a replacement Load.
+That stripped the visible recap of its `recapArtifactId`, source path, digest,
+and governed write authority.
+
+The repair keeps payload, loaded scope, and `RecapArtifactRecord` in one loaded
+state bundle and replaces that bundle only after a projection Load succeeds.
+Failed replacement loads also retain the prior bundle rather than stripping
+the visible recap's source authority. A focused regression asserts that
+changing the draft Campaign leaves the loaded C2 source path and digest intact.
+The repair is committed at `6272097e08e83f12e549a6588cdee4460e956a45`.
+
+### Review disposition
+
+The #742 implementation is structurally ready to continue its governed publish
+flow, but it remains **HOLD / not merge-ready** for the live existing-object
+witness. The UI is correctly refusing to bind `pc:ephanna` while that durable
+ID is absent. The misleading “No confident duplicate was found” copy is a
+secondary UX defect: the resolver did find a high-confidence exact `pc:ephanna`
+candidate, but the governed-target eligibility gate excludes it until the
+current World projection contains that ID.
+
+The primary blocker is therefore the missing six-PC identity reconciliation,
+not recap ingestion, the #742 prepare/confirm path, or the matcher itself.
+
+### What is stopping the reconciliation
+
+DungeonMind PR #70 delivered the atomic reconciliation capability, but the
+identity-specific recovery operation has not been implemented or dispatched.
+The inspected recovery checkout
+`/tmp/dungeonmind-pc-identity-reconciliation` is still at `a53ac4c` and contains
+no `eldyrwild_pc_identity_reconciliation.py`, operator apply script, or
+six-PC reconciliation implementation. Consequently there is no governed
+operation available to invoke against live `eldyrwild` yet.
+
+The remaining gates are:
+
+1. **DungeonMind ownership:** the mutation belongs in DungeonMind’s recovery
+   lane. Buddy must not translate `pc:*` to `node:*`, create a duplicate PC,
+   use raw SQL, or add a resolver exception.
+2. **Fresh parent re-anchor:** the identity handoff records
+   `rev:e570042d33a30d07e053c578dedbc804`, while the later Buddy report recorded
+   `rev:bd1d6a17747566fc8955b3c17f9cf680`. Neither should be used blindly. The
+   recovery lane must read the actual current `eldyrwild` head and materialize
+   the six mappings against that exact parent.
+3. **Atomic operator action:** after preflight, one expected-parent CAS
+   operation must reconcile all six PCs or make no World change. It must produce
+   six durable reconciliation decisions, a child revision, replay evidence, and
+   an exact-retry no-op. No partial six-PC migration is acceptable.
+4. **Downstream witness:** only after `pc:ephanna` is current in the governed
+   projection can #742 prove `highlight → canonical existing Ephanna → alias /
+   reference → prepare → confirm → refresh → durable read-back`.
+
+An earlier operator authorization was given in the conversation, but the live
+apply did not occur; the recovery work stopped before mutation and the handoff
+still correctly shows the explicit apply gate as pending. This is an unfinished
+recovery dispatch, not a DungeonMind rejection of the operation.
+
+### Required handback to the designing agent
+
+The next authorized sequence is:
+
+```text
+1. Re-anchor the DungeonMind recovery handoff on current main and current
+   Eldyrwild head.
+2. Implement/dispatch the bounded exact-six recovery operation using PR #70's
+   atomic publisher.
+3. Re-run read-only preflight and present the exact parent plus six mappings.
+4. At the operator gate, publish one atomic child or no-op.
+5. Reload through fresh connections and prove canonical IDs, relationship and
+   evidence preservation, persisted decisions, replay equality, and retry
+   idempotency.
+6. Re-anchor #742 and re-run the Ephanna existing-object witness.
+7. Complete the separate Create-new durable-node witness.
+```
+
+Until those steps pass, #742 must remain open and no V2-3 work should begin.
 
 ## Dogfood notes and remaining boundary
 
