@@ -286,18 +286,17 @@ secondary UX defect: the resolver did find a high-confidence exact `pc:ephanna`
 candidate, but the governed-target eligibility gate excludes it until the
 current World projection contains that ID.
 
-The primary blocker is therefore the missing six-PC identity reconciliation,
-not recap ingestion, the #742 prepare/confirm path, or the matcher itself.
+The primary blocker is therefore the live-authority re-anchor, not recap
+ingestion, the #742 prepare/confirm path, or the matcher itself.
 
 ### What is stopping the reconciliation
 
-DungeonMind PR #70 delivered the atomic reconciliation capability, but the
-identity-specific recovery operation has not been implemented or dispatched.
-The inspected recovery checkout
-`/tmp/dungeonmind-pc-identity-reconciliation` is still at `a53ac4c` and contains
-no `eldyrwild_pc_identity_reconciliation.py`, operator apply script, or
-six-PC reconciliation implementation. Consequently there is no governed
-operation available to invoke against live `eldyrwild` yet.
+DungeonMind PR #70 delivered the atomic reconciliation capability. The bounded
+identity-specific recovery operation is now implemented on
+`recovery/eldyrwild-pc-identity-reconciliation-v1` at `0e9a322` and pushed for
+review. It provides exact-six preflight, an explicit `--confirm-apply` gate,
+and persisted-decision replay/exact-retry proof. It has not mutated the live
+World.
 
 The remaining gates are:
 
@@ -318,9 +317,37 @@ The remaining gates are:
    reference → prepare → confirm → refresh → durable read-back`.
 
 An earlier operator authorization was given in the conversation, but the live
-apply did not occur; the recovery work stopped before mutation and the handoff
-still correctly shows the explicit apply gate as pending. This is an unfinished
-recovery dispatch, not a DungeonMind rejection of the operation.
+apply did not occur. The recovery work correctly stopped at a newer authority
+divergence before mutation; the explicit apply gate remains pending.
+
+### New live-authority stop — 2026-09-21
+
+The new recovery preflight connected read-only to the configured local authority
+`127.0.0.1:54330/dungeonmind_cutover_live` and found a state that does not match
+the handoff’s established Case B parent:
+
+```text
+current head              = rev:bd1d6a17747566fc8955b3c17f9cf680
+graph                     = dm_union_graph_v6
+objects / relationships   = 1048 / 559
+evidence refs             = 448
+reconciliation decisions  = 0
+node:* six-source cohort  = all absent
+pc:* six-target cohort    = all present
+```
+
+The handoff expected the exact opposite precondition at `rev:e570042d...`:
+six current canonical `node:*` sources and no current `pc:*` targets. The
+recovery tool therefore returned `STOP / unexpected_cohort_identity_state` and
+did not call the publisher. This is not evidence that the six-PC rebind should
+be retried against the current head: doing so would target already-present IDs
+and could create a duplicate/collision or misrepresent the identity history.
+
+The current authority must be re-anchored and its chronology classified before
+any apply decision. In particular, establish how the six `pc:*` objects reached
+the current head despite zero persisted `canonical_rebind` decisions, and
+whether this database is the intended live authority for the #742 dogfood.
+Until that is resolved, the safe state is no mutation and #742 remains blocked.
 
 ### Required handback to the designing agent
 
