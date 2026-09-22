@@ -6,7 +6,7 @@
 **Design base:** `main@ce3b86bd560b294a97f6c7bfb7d23dfdacb78b07`
 **Branch:** `con-ready/ingest-recap-world-lens-separation-v1`
 **PR title:** `CON-READY: separate recap and World lenses`
-**Topology:** serial repair against `main`; #742 remains open and frozen at `8fcbbc28e6da7c4d9652232a3316d591f1a5504d`
+**Topology:** authorized parallel-independent blocker repair alongside frozen #742; #742 remains open and frozen at `8fcbbc28e6da7c4d9652232a3316d591f1a5504d`. This lane does not depend on or modify #742.
 **V2-3:** unauthorized
 
 ## §1 Mission and merge-ready invariant
@@ -23,13 +23,15 @@ World decides what may be bound.
 Recap campaign/session control only prose, extraction, and the local working
 projection. The shared World lens controls durable identity eligibility against
 its exact coherent revision. A resolver candidate is an existing governed
-target only when its exact durable `candidate_id` is present in that World
-projection. Labels, aliases, confidence, party-registry presence, recap-local
-nodes, and local staged objects never substitute for exact membership.
+target only when the exact canonical bind-target node ID is present in that
+World projection. The bind-target rule is
+`existing_object_ref.object_id` when present, otherwise `candidate_id`.
+Labels, aliases, confidence, party-registry presence, recap-local nodes, and
+local staged objects never substitute for exact membership.
 
 Candidate evidence remains visible when it is not durable, but its `Use
 existing` / `Add as alias` action is unavailable. Published-recap staging also
-rejects absent exact IDs so stale UI cannot bypass the rule.
+rejects absent exact bind-target IDs so stale UI cannot bypass the rule.
 
 The recap remains source-grounded: World nodes outside the selected recap do
 not become Markdown annotations merely because they exist in the World lens.
@@ -115,8 +117,10 @@ Markdown, rewrite Plan/Build URL grammar, start V2-3, or complete #742.
    `graphFocus`, preserving recap `campaign` and unqualified `session`.
 4. Resolver candidates remain visible; candidate-only results explain missing
    durable World membership and expose no actionable existing operation.
-5. Exact candidate-ID membership in the shared governed projection is the sole
-   existing-object eligibility rule.
+5. Exact membership of the canonical bind-target node ID in the shared
+   governed projection is the sole existing-object eligibility rule. Resolver
+   results use `existing_object_ref.object_id` when present and otherwise
+   `candidate_id`; no label, alias, or fuzzy remapping is allowed.
 6. The published-recap staging callback rejects candidate-only operations and
    leaves proposals unchanged.
 7. The working projection remains local and never proves durable membership.
@@ -133,7 +137,9 @@ pnpm --dir apps/live-control-ui exec vitest run \
   src/planSurface/graphPreview/WorldGraphRecapProjection.test.tsx \
   src/planSurface/graphReviewWorkbench/PublishedRecapLocalAuthoring.test.tsx \
   src/planSurface/graphReviewWorkbench/GraphObjectAuthoringSurface.test.tsx \
-  src/planSurface/graphReviewWorkbench/graphExistingObjectEligibility.test.ts
+  src/planSurface/graphReviewWorkbench/graphExistingObjectEligibility.test.ts \
+  src/planSurface/graphReviewWorkbench/graphExistingObjectIdentityWorkbench.test.ts \
+  src/planSurface/graphReviewWorkbench/useGraphObjectAuthoringDraft.test.ts
 pnpm --dir apps/live-control-ui typecheck
 pnpm --dir apps/live-control-ui build
 git diff --check
@@ -144,7 +150,10 @@ paths. Evidence must cover old C1/S1 deep links, independent selector changes,
 hard refresh, Plan/Build compatibility, recap/working/governed view separation,
 candidate-only `pc:ephanna`, an exact World-present candidate absent from the
 recap, projection failure fail-closed behavior, and complete-object reads via
-the World lens. Read-only dogfood is required; no live mutation is allowed.
+the World lens. Read-only dogfood must cover both selector directions: changing
+the recap leaves the World lens fixed, and changing the World lens leaves the
+recap fixed. It must also show a World-only existing target as selectable
+without adding a recap annotation. No live mutation is allowed.
 
 ## §8 Stop conditions
 
