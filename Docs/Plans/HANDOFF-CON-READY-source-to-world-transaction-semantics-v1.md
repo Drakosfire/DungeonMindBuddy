@@ -1,127 +1,206 @@
 # HANDOFF — CON-READY: source-to-World transaction semantics
 
-**Created:** 2026-09-22
-**Status:** BLOCKED — design re-anchor must be accepted and re-anchored before dispatch
-**Canonical handoff path:** `Docs/Plans/HANDOFF-CON-READY-source-to-world-transaction-semantics-v1.md`
-**Flow / owner:** `CON-READY`
-**PR topology:** `serial`
-**Design authority:** `Docs/Design/DESIGN-source-to-world-authoring-interaction-contract.md`
-**Design base:** `main@c6730c94cbdce97ce1b6bd7999fc4685d61f9c69`
+**Created:** 2026-09-22  
+**Status:** PARKED MIGRATION EVIDENCE — DO NOT DISPATCH IN DUNGEONBUDDY  
+**Canonical handoff path:** `Docs/Plans/HANDOFF-CON-READY-source-to-world-transaction-semantics-v1.md`  
+**Flow / owner:** `CON-READY`  
+**Design authority:** `Docs/Design/DESIGN-source-to-world-authoring-interaction-contract.md`  
+**Pause authority:** `Docs/Plans/HANDOFF-CON-READY-worldkeeper-sidequest-v1.md`  
+**Original design base:** `main@c6730c94cbdce97ce1b6bd7999fc4685d61f9c69`
 
-## §1 Mission and merge-ready invariant
+## §1 Why this handoff is parked
 
-Make a staged create-object plus relationship transaction publishable when a
-relationship endpoint is a valid `local_proposal` reference to an object created
-in that same transaction.
+This handoff identifies a real defect in the current DungeonBuddy authoring
+implementation:
 
-> A prepared contribution may contain durable and transaction-local endpoints.
-> On one explicit confirm it either publishes one child World revision whose
-> relationships resolve to the emitted durable IDs, or publishes nothing. The
-> receipt maps each committed local object proposal to its durable node ID.
+`classify_graph_review_expressibility()` rejects a same-batch relationship
+endpoint unless it already has a durable `nodeId`, while the existing
+contribution translator already knows how to resolve a transaction-local object
+proposal to its deterministic prospective authored object identity.
 
-This is transaction semantics only. It does not redesign the Author Node,
-change durable-reference click behavior, add automatic duplicate resolution, or
-claim recap mention linkage.
+Originally this was going to be the next bounded Buddy implementation.
 
-## §2 Activation gate
+That dispatch is now paused.
 
-Do not dispatch or reserve §4 paths until all are true:
+The World Keeper side quest is establishing a cleaner ownership boundary in
+which semantic transaction interpretation—including expressibility and
+transaction-local reference resolution—should not remain a growing
+DungeonBuddy responsibility.
 
-1. the source-to-World interaction contract is accepted and landed on `main`;
-2. a fresh re-anchor records the then-current `main`, open CON-READY PRs, and
-   actual implementation base;
-3. no active serial CON-READY implementation PR owns these paths; and
-4. the steward confirms that the current authority still has the
-   `local_proposal → authored object node ID` translation seam and that the
-   failure remains at prepare classification rather than an authority change.
+Keep this document as exact current-implementation evidence and as a candidate
+migration acceptance test. Do not reserve the old write lease or open an
+implementation PR from it.
 
-Activation may fill in the authorized branch/PR title and backward-looking
-state-authority sync. It must not enlarge this mission without a new design
-review.
+## §2 Preserved capability requirement
 
-## §3 Required behavior
+The product requirement remains:
+
+> One proposed transaction may create an object and create a relationship whose
+> endpoint is that same transaction-local object. One explicit confirmation
+> must produce either one coherent immutable child with durable endpoints or no
+> publication.
+
+Example:
 
 ```text
 Create local:brewery
-existing node:pippa → works_at → local:brewery
-→ prepare succeeds without a World mutation
+existing Pippa → works_at → local:brewery
+
+→ prepare exact interpretation without World mutation
 → explicit confirm
 → exactly one child revision
-→ relationship target is the durable ID emitted for local:brewery
-→ receipt exposes local:brewery → node:* mapping
+→ created object has one durable identity
+→ relationship endpoint is that same durable identity
+→ exact child read-back proves both
 ```
 
-The following remain fail-closed: a missing local proposal, a local reference
-to a non-object proposal, a reference outside the prepared proposal set, an
-invalid durable endpoint, a stale parent, or a changed prepared proposal.
+This requirement belongs in the future World Keeper transaction contract even
+if a temporary Buddy bridge is later required.
 
-## §4 Files in scope — write lease after activation
+## §3 Transaction-local integrity invariants
+
+Within one prepared proposal/intent set:
+
+- every local proposal/reference ID is non-empty;
+- every local proposal/reference ID is unique;
+- a `local_proposal` object endpoint resolves to exactly one object proposal
+  in that same set;
+- missing references fail closed;
+- references to a non-object proposal fail closed;
+- references outside the prepared set fail closed;
+- invalid durable endpoints fail closed;
+- a changed proposal set cannot reuse a prior confirmation binding;
+- stale World parent fails closed.
+
+The duplicate-local-ID case is required negative coverage. Current dictionary
+construction can otherwise collapse duplicate keys and silently choose one
+prospective object identity.
+
+## §4 Accepted current implementation evidence
+
+Current Buddy translation already does the important semantic work
+conceptually:
+
+```text
+all object assertions
+→ deterministically compute prospective authored object identity
+→ build local proposal ID → prospective durable object ID map
+→ resolve relationship local endpoints through that map
+→ build one exact contribution containing object + edge
+→ seal contribution digest during prepare
+→ confirm reconstructs/proves the same contribution
+→ DungeonMind atomically validates/publishes that contribution
+```
+
+The present mismatch is earlier classification, not missing object/edge
+materialization machinery.
+
+A future implementation must not invent a two-publication object-then-edge
+workflow.
+
+## §5 Historical candidate Buddy write lease — NOT ACTIVE
+
+The original candidate lease was:
 
 - `apps/live_control_server/services/graph_object_authoring_prepare.py`
 - `tests/test_graph_object_authoring_prepare.py`
 - `tests/test_graph_object_authoring_published_recap_write.py`
-- `Docs/Plans/HANDOFF-CON-READY-source-to-world-transaction-semantics-v1.md`
-- `Docs/Reports/REPORT-CON-READY-source-to-world-transaction-semantics-v1.md`
+- this handoff;
+- a focused report.
 
-One additional focused test path may be added only if the existing published
-recap integration fixture cannot own the real prepare/confirm/read-back proof.
-Any production path outside this list is a STOP and re-brief.
+That list is retained only to make the old bounded repair reconstructable.
 
-## §5 Out of scope
+**It is not an active write lease.**
 
-- UI composition, tabs, resize behavior, hover/click interaction, and load UX;
-- durable-reference inspection routing;
-- relationship-form redesign beyond correcting a proven transaction payload;
-- recap occurrence/pill creation or mention-link policy;
-- identity reconciliation, merge, automatic dedupe, or extraction candidates;
-- DungeonMind schema/dependency changes, raw SQL, and live World mutation;
-- V2-3 derived gold and all later work.
+Any Buddy implementation now requires a fresh post-World-Keeper handoff.
 
-## §6 Implementation contract
+## §6 Migration decision required before implementation
 
-The prepare classifier must recognize the same canonical endpoint rule used by
-contribution translation:
+After World Keeper design is accepted, re-read current Buddy `main` and
+choose explicitly among:
+
+### A. Minimal temporary Buddy bridge
+
+Repair only the classifier/referential validator so dogfood can continue while
+the World Keeper client migration is prepared.
+
+Use this only if product continuity requires it.
+
+### B. Direct World Keeper implementation
+
+Implement the transaction semantics in World Keeper and migrate Buddy's
+authoring call boundary without adding more semantic compiler ownership to
+Buddy.
+
+This is preferred if the service boundary is ready.
+
+### C. Re-design
+
+If the accepted World Keeper contract changes the meaning of prepare,
+prospective durable identity, or source binding, stop and write a new bounded
+design. Do not force this historical handoff onto the new architecture.
+
+## §7 Evidence that must eventually survive
+
+Wherever the capability lands, require:
+
+- valid durable → local object relationship passes semantic preparation;
+- valid local object → durable relationship if supported passes likewise;
+- duplicate local reference IDs fail closed;
+- missing local reference fails closed;
+- non-object local reference fails closed;
+- out-of-transaction local reference fails closed;
+- invalid durable endpoint fails closed;
+- prepare performs no durable World mutation;
+- one confirm produces one immutable child;
+- exact child contains the created object and durable edge;
+- retry/recovery produces no second child;
+- changed/stale prepared intent fails closed;
+- existing durable-to-durable relationship behavior remains green.
+
+## §8 Relationship result identity remains open
+
+Do not require a Buddy-specific `created_relationship_ids` response merely to
+close this handoff.
+
+The future World Keeper committed-change contract must decide whether:
 
 ```text
-existing_graph_node → exact governed durable node ID
-local_proposal(object in this prepared set) → deterministic authored node ID
+local relationship operation ID → durable relationship ID
 ```
 
-It must not reject a valid local endpoint merely because it has no already
-published `nodeId`. Translation must continue to materialize the object and
-rewrite dependent edges in the single contribution; confirm/idempotency behavior
-must remain unchanged.
+is returned explicitly, or whether exact relationship navigation is resolved
+from exact child read-back.
 
-Operator-facing inexpressible errors must name the invalid endpoint class rather
-than report the unrelated identity-merge limitation.
+The correctness witness only requires proof of the exact durable edge in the
+published child.
 
-## §7 Evidence required to merge
+## §9 Explicit holds
 
-- focused unit coverage proves valid object-local endpoints pass classification;
-- negative coverage proves each invalid local-reference class fails closed;
-- an owning real-authority integration test proves before-confirm head stability;
-- the same test proves one confirmed child, emitted object ID, exact durable
-  edge endpoint, and receipt mapping after fresh read-back;
-- retry proves no second child revision;
-- existing durable-to-durable relationship coverage stays green;
-- `git diff --check`, focused backend tests, and applicable type/build checks
-  pass at the reviewed head.
+This parked handoff does not authorize:
 
-No live mutation is required for this implementation slice. Live dogfood occurs
-only after review acceptance and an explicit operator action under the existing
-governed publication protocol.
+- Author Node redesign;
+- inspection routing;
+- mention/pill projection policy;
+- identity merge/reconciliation;
+- automatic dedupe;
+- extraction/model changes;
+- V2-3;
+- DungeonMind schema changes;
+- live World mutation.
 
-## §8 Required review handback
+## §10 Resume gate
 
-Record exact base/head, changed paths versus §4, classification/translation
-contract, integration authority used, parent/child/receipt evidence, retry
-result, baseline failures, and confirmation that V2-3 remains unauthorized.
+Do not reactivate this handoff.
 
-## §9 Acceptance rubric
+After World Keeper design/bootstrap is accepted, create a **new** fresh-main
+DungeonBuddy handoff that cites this document as evidence and states which
+repository owns the implementation.
 
-- [ ] Same-batch local object + relationship is expressible.
-- [ ] Invalid local references fail closed with truthful diagnostics.
-- [ ] One confirm produces one immutable child with fully durable endpoints.
-- [ ] Receipt and read-back expose local-to-durable identity mapping.
-- [ ] No unrelated Authoring UX, identity, mention-linking, or World-authority
-  capability was added.
+Until then:
+
+```text
+STATUS = PARKED
+BUDDY IMPLEMENTATION = NONE
+V2-3 = NOT AUTHORIZED
+```
