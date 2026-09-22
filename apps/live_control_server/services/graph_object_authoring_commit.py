@@ -92,7 +92,6 @@ def commit_graph_object_authoring_write(
     )
 
     del repo_root_override  # Graph Review confirm must not union-materialize.
-    del corpus_root  # skipped audit must not resolve overlay/event paths
 
     if not request.proposals:
         raise GraphObjectAuthoringError(
@@ -158,6 +157,12 @@ def commit_graph_object_authoring_write(
             code="confirmation_invalid",
             status_code=409,
         )
+    if (intent.get("recap_artifact_id") or None) != (request.recap_artifact_id or None):
+        raise GraphObjectAuthoringError(
+            "Confirm token does not match the prepared publication intent.",
+            code="confirmation_invalid",
+            status_code=409,
+        )
     if str(intent.get("assertions_digest") or "") != assertions_digest:
         raise GraphObjectAuthoringError(
             "Confirm token does not match the prepared publication intent.",
@@ -193,6 +198,7 @@ def commit_graph_object_authoring_write(
         request,
         authored_world=world_id,
         resolved_source=resolved_source,
+        source_root=corpus_root,
     )
     mounted = authority or get_world_graph_authority()
 
@@ -317,6 +323,11 @@ def commit_graph_object_authoring_write(
         ],
         union_store_materialization=None,
         created_node_ids=_created_node_ids_for_assertions(assertions, local_proposal_ids),
+        committed_proposal_ids=[
+            local_proposal_ids[assertion.assertion_id]
+            for assertion in assertions
+            if assertion.assertion_id in local_proposal_ids
+        ],
         world_id=world_id,
         parent_revision_id=receipt.parent_revision_id,
         published_revision_id=receipt.published_revision_id,

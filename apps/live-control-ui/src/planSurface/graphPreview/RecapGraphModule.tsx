@@ -23,6 +23,15 @@ import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
 
 type LoadStatus = "loading" | "ready" | "error";
 
+interface LoadedRecapState {
+  payload: WorldGraphRecapProjection;
+  scope: {
+    campaignId: string;
+    sessionId: string;
+  };
+  record: RecapArtifactRecord | null;
+}
+
 /** Legacy Union recap source labels retained for GraphIngestProjectionPanel consumers. */
 export type RecapProjectionSource =
   | "latest-graph-ingest"
@@ -77,10 +86,14 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
   const defaultSessionId = requestedSessionId ?? fallbackSessionId;
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
-  const [recapPayload, setRecapPayload] = useState<WorldGraphRecapProjection | null>(null);
+  const [catalogLoading, setCatalogLoading] = useState(true);
   const [sessionRecords, setSessionRecords] = useState<RecapArtifactRecord[]>([]);
   const [selectedSessionId, setSelectedSessionId] = useState(defaultSessionId);
   const [selectedCampaignId, setSelectedCampaignId] = useState(() =>
+    resolveInitialReviewCampaignId(context.campaignId),
+  );
+  const [draftSessionId, setDraftSessionId] = useState(defaultSessionId);
+  const [draftCampaignId, setDraftCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(context.campaignId),
   );
   const [readyRecapContext, setReadyRecapContext] = useState<{
@@ -88,37 +101,25 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     sessionId: string;
   } | null>(null);
   const honorExplicitUrlSessionRef = useRef(requestedSessionId != null);
-  const selectedSessionIdRef = useRef(selectedSessionId);
-  selectedSessionIdRef.current = selectedSessionId;
+  const draftSessionIdRef = useRef(draftSessionId);
+  draftSessionIdRef.current = draftSessionId;
+  const initialLoadStartedRef = useRef(false);
   const loadGenerationRef = useRef(0);
-  const [loadedScope, setLoadedScope] = useState<{
-    campaignId: string;
-    sessionId: string;
-  } | null>(null);
-
-  const invalidateLoadedProjection = useCallback(() => {
-    loadGenerationRef.current += 1;
-    setStatus("loading");
-    setError(null);
-    setRecapPayload(null);
-    setLoadedScope(null);
-  }, []);
+  // Keep the payload and its server-owned source record together. The catalog
+  // is a draft-selection aid and may change when the operator edits Campaign;
+  // it must not invalidate the source authority for the recap currently on
+  // screen before a replacement Load succeeds.
+  const [loadedRecap, setLoadedRecap] = useState<LoadedRecapState | null>(null);
 
   const campaignSessionRecords = useMemo(
-    () => sessionRecords.filter((record) => record.campaign_id === selectedCampaignId),
-    [selectedCampaignId, sessionRecords],
-  );
-
-  const selectedRecapRecord = useMemo(
-    () =>
-      campaignSessionRecords.find((record) => record.session_id === selectedSessionId) ?? null,
-    [campaignSessionRecords, selectedSessionId],
+    () => sessionRecords.filter((record) => record.campaign_id === draftCampaignId),
+    [draftCampaignId, sessionRecords],
   );
 
   const sessionOptions = useMemo(() => {
     const options = new Set(campaignSessionRecords.length > 0 ? [] : DOGFOOD_SESSION_OPTIONS);
     options.add(`session-${context.ingestSession}`);
-    options.add(selectedSessionId);
+    options.add(draftSessionId);
     if (honorExplicitUrlSessionRef.current && requestedSessionId) {
       options.add(requestedSessionId);
     }
@@ -128,27 +129,29 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       const rightNum = Number.parseInt(right.replace("session-", ""), 10);
       return leftNum - rightNum;
     });
-  }, [campaignSessionRecords, context.ingestSession, requestedSessionId, selectedSessionId]);
+  }, [campaignSessionRecords, context.ingestSession, draftSessionId, requestedSessionId]);
 
-  const loadRecapProjection = useCallback(async (sessionId = selectedSessionId) => {
+  const loadRecapProjection = useCallback(async (
+    campaignId: string,
+    sessionId: string,
+  ) => {
     const generation = ++loadGenerationRef.current;
     setStatus("loading");
     setError(null);
-    setRecapPayload(null);
-    setLoadedScope(null);
-    const { campaignId } = resolveSessionRecapContext(
+    const { campaignId: resolvedCampaignId } = resolveSessionRecapContext(
       sessionId,
-      selectedCampaignId,
+      campaignId,
       sessionRecords,
     );
-    const request = buildWorldGraphRecapProjectionRequest({ campaignId, sessionId });
+    const request = buildWorldGraphRecapProjectionRequest({
+      campaignId: resolvedCampaignId,
+      sessionId,
+    });
     if (!request) {
       if (generation !== loadGenerationRef.current) {
         return;
       }
-      setRecapPayload(null);
-      setLoadedScope(null);
-      setError(`World Graph mapping is unavailable for campaign ${campaignId}.`);
+      setError(`World Graph mapping is unavailable for campaign ${resolvedCampaignId}.`);
       setStatus("error");
       return;
     }
@@ -158,37 +161,43 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
       if (generation !== loadGenerationRef.current) {
         return;
       }
-      setRecapPayload(projection);
-      setLoadedScope({ campaignId, sessionId });
+      setLoadedRecap({
+        payload: projection,
+        scope: { campaignId: resolvedCampaignId, sessionId },
+        record: sessionRecords.find(
+          (record) =>
+            record.campaign_id === resolvedCampaignId
+            && record.session_id === sessionId,
+        ) ?? null,
+      });
       setStatus("ready");
     } catch (loadError) {
       if (generation !== loadGenerationRef.current) {
         return;
       }
-      setRecapPayload(null);
-      setLoadedScope(null);
-      setError(recapUnavailableMessage(loadError, sessionId, campaignId));
+      setError(recapUnavailableMessage(loadError, sessionId, resolvedCampaignId));
       setStatus("error");
     }
-  }, [selectedCampaignId, selectedSessionId, sessionRecords]);
+  }, [sessionRecords]);
 
   useEffect(() => {
     let cancelled = false;
-    setReadyRecapContext(null);
+    setCatalogLoading(true);
 
-    void getRecapArtifacts(selectedCampaignId)
+    void getRecapArtifacts(draftCampaignId)
       .then((response) => {
         if (cancelled) {
           return;
         }
+        setCatalogLoading(false);
         const records = sortRecapArtifactRecords(
           filterNumericRecapArtifactRecords(response.records),
         );
         setSessionRecords(records);
-        const campaignRecords = records.filter((record) => record.campaign_id === selectedCampaignId);
+        const campaignRecords = records.filter((record) => record.campaign_id === draftCampaignId);
         const honorExplicitUrl = honorExplicitUrlSessionRef.current;
         const explicitSessionId = honorExplicitUrl ? requestedRecapSessionIdFromLocation() : null;
-        const currentSessionId = selectedSessionIdRef.current;
+        const currentSessionId = draftSessionIdRef.current;
         const stillValid = campaignRecords.some((record) => record.session_id === currentSessionId);
         // Explicit hard-load ?session= reaches the recap endpoint unchanged, even when
         // the artifact listing is stale. Interactive campaign switch must not carry a
@@ -198,27 +207,40 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
           : (stillValid
             ? currentSessionId
             : defaultRecapSessionIdForCampaign(campaignRecords, fallbackSessionId));
-        setSelectedSessionId(nextSessionId);
-        syncRecapSurfaceUrl(selectedCampaignId, nextSessionId);
-        setReadyRecapContext({ campaignId: selectedCampaignId, sessionId: nextSessionId });
+        draftSessionIdRef.current = nextSessionId;
+        setDraftSessionId(nextSessionId);
+        if (!initialLoadStartedRef.current) {
+          initialLoadStartedRef.current = true;
+          setSelectedCampaignId(draftCampaignId);
+          setSelectedSessionId(nextSessionId);
+          syncRecapSurfaceUrl(draftCampaignId, nextSessionId);
+          setReadyRecapContext({ campaignId: draftCampaignId, sessionId: nextSessionId });
+        }
       })
       .catch(() => {
         if (!cancelled) {
+          setCatalogLoading(false);
           setSessionRecords([]);
           const honorExplicitUrl = honorExplicitUrlSessionRef.current;
           const nextSessionId = honorExplicitUrl
             ? (requestedRecapSessionIdFromLocation() ?? fallbackSessionId)
             : fallbackSessionId;
-          setSelectedSessionId(nextSessionId);
-          syncRecapSurfaceUrl(selectedCampaignId, nextSessionId);
-          setReadyRecapContext({ campaignId: selectedCampaignId, sessionId: nextSessionId });
+          draftSessionIdRef.current = nextSessionId;
+          setDraftSessionId(nextSessionId);
+          if (!initialLoadStartedRef.current) {
+            initialLoadStartedRef.current = true;
+            setSelectedCampaignId(draftCampaignId);
+            setSelectedSessionId(nextSessionId);
+            syncRecapSurfaceUrl(draftCampaignId, nextSessionId);
+            setReadyRecapContext({ campaignId: draftCampaignId, sessionId: nextSessionId });
+          }
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [fallbackSessionId, selectedCampaignId]);
+  }, [draftCampaignId, fallbackSessionId]);
 
   useEffect(() => {
     if (!readyRecapContext) {
@@ -227,38 +249,39 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
     if (readyRecapContext.campaignId !== selectedCampaignId) {
       return;
     }
-    void loadRecapProjection(readyRecapContext.sessionId);
+    void loadRecapProjection(readyRecapContext.campaignId, readyRecapContext.sessionId);
   }, [loadRecapProjection, readyRecapContext, selectedCampaignId]);
 
   const handleCampaignSelect = (campaignId: string) => {
     honorExplicitUrlSessionRef.current = false;
-    invalidateLoadedProjection();
-    setReadyRecapContext(null);
-    setSelectedCampaignId(campaignId);
+    setDraftCampaignId(campaignId);
   };
 
   const handleSessionSelect = (sessionId: string) => {
-    invalidateLoadedProjection();
-    setSelectedSessionId(sessionId);
-    setReadyRecapContext({ campaignId: selectedCampaignId, sessionId });
-    syncRecapSurfaceUrl(selectedCampaignId, sessionId);
+    draftSessionIdRef.current = sessionId;
+    setDraftSessionId(sessionId);
+  };
+
+  const handleLoad = () => {
+    if (catalogLoading || !draftCampaignId || !draftSessionId) return;
+    setSelectedCampaignId(draftCampaignId);
+    setSelectedSessionId(draftSessionId);
+    setReadyRecapContext({ campaignId: draftCampaignId, sessionId: draftSessionId });
+    syncRecapSurfaceUrl(draftCampaignId, draftSessionId);
   };
 
   const authorableRecap =
     status === "ready" &&
-    recapPayload &&
-    loadedScope &&
-    loadedScope.campaignId === selectedCampaignId &&
-    loadedScope.sessionId === selectedSessionId
-      ? recapPayload
+    loadedRecap
+      ? loadedRecap.payload
       : null;
 
   const reviewToolbar = (
     <div className="recap-reader-toolbar">
-      <ReviewCampaignPicker selectedCampaignId={selectedCampaignId} onSelect={handleCampaignSelect} />
+      <ReviewCampaignPicker selectedCampaignId={draftCampaignId} onSelect={handleCampaignSelect} />
       <label className="graph-preview-run-picker">
         <span>Focus session</span>
-        <select value={selectedSessionId} onChange={(event) => handleSessionSelect(event.target.value)}>
+        <select value={draftSessionId} onChange={(event) => handleSessionSelect(event.target.value)}>
           {sessionOptions.map((sessionId) => (
             <option key={sessionId} value={sessionId}>
               {sessionId.replace("session-", "Session ")}
@@ -266,6 +289,14 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
           ))}
         </select>
       </label>
+      <button
+        type="button"
+        className="primary recap-reader-load-button"
+        onClick={handleLoad}
+        disabled={catalogLoading || !draftCampaignId || !draftSessionId || status === "loading"}
+      >
+        {status === "loading" ? "Loading…" : "Load"}
+      </button>
     </div>
   );
 
@@ -285,8 +316,8 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         <p className="graph-preview-error" role="alert">
           {error ?? `Published World Graph recap is unavailable for ${selectedSessionId}.`}
         </p>
-        <button type="button" onClick={() => void loadRecapProjection(selectedSessionId)}>
-          Retry
+        <button type="button" onClick={handleLoad}>
+          Load
         </button>
       </div>
     );
@@ -301,7 +332,12 @@ export function RecapGraphModule({ context }: RecapGraphModuleProps) {
         sessionOptions={sessionOptions}
         selectedCampaignId={selectedCampaignId}
         onSelectCampaign={handleCampaignSelect}
-        recapRecord={selectedRecapRecord}
+        draftCampaignId={draftCampaignId}
+        draftSessionId={draftSessionId}
+        onLoad={handleLoad}
+        canLoad={!catalogLoading}
+        recapRecord={loadedRecap?.record ?? null}
+        onRefreshProjection={() => loadRecapProjection(selectedCampaignId, selectedSessionId)}
       />
     );
   }

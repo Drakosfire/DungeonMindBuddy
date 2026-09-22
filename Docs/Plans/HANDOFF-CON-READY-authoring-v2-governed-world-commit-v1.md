@@ -6,7 +6,7 @@
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY / campaign memory authoring`  
 **Flow / owner:** `CON-READY`  
 **Direction:** DESIGN → CODE → TEST → TARGETED DOGFOOD → REVIEW  
-**Design authority base:** `main@28754d1fdda15be97475f35e08127833b088a256` — V2-1A / PR #741 merged  
+**Design authority base:** `main@8000fb607f418242e816c08b819d92fa764eac70` — PR #744 merged; V2-1A / PR #741 remains historical predecessor
 **Activation gate:** satisfied — PR #741 merged; Review Cycle 3 PASS / MERGE-READY; no open implementation PRs at design re-anchor  
 **Dispatch base rule:** fresh current `main` containing this checked-in handoff and the completed-V2-1A state sync; record the exact implementation branch base at dispatch/review  
 **PR topology:** `serial` within CON-READY  
@@ -107,6 +107,27 @@ V2-1A established:
 - no prepare/commit path is reachable from published-local mode.
 
 Those interaction semantics survive. V2-2 adds one explicit transition from that local state into existing governed publication.
+
+### 2.1a Resume re-anchor after PR #744
+
+The implementation lane is resumed from the current repository authority:
+
+```text
+main = 8000fb607f418242e816c08b819d92fa764eac70
+PR #744 = MERGED — recap/World lens separation and governed-target eligibility
+PR #742 = OPEN — this governed publication capability
+```
+
+PR #742 is rebased onto that exact `main` head. Its authoring overlap now
+consumes the merged World-lens contract: resolver candidates may remain visible,
+but a candidate is bindable only when the canonical target ID
+(`existing_object_ref.object_id` when present, otherwise `candidate_id`) exists
+in the exact governed World projection. Relationship/source/target pickers use
+the same canonical target identity.
+
+The six-PC durable identity reconciliation remains a prerequisite for the live
+Ephanna existing-object witness. This resume changes no live World state and does
+not authorize a resolver exception, duplicate PC, or identity repair inside #742.
 
 ### 2.2 Existing governed publication seam
 
@@ -238,6 +259,8 @@ Expected paths:
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringSurface.tsx` | expose existing prepare/commit panel after published wizard review when durable source selector exists |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringSurface.test.tsx` | published wizard durable transition regression |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringPublishedWizard.tsx` | final-step copy/affordance truthfully distinguishes local review from governed publish |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringBindExistingPanel.tsx` | only offer governed-projection candidates as existing targets; explain extracted-only candidates |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphObjectAuthoringObjectRefPicker.tsx` | keep relationship/source/target search bound to exact governed projection IDs |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/PublishedRecapLocalAuthoring.tsx` | stop forcing local-only at publish transition; pass recap record identity, clear committed proposals, request projection refresh |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/PublishedRecapLocalAuthoring.test.tsx` | local-before-prepare, explicit publish, proposal clearing, same-label Create new semantics |
 | Modify | `apps/live-control-ui/src/planSurface/graphPreview/WorldGraphRecapProjection.tsx` | thread refresh callback/source record into published authoring while preserving Peek/local projection |
@@ -548,6 +571,46 @@ Record:
 ---
 
 ## §8 Required review handback
+
+### Review Cycle 1 handback — HOLD
+
+- Formal review: `Review Cycle 1 — HOLD`, review `5267550374`, against exact head `eb5e3298202999759edb2cf5d5b5fd0c307cd0d1`.
+- Required correction: the published recap authoring surface used `worldId = campaignId`, incorrectly treating `longmont-c1` as a governed World. The correct topology is `World = eldyrwild`, `campaign scope = longmont-c1`.
+- Corrective head: `5f079c4d` (`CON-READY: target governed World for recap writes`). `payload.snapshot.worldId` now flows through the Author Node into prepare/confirm, and the published-recap integration witness explicitly proves the setting World/campaign split.
+- Additional source-admission correction: legacy recap SourceArtifact records may omit `world_id`; the server-resolved authored World is bound before DungeonMind source admission rather than allowing `None` to reach the adapter.
+- Current live C1 result: projection/readiness is `eldyrwild` head `rev:e570042d33a30d07e053c578dedbc804`; prepare succeeds. Confirming the selected `Ephanna the Kenku Warlock → Ephanna (pc)` alias fails closed as `orphan_accepted_assertion` because that target is not present in the governed World revision. No World head changed and no `longmont-c1` genesis was run.
+- The UI now translates this authority result into an operator-facing message: the target is visible in the recap projection but is not yet in governed World truth; create or publish the object first, then add the alias.
+- This is a real operational boundary, not a new V2-2 implementation scope: ingestion/read projection readiness does not imply that every extracted object is already durable in the governed World.
+
+### Implementation handback — pre-review
+
+- Dispatch base: `main@28b1fdf494ffc6e53b99b311b2f4d5256fd5e8a2`.
+- Implementation branch: `con-ready/authoring-v2-governed-world-commit-v1`.
+- Implementation commits: `3a254140` — `CON-READY: publish staged recap memory to World`; `5f079c4d` — `CON-READY: target governed World for recap writes`.
+- Assigned PR: #742 OPEN — `CON-READY: publish staged recap memory to World`; opened from this handback at `a441dc6d`.
+- PR topology: `serial`; no other CON-READY implementation PR was opened during implementation.
+- §1 invariant: backend selector binding, setting-World governed prepare/confirm, durable receipt IDs, same-scope refresh wiring, and duplicate-safe disposable proof are implemented. Live C1 dogfood reached prepare but the selected alias target is not yet durable World truth, so the governed write correctly remains blocked.
+- Source selector: `sourceRunId XOR recapArtifactId`; `recapArtifactId` resolves the server-owned `RecapArtifactRecord`, verifies campaign/session/path/digest, creates/loads the deterministic recap SourceArtifact, and binds its admitted pair into the confirmation intent.
+- Prepare/commit bindings: campaign, campaign relation, world, both source-selector fields, admitted source artifact/revision, expected parent, operation ID, proposal digest, contribution digest, and actor.
+- Evidence produced: backend focused suite **50 passed, 1 skipped** (real PostgreSQL witness is opt-in); focused UI suite **80 passed**; UI typecheck **passed**; UI build **passed** with the existing chunk-size warning; compileall and `git diff --check` **passed**. Full command output and the live-dogfood boundary are recorded in `Docs/Reports/REPORT-CON-READY-authoring-v2-governed-world-commit-v1.md`.
+- Live Witness A: attempted against the existing C1S1 alias draft. The real recap projection and prepare path were verified against `eldyrwild`; confirm failed closed because the selected target is absent from governed World truth. No production World object was seeded and no campaign-level World was created.
+- Duplicate integration witness: two same-label durable objects remain distinct and the recap linker emits `ambiguous_mention_surface` rather than selecting an arbitrary pill winner.
+- Actual implementation paths remain inside §4; the steward preflight reported pre-existing stale overlaps from older handoffs, which were not edited.
+- Baseline/waiver: the stale retired-module patch in the existing commit test was removed from the leased test file so the required backend suite runs green; remaining Pydantic field-shadow warnings are pre-existing.
+- Prior finding ledger: V2-1A review findings were closed before this dispatch; no new review cycle has occurred for V2-2.
+- V2-3 remains unimplemented.
+
+### Resume handback — post-#744 re-anchor
+
+- Current main/base: `8000fb607f418242e816c08b819d92fa764eac70` (PR #744 merged).
+- PR #742 remains the single authorized governed-publication PR and is rebased
+  onto that base; no successor or UX-observation PR is opened.
+- The six-PC identity repair is still pending in the live `eldyrwild` World.
+  `pc:ephanna` must become durable through that separate atomic repair before
+  the Ephanna existing-object witness can pass.
+- The remaining #742 merge witness is unchanged: Create new → prepare against
+  `World=eldyrwild` → confirm → one child revision → `created_node_id` → refresh
+  and exact durable read-back.
 
 Record:
 

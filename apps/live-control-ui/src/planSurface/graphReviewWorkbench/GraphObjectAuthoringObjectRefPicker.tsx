@@ -18,6 +18,7 @@ import {
   GRAPH_OBJECT_CANDIDATE_SCOPE_ORDER,
   resolverCandidateToInspectedNode,
 } from "./graphObjectCandidateScope";
+import { getGraphReviewBindTargetNodeId } from "./graphExistingObjectEligibility";
 import {
   rankGraphObjectAuthoringSearchItems,
   type GraphObjectAuthoringSearchItem,
@@ -155,11 +156,19 @@ function optionForNode(
   };
 }
 
+function canonicalInspectedNodeForCandidate(
+  candidate: GraphReviewExistingObjectCandidate,
+): GraphObjectAuthoringInspectedNode {
+  const node = resolverCandidateToInspectedNode(candidate);
+  const bindTargetNodeId = getGraphReviewBindTargetNodeId(candidate);
+  return bindTargetNodeId ? { ...node, node_id: bindTargetNodeId } : node;
+}
+
 function optionForCandidate(
   candidate: GraphReviewExistingObjectCandidate,
   group: string,
 ): PickerOption {
-  const node = resolverCandidateToInspectedNode(candidate);
+  const node = canonicalInspectedNodeForCandidate(candidate);
   return {
     key: `candidate:${candidate.graph_scope ?? "unknown"}:${candidate.candidate_id}`,
     encodedValue: encodeOptionValue({
@@ -209,13 +218,24 @@ export function GraphObjectAuthoringObjectRefPicker({
 
   const objectProposals = stagedObjectProposals(proposals);
   const sortedExistingNodes = useMemo(() => dedupeAndSortNodes(existingNodes), [existingNodes]);
+  const governedNodeIds = useMemo(
+    () => new Set(sortedExistingNodes.map((node) => node.node_id)),
+    [sortedExistingNodes],
+  );
+  const governedScopeCandidates = useMemo(
+    () => scopeCandidates.filter((candidate) => {
+      const bindTargetNodeId = getGraphReviewBindTargetNodeId(candidate);
+      return Boolean(bindTargetNodeId && governedNodeIds.has(bindTargetNodeId));
+    }),
+    [governedNodeIds, scopeCandidates],
+  );
   const groupedScopeCandidates = useMemo(
-    () => scopeCandidatesByGroup(scopeCandidates),
-    [scopeCandidates],
+    () => scopeCandidatesByGroup(governedScopeCandidates),
+    [governedScopeCandidates],
   );
   const scopeCandidateNodes = useMemo(
-    () => scopeCandidates.map((candidate) => resolverCandidateToInspectedNode(candidate)),
-    [scopeCandidates],
+    () => governedScopeCandidates.map(canonicalInspectedNodeForCandidate),
+    [governedScopeCandidates],
   );
   const allExistingNodes = useMemo(
     () => dedupeAndSortNodes([...sortedExistingNodes, ...scopeCandidateNodes]),
@@ -261,8 +281,10 @@ export function GraphObjectAuthoringObjectRefPicker({
       return encodeOptionValue({ source: "local_proposal", localProposalId: value.localProposalId });
     }
     if (value.refKind === "existing_graph_node" && value.nodeId) {
-      const scopeCandidate = scopeCandidates.find(
-        (candidate) => candidate.candidate_id === value.nodeId,
+      const scopeCandidate = governedScopeCandidates.find(
+        (candidate) =>
+          candidate.candidate_id === value.nodeId ||
+          getGraphReviewBindTargetNodeId(candidate) === value.nodeId,
       );
       if (scopeCandidate?.graph_scope) {
         return encodeOptionValue({
@@ -326,10 +348,12 @@ export function GraphObjectAuthoringObjectRefPicker({
       const separatorIndex = remainder.indexOf(":");
       const scope = separatorIndex < 0 ? remainder : remainder.slice(0, separatorIndex);
       const nodeId = separatorIndex < 0 ? "" : remainder.slice(separatorIndex + 1);
-      const candidate = scopeCandidates.find(
-        (item) => item.candidate_id === nodeId && (item.graph_scope ?? "unknown") === scope,
+      const candidate = governedScopeCandidates.find(
+        (item) =>
+          (item.candidate_id === nodeId || getGraphReviewBindTargetNodeId(item) === nodeId) &&
+          (item.graph_scope ?? "unknown") === scope,
       );
-      if (candidate) onChange(buildObjectRefFromInspectedNode(resolverCandidateToInspectedNode(candidate)));
+      if (candidate) onChange(buildObjectRefFromInspectedNode(canonicalInspectedNodeForCandidate(candidate)));
       return;
     }
     if (rawValue.startsWith("existing_node:")) {

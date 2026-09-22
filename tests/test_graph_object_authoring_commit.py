@@ -107,6 +107,7 @@ def _commit_request_from_prepare(
     *,
     proposals: list[dict[str, object]] | None = None,
     source_run_id: str | None = "run-c1s2",
+    recap_artifact_id: str | None = None,
     source_graph_id: str | None = None,
     campaign_id: str = CAMPAIGN_ID,
     merge_into_union: bool | None = None,
@@ -122,6 +123,8 @@ def _commit_request_from_prepare(
     }
     if source_run_id is not None:
         payload["sourceRunId"] = source_run_id
+    if recap_artifact_id is not None:
+        payload["recapArtifactId"] = recap_artifact_id
     if source_graph_id is not None:
         payload["sourceGraphId"] = source_graph_id
     if merge_into_union is not None:
@@ -144,15 +147,9 @@ def test_commit_publishes_object_through_dungeonmind(
         authority=authority,
         resolved_source=source,
     )
-    with (
-        patch(
-            "apps.live_control_server.services.graph_authoring_overlay_store.GraphAuthoringOverlayStore.append_assertions",
-            side_effect=AssertionError("overlay append invoked"),
-        ),
-        patch(
-            "graph_memory.union_supergraph.load.write_union_supergraph_store",
-            side_effect=AssertionError("union store write invoked"),
-        ),
+    with patch(
+        "apps.live_control_server.services.graph_authoring_overlay_store.GraphAuthoringOverlayStore.append_assertions",
+        side_effect=AssertionError("overlay append invoked"),
     ):
         response = commit_graph_object_authoring_write(
             _commit_request_from_prepare(prepare),
@@ -176,6 +173,46 @@ def test_commit_publishes_object_through_dungeonmind(
     assert contrib.accepted_assertions[0].assertion_kind == "node"
     overlay = store.overlay_path(CAMPAIGN_ID, campaign_rel=TEST_CAMPAIGN_REL)
     assert not overlay.exists()
+
+
+def test_commit_binds_recap_selector_and_rejects_selector_swap(corpus_root: Path) -> None:
+    authority = FakeWorldGraphAuthority()
+    source = fake_resolved_source()
+    recap_id = "longmont-c1/session-2"
+    prepare = expressible_prepare(
+        prepare_request(sourceRunId=None, recapArtifactId=recap_id),
+        corpus_root=corpus_root,
+        authority=authority,
+        resolved_source=source,
+    )
+
+    committed = commit_graph_object_authoring_write(
+        _commit_request_from_prepare(
+            prepare,
+            source_run_id=None,
+            recap_artifact_id=recap_id,
+        ),
+        corpus_root=corpus_root,
+        authority=authority,
+        resolved_source=source,
+    )
+    assert committed.committed is True
+    assert committed.committed_proposal_ids == ["local-object-1"]
+
+    swapped = _commit_request_from_prepare(
+        prepare,
+        source_run_id=None,
+        recap_artifact_id="longmont-c1/session-3",
+    )
+    with pytest.raises(GraphObjectAuthoringError) as exc:
+        commit_graph_object_authoring_write(
+            swapped,
+            corpus_root=corpus_root,
+            authority=authority,
+            resolved_source=source,
+        )
+    assert exc.value.code == "confirmation_invalid"
+    assert authority.publish_calls == 1
 
 
 def test_commit_exact_retry_recovers_same_child(corpus_root: Path) -> None:

@@ -77,8 +77,10 @@ export interface GraphObjectAuthoringSurfaceProps {
 
   campaignId?: string;
   sessionId?: string;
+  worldId?: string | null;
   campaignRel?: string | null;
   sourceRunId?: string | null;
+  recapArtifactId?: string | null;
   sourceGraphId?: string | null;
   onCommittedProposals?: (localProposalIds: string[]) => void;
   onRefreshProjection?: () => Promise<unknown>;
@@ -116,8 +118,10 @@ export function GraphObjectAuthoringSurface({
   onStageRelationshipProposal,
   campaignId,
   sessionId,
+  worldId,
   campaignRel,
   sourceRunId,
+  recapArtifactId,
   sourceGraphId,
   onCommittedProposals,
   onRefreshProjection,
@@ -145,7 +149,6 @@ export function GraphObjectAuthoringSurface({
     () => buildOverlapContextFromProjection(proposals, existingNodes),
     [proposals, existingNodes],
   );
-
   const resolverSelectedNode = useMemo(() => {
     if (!selectedSource) return null;
     return {
@@ -263,6 +266,15 @@ export function GraphObjectAuthoringSurface({
           objectFormOverlapWarnings={objectFormOverlapWarnings}
           contextTabs={contextTabs}
           onSelectContextTab={onSelectContextTab}
+          campaignId={campaignId}
+          sessionId={sessionId}
+          worldId={worldId}
+          campaignRel={campaignRel}
+          sourceRunId={sourceRunId}
+          recapArtifactId={recapArtifactId}
+          sourceGraphId={sourceGraphId}
+          onCommittedProposals={onCommittedProposals}
+          onRefreshProjection={onRefreshProjection}
         />
       </section>
     );
@@ -349,9 +361,9 @@ export function GraphObjectAuthoringSurface({
                   status={bindSearchStatus}
                   error={bindSearchError}
                   candidates={scopeCandidates}
+                  governedWorldNodeViews={governedWorldNodeViews}
                   onBindExisting={handleBindExisting}
                   binding={bindingAlias}
-                  governedWorldNodeViews={governedWorldNodeViews}
                 />
               ) : null}
 
@@ -481,8 +493,10 @@ export function GraphObjectAuthoringSurface({
           <GraphObjectAuthoringPrepareCommitPanel
             campaignId={campaignId}
             sessionId={sessionId}
+            worldId={worldId}
             campaignRel={campaignRel}
             sourceRunId={sourceRunId}
+            recapArtifactId={recapArtifactId}
             sourceGraphId={sourceGraphId}
             proposals={proposals}
             previewUnionStorePath={previewUnionStorePath}

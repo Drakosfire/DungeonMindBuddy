@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+import hashlib
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -23,6 +24,10 @@ from apps.live_control_server.services.graph_authoring_overlay_store import (
     EVENTS_DIR,
     OVERLAYS_DIR,
     GraphAuthoringOverlayStore,
+)
+from apps.live_control_server.services.recap_artifacts import (
+    RecapArtifactRecord,
+    upsert_recap_artifact_record,
 )
 from apps.live_control_server.services.graph_object_authoring_prepare import (
     GRAPH_REVIEW_PREPARE_BINDING_KEY_ENV,
@@ -335,6 +340,27 @@ def test_prepare_relationship_proposal_returns_relationship_preview(
         prepare_request(proposals=[relationship_proposal()]),
         corpus_root=store.corpus_root,
     )
+    assert response.overlay_summary.relationship_count == 1
+
+
+def test_prepare_relationship_with_blank_selection_omits_source_anchor(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    response = prepare_graph_object_authoring_write(
+        prepare_request(
+            proposals=[
+                relationship_proposal(
+                    selection={
+                        "selectionKind": "text_span",
+                        "selectedText": "",
+                        "normalizedSelectedText": "",
+                    }
+                )
+            ]
+        ),
+        corpus_root=store.corpus_root,
+    )
+
     assert response.overlay_summary.relationship_count == 1
 
 
@@ -670,6 +696,69 @@ def test_prepare_object_without_source_run_fails(store: GraphAuthoringOverlaySto
             authority=FakeWorldGraphAuthority(),
         )
     assert exc.value.code == "source_unresolved"
+
+
+def test_prepare_recap_selector_resolves_server_owned_source(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    recap_path = store.corpus_root / TEST_CAMPAIGN_REL / "Session Recaps" / "recap.md"
+    recap_path.parent.mkdir(parents=True, exist_ok=True)
+    recap_path.write_text("# Published recap\nA new object appears.\n", encoding="utf-8")
+    digest = hashlib.sha256(recap_path.read_bytes()).hexdigest()
+    upsert_recap_artifact_record(
+        store.corpus_root,
+        RecapArtifactRecord(
+            artifact_id="longmont-c1/session-2",
+            campaign_id=CAMPAIGN_ID,
+            session_id="session-2",
+            source_recap_path=f"{TEST_CAMPAIGN_REL}/Session Recaps/recap.md",
+            run_bundle_uri="",
+            run_manifest_uri="",
+            source_span_index_uri="",
+            source_sha256=digest,
+            registered_at=STAMP,
+            updated_at=STAMP,
+        ),
+    )
+
+    authority = FakeWorldGraphAuthority()
+    response = prepare_graph_object_authoring_write(
+        prepare_request(sourceRunId=None, recapArtifactId="longmont-c1/session-2"),
+        corpus_root=store.corpus_root,
+        authority=authority,
+        source_admission=FakeSourceAdmission(),
+    )
+
+    assert response.prepared is True
+    assert response.source_artifact_id == "artifact:recap:longmont-c1:session-2:" + digest[:12]
+    assert response.source_revision_id == f"sha256:{digest}"
+    assert response.expected_parent_revision_id == "rev:d0"
+    assert authority.revision_id == "rev:d0"
+
+
+@pytest.mark.parametrize(
+    ("source_run_id", "recap_artifact_id", "code"),
+    [
+        ("run-c1s2", "longmont-c1/session-2", "source_selector_conflict"),
+        (None, None, "source_unresolved"),
+    ],
+)
+def test_prepare_requires_exactly_one_source_selector(
+    store: GraphAuthoringOverlayStore,
+    source_run_id: str | None,
+    recap_artifact_id: str | None,
+    code: str,
+) -> None:
+    with pytest.raises(GraphObjectAuthoringError) as exc:
+        prepare_graph_object_authoring_write(
+            prepare_request(
+                sourceRunId=source_run_id,
+                recapArtifactId=recap_artifact_id,
+            ),
+            corpus_root=store.corpus_root,
+            authority=FakeWorldGraphAuthority(),
+        )
+    assert exc.value.code == code
 
 
 def test_prepare_missing_source_artifact_fails_closed(

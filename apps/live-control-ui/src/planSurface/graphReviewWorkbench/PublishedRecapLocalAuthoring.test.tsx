@@ -135,11 +135,11 @@ describe("PublishedRecapLocalAuthoring", () => {
     sessionStorage.clear();
   });
 
-  it("keeps published browse non-write and preserves exact recap source identity", async () => {
+  it("preserves exact recap source identity and exposes governed publish only after review", async () => {
     renderHost();
 
     const host = await screen.findByTestId("published-recap-local-authoring");
-    expect(host).toHaveAttribute("data-write-authority", "none");
+    expect(host).toHaveAttribute("data-write-authority", "governed-world");
     expect(host).toHaveAttribute("data-source-artifact-id", "artifact:recap:longmont-c2:session-27");
     expect(host).toHaveAttribute(
       "data-source-artifact-path",
@@ -213,9 +213,9 @@ describe("PublishedRecapLocalAuthoring", () => {
     expect(document.querySelector('button[data-graph-node-id^="local-authoring:"]')).toBeTruthy();
     await expectPersistedRecapIdentity(recapRecord, "object");
     expect(screen.getByTestId("graph-object-authoring-wizard-final-state")).toHaveTextContent(
-      "Review or remove local drafts",
+      "Local review complete",
     );
-    expect(screen.queryByTestId("graph-object-authoring-prepare-commit-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("graph-object-authoring-prepare-commit-panel")).toBeInTheDocument();
     fireEvent.click(within(staged).getByRole("button", { name: "Remove" }));
     expect(document.querySelector('button[data-graph-node-id^="local-authoring:"]')).toBeNull();
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
@@ -280,6 +280,40 @@ describe("PublishedRecapLocalAuthoring", () => {
     expect(within(screen.getByRole("navigation", { name: "Authoring contexts" })).getByRole("button", { name: "Caelynn" })).toBeInTheDocument();
   });
 
+  it("disambiguates same-label authoring context tabs by source scope", async () => {
+    renderHost({
+      markdown: "[Ephanna](dmb-node:recap_ephanna) met [Ephanna](dmb-node:pc_ephanna).",
+      nodeViews: {
+        recap_ephanna: {
+          ...caelynn,
+          node_id: "recap_ephanna",
+          label: "Ephanna",
+          source_domains: ["recap"],
+          graph_scope: ["current_recap_projection"],
+        },
+        pc_ephanna: {
+          ...caelynn,
+          node_id: "pc_ephanna",
+          label: "Ephanna",
+          source_domains: ["party_pc"],
+          graph_scope: ["party_pc"],
+        },
+      },
+    });
+
+    const ephannaPills = () =>
+      screen
+        .getAllByRole("button", { name: "Ephanna" })
+        .filter((item) => item.classList.contains("recap-node-token"));
+    await waitFor(() => expect(ephannaPills()).toHaveLength(2));
+    fireEvent.click(ephannaPills()[0]);
+    fireEvent.click(ephannaPills()[1]);
+
+    const contextTabs = screen.getByRole("navigation", { name: "Authoring contexts" });
+    expect(within(contextTabs).getByRole("button", { name: "Ephanna · Current recap" })).toBeInTheDocument();
+    expect(within(contextTabs).getByRole("button", { name: "Ephanna · Party / PCs" })).toBeInTheDocument();
+  });
+
   it("stages link_existing locally from a resolver candidate", async () => {
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValueOnce({
       schema: "dmb_graph_review_existing_object_resolver_response_v1",
@@ -289,7 +323,7 @@ describe("PublishedRecapLocalAuthoring", () => {
       selected_label: "gang",
       candidates: [
         {
-          candidate_id: "party:questionable_company",
+          candidate_id: "pc_caelynn",
           label: "Questionable Company",
           kind: "party",
           confidence: "high",
@@ -306,7 +340,12 @@ describe("PublishedRecapLocalAuthoring", () => {
       scopes_searched: ["party_pc"],
     });
 
-    renderHost();
+    renderHost({
+      governedWorldNodeViews: {
+        pc_caelynn: caelynn,
+        loc_mirathorn: mirathorn,
+      },
+    });
     fireEvent.click(screen.getByTestId("graph-object-authoring-start-manual-draft-button"));
     fireEvent.change(screen.getByLabelText("Label"), { target: { value: "gang" } });
 
@@ -334,13 +373,13 @@ describe("PublishedRecapLocalAuthoring", () => {
     const staged = screen.getByTestId("graph-object-authoring-staged-proposal");
     expect(staged).toHaveAttribute("data-proposal-kind", "link_existing");
     expect(staged).toHaveTextContent("Questionable Company");
-    expect(document.querySelector('button[data-graph-node-id="party:questionable_company"]')).toBeTruthy();
+    expect(document.querySelector('button[data-graph-node-id="pc_caelynn"]')).toBeTruthy();
     await expectPersistedRecapIdentity(recapRecord, "link_existing");
     expect(prepareGraphObjectAuthoringWrite).not.toHaveBeenCalled();
     expect(commitGraphObjectAuthoringWrite).not.toHaveBeenCalled();
   });
 
-  it("uses existing-node identity semantics for an exact primary-label match", async () => {
+  it("does not offer extraction-only candidates as governed existing nodes", async () => {
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValueOnce({
       schema: "dmb_graph_review_existing_object_resolver_response_v1",
       campaign_id: "longmont-c2",
@@ -382,20 +421,13 @@ describe("PublishedRecapLocalAuthoring", () => {
     fireEvent.mouseUp(proseMirror);
     fireEvent.click(await screen.findByTestId("graph-authoring-action"));
 
-    const duplicateSuggestion = await screen.findByTestId("graph-object-authoring-duplicate-suggestion");
-    expect(duplicateSuggestion).toHaveTextContent(/Confident duplicate suggestion/i);
-    expect(duplicateSuggestion).toHaveTextContent(/gang is probably/i);
+    expect(
+      await screen.findByTestId("graph-object-authoring-extracted-only-notice"),
+    ).toHaveTextContent(/Found in extracted recap memory/i);
+    expect(screen.getByTestId("graph-object-authoring-extracted-only-notice")).toHaveTextContent(
+      /Not yet in the governed World/i,
+    );
     expect(screen.queryByTestId("graph-object-authoring-bind-existing-list")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("graph-object-authoring-see-all-matches"));
-    expect(screen.getByTestId("graph-object-authoring-bind-existing-list")).toBeInTheDocument();
-    expect(screen.queryByTestId("graph-object-authoring-create-new-from-identity-button")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("graph-object-authoring-duplicate-use-existing-button"));
-    const persisted = readPersistedProposals();
-    expect(persisted[0]).toMatchObject({
-      proposalKind: "link_existing",
-      operation: "reference",
-      existingObjectRef: { nodeId: "node:gang" },
-    });
   });
 
   it("stages a local relationship from existing recap nodes", async () => {
@@ -439,10 +471,10 @@ describe("PublishedRecapLocalAuthoring", () => {
       "review",
     );
     expect(screen.getByTestId("graph-object-authoring-wizard-final-state")).toHaveTextContent(
-      "Final step",
+      "Local review complete",
     );
     expect(screen.getByTestId("graph-object-authoring-wizard-final-state")).toHaveTextContent(
-      "close Author Node",
+      "explicit confirmation",
     );
     expect(screen.getByRole("list", { name: "Authoring steps (status only)" })).toHaveAttribute(
       "data-step-indicator",

@@ -228,7 +228,7 @@ describe("RecapGraphModule", () => {
     render(<RecapGraphModule context={context} />);
 
     const host = await screen.findByTestId("published-recap-local-authoring");
-    expect(host).toHaveAttribute("data-write-authority", "none");
+    expect(host).toHaveAttribute("data-write-authority", "governed-world");
     expect(host).toHaveAttribute("data-source-artifact-id", "null");
     expect(host).toHaveAttribute("data-source-artifact-path", artifactRecord(24).source_recap_path);
     expect(host).toHaveAttribute("data-source-artifact-sha256", "sha256:session-24");
@@ -396,6 +396,13 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     fireEvent.change(screen.getByLabelText("Campaign"), { target: { value: "longmont-c1" } });
 
     await waitFor(() => {
+      expect(screen.getByLabelText("Focus session")).toHaveValue("session-16");
+    });
+    expect(
+      postRecap.mock.calls.some((call) => call[0]?.campaignId === "longmont-c1"),
+    ).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Load" }));
+    await waitFor(() => {
       expect(postRecap).toHaveBeenCalledWith(
         expect.objectContaining({
           campaignId: "longmont-c1",
@@ -445,9 +452,27 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
 
     fireEvent.change(screen.getByLabelText("Campaign"), { target: { value: "longmont-c1" } });
 
-    expect(screen.queryByTestId("published-recap-local-authoring")).not.toBeInTheDocument();
-    expect(screen.getByText(/Loading published World Graph recap/i)).toBeInTheDocument();
+    expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+      "data-campaign-id",
+      "longmont-c2",
+    );
+    expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+      "data-session-id",
+      "session-26",
+    );
+    expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+      "data-source-artifact-path",
+      artifactRecord(26).source_recap_path,
+    );
+    expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+      "data-source-artifact-sha256",
+      "sha256:session-26",
+    );
 
+    await waitFor(() => {
+      expect(screen.getByLabelText("Focus session")).toHaveValue("session-16");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load" }));
     await waitFor(() => {
       expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
         "data-campaign-id",
@@ -460,16 +485,16 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
     );
   });
 
-  it("rejects a slower previous projection after session switch", async () => {
+  it("keeps the loaded recap stable until an explicit session Load", async () => {
     window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-26");
     vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
       records: [artifactRecord(26), artifactRecord(27)],
     });
-    let resolveFirst: ((value: typeof session23WorldGraphRecapFixture) => void) | undefined;
-    const firstProjection = new Promise<typeof session23WorldGraphRecapFixture>((resolve) => {
-      resolveFirst = resolve;
-    });
     let calls = 0;
+    let resolveSecond: ((value: typeof session23WorldGraphRecapFixture) => void) | undefined;
+    const secondProjection = new Promise<typeof session23WorldGraphRecapFixture>((resolve) => {
+      resolveSecond = resolve;
+    });
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockImplementation(async (request) => {
       const sessionId = request.focus.kind === "session" ? request.focus.sessionId : "session-26";
       const payload = {
@@ -478,31 +503,36 @@ describe("RecapGraphModule PR380B World Graph authority", () => {
         sessionId,
       };
       calls += 1;
-      if (calls === 1) {
-        return firstProjection;
-      }
-      return payload;
+      return calls === 1 ? payload : secondProjection;
     });
 
     render(<RecapGraphModule context={context} />);
     await waitFor(() => {
       expect(liveApi.postWorldGraphRecapProjection).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+        "data-session-id",
+        "session-26",
+      );
     });
 
     fireEvent.change(screen.getByLabelText("Focus session"), { target: { value: "session-27" } });
-    expect(screen.queryByTestId("published-recap-local-authoring")).not.toBeInTheDocument();
+    expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
+      "data-session-id",
+      "session-26",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Load" }));
+
+    resolveSecond?.({
+      ...session23WorldGraphRecapFixture,
+      campaignId: "longmont-c2",
+      sessionId: "session-27",
+    });
 
     await waitFor(() => {
       expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute(
         "data-session-id",
         "session-27",
       );
-    });
-
-    resolveFirst?.({
-      ...session23WorldGraphRecapFixture,
-      campaignId: "longmont-c2",
-      sessionId: "session-26",
     });
 
     await waitFor(() => {
