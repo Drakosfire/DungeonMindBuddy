@@ -293,8 +293,8 @@ ingestion, the #742 prepare/confirm path, or the matcher itself.
 
 DungeonMind PR #70 delivered the atomic reconciliation capability. The bounded
 identity-specific recovery operation is now implemented on
-`recovery/eldyrwild-pc-identity-reconciliation-v1` at `0e9a322` and pushed for
-review. It provides exact-six preflight, an explicit `--confirm-apply` gate,
+`recovery/eldyrwild-pc-identity-reconciliation-v1` at `0e9a322` in DungeonMind
+PR #72. It provides exact-six preflight, an explicit `--confirm-apply` gate,
 and persisted-decision replay/exact-retry proof. It has not mutated the live
 World.
 
