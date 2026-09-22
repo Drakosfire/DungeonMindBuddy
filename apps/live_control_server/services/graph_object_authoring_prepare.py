@@ -588,6 +588,18 @@ def _normalized_proposal_payload(proposal: GraphObjectAuthoringProposalPayload) 
 def _optional_source_anchor(selection: dict[str, Any] | None) -> GraphAuthoringSourceAnchor | None:
     if not selection:
         return None
+    selected_text = str(
+        selection.get("selected_text")
+        or selection.get("selectedText")
+        or selection.get("normalized_selected_text")
+        or selection.get("normalizedSelectedText")
+        or ""
+    ).strip()
+    if not selected_text:
+        # Graph-node and manually authored relationship selections can carry
+        # campaign/source identity without a highlighted text span. They are
+        # valid proposals, but there is no source anchor to materialize.
+        return None
     return build_source_anchor_from_payload(selection)
 
 

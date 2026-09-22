@@ -29,6 +29,8 @@ export interface GraphObjectAuthoringContextTab {
   key: string;
   label: string;
   selection: GraphAuthoringSelection;
+  baseLabel?: string;
+  scopeLabel?: string | null;
 }
 
 export interface GraphObjectAuthoringPublishedWizardProps {
@@ -208,7 +210,9 @@ export function GraphObjectAuthoringPublishedWizard({
   const currentNodeTab = selectedSource?.selectedText.trim()
     ? {
         key: contextTabKey(selectedSource),
-        label: selectedSource.existingLabel?.trim() || selectedSource.selectedText.trim(),
+        label:
+          contextTabs.find((tab) => tab.key === contextTabKey(selectedSource))?.label ??
+          (selectedSource.existingLabel?.trim() || selectedSource.selectedText.trim()),
         selection: selectedSource,
       }
     : null;
@@ -318,9 +322,9 @@ export function GraphObjectAuthoringPublishedWizard({
               status={bindSearchStatus}
               error={bindSearchError}
               candidates={scopeCandidates}
+              governedWorldNodeViews={governedWorldNodeViews}
               onBindExisting={handleBindExisting}
               binding={bindingAlias}
-              governedWorldNodeViews={governedWorldNodeViews}
               wizardMode
               onChooseCreateNew={openNewObjectTab}
             />

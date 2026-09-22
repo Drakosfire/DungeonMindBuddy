@@ -1,6 +1,6 @@
 # Report — CON-READY: Authoring v2 governed World commit
 
-**Status:** HOLD — the World/campaign publication fix is implemented; C1 alias dogfood is blocked by a missing durable World target.
+**Status:** HOLD — the World/campaign publication fix is implemented; the authoring “wow moment” is blocked by missing governed PC identities and a recap-vs-union projection boundary.
 
 ## Exact implementation identity
 
@@ -11,6 +11,18 @@
 - PR: #742 OPEN — `CON-READY: publish staged recap memory to World`; opened from the implementation handback at `a441dc6d`.
 - Review Cycle 1: **HOLD**, review `5267550374`, against head `eb5e3298202999759edb2cf5d5b5fd0c307cd0d1`.
 - Current fix head: `5f079c4d`.
+
+## Resume re-anchor after PR #744
+
+- Current `main`: `8000fb607f418242e816c08b819d92fa764eac70` (PR #744 merged).
+- PR #742 remains open and is rebased onto that exact base.
+- The merged #744 contract is preserved: recap/session state and the governed
+  World lens are independent; resolver candidates can remain visible without
+  being bindable; existing-target eligibility uses the exact governed World
+  projection and the canonical target ID.
+- The six-PC durable identity reconciliation is still pending in live
+  `eldyrwild`, so `pc:ephanna` remains correctly unavailable. No live World
+  mutation was performed during this re-anchor.
 
 ## What shipped
 
@@ -57,7 +69,169 @@ The local API and UI were restarted from this checkout and the existing staged C
 1. The recap projection returned `worldId = eldyrwild`, `campaignId = longmont-c1`, and current head `rev:e570042d33a30d07e053c578dedbc804`.
 2. Prepare succeeded against that exact World and showed the same parent in the UI. No World revision advanced during prepare.
 3. The unrelated Karsemine and merchant-guards local drafts were removed from the local-only staging list so the selected operation was only `Ephanna the Kenku Warlock → Ephanna (pc)`.
-4. Confirm failed closed with DungeonMind’s `orphan_accepted_assertion`: the selected Ephanna target is visible in the recap/extracted projection but is not present as a durable object in the current governed `eldyrwild` revision. The World head remained unchanged.
+4. Confirm failed closed with DungeonMind’s `orphan_accepted_assertion`: the selected `pc:ephanna` target is visible through the Party / PC resolver but is not present as a durable object in the current governed `eldyrwild` revision. A separate durable `node:ephanna` object exists, and the World head remained unchanged.
+
+## Targeted #742 continuity investigation
+
+The follow-up identity investigation was stopped at the handoff’s Case B gate.
+The exact live authority observation was:
+
+```text
+world                 = eldyrwild
+campaign              = longmont-c1
+session               = session-1
+head                  = rev:e570042d33a30d07e053c578dedbc804
+proposal              = link_existing alias
+selected text         = Ephanna the Kenku Warlock
+candidate source      = Party / PCs (party_pc)
+candidate ID          = pc:ephanna
+existingObjectRef     = pc:ephanna / Ephanna
+```
+
+The resolver returned one high-confidence Party / PC candidate, `pc:ephanna`.
+The exact campaign and world recap projections did not expose a canonical
+Ephanna node. A direct read of the immutable head payload did expose
+`node:ephanna` (`dnd5e:player_character`, `campaign_scope=longmont-c1`), but
+not `pc:ephanna` or `pc_ephanna`.
+
+The ancestry query covered 45 revisions, from head
+`rev:e570042d33a30d07e053c578dedbc804` back to root
+`rev:e25957737702d7a08809f546ef1d64b6`. Every revision contains
+`node:ephanna`; no revision contains `pc:ephanna`. The same identity shape is
+systemic for the C1 party roster at both root and head:
+
+```text
+node:baergrom  node:bonogo  node:caelynn
+node:ephanna   node:karsemine  node:stafl
+```
+
+The approved historical adoption bundle still contains accepted C1 assertions
+against `pc:ephanna`, including the Party Registry Ephanna attribute and
+relationships. That bundle is not the current live revision ancestry, so it is
+evidence of lineage/identity drift rather than a safe source for rewriting the
+live target.
+
+The failed publication envelope was:
+
+```text
+API code  = governed_write_inexpressible
+message   = DungeonMind v6 materialization rejected the Threat contribution: orphan_accepted_assertion
+DungeonMind materialization reason = orphan_accepted_assertion
+```
+
+The live head remained unchanged. Because the proposal uses the intended
+canonical `pc:ephanna` while the live lineage lacks that ID, this is the
+handoff’s Case B continuity failure. No `pc:ephanna` → `node:ephanna` heuristic
+binding, replacement object, World initialization, ingestion replay, or
+alias publication was attempted.
+
+The smallest next repair is outside ordinary #742: reconcile the accepted
+Ephanna/party identity lineage (and the corresponding projection contract)
+against the live `eldyrwild` authority, then re-anchor before reopening the
+existing-object witness. The current PR cannot truthfully claim the Ephanna
+existing-object witness or merge readiness.
+
+## Designing-agent escalation — live dogfood blocker
+
+The later live read was re-anchored against the current authority rather than the
+older `rev:e570042d33a30d07e053c578dedbc804` observation. The current read-only
+head is:
+
+```text
+World          = eldyrwild
+head           = rev:bd1d6a17747566fc8955b3c17f9cf680
+scope          = C1+C2 plain union
+node_count     = 1041
+relationships  = 559
+evidence       = 419
+truncated      = false
+```
+
+The dogfood contradiction is now precise:
+
+```text
+Party registries:
+  C1/S1   → ephanna → resolved PC hub
+  C2/S23  → ephanna → resolved PC hub
+
+Governed World union:
+  zero nodes with kind/role pc
+  no pc:ephanna
+
+C1/S1 recap projection:
+  Ephanna-bearing descriptive objects only
+  no canonical Ephanna PC
+```
+
+This means “loaded” currently means that the World projection endpoint returned a
+complete readable projection. It does not mean that party-registry identities
+have been materialized into governed World truth. The six-PC atomic reconciliation
+handoff was never applied to this live authority. The recent Create-new attempt
+therefore did not produce the missing durable `pc:ephanna` identity on the current
+read-back; no further duplicate Ephanna should be created as a workaround.
+
+The same read explains the Questionable Company confusion. The exact durable node
+`node_faction_questionable_company` is present in the C1+C2 union with
+`campaign_scope=longmont-c2`, but it is absent from the C1/S1 campaign projection.
+That is correct for the narrower projection, but it is not currently usable from
+the C1/S1 authoring surface even when the application chrome says C1+C2 is ready.
+
+There is a second product boundary defect behind that behavior:
+
+1. The application chrome owns a shared World lens and can report `C1+C2 · Ready`.
+2. The recap authoring surface receives `payload.nodeViews` from the selected
+   C1/S1 recap projection and passes the resulting working projection to the
+   Author Node.
+3. Existing-target admission checks whether a resolver candidate ID exists in
+   those recap-local node views, not in the shared C1+C2 governed World projection.
+
+Consequently, a C2 durable object can be visible in the union status while still
+being rejected as an existing target from C1/S1. The Ephanna resolver result is
+similarly misleading: it can find extracted/party-source candidates, but the
+bindable-target filter correctly rejects them because `pc:ephanna` is not present
+in the exact governed node map supplied to authoring. This is why the UI says two
+Ephanna matches while showing no main Ephanna PC object.
+
+The graph focus default is independently wrong for Ingest. The URL
+`?campaign=longmont-c1&scopeMode=campaign&session=session-1` uses `session-1` both
+as recap identity and as the shared graph-lens focus. On initial load this selects
+C1/S1 rather than a plain union. The Ingest recap selector and the World Graph
+lens are separate state machines, but they currently share the same URL session
+parameter. Ingest also declines to write the shared lens state back to the URL,
+so the chrome can remain at C1+C2/no-focus while the URL still describes C1/S1.
+
+### Design decision requested
+
+Treat this as a blocker to the first convincing authoring loop, not as a copy or
+resolver polish issue. The next design/repair slice should establish all of the
+following before #742 can claim the existing-object witness:
+
+- apply and prove the six-PC atomic reconciliation against the current
+  `eldyrwild` head, including `node:ephanna → pc:ephanna`;
+- make Author Node existing-target validation use the exact governed World
+  projection for the active union, or move that authority check server-side;
+- keep recap/session selection separate from the graph lens, with Ingest opening
+  on plain union/no focus unless the operator explicitly chooses a graph focus;
+- distinguish `World projection loaded` from `party identities reconciled` in
+  readiness/status copy;
+- prove the intended witness end to end:
+
+```text
+C1/S1 highlight “Ephanna”
+→ resolver offers canonical pc:ephanna as a governed PC
+→ stage alias/reference
+→ Review & publish
+→ one governed child revision
+→ refresh C1/S1
+→ authored result is readable through the same pc:ephanna identity
+```
+
+Until that witness passes, the product cannot deliver the moment the workflow is
+designed to create: the GM highlights a known character, receives a trustworthy
+identity suggestion, publishes the relationship, and immediately sees durable
+World memory reflect the decision. No genesis, campaign-level World, resolver
+shim, raw SQL repair, or additional duplicate object is authorized by this
+finding.
 
 This separates two states that the old chrome conflated:
 

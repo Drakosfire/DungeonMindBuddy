@@ -149,7 +149,6 @@ export function GraphObjectAuthoringSurface({
     () => buildOverlapContextFromProjection(proposals, existingNodes),
     [proposals, existingNodes],
   );
-
   const resolverSelectedNode = useMemo(() => {
     if (!selectedSource) return null;
     return {
@@ -362,9 +361,9 @@ export function GraphObjectAuthoringSurface({
                   status={bindSearchStatus}
                   error={bindSearchError}
                   candidates={scopeCandidates}
+                  governedWorldNodeViews={governedWorldNodeViews}
                   onBindExisting={handleBindExisting}
                   binding={bindingAlias}
-                  governedWorldNodeViews={governedWorldNodeViews}
                 />
               ) : null}
 

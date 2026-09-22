@@ -30,6 +30,10 @@ interface WorldGraphRecapProjectionProps {
   sessionOptions: string[];
   selectedCampaignId: string;
   onSelectCampaign: (campaignId: string) => void;
+  draftCampaignId?: string;
+  draftSessionId?: string;
+  onLoad?: () => void;
+  canLoad?: boolean;
   recapRecord?: RecapArtifactRecord | null;
   onRefreshProjection?: () => Promise<unknown>;
 }
@@ -41,6 +45,10 @@ export function WorldGraphRecapProjectionView({
   sessionOptions,
   selectedCampaignId,
   onSelectCampaign,
+  draftCampaignId = selectedCampaignId,
+  draftSessionId = selectedSessionId,
+  onLoad,
+  canLoad = true,
   recapRecord = null,
   onRefreshProjection,
 }: WorldGraphRecapProjectionProps) {
@@ -142,10 +150,10 @@ export function WorldGraphRecapProjectionView({
 
   const reviewToolbar = (
     <div className="recap-reader-toolbar">
-      <ReviewCampaignPicker selectedCampaignId={selectedCampaignId} onSelect={onSelectCampaign} />
+      <ReviewCampaignPicker selectedCampaignId={draftCampaignId} onSelect={onSelectCampaign} />
       <label className="graph-preview-run-picker">
         <span>Focus session</span>
-        <select value={selectedSessionId} onChange={(event) => onSelectSession(event.target.value)}>
+        <select value={draftSessionId} onChange={(event) => onSelectSession(event.target.value)}>
           {sessionOptions.map((sessionId) => (
             <option key={sessionId} value={sessionId}>
               {sessionId.replace("session-", "Session ")}
@@ -153,6 +161,14 @@ export function WorldGraphRecapProjectionView({
           ))}
         </select>
       </label>
+      <button
+        type="button"
+        className="primary recap-reader-load-button"
+        onClick={onLoad}
+        disabled={!onLoad || !canLoad || !draftCampaignId || !draftSessionId}
+      >
+        Load
+      </button>
     </div>
   );
 

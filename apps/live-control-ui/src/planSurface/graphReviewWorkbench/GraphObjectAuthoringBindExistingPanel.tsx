@@ -16,6 +16,26 @@ import {
 
 const MAX_BIND_CANDIDATES = 5;
 
+function summarizeExtractedCandidates(
+  candidates: GraphReviewExistingObjectCandidate[],
+): string {
+  const counts = new Map<string, { label: string; count: number }>();
+  for (const candidate of candidates.slice(0, MAX_BIND_CANDIDATES)) {
+    const label = candidate.label.trim();
+    if (!label) continue;
+    const key = label.toLocaleLowerCase();
+    const existing = counts.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      counts.set(key, { label, count: 1 });
+    }
+  }
+  return [...counts.values()]
+    .map(({ label, count }) => (count > 1 ? `${label} (${count} matches)` : label))
+    .join(", ");
+}
+
 function readableCandidateType(candidate: GraphReviewExistingObjectCandidate): string | null {
   const raw = (candidate.role || candidate.kind || "").trim().toLocaleLowerCase();
   if (!raw) return null;
@@ -85,6 +105,9 @@ export function GraphObjectAuthoringBindExistingPanel({
     return null;
   }
 
+  const extractedOnlyCandidates = candidates.filter(
+    (candidate) => !isExactGovernedExistingTarget(candidate, governedWorldNodeViews),
+  );
   const topCandidates = candidates.slice(0, MAX_BIND_CANDIDATES);
   const confidentDuplicateCandidates = topCandidates.filter(
     (candidate) =>
@@ -118,6 +141,23 @@ export function GraphObjectAuthoringBindExistingPanel({
             An exact primary-label match is the existing object. A different phrase can be staged as an alias, or you can keep scrolling to create a new object.
           </p>
         </header>
+      ) : null}
+
+      {extractedOnlyCandidates.length > 0 ? (
+        <div
+          className="graph-object-authoring-extracted-only-notice"
+          data-testid="graph-object-authoring-extracted-only-notice"
+        >
+          <p className="plan-surface-kicker">Found in extracted recap memory</p>
+          <p>
+            {summarizeExtractedCandidates(extractedOnlyCandidates)}
+          </p>
+          <p className="graph-object-authoring-surface-hint">
+            Not yet in the governed World. Create and publish this object first;
+            it cannot be used as an existing link until its durable node is read
+            back from the current World revision.
+          </p>
+        </div>
       ) : null}
 
       {status === "loading" ? (

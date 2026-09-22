@@ -343,6 +343,27 @@ def test_prepare_relationship_proposal_returns_relationship_preview(
     assert response.overlay_summary.relationship_count == 1
 
 
+def test_prepare_relationship_with_blank_selection_omits_source_anchor(
+    store: GraphAuthoringOverlayStore,
+) -> None:
+    response = prepare_graph_object_authoring_write(
+        prepare_request(
+            proposals=[
+                relationship_proposal(
+                    selection={
+                        "selectionKind": "text_span",
+                        "selectedText": "",
+                        "normalizedSelectedText": "",
+                    }
+                )
+            ]
+        ),
+        corpus_root=store.corpus_root,
+    )
+
+    assert response.overlay_summary.relationship_count == 1
+
+
 def test_prepare_accepts_cross_scope_object_ref_metadata(store: GraphAuthoringOverlayStore) -> None:
     response = prepare_graph_object_authoring_write(
         prepare_request(

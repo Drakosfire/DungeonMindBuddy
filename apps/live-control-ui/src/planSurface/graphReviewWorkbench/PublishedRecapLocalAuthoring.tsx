@@ -26,24 +26,33 @@ function nullableAttr(value: string | null | undefined): string {
   return value == null || value === "" ? "null" : value;
 }
 
+function authoringScopeLabel(node: GraphProjectionNodeView): string | null {
+  const graphScopes = new Set((node.graph_scope ?? []).map((scope) => scope.trim().toLowerCase()));
+  if (graphScopes.has("current_recap_projection")) return "Current recap";
+  if (graphScopes.has("party_pc")) return "Party / PCs";
+  if (graphScopes.has("authored_overlay")) return "Authored memory";
+  if (graphScopes.has("worldbuilding")) return "Worldbuilding";
+  if (graphScopes.has("campaign_memory")) return "Campaign memory";
+  if (graphScopes.has("gm_private")) return "GM private";
+
+  const domains = new Set(node.source_domains.map((domain) => domain.trim().toLowerCase()));
+  if (node.authored === true || domains.has("authored_overlay")) return "Authored memory";
+  if (domains.has("recap") || domains.has("live_projection") || domains.has("current_recap_projection")) {
+    return "Current recap";
+  }
+  if (domains.has("party") || domains.has("party_pc") || node.role?.trim().toLowerCase() === "pc") return "Party / PCs";
+  if (domains.has("worldbuilding")) return "Worldbuilding";
+  if (domains.has("campaign_memory")) return "Campaign memory";
+  if (domains.has("gm_private")) return "GM private";
+  return null;
+}
+
 function existingNodesFromViews(
   nodeViews: Record<string, GraphProjectionNodeView>,
 ): GraphObjectAuthoringInspectedNode[] {
   return Object.values(nodeViews).map((node) => {
     const domains = new Set(node.source_domains.map((domain) => domain.trim().toLowerCase()));
-    const sourceLabel = node.authored || domains.has("authored_overlay")
-      ? "Authored memory"
-      : domains.has("party") || domains.has("party_pc") || node.role?.trim().toLowerCase() === "pc"
-        ? "Party / PCs"
-        : domains.has("worldbuilding")
-          ? "Worldbuilding"
-          : domains.has("campaign_memory")
-            ? "Campaign memory"
-            : domains.has("gm_private")
-              ? "GM private"
-              : domains.has("recap") || domains.has("current_recap_projection")
-                ? "Current recap"
-                : node.source ?? "Other source";
+    const sourceLabel = authoringScopeLabel(node) ?? node.source ?? "Other source";
     return {
       node_id: node.node_id,
       label: node.label,
@@ -204,10 +213,34 @@ export function PublishedRecapLocalAuthoring({
         }),
       );
       draft.openWithSelection(selection);
-      setAuthoringContextTabs((tabs) => [
-        ...tabs.filter((tab) => tab.key !== `node:${node.node_id}`),
-        { key: `node:${node.node_id}`, label: node.label, selection },
-      ]);
+      setAuthoringContextTabs((tabs) => {
+        const nextTabs = [
+          ...tabs.filter((tab) => tab.key !== `node:${node.node_id}`),
+          {
+            key: `node:${node.node_id}`,
+            label: node.label,
+            baseLabel: node.label,
+            scopeLabel: authoringScopeLabel(node),
+            selection,
+          },
+        ];
+        const sameLabelTabs = nextTabs.filter(
+          (tab) =>
+            (tab.baseLabel ?? tab.label).trim().toLowerCase() ===
+            node.label.trim().toLowerCase(),
+        );
+        if (sameLabelTabs.length < 2) {
+          return nextTabs;
+        }
+        return nextTabs.map((tab) =>
+          (tab.baseLabel ?? tab.label).trim().toLowerCase() === node.label.trim().toLowerCase()
+            ? {
+                ...tab,
+                label: `${tab.baseLabel ?? tab.label} · ${tab.scopeLabel ?? "Other source"}`,
+              }
+            : tab,
+        );
+      });
       seedRelationshipFromNode(node);
       setAuthorNodeOpen(true);
     },
@@ -305,7 +338,7 @@ export function PublishedRecapLocalAuthoring({
       existingNodes={existingNodes}
       laneRole="live"
       projectionNodeViews={workingProjection.nodeViews}
-      governedWorldNodeViews={governedWorldNodeViews}
+      governedWorldNodeViews={governedWorldNodeViews ?? null}
       publishedLocalWizard
       contextTabs={authoringContextTabs}
       onSelectContextTab={handleSelectAuthoringContext}

@@ -22,6 +22,7 @@ vi.mock("../../api/liveApi", () => ({
 import { prepareGraphObjectAuthoringWrite, commitGraphObjectAuthoringWrite } from "../../api/liveApi";
 import type { GraphProjectionNodeView } from "../../api/types";
 import { buildManualGraphAuthoringSelection, type GraphAuthoringSelection } from "./graphAuthoringSelection";
+import { GraphObjectAuthoringBindExistingPanel } from "./GraphObjectAuthoringBindExistingPanel";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
 import { useGraphObjectAuthoringDraft } from "./useGraphObjectAuthoringDraft";
@@ -156,6 +157,45 @@ describe("GraphObjectAuthoringSurface", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("summarizes repeated extracted labels instead of making the search look duplicated", () => {
+    render(
+      <GraphObjectAuthoringBindExistingPanel
+        selectedText="Ephanna"
+        status="ready"
+        candidates={[
+          {
+            candidate_id: "recap:ephanna",
+            label: "Ephanna",
+            confidence: "medium",
+            score: 0.6,
+            reason: "exact label match",
+            source: "live_projection",
+            suggested_action: "manual_review_needed",
+            matched_features: ["exact label match"],
+            graph_scope: "current_recap_projection",
+          },
+          {
+            candidate_id: "party:ephanna",
+            label: "Ephanna",
+            confidence: "medium",
+            score: 0.6,
+            reason: "exact label match",
+            source: "manual_review_variant",
+            suggested_action: "manual_review_needed",
+            matched_features: ["exact label match"],
+            graph_scope: "party_pc",
+          },
+        ]}
+        onBindExisting={vi.fn()}
+        governedWorldNodeViews={null}
+      />,
+    );
+
+    const notice = screen.getByTestId("graph-object-authoring-extracted-only-notice");
+    expect(notice).toHaveTextContent("Ephanna (2 matches)");
+    expect(notice).not.toHaveTextContent("Ephanna, Ephanna");
+  });
+
   it("offers Add as alias matches after using highlighted text", async () => {
     const { resolveGraphReviewExistingObjectCandidates } = await import("../../api/liveApi");
     vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValueOnce({
@@ -202,6 +242,15 @@ describe("GraphObjectAuthoringSurface", () => {
       <Harness
         pendingSelection={bubblesSelection}
         enableBindExisting
+        existingNodes={[
+          ...defaultExistingNodes,
+          {
+            node_id: "npc:bubbles_the_float_goat",
+            label: "Bubbles the Float Goat",
+            kind: "npc",
+            role: "npc",
+          },
+        ]}
       />,
     );
 
