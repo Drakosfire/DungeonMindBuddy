@@ -354,17 +354,19 @@ Until that is resolved, the safe state is no mutation and #742 remains blocked.
 The next authorized sequence is:
 
 ```text
-1. Re-anchor the DungeonMind recovery handoff on current main and current
-   Eldyrwild head.
-2. Implement/dispatch the bounded exact-six recovery operation using PR #70's
-   atomic publisher.
-3. Re-run read-only preflight and present the exact parent plus six mappings.
-4. At the operator gate, publish one atomic child or no-op.
-5. Reload through fresh connections and prove canonical IDs, relationship and
-   evidence preservation, persisted decisions, replay equality, and retry
-   idempotency.
-6. Re-anchor #742 and re-run the Ephanna existing-object witness.
-7. Complete the separate Create-new durable-node witness.
+1. Identify the authoritative database and revision history for the #742 live
+   dogfood authority.
+2. Reconstruct how all six `pc:*` identities became current despite zero
+   persisted `canonical_rebind` decisions.
+3. Make an explicit conditional decision about DungeonMind #72:
+   - if the authoritative parent still has all six `node:*` sources and none of
+     the `pc:*` targets, rerun its read-only preflight and return to the explicit
+     operator apply gate;
+   - if the current `pc:*` identities are already authoritative, do not apply
+     #72 and record that the recovery operation is unnecessary for this World.
+4. Only after that authority decision, re-anchor #742 and rerun the Ephanna
+   existing-object publish/read-back witness.
+5. Complete the independent Create-new durable publication/read-back witness.
 ```
 
 Until those steps pass, #742 must remain open and no V2-3 work should begin.
