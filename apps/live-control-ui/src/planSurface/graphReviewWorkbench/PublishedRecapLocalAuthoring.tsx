@@ -82,6 +82,8 @@ export interface PublishedRecapLocalAuthoringProps {
   graphId?: string | null;
   markdown: string;
   nodeViews: Record<string, GraphProjectionNodeView>;
+  /** `undefined` means legacy standalone authoring; `null` fails closed. */
+  governedWorldNodeViews?: Record<string, GraphProjectionNodeView> | null;
   recapRecord?: RecapArtifactRecord | null;
   onInspectNode: (nodeId: string) => void;
   onActiveNodeChange?: (nodeId: string | null) => void;
@@ -94,6 +96,7 @@ export function PublishedRecapLocalAuthoring({
   graphId,
   markdown,
   nodeViews,
+  governedWorldNodeViews,
   recapRecord = null,
   onInspectNode,
   onActiveNodeChange,
@@ -129,8 +132,10 @@ export function PublishedRecapLocalAuthoring({
     [draft.proposals, markdown, nodeViews, sessionId],
   );
   const existingNodes = useMemo(
-    () => existingNodesFromViews(workingProjection.nodeViews),
-    [workingProjection.nodeViews],
+    () => existingNodesFromViews(governedWorldNodeViews ?? (
+      governedWorldNodeViews === undefined ? workingProjection.nodeViews : {}
+    )),
+    [governedWorldNodeViews, workingProjection.nodeViews],
   );
 
   const preserveSourceIdentity = useCallback(
@@ -290,6 +295,7 @@ export function PublishedRecapLocalAuthoring({
       existingNodes={existingNodes}
       laneRole="live"
       projectionNodeViews={workingProjection.nodeViews}
+      governedWorldNodeViews={governedWorldNodeViews}
       publishedLocalWizard
       contextTabs={authoringContextTabs}
       onSelectContextTab={handleSelectAuthoringContext}

@@ -111,6 +111,22 @@ describe("graphExistingObjectIdentityWorkbench", () => {
     });
   });
 
+  it("keeps the staged bind target aligned with World eligibility when identities differ", () => {
+    const candidate: GraphReviewExistingObjectCandidate = {
+      ...lysandraParty,
+      candidate_id: "party:captain_lysandra_ironveil",
+      existing_object_ref: {
+        source: "party_pc",
+        object_id: "npc:captain_lysandra_ironveil",
+        source_label: "Party / PCs",
+      },
+    };
+
+    expect(buildLinkExistingFormStateFromResolverCandidate(candidate)).toMatchObject({
+      existingObjectRef: { nodeId: "npc:captain_lysandra_ironveil" },
+    });
+  });
+
   it("builds link-existing form state from resolver candidates", () => {
     expect(buildLinkExistingFormStateFromResolverCandidate(lysandraParty)).toMatchObject({
       operation: "alias",

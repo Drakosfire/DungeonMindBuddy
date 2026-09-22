@@ -2,6 +2,11 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
+import type { WorldGraphProjection } from "../../api/types";
+import {
+  WorldGraphLensProjectionProvider,
+  WorldGraphLensProvider,
+} from "../../graphLens";
 import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
 import { session23WorldGraphRecapFixture } from "./worldGraphRecapFixture";
 
@@ -274,5 +279,90 @@ describe("WorldGraphRecapProjectionView", () => {
     expect(within(peek).getByRole("region", { name: "Campaign summary" })).toHaveTextContent(
       "Held the Mireward gate during Session 23.",
     );
+  }, 15000);
+
+  it("reads a durable object through the shared World lens, not the recap focus", async () => {
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c1&session=session-1");
+    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({
+      schema: "dmb_ingestion_source_bundle_v1",
+      campaigns: {},
+    } as never);
+    const worldProjection: WorldGraphProjection = {
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: "eldyrwild",
+        campaignId: "longmont-c2",
+        revisionId: "rev-world-union",
+        headRevisionId: "rev-world-union",
+        isHead: true,
+        focus: { kind: "none", sessionId: null },
+        admissibility: "gm",
+        scopeMode: "world",
+      },
+      summary: {
+        nodeCount: 1,
+        relationshipCount: 0,
+        attributeCount: 0,
+        evidenceCount: 0,
+        sourceArtifactCount: 0,
+        projectionTruncated: false,
+      },
+      nodes: [{
+        nodeId: "pc_caelynn",
+        label: "Caelynn",
+        kind: "pc",
+        role: "pc",
+        aliases: ["Caelynn"],
+        sourceDomains: ["party_pc"],
+        anchoredToFocusSession: false,
+        evidenceBadges: [],
+        adjacency: [],
+        suggestedExpansions: [],
+        evidenceRefIds: [],
+        sourceArtifactIds: [],
+      }],
+      relationships: [],
+      attributes: [],
+      evidence: [],
+      sourceArtifacts: [],
+      diagnostics: [],
+    };
+    vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(worldProjection);
+
+    render(
+      <WorldGraphLensProvider planCampaignId="longmont-c2">
+        <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
+          <WorldGraphRecapProjectionView
+            payload={session23WorldGraphRecapFixture}
+            selectedSessionId="session-1"
+            onSelectSession={vi.fn()}
+            sessionOptions={["session-1"]}
+            selectedCampaignId="longmont-c1"
+            onSelectCampaign={vi.fn()}
+            recapRecord={recapRecord}
+          />
+        </WorldGraphLensProjectionProvider>
+      </WorldGraphLensProvider>,
+    );
+
+    const pill = await waitFor(() => {
+      const button = screen
+        .getAllByRole("button", { name: /Caelynn/i })
+        .find((item) => item.classList.contains("recap-node-token"));
+      expect(button).toBeTruthy();
+      return button as HTMLButtonElement;
+    });
+    fireEvent.click(pill);
+
+    await waitFor(() => {
+      expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
+        expect.objectContaining({
+          worldId: "eldyrwild",
+          campaignId: "longmont-c2",
+          revisionPin: "rev-world-union",
+          focus: { kind: "none", sessionId: null },
+        }),
+      );
+    });
   }, 15000);
 });

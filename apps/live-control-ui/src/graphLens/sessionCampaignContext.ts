@@ -165,11 +165,37 @@ export function requestedLensFocusFromLocation(
 }
 
 /**
+ * `/ingest` keeps recap session identity in `session`; the shared World lens
+ * uses a separate qualified parameter so changing one cannot silently change
+ * the other.
+ */
+export function requestedGraphFocusFromLocation(
+  search: string | null | undefined = typeof window !== "undefined" ? window.location.search : null,
+): PlanGraphLensFocus | null {
+  if (search == null) return null;
+  const raw = new URLSearchParams(search).get("graphFocus")?.trim();
+  if (!raw) return null;
+  const qualified = raw.match(/^(?:(longmont-c\d+)|c(\d+)):?(?:session-)?(\d+)$/i);
+  if (!qualified) return null;
+  const campaignId = qualified[1]
+    ? qualified[1].toLowerCase()
+    : `longmont-c${qualified[2]}`;
+  const sessionNumber = Number.parseInt(qualified[3], 10);
+  if (!isReviewCampaignId(campaignId) || !Number.isFinite(sessionNumber) || sessionNumber <= 0) {
+    return null;
+  }
+  return { campaignId, sessionNumber };
+}
+
+/**
  * Resolve Plan graph lens from URL + plan campaign.
- * Default with no URL: active plan campaign only (safer than whole-world union).
+ * Default with no URL: active plan campaign only outside Ingest. Ingest keeps
+ * its recap selector independent and starts with the ordinary World union.
  * Back-compat: single `?campaign=` + `?scopeMode=` map into a selected set.
- * On Build and Ingest, bare `?campaign=` is workspace / recap identity → that campaign only
- * (not C1+C2 union). Plan still treats bare `?campaign=` without scopeMode as world union.
+ * On Build, bare `?campaign=` is workspace identity → that campaign only.
+ * Ingest treats bare `?campaign=` as recap identity and defaults the World
+ * lens to its union. Plan still treats bare `?campaign=` without scopeMode as
+ * world union.
  */
 export function resolvePlanGraphLens(
   planCampaignId: string,
@@ -184,11 +210,16 @@ export function resolvePlanGraphLens(
     ?? (typeof window !== "undefined"
       ? window.location.pathname.replace(/\/+$/, "") || "/"
       : null);
-  const bareCampaignSelectsSingle = surfacePath === "/build" || surfacePath === "/ingest";
+  const isIngest = surfacePath === "/ingest";
+  const bareCampaignSelectsSingle = surfacePath === "/build";
 
   let selectedCampaignIds: ReviewCampaignId[];
   if (fromCampaigns) {
     selectedCampaignIds = fromCampaigns;
+  } else if (isIngest) {
+    // On Ingest, `campaign` belongs to the recap selector. Only the explicit
+    // `campaigns` parameter chooses the World lens.
+    selectedCampaignIds = [...REVIEW_CAMPAIGN_IDS];
   } else if (isReviewCampaignId(singleCampaign) && scopeMode === "campaign") {
     selectedCampaignIds = [singleCampaign];
   } else if (isReviewCampaignId(singleCampaign) && scopeMode === "world") {
@@ -207,7 +238,9 @@ export function resolvePlanGraphLens(
     (selectedCampaignIds.length === 1 ? selectedCampaignIds[0] : null)
     ?? (isReviewCampaignId(planCampaignId) ? planCampaignId : null)
     ?? (selectedCampaignIds[0] ?? null);
-  const focus = requestedLensFocusFromLocation(search, focusFallback);
+  const focus = isIngest
+    ? requestedGraphFocusFromLocation(search)
+    : requestedLensFocusFromLocation(search, focusFallback);
   const normalizedFocus =
     focus && selectedCampaignIds.includes(focus.campaignId) ? focus : null;
 
@@ -267,12 +300,25 @@ export function formatPlanGraphLensSummary(
 export function syncPlanGraphLensUrl(lens: PlanGraphLens): void {
   if (typeof window === "undefined") return;
   const path = window.location.pathname.replace(/\/+$/, "") || "/";
-  // Ingest recap owns `?session=session-N`. The shared lens may consume that
-  // context but must not rewrite it into Plan-qualified `campaign:N` syntax.
+  const params = new URLSearchParams(window.location.search);
   if (path === "/ingest") {
+    if (lens.selectedCampaignIds.length > 0) {
+      params.set("campaigns", lens.selectedCampaignIds.join(","));
+    } else {
+      params.delete("campaigns");
+    }
+    if (lens.focus) {
+      params.set("graphFocus", `${lens.focus.campaignId}:${lens.focus.sessionNumber}`);
+    } else {
+      params.delete("graphFocus");
+    }
+    // `campaign` and unqualified `session` remain owned by the recap
+    // selector. Legacy scopeMode is not a World-lens authority on Ingest.
+    params.delete("scopeMode");
+    const query = params.toString();
+    window.history.replaceState({}, "", query ? `${path}?${query}` : path);
     return;
   }
-  const params = new URLSearchParams(window.location.search);
   if (lens.selectedCampaignIds.length > 0) {
     params.set("campaigns", lens.selectedCampaignIds.join(","));
   } else {

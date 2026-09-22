@@ -45,7 +45,7 @@ function syncRecapSurfaceUrl(campaignId: string, sessionId?: string) {
   if (typeof window === "undefined") return;
   const params = new URLSearchParams(window.location.search);
   params.set("campaign", campaignId);
-  params.set("scopeMode", "campaign");
+  params.delete("scopeMode");
   params.delete("run");
   if (sessionId) {
     params.set("session", sessionId);

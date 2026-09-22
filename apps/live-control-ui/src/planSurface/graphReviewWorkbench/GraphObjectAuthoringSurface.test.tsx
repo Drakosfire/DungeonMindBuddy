@@ -20,6 +20,7 @@ vi.mock("../../api/liveApi", () => ({
 }));
 
 import { prepareGraphObjectAuthoringWrite, commitGraphObjectAuthoringWrite } from "../../api/liveApi";
+import type { GraphProjectionNodeView } from "../../api/types";
 import { buildManualGraphAuthoringSelection, type GraphAuthoringSelection } from "./graphAuthoringSelection";
 import { GraphObjectAuthoringSurface } from "./GraphObjectAuthoringSurface";
 import type { GraphObjectAuthoringInspectedNode } from "./GraphObjectAuthoringObjectRefPicker";
@@ -46,6 +47,7 @@ function Harness({
   focusPanel,
   pendingSelection = null,
   enableBindExisting = false,
+  governedWorldNodeViews,
 }: {
   initialSelection?: GraphAuthoringSelection;
   existingNodes?: GraphObjectAuthoringInspectedNode[];
@@ -53,6 +55,7 @@ function Harness({
   focusPanel?: import("./GraphObjectAuthoringSurface").GraphObjectAuthoringFocusPanel;
   pendingSelection?: GraphAuthoringSelection | null;
   enableBindExisting?: boolean;
+  governedWorldNodeViews?: Record<string, GraphProjectionNodeView> | null;
 }) {
   const draft = useGraphObjectAuthoringDraft();
   const [bindCompleteCount, setBindCompleteCount] = useState(0);
@@ -110,6 +113,7 @@ function Harness({
           withPrepareCommit ? draft.clearCommittedProposals : undefined
         }
         existingNodes={existingNodes}
+        governedWorldNodeViews={governedWorldNodeViews}
       />
     </div>
   );
@@ -229,6 +233,108 @@ describe("GraphObjectAuthoringSurface", () => {
     expect(
       screen.queryByTestId("graph-object-authoring-pending-selection"),
     ).not.toBeInTheDocument();
+  });
+
+  it("keeps an extraction-only candidate visible but blocks governed binding", async () => {
+    const { resolveGraphReviewExistingObjectCandidates } = await import("../../api/liveApi");
+    vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValueOnce({
+      schema: "dmb_graph_review_existing_object_resolver_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-2",
+      selected_node_id: "selection:ephanna",
+      selected_label: "Ephanna",
+      candidates: [{
+        candidate_id: "pc:ephanna",
+        label: "Ephanna",
+        kind: "pc",
+        role: "pc",
+        confidence: "high",
+        score: 0.99,
+        reason: "Exact primary-label match",
+        source: "union_supergraph",
+        suggested_action: "link_existing_later",
+        existing_object_ref: null,
+        matched_features: ["exact primary-label match"],
+        graph_scope: "party_pc",
+        source_label: "Party / PCs",
+        aliases: [],
+        authored: false,
+      }],
+      warnings: [],
+      diagnostics: [],
+      scopes_searched: ["party_pc"],
+    });
+
+    render(
+      <Harness
+        pendingSelection={{ ...selection, selectedText: "Ephanna", normalizedSelectedText: "ephanna" }}
+        enableBindExisting
+        governedWorldNodeViews={{}}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("graph-object-authoring-use-selected-text-button"));
+
+    const bindList = await screen.findByTestId("graph-object-authoring-bind-existing-list");
+    expect(within(bindList).getByText(/Not in the current governed World projection/i)).toBeInTheDocument();
+    expect(within(bindList).getByRole("button", { name: /Unavailable until published/i })).toBeDisabled();
+    expect(screen.queryByTestId("graph-object-authoring-staged-proposal")).not.toBeInTheDocument();
+  });
+
+  it("enables a candidate only when its exact durable id is in the active World projection", async () => {
+    const { resolveGraphReviewExistingObjectCandidates } = await import("../../api/liveApi");
+    vi.mocked(resolveGraphReviewExistingObjectCandidates).mockResolvedValueOnce({
+      schema: "dmb_graph_review_existing_object_resolver_response_v1",
+      campaign_id: "longmont-c1",
+      session_id: "session-2",
+      selected_node_id: "selection:q-co",
+      selected_label: "Q Co",
+      candidates: [{
+        candidate_id: "node:questionable-company",
+        label: "Questionable Company",
+        kind: "party",
+        role: "group",
+        confidence: "high",
+        score: 0.99,
+        reason: "Alias match: Q Co",
+        source: "union_supergraph",
+        suggested_action: "link_existing_later",
+        existing_object_ref: null,
+        matched_features: ["alias match"],
+        graph_scope: "campaign_memory",
+        source_label: "Campaign memory",
+        aliases: ["Q Co"],
+        authored: false,
+      }],
+      warnings: [],
+      diagnostics: [],
+      scopes_searched: ["campaign_memory"],
+    });
+
+    render(
+      <Harness
+        pendingSelection={{ ...selection, selectedText: "Q Co", normalizedSelectedText: "q co" }}
+        enableBindExisting
+        governedWorldNodeViews={{ "node:questionable-company": {
+          node_id: "node:questionable-company",
+          label: "Questionable Company",
+          kind: "party",
+          role: "group",
+          aliases: ["Q Co"],
+          source_domains: ["campaign_memory"],
+          evidence_badges: [],
+          adjacency: [],
+          suggested_expansions: [],
+          anchored_to_focus_session: false,
+        } }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId("graph-object-authoring-use-selected-text-button"));
+
+    const bindList = await screen.findByTestId("graph-object-authoring-bind-existing-list");
+    const aliasButton = within(bindList).getByTestId("graph-object-authoring-bind-as-alias-button");
+    expect(aliasButton).toBeEnabled();
+    fireEvent.click(aliasButton);
+    await waitFor(() => expect(screen.getByTestId("bind-complete-count")).toHaveTextContent("1"));
   });
 
   it("disables staging a manual draft until a label is entered", () => {

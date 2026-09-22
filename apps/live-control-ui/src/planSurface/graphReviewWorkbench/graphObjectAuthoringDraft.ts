@@ -1,4 +1,5 @@
 import type { GraphAuthoringSelection } from "./graphAuthoringSelection";
+import { getGraphReviewBindTargetNodeId } from "./graphExistingObjectEligibility";
 
 export type GraphObjectAuthoringVisibility =
   | "gm_private"
@@ -348,12 +349,10 @@ export function buildObjectRefFromResolverCandidate(
     existing_object_ref?: Record<string, string> | null;
   },
 ): GraphObjectAuthoringObjectRef {
-  // Prefer the server-provided bind target. Display candidate_id is not always
-  // the durable graph identity (e.g. legacy party: display keys).
-  const canonicalObjectId = candidate.existing_object_ref?.object_id?.trim();
+  const canonicalObjectId = getGraphReviewBindTargetNodeId(candidate);
   return {
     refKind: "existing_graph_node",
-    nodeId: canonicalObjectId || candidate.candidate_id,
+    nodeId: canonicalObjectId ?? candidate.candidate_id,
     label: candidate.label,
     kind: candidate.kind ?? null,
     role: candidate.role ?? null,

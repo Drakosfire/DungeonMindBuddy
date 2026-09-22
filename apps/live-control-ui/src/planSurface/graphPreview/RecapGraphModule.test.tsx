@@ -191,6 +191,34 @@ describe("RecapGraphModule", () => {
     expect(body).not.toHaveProperty("revisionPin");
   });
 
+  it("keeps World lens URL state when recap selection is synchronized on Ingest", async () => {
+    window.history.replaceState(
+      {},
+      "",
+      "/ingest?campaign=longmont-c1&scopeMode=campaign&session=session-1&campaigns=longmont-c1,longmont-c2&graphFocus=longmont-c2:23",
+    );
+    const recapRecord = {
+      ...artifactRecord(1),
+      campaign_id: "longmont-c1",
+      session_id: "session-1",
+    };
+    vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({ records: [recapRecord] });
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
+      ...session23WorldGraphRecapFixture,
+      campaignId: "longmont-c1",
+      sessionId: "session-1",
+    });
+
+    render(<RecapGraphModule context={context} />);
+
+    await screen.findByLabelText("Published recap");
+    expect(window.location.search).toContain("campaign=longmont-c1");
+    expect(window.location.search).toContain("session=session-1");
+    expect(window.location.search).toContain("campaigns=longmont-c1%2Clongmont-c2");
+    expect(window.location.search).toContain("graphFocus=longmont-c2%3A23");
+    expect(window.location.search).not.toContain("scopeMode");
+  });
+
   it("passes the selected recap record source identity into local authoring without synthesizing a span", async () => {
     vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({
       ...session23WorldGraphRecapFixture,
