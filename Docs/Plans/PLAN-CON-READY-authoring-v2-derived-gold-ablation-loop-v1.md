@@ -1,10 +1,62 @@
 # PLAN — CON-READY: Authoring v2 → derived gold → extraction ablation loop
 
 **Created:** 2026-09-18  
-**Status:** ACTIVE SEQUENCING AUTHORITY — V2-0 complete; V2-1 merged; V2-1A merged; V2-2 merged; successor design re-anchor BLOCKED
+**Status:** ACTIVE SEQUENCING AUTHORITY — Authoring v2 PAUSED at post-V2-2 design boundary; World Keeper side quest ACTIVE; V2-3 NOT AUTHORIZED  
 **Canonical path:** `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`  
 **Workstream:** `CON-READY / DOGFOOD-CONTINUITY / campaign memory authoring`  
 **Re-anchor input:** `main@28754d1fdda15be97475f35e08127833b088a256` — V2-1A / PR #741 merged  
+
+## Current pause — World Keeper side quest
+
+V2-2 / PR #742 is merged and the C1/S1 governed-authoring dogfood proved that
+source-grounded human authoring can advance one immutable DungeonMind World
+revision.
+
+That dogfood also exposed that the current Buddy authoring surface is not yet a
+coherent source → World → inspect → continue loop. PR #745 began the interaction
+re-anchor.
+
+During review, the deeper ownership boundary became explicit:
+
+> DungeonBuddy should own authoring interaction and application intent. It
+> should not keep accumulating the semantic compiler and governed-publication
+> orchestration that translate those intentions into DungeonMind internals.
+
+The project is therefore deliberately pausing Authoring v2 implementation while
+the sibling **World Keeper** project is bootstrapped.
+
+World Keeper's intended role is:
+
+```text
+DungeonBuddy
+  product interaction + source context + application intent
+        ↓
+World Keeper
+  semantic interpretation + governed transaction lifecycle
+        ↓
+DungeonMind
+  durable governed World knowledge
+```
+
+Current pause authority:
+
+`Docs/Plans/HANDOFF-CON-READY-worldkeeper-sidequest-v1.md`
+
+The source-to-World interaction contract remains product authority:
+
+`Docs/Design/DESIGN-source-to-world-authoring-interaction-contract.md`
+
+The previously sequenced Buddy transaction-semantics handoff is now **PARKED
+MIGRATION EVIDENCE**. It identifies a real defect but does not authorize a
+Buddy implementation PR.
+
+No Authoring v2 successor, V2-3 derived gold, extraction/model ablation,
+Agent-assisted authoring, merge/reconciliation, or generalized graph-editor
+work is authorized during this pause.
+
+Resume only from a fresh DungeonBuddy re-anchor after World Keeper's bootstrap
+and responsibility boundary are reviewed and accepted.
+
 **Predecessor UI series:** UI-01 through UI-05 merged; Stage 4 WOW remains human-gated  
 **Historical authoring ancestry:** `ROADMAP-graph-object-authoring-surface.md`, `DESIGN-graph-object-authoring-surface.md`, July authored-memory checkpoint  
 **Current World authority:** DungeonMind-owned immutable World revisions / governed World publication  
@@ -462,27 +514,31 @@ UI-05 floating world-object Peek               MERGED (#735)
 
 Stage 4 / recap WOW                            HOLD — post-UI-05 human witness pending
 
-Authoring v2                                   CURRENT IMPLEMENTATION FRONTIER
+Authoring v2                                   PAUSED — WORLD KEEPER SIDE QUEST
 V2-0 current manual-authoring contract census  COMPLETE / PASS
 V2-1 published-recap local proposal             MERGED — PR #738
 V2-1A working-projection UI dogfood             MERGED — PR #741
 V2-2 governed World commit                      MERGED — PR #742
-Source-to-World transaction semantics            BLOCKED — design re-anchor handoff
+Source-to-World transaction semantics          PARKED — migrate/re-decide after World Keeper design
 V2-3 derived gold export                        NOT YET AUTHORIZED
 V2-4 extraction/model ablation                  PARKED BEHIND GOLD
 V2-5 Agent-assisted assessment                  PARKED BEHIND MANUAL LOOP
 ```
 
-V2-2 merged as PR #742. The next implementation capability is blocked behind
-the source-to-World interaction design re-anchor:
-`Docs/Plans/HANDOFF-CON-READY-source-to-world-transaction-semantics-v1.md`.
-No implementation lane is authorized until that handoff is activated from a
-fresh `main` re-anchor. The plan does not authorize repair fan-out, V2-3 gold
-export, extraction/model ablation, Agent authoring, merge/reconciliation, or
-statblock successor PRs.
+V2-2 merged as PR #742 and its dogfood proved the governed write is real.
+The next move is **not** another Buddy authoring implementation. The active
+cross-repository pause is:
+`Docs/Plans/HANDOFF-CON-READY-worldkeeper-sidequest-v1.md`.
 
-V2-1A / PR #741 and V2-2 / PR #742 are historical completed predecessors.
-The audit found that V2-2's durable-write seam is not yet a coherent authoring
-product loop; transaction-local dependency semantics must be repaired before
-inspection/publish continuity and authoring composition are sequenced. V2-3
-remains unauthorized.
+The transaction-semantics handoff remains useful evidence of a real current
+defect, but it is parked. After World Keeper design is accepted, a fresh
+DungeonBuddy re-anchor must decide whether that defect is repaired as a minimal
+temporary bridge or implemented directly behind the World Keeper contract.
+
+The plan does not authorize repair fan-out, V2-3 gold export, extraction/model
+ablation, Agent authoring, merge/reconciliation, or statblock successor PRs.
+
+V2-1A / PR #741 and V2-2 / PR #742 are completed predecessors. The product goal
+is unchanged; the side quest exists to move semantic transaction responsibilities
+out of DungeonBuddy before the authoring loop grows further. V2-3 remains
+unauthorized.
