@@ -41,7 +41,6 @@ BASELINE_PROVIDER_IMPORTS: frozenset[tuple[str, str]] = frozenset(
     {
         ("src/agent/document_planner.py", "openai"),
         ("src/agent/planner.py", "openai"),
-        ("src/agent/synthesis.py", "openai"),
         ("src/cli.py", "openai"),
         ("src/graph_memory/extraction/category_candidate_graph_extractor.py", "openai"),
         ("src/graph_memory/extraction/preview_candidate_graph_extractor.py", "openai"),
@@ -258,6 +257,7 @@ BASELINE_DUNGEONMIND_OUTSIDE_INTEGRATION: frozenset[str] = frozenset(
 
 BASELINE_GENERATIONENGINE_IMPORTS: frozenset[tuple[str, str]] = frozenset(
     {
+        ("src/agent/synthesis.py", "generationengine"),
         ("src/compiler/wiki_compiler.py", "generationengine"),
         ("src/ingestion/frontmatter_inference.py", "generationengine"),
         ("src/live_play/live_turn_classifier_client.py", "generationengine"),
