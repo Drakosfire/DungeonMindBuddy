@@ -1,6 +1,6 @@
 # E5G — Buddy retrieval synthesis through GenerationEngine
 
-**Status:** ACTIVE
+**Status:** MERGED — Buddy PR #746 at `9510a6dbdfde52917e249710724a35c089410f68`
 **Flow:** E5G
 **Architecture owner:** `Drakosfire/DungeonOverMind`
 **Execution repository:** `Drakosfire/DungeonMindBuddy`
@@ -13,6 +13,9 @@
 **Assigned branch:** `codex/e5g-retrieval-synthesis-generationengine`
 **Branch / checkout:** `codex/e5g-retrieval-synthesis-generationengine` / isolated worktree from `origin/main`
 **Assigned PR title:** `E5G: migrate retrieval synthesis through GenerationEngine`
+**Final reviewed head:** `30408200bf839855ae1aa223b466b44420acb1e2`
+**Review cycles:** 2
+**Accepted evidence:** focused E5G 40 passed; adjacent E5C–E5F 193 passed / 36 deselected; lock/sync/import/Ruff/diff-check green
 
 ## 1. Mission
 
