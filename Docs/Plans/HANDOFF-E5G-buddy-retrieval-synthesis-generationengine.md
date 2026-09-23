@@ -7,6 +7,7 @@
 **Canonical design:** DungeonOverMind `Docs/Plans/HANDOFF-E5G-buddy-retrieval-synthesis-generationengine.md` at `705bb09e65858df1b046cce9db59eb7820478139`
 **Design authority base:** `a9495fa0f14a31461de8aa60ed7fc0ad85697a40`
 **Activation base:** `a9495fa0f14a31461de8aa60ed7fc0ad85697a40`
+**Implementation branch base:** `26856027e36a9a66248259a01519d6378b56b795`
 **Predecessor:** E5F, Buddy PR #743 merged at `a9495fa0f14a31461de8aa60ed7fc0ad85697a40`
 **PR topology:** `serial`
 **Assigned branch:** `codex/e5g-retrieval-synthesis-generationengine`
@@ -43,7 +44,7 @@ repair, or E5H PR is not authorized by this handoff.
 
 | Field | Required content |
 |---|---|
-| Implementation branch base | `a9495fa0f14a31461de8aa60ed7fc0ad85697a40` |
+| Implementation branch base | `26856027e36a9a66248259a01519d6378b56b795` |
 | Branch / checkout | `codex/e5g-retrieval-synthesis-generationengine` / isolated worktree from `origin/main` |
 | PR topology | `serial` |
 | Authorized PR action | open and update only the assigned E5G implementation PR |
@@ -64,6 +65,20 @@ or the existing synchronous wrapper rather than only at a request helper.
 | Modify | `src/agent/synthesis.py` | migrate exactly synthesis provider execution and response parsing to GE |
 | Modify | `tests/test_synthesis.py` | own request, prompt, model, lifecycle, metadata, and failure witnesses |
 | Modify | `tests/test_e5a_boundary_fitness.py` | move exactly synthesis from direct-provider debt to GE inventory |
+
+## §5 Explicitly out of scope / collision boundary
+
+| Action | Path | Reason |
+|---|---|---|
+| Do not modify | `src/cli.py` | CLI product behavior remains unchanged |
+| Do not modify | `src/llm/api_client.py` | still-direct consumers own this compatibility wrapper |
+| Do not modify | `src/llm/generation_sync.py` | native-async synthesis needs no sync bridge |
+| Do not modify | `src/live_play/live_query_context.py` | live grounded answering requires a separate GE contract decision |
+| Do not modify | `src/agent/document_planner.py` | JSON-object/fallback planning semantics require separate design |
+| Do not modify | `src/agent/planner.py` | separate direct-provider consumer and `_load_api_key` dependent |
+| Do not modify | `MODEL_POLICY.json` | model choice remains existing Buddy policy |
+| Do not modify | `pyproject.toml` | accepted dependency authority is already present |
+| Do not modify | `uv.lock` | GE pin must remain exact |
 
 Verify but normally do not edit:
 
@@ -185,28 +200,27 @@ and add exactly:
 
 All other direct-provider and GE-consumer tuples remain unchanged.
 
-## 8. Required witnesses
+## §9 Merge-blocking acceptance rubric
 
 Tests at the owning boundary must prove:
 
-1. exact one-step `TextRequest`, including `temperature is None` and no schema;
-2. explicit alternate model and current Buddy default model parity;
-3. default, wiki, citation, verbosity, and synthesis-profile prompt parity;
-4. exact two-step extraction then answer request sequence and prompts;
-5. same provider/model/profile/temperature contract for both calls;
-6. successful metadata values and all failure-time mutation semantics;
-7. empty extraction stops before the answer request;
-8. empty answer raises the existing synthesis error;
-9. original GE failures propagate with no Buddy retry/fallback;
-10. injected GE client bypasses credentials and production construction;
-11. production construction occurs inside the running coroutine;
-12. one client per invocation, reused for same-loop two-step calls, with no
-    cross-invocation cache;
-13. `_load_api_key` compatibility and unchanged sync wrapper behavior;
-14. source no longer owns OpenAI/wrapper/chat-response mechanics;
-15. the boundary census moves by exactly one tuple in each direction.
+- Exact one-step `TextRequest`, including `temperature is None` and no schema.
+- Explicit alternate model and current Buddy default model parity.
+- Default, wiki, citation, verbosity, and synthesis-profile prompt parity.
+- Exact two-step extraction then answer request sequence and prompts.
+- Same provider/model/profile/temperature contract for both calls.
+- Successful metadata values and all failure-time mutation semantics.
+- Empty extraction stops before the answer request.
+- Empty answer raises the existing synthesis error.
+- Original GE failures propagate with no Buddy retry/fallback.
+- Injected GE client bypasses credentials and production construction.
+- Production construction occurs inside the running coroutine.
+- One client per invocation, reused for same-loop two-step calls, with no cross-invocation cache.
+- `_load_api_key` compatibility and unchanged sync wrapper behavior.
+- Source no longer owns OpenAI/wrapper/chat-response mechanics.
+- Boundary census moves by exactly one tuple in each direction.
 
-## 9. Verification
+## §7 Evidence required to merge
 
 Run on the final PR head:
 
@@ -217,7 +231,7 @@ uv run python -c "import generationengine; print(generationengine.__version__)"
 uv run ruff check src/agent/synthesis.py tests/test_synthesis.py tests/test_e5a_boundary_fitness.py tests/test_model_policy_authority.py
 uv run pytest -q tests/test_synthesis.py tests/test_e5a_boundary_fitness.py tests/test_model_policy_authority.py
 git diff --check
-git diff --name-only a9495fa0f14a31461de8aa60ed7fc0ad85697a40...HEAD
+git diff --name-only 26856027e36a9a66248259a01519d6378b56b795...HEAD
 ```
 
 Also run and record exact existing CLI synthesis nodes for ordinary ask,
@@ -255,7 +269,7 @@ Do not preselect or pre-authorize E5H. The re-census must decide whether the nex
 slice is an already-expressible Buddy consumer or a prerequisite GE contract
 extension such as output-token limits.
 
-## 12. Handback
+## §8 Required review handback
 
 Return the PR URL, branch, exact base/head, E5F ancestry, GE pin, lease check,
 changed paths, captured one-step/two-step requests, lifecycle/credential/error/
