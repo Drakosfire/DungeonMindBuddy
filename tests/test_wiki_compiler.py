@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import io
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import redirect_stdout
 from pathlib import Path
@@ -357,6 +358,79 @@ def test_compile_wiki_constructs_execution_local_clients_not_one_shared(
     assert store.wiki_pages["ent_alpha"] == "Article for ent_alpha."
     assert store.wiki_manifest["ent_alpha"]["model"] == "gpt-5.3-codex"
     assert store.wiki_manifest["ent_beta"]["model"] == "gpt-5.3-codex"
+
+
+def test_compile_wiki_generation_workers_actually_overlap(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    store = _wiki_store(
+        tmp_path,
+        [("ent_alpha", "Alpha Captain"), ("ent_beta", "Beta Warden")],
+    )
+    rendezvous = threading.Barrier(2, timeout=2)
+
+    class _FakeGE:
+        async def generate_text(self, request: TextRequest) -> TextResult:
+            rendezvous.wait()
+            entity_id = request.user_prompt.splitlines()[0].removeprefix("Entity ID: ").strip()
+            return _queued_text_result(f"Article for {entity_id}.")
+
+    monkeypatch.setattr(
+        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        lambda: _FakeGE(),
+    )
+
+    assert compile_wiki(
+        store,
+        None,
+        entity_ids=["ent_alpha", "ent_beta"],
+        incremental=False,
+        max_workers=2,
+    ) == {
+        "ent_alpha": "Article for ent_alpha.",
+        "ent_beta": "Article for ent_beta.",
+    }
+
+
+def test_compile_wiki_worker_failure_does_not_partially_commit(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+    store = _wiki_store(
+        tmp_path,
+        [("ent_alpha", "Alpha Captain"), ("ent_beta", "Beta Warden")],
+    )
+    original_pages = dict(store.wiki_pages)
+    original_manifest = dict(store.wiki_manifest)
+    rendezvous = threading.Barrier(2, timeout=2)
+
+    class _FakeGE:
+        async def generate_text(self, request: TextRequest) -> TextResult:
+            entity_id = request.user_prompt.splitlines()[0].removeprefix("Entity ID: ").strip()
+            rendezvous.wait()
+            if entity_id == "ent_beta":
+                raise RuntimeError("provider failure for ent_beta")
+            return _queued_text_result("Article for ent_alpha.")
+
+    monkeypatch.setattr(
+        "src.compiler.wiki_compiler.GenerationClient.from_env",
+        lambda: _FakeGE(),
+    )
+
+    with pytest.raises(RuntimeError, match="provider failure for ent_beta"):
+        compile_wiki(
+            store,
+            None,
+            entity_ids=["ent_alpha", "ent_beta"],
+            incremental=False,
+            max_workers=2,
+        )
+
+    assert store.wiki_pages == original_pages
+    assert store.wiki_manifest == original_manifest
 
 
 def test_compile_wiki_preserves_thread_pool_max_workers(
