@@ -183,7 +183,6 @@ uv lock --check
 uv sync
 uv run ruff check src/compiler/wiki_compiler.py tests/test_wiki_compiler.py tests/test_e5a_boundary_fitness.py tests/test_model_policy_authority.py
 uv run pytest -q tests/test_wiki_compiler.py tests/test_e5a_boundary_fitness.py tests/test_model_policy_authority.py
-uv run pytest -q tests/test_e5c_live_turn_inference_generationengine.py tests/test_e5d_npc_intent_generationengine.py tests/test_e5e_frontmatter_inference_generationengine.py
 git diff --check
 git diff --name-only bcc3780811bdfdbb3b2b2b68ee55dc7fe94a7c9b...HEAD
 ```
