@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE REFERENCE / process index  
 **Created:** 2026-08-02  
-**Repository authority refresh:** 2026-08-22 post-PR #627 PLAY-SURFACE Lane A3 current-moment cockpit design merge under CON-READY parent acceptance, plus BF1 beat-first Playable foundation dispatch, based on `f8354f5659f5ff5188ad549419dffa4bbf3ed2ba`
+**Repository authority refresh:** 2026-09-22 — Agent Interaction runtime/semantic-adjudication direction added on top of `main@c6730c94cbdce97ce1b6bd7999fc4685d61f9c69`; Project Sources snapshot remains unchanged until operator refresh
 **Project Sources snapshot date:** 2026-08-02 — do not advance this date until the operator actually replaces/re-observes the user-managed Project Sources set  
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)  
 **Document class:** curated source index — **not** architecture, roadmap, or PR-sequence authority
@@ -59,6 +59,19 @@ For Campaign Supergraph implementation order, [`PR-TRACKER-campaign-supergraph.m
 | Runbook Lantern compatibility anchor | [`Docs/Design/ANCHOR-runbook-lantern.md`](ANCHOR-runbook-lantern.md) | `Docs/Sources/design-agent/ACTIVE_REFERENCE/ANCHOR-runbook-lantern.md` |
 | Repository overview | [`README.md`](../../README.md) | `Docs/Sources/design-agent/ACTIVE_REFERENCE/README.md` |
 | This source-set index | [`Docs/Design/INDEX-design-agent-source-set.md`](INDEX-design-agent-source-set.md) | `Docs/Sources/design-agent/ACTIVE_REFERENCE/INDEX-design-agent-source-set.md` |
+
+### Current Agent Interaction decisions — canonical only until next export refresh
+
+These are current `main` design references for Agent work. They are
+intentionally **not** added to the 2026-08-02 user-managed Project Sources
+snapshot or export bundle by this documentation capture; the next operator
+refresh may add them deliberately.
+
+- [Agent context compilation](DECISION-agent-context-compilation.md) — query,
+  Surface, World, and interaction context compilation under bounded model budget.
+- [AgentRuntime and semantic adjudication](DECISION-agent-runtime-and-semantic-adjudication.md) —
+  Buddy-owned runtime boundary, Pi adapter direction, and future Jev-style
+  semantic-decision opportunities.
 
 ### SOURCE ANCHOR
 

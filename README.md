@@ -24,6 +24,17 @@ silently mutate canon. Agents are graph consumers with typed capabilities, not
 privileged graph writers. Conversation history is continuity, not campaign
 truth.
 
+Agent orchestration remains a DungeonBuddy product concern behind the
+Buddy-owned `AgentRuntime` boundary. Hermes is the current production adapter
+and PydanticAI remains a challenger/experiment; the next preferred harness
+experiment is a thin `PiAgentRuntimeAdapter` over `pi-agent-core`, not a
+migration of DungeonBuddy architecture into Pi. A future semantic-adjudication
+layer may help with retrieval reranking, duplicate/entity alignment, assertion
+verification, and tool preselection, but it must remain advisory rather than an
+authority boundary. Jev / TypeSafe AI is the current research candidate for
+that role, is not accessible to this project today, and creates no runtime or
+dependency requirement.
+
 ## Current state
 
 The durable World Graph, Graph Kernel, source and agent contracts, initial
@@ -76,6 +87,8 @@ authority. Use these documents for current design work:
 - [Shared surface-interaction architecture](Docs/Design/ARCHITECTURE-surface-interaction-layer.md)
 - [Graph document audit](Docs/Reports/graph-document-audit.md)
 - [E5A inference and knowledge boundary baseline](Docs/Reports/REPORT-E5A-buddy-boundary-baseline.md)
+- [Agent context compilation decision](Docs/Design/DECISION-agent-context-compilation.md)
+- [AgentRuntime and semantic-adjudication direction](Docs/Design/DECISION-agent-runtime-and-semantic-adjudication.md)
 - [Design-agent source manifest](Docs/Design/INDEX-design-agent-source-set.md)
 
 The manifest is the checked-in entry point for the exact Project Sources to
