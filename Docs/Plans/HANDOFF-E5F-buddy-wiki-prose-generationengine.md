@@ -18,7 +18,7 @@ pr_body_template: |
 # HANDOFF — E5F wiki prose generation through GenerationEngine
 
 **Created:** 2026-09-23  
-**Status:** ACTIVE — stewardship recovery binds the already-open implementation PR  
+**Status:** MERGED — Buddy PR #743 at `a9495fa0f14a31461de8aa60ed7fc0ad85697a40`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-E5F-buddy-wiki-prose-generationengine.md`  
 **Conversation/workstream:** `E5 Buddy GenerationEngine migration`  
 **Flow / owner:** `E5F / DungeonMindBuddy`  
@@ -30,6 +30,8 @@ pr_body_template: |
 **PR topology:** `serial`  
 **PR authorization:** review/update existing PR #743 only; no successor, repair, or cleanup PR is authorized  
 **PR title:** `E5F: migrate wiki prose generation through GenerationEngine`
+
+**Completion record:** implementation head `eabc25f8cd9a3ad78078d47e689a63f77b289bec`; merge commit `a9495fa0f14a31461de8aa60ed7fc0ad85697a40`; five formal review cycles; accepted evidence included 39 E5F-focused tests plus an exact-head adjacent E5C–E5E regression union of 169 passed / 36 deselected. The E5F write lease is released.
 
 This is a truthful lifecycle recovery. Implementation PR #743 was opened before
 the current ACTIVE/topology handoff law was adopted. This document does not
