@@ -6,7 +6,7 @@
 **Execution repository:** `Drakosfire/DungeonMindBuddy`
 **Canonical design:** DungeonOverMind `Docs/Plans/HANDOFF-E5I-buddy-live-grounded-answer-generationengine.md` at `639536912e78a07c6246528aae70e1f953785d0b`
 **Activation base:** `99b8d431d6558f4d6028c736d41ebaa97af84ca5`
-**Implementation branch base:** pending activation commit
+**Implementation branch base:** `1de19d3b7dc83c5ef536ae36588706e47dafb6d5`
 **Accepted GE authority:** E5H PR #8 merge `f502c9883013d3ec9b866ca9276dfd7def141599`
 **Predecessor:** E5G Buddy PR #746 merge `9510a6dbdfde52917e249710724a35c089410f68`
 **PR topology:** `serial`
@@ -41,7 +41,7 @@ telemetry-eval migration, or second consumer PR is authorized.
 
 | Field | Required content |
 |---|---|
-| Implementation branch base | replaced with exact activation commit before dispatch |
+| Implementation branch base | `1de19d3b7dc83c5ef536ae36588706e47dafb6d5` |
 | Branch / checkout | `codex/e5i-live-grounded-answer-generationengine` / isolated worktree |
 | Runtime/state ownership | injected/local GE fakes and temporary stores only; no paid provider, shared service, or external durable state |
 | Concurrent lanes checked | PR #745 disjoint; PR #747 merged before activation |
@@ -127,7 +127,7 @@ uv run python -c "import generationengine; print(generationengine.__version__); 
 uv run ruff check src/live_play/live_query_context.py tests/test_live_query_manifest_context.py tests/test_e5a_boundary_fitness.py tests/test_model_policy_authority.py
 uv run pytest -q tests/test_live_query_manifest_context.py tests/test_e5a_boundary_fitness.py tests/test_model_policy_authority.py tests/test_generation_sync.py
 git diff --check
-git diff --name-only IMPLEMENTATION_BASE...HEAD
+git diff --name-only 1de19d3b7dc83c5ef536ae36588706e47dafb6d5...HEAD
 ```
 
 Also run and record the exact final-head E5C–E5G regression union under the new
