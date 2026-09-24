@@ -542,9 +542,9 @@ def test_acceptance_artifact_integrity(
     assert acceptance_artifact["schema"] == "dmb_v0_2_contract_acceptance_v1"
     assert acceptance_artifact["verification_disposition"] == "V0_2_DUNGEONBUDDY_DOMAIN_PROOF_ACCEPTED"
     assert acceptance_artifact["buddy_base_sha"] == EXPECTED_BUDDY_BASE
-    # Substantive head review phase: reviewed_implementation_head_sha is null until substantive PASS,
-    # then recorded in a subsequent docs/test-only finalization commit.
-    assert acceptance_artifact["reviewed_implementation_head_sha"] is None
+    assert acceptance_artifact["reviewed_implementation_head_sha"] == (
+        "2a17226b6b0b25a1084f404b6aca8bde442e4713"
+    )
     assert acceptance_artifact["dungeonmind_provider_merge_sha"] == EXPECTED_PROVIDER_COMMIT
     assert acceptance_artifact["dungeonmind_accepted_v0_1_head_sha"] == EXPECTED_ACCEPTED_V0_1_HEAD
     assert acceptance_artifact["dungeonmind_vnext_aggregate_sha256"] == EXPECTED_PROVIDER_AGGREGATE
