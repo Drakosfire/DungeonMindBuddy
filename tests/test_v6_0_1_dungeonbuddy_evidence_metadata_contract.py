@@ -38,6 +38,10 @@ FIXTURE_V2_PATH = ROOT / "tests/fixtures/vnext/dungeonbuddy_domain_runtime_prese
 CORRECTION_ARTIFACT_PATH = (
     ROOT / "Docs/Contracts/vnext/dmb_v6_0_1_domain_contract_correction_v1.json"
 )
+HANDOFF_PATH = (
+    ROOT
+    / "Docs/Plans/HANDOFF-v6-0-1-dungeonbuddy-evidence-metadata-contract-correction.md"
+)
 EXPECTED_DOMAIN_V1_DIGEST = (
     "9c1d3eb3e01ffebde959625a54831f1e5c25aad8a5c422ffaaedd09d8d929a8e"
 )
@@ -48,6 +52,9 @@ EXPECTED_RUNTIME_SHA = "6edb9e40d1dc930f537c66deb1afbd1b99002844"
 EXPECTED_FIXTURE_V2_DIGEST = (
     "4fdc327cdf6887dc4ae154e44da9904974c82e40d310a807f590ce2db6d21121"
 )
+EXPECTED_DISPOSITION = "V6_0_1_DUNGEONBUDDY_EVIDENCE_METADATA_CONTRACT_CORRECTED"
+REVIEWED_HEAD = "1f5c47ab20605b4e07b2afe8db65f9d7152388e0"
+SUBSTANTIVE_PASS_REVIEW = "5299327752"
 
 
 def _json(path: Path) -> dict:
@@ -108,7 +115,12 @@ def test_correction_artifact_and_runtime_pin_are_sealed() -> None:
     assert artifact["v0_2_domain_digest"] == EXPECTED_DOMAIN_V1_DIGEST
     assert artifact["corrected_domain_digest"] == EXPECTED_DOMAIN_V2_DIGEST
     assert artifact["preservation_fixture_v2_digest"] == EXPECTED_FIXTURE_V2_DIGEST
+    assert artifact["verification_disposition"] == EXPECTED_DISPOSITION
     assert canonical_sha256(_json(FIXTURE_V2_PATH)) == EXPECTED_FIXTURE_V2_DIGEST
+    handoff = HANDOFF_PATH.read_text(encoding="utf-8")
+    assert f"**Status:** COMPLETE — `{EXPECTED_DISPOSITION}`" in handoff
+    assert f"**Accepted implementation head:** `{REVIEWED_HEAD}`" in handoff
+    assert f"**Substantive PASS review:** `{SUBSTANTIVE_PASS_REVIEW}`" in handoff
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert f"DungeonMind.git@{EXPECTED_RUNTIME_SHA}" in pyproject
 

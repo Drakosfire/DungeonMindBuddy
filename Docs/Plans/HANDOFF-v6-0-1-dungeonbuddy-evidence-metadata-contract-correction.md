@@ -1,7 +1,7 @@
 # HANDOFF — V6.0.1 DungeonBuddy evidence-metadata contract correction
 
 **Created:** 2026-09-23  
-**Status:** ACTIVE — corrective prerequisite for V6.1  
+**Status:** COMPLETE — `V6_0_1_DUNGEONBUDDY_EVIDENCE_METADATA_CONTRACT_CORRECTED`
 **Implementation repository:** `Drakosfire/DungeonMindBuddy`  
 **DungeonMindBuddy base:** `99ec0d56911b62ad9b9d63db1c8f9406ca4f319d`  
 **DungeonMind runtime target:** `6edb9e40d1dc930f537c66deb1afbd1b99002844` — merged PR #75  
@@ -10,6 +10,8 @@
 **Blocked successor:** V6.1 — DungeonBuddy vNext domain runtime foundation  
 **Suggested branch:** `contracts/v6-0-1-evidence-metadata-ownership-correction`  
 **Suggested PR title:** `CONTRACTS: correct DungeonBuddy vNext evidence metadata ownership`
+**Accepted implementation head:** `1f5c47ab20605b4e07b2afe8db65f9d7152388e0`
+**Substantive PASS review:** `5299327752`
 
 ## 1. Mission
 
@@ -373,3 +375,21 @@ Buddy DomainContract:
 V6.1 should then implement the Buddy-owned runtime policy/request/context foundation using the corrected descriptor and v2 runtime preservation fixture.
 
 V6.2 and V7 remain blocked only until V6.1 completes, not on any new Kernel capability.
+
+## 17. Completion record
+
+Steward review `5299327752` gave a substantive PASS to implementation head:
+
+```text
+1f5c47ab20605b4e07b2afe8db65f9d7152388e0
+```
+
+The accepted disposition is:
+
+```text
+V6_0_1_DUNGEONBUDDY_EVIDENCE_METADATA_CONTRACT_CORRECTED
+```
+
+The post-review finalization is limited to this completion record, the correction
+artifact disposition, and their sealing assertions. No runtime, fixture,
+descriptor, or dependency state changed during finalization.

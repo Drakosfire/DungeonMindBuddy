@@ -9,5 +9,5 @@
   "corrected_domain_digest": "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd",
   "preservation_fixture_v2_digest": "4fdc327cdf6887dc4ae154e44da9904974c82e40d310a807f590ce2db6d21121",
   "reason": "evidence_metadata_schema_ownership_mismatch",
-  "verification_disposition": "IMPLEMENTED_AWAITING_STEWARD_REVIEW"
+  "verification_disposition": "V6_0_1_DUNGEONBUDDY_EVIDENCE_METADATA_CONTRACT_CORRECTED"
 }
