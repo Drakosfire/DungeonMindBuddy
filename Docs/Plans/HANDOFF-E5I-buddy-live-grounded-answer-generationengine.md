@@ -1,6 +1,6 @@
 # E5I — Buddy live grounded answer through GenerationEngine
 
-**Status:** ACTIVE
+**Status:** MERGED — Buddy PR #748 at `3f1aa1baf9a72c16adf747ad5bf81e9e8b249a6a`
 **Flow:** E5I
 **Architecture owner:** `Drakosfire/DungeonOverMind`
 **Execution repository:** `Drakosfire/DungeonMindBuddy`
@@ -12,6 +12,9 @@
 **PR topology:** `serial`
 **Assigned branch:** `codex/e5i-live-grounded-answer-generationengine`
 **Assigned PR title:** `E5I: migrate live grounded answering through GenerationEngine`
+**Final reviewed head:** `e803d09c4323acc7ec72bf6a6f2de32d24bb537b`
+**Review cycles:** 2
+**Accepted evidence:** focused E5I 39 passed; E5C–E5G regression 218 passed / 36 deselected; exact E5H pin; lock/sync/Ruff/diff-check green
 
 ## §1 Mission and invariant
 
