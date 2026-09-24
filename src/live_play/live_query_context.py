@@ -10,8 +10,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from generationengine import FailureCode, GenerationClient, GenerationEngineError, TextRequest
+
 from src.agent.synthesis import _load_api_key
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
+from src.llm.generation_sync import run_awaitable_sync
 from src.live_play.classify_live_turn import TurnClassification
 from src.live_play.manifest_context_query import (
     QueryConfig,
@@ -305,26 +308,37 @@ def _run_llm_grounded_answer(
     if not (_load_api_key() or "").strip():
         return None, warnings
 
-    try:
-        from openai import OpenAI  # type: ignore
-    except Exception:
-        warnings.append("llm_client_unavailable")
-        return None, warnings
-
     prompt = render_grounded_prompt(
         question,
         packet,
         world_graph_prompt_block=world_graph_prompt_block,
     )
     model = _live_query_model(root)
+    request = TextRequest(
+        user_prompt=prompt,
+        system_prompt=None,
+        provider="openai",
+        model=model,
+        profile=None,
+        temperature=None,
+        max_output_tokens=400,
+    )
+
+    async def _generate_text() -> Any:
+        client = GenerationClient.from_env()
+        return await client.generate_text(request)
+
     try:
-        client = OpenAI()
-        # gpt-5.x chat/codex models reject temperature on Responses API.
-        response = client.responses.create(
-            model=model,
-            input=prompt,
-            max_output_tokens=400,
+        result = run_awaitable_sync(_generate_text)
+    except GenerationEngineError as exc:
+        if exc.failure.code is FailureCode.CONFIGURATION_UNAVAILABLE:
+            warnings.append("llm_client_unavailable")
+            return None, warnings
+        detail = str(exc).strip().replace("\n", " ")[:160]
+        warnings.append(
+            f"llm_grounding_call_failed:{detail}" if detail else "llm_grounding_call_failed"
         )
+        return None, warnings
     except Exception as exc:
         detail = str(exc).strip().replace("\n", " ")[:160]
         warnings.append(
@@ -332,7 +346,7 @@ def _run_llm_grounded_answer(
         )
         return None, warnings
 
-    answer = _extract_answer_text(response)
+    answer = (result.text or "").strip()
     if not answer:
         warnings.append("llm_empty_answer_fallback_used")
         return None, warnings
