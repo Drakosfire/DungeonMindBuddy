@@ -1021,6 +1021,59 @@ def test_ge_failure_propagates_without_buddy_retry_and_still_closes(
     assert client.close_calls == 1
 
 
+def test_concurrent_ge_failure_drains_sibling_before_client_close(
+    tmp_path: Path,
+) -> None:
+    class ConcurrentFailureGenerationClient(_RecordingGenerationClient):
+        def __init__(self) -> None:
+            super().__init__([])
+            self.entered = 0
+            self.both_entered = asyncio.Event()
+            self.sibling_terminated = asyncio.Event()
+            self.closed_after_sibling = False
+
+        async def generate_structured(self, request: TextRequest) -> TextResult:
+            self.requests.append(request)
+            self.entered += 1
+            if self.entered == 2:
+                self.both_entered.set()
+            await asyncio.wait_for(self.both_entered.wait(), timeout=1)
+            if "FAIL_UNIT" in request.user_prompt:
+                raise RuntimeError("normalized GE failure")
+            try:
+                await asyncio.Future()
+            finally:
+                self.sibling_terminated.set()
+
+        async def aclose(self) -> None:
+            self.closed_after_sibling = self.sibling_terminated.is_set()
+            await super().aclose()
+
+    client = ConcurrentFailureGenerationClient()
+    adapter = AsyncOpenAIResponsesFactClient(generation_client=client)
+
+    with pytest.raises(RuntimeError, match="normalized GE failure"):
+        run_fact_extraction(
+            [
+                _evidence("evid_fail", "FAIL_UNIT", 0),
+                _evidence("evid_sibling", "Geography: peaks.", 1),
+            ],
+            entities=ENTITIES,
+            canon_layer="world",
+            campaign_id=None,
+            source_class="seed_reference",
+            cache_dir=tmp_path / "cache",
+            openai_client=adapter,
+            allow_heuristic_fallback=False,
+            concurrency=2,
+        )
+
+    assert client.entered == 2
+    assert client.sibling_terminated.is_set()
+    assert client.closed_after_sibling is True
+    assert client.close_calls == 1
+
+
 def test_world_canon_facts_have_correct_truth_state(tmp_path: Path) -> None:
     facts = run_fact_extraction(
         [_evidence("evid_1", "Geography: near Stormspire Peaks.", 0)],

@@ -1078,15 +1078,23 @@ async def extract_facts_batch(
                     )
 
     try:
-        tasks: list[Any] = []
+        work: list[Any] = []
         if effective_batch <= 1:
             for idx, unit, pe, pfp in misses:
-                tasks.append(process_one(idx, unit, pe, pfp))
+                work.append(process_one(idx, unit, pe, pfp))
         else:
             for batch_i in range(0, len(misses), effective_batch):
-                tasks.append(process_batch(misses[batch_i : batch_i + effective_batch]))
-        if tasks:
-            await asyncio.gather(*tasks)
+                work.append(process_batch(misses[batch_i : batch_i + effective_batch]))
+        running_tasks = [asyncio.create_task(item) for item in work]
+        if running_tasks:
+            try:
+                await asyncio.gather(*running_tasks)
+            except BaseException:
+                for task in running_tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*running_tasks, return_exceptions=True)
+                raise
     finally:
         closer = getattr(openai_client, "aclose", None)
         if callable(closer):
