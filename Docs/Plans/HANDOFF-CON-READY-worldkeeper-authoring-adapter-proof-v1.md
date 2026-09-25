@@ -177,6 +177,19 @@ not sufficient: a second previously unknown GM-authored predicate must also
 pass. Existing Worlds pinned to an older profile require separate explicit
 profile-transition authority; this adapter may not change their profile.
 
+Proposed prerequisite PRs (not acceptance evidence while open):
+
+```text
+DungeonMind #77  V3 open predicate namespace, exact head 0f709d76fdc53bac9c9258d1751463ae2c76ca71
+WorldKeeper #8   sealed V3 prepare/compile compatibility, exact head 376348443c5d3d196baae22a3f9e85402e0de448
+Buddy #754       opt-in Buddy V3 profile revision 2, exact head acf2e5cb286cf7c5040e9c6a51f4ba2978ec0731
+```
+
+Do not treat these proposed heads as merged authority. Re-anchor all three
+before activating this handoff; an existing V2-pinned World remains unable to
+publish authored predicates until a separately reviewed profile transition
+exists.
+
 ### Gate D — dispatch from rebased design authority
 
 At implementation dispatch, the user directed an isolated implementation
@@ -582,13 +595,16 @@ def build_worldkeeper_change_service(...) -> WorldChangeService:
     return DungeonMindWorldKeeperRuntime(
         repository=<existing DungeonMind vNext repository>,
         domain_contract=dungeonbuddy_world_domain_contract(),
-        semantic_profile=dungeonbuddy_dnd5e_semantic_profile(),
+        semantic_profile=dungeonbuddy_dnd5e_custom_predicate_profile(),
         clock=...,
     )
 ```
 
 Use the same existing production DungeonMind repository authority/factory that
 the server already composes.
+
+The selected World must already pin that V3 profile. Do not use this runtime
+composition as an implicit profile migration for an existing V2-pinned World.
 
 This module is the only new Buddy layer allowed to know the concrete
 DungeonMind-backed WorldKeeper runtime.
