@@ -16,18 +16,19 @@ pr_body_template: |
 
 # HANDOFF — CON-READY WorldKeeper authoring adapter proof
 
-**Status:** DESIGNED / BLOCKED UNTIL ACTIVATION GATES PASS  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Workstream:** `CON-READY / source-to-World authoring`  
-**Design base:** `08e4c39967e63bc3b60791748129ca3eaa42f161`  
-**Suggested implementation branch:** `con-ready/worldkeeper-authoring-adapter-proof-v1`  
-**Suggested implementation PR title:** `CON-READY: prove WorldKeeper authoring adapter`  
-**WorldKeeper WK-5 accepted head:** `c1aeb157e14f2c07036e6346e93b2e47a228f387`  
-**WorldKeeper WK-5 merge:** `8a5efb96b69dc9ca136288ecc80f67c1ed027bd1`  
-**DungeonMind runtime:** `6edb9e40d1dc930f537c66deb1afbd1b99002844`  
-**V6.1 accepted head:** `9e2abbae42acc847b214460644caef2448637495`  
-**V6.1 merge:** `7a63c8b39937776ddede24d3d76001ef59fd37c4`  
-**PR topology:** serial within this CON-READY migration lane
+**Status:** ACTIVE — user-directed dispatch from the rebased design branch
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**Workstream:** `CON-READY / source-to-World authoring`
+**Design base:** `08e4c39967e63bc3b60791748129ca3eaa42f161`
+**Dispatch main:** `24ceed5d1661f7069faf3833ace641b71ea82d94`
+**Suggested implementation branch:** `con-ready/worldkeeper-authoring-adapter-proof-v1`
+**Suggested implementation PR title:** `CON-READY: prove WorldKeeper authoring adapter`
+**WorldKeeper WK-5 accepted head:** `c1aeb157e14f2c07036e6346e93b2e47a228f387`
+**WorldKeeper WK-5 merge:** `8a5efb96b69dc9ca136288ecc80f67c1ed027bd1`
+**DungeonMind runtime:** `6edb9e40d1dc930f537c66deb1afbd1b99002844`
+**V6.1 accepted head:** `9e2abbae42acc847b214460644caef2448637495`
+**V6.1 merge:** `7a63c8b39937776ddede24d3d76001ef59fd37c4`
+**PR topology:** implementation stacked on design PR #752 by user direction
 
 ## 1. Mission
 
@@ -99,7 +100,7 @@ WorldChangeService
 DungeonMindWorldKeeperRuntime
 ```
 
-### Gate B — Buddy source-to-World re-anchor — OPEN AT DESIGN TIME
+### Gate B — Buddy source-to-World re-anchor — SATISFIED
 
 Buddy PR #745 must be merged or superseded by equivalent checked-in authority.
 
@@ -113,16 +114,19 @@ The old Buddy transaction-semantics handoff is migration evidence only.
 A fresh Buddy handoff is required for implementation.
 ```
 
-At design time:
+Current merged authority:
 
 ```text
 PR #745
 CON-READY: re-anchor source-to-World authoring
-OPEN
-head: 19593ae6d5a0ba583eaac063d772abaf9a42d74d
+MERGED
+accepted head: 4ee829a7b2caa98d2a4c12774422efe989b054d7
+merge: 24ceed5d1661f7069faf3833ace641b71ea82d94
 ```
 
-Do not activate this implementation merely because this handoff is merged.
+The user authorized implementation after #745 merged, including execution
+from the rebased design branch while PR #752 remains open. PR #752 stays
+documentation-only; the implementation uses a separate stacked branch.
 
 ### Gate C — Buddy V6.1 domain runtime foundation — SATISFIED
 
@@ -153,9 +157,12 @@ SemanticProfile:
 The adapter must reuse these runtime constructors rather than recreate domain
 descriptors or vocabulary tables.
 
-### Gate D — fresh-main dispatch
+### Gate D — dispatch from rebased design authority
 
-At implementation dispatch:
+At implementation dispatch, the user directed an isolated implementation
+branch from the design PR rebased onto fresh Buddy `main`. The main snapshot is
+`24ceed5d1661f7069faf3833ace641b71ea82d94`; the implementation PR is
+stacked on PR #752 until the design PR merges. Complete these checks:
 
 1. fetch current Buddy `main`;
 2. verify #745 or successor authority is merged;
