@@ -95,7 +95,7 @@ operation changes canonical identity.
 
 ## Same-transaction references
 
-Buddy assigns each result-producing operation (`CreateObject`, `CreateFact`,
+Buddy assigns each result-producing semantic item (`CreateObject`, `CreateFact`,
 and `CreateRelationship`) a non-empty, transaction-unique `client_op_id`.
 `UseExisting` instead names an exact `durable_object_id`. A dependent
 relationship endpoint refers to a `CreateObject` result in the same intent as

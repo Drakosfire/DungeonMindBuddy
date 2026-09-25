@@ -38,8 +38,9 @@ DungeonMind V5.4
 
 - valid durable-to-`result_of(client_op_id)` relationships prepare coherently;
 - every `client_op_id` is non-empty and unique;
-- missing, duplicate, wrong-kind, forward/out-of-transaction references fail
-  closed;
+- missing, duplicate, wrong-kind, out-of-transaction, or otherwise
+  unresolvable references fail closed;
+- same-intent result references are order-independent;
 - prepare performs no durable mutation;
 - confirmation binds to the exact prepared change and parent;
 - one confirmation produces one immutable child or no mutation;
