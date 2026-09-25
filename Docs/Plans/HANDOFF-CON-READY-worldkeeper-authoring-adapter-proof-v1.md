@@ -181,7 +181,7 @@ Proposed prerequisite PRs (not acceptance evidence while open):
 
 ```text
 DungeonMind #77  V3 open predicate namespace, exact head 0f709d76fdc53bac9c9258d1751463ae2c76ca71
-WorldKeeper #8   sealed V3 prepare/compile compatibility, exact head 376348443c5d3d196baae22a3f9e85402e0de448
+WorldKeeper #8   sealed V3 prepare/compile/commit compatibility, exact head 46d2557fdefd26defd26fa3d64358723152fc3e4
 Buddy #754       opt-in Buddy V3 profile revision 2, exact head acf2e5cb286cf7c5040e9c6a51f4ba2978ec0731
 ```
 
