@@ -7,9 +7,13 @@ from typing import Any
 
 import blake3
 import pytest
+from generationengine import InferenceObservation, ObservationState, TextRequest, TextResult
 
 from src.contracts.schema_validation import validate_many
 from src.ingestion.fact_extractor import (
+    AsyncOpenAIResponsesFactClient,
+    BatchedFactExtractionResult,
+    FactExtractionResult,
     OpenAIResponsesFactClient,
     apply_fact_batch_outputs_to_cache,
     derive_truth_state,
@@ -696,46 +700,69 @@ def test_event_taxonomy_attributes_validate_against_schema(tmp_path: Path) -> No
     validate_many(facts, "fact.schema.json")
 
 
-def test_openai_responses_adapter_parses_structured_output() -> None:
-    class _FakeInputTokenDetails:
-        cached_tokens = 4
+def _fact_parsed_payload() -> dict[str, Any]:
+    return {
+        "facts": [
+            {
+                "fact_id": "fact_test",
+                "subject_entity_id": "ent_mirathorn",
+                "attribute": "history",
+                "value": {
+                    "kind": "scalar",
+                    "label": "An ancient city",
+                    "normalized": "ancient_city",
+                },
+            }
+        ]
+    }
 
-    class _FakeUsage:
-        input_tokens = 55
-        output_tokens = 12
-        input_tokens_details = _FakeInputTokenDetails()
 
-    class _FakeParsedResponse:
-        output_parsed = {
-            "facts": [
-                {
-                    "fact_id": "fact_test",
-                    "subject_entity_id": "ent_test",
-                    "attribute": "history",
-                    "value": {
-                        "kind": "scalar",
-                        "label": "An ancient city",
-                        "normalized": "ancient_city",
-                    },
-                }
-            ]
-        }
-        usage = _FakeUsage()
+def _ge_result(
+    parsed: dict[str, Any],
+    *,
+    input_tokens: int | None = 55,
+    output_tokens: int | None = 12,
+    cached_tokens: int | None = 4,
+    provider_attempt_count: int = 2,
+) -> TextResult:
+    return TextResult(
+        text=json.dumps(parsed),
+        parsed=parsed,
+        observation=InferenceObservation(
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            cached_input_tokens=cached_tokens,
+            provider_attempt_count=provider_attempt_count,
+            latency_ms=1,
+            retry_count=provider_attempt_count - 1,
+            state=ObservationState.COMPLETED,
+        ),
+    )
 
-    class _FakeResponses:
-        def parse(self, **kwargs: Any) -> _FakeParsedResponse:
-            assert kwargs["model"] == "test-model"
-            assert kwargs["text_format"] is not None
-            inp = kwargs["input"]
-            assert len(inp) == 2
-            assert inp[0]["role"] == "system"
-            assert inp[1]["role"] == "user"
-            return _FakeParsedResponse()
 
-    class _FakeSDKClient:
-        responses = _FakeResponses()
+class _RecordingGenerationClient:
+    def __init__(self, results: list[TextResult] | None = None) -> None:
+        self.results = list(results or [_ge_result(_fact_parsed_payload())])
+        self.requests: list[TextRequest] = []
+        self.close_calls = 0
 
-    adapter = OpenAIResponsesFactClient(sdk_client=_FakeSDKClient())
+    async def generate_structured(self, request: TextRequest) -> TextResult:
+        self.requests.append(request)
+        return self.results.pop(0)
+
+    async def aclose(self) -> None:
+        self.close_calls += 1
+
+
+def test_sync_fact_adapter_uses_exact_ge_request_and_maps_usage() -> None:
+    created: list[_RecordingGenerationClient] = []
+
+    def factory() -> _RecordingGenerationClient:
+        client = _RecordingGenerationClient()
+        created.append(client)
+        return client
+
+    adapter = OpenAIResponsesFactClient(generation_client_factory=factory)
     payload = adapter.extract_facts(
         model="test-model",
         system_prompt="system instructions",
@@ -744,9 +771,254 @@ def test_openai_responses_adapter_parses_structured_output() -> None:
         entities=[],
         prompt_id="test",
     )
+
     assert payload["facts"][0]["value"]["label"] == "An ancient city"
-    assert payload["_usage"]["input_tokens"] == 55
-    assert payload["_usage"]["cached_tokens"] == 4
+    assert payload["_usage"] == {
+        "input_tokens": 55,
+        "output_tokens": 12,
+        "cached_tokens": 4,
+        "api_calls": 2,
+    }
+    assert len(created) == 1
+    assert created[0].close_calls == 1
+    request = created[0].requests[0]
+    assert request.system_prompt == "system instructions"
+    assert request.user_prompt == "extract"
+    assert request.provider == "openai"
+    assert request.model == "test-model"
+    assert request.profile is None
+    assert request.temperature is None
+    assert request.json_object is False
+    assert request.max_output_tokens is None
+    assert request.schema_name == "fact_extraction"
+    assert request.json_schema == FactExtractionResult.model_json_schema()
+
+
+def test_sync_fact_adapter_constructs_and_closes_one_ge_client_per_bridge_call() -> None:
+    created: list[_RecordingGenerationClient] = []
+
+    def factory() -> _RecordingGenerationClient:
+        client = _RecordingGenerationClient()
+        created.append(client)
+        return client
+
+    adapter = OpenAIResponsesFactClient(generation_client_factory=factory)
+    for _ in range(2):
+        adapter.extract_facts(
+            model="test-model",
+            system_prompt="system",
+            user_prompt="user",
+            evidence_unit={},
+            entities=[],
+            prompt_id="test",
+        )
+
+    assert len(created) == 2
+    assert created[0] is not created[1]
+    assert [client.close_calls for client in created] == [1, 1]
+
+
+def test_async_batched_adapter_uses_exact_ge_request_and_revalidates_payload() -> None:
+    parsed = {
+        "results": [
+            {
+                "facts": [*_fact_parsed_payload()["facts"]],
+                "unit_index": 0,
+            }
+        ]
+    }
+    client = _RecordingGenerationClient([_ge_result(parsed)])
+    adapter = AsyncOpenAIResponsesFactClient(generation_client=client)
+    payload = asyncio.run(
+        adapter.extract_facts_batched(
+            model="alternate-model",
+            system_prompt="batch system",
+            user_prompt="batch user",
+            prompt_id="test",
+        )
+    )
+
+    assert payload["results"][0]["unit_index"] == 0
+    request = client.requests[0]
+    assert request.system_prompt == "batch system"
+    assert request.user_prompt == "batch user"
+    assert request.provider == "openai"
+    assert request.model == "alternate-model"
+    assert request.profile is None
+    assert request.temperature is None
+    assert request.json_object is False
+    assert request.max_output_tokens is None
+    assert request.schema_name == "batched_fact_extraction"
+    assert request.json_schema == BatchedFactExtractionResult.model_json_schema()
+
+
+def test_fact_adapter_revalidates_ge_parsed_payload() -> None:
+    client = _RecordingGenerationClient([_ge_result({"facts": [{"invalid": True}]})])
+    adapter = AsyncOpenAIResponsesFactClient(generation_client=client)
+
+    with pytest.raises(ValueError):
+        asyncio.run(
+            adapter.extract_facts(
+                model="test-model",
+                system_prompt="system instructions",
+                user_prompt="extract",
+                evidence_unit={},
+                entities=[],
+                prompt_id="test",
+            )
+        )
+
+
+def test_async_adapter_reuses_one_ge_client_concurrently_and_closes_once(
+    tmp_path: Path,
+) -> None:
+    class ConcurrentGenerationClient(_RecordingGenerationClient):
+        def __init__(self) -> None:
+            super().__init__([])
+            self.entered = 0
+            self.overlap = asyncio.Event()
+
+        async def generate_structured(self, request: TextRequest) -> TextResult:
+            self.requests.append(request)
+            self.entered += 1
+            if self.entered == 2:
+                self.overlap.set()
+            await asyncio.wait_for(self.overlap.wait(), timeout=1)
+            return _ge_result(
+                _fact_parsed_payload(),
+                input_tokens=3,
+                output_tokens=2,
+                cached_tokens=1,
+                provider_attempt_count=2,
+            )
+
+    client = ConcurrentGenerationClient()
+    adapter = AsyncOpenAIResponsesFactClient(generation_client=client)
+    result = asyncio.run(
+        extract_facts_batch(
+            [
+                _evidence("evid_a", "Geography: first peaks.", 0),
+                _evidence("evid_b", "Geography: second peaks.", 1),
+            ],
+            entities=ENTITIES,
+            canon_layer="world",
+            campaign_id=None,
+            source_class="seed_reference",
+            cache_dir=tmp_path / "cache",
+            openai_client=adapter,
+            allow_heuristic_fallback=False,
+            concurrency=2,
+        )
+    )
+
+    assert client.entered == 2
+    assert client.overlap.is_set()
+    assert client.close_calls == 1
+    assert len(client.requests) == 2
+    assert {request.model for request in client.requests} == {"gpt-5.3-codex"}
+    assert result["usage"] == {
+        "input_tokens": 6,
+        "output_tokens": 4,
+        "cached_tokens": 2,
+        "api_calls": 4,
+    }
+
+
+def test_async_adapter_constructs_production_ge_inside_active_loop_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    created: list[_RecordingGenerationClient] = []
+    construction_loops: list[asyncio.AbstractEventLoop] = []
+
+    def from_env() -> _RecordingGenerationClient:
+        construction_loops.append(asyncio.get_running_loop())
+        client = _RecordingGenerationClient()
+        created.append(client)
+        return client
+
+    monkeypatch.setattr(
+        "src.ingestion.fact_extractor.GenerationClient.from_env",
+        classmethod(lambda cls: from_env()),
+    )
+    adapter = AsyncOpenAIResponsesFactClient()
+
+    result = run_fact_extraction(
+        [_evidence("evid_a", "Geography: peaks.", 0)],
+        entities=ENTITIES,
+        canon_layer="world",
+        campaign_id=None,
+        source_class="seed_reference",
+        cache_dir=tmp_path / "cache",
+        openai_client=adapter,
+        allow_heuristic_fallback=False,
+    )
+
+    assert result["facts"]
+    assert len(created) == 1
+    assert len(construction_loops) == 1
+    assert created[0].close_calls == 1
+
+
+def test_unknown_ge_usage_zero_fills_tokens_but_preserves_attempt_count(
+    tmp_path: Path,
+) -> None:
+    client = _RecordingGenerationClient(
+        [
+            _ge_result(
+                _fact_parsed_payload(),
+                input_tokens=None,
+                output_tokens=None,
+                cached_tokens=None,
+                provider_attempt_count=2,
+            )
+        ]
+    )
+    adapter = AsyncOpenAIResponsesFactClient(generation_client=client)
+
+    result = run_fact_extraction(
+        [_evidence("evid_a", "Geography: peaks.", 0)],
+        entities=ENTITIES,
+        canon_layer="world",
+        campaign_id=None,
+        source_class="seed_reference",
+        cache_dir=tmp_path / "cache",
+        openai_client=adapter,
+        allow_heuristic_fallback=False,
+    )
+
+    assert result["usage"] == {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "cached_tokens": 0,
+        "api_calls": 2,
+    }
+
+
+def test_ge_failure_propagates_without_buddy_retry_and_still_closes(
+    tmp_path: Path,
+) -> None:
+    class FailingGenerationClient(_RecordingGenerationClient):
+        async def generate_structured(self, request: TextRequest) -> TextResult:
+            self.requests.append(request)
+            raise RuntimeError("normalized GE failure")
+
+    client = FailingGenerationClient()
+    adapter = AsyncOpenAIResponsesFactClient(generation_client=client)
+
+    with pytest.raises(RuntimeError, match="normalized GE failure"):
+        run_fact_extraction(
+            [_evidence("evid_a", "Geography: peaks.", 0)],
+            entities=ENTITIES,
+            canon_layer="world",
+            campaign_id=None,
+            source_class="seed_reference",
+            cache_dir=tmp_path / "cache",
+            openai_client=adapter,
+            allow_heuristic_fallback=False,
+        )
+
+    assert len(client.requests) == 1
+    assert client.close_calls == 1
 
 
 def test_world_canon_facts_have_correct_truth_state(tmp_path: Path) -> None:
