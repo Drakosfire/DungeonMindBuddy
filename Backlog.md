@@ -313,6 +313,39 @@ This is deliberately **non-status design input**, not an immediate successor to 
 
 **Scope guardrail:** Agent context consumes the same selected World object and surface/document context as the product. It must not invent a parallel graph interpretation or use chat history as campaign truth.
 
+### Goal 9 — Assess Canvas convergence before the next broad UI design pass
+
+**Captured:** 2026-09-24  
+**Roadmap owner:** `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` UI design re-entry checkpoint.
+
+**Outcome:** Before committing to another broad UI design/implementation pass, explicitly decide whether Buddy's independent `MarkdownCanvasSession` / TipTap work object should compose with the standalone `Canvas` package as a multi-representation document surface.
+
+Current working hypothesis:
+
+```text
+Buddy owns the document and its authority/lifecycle
+TipTap owns editing mechanics and semantic document structure
+Canvas owns generic presentation/layout mechanics
+```
+
+The first proof should be projection-only: one representative Buddy TipTap document renders through standalone Canvas without creating a second durable document model, alternate save path, or graph/world-write authority.
+
+**Questions to answer in the design pass:**
+
+- Can TipTap JSON/semantic nodes adapt cleanly into Canvas component/data-source contracts?
+- Can the same authoritative work object support distinct **Flow / Page / Board** presentations?
+- Is paginated/print preview the right first consumer of Canvas measurement and pagination?
+- Can Buddy-specific nodes (callout, table, graph reference, Runbook/Playable semantics, Threat-like structured content) gain Canvas renderers without teaching the Canvas package Buddy domain meaning?
+- Should standalone Canvas evolve toward the old **snap-to-grid / freeform board** dream after the projection seam is proven?
+- Which mature open-source infinite-canvas / spatial-editor projects are worth studying or embedding rather than building pan/zoom/selection/snapping primitives from scratch?
+- If an open-source infinite canvas is adopted, which layer owns spatial mechanics versus Buddy document semantics and Canvas layout/render contracts?
+
+**Non-goals now:** no UI implementation lease, no TipTap replacement, no merge of the two repositories, no source→World authoring work, no World Keeper semantic-write behavior, and no freeform-board implementation before the convergence decision.
+
+**Pickup trigger:** when the paused UI design pass resumes. Treat this as an early design checkpoint that may belong **before** additional UI implementation; current product-owner suspicion is yes.
+
+**Refs:** `Docs/Design/DESIGN-shared-markdown-canvas-surface-composition.md`; `apps/live-control-ui/src/markdownCanvas/`; `apps/live-control-ui/src/tiptap/`; standalone `Drakosfire/Canvas` layout/map package.
+
 ### Supporting UI engineering constraint — make redesign cheaper than preservation
 
 This is not a GM-facing capability and should not be dispatched as one giant refactor. It is a constraint on slices implementing the goals above:
