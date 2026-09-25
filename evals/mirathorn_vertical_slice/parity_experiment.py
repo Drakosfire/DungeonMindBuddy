@@ -144,7 +144,7 @@ def _run_direct_cell(
         )
         entities = entity_bundle["entities"]
 
-        fact_client = OpenAIResponsesFactClient(api_key=api_key)
+        fact_client = OpenAIResponsesFactClient()
         fact_bundle = run_fact_extraction(
             evidence_units,
             entities=entities,

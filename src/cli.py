@@ -1130,7 +1130,7 @@ class DungeonBuddyCLI:
                     fact_ms,
                 )
             else:
-                fact_client = AsyncOpenAIResponsesFactClient(api_key=api_key)
+                fact_client = AsyncOpenAIResponsesFactClient()
                 t2 = time.perf_counter()
                 fact_result = run_fact_extraction(
                     evidence_units,
