@@ -1,353 +1,146 @@
 # STEWARD'S ANCHOR — CON-READY
 
-**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
-**Line of work:** `CON-READY / DOGFOOD-CONTINUITY`  
-**Updated:** 2026-09-20  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor input:** `main@28754d1fdda15be97475f35e08127833b088a256` — V2-1A / PR #741 merged; V2-2 design re-anchor  
-**Current product frontier:** **Authoring v2 → derived gold → extraction ablation**  
-**Active implementation PR:** **none at state sync** — exactly one V2-2 PR is authorized on `con-ready/authoring-v2-governed-world-commit-v1`; serial CON-READY topology
-**Current sequencing authority:** [`PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`](PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md)  
-**Completed V2-0 census:** [`../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`](../Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md)  
-**ACTIVE V2-2 handoff:** [`HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md`](HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md)  
-**Historical authoring ancestry:** [`ROADMAP-graph-object-authoring-surface.md`](ROADMAP-graph-object-authoring-surface.md) + [`../Design/DESIGN-graph-object-authoring-surface.md`](../Design/DESIGN-graph-object-authoring-surface.md)  
-**Completed UI series authority:** [`HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md`](HANDOFF-DOGFOOD-CONTINUITY-ui-language-design-series-v1.md)  
-**Readiness doctrine:** [`../Design/ACCEPTANCE-dogfood-readiness.md`](../Design/ACCEPTANCE-dogfood-readiness.md)
+**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
+**Line of work:** `CON-READY / DOGFOOD-CONTINUITY`
+**Updated:** 2026-09-25
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**Re-anchor:** `main@08e4c39967e63bc3b60791748129ca3eaa42f161`
+**Authority reconciliation:** PR #745 — no implementation lease
+**Current frontier:** **Buddy consumer migration — NEXT / NOT YET IMPLEMENTED**
+**Active legacy V2-2 implementation:** **NONE**
+**V2-3 derived gold:** **NOT AUTHORIZED**
 
-> Repository truth supersedes chat reconstruction. The current instruction is: **ship and dogfood the governed published-recap World write before derived gold or the next extraction/model experiment.**
+> Repository truth supersedes chat reconstruction. WorldKeeper extraction and
+> DungeonMind V5.4 are complete. Reconcile Buddy authority in #745, then design
+> one bounded consumer-migration handoff. Do not dispatch from historical
+> handoffs.
 
----
-
-## 0. Pickup rule
-
-Read, in order:
+## Mandatory pickup order
 
 1. this anchor;
-2. `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`;
-3. `Docs/Plans/HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md`;
-4. `Docs/Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`;
-5. `Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md` and its report for completed V2-1A behavior/evidence;
-6. historical authoring ancestry only when needed to understand surviving implementation seams;
-7. `Docs/Design/ARCHITECTURE-campaign-supergraph.md` when checking durable World authority.
+2. `Docs/Design/DESIGN-source-to-world-authoring-interaction-contract.md`;
+3. `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`;
+4. `Docs/Plans/HANDOFF-CON-READY-worldkeeper-sidequest-v1.md` as completed
+   ancestry;
+5. `Docs/Plans/HANDOFF-CON-READY-source-to-world-transaction-semantics-v1.md`
+   as historical migration evidence;
+6. `Docs/Plans/HANDOFF-v6-1-dungeonbuddy-vnext-domain-runtime-foundation.md`
+   for the current runtime/cutover boundary.
 
-V2-1 / PR #738 and V2-1A / PR #741 are **MERGED**. The V2-2 governed-World-commit handoff is **ACTIVE**. Its §4 paths are the current CON-READY implementation write lease. The authorized implementation branch is `con-ready/authoring-v2-governed-world-commit-v1`; no implementation PR was open when this state sync was written.
-
-V2-1A predecessor state is synchronized here. V2-2 governed World commit is authorized; V2-3 derived gold, extraction/model ablation, Agent authoring, merge/reconciliation, and statblock successor work remain unauthorized.
-
----
-
-## 1. What has been completed
-
-### Campaign-memory substrate
+## Current state
 
 ```text
-44-session structural current-corpus admission              PASS
-candidate admission / governed write continuity             PASS
-recap source provenance + source-read continuity            PASS
-exact accepted-candidate replay                             PASS
-published-memory ordinary browse                            PASS
-browse/write authority separation                           PASS
+V2-0 contract census                     COMPLETE / PASS
+V2-1 published-recap local proposal      MERGED — #738
+V2-1A working projection / UI dogfood    MERGED — #741
+V2-2 governed World commit               MERGED / HISTORICAL — #742
+WorldKeeper extraction WK-1..WK-5        COMPLETE
+WorldKeeper PR #7                        MERGED
+DungeonMind V5.4                         COMPLETE
+WorldKeeper WK-5 consumer seam           COMPLETE / AVAILABLE
+PR #745                                  AUTHORITY RECONCILIATION
+Buddy consumer migration                 NEXT — NOT YET IMPLEMENTED
+V2-3 derived gold                        NOT AUTHORIZED
 ```
 
-### UI / inspection series
+No old V2-2 implementation is active. #745 is documentation/authority
+reconciliation, not an ACTIVE implementation handoff and not a production
+switch.
+
+## Accepted ownership boundary
+
+### DungeonBuddy
+
+- interaction and reversible drafts;
+- source selection/presentation;
+- explicit create-new versus use-existing choice;
+- similarity presentation;
+- prepared-change review and verified-result UX.
+
+### WorldKeeper
+
+- `WorldChangeIntent`;
+- semantic interpretation;
+- same-transaction dependency resolution;
+- `PreparedWorldChange`;
+- confirmation coordination;
+- verified-result reshaping.
+
+### DungeonMind
+
+- durable object and relationship IDs;
+- source and provenance authority;
+- profile, scope, and admission policy;
+- immutable revisions and atomic publication;
+- durable publication outcome/recovery;
+- general World reads.
+
+WorldKeeper is a thin coordinator. It does not own source admission, durable-ID
+allocation/prediction, general reads, or durable recovery.
+
+## Prospective-reference decision
 
 ```text
-#700 / UI-01   shared Peek                                  MERGED
-#701 / UI-02   truthful Agent presence                      MERGED
-#702 / UI-03   responsive secondary context                 MERGED
-#704           recap World-reference glance                 MERGED
-#733 / UI-04   campaign-information glance + Peek           MERGED
-#735 / UI-05   floating independent world-object inspector  MERGED
-#734           unauthorized close-chrome attempt            CLOSED UNMERGED
+Buddy:       client_op_id
+WorldKeeper: result_of(client_op_id)
+             resolves semantic dependency
+             never predicts durable identity
+DungeonMind: atomically allocates durable IDs
+             substitutes through dependent operations
+             publishes one child
+             returns client-operation → durable-result mappings
 ```
 
-UI-05 accepted implementation head:
+The prior Buddy prospective-durable-ID mechanism is historical evidence, not
+the destination.
 
-`f69163a2f4bca22d00c432c6c6419cd1b024d44d`
+## PR #745 disposition
 
-UI-05 merge:
+#745 lands:
 
-`586a3dcb53b481ef2cf21890872a3f1e8465a925`
+- the accepted Buddy interaction authority;
+- the completed WorldKeeper extraction record;
+- retirement of the old transaction-semantics handoff;
+- current Authoring v2 sequencing;
+- this anchor and its exact design-agent mirror.
 
-Formal review:
+It does not land WorldKeeper runtime integration, production write switching,
+bridge-genesis migration, or any other implementation. V6.1 explicitly leaves
+those to later vNext/cutover work.
 
-`APPROVE` — `5251493236`
+## Next action gate
 
-The UI series has produced a coherent-enough campaign-memory inspection grammar:
+After #745 merges and repository authority is synchronized, the steward may
+design and land one fresh handoff for a bounded Buddy consumer migration. That
+handoff must:
+
+- re-anchor current `main`;
+- be ACTIVE before dispatch;
+- declare PR topology;
+- name its exact lease and runtime ownership;
+- consume the WorldKeeper WK-5 seam;
+- preserve Buddy interaction ownership and DungeonMind durable authority;
+- keep later production switching/runtime/bridge-genesis work out of scope.
+
+No implementation is authorized by this anchor alone.
+
+## Holds
+
+Still held:
+
+- V2-3 derived gold;
+- extraction/model ablation;
+- Agent-assisted authoring;
+- identity reconciliation;
+- generic graph-editor work;
+- legacy classifier repair as the target architecture;
+- implementation changes hidden in #745.
 
 ```text
-campaign/session
-→ recap
-→ pill
-→ glance
-→ floating Peek inspector
-→ relationships / source
-→ close
-→ same recap context
+AUTHORING V2                      RE-ANCHORED
+WORLDKEEPER SIDE QUEST           COMPLETE / HISTORICAL
+TRANSACTION-SEMANTICS HANDOFF    RETIRED / HISTORICAL
+PR #745                          AUTHORITY RECONCILIATION
+BUDDY CONSUMER MIGRATION         NEXT / NOT YET IMPLEMENTED
+V2-3 DERIVED GOLD                NOT AUTHORIZED
 ```
-
-Stage 4 / recap WOW remains formally human-gated after UI-05, but **another UI implementation slice is not preselected**.
-
----
-
-## 2. Why the frontier moved to authoring
-
-Once the inspection path became usable, the dominant failures became semantic rather than structural:
-
-- wrong object kinds;
-- missing pills/references;
-- thin objects;
-- isolated nodes / missing relationships;
-- plausible extraction that is not the human-intended durable interpretation.
-
-The project now needs a way for the GM to express what the graph **should** know.
-
-That human judgment should become both:
-
-1. better actual campaign memory; and
-2. better evaluation authority.
-
-Therefore the sequence is:
-
-```text
-real campaign source
-→ human source-grounded authoring / correction
-→ governed World commit
-→ derived gold from human adjudication
-→ extraction/model ablation
-→ improve extraction
-→ repeat
-```
-
-Primary principle:
-
-```text
-authored campaign truth is the product
-gold/eval is derived evidence
-```
-
----
-
-## 3. Current Authoring v2 sequence
-
-Authority:
-
-`Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
-
-### V2-0 — COMPLETE / PASS
-
-The current-contract census is recorded in:
-
-`Docs/Reports/REPORT-CON-READY-authoring-v2-current-contract-census-v1.md`
-
-It found the surviving governed World-write seam:
-
-```text
-POST /api/live/graph-authoring/prepare
-→ POST /api/live/graph-authoring/commit
-→ DungeonMind immutable World revision
-```
-
-It also proved that ordinary published-memory browse must remain non-write authority and that its current recap projection has no canonical evidence-span binding.
-
-### V2-1 — COMPLETE / MERGED (PR #738)
-
-Authority:
-
-`Docs/Plans/HANDOFF-CON-READY-authoring-v2-published-recap-local-proposal-v1.md`
-
-```text
-published Campaign + Focus-session recap
-→ highlight source text OR start from existing pill
-→ inspect exact source context
-→ stage local object / link-existing / relationship proposal
-→ review/remove staged proposal
-→ continue reading
-```
-
-This slice is **local-only**. It must not call prepare/commit, quick-commit, merge materialization, or acquire `ExplicitAuthoringAuthority`.
-
-Campaign/session switching must isolate staged proposals by scope and restore the correct scope's local drafts when revisited.
-
-Negative/source-only, ambiguity, arbitrary claim editing, generalized correction schema, Agent assistance, and durable write remain later slices.
-
-### V2-1A — DONE / MERGED
-
-Authority:
-
-`Docs/Plans/HANDOFF-CON-READY-authoring-v2-working-projection-ui-dogfood-v1.md`
-
-Accepted result:
-
-```text
-PR #741
-merge: 28754d1fdda15be97475f35e08127833b088a256
-accepted head: 9b5874e9b30663d4008427acebdff03d7c6531ae
-Review Cycle 3: PASS / MERGE-READY (5262735475)
-```
-
-Published recap source now stays visible beside Author Node; local object/link/relationship adjudications immediately change a reversible working projection; root prose and one-hop related prose remain inspectable without acquiring durable write authority.
-
-### V2-2 — ACTIVE
-
-Authority:
-
-`Docs/Plans/HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md`
-
-```text
-published recap
-→ stage local human proposal
-→ explicit Review & publish
-→ server resolves recapArtifactId to canonical recap source
-→ prepare/diff against current World parent
-→ revision-bound confirm
-→ governed DungeonMind World publication
-→ immutable child revision + durable created node IDs
-→ same-scope refresh / exact read-back
-```
-
-Published-recap writes use a mutually exclusive server-resolved `recapArtifactId` source selector alongside the existing exact-run `sourceRunId` path. Browser-supplied paths/digests are not write authority.
-
-A deliberate same-label **Create new** may produce a distinct durable node; this slice does not add merge/reconciliation/delete. Recap mention ambiguity must remain fail-safe rather than choosing an arbitrary node.
-
-No Buddy-only overlay as terminal World truth.
-
-### V2-3 — NOT YET AUTHORIZED
-
-Derive reproducible gold/eval from committed human adjudication:
-
-- identity;
-- classification;
-- claims;
-- relationships;
-- grounding;
-- negative/source-only judgments;
-- ambiguity/human-review-required cases.
-
-The GM must not re-enter the same judgment into fixture JSON.
-
-### V2-4 — PARKED BEHIND GOLD
-
-Run current extraction versus one bounded alternative—DeepSeek is a candidate, not preselected truth—against authored gold.
-
-Evaluate more than graph density:
-
-```text
-node precision / recall
-identity resolution
-kind accuracy
-claim coverage
-edge precision / recall
-predicate + direction
-grounding correctness
-unsupported assertion rate
-source-only false positives
-ambiguity handling
-```
-
-### V2-5 — PARKED BEHIND MANUAL LOOP
-
-Agent-assisted `Assess World Graph`:
-
-```text
-highlight source
-→ inspect existing World
-→ Agent proposes smallest useful change
-→ human edits/reviews
-→ SAME governed commit path
-```
-
-The Agent gets no privileged write path.
-
----
-
-## 4. What survives from the old authoring prototype
-
-Keep as product/implementation evidence:
-
-- Tiptap-backed source selection;
-- manual object authoring;
-- existing-object resolution;
-- relationship staging;
-- proposal/staging UX;
-- prepare/review/confirm interaction;
-- correction/merge lessons;
-- event/audit concepts;
-- source prose as the primary visual context.
-
-Do **not** revive as current authority:
-
-- Buddy-owned graph kernel/storage;
-- file-backed authored overlay as terminal World truth;
-- mutation of extracted run artifacts;
-- gold fixture files as the primary write target;
-- a second write protocol bypassing current governed DungeonMind publication.
-
-Historical docs are ancestry. V2-0 decides what current contract replaces their old write assumptions.
-
----
-
-## 5. Sequencing holds
-
-Do **not** dispatch yet:
-
-- DeepSeek extraction ablation;
-- the fixed 16-question semantic gauntlet as automatic next work;
-- predicate-family relationship rollup;
-- 7A1 generic contextual Ask;
-- Agent-authored graph changes;
-- generalized graph editor;
-- Play / Combat;
-- another UI-polish series.
-
-The semantic gauntlet remains useful later as an external regression set. It does not replace richer human-authored gold.
-
-The post-UI-05 Stage 4 human witness may still be recorded independently. A serious UI regression may justify one bounded repair, but UI polish no longer owns the default sequence.
-
----
-
-## 6. Current acceptance/status labels
-
-```text
-STRUCTURAL CURRENT-CORPUS ACCEPTANCE             PASS
-FRESH GOVERNED RECAP WRITE                       PASS
-EXACT ACCEPTED-CANDIDATE REPLAY                  PASS
-RECAP SOURCE-READ CONTINUITY                     PASS
-PUBLISHED-MEMORY GRAPH REVIEW BROWSE AUTHORITY   PASS
-GRAPH REVIEW BROWSE/WRITE AUTHORITY SEPARATION   PASS
-
-UI-04 CAMPAIGN-INFORMATION GLANCE/PEEK           MERGED
-UI-05 FLOATING WORLD-OBJECT PEEK                 PASS / MERGED
-
-STAGE 4 / RECAP WOW                              HOLD — post-UI-05 human witness pending
-
-AUTHORING V2                                     CURRENT IMPLEMENTATION FRONTIER
-V2-0 CONTRACT CENSUS                             COMPLETE / PASS
-V2-1 PUBLISHED-RECAP LOCAL PROPOSAL               MERGED — PR #738
-V2-1A WORKING-PROJECTION UI DOGFOOD               PASS / MERGED — PR #741
-V2-2 GOVERNED WORLD COMMIT                       ACTIVE — CURRENT HANDOFF
-V2-3 DERIVED GOLD EXPORT                         NOT AUTHORIZED
-V2-4 EXTRACTION/MODEL ABLATION                   PARKED BEHIND GOLD
-V2-5 AGENT-ASSISTED ASSESSMENT                   PARKED BEHIND MANUAL LOOP
-
-SEMANTIC COVERAGE                                NOT MEASURED
-AGENT ANSWERABILITY                              NOT MEASURED
-SEMANTIC MODEL SELECTION                         HOLD
-```
-
----
-
-## 7. Next steward transition
-
-The transition into real human-authored World writes is complete:
-
-```text
-V2-0 current-contract census                    PASS
-→ V2-1 published-recap local proposal           MERGED
-→ V2-1A working-projection dogfood              MERGED / PASS
-→ V2-2 governed World commit handoff            ACTIVE
-```
-
-Dispatch exactly the V2-2 governed published-recap write slice on the authorized branch and review the exact final head. The required live witness is one real new campaign object authored through the UI, published to an immutable World revision, and read back by its returned durable node ID. The duplicate/same-label case is required in disposable integration evidence unless the operator explicitly chooses a safe real-world target.
-
-Do not authorize V2-3 derived gold, extraction/model ablation, Agent-assisted authoring, merge/reconciliation, or statblock successor work until V2-2 merges, its live write/read-back witness is accepted, and state authority is synchronized again.
