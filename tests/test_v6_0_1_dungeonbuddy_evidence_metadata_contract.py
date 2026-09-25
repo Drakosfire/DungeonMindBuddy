@@ -49,6 +49,7 @@ EXPECTED_DOMAIN_V2_DIGEST = (
     "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
 )
 EXPECTED_RUNTIME_SHA = "6edb9e40d1dc930f537c66deb1afbd1b99002844"
+CURRENT_RUNTIME_SHA = "0f709d76fdc53bac9c9258d1751463ae2c76ca71"
 EXPECTED_FIXTURE_V2_DIGEST = (
     "4fdc327cdf6887dc4ae154e44da9904974c82e40d310a807f590ce2db6d21121"
 )
@@ -108,7 +109,7 @@ def test_runtime_fixture_v2_changes_only_contract_identity() -> None:
     assert source_entry["schema"] == "dungeonbuddy.source:context_v1"
 
 
-def test_correction_artifact_and_runtime_pin_are_sealed() -> None:
+def test_correction_artifact_is_sealed_and_current_runtime_pin_is_explicit() -> None:
     artifact = _json(CORRECTION_ARTIFACT_PATH)
     assert artifact["buddy_base_sha"] == "99ec0d56911b62ad9b9d63db1c8f9406ca4f319d"
     assert artifact["dungeonmind_runtime_sha"] == EXPECTED_RUNTIME_SHA
@@ -122,7 +123,9 @@ def test_correction_artifact_and_runtime_pin_are_sealed() -> None:
     assert f"**Accepted implementation head:** `{REVIEWED_HEAD}`" in handoff
     assert f"**Substantive PASS review:** `{SUBSTANTIVE_PASS_REVIEW}`" in handoff
     pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    assert f"DungeonMind.git@{EXPECTED_RUNTIME_SHA}" in pyproject
+    assert f"DungeonMind.git@{CURRENT_RUNTIME_SHA}" in pyproject
+    lockfile = (ROOT / "uv.lock").read_text(encoding="utf-8")
+    assert f"rev={CURRENT_RUNTIME_SHA}#{CURRENT_RUNTIME_SHA}" in lockfile
 
 
 def _context(

@@ -33,6 +33,7 @@ from graph_memory.vnext import (
     DungeonBuddyVNextProjectionInput,
     build_dungeonbuddy_projection_request,
     build_dungeonbuddy_read_context,
+    dungeonbuddy_dnd5e_custom_predicate_profile,
     dungeonbuddy_dnd5e_semantic_profile,
     dungeonbuddy_world_domain_contract,
 )
@@ -43,6 +44,7 @@ FIXTURE_PATH = (
 )
 DOMAIN_PATH = ROOT / "Docs/Contracts/vnext/dungeonbuddy_world_domain_contract_v2.json"
 PROFILE_PATH = ROOT / "Docs/Contracts/vnext/dungeonbuddy_dnd5e_semantic_profile_v2.json"
+CUSTOM_PROFILE_PATH = ROOT / "Docs/Contracts/vnext/dungeonbuddy_dnd5e_semantic_profile_v3.json"
 
 
 @pytest.fixture(scope="module")
@@ -70,6 +72,47 @@ def test_runtime_descriptors_match_checked_in_canonical_identity() -> None:
     )
     assert runtime_domain.domain_revision == "2"
     assert runtime_domain.admission_policy_id == DUNGEONBUDDY_POLICY_ID
+
+
+def test_custom_profile_is_a_distinct_immutable_opt_in_revision() -> None:
+    profile = dungeonbuddy_dnd5e_custom_predicate_profile()
+    checked = json.loads(CUSTOM_PROFILE_PATH.read_text(encoding="utf-8"))
+    assert profile.model_dump(mode="json") == checked
+    assert profile.profile_revision == "2"
+    assert profile.schema_version == "dm_semantic_profile_v3"
+    assert profile.open_predicate_namespaces[0].namespace == "dungeonbuddy.custom"
+    assert profile.open_predicate_namespaces[0].allowed_value_kinds == ["entity_ref"]
+    assert dungeonbuddy_dnd5e_semantic_profile().profile_revision == "1"
+
+
+def test_custom_predicate_read_admission_uses_exact_pinned_v3_profile(preservation: dict) -> None:
+    new_preservation = copy.deepcopy(preservation)
+    profile = dungeonbuddy_dnd5e_custom_predicate_profile()
+    new_preservation["semantic_profile_ref"]["profile_revision"] = profile.profile_revision
+    new_preservation["semantic_profile_ref"]["descriptor_sha256"] = canonical_sha256(
+        profile.model_dump(mode="json")
+    )
+    relationship = next(
+        item for item in new_preservation["assertions"] if item["predicate"] == "dnd5e:located_in"
+    )
+    for assertion_id, predicate, value in (
+        ("as:custom-works-at", "dungeonbuddy.custom:works_at", relationship["value"]),
+        ("as:unscoped-works-at", "dungeonbuddy:works_at", relationship["value"]),
+        ("as:wrong-kind", "dungeonbuddy.custom:has_motto", {"kind": "literal", "value": "A"}),
+    ):
+        item = copy.deepcopy(relationship)
+        item.update(assertion_id=assertion_id, predicate=predicate, value=value)
+        new_preservation["assertions"].append(item)
+
+    context, result = _admission(
+        new_preservation,
+        DungeonBuddyVNextProjectionInput(world_id="eldyrwild", scope_mode="world", role="gm"),
+    )
+    admitted = set(result.admitted_assertion_ids)
+    assert context.semantic_profile.schema_version == "dm_semantic_profile_v3"
+    assert "as:custom-works-at" in admitted
+    assert "as:unscoped-works-at" not in admitted
+    assert "as:wrong-kind" not in admitted
 
 
 def test_mapper_preserves_all_accepted_request_cases(preservation: dict) -> None:

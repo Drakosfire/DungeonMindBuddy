@@ -20,6 +20,7 @@ from dungeonmind.contracts.vnext import (
     ScopeBinding,
     ScopeSelector,
     SemanticProfileDescriptorV2,
+    SemanticProfileDescriptorV3,
 )
 
 DUNGEONBUDDY_DOMAIN_ID = "dungeonbuddy.world"
@@ -27,6 +28,7 @@ DUNGEONBUDDY_DOMAIN_REVISION = "2"
 DUNGEONBUDDY_POLICY_ID = "dungeonbuddy.admission:world_v1"
 DUNGEONBUDDY_PROFILE_ID = "dungeonbuddy.dnd5e"
 DUNGEONBUDDY_PROFILE_REVISION = "1"
+DUNGEONBUDDY_CUSTOM_PROFILE_REVISION = "2"
 DUNGEONBUDDY_DOMAIN_DIGEST = (
     "d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd"
 )
@@ -210,6 +212,20 @@ def dungeonbuddy_dnd5e_semantic_profile() -> SemanticProfileDescriptorV2:
     )
 
 
+def dungeonbuddy_dnd5e_custom_predicate_profile() -> SemanticProfileDescriptorV3:
+    """Opt-in profile for new Worlds with GM-authored relationship predicates."""
+    descriptor = dungeonbuddy_dnd5e_semantic_profile().model_dump(mode="json")
+    descriptor.update(
+        schema_version="dm_semantic_profile_v3",
+        profile_revision=DUNGEONBUDDY_CUSTOM_PROFILE_REVISION,
+        term_namespaces=[*descriptor["term_namespaces"], "dungeonbuddy.custom"],
+        open_predicate_namespaces=[
+            {"namespace": "dungeonbuddy.custom", "allowed_value_kinds": ["entity_ref"]}
+        ],
+    )
+    return SemanticProfileDescriptorV3.model_validate(descriptor)
+
+
 @dataclass(frozen=True, slots=True)
 class DungeonBuddyWorldAdmissionPolicy:
     """The explicit non-widening Buddy hook after generic Kernel gates."""
@@ -240,11 +256,17 @@ def build_dungeonbuddy_read_context(
     policy = DungeonBuddyWorldAdmissionPolicy()
     if policy.policy_id != domain_contract.admission_policy_id:
         raise ValueError("DungeonBuddy policy identity does not match DomainContract")
+    profile = dungeonbuddy_dnd5e_semantic_profile()
+    if (
+        parsed_revision.semantic_profile_ref.profile_revision
+        == DUNGEONBUDDY_CUSTOM_PROFILE_REVISION
+    ):
+        profile = dungeonbuddy_dnd5e_custom_predicate_profile()
     return KnowledgeReadContext(
         parsed=parsed_revision,
         request=build_dungeonbuddy_projection_request(projection_input),
         domain_contract=domain_contract,
-        semantic_profile=dungeonbuddy_dnd5e_semantic_profile(),
+        semantic_profile=profile,
         domain_policy=policy,
         source_reader=source_reader,
     )
