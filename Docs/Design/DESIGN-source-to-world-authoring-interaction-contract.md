@@ -6,6 +6,7 @@
 **Authority re-anchor:** `main@08e4c39967e63bc3b60791748129ca3eaa42f161`
 **Authority reconciliation PR:** #745
 **Completed side quest:** `Docs/Plans/HANDOFF-CON-READY-worldkeeper-sidequest-v1.md`
+**Custom-predicate amendment:** PR #752, rebased on Buddy `main@7addcd05b20c894eb4d50b9d63e5ebdee4bc2cc7`
 
 ## Decision
 
@@ -115,6 +116,12 @@ silently change the profile, publish under a different term, or claim that a
 staged-only custom relationship became durable. Profile transition for an
 existing World is a separate authority decision.
 
+The opt-in V3-backed Buddy profile revision 2 is merged in PR #754, following
+DungeonMind #77/#78 and WorldKeeper #8. That satisfies the custom-predicate
+capability prerequisite for a World explicitly pinned to that profile; it does
+not transition a V2-pinned World. PR #752's companion plan file is a PLAY-1
+design amendment, not an independent adapter implementation handoff.
+
 ## Same-transaction references
 
 Buddy assigns each result-producing semantic item (`CreateObject`, `CreateFact`,
@@ -177,10 +184,12 @@ Completed prerequisites:
 - DungeonMind V5.4 atomic operation-result semantics;
 - WorldKeeper WK-5 consumer seam.
 
-Next, but **not authorized by this document**:
-
-> one bounded DungeonBuddy consumer-migration handoff using the accepted
-> WorldKeeper seam.
+Next, but **not authorized by this document**: reconcile PLAY-0 / PR #753 so
+its single PLAY-1 Buddy → WorldKeeper consumer-proof handoff includes the
+accepted custom-predicate contract. PLAY-1 owns implementation dispatch after
+its own activation conditions; PR #752 creates no parallel implementation
+lease. Its isolated proof uses an injected `WorldChangeService` and an
+in-memory DungeonMind repository, not a production vNext repository factory.
 
 Still not authorized: V2-3 derived gold, extraction/model ablation,
 Agent-assisted authoring, identity reconciliation, generic graph-editor work,
