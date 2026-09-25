@@ -45,7 +45,6 @@ BASELINE_PROVIDER_IMPORTS: frozenset[tuple[str, str]] = frozenset(
         ("src/graph_memory/extraction/preview_candidate_graph_extractor.py", "openai"),
         ("src/graph_memory/extraction/staged_edge_extraction.py", "openai"),
         ("src/ingestion/entity_extractor.py", "openai"),
-        ("src/ingestion/fact_extractor.py", "openai"),
         ("src/ingestion/openai_batch_pipeline.py", "openai"),
         ("src/ingestion/openai_batch_pipeline.py", "openai.lib._parsing._responses"),
         ("src/ingestion/schema_repair_batch.py", "openai"),
@@ -243,6 +242,18 @@ BASELINE_DUNGEONMIND_IMPORTS: frozenset[tuple[str, str]] = frozenset(
             "apps/live_control_server/services/runtime_preflight.py",
             "dungeonmind.infrastructure.postgres",
         ),
+        (
+            "src/graph_memory/vnext/domain_runtime.py",
+            "dungeonmind.application.vnext",
+        ),
+        (
+            "src/graph_memory/vnext/domain_runtime.py",
+            "dungeonmind.application.vnext.ports",
+        ),
+        (
+            "src/graph_memory/vnext/domain_runtime.py",
+            "dungeonmind.contracts.vnext",
+        ),
     }
 )
 
@@ -250,6 +261,7 @@ BASELINE_DUNGEONMIND_OUTSIDE_INTEGRATION: frozenset[str] = frozenset(
     {
         "apps/live_control_server/services/candidate_graph_admission.py",
         "apps/live_control_server/services/runtime_preflight.py",
+        "src/graph_memory/vnext/domain_runtime.py",
     }
 )
 
@@ -259,6 +271,7 @@ BASELINE_GENERATIONENGINE_IMPORTS: frozenset[tuple[str, str]] = frozenset(
         ("src/agent/synthesis.py", "generationengine"),
         ("src/compiler/wiki_compiler.py", "generationengine"),
         ("src/ingestion/frontmatter_inference.py", "generationengine"),
+        ("src/ingestion/fact_extractor.py", "generationengine"),
         ("src/live_play/live_turn_classifier_client.py", "generationengine"),
         ("src/live_play/live_query_context.py", "generationengine"),
         ("src/npc_statblock_pipeline/canonical_intent.py", "generationengine"),

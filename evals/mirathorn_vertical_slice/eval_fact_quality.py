@@ -398,7 +398,7 @@ def _run_pipeline(
     _vlog(f"    entity extraction complete: {len(entities)} entities")
 
     _vlog("  - Running Pass 2 fact extraction...")
-    fact_client = OpenAIResponsesFactClient(api_key=api_key)
+    fact_client = OpenAIResponsesFactClient()
     fact_bundle = run_fact_extraction(
         evidence_units,
         entities=entities,
