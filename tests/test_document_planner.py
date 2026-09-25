@@ -154,16 +154,20 @@ def test_empty_roster_bypasses_credentials_and_generationengine(
     def explode() -> None:
         raise AssertionError("credential loading must not run")
 
-    monkeypatch.setattr(planner, "load_dungeonmindbuddy_dotenv", explode)
-    client = RecordingGenerationClient(AssertionError("GE must not run"))
+    class ExplodingFactory:
+        @classmethod
+        def from_env(cls) -> Any:
+            raise AssertionError("GE must not be constructed")
 
-    result = run_plan(QUESTION, "", CANDIDATES, generation_client=client)
+    monkeypatch.setattr(planner, "load_dungeonmindbuddy_dotenv", explode)
+    monkeypatch.setattr(planner, "GenerationClient", ExplodingFactory)
+
+    result = run_plan(QUESTION, "", CANDIDATES)
 
     assert result.selected_document_ids == ["doc_a", "doc_b"]
     assert result.reasoning == "empty_roster"
     assert result.duration_ms == 0
     assert result.fallback is True
-    assert client.requests == []
 
 
 def test_missing_key_preserves_fallback_and_never_constructs_ge(
