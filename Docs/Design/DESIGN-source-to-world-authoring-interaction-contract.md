@@ -93,6 +93,28 @@ choice between using an existing governed object, creating a distinct object,
 or later entering an explicit identity-reconciliation operation. Only the last
 operation changes canonical identity.
 
+## Human-authored relationship predicates
+
+A GM may craft a relationship predicate instead of choosing a preset. This is
+an accepted product capability, not an optional vocabulary-polish feature.
+Buddy preserves the operator's chosen meaning and maps a valid custom local
+term, such as `works_at`, to `dungeonbuddy.custom:works_at`. It must not
+substitute `located_in`, `allied_with`, or another approximate predicate.
+
+The selected World semantic profile must explicitly admit that custom
+namespace for `entity_ref` assertions at both publication and read time.
+Buddy owns the lexical product mapping and review UX; DungeonMind owns
+qualified-term and value-kind admission. WorldKeeper carries and binds the
+exact predicate without adding a vocabulary of its own. A custom relationship
+does not imply identity equivalence, aliasing, merging, or a source-occurrence
+link.
+
+If a World is pinned to a profile without this capability, Buddy must report
+that the predicate is not publishable under the current authority. It may not
+silently change the profile, publish under a different term, or claim that a
+staged-only custom relationship became durable. Profile transition for an
+existing World is a separate authority decision.
+
 ## Same-transaction references
 
 Buddy assigns each result-producing semantic item (`CreateObject`, `CreateFact`,

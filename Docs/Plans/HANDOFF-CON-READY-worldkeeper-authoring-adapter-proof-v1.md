@@ -16,7 +16,7 @@ pr_body_template: |
 
 # HANDOFF — CON-READY WorldKeeper authoring adapter proof
 
-**Status:** ACTIVE — user-directed dispatch from the rebased design branch
+**Status:** BLOCKED — custom-predicate authority prerequisite; no adapter implementation yet
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Workstream:** `CON-READY / source-to-World authoring`
 **Design base:** `08e4c39967e63bc3b60791748129ca3eaa42f161`
@@ -154,8 +154,28 @@ SemanticProfile:
   sha256 51ea47ff45bc86ea158939c34a5769e7ee56de3911278d473570e3795edb7e14
 ```
 
-The adapter must reuse these runtime constructors rather than recreate domain
-descriptors or vocabulary tables.
+These V6.1 identities remain historical runtime authority for the existing
+read proof. They are not a complete manual-authoring vocabulary: only two
+relationship predicates are declared, while the product supports preset and
+GM-crafted relationship types. The adapter must use an accepted successor
+profile that preserves V6.1 semantics and explicitly admits a scoped custom
+relationship namespace; it must not mutate revision 1 or its digest.
+
+### Gate C2 — authored-predicate authority — BLOCKING
+
+Before adapter implementation resumes, accept and pin:
+
+1. DungeonMind's versioned, type-constrained open-predicate-namespace contract
+   in both governed materialization and reads;
+2. WorldKeeper compatibility with that descriptor and its DungeonMind pin;
+3. Buddy's successor semantic profile, with `dungeonbuddy.custom` admitted
+   for `entity_ref` predicates and fixed V6.1 terms retained.
+
+The canonical `works_at` witness must use the exact qualified predicate
+`dungeonbuddy.custom:works_at`. Adding that single term to a closed list is
+not sufficient: a second previously unknown GM-authored predicate must also
+pass. Existing Worlds pinned to an older profile require separate explicit
+profile-transition authority; this adapter may not change their profile.
 
 ### Gate D — dispatch from rebased design authority
 
@@ -354,10 +374,14 @@ CreateObject(
 ```
 
 Any label, kind, role, summary, scope, visibility, standing, claim mode, or
-domain metadata emitted as durable knowledge must use accepted V6.1
-DomainContract/SemanticProfile semantics.
+domain metadata emitted as durable knowledge must use the accepted Buddy
+DomainContract and its accepted successor SemanticProfile semantics.
 
-Do not invent new qualified terms in this PR.
+Do not invent fixed domain vocabulary in this PR. A GM-crafted relationship
+term is permitted only under the accepted `dungeonbuddy.custom` namespace
+rule, with `entity_ref` value semantics; the adapter must preserve its local
+term exactly and reject invalid lexical forms instead of silently normalizing
+or substituting another predicate.
 
 If a current product field cannot be represented by accepted domain authority,
 fail closed with a mapping error.
@@ -390,7 +414,7 @@ Buddy relationship proposal
 CreateRelationship(
   client_op_id = R,
   source = <mapped endpoint>,
-  predicate = <accepted qualified Buddy term>,
+  predicate = <accepted fixed term or exact dungeonbuddy.custom:local term>,
   target = <mapped endpoint>,
   metadata = <accepted metadata>,
 )
@@ -514,7 +538,8 @@ stop. That is concrete evidence for a new WorldKeeper/DungeonMind prerequisite.
 
 ## 11. Scope, visibility, standing, and metadata
 
-Reuse V6.1 domain/runtime authority.
+Reuse V6.1 domain/runtime authority and its accepted custom-predicate profile
+successor.
 
 The adapter must not create a second independent vocabulary map for:
 
@@ -527,9 +552,9 @@ domain metadata
 predicate qualification
 ```
 
-Prefer accepted V6.1 helpers/constructors.
+Prefer accepted Buddy domain/profile helpers and constructors.
 
-If V6.1 does not expose enough mapping to construct valid WorldKeeper
+If the accepted runtime does not expose enough mapping to construct valid WorldKeeper
 `AssertionMetadata`, stop and rebrief rather than copying old
 `contribution_mapping.py` or `assertion_qualification.py` internals into the
 new package.
@@ -548,7 +573,7 @@ This module may import:
 worldkeeper.integrations.dungeonmind.DungeonMindWorldKeeperRuntime
 ```
 
-and accepted V6.1 descriptor constructors.
+and accepted Buddy descriptor constructors.
 
 Preferred shape:
 
@@ -645,6 +670,10 @@ relationship:
   predicate = works_at
   target = local:brewery
 ```
+
+The emitted predicate is exactly `dungeonbuddy.custom:works_at`. Repeat the
+publication/read-back proof with one other newly crafted term not enumerated
+in the profile; a successful `works_at`-only exception is not acceptance.
 
 Exercise only:
 
@@ -835,7 +864,7 @@ DungeonMind
 - [ ] exact WorldKeeper WK-5 pin added.
 - [ ] mapper depends on `WorldChangeService`, not DungeonMind write APIs.
 - [ ] concrete runtime composition isolated from product mapping.
-- [ ] accepted V6.1 descriptors/profile reused.
+- [ ] accepted Buddy DomainContract and custom-predicate profile reused.
 - [ ] same-batch object + relationship maps through `ResultOf`.
 - [ ] prepare mutates no durable state.
 - [ ] commit produces one verified child and exact durable mappings.
@@ -891,7 +920,8 @@ Stop and return to Steward if implementation requires:
 
 - changing WorldKeeper contracts;
 - changing DungeonMind contracts;
-- adding a qualified Buddy term not accepted by V6.1 authority;
+- accepting a custom term without the versioned predicate-namespace authority;
+- silently changing an existing World's pinned semantic profile;
 - copying current DungeonMind contribution-building code into the mapper;
 - generating future durable IDs in Buddy;
 - admitting new source/evidence state;
