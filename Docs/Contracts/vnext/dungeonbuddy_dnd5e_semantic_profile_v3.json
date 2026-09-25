@@ -1,0 +1,47 @@
+{
+  "schema_version": "dm_semantic_profile_v3",
+  "profile_id": "dungeonbuddy.dnd5e",
+  "profile_revision": "2",
+  "term_namespaces": ["dnd5e", "dungeonbuddy", "dungeonbuddy.custom"],
+  "classification_terms": [
+    "dnd5e:location",
+    "dnd5e:npc",
+    "dungeonbuddy:faction",
+    "dungeonbuddy:organization"
+  ],
+  "predicates": [
+    {
+      "term": "dnd5e:classification",
+      "allowed_value_kinds": ["term_ref"],
+      "literal_schema": null
+    },
+    {
+      "term": "dnd5e:name",
+      "allowed_value_kinds": ["literal"],
+      "literal_schema": {"type": "string"}
+    },
+    {
+      "term": "dnd5e:summary",
+      "allowed_value_kinds": ["literal"],
+      "literal_schema": {"type": "string"}
+    },
+    {
+      "term": "dnd5e:located_in",
+      "allowed_value_kinds": ["entity_ref"],
+      "literal_schema": null
+    },
+    {
+      "term": "dungeonbuddy:allied_with",
+      "allowed_value_kinds": ["entity_ref"],
+      "literal_schema": null
+    },
+    {
+      "term": "dungeonbuddy:source_classification",
+      "allowed_value_kinds": ["term_ref"],
+      "literal_schema": null
+    }
+  ],
+  "open_predicate_namespaces": [
+    {"namespace": "dungeonbuddy.custom", "allowed_value_kinds": ["entity_ref"]}
+  ]
+}
