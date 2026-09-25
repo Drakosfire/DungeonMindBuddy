@@ -77,12 +77,16 @@ by an explicit mention/link assertion or a truthful projection rule.
 - Creating an object does not itself promise a new recap pill.
 - Source selection remains explicit input to authoring, not durable identity.
 - DungeonMind remains the authority for source identity and provenance.
+- Evidence grounding does not imply occurrence or mention binding. That
+  binding awaits a distinct DungeonMind write contract.
 
 ## Explicit operations and identity choice
 
-Object creation, source-occurrence linking, and relationship creation are
-distinct operations. Relationship authoring may visibly seed an endpoint from
-the current source/object context, but must not inherit hidden state.
+Object creation and relationship creation are distinct current operations.
+Source-occurrence linking is a distinct future semantic operation; the WK-5 v0
+consumer seam supports `create_object`, `use_existing`, and
+`create_relationship`. Relationship authoring may visibly seed an endpoint
+from the current source/object context, but must not inherit hidden state.
 
 Similarity is advice, not identity authority. Buddy must present an explicit
 choice between using an existing governed object, creating a distinct object,
@@ -91,9 +95,11 @@ operation changes canonical identity.
 
 ## Same-transaction references
 
-Buddy assigns every staged operation a non-empty, transaction-unique
-`client_op_id`. A dependent operation refers to an earlier result as
-`result_of(client_op_id)`.
+Buddy assigns each result-producing operation (`CreateObject`, `CreateFact`,
+and `CreateRelationship`) a non-empty, transaction-unique `client_op_id`.
+`UseExisting` instead names an exact `durable_object_id`. A dependent
+relationship endpoint refers to a `CreateObject` result in the same intent as
+`result_of(client_op_id)`, regardless of operation order.
 
 ```text
 Buddy WorldChangeIntent
@@ -115,15 +121,17 @@ WorldKeeper
   verifies and reshapes the result for Buddy
 ```
 
-Missing, duplicate, wrong-kind, forward/out-of-transaction, or otherwise
+Missing, duplicate, wrong-kind, out-of-transaction, or otherwise
 unresolvable operation references fail closed before confirmation. There is no
 object-first publication, placeholder relationship, second repair publication,
 or prospective durable-ID algorithm in Buddy or WorldKeeper.
 
 ## Prepare, confirm, and result
 
-1. Buddy submits exact source context, exact World context, and one complete
-   `WorldChangeIntent`.
+1. Buddy selects product source context and constructs one complete
+   `WorldChangeIntent`, using already admitted evidence references in operation
+   metadata. The WK-5 service receives `prepare_change(intent)`; it does not
+   accept a separate raw source-context argument or admit a source.
 2. WorldKeeper interprets semantic dependencies and returns a
    `PreparedWorldChange` without durable mutation.
 3. Buddy presents that exact prepared change and collects explicit confirmation.
