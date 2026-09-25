@@ -7,12 +7,12 @@ import logging
 import os
 import time
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
+
+from generationengine import GenerationClient, TextRequest
 
 from src.agent.evidence_retriever import _unit_allowed
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.llm.api_client import DungeonMindApiClient
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +139,9 @@ def _parse_document_plan(raw: str, candidate_ids: set[str]) -> tuple[list[str], 
         stripped = raw.strip()
         if stripped.startswith("```"):
             inner_lines = [
-                line for line in stripped.split("\n") if not line.strip().startswith("```")
+                line
+                for line in stripped.split("\n")
+                if not line.strip().startswith("```")
             ]
             data = json.loads("\n".join(inner_lines))
         else:
@@ -167,7 +169,7 @@ async def plan_documents_async(
     candidate_ids: set[str],
     *,
     model: str | None = None,
-    openai_client: Any | None = None,
+    generation_client: Any | None = None,
 ) -> DocumentPlan:
     model_id = _resolve_document_planner_model(model)
     t0 = time.perf_counter()
@@ -181,8 +183,7 @@ async def plan_documents_async(
             fallback=True,
         )
 
-    client = openai_client
-    is_async_client = False
+    client = generation_client
     if client is None:
         load_dungeonmindbuddy_dotenv()
         if not (os.getenv("OPENAI_API_KEY") or "").strip():
@@ -194,13 +195,6 @@ async def plan_documents_async(
                 duration_ms=0,
                 fallback=True,
             )
-        try:
-            from openai import AsyncOpenAI
-        except ImportError as exc:
-            raise RuntimeError("OpenAI SDK required for document planning") from exc
-        client = AsyncOpenAI()
-        is_async_client = True
-    api_client = DungeonMindApiClient.wrap(client)
 
     user_prompt = (
         f"GM question: {question}\n\n"
@@ -209,26 +203,20 @@ async def plan_documents_async(
     )
 
     try:
-        request_kwargs = {
-            "model": model_id,
-            "messages": [
-                {"role": "system", "content": DOCUMENT_PLANNER_PROMPT},
-                {"role": "user", "content": user_prompt},
-            ],
-            "response_format": {"type": "json_object"},
-            "temperature": 0.0,
-        }
-        if is_async_client:
-            response = (
-                await api_client.chat_completions_create_async(
-                    action="document_planner.plan", **request_kwargs
-                )
-            ).response
-        else:
-            response = api_client.chat_completions_create(
-                action="document_planner.plan", **request_kwargs
-            ).response
-        raw_text = response.choices[0].message.content or ""
+        if client is None:
+            client = GenerationClient.from_env()
+        response = await client.generate_text(
+            TextRequest(
+                system_prompt=DOCUMENT_PLANNER_PROMPT,
+                user_prompt=user_prompt,
+                provider="openai",
+                model=model_id,
+                profile=None,
+                temperature=0.0,
+                json_object=True,
+            )
+        )
+        raw_text = response.text or ""
         valid, reasoning = _parse_document_plan(raw_text, candidate_ids)
     except Exception as exc:
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
@@ -267,7 +255,7 @@ def plan_documents(
     candidate_ids: set[str],
     *,
     model: str | None = None,
-    openai_client: Any | None = None,
+    generation_client: Any | None = None,
 ) -> DocumentPlan:
     import asyncio
 
@@ -277,6 +265,6 @@ def plan_documents(
             roster,
             candidate_ids,
             model=model,
-            openai_client=openai_client,
+            generation_client=generation_client,
         )
     )
