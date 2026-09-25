@@ -242,6 +242,18 @@ BASELINE_DUNGEONMIND_IMPORTS: frozenset[tuple[str, str]] = frozenset(
             "apps/live_control_server/services/runtime_preflight.py",
             "dungeonmind.infrastructure.postgres",
         ),
+        (
+            "src/graph_memory/vnext/domain_runtime.py",
+            "dungeonmind.application.vnext",
+        ),
+        (
+            "src/graph_memory/vnext/domain_runtime.py",
+            "dungeonmind.application.vnext.ports",
+        ),
+        (
+            "src/graph_memory/vnext/domain_runtime.py",
+            "dungeonmind.contracts.vnext",
+        ),
     }
 )
 
@@ -249,6 +261,7 @@ BASELINE_DUNGEONMIND_OUTSIDE_INTEGRATION: frozenset[str] = frozenset(
     {
         "apps/live_control_server/services/candidate_graph_admission.py",
         "apps/live_control_server/services/runtime_preflight.py",
+        "src/graph_memory/vnext/domain_runtime.py",
     }
 )
 
