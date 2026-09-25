@@ -1,7 +1,7 @@
 {
   "schema": "dmb_v0_2_contract_acceptance_v1",
   "buddy_base_sha": "68a4abae9635211bc773d8480ec6ce46b10ada5e",
-  "reviewed_implementation_head_sha": null,
+  "reviewed_implementation_head_sha": "2a17226b6b0b25a1084f404b6aca8bde442e4713",
   "dungeonmind_provider_merge_sha": "63ec810a02f18c4e25af228f6fdb19d99d12579e",
   "dungeonmind_accepted_v0_1_head_sha": "ba2ec6dc16137b57aab4ca7544f00eb4a5802a15",
   "dungeonmind_vnext_aggregate_sha256": "fd04a9047b8ed79aaa5e710b2247ce1b2654c0e44e05d24fafb2adecb9e7b7ea",

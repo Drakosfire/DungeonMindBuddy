@@ -374,6 +374,54 @@ READY   PR009 Play projection migration
 
 The tracker, not this roadmap, decides which `READY` slice is dispatched next. Current Buddy `main` is `87597f40…`. Native-read switch is the live CUTOVER lane; `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` is retired. After this PR merges, demolish the hydrated Buddy graph runtime.
 
+## UI design re-entry checkpoint — Canvas convergence
+
+**State:** DEFERRED / MUST REVIEW BEFORE NEXT BROAD UI DESIGN PASS
+
+This checkpoint does not resume paused source→World authoring work and does not depend on World Keeper implementation. `apps/live-control-ui/src/markdownCanvas/**` is already an independent landed document authority and may be assessed separately from semantic-write ownership.
+
+Before another broad UI implementation/design pass, explicitly decide whether Buddy's TipTap-backed document work object should compose with the standalone `Drakosfire/Canvas` package.
+
+Working ownership hypothesis:
+
+```text
+DungeonBuddy
+  owns document identity, lifecycle, save/reconcile, commands, and product semantics
+
+TipTap
+  owns rich editing mechanics and semantic editor structure
+
+Canvas
+  owns reusable presentation/layout mechanics
+  (measurement, pagination, regions, and potentially spatial/freeform mechanics)
+```
+
+First investigation should prove or falsify a **projection seam**, not move authority:
+
+```text
+authoritative MarkdownCanvasSession / TipTap document
+→ Buddy-owned adapter
+→ generic Canvas component/data-source representation
+→ read-only alternate presentation
+```
+
+Preferred first witness: Page/Print view of one representative Runbook/Plan document containing ordinary prose plus structured TipTap semantics such as a table, callout, graph reference, and playable/runbook material. Success requires no second durable document model and no alternate save path.
+
+The design review must also evaluate the longer-range **snap-to-grid / freeform board** direction. Standalone Canvas already carries locked/freeform, position, snapping, and map concepts; do not assume its current implementation is the final spatial substrate. Survey mature open-source infinite-canvas/spatial-editor projects for pan/zoom, selection, snapping, grouping, virtualization, and accessibility before committing to bespoke mechanics.
+
+Decision questions:
+
+1. Is Canvas convergence valuable enough to precede additional UI work?
+2. Is Page/Print the right first shared Canvas consumer?
+3. Can semantic TipTap nodes gain Canvas renderers without leaking Buddy domain meaning into the Canvas package?
+4. Should Flow / Page / Board become alternate projections of one Buddy work object?
+5. Should freeform/snap-to-grid live in Canvas itself, an adopted open-source substrate, or an adapter below Canvas?
+6. What remains explicitly Buddy-owned if a third-party infinite canvas supplies spatial mechanics?
+
+**Not authorized by this checkpoint:** TipTap replacement, repository merge, freeform implementation, source→World authoring, World Keeper semantics, or broad frontend redesign.
+
+Root backlog capture: `Backlog.md` → **Goal 9 — Assess Canvas convergence before the next broad UI design pass**.
+
 ## Phase 8 exit criteria
 
 - Ingest creates proposed memory and never auto-publishes.

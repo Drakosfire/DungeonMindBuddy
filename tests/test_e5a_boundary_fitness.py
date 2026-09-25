@@ -39,11 +39,8 @@ GENERATIONENGINE_ROOTS = ("generationengine",)
 # (repo-relative path, imported module string from the AST node)
 BASELINE_PROVIDER_IMPORTS: frozenset[tuple[str, str]] = frozenset(
     {
-        ("src/agent/document_planner.py", "openai"),
         ("src/agent/planner.py", "openai"),
-        ("src/agent/synthesis.py", "openai"),
         ("src/cli.py", "openai"),
-        ("src/compiler/wiki_compiler.py", "openai"),
         ("src/graph_memory/extraction/category_candidate_graph_extractor.py", "openai"),
         ("src/graph_memory/extraction/preview_candidate_graph_extractor.py", "openai"),
         ("src/graph_memory/extraction/staged_edge_extraction.py", "openai"),
@@ -52,7 +49,6 @@ BASELINE_PROVIDER_IMPORTS: frozenset[tuple[str, str]] = frozenset(
         ("src/ingestion/openai_batch_pipeline.py", "openai"),
         ("src/ingestion/openai_batch_pipeline.py", "openai.lib._parsing._responses"),
         ("src/ingestion/schema_repair_batch.py", "openai"),
-        ("src/live_play/live_query_context.py", "openai"),
     }
 )
 
@@ -259,8 +255,12 @@ BASELINE_DUNGEONMIND_OUTSIDE_INTEGRATION: frozenset[str] = frozenset(
 
 BASELINE_GENERATIONENGINE_IMPORTS: frozenset[tuple[str, str]] = frozenset(
     {
+        ("src/agent/document_planner.py", "generationengine"),
+        ("src/agent/synthesis.py", "generationengine"),
+        ("src/compiler/wiki_compiler.py", "generationengine"),
         ("src/ingestion/frontmatter_inference.py", "generationengine"),
         ("src/live_play/live_turn_classifier_client.py", "generationengine"),
+        ("src/live_play/live_query_context.py", "generationengine"),
         ("src/npc_statblock_pipeline/canonical_intent.py", "generationengine"),
     }
 )

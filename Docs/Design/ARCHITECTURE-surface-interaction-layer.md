@@ -3,9 +3,9 @@ document_id: dmb-architecture-surface-interaction-layer
 title: Surface Interaction Layer — Architecture Authority
 document_class: architecture_authority
 status: active
-version: 1.2
+version: 1.3
 created_at: "2026-08-01"
-updated_at: "2026-09-02"
+updated_at: "2026-09-22"
 supersedes_as_ui_shell_authority:
   - partial claims in ARCHITECTURE-plan-surface-toolbox.md (bars/projection hosts)
 companion_authorities:
@@ -18,6 +18,7 @@ companion_authorities:
   surface_information: CONTRACT-surface-information-v1.md
 companion_targets:
   agent_source_graph_magic: DESIGN-magic-moment-contextual-source-to-world-graph.md
+  agent_runtime_direction: DECISION-agent-runtime-and-semantic-adjudication.md
 ---
 
 # Surface Interaction Layer — Architecture Authority
@@ -34,6 +35,7 @@ This document is the **neutral architecture authority** for how DungeonBuddy sur
 | Buddy durable application/work state | [`ARCHITECTURE-application-state-layer.md`](ARCHITECTURE-application-state-layer.md) |
 | Playable / Play Runtime meaning | [`ARCHITECTURE-playable-material-and-runtime.md`](ARCHITECTURE-playable-material-and-runtime.md) |
 | World product boundary / Buddy authority ports | [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) |
+| Agent runtime / semantic-adjudication direction | [`DECISION-agent-runtime-and-semantic-adjudication.md`](DECISION-agent-runtime-and-semantic-adjudication.md) |
 | Durable World/source/evidence authority | **DungeonMind current checked-in authority/contracts/state** |
 | UI execution sequence | [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md) |
 
@@ -52,13 +54,20 @@ DungeonMind
 
 DungeonBuddy
   = surfaces, product work, Buddy application/runtime state,
-    Agent Interaction, tool policy, proposal/review UX
+    Agent Interaction, AgentRuntime contract, context assembly,
+    tool/capability policy, trace semantics, proposal/review UX
 
-Agent harness
-  = client-owned model/tool orchestration
+Runtime adapter / agent harness
+  = replaceable model/tool-loop execution mechanics behind AgentRuntime
 ```
 
 The Surface Interaction Layer never becomes a second World or source/evidence authority.
+
+The harness is not product architecture. Hermes is the current production
+adapter, PydanticAI is an existing challenger/experiment, and Pi/`pi-agent-core`
+is the preferred next adapter experiment. Those implementations remain
+replaceable behind DungeonBuddy's `AgentRuntime`; none owns Surface meaning,
+World authority, product tool semantics, or the Agent trace contract.
 
 The historical phrase “Campaign Supergraph / Kernel owns graph writes” is no longer sufficient. Current product code may route through Buddy `WorldGraphAuthority`-family ports, but durable World authority is DungeonMind.
 
@@ -139,6 +148,7 @@ flowchart TB
 | Graph lens / admissibility intent | Surface domain | Publish requested lens into shared World bindings |
 | World head / identity / writes | DungeonMind | Route through governed Buddy authority ports/capabilities only |
 | Agent interaction semantics | DungeonBuddy Agent Interaction | Publish ambient context; never make harness memory World authority |
+| Agent execution port / trace contract | DungeonBuddy AgentRuntime | Runtime adapters translate to a harness; harness-specific types do not become product contracts |
 | Private agent thread bodies | Agent host + server / selected Buddy persistence if later earned | Not surface-owned stores |
 | SurfaceShell / SurfaceFrame | Layout only | Compose regions; **no** bar ownership |
 

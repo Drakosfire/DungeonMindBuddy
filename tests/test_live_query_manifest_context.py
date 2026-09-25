@@ -1,12 +1,23 @@
 from __future__ import annotations
 
+import asyncio
 import builtins
+import inspect
 import json
 import shutil
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from generationengine import (
+    FailureCode,
+    GenerationEngineError,
+    InferenceFailure,
+    InferenceObservation,
+    ObservationState,
+    TextRequest,
+    TextResult,
+)
 
 from apps.live_control_server.config import SESSION_DIR_ENV
 from apps.live_control_server.main import create_app
@@ -233,56 +244,225 @@ def test_context_lookup_stubbed_llm_path_emits_citations(
     assert "llm_grounding_call_failed" not in (body.get("warnings") or [])
 
 
-def test_llm_grounded_answer_omits_temperature_for_responses_api(
+def _grounding_packet() -> dict[str, object]:
+    return {
+        "admitted_evidence": [
+            {
+                "evidence_id": "ev-1",
+                "source_role": "play_recap",
+                "authority": "canon_play",
+                "path": "x.md",
+                "line_start": 1,
+                "line_end": 1,
+                "unit_id": "u",
+                "text_excerpt": "Tripod is a siege scout.",
+            }
+        ],
+        "rejected_evidence": [],
+    }
+
+
+def _text_result(text: str | None) -> TextResult:
+    return TextResult(
+        text=text,
+        observation=InferenceObservation(
+            latency_ms=0,
+            retry_count=0,
+            state=ObservationState.COMPLETED,
+        ),
+    )
+
+
+class _RecordingGE:
+    def __init__(self, outcome: str | None | BaseException = "Grounded [ev-1].") -> None:
+        self.outcome = outcome
+        self.requests: list[TextRequest] = []
+
+    async def generate_text(self, request: TextRequest) -> TextResult:
+        self.requests.append(request)
+        if isinstance(self.outcome, BaseException):
+            raise self.outcome
+        return _text_result(self.outcome)
+
+
+def _generation_error(code: FailureCode, message: str) -> GenerationEngineError:
+    failure = InferenceFailure.from_code(code, message)
+    observation = InferenceObservation(
+        latency_ms=0,
+        retry_count=0,
+        state=ObservationState.FAILED,
+        failure_code=code,
+    )
+    return GenerationEngineError(failure, observation)
+
+
+def _configure_grounding_test(
     monkeypatch: pytest.MonkeyPatch,
+    client: _RecordingGE,
+    *,
+    model: str = "gpt-5.3-chat-latest",
 ) -> None:
-    """gpt-5.x chat models reject temperature on Responses API (400)."""
-    import sys
-    import types
-
-    captured: dict[str, object] = {}
-
-    class _FakeResponses:
-        def create(self, **kwargs):  # type: ignore[no-untyped-def]
-            captured.update(kwargs)
-
-            class _Resp:
-                output_text = "Grounded [ev-1]."
-
-            return _Resp()
-
-    class _FakeClient:
-        def __init__(self) -> None:
-            self.responses = _FakeResponses()
-
-    openai_mod = types.ModuleType("openai")
-    openai_mod.OpenAI = _FakeClient  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "openai", openai_mod)
     monkeypatch.setattr(live_query_context, "load_dungeonmindbuddy_dotenv", lambda: None)
     monkeypatch.setattr(live_query_context, "_load_api_key", lambda: "sk-test")
-    monkeypatch.setattr(live_query_context, "_live_query_model", lambda _root: "gpt-5.3-chat-latest")
+    monkeypatch.setattr(live_query_context, "_live_query_model", lambda _root: model)
+    monkeypatch.setattr(live_query_context.GenerationClient, "from_env", lambda: client)
+
+
+def test_llm_grounded_answer_uses_exact_generationengine_request(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _RecordingGE("  Grounded [ev-1].  ")
+    _configure_grounding_test(monkeypatch, client)
 
     answer, warnings = live_query_context._run_llm_grounded_answer(
         question="What about the Tripod?",
-        packet={
-            "admitted_evidence": [
-                {
-                    "evidence_id": "ev-1",
-                    "source_role": "play_recap",
-                    "authority": "canon_play",
-                    "path": "x.md",
-                    "line_start": 1,
-                    "line_end": 1,
-                    "unit_id": "u",
-                    "text_excerpt": "Tripod is a siege scout.",
-                }
-            ],
-            "rejected_evidence": [],
-        },
+        packet=_grounding_packet(),
         root=ROOT,
     )
     assert answer == "Grounded [ev-1]."
     assert warnings == []
-    assert "temperature" not in captured
-    assert captured.get("model") == "gpt-5.3-chat-latest"
-    assert captured.get("max_output_tokens") == 400
+    assert len(client.requests) == 1
+    request = client.requests[0]
+    assert request.user_prompt == live_query_context.render_grounded_prompt(
+        "What about the Tripod?", _grounding_packet(), world_graph_prompt_block=None
+    )
+    assert request.system_prompt is None
+    assert request.provider == "openai"
+    assert request.model == "gpt-5.3-chat-latest"
+    assert request.profile is None
+    assert request.temperature is None
+    assert request.max_output_tokens == 400
+    assert request.json_schema is None
+    assert request.schema_name is None
+
+
+def test_llm_grounded_answer_forwards_alternate_buddy_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _RecordingGE()
+    _configure_grounding_test(monkeypatch, client, model="gpt-4o-mini")
+    live_query_context._run_llm_grounded_answer(
+        question="What about the Tripod?", packet=_grounding_packet(), root=ROOT
+    )
+    assert client.requests[0].model == "gpt-4o-mini"
+
+
+def test_llm_grounded_answer_missing_key_is_silent_and_constructs_no_ge(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(live_query_context, "load_dungeonmindbuddy_dotenv", lambda: None)
+    monkeypatch.setattr(live_query_context, "_load_api_key", lambda: None)
+
+    def _boom() -> None:
+        raise AssertionError("GE must not be constructed without product credentials")
+
+    monkeypatch.setattr(live_query_context.GenerationClient, "from_env", _boom)
+    assert live_query_context._run_llm_grounded_answer(
+        question="What about the Tripod?", packet=_grounding_packet(), root=ROOT
+    ) == (None, [])
+
+
+def test_llm_grounded_answer_maps_configuration_unavailable(monkeypatch: pytest.MonkeyPatch) -> None:
+    client = _RecordingGE(
+        _generation_error(FailureCode.CONFIGURATION_UNAVAILABLE, "OpenAI client unavailable.")
+    )
+    _configure_grounding_test(monkeypatch, client)
+    assert live_query_context._run_llm_grounded_answer(
+        question="What about the Tripod?", packet=_grounding_packet(), root=ROOT
+    ) == (None, ["llm_client_unavailable"])
+
+
+def test_llm_grounded_answer_uses_safe_normalized_failure_detail(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _RecordingGE(_generation_error(FailureCode.PROVIDER_ERROR, "Provider request failed."))
+    _configure_grounding_test(monkeypatch, client)
+    answer, warnings = live_query_context._run_llm_grounded_answer(
+        question="What about the Tripod?", packet=_grounding_packet(), root=ROOT
+    )
+    assert answer is None
+    assert warnings == ["llm_grounding_call_failed:Provider request failed."]
+    assert "sk-secret" not in warnings[0]
+    assert "openai.com" not in warnings[0]
+
+
+def test_live_query_ge_failure_uses_deterministic_grounded_fallback(
+    isolated_session_23: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _RecordingGE(_generation_error(FailureCode.PROVIDER_ERROR, "Provider request failed."))
+    _configure_grounding_test(monkeypatch, client)
+
+    body = process_live_query(
+        "What Session 22 outcomes matter for Session 23 prep?",
+        base=isolated_session_23,
+        root=ROOT,
+        request_manifest_path=TEST_MANIFEST_PATH,
+    )
+
+    assert body["status"] == "ok"
+    assert body["answer"]
+    assert body["citations"]
+    assert "llm_grounding_call_failed:Provider request failed." in body["warnings"]
+    assert body.get("mutations") in (None, [])
+
+
+@pytest.mark.parametrize("empty", [None, "", "   "])
+def test_llm_grounded_answer_empty_result_uses_existing_fallback_warning(
+    monkeypatch: pytest.MonkeyPatch,
+    empty: str | None,
+) -> None:
+    client = _RecordingGE(empty)
+    _configure_grounding_test(monkeypatch, client)
+    assert live_query_context._run_llm_grounded_answer(
+        question="What about the Tripod?", packet=_grounding_packet(), root=ROOT
+    ) == (None, ["llm_empty_answer_fallback_used"])
+
+
+def test_llm_grounded_answer_constructs_ge_inside_awaited_context_and_does_not_cache(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(live_query_context, "load_dungeonmindbuddy_dotenv", lambda: None)
+    monkeypatch.setattr(live_query_context, "_load_api_key", lambda: "sk-test")
+    loops: list[asyncio.AbstractEventLoop] = []
+    clients: list[_RecordingGE] = []
+
+    def _from_env() -> _RecordingGE:
+        loops.append(asyncio.get_running_loop())
+        client = _RecordingGE()
+        clients.append(client)
+        return client
+
+    monkeypatch.setattr(live_query_context.GenerationClient, "from_env", _from_env)
+    for _ in range(2):
+        assert live_query_context._run_llm_grounded_answer(
+            question="What about the Tripod?", packet=_grounding_packet(), root=ROOT
+        )[0] == "Grounded [ev-1]."
+    assert len(loops) == 2
+    assert len(clients) == 2
+    assert clients[0] is not clients[1]
+
+
+def test_llm_grounded_answer_is_safe_inside_active_event_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = _RecordingGE()
+    _configure_grounding_test(monkeypatch, client)
+
+    async def _inside_loop() -> tuple[str | None, list[str]]:
+        return live_query_context._run_llm_grounded_answer(
+            question="What about the Tripod?", packet=_grounding_packet(), root=ROOT
+        )
+
+    assert asyncio.run(_inside_loop()) == ("Grounded [ev-1].", [])
+
+
+def test_live_query_source_uses_ge_and_keeps_eval_compatibility_helper() -> None:
+    source = inspect.getsource(live_query_context)
+    assert "from openai import OpenAI" not in source
+    assert "responses.create(" not in source
+    assert ".generate_text(" in source
+    assert "def _extract_answer_text" in source
+
+    telemetry_source = (
+        ROOT / "evals/c2_live_prep/run_live_query_telemetry_trace.py"
+    ).read_text(encoding="utf-8")
+    assert "_extract_answer_text" in telemetry_source

@@ -3,9 +3,9 @@ document_id: dmb-decision-agent-context-compilation
 title: Agent Context Compilation — Product Context, Retrieval, and Model-Facing Budget
 document_class: design_decision
 status: active_direction
-version: 1.0
+version: 1.1
 created_at: "2026-08-29"
-updated_at: "2026-08-29"
+updated_at: "2026-09-22"
 workstream: AGENT-INTERACTION
 architecture_authorities:
   - "ARCHITECTURE-surface-interaction-layer.md"
@@ -13,6 +13,7 @@ architecture_authorities:
   - "ARCHITECTURE-campaign-supergraph.md"
 companion_targets:
   - "DESIGN-magic-moment-contextual-source-to-world-graph.md"
+  - "DECISION-agent-runtime-and-semantic-adjudication.md"
 implementation_successor:
   - "HANDOFF-AGENT-INTERACTION-context-assembler-v1.md"
 ---
@@ -33,12 +34,14 @@ DungeonMind
   owns current World identity, scoped retrieval, evidence/admissibility,
   immutable revisions/head, and governed World publication
 
-DungeonBuddy Agent Interaction
+DungeonBuddy Agent Interaction / AgentRuntime
   owns query interpretation inputs, context assembly/compilation,
-  interaction continuity, tool policy, and model-facing context selection
+  interaction continuity, tool/capability policy, trace semantics,
+  model-facing context selection, and the harness-neutral execution port
 
-Agent harness
-  owns model/tool-loop execution mechanics
+Runtime adapter / agent harness
+  owns implementation-specific model/tool-loop execution mechanics
+  behind the Buddy-owned AgentRuntime contract
 ```
 
 The decision is about the membrane between rich product state and the finite context actually given to a model on one turn.
@@ -72,6 +75,9 @@ QueryContext       Surface publication
                 │
                 ▼
             WorldContext
+                │
+        optional bounded
+      semantic adjudication
                 │
        InteractionContext
                 │
@@ -318,6 +324,35 @@ choosing whether deeper tools are needed
 ```
 
 Do not spend an LLM call to discover product state DungeonBuddy already knows exactly.
+
+## 7.1 Optional semantic adjudication
+
+Some relevance and verification work is neither authoritative product state nor
+open-ended generation. A future bounded semantic adjudicator may evaluate a
+small candidate set after deterministic retrieval/admission and before
+ContextAssembler spends model budget on it.
+
+The current research candidate is **Jev / TypeSafe AI**, but DungeonBuddy cannot
+access it today. This document creates **no Jev dependency, credential
+requirement, provider commitment, or implementation sequence**.
+
+If explored later, the adjudicator may produce narrow signals such as:
+
+```text
+retrieved candidate
+  relevant to this query?
+  materially useful as answer evidence?
+  contradicts the query premise?
+  redundant with stronger admitted evidence?
+```
+
+These signals are advisory. DungeonMind admission/visibility happens first;
+explicit user selection, pinned product context, and other mandatory context
+cannot be silently removed by an external semantic score. Failure or
+unavailability falls back to the existing deterministic/retrieval ordering.
+
+The broader runtime boundary and additional Jev candidate uses are recorded in
+[`DECISION-agent-runtime-and-semantic-adjudication.md`](DECISION-agent-runtime-and-semantic-adjudication.md).
 
 ---
 

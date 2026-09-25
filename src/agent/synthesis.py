@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import os
-from pathlib import Path
 from typing import Any
 
+from generationengine import GenerationClient, TextRequest
+
 from src.bootstrap_env import load_dungeonmindbuddy_dotenv
-from src.llm.api_client import DungeonMindApiClient
 
 _SYNTHESIS_PROFILE_ENV = "DMB_SYNTHESIS_PROFILE"
 _SYNTHESIS_VERBOSITY_ENV = "DMB_SYNTHESIS_VERBOSITY"
@@ -154,31 +153,12 @@ def _load_api_key() -> str | None:
     return os.getenv("OPENAI_API_KEY")
 
 
-def _extract_response_text(response: Any) -> str:
-    try:
-        content = response.choices[0].message.content
-        if isinstance(content, str):
-            return content.strip()
-        if isinstance(content, list):
-            parts: list[str] = []
-            for chunk in content:
-                text = getattr(chunk, "text", None)
-                if text:
-                    parts.append(str(text))
-                elif isinstance(chunk, dict) and chunk.get("text"):
-                    parts.append(str(chunk["text"]))
-            return "\n".join(parts).strip()
-    except Exception:
-        pass
-    return ""
-
-
 async def synthesize_answer_async(
     formatted_context: str,
     question: str,
     *,
     model: str | None = None,
-    openai_client: Any | None = None,
+    generation_client: Any | None = None,
     synthesis_profile: str | None = None,
     verbosity: str | None = None,
     two_step: bool | None = None,
@@ -189,19 +169,12 @@ async def synthesize_answer_async(
     """Send projection context + question to LLM asynchronously."""
     model_id = _resolve_model(model)
 
-    client = openai_client
-    is_async_client = False
+    client = generation_client
     if client is None:
         api_key = _load_api_key()
         if not api_key:
             raise RuntimeError("OPENAI_API_KEY is required for synthesis.")
-        try:
-            from openai import AsyncOpenAI  # type: ignore[import-untyped]
-        except Exception as exc:  # pragma: no cover
-            raise RuntimeError("OpenAI SDK is required for synthesis.") from exc
-        client = AsyncOpenAI()
-        is_async_client = True
-    api_client = DungeonMindApiClient.wrap(client)
+        client = GenerationClient.from_env()
 
     profile = _resolve_synthesis_profile(synthesis_profile)
     verbosity_mode = _resolve_verbosity(verbosity)
@@ -228,25 +201,20 @@ async def synthesize_answer_async(
     )
 
     if use_two:
-        ext_kwargs = {
-            "model": model_id,
-            "messages": [
-                {"role": "system", "content": EXTRACTION_PROMPT},
-                {
-                    "role": "user",
-                    "content": (
-                        "Campaign context:\n"
-                        f"{formatted_context}\n\n"
-                        "Extract all factual claims as instructed."
-                    ),
-                },
-            ],
-        }
-        if is_async_client:
-            ext_resp = (await api_client.chat_completions_create_async(action="synthesis.extract_claims", **ext_kwargs)).response
-        else:
-            ext_resp = api_client.chat_completions_create(action="synthesis.extract_claims", **ext_kwargs).response
-        extracted = _extract_response_text(ext_resp)
+        extraction_request = TextRequest(
+            system_prompt=EXTRACTION_PROMPT,
+            user_prompt=(
+                "Campaign context:\n"
+                f"{formatted_context}\n\n"
+                "Extract all factual claims as instructed."
+            ),
+            provider="openai",
+            model=model_id,
+            profile=None,
+            temperature=None,
+        )
+        extraction_result = await client.generate_text(extraction_request)
+        extracted = (extraction_result.text or "").strip()
         if not extracted:
             raise RuntimeError("Extraction step returned an empty response.")
         if synthesis_meta_out is not None:
@@ -270,18 +238,16 @@ async def synthesize_answer_async(
             "Follow the output contract from the system prompt exactly."
         )
 
-    answer_kwargs = {
-        "model": model_id,
-        "messages": [
-            {"role": "system", "content": resolved_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-    }
-    if is_async_client:
-        response = (await api_client.chat_completions_create_async(action="synthesis.answer", **answer_kwargs)).response
-    else:
-        response = api_client.chat_completions_create(action="synthesis.answer", **answer_kwargs).response
-    text = _extract_response_text(response)
+    answer_request = TextRequest(
+        system_prompt=resolved_prompt,
+        user_prompt=user_prompt,
+        provider="openai",
+        model=model_id,
+        profile=None,
+        temperature=None,
+    )
+    answer_result = await client.generate_text(answer_request)
+    text = (answer_result.text or "").strip()
     if not text:
         raise RuntimeError("Synthesis model returned an empty response.")
     return text
@@ -292,7 +258,7 @@ def synthesize_answer(
     question: str,
     *,
     model: str | None = None,
-    openai_client: Any | None = None,
+    generation_client: Any | None = None,
     synthesis_profile: str | None = None,
     verbosity: str | None = None,
     two_step: bool | None = None,
@@ -306,7 +272,7 @@ def synthesize_answer(
             formatted_context,
             question,
             model=model,
-            openai_client=openai_client,
+            generation_client=generation_client,
             synthesis_profile=synthesis_profile,
             verbosity=verbosity,
             two_step=two_step,
