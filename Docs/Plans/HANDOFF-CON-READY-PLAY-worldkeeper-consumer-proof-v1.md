@@ -240,9 +240,32 @@ Buddy seam.
 PLAY-1 supports only:
 
 ```text
-object        operation=create
-relationship operation=create
+object        operation=None | "create" → create
+relationship operation=None | "create" → create
 ```
+
+The current Buddy DTO normally leaves `operation=None` for these staged
+creates. Preserve that existing meaning. Any other operation value, including
+a blank string, fails closed; do not reinterpret update, alias, or
+`link_existing` as create.
+
+For the bounded relationship proof, `direction=None | "directed"` means
+directed. Reject `undirected`. `relationshipLabel` and relationship `summary`
+must be absent or blank; reject nonblank values rather than discarding them.
+Only the GM-private proposal visibility shape is supported:
+
+```text
+visibility.visibility = gm_private
+visibility.revealState = unrevealed
+visibility.visibilityNote = absent or blank
+graphScopes = exactly recap_graph + campaign_memory_graph, once each
+```
+
+Reject any other visibility, reveal state, nonblank visibility note, or graph
+scope shape. Map the supported GM-private shape to the assertion metadata in
+§11; do not silently convert a player-visible or hidden-until-revealed
+proposal into a GM-only assertion. This bounded proof does not establish a
+general visibility conversion.
 
 It must fail closed for:
 
@@ -449,8 +472,11 @@ hashes
 browser-local selection IDs
 ```
 
-The isolated parent revision must already contain the evidence record and the
-source reader fixture must make its source/revision authority coherent.
+The isolated parent revision must already contain the exact `EvidenceRefV3`
+record in its native graph payload. WorldKeeper's write runtime obtains its
+evidence witness from that exact parent graph; it does not consume a
+`KnowledgeSourceReader` in PLAY-1. Do not add a source reader fixture or source
+admission path to this proof.
 
 If an evidence ID is missing, WorldKeeper prepare must fail closed.
 
