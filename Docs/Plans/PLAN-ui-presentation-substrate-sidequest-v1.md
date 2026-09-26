@@ -3,7 +3,7 @@
 **Created:** 2026-09-25
 **Status:** DESIGN PROPOSED IN PR — no implementation lease is active
 **Repository:** Drakosfire/DungeonMindBuddy
-**Re-anchor:** main@3f0d5549 — prior UI-F0/F1/F2 merges reverted; unrelated settlement preserved
+**Re-anchor:** main@3f0d5549 — prior UI merges reverted; F0 proposed in PR #769 and F1 implementation under review in stacked PR #770
 **Roadmap owner:** Docs/Roadmaps/ROADMAP-campaign-supergraph.md UI design re-entry checkpoint
 **Architecture owner:** Docs/Design/ARCHITECTURE-surface-interaction-layer.md
 **Visual language:** Docs/Design/ui-language/DESIGN-interaction-layer-language.md
@@ -322,7 +322,7 @@ This is not a new domain layer.
 
 ~~~text
 UI-F0  substrate contract + roadmap                         PROPOSED — design PR only
-UI-F1  tokens + 4 primitives + Ladle                        BLOCKED until handoff is on main
+UI-F1  tokens + 4 primitives + Ladle                        IMPLEMENTED IN PR #770 — unmerged review experiment
 UI-F2  World-object showroom + ObjectSheet                  QUEUED
 UI-F3  ToolHost behavior/presentation split                 QUEUED
 UI-F4  <=10-story canonical visual contract                 QUEUED
@@ -645,9 +645,9 @@ mature graphReference/view-model seams       PRESERVE
 UI language                                  GOOD DESIGN EVIDENCE
 UI-01..UI-05                                 MERGED / useful interaction grammar
 
-UI presentation substrate                   DESIGN PROPOSED — no active implementation lease
-UI-F0                                        PROPOSED IN PR
-UI-F1                                        BLOCKED until steward-landed ACTIVE handoff
+UI presentation substrate                   STACKED PR REVIEW — no main implementation lease
+UI-F0                                        PROPOSED IN PR #769
+UI-F1                                        IMPLEMENTED IN PR #770; not merged/active on main
 Canvas convergence                           MOVED TO UI-F5
 broad UI redesign                            HELD
 CON-READY PLAY                               INDEPENDENT / MAY RUN IN PARALLEL
