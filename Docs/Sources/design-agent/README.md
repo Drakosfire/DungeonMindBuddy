@@ -1,7 +1,7 @@
 # Design Agent / Project Sources Export
 
 **Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies
-**Export refreshed:** 2026-09-25 settlement pass on `main@9473244f57e7845928fc47225fd08863ea85804b`
+**Export refreshed:** 2026-09-26 DEMO reconciliation (repository mirror only)
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
 This directory is the clean pickup point for refreshing ChatGPT immediate /
@@ -18,10 +18,9 @@ this export changed.
 2. `graph-document-audit.md`
 3. `ARCHITECTURE-surface-interaction-layer.md`
 4. `DESIGN-source-to-world-authoring-interaction-contract.md`
-5. `STEWARDS-ANCHOR-con-ready.md`
-6. `ROADMAP-con-ready.md`
+5. `STEWARDS-HANDOFF-demo.md`
+6. `ROADMAP-demo.md`
 7. `ARCHITECTURE-playable-material-and-runtime.md`
-8. `ROADMAP-playable-hoist-dungeonmind-kernel.md`
 
 ### `ACTIVE_REFERENCE/`
 
@@ -68,3 +67,6 @@ deliberate.
 Never repair an export copy in place. Repair the canonical document first, then
 refresh its mapped export copy byte-for-byte. The canonical source index owns
 the mapping.
+
+The old CON-READY and Playable sequence copies still on disk are historical
+2026-09-25 exports; exclude them from the current upload set.

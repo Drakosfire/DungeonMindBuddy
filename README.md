@@ -45,9 +45,8 @@ accepted source-to-World interaction boundary now places reversible product
 intent and review UX in Buddy, semantic prepare/confirm coordination in
 WorldKeeper, and durable identity/provenance/revision/publication in DungeonMind.
 The old Campaign Supergraph tracker/status documents are retained as frozen
-program records; they no longer authorize new dispatch. Current product
-sequencing is workstream-specific (CON-READY, Play/Playable, Agent, UI, and
-other explicitly active authorities).
+program records; they no longer authorize new dispatch. Current Buddy demo product sequencing is owned by DEMO; independent Agent, UI
+substrate and shared-domain programs retain their own authorities.
 
 The Plan/Build **DOGFOOD-POLISH** workstream closed on 2026-08-11 after
 establishing the shared surface/document-authoring baseline. AppChrome now owns
@@ -86,9 +85,8 @@ authority. Use these documents for current design work:
 - [Campaign / World model architecture](Docs/Design/ARCHITECTURE-campaign-supergraph.md)
 - [Source-to-World authoring interaction](Docs/Design/DESIGN-source-to-world-authoring-interaction-contract.md)
 - [Shared surface-interaction architecture](Docs/Design/ARCHITECTURE-surface-interaction-layer.md)
-- [CON-READY stewardship anchor](Docs/Plans/STEWARDS-ANCHOR-con-ready.md)
-- [CON-READY product roadmap](Docs/Roadmaps/ROADMAP-con-ready.md)
-- [Playable/Play sequencing](Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md)
+- [DEMO stewardship anchor](Docs/Plans/STEWARDS-HANDOFF-demo.md)
+- [DEMO product roadmap](Docs/Roadmaps/ROADMAP-demo.md)
 - [Graph/document authority audit](Docs/Reports/graph-document-audit.md)
 - [E5A inference and knowledge boundary baseline](Docs/Reports/REPORT-E5A-buddy-boundary-baseline.md)
 - [Agent context compilation decision](Docs/Design/DECISION-agent-context-compilation.md)

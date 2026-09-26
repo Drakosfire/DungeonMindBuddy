@@ -8,7 +8,11 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "typecheck": "tsc -b",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ui": "ladle serve",
+    "ui:build": "ladle build",
+    "ui:visual": "playwright test --config playwright.ui.config.ts",
+    "ui:visual:update": "playwright test --config playwright.ui.config.ts --update-snapshots"
   },
   "dependencies": {
     "@tiptap/core": "^2.11.5",
@@ -30,6 +34,8 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@ladle/react": "5.1.1",
+    "@playwright/test": "1.63.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",

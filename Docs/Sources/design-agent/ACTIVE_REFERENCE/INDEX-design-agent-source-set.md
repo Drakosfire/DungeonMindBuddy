@@ -2,7 +2,7 @@
 
 **Status:** ACTIVE REFERENCE / process index
 **Created:** 2026-08-02
-**Repository authority refresh:** 2026-09-25 settlement pass on `main@9473244f57e7845928fc47225fd08863ea85804b`
+**Repository authority refresh:** 2026-09-26 DEMO reconciliation (repository adoption; Project Sources unchanged)
 **Project Sources snapshot date:** 2026-08-02 — advance only after the operator actually replaces/re-observes the user-managed set
 **Repo-resident export mirror:** [`Docs/Sources/design-agent/`](../Sources/design-agent/)
 **Document class:** curated source index — not architecture or sequencing authority
@@ -28,7 +28,7 @@ Project Sources are user-managed context inputs, not repository truth. The
 export mirror is convenience only.
 
 The old Campaign Supergraph roadmap/tracker/status set is no longer a global
-implementation sequence. Use workstream-specific authorities.
+implementation sequence. Buddy product execution is sequenced by DEMO.
 
 ## Current clean upload set
 
@@ -40,10 +40,10 @@ implementation sequence. Use workstream-specific authorities.
 | Graph/document governance | [`../Reports/graph-document-audit.md`](../Reports/graph-document-audit.md) | `ACTIVE_AUTHORITY/graph-document-audit.md` |
 | Shared interaction/chrome | [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-surface-interaction-layer.md` |
 | Source→World authoring ownership | [`DESIGN-source-to-world-authoring-interaction-contract.md`](DESIGN-source-to-world-authoring-interaction-contract.md) | `ACTIVE_AUTHORITY/DESIGN-source-to-world-authoring-interaction-contract.md` |
-| CON-READY stewardship | [`../Plans/STEWARDS-ANCHOR-con-ready.md`](../Plans/STEWARDS-ANCHOR-con-ready.md) | `ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md` |
-| CON-READY product roadmap | [`../Roadmaps/ROADMAP-con-ready.md`](../Roadmaps/ROADMAP-con-ready.md) | `ACTIVE_AUTHORITY/ROADMAP-con-ready.md` |
+| DEMO stewardship | [`../Plans/STEWARDS-HANDOFF-demo.md`](../Plans/STEWARDS-HANDOFF-demo.md) | `ACTIVE_AUTHORITY/STEWARDS-HANDOFF-demo.md` |
+| DEMO product roadmap | [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) | `ACTIVE_AUTHORITY/ROADMAP-demo.md` |
 | Playable/runtime architecture | [`ARCHITECTURE-playable-material-and-runtime.md`](ARCHITECTURE-playable-material-and-runtime.md) | `ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` |
-| Play/Playable sequence | [`../Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md`](../Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md) | `ACTIVE_AUTHORITY/ROADMAP-playable-hoist-dungeonmind-kernel.md` |
+
 
 ### ACTIVE REFERENCE
 
@@ -72,6 +72,10 @@ implementation sequence. Use workstream-specific authorities.
 - [`../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`](../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md) → `PROCESS/HANDOFF.template.md`
 
 ## Explicitly retired from the immediate source bundle
+
+The CON-READY stewardship/roadmap and Playable hoist roadmap are also retired
+from the immediate upload set. Their old export copies remain dated 2026-09-25
+and must not be uploaded as current authority.
 
 | Document | Classification | Reason |
 |---|---|---|

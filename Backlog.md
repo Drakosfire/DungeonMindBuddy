@@ -104,7 +104,81 @@ PR #694 removed full-document loads among the primary React surfaces and the pos
 
 ---
 
+# IDEA
+
+## [IDEA] Graph exploration controller lab — oracle traces to System One policy
+**Kind:** RESEARCH / EVALUATION / AGENT RETRIEVAL  
+**Owner:** Agent retrieval / DungeonMind graph-read consumer  
+**Captured:** 2026-09-26  
+**Last verified:** 2026-09-26 after review of current Agent graph-query benchmark  
+**Depends on:** the existing Agent graph-query benchmark and a normally product-readable pinned World/revision. This does not own sequencing and must re-anchor against the post-CUTOVER DungeonMind/Buddy read boundary before promotion.
+
+**Problem:** The existing graph-query benchmark already distinguishes product loadability, oracle retrieval, and real-Agent orchestration, but its oracle layer is manual/scripted. DungeonBuddy has enough real corpus and challenging gold to turn that layer into a constrained graph-navigation game. A strong code agent can play the game using only legal bounded graph actions; its trajectories and failures can reveal the smallest reusable action algebra needed for difficult retrieval. Those state/action traces can later benchmark cheaper policies, including a System One / Jev-style controller.
+
+**Research direction:** Start with a deliberately tiny read-only action set such as resolve, expand, follow, open evidence, and supported/insufficient stop. Record every legal alternative, chosen action, observation, evidence admitted, budget, and termination. Classify failures before adding actions. New actions must be general graph operations, not benchmark-specific semantic shortcuts. Retrieval quality is scored separately from final answer synthesis.
+
+**Critical constraints:** No arbitrary repository/corpus search by the explorer; no raw storage/SQL bypass; no visibility/admissibility bypass; no parallel graph authority; no hidden full LLM behind one giant search action; Jev is a later controller experiment, not the first implementation dependency.
+
+**Promotion trigger:** The current graph-query benchmark can run against one pinned, product-readable revision and there is a clean seam for exposing legal bounded actions without creating another retrieval backend.
+
+**Likely first slice on promotion:** Build only the bounded read-only graph-exploration environment and deterministic trace contract. Code-agent oracle automation, action-set discovery, and Jev/System One comparison remain successors.
+
+**Detailed capture:** Docs/Backlog/BACKLOG-graph-exploration-system-one-controller-lab.md  
+**Parent benchmark:** Docs/Backlog/AGENT-GRAPH-QUERY-BENCHMARK.md
+
+---
+
 # DEFERRED
+
+## [DEFERRED] Composable spatial workspace + instant theme packs
+**Kind:** PRODUCT DESIGN / FRONTEND ARCHITECTURE / RESEARCH  
+**Owner:** Buddy presentation layer / future spatial workspace  
+**Captured:** 2026-09-26  
+**Last verified:** 2026-09-26 @ `24e0565145ad578783c3b9ed3b0b672d9f6b3f30` after UI-F1–F4 substrate work merged/reviewed  
+**Trigger:** a basic demo-ready Buddy presentation is accepted and the product can afford exploratory spatial/composable UI work without delaying the demo.
+
+**Problem:** The long-term presentation dream is a fast, composable workspace where the GM can arrange reusable Buddy components freely on a large/infinite spatial surface, save different workspace arrangements, zoom between overview and detail, and swap pre-baked visual themes (for example D&D/fantasy → sci-fi) instantly without changing component semantics, data, or layout ownership. This is intentionally **not** the current demo-readiness priority.
+
+**Design direction to preserve:**
+
+```text
+Buddy domain / durable state
+        ↓
+presentation model
+        ↓
+Buddy component registry
+        ↓
+presentation engine
+  ├─ Flow
+  ├─ Page / Print
+  └─ Spatial / infinite workspace
+
+theme pack is orthogonal:
+  component + layout stay the same
+  semantic CSS/theme tokens repaint the workspace
+```
+
+Keep these concerns independent:
+
+- **component meaning:** World object, Scene, Runbook, ToolHost, Agent, Combat, note, map, etc.;
+- **spatial layout:** x/y/size/z/collapse/group/camera/workspace preset only;
+- **theme:** semantic paint/typography/radius/border/shadow/icon treatment only;
+- **durable authority:** remains in Buddy/DungeonMind/APP-STATE; the spatial layer references objects and must not copy their bodies into a second truth store.
+
+Performance is a first-class requirement because the ordinary development/client machine may be weak. A future spatial engine should therefore prefer viewport culling, cheap pan/zoom, level-of-detail rendering, stable component identity, and avoiding full expensive component renders when zoomed far out.
+
+**Next slice on trigger:** Design/research only. Re-anchor against the then-current presentation substrate and compare at least:
+
+1. a library-backed spatial engine (tldraw is a current candidate, not a decision);
+2. a deliberately small Buddy-owned spatial engine;
+3. whether the existing `Drakosfire/Canvas` package should remain Page/Print-only rather than serving spatial work.
+
+Freeze a minimal `SpatialWorkspacePort` / spatial-item contract and a theme-pack token contract before implementation. Explicitly decide persistence ownership for workspace arrangement and camera state. Do **not** start by building freeform interaction mechanics, merging Page and Spatial canvas concerns, or coupling themes to domain components.
+
+**Desired eventual experience:** the same ObjectSheet/Scene/Runbook/etc. can be moved around a saved infinite workspace, switch between workspace presets such as “At the Table” and “Worldbuilding,” and instantly change visual language (fantasy, sci-fi, clean, etc.) by swapping theme tokens without rebuilding or reauthoring the components.
+
+**Refs:** `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`; F1–F4 presentation-substrate work; `Drakosfire/Canvas` as Page/Print-layout research ancestry only.
+
 
 ## [DEFERRED] Define campaign creation inside an existing World
 **Kind:** DESIGN / CROSS-BOUNDARY AUTHORITY  
@@ -313,38 +387,73 @@ This is deliberately **non-status design input**, not an immediate successor to 
 
 **Scope guardrail:** Agent context consumes the same selected World object and surface/document context as the product. It must not invent a parallel graph interpretation or use chat history as campaign truth.
 
-### Goal 9 — Assess Canvas convergence before the next broad UI design pass
+### Goal 9 — Make presentation iteration cheap before the next broad UI design pass
 
-**Captured:** 2026-09-24  
-**Roadmap owner:** `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` UI design re-entry checkpoint.
+**Updated:** 2026-09-25
+**Roadmap owner:** `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` UI Presentation Substrate sidequest.
+**Sequencing plan:** `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`.
 
-**Outcome:** Before committing to another broad UI design/implementation pass, explicitly decide whether Buddy's independent `MarkdownCanvasSession` / TipTap work object should compose with the standalone `Canvas` package as a multi-representation document surface.
+**Outcome:** Preserve Buddy's mature frontend interaction/runtime kernel while
+building a lightweight presentation layer that can be changed rapidly on a
+resource-constrained development laptop.
 
-Current working hypothesis:
+Preserve as substrate:
 
 ```text
-Buddy owns the document and its authority/lifecycle
-TipTap owns editing mechanics and semantic document structure
-Canvas owns generic presentation/layout mechanics
+SurfaceInteraction contracts + leases
+Tool/Edit/Projection host authority
+Peek interaction semantics
+MarkdownCanvasSession + document commands
+graphReference contracts
+World-object view-model boundaries
+Play durable identity/state
 ```
 
-The first proof should be projection-only: one representative Buddy TipTap document renders through standalone Canvas without creating a second durable document model, alternate save path, or graph/world-write authority.
+Add the missing cheap-to-change layer:
 
-**Questions to answer in the design pass:**
+```text
+semantic CSS tokens
+small UI primitives/patterns
+backend-free isolated component workshop
+static representative Buddy fixtures
+small canonical screenshot suite
+controller ↔ presentation separation
+```
 
-- Can TipTap JSON/semantic nodes adapt cleanly into Canvas component/data-source contracts?
-- Can the same authoritative work object support distinct **Flow / Page / Board** presentations?
-- Is paginated/print preview the right first consumer of Canvas measurement and pagination?
-- Can Buddy-specific nodes (callout, table, graph reference, Runbook/Playable semantics, Threat-like structured content) gain Canvas renderers without teaching the Canvas package Buddy domain meaning?
-- Should standalone Canvas evolve toward the old **snap-to-grid / freeform board** dream after the projection seam is proven?
-- Which mature open-source infinite-canvas / spatial-editor projects are worth studying or embedding rather than building pan/zoom/selection/snapping primitives from scratch?
-- If an open-source infinite canvas is adopted, which layer owns spatial mechanics versus Buddy document semantics and Canvas layout/render contracts?
+Preferred lightweight tooling direction:
 
-**Non-goals now:** no UI implementation lease, no TipTap replacement, no merge of the two repositories, no source→World authoring work, no World Keeper semantic-write behavior, and no freeform-board implementation before the convergence decision.
+- Vite remains the dev foundation;
+- plain CSS custom properties for tokens;
+- CSS Modules / narrowly scoped CSS for new reusable presentation;
+- Ladle for backend-free isolated UI development;
+- Base UI selectively for headless accessibility/focus mechanics;
+- Playwright only for a small explicit/CI visual-regression set.
 
-**Pickup trigger:** when the paused UI design pass resumes. Treat this as an early design checkpoint that may belong **before** additional UI implementation; current product-owner suspicion is yes.
+The target workflow is:
 
-**Refs:** `Docs/Design/DESIGN-shared-markdown-canvas-surface-composition.md`; `apps/live-control-ui/src/markdownCanvas/`; `apps/live-control-ui/src/tiptap/`; standalone `Drakosfire/Canvas` layout/map package.
+```text
+idea
+→ fixture
+→ visual prototype
+→ desktop/narrow comparison
+→ optional visual regression
+→ production integration
+```
+
+Routine presentation work should not require DungeonMind, PostgreSQL,
+APP-STATE, an ingest run, or a backend server.
+
+**Canvas convergence remains a required checkpoint, but moves later to UI-F5.**
+Once the presentation lab exists, test one representative TipTap-backed
+Runbook/Plan document through a Buddy-owned adapter into standalone Canvas as a
+read-only Page/Print projection. Only then decide whether Flow / Page / Board
+should become alternate projections of one authoritative Buddy work object and
+where freeform/spatial mechanics belong.
+
+**Non-goals:** no frontend rewrite, no TipTap replacement, no repository merge,
+no Tailwind/CSS-in-JS migration, no large pre-styled component framework, no
+source→World semantics, no WorldKeeper/DungeonMind behavior change, and no
+freeform-board implementation before the convergence proof.
 
 ### Supporting UI engineering constraint — make redesign cheaper than preservation
 
