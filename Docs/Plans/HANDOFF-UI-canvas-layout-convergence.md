@@ -9,7 +9,7 @@ pr_body_template: |
   - PR topology: stacked design review on #759; implementation BLOCKED
 
   ## Verification pointer
-  - Review parent: #759 exact implementation head eb159a275f52e194a027fb3396637fde25be3370
+  - Review parent: #759 exact implementation head 9575155f28f759a283e82bf90f3ad81c00b68983
   - External predecessor: Drakosfire/Canvas main e352c71558a0ff020ef97c63dbbe6b3a93e72528 observed at design
   - Changed paths: exact §4 allowlist only
   - Verification: adapter tests + Ladle Page story + Canvas layout-only dependency proof + typecheck/build + diff checks
@@ -34,7 +34,7 @@ pr_body_template: |
 **PR authorization:** once ACTIVE, open/update exactly one Buddy implementation PR for this experiment; no Canvas repair inside the Buddy PR and no successor/repair PR  
 **PR title:** `UI: prove Canvas layout convergence`
 
-**Current stacked review parent:** #759 exact head `eb159a275f52e194a027fb3396637fde25be3370`. This is a re-anchored design PR, not an ACTIVE implementation lane or write lease.
+**Current stacked review parent:** #759 exact head `9575155f28f759a283e82bf90f3ad81c00b68983`. This is a re-anchored design PR, not an ACTIVE implementation lane or write lease.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
