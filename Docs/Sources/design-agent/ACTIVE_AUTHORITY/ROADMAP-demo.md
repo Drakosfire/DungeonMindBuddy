@@ -237,6 +237,11 @@ that their foundations are absent. Historical slices retain their IDs.
   not the manifest's `1b350f...` pin. Resolve that input pin before claiming a
   fully reproducible final rehearsal. The new demo DBs and source root are
   disposable local rehearsal state, not production authority.
+- **DEMO-J1 selected-context repair:** ACTIVE handoff
+  [`HANDOFF-DEMO-selected-world-context-v1.md`](../Plans/HANDOFF-DEMO-selected-world-context-v1.md).
+  One serial Buddy PR may prove that the imported managed World selection binds
+  Plan, Build, Graph Review, Ask and World requests without C2/Eldyrwild
+  fallback. This records dispatch authority, not implementation acceptance.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
