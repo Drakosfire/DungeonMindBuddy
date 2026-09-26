@@ -1,9 +1,9 @@
 # PLAN — UI Presentation Substrate Sidequest v1
 
 **Created:** 2026-09-25
-**Status:** UI-F0/F1/F2 MERGED; UI-F3 REPAIR IN PR #758 — no retroactive main implementation lease
+**Status:** UI-F0/F1/F2 MERGED; UI-F3 MERGE READY in PR #758; UI-F4 MERGE READY relative to F3 in PR #759; UI-F5 BLOCKED on Canvas packaging
 **Repository:** Drakosfire/DungeonMindBuddy
-**Re-anchor:** main@25cae87d66cf02f23d15f68a6163e584bd0441c8 — UI-F0/F1/F2 merged as PRs #769/#770/#771; F3 implementation remains in PR #758 pending repair and review
+**Re-anchor:** main@25cae87d66cf02f23d15f68a6163e584bd0441c8 — UI-F0/F1/F2 merged as PRs #769/#770/#771; F3 exact head `453aabdc918d09e20b0da7d4206cdb744bd27406` is formally MERGE READY; F4 exact head `f854ab4c8f68d2e8d05f89189362678b6596d2a6` is MERGE READY relative to F3
 **Roadmap owner:** Docs/Roadmaps/ROADMAP-campaign-supergraph.md UI design re-entry checkpoint
 **Architecture owner:** Docs/Design/ARCHITECTURE-surface-interaction-layer.md
 **Visual language:** Docs/Design/ui-language/DESIGN-interaction-layer-language.md
@@ -324,10 +324,10 @@ This is not a new domain layer.
 UI-F0  substrate contract + roadmap                         MERGED — PR #769 at 5f62d9c1
 UI-F1  tokens + 4 primitives + Ladle                        MERGED — PR #770 at b834c7f6
 UI-F2  World-object showroom + ObjectSheet                  MERGED — PR #771 at 25cae87d
-UI-F3  ToolHost behavior/presentation split                 REPAIR — PR #758, unmerged
-UI-F4  <=10-story canonical visual contract                 QUEUED
-UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
-UI-F6  post-substrate human/steward decision STOP           LATER
+UI-F3  ToolHost behavior/presentation split                 MERGE READY — PR #758 @ 453aabdc
+UI-F4  <=10-story canonical visual contract                 MERGE READY after F3 — PR #759 @ f854ab4c
+UI-F5  Canvas layout-engine Page convergence experiment     BLOCKED — Canvas clean layout-only package contract
+UI-F6  post-substrate human/steward decision STOP           BLOCKED on accepted F5 verdict
 ~~~
 
 Each slice must be independently useful.
@@ -645,12 +645,126 @@ mature graphReference/view-model seams       PRESERVE
 UI language                                  GOOD DESIGN EVIDENCE
 UI-01..UI-05                                 MERGED / useful interaction grammar
 
-UI presentation substrate                   F0/F1/F2 MERGED; F3 REPAIR — no retroactive main implementation lease
+UI presentation substrate                   F0/F1/F2 MERGED; F3/F4 REVIEW-ACCEPTED; F5 EXTERNALLY BLOCKED
 UI-F0                                        MERGED — PR #769 at 5f62d9c1
 UI-F1                                        MERGED — PR #770 at b834c7f6
 UI-F2                                        MERGED — PR #771 at 25cae87d
-UI-F3                                        IMPLEMENTED IN PR #758; not yet merged
-Canvas convergence                           MOVED TO UI-F5
+UI-F3                                        MERGE READY — PR #758 @ 453aabdc; Review 5326714244
+UI-F4                                        MERGE READY RELATIVE TO F3 — PR #759 @ f854ab4c; Review 5326714910
+UI-F5                                        BLOCKED — Canvas packaging prerequisite still false
+UI-F6                                        BLOCKED — waits for accepted F5 YES / NARROWER / NO
 broad UI redesign                            HELD
 CON-READY PLAY                               INDEPENDENT / MAY RUN IN PARALLEL
 ~~~
+
+
+---
+
+## 19. Current frontier — 2026-09-26
+
+The sidequest has crossed its original foundation threshold.
+
+### What is already on `main`
+
+```text
+UI-F0
+  roadmap / preservation contract
+
+UI-F1
+  Ladle
+  semantic presentation tokens
+  Surface / Button / Badge / Stack
+  backend-free UI iteration loop
+
+UI-F2
+  ObjectSheet
+  typed static World-object fixtures
+  sparse/rich/location/faction/relationship-heavy comparison
+```
+
+Current `main` is `25cae87d66cf02f23d15f68a6163e584bd0441c8`.
+
+### What is accepted but not yet merged
+
+```text
+UI-F3 — PR #758 @ 453aabdc918d09e20b0da7d4206cdb744bd27406
+  ToolHost controller/presentation split
+  callback-free ToolHostView model
+  18 focused regressions PASS
+  Plan drawer + Ingest Peek placement/focus smoke PASS
+  formal review: MERGE READY — 5326714244
+
+UI-F4 — PR #759 @ f854ab4c8f68d2e8d05f89189362678b6596d2a6
+  8 fixed Chromium visual contracts
+  one worker
+  opt-in only
+  exact baseline environment recorded
+  deliberate visual perturbation fails closed
+  formal review: MERGE READY relative to F3 — 5326714910
+```
+
+Merge order remains strict:
+
+```text
+merge #758
+→ re-anchor #759 on fresh main
+→ rerun F4 visual evidence
+→ merge #759
+```
+
+The inherited `ThreatPublicationPanel.tsx:553 TS2503` failure remains baseline
+debt and is not attributed to F3/F4.
+
+### The current blocker
+
+UI-F5 is intentionally not a Buddy coding blocker.
+
+The candidate Canvas seam remains:
+
+```text
+Buddy TipTap semantics
+→ Buddy adapter
+→ transient Canvas layout inputs
+→ Canvas measurement / pagination
+→ LayoutPlan
+→ Buddy-owned Page presentation
+```
+
+But `Drakosfire/Canvas@e352c71558a0ff020ef97c63dbbe6b3a93e72528`
+still declares `konva` and `react-konva` as required package-wide peer
+dependencies.
+
+Before UI-F5 can activate, a separately reviewed Canvas packaging predecessor must
+prove:
+
+1. exact clean install from a reproducible artifact/SHA;
+2. `dungeonmind-canvas/layout` works without sibling checkout or source import;
+3. layout-only consumption does not install/require Konva/react-konva;
+4. the layout import graph does not pull map code;
+5. Buddy React 19 resolves as one React/ReactDOM singleton.
+
+Do not work around this in Buddy.
+
+### What comes after the blocker
+
+UI-F5 remains a falsifiable experiment and must terminate with exactly one:
+
+```text
+YES
+NARROWER
+NO
+```
+
+Only after that does UI-F6 activate.
+
+UI-F6 is the human product decision point, not another automatic implementation
+slice. It asks whether the new substrate has made presentation iteration cheap
+enough and which **single** product interaction most improves a credible demo.
+
+A valid F6 result remains:
+
+```text
+RESUME_NON_UI
+```
+
+if UI is no longer the highest-value blocker.
