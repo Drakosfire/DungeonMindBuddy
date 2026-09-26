@@ -5,35 +5,38 @@ pr_body_template: |
   - Flow: UI
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-world-object-showroom.md
-  - Branch / PR: none while BLOCKED
-  - PR topology: serial
+  - Branch / PR: codex/ui-f2-handoff-restoration / PR #771
+  - PR topology: stacked review experiment; no merge
 
   ## Verification pointer
-  - Design authority / head: BLOCKED F1 handoff design PR #770 at f44091de
+  - Design authority / head: F1 implementation PR #770 at 564a0205
   - Changed paths: exact §4 allowlist only
   - Verification: focused ObjectSheet tests + Ladle build + typecheck + production build + diff checks
 
-  The checked-in ACTIVE handoff, cumulative diff, nano-commit story, and independently
+  The PR-local handoff, cumulative diff, nano-commit story, and independently
   rerun evidence are the review contract. This body is transport metadata.
 ---
 
 # HANDOFF — UI World-object showroom
 
 **Created:** 2026-09-25
-**Status:** BLOCKED — UI-F1 implementation is not current authority after rollback; this design PR may land as blocked, but F2 implementation requires F1 to merge first
+**Status:** PROVISIONAL IMPLEMENTATION REVIEW IN PR #771 — not ACTIVE on `main`; product owner requested implementation on the existing stacked handoff PR without merging
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-world-object-showroom.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
 **Direction:** DESIGN → CODE → REVIEW
-**Design authority base:** `f44091de` — open F1 handoff design PR #770 head
-**Design PR topology:** stacked on PR #770 at `f44091de`; merge/re-anchor #769, then #770, then this one-file handoff PR. Historical PR #757 and F1 implementation PR #768 were merged but reverted and are not current authority.
-**Activation gate:** F1 implementation accepted/merged after its steward-landed handoff is ACTIVE; this F2 design handoff landed on main; fresh-main re-anchor confirms the actual primitive/token/workshop API and no conflicting UI lease
-**Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review.
-**PR topology:** `serial`
-**PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs
+**Design authority base:** `564a0205` — exact F1 implementation PR #770 head integrated into this branch
+**PR topology:** stacked review experiment on PR #770 at `564a0205`; implement this handoff directly on existing PR #771; no new PR and no merge. Historical PR #757 and implementation PR #768 were merged but reverted.
+**Activation gate for eventual merge:** F1 accepted/merged; this PR re-anchored to fresh `main`; actual primitive/token/workshop API and lease reverified; no such merge is authorized in this experiment
+**Review base:** PR #770 head `564a0205`; the implementation remains provisional until the activation gate is satisfied
+**PR authorization:** update existing PR #771 only; do not open or merge another F2 PR
 **PR title:** `UI: add World-object showroom`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
+
+> Product-owner review exception: implementation and handoff travel together on
+> this existing stacked PR for designing-agent feedback. This does not claim
+> `ACTIVE` status or an exclusive §4 lease on `main`; §4 bounds only this PR.
 
 ## §1 Mission and merge-ready invariant
 
@@ -57,19 +60,19 @@ pr_body_template: |
 | Field | Required content |
 |---|---|
 | Parent authority | `PLAN-ui-presentation-substrate-sidequest-v1.md`; UI language Goal 4 table-first World objects |
-| Design authority base | `f44091de` — BLOCKED F1 handoff design PR #770 |
-| Activation gate | F1 implementation merged; this F2 handoff landed on main; steward re-anchors and verifies no conflicting UI lease |
-| Dispatch base rule | fresh current main containing this handoff after activation |
+| Design authority base | `564a0205` — F1 implementation PR #770 exact head |
+| Activation gate | for eventual merge only: F1 merged; F2 re-anchored to current main; lease checked |
+| Review base | PR #770 exact head `564a0205`; provisional implementation on this PR branch |
 | Predecessor contract | `apps/live-control-ui/src/graphObjectCard/types.ts` `GraphObjectCardViewModel`; F1 tokens/primitives/workshop |
 | Exact input consumed | Static values conforming exactly to `GraphObjectCardViewModel` |
 | Named successor | UI-F3 — separate one mature production host/controller from replaceable presentation |
 | What remains false | Existing `GraphObjectCard` unchanged; no production ObjectSheet adoption; no Threat/statblock redesign; no screenshot regression suite |
 | Explicit non-goals | graph DTO changes; World read logic; new object fields; evidence admission; relationship semantics; Threat mechanics; production Peek integration |
-| PR topology | serial |
-| Authorized PR action | open/update exactly this assigned PR without asking; no additional PRs |
-| Open implementation PRs in workstream at dispatch | none required; steward re-checks |
+| PR topology | stacked review experiment on existing PR #771; no merge |
+| Authorized PR action | update PR #771 only; no additional F2 PR |
+| Open implementation PRs in workstream at dispatch | F1 PR #770 is the exact unmerged parent |
 | Stack parent + merge/rebase order | not applicable |
-| Branch / isolated checkout | none while BLOCKED; fresh implementation branch/worktree after activation |
+| Branch / isolated checkout | existing isolated PR #771 checkout; exact review base above |
 | Parallel lanes / collision hotspots | graphObjectCard production files are read-only evidence; UI-F2 writes only new `src/ui` files plus plan sync |
 | Runtime/state ownership | static workshop only; no backend/runtime state |
 | State-authority sync set after merge | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` records UI-F1 completed predecessor / UI-F2 current |
@@ -104,7 +107,7 @@ Adversarial sequences:
 | Fixture contains evidence/debug IDs | Ordinary sheet keeps technical identity secondary; no raw IDs promoted into primary hierarchy | component test/story review |
 | Change fixture kind from NPC to Faction without shape change | Same component contract; no type-specific domain branching needed | story comparison |
 
-## §4 Files in scope — write lease
+## §4 Files in scope — PR-local write bounds (not a main lease)
 
 Assumes UI-F1 created `apps/live-control-ui/src/ui/`. Re-anchor exact paths at activation without changing mission.
 
@@ -115,7 +118,8 @@ Assumes UI-F1 created `apps/live-control-ui/src/ui/`. Re-anchor exact paths at a
 | Create | `apps/live-control-ui/src/ui/ObjectSheet.css` | Pattern styling through F1 semantic tokens/primitives |
 | Create | `apps/live-control-ui/src/ui/ObjectSheet.stories.tsx` | Sparse/rich NPC, Location, Faction, relationship-heavy stories |
 | Create | `apps/live-control-ui/src/ui/ObjectSheet.test.tsx` | Information-hierarchy and sparse/relationship behavior proof |
-| Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Backward-looking predecessor sync |
+| Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Truthful PR-stack review state; no premature merge claim |
+| Modify | `Docs/Plans/HANDOFF-UI-world-object-showroom.md` | Record same-PR implementation review exception without claiming ACTIVE main authority |
 
 **Bounded discovery exception:**
 ```text
@@ -219,7 +223,7 @@ npm --prefix apps/live-control-ui run ui:build
 npm --prefix apps/live-control-ui run typecheck
 npm --prefix apps/live-control-ui run build
 git diff --check
-git diff --name-only <dispatch-base>...HEAD
+git diff --name-only 564a0205...HEAD
 ```
 
 ### Minimal live / dogfood proof
@@ -241,7 +245,7 @@ Record exact head/base/topology, F1 predecessor version consumed, actual fixture
 
 ## §9 Acceptance rubric
 
-- [ ] UI-F1 predecessor is merged and exact API recorded.
+- [ ] Exact F1 PR #770 head is integrated; no merged-main claim.
 - [ ] Exactly one ObjectSheet pattern is delivered.
 - [ ] Fixtures are typed with the existing `GraphObjectCardViewModel`.
 - [ ] No production `GraphObjectCard` or graph DTO is modified.
@@ -256,7 +260,7 @@ Record exact head/base/topology, F1 predecessor version consumed, actual fixture
 
 Stop and report if:
 
-- UI-F1 is not merged/activated as assumed;
+- F1 PR #770 changes after this branch integrates it without a fresh re-anchor;
 - existing view-model cannot express the desired object hierarchy without new semantics;
 - Threat mechanics become necessary to prove generic ObjectSheet;
 - production GraphObjectCard must change;
