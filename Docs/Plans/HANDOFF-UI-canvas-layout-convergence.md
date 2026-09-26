@@ -5,11 +5,11 @@ pr_body_template: |
   - Flow: UI
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-canvas-layout-convergence.md
-  - Branch / PR: none while BLOCKED
-  - PR topology: serial
+  - Branch / PR: docs/ui-canvas-layout-convergence / #760
+  - PR topology: stacked design review on #759; implementation BLOCKED
 
   ## Verification pointer
-  - Design authority / head: UI-F4 handoff design head 335da68688630a4ea64363ddcabec8c6257518dd
+  - Review parent: #759 exact implementation head eb159a275f52e194a027fb3396637fde25be3370
   - External predecessor: Drakosfire/Canvas main e352c71558a0ff020ef97c63dbbe6b3a93e72528 observed at design
   - Changed paths: exact §4 allowlist only
   - Verification: adapter tests + Ladle Page story + Canvas layout-only dependency proof + typecheck/build + diff checks
@@ -21,7 +21,7 @@ pr_body_template: |
 # HANDOFF — UI Canvas layout convergence experiment
 
 **Created:** 2026-09-25  
-**Status:** BLOCKED — UI-F4 visual contract must be accepted/merged AND Canvas must expose an exact installable layout-only package artifact; steward then re-anchors and activates this handoff  
+**Status:** BLOCKED — UI-F4 is implemented in unmerged #759, but Canvas still lacks a clean layout-only consumer contract; no UI-F5 implementation has begun
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-canvas-layout-convergence.md`  
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`  
 **Flow / owner:** `UI`  
@@ -33,6 +33,8 @@ pr_body_template: |
 **PR topology:** `serial`  
 **PR authorization:** once ACTIVE, open/update exactly one Buddy implementation PR for this experiment; no Canvas repair inside the Buddy PR and no successor/repair PR  
 **PR title:** `UI: prove Canvas layout convergence`
+
+**Current stacked review parent:** #759 exact head `eb159a275f52e194a027fb3396637fde25be3370`. This is a re-anchored design PR, not an ACTIVE implementation lane or write lease.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
@@ -77,12 +79,23 @@ pr_body_template: |
 
 ### Canvas prerequisite discovered during design
 
-At design-time `Drakosfire/Canvas@e352c71558a0ff020ef97c63dbbe6b3a93e72528` has useful generic layout APIs, but is **not yet a valid exact Git dependency for Buddy**:
+At design-time `Drakosfire/Canvas@e352c71558a0ff020ef97c63dbbe6b3a93e72528` has useful generic layout APIs, but is **not yet a clean layout-only dependency for Buddy**:
 
-- package exports point to ignored `dist/**`;
-- no install-time `prepare` build exists;
+- package exports point to `dist/**`; those files **are tracked at this exact commit**, correcting the original design-time assertion that they were absent;
+- no install-time `prepare` build exists, though tracked `dist` makes this point non-blocking by itself;
 - map peers (`konva`, `react-konva`) are declared package peers;
 - local-consumer history explicitly warns about duplicate React singleton invalid-hook failures.
+
+**2026-09-26 prerequisite audit:** Canvas `main` remains exactly
+`e352c71558a0ff020ef97c63dbbe6b3a93e72528`. Its tracked tree includes
+`dist/layout/index.js` and `dist/layout/index.d.ts`, but its exact
+`package.json` still declares `konva` and `react-konva` as required peers.
+The §2 activation condition that map/Konva peers are absent from an ordinary
+layout-only Buddy install is therefore not satisfied. Do not implement this
+Buddy slice by using `--omit=peer`, local links, source imports, or a copied
+build. The Canvas packaging repair belongs to a separate reviewed Canvas
+predecessor. This PR stays open as the existing blocked handoff; #761's human
+decision gate is not advanced by an unrun convergence experiment.
 
 Do not work around this with:
 
