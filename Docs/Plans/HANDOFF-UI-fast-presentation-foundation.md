@@ -9,7 +9,7 @@ pr_body_template: |
   - PR topology: serial
 
   ## Verification pointer
-  - Design authority / head: UI sidequest plan on PR #755 head ce0a4b7cceab035298eddf56cc80f0fa4789c5be
+  - Design authority / head: UI sidequest plan merged by PR #755 at fb7437aa763f32cc98cb26b06911558deb41f761
   - Changed paths: exact §4 allowlist only
   - Verification: npm UI workshop build + focused Vitest + typecheck + production Vite build + diff checks
 
@@ -19,17 +19,17 @@ pr_body_template: |
 
 # HANDOFF — UI fast presentation foundation
 
-**Created:** 2026-09-25  
-**Status:** BLOCKED — UI Presentation Substrate sidequest PR #755 must merge; steward then re-anchors and activates this handoff  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md`  
-**Conversation/workstream:** `UI Presentation Substrate Sidequest`  
-**Flow / owner:** `UI`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Design authority base:** `ce0a4b7cceab035298eddf56cc80f0fa4789c5be` — PR #755 design head  
-**Activation gate:** PR #755 merged; fresh-main re-anchor confirms no conflicting frontend-foundation lease and Ladle remains compatible with the existing Vite/React toolchain  
-**Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review rather than trying to self-reference it inside this main commit.  
-**PR topology:** `serial`  
-**PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs  
+**Created:** 2026-09-25
+**Status:** BLOCKED — PR #755 merged; this handoff must land on `main`, then the steward verifies the activation gate and activates it
+**Canonical handoff path:** `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md`
+**Conversation/workstream:** `UI Presentation Substrate Sidequest`
+**Flow / owner:** `UI`
+**Direction:** DESIGN → CODE → REVIEW
+**Design authority base:** `fb7437aa763f32cc98cb26b06911558deb41f761` — PR #755 merge
+**Activation gate:** PR #755 merged at `fb7437aa763f32cc98cb26b06911558deb41f761`; fresh-main re-anchor confirms no conflicting frontend-foundation lease and Ladle remains compatible with the existing Vite/React toolchain
+**Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review rather than trying to self-reference it inside this main commit.
+**PR topology:** `serial`
+**PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs
 **PR title:** `UI: add fast presentation workshop`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
@@ -58,8 +58,8 @@ pr_body_template: |
 | Field | Required content |
 |---|---|
 | Parent authority | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md` |
-| Design authority base | `ce0a4b7cceab035298eddf56cc80f0fa4789c5be` |
-| Activation gate | PR #755 merged + re-anchor |
+| Design authority base | `fb7437aa763f32cc98cb26b06911558deb41f761` |
+| Activation gate | PR #755 merged + re-anchor + compatibility/lease check |
 | Dispatch base rule | fresh current main containing this handoff after activation; exact branch base recorded at dispatch/review |
 | Predecessor contract | Existing React 19 / Vite 6 / Vitest frontend; no existing component workshop |
 | Exact input consumed | Static React props only; no server DTO fetch, provider state, database, or environment-specific product state |
