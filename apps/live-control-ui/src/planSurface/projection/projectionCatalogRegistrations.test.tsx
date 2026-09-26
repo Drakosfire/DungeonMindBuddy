@@ -175,6 +175,7 @@ function OpenReferenceButton({
 describe("projection catalog registration inventory", () => {
   it("exports the exact Plan projection definition inventory", () => {
     expect(PLAN_PROJECTION_DEFINITIONS.map((entry) => entry.projectionId)).toEqual([
+      "rules-lawyer",
       "recap",
       "party-registry",
       "statblock",
@@ -209,6 +210,17 @@ describe("explicit Plan definition renderer factories", () => {
     vi.mocked(GraphPreviewModule).mockClear();
     vi.mocked(GraphGoldReviewModule).mockClear();
     vi.mocked(ManualReviewModule).mockClear();
+  });
+
+  it("renders Rules Lawyer through the shared Plan projection catalog", () => {
+    const definition = PLAN_PROJECTION_DEFINITIONS.find((entry) => entry.projectionId === "rules-lawyer");
+    expect(definition).toBeDefined();
+    render(<>{definition!.render({
+      projectionId: "rules-lawyer",
+      active: { kind: "tool", key: "rules-lawyer", size: "wide", title: "Rules Lawyer" },
+      bindings: {},
+    })}</>);
+    expect(screen.getByLabelText("Ask a rules question")).toBeInTheDocument();
   });
 
   it.each([
