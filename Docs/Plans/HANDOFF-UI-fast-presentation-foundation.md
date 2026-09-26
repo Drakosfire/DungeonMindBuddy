@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — UI fast presentation foundation
 
 **Created:** 2026-09-25
-**Status:** ACTIVE — PR #755 and #756 merged; activation gate verified on `main@f430dec3ca81a93f554ff9cd546693a1d1e4dd0b`
+**Status:** COMPLETE / HISTORICAL — implementation PR #768 merged at `8b94fc52f08288663403ba7834f538a3de83d7c0` after one formal review cycle
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
@@ -37,7 +37,10 @@ pr_body_template: |
 
 > Handoff lifecycle: this file landed on `main` as BLOCKED. The steward has now
 > re-anchored and verified the activation gate. Its §4 lease applies to the one
-> serial UI-F1 implementation lane from activation-time `main`.
+> serial UI-F1 implementation lane from activation-time `main`. That lane has
+> merged; the write lease is released. The inherited `ThreatPublicationPanel.tsx`
+> JSX namespace failure was reproduced on the activation base and remained
+> outside UI-F1. The workshop build and focused primitive tests passed.
 
 ## §1 Mission and merge-ready invariant
 

@@ -3,7 +3,7 @@
 **Created:** 2026-09-25
 **Status:** ACTIVE SIDEQUEST — bounded frontend foundation before broad UI redesign
 **Repository:** Drakosfire/DungeonMindBuddy
-**Re-anchor:** main@fa01c768 — UI-F1 activation; UI-F0 merged as PR #755 at `fb7437aa763f32cc98cb26b06911558deb41f761`
+**Re-anchor:** main@8b94fc52 — UI-F1 merged as PR #768; UI-F0 merged as PR #755 at `fb7437aa763f32cc98cb26b06911558deb41f761`
 **Roadmap owner:** Docs/Roadmaps/ROADMAP-campaign-supergraph.md UI design re-entry checkpoint
 **Architecture owner:** Docs/Design/ARCHITECTURE-surface-interaction-layer.md
 **Visual language:** Docs/Design/ui-language/DESIGN-interaction-layer-language.md
@@ -322,8 +322,8 @@ This is not a new domain layer.
 
 ~~~text
 UI-F0  substrate contract + roadmap                         MERGED — #755
-UI-F1  tokens + 4 primitives + Ladle                        ACTIVE IMPLEMENTATION
-UI-F2  World-object showroom + ObjectSheet                  QUEUED
+UI-F1  tokens + 4 primitives + Ladle                        MERGED — #768
+UI-F2  World-object showroom + ObjectSheet                  NEXT — design re-anchor required
 UI-F3  ToolHost behavior/presentation split                 QUEUED
 UI-F4  <=10-story canonical visual contract                 QUEUED
 UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
@@ -647,7 +647,8 @@ UI-01..UI-05                                 MERGED / useful interaction grammar
 
 UI presentation substrate                   ACTIVE SIDEQUEST
 UI-F0                                        MERGED — #755
-UI-F1                                        ACTIVE — handoff activated at fa01c768
+UI-F1                                        MERGED — #768 at 8b94fc52
+UI-F2                                        NEXT — design PR #757 must land on current main
 Canvas convergence                           MOVED TO UI-F5
 broad UI redesign                            HELD
 CON-READY PLAY                               INDEPENDENT / MAY RUN IN PARALLEL

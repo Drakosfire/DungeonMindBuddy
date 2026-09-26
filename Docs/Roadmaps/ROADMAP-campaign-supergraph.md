@@ -376,9 +376,9 @@ The tracker, not this roadmap, decides which `READY` slice is dispatched next. C
 
 ## UI design re-entry checkpoint — Frontend Presentation Substrate sidequest
 
-**State:** ACTIVE SIDEQUEST — UI-F0 current; broad UI redesign held
+**State:** ACTIVE SIDEQUEST — UI-F1 merged; UI-F2 next; broad UI redesign held
 
-**Re-anchor:** Buddy `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
+**Re-anchor:** Buddy `main@8b94fc52f08288663403ba7834f538a3de83d7c0`
 
 **Sequencing authority:** [`PLAN-ui-presentation-substrate-sidequest-v1.md`](../Plans/PLAN-ui-presentation-substrate-sidequest-v1.md)
 
@@ -416,9 +416,9 @@ paper/chrome/ops visual treatment
 The sidequest sequence is:
 
 ```text
-UI-F0  substrate contract + roadmap                         CURRENT
-UI-F1  tokens + 4 primitives + Ladle                        NEXT
-UI-F2  World-object showroom + ObjectSheet                  QUEUED
+UI-F0  substrate contract + roadmap                         MERGED — #755
+UI-F1  tokens + 4 primitives + Ladle                        MERGED — #768
+UI-F2  World-object showroom + ObjectSheet                  NEXT — design PR #757
 UI-F3  ToolHost behavior/presentation split                 QUEUED
 UI-F4  <=10-story canonical visual contract                 QUEUED
 UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
