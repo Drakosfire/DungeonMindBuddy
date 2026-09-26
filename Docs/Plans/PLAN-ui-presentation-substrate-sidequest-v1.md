@@ -636,6 +636,39 @@ Exit does not require migrating every existing component.
 
 ---
 
+## 17A. Immediate demo-presentation design continuation
+
+UI-F0–F4 are sufficient to resume **basic demo-facing presentation design**
+without waiting for Canvas convergence.
+
+The active design pickup is:
+
+[`HANDOFF-DEMO-READY-basic-presentation-design-pass-v1.md`](HANDOFF-DEMO-READY-basic-presentation-design-pass-v1.md)
+
+That handoff is a DESIGN → DOGFOOD → DECISION STOP over the current real C1/C2
+product. It:
+
+- completes the outstanding Stage 4 recap/object presentation witness;
+- completes the Stage 5 navigation/coherence witness;
+- records a visible-defect ledger;
+- prototypes only retained presentation candidates in the lightweight UI lab;
+- selects at most one bounded production-presentation successor after product-owner
+  review.
+
+This continuation is deliberately independent of UI-F5/F6:
+
+```text
+basic demo presentation design       runnable now after handoff merge
+UI-F5 Canvas convergence             still BLOCKED on Canvas packaging
+UI-F6 post-substrate decision STOP   still BLOCKED behind F5
+spatial workspace / theme packs      DEFERRED
+```
+
+Do not use the Canvas packaging blocker as a reason to postpone ordinary demo
+presentation work.
+
+---
+
 ## 18. Current state
 
 ~~~text
