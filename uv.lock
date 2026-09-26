@@ -429,6 +429,7 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "ruff" },
     { name = "uvicorn" },
+    { name = "worldkeeper" },
 ]
 
 [package.optional-dependencies]
@@ -460,6 +461,7 @@ requires-dist = [
     { name = "ruff", specifier = ">=0.15.7" },
     { name = "sentence-transformers", marker = "extra == 'embedding'", specifier = ">=3.0" },
     { name = "uvicorn", specifier = ">=0.30.0" },
+    { name = "worldkeeper", git = "https://github.com/Drakosfire/WorldKeeper.git?rev=49a8620f066ce7ef8972a699020c012f50af9158#49a8620f066ce7ef8972a699020c012f50af9158" },
 ]
 
 [[package]]
@@ -2280,4 +2282,12 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/86/eb/20b6cdf273913d0ad05a6a14aed4b9a85591c18a987a3d47f20fa13dcc47/websockets-15.0.1-cp313-cp313-win32.whl", hash = "sha256:ba9e56e8ceeeedb2e080147ba85ffcd5cd0711b89576b83784d8605a7df455fa", size = 176393 },
     { url = "https://files.pythonhosted.org/packages/1b/6c/c65773d6cab416a64d191d6ee8a8b1c68a09970ea6909d16965d26bfed1e/websockets-15.0.1-cp313-cp313-win_amd64.whl", hash = "sha256:e09473f095a819042ecb2ab9465aee615bd9c2028e4ef7d933600a8401c79561", size = 176837 },
     { url = "https://files.pythonhosted.org/packages/fa/a8/5b41e0da817d64113292ab1f8247140aac61cbf6cfd085d6a0fa77f4984f/websockets-15.0.1-py3-none-any.whl", hash = "sha256:f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f", size = 169743 },
+]
+
+[[package]]
+name = "worldkeeper"
+version = "0.1.0"
+source = { git = "https://github.com/Drakosfire/WorldKeeper.git?rev=49a8620f066ce7ef8972a699020c012f50af9158#49a8620f066ce7ef8972a699020c012f50af9158" }
+dependencies = [
+    { name = "dungeonmind" },
 ]
