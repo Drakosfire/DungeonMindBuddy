@@ -14,6 +14,7 @@ import { GraphGoldReviewModule } from "../graphGoldReview/GraphGoldReviewModule"
 import { ManualReviewModule } from "../manualReview/ManualReviewModule";
 import { RecapGraphModule } from "../graphPreview/RecapGraphModule";
 import { PlanReferenceObjectCard } from "../reference/PlanReferenceObjectCard";
+import { RulesLawyerEvidence } from "../../rulesLawyer/RulesLawyerEvidence";
 import {
   GRAPH_REFERENCE_BINDING_ID,
   GRAPH_REFERENCE_RESOLUTION_BINDING_ID,
@@ -38,6 +39,13 @@ export interface PlanProjectionDefinition {
 }
 
 export const PLAN_PROJECTION_DEFINITIONS: readonly PlanProjectionDefinition[] = [
+  {
+    projectionId: "rules-lawyer",
+    kind: "tool",
+    preferredSize: "wide",
+    requiredBindingIds: [],
+    render: () => <RulesLawyerEvidence />,
+  },
   {
     projectionId: "recap",
     kind: "tool",

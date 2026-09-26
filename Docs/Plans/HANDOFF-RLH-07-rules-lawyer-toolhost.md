@@ -1,6 +1,6 @@
 # HANDOFF — RLH-07 Rules Lawyer ToolHost
 
-**Status:** DEFERRED DRAFT  
+**Status:** ACTIVE — implementation candidate, pending review  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
 **Predecessor:** `RLH_06_RULES_QUERY_PACKET_ACCEPTED` and the accepted shared presentation/UI-foundation stack  
@@ -10,6 +10,8 @@
 ## Re-anchor before coding
 
 This handoff was planted while the UI presentation-foundation stack was still active. At activation, read the accepted post-substrate re-entry decision and use the final ToolHost/publication contracts. If the host contract changed, amend this handoff rather than coding against this historical sketch.
+
+The current Plan surface publishes tools through `createPlanSurfaceConfig` and the shared surface-interaction adapter. The shared ToolHost launches projection contributions; the Plan projection catalog owns render registration. This slice registers one tool and one catalog renderer through those contracts. The UI substrate documentation stack is still open, so this PR remains stacked on RLH-06 and must be reviewed against any accepted host changes before merge.
 
 ## User experience
 
