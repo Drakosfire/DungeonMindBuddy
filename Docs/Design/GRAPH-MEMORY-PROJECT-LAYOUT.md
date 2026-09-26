@@ -2,7 +2,7 @@
 
 This note records the current path boundary for graph-memory work. It is intentionally short: durable contracts should be easy to find without turning evaluation directories into architecture owners.
 
-**Canonical anchors:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) · [`ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md) · [`PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
+**Current anchors:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) · [`INDEX-design-agent-source-set.md`](INDEX-design-agent-source-set.md) · [`../Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
 
 ## Boundaries
 
@@ -110,7 +110,11 @@ See each archive's `README.md` for what was moved and why.
 
 ## Roadmap pointer
 
-[`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) is the current architecture authority for this layout; [`ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md) records the PR sequence. This file remains the short boundary note for path ownership.
+[`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
+remains the World-model architecture authority for this layout. Current
+implementation sequence is workstream-specific and is discovered through
+[`INDEX-design-agent-source-set.md`](INDEX-design-agent-source-set.md). This
+file remains only the short boundary note for Buddy-side path ownership.
 
 ## Follow-up implementation
 

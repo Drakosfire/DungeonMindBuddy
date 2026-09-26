@@ -1,19 +1,25 @@
 # PR Tracker — Campaign Supergraph
 
-**Status:** Active implementation tracker — sole sequencing authority for Campaign Supergraph slices
-**Updated:** 2026-08-29 — D.3A mounted graph-engine excision `COMPLETE` / MERGED Buddy #665 (accepted head `189ffd50157534d192b2af008c48a76d12ccbc4c`; merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`; 3 formal review cycles; Cycle 3 PASS-equivalent `5059851179`); D.3B physical legacy-package deletion `DOING` / active lease (`cutover/delete-legacy-graph-engine`; dispatch base `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`); D.3 not `DONE`
-**Dispatch gate:** The active CUTOVER write lease is D.3B physical legacy-package deletion (`cutover/delete-legacy-graph-engine`). Predecessor D.3A / #665 is `COMPLETE` / MERGED. Do not mark D.3B `DONE` before merge. Do not invent D.3B merge/review facts. D.3 is not `DONE` until D.3B merges. Do not redispatch #614/#619/#620/#630/#631/#632/#633/#634/#637/#640/#642/#644/#645/#647/#651/#653/#658/#662/#665, DungeonMind #34–#37/#43/#45/#46/#47. APP-STATE #650 is MERGED.
-**Repository anchor / current Buddy `main`:** `d4a91d7b727c0eae7dd0e09ba068e250b4819b44` (current Buddy `main` / D.3B dispatch base; contains D.3A merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`). Historical #665 D.3A merge: `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`. Historical #651 D.2C3 merge: `84f3401b23fcac32a57416d5419dc7d33cf6eabc`. Historical #658 first-world provenance producer merge: `d94822f7681da440fdeea981662383980bfbcaf9`. Historical AGENT-INTERACTION: `d721cba261c35fd1d77566df6c03be614a26f510`. Historical AGENT-INTERACTION surface-authority re-anchor: `5b2d9bc7cc61c7a485c3bd801cd44d7251134466`. Historical PLAY-SURFACE: `555a9c7965aca47a24536277b9b36ae569a7285a`. Historical #650 APP-STATE merge: `cc016661f80416e0816f56349217cf33c53a195f`. Historical D.2C3 design #647 merge: `d96a21363fd0decbcb8c4390f951a6316b53060c`. Historical D.2C2 implementation #645 merge: `3ff46922e679ad6bef2ef0cf37f0bf87e4542a6c`. Historical D.2C2 design #644 merge: `f1eae2a3d27e430ee19e254d5b52fa556b2632ff`. Historical native-read switch #633 merge: `65d13dcca8162b5eccd0c81dd4235dec93c8cd0c`. **#633 accepted head:** `ebb57adebe063b9c81fd4caa9a1274cfd6d6fb01`. **Cycle 2 approval:** `5011598382`. **#632 merge:** `54779636750ebf7a639aef8a6184cc61ead9c860`. **Historical #631 merge:** `ffc39ab394ea55b00dc8b2a0fd41be0448635600`. Reviewed R.3 implementation head: `65405b48`.
-**DungeonMind pin:** `5ca5d688612349034f8ca490d465af166d883e6e` (DungeonMind PR #47 merge / reviewed-init provenance compatibility; consumed unchanged by #658 and this D.2C3 resume). Historical D.2C2 runtime pin was PR #46 `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`.
-**#538 design predecessor / docs base:** PR #538 merge
-**#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6` (`KERNEL: make relationship conformance current-support aware`)
+**Status:** FROZEN PROGRAM RECORD — no new dispatch authority
+**Settled:** 2026-09-25
+**Last live sequencing snapshot:** 2026-08-29
+**Terminal CUTOVER truth:** D.3B / Buddy #667 merged as `b667205f2fb8c78ff7e91d113facba12e3339a4d`; CUTOVER closed.
+**Closure evidence:** `Docs/Reports/REPORT-2026-08-29-cutover-closure-authority-sync.md` and settlement report `Docs/Reports/REPORT-repository-settlement-2026-09-25.md`.
+**Current sequencing:** workstream-specific authorities from `Docs/Design/INDEX-design-agent-source-set.md`.
+**Do not dispatch:** any READY / DOING / BLOCKED row below from this file.
+
 **Architecture:** [`Docs/Design/ARCHITECTURE-campaign-supergraph.md`](../Design/ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Current-state guide:** [`Docs/Design/STATUS-world-graph-continuity-spine.md`](../Design/STATUS-world-graph-continuity-spine.md)
 **Integration roadmap:** [`Docs/Roadmaps/ROADMAP-cross-surface-statblock-demo.md`](../Roadmaps/ROADMAP-cross-surface-statblock-demo.md)
 **UI shell (cross-boundary):** [`Docs/Design/ARCHITECTURE-surface-interaction-layer.md`](../Design/ARCHITECTURE-surface-interaction-layer.md)
 
-This tracker records only current sequence, dependencies, and exit proofs. Completed implementation narrative belongs in merged PRs, archived handoffs, and acceptance reports.
+## Historical snapshot begins
+
+The body below preserves the Campaign/CUTOVER sequence as it stood before
+settlement. Status labels, dispatch orders, and "next" language below are
+historical evidence only. Completed implementation narrative remains in merged
+PRs, archived handoffs, and acceptance reports.
 
 At the immutable adjudication domain, historical Eldyrwild relationship conformance remains **346 semantic / 294 represented / 52 residual / 2 `uses_statblock`**. The exact post-#566 canonical World Graph is now the CUTOVER activation source:
 
@@ -227,3 +233,5 @@ Do not reopen completed tenancy, authority, or graph-first decisions through a c
 ## Historical detail
 
 The detailed tracker snapshot before consolidation is available in Git history at `09aed8db`. The August whole-world semantic chain is preserved by merged PRs #521–#531 and their fixtures. Archived handoffs and reports remain implementation evidence, not sequencing authority.
+
+

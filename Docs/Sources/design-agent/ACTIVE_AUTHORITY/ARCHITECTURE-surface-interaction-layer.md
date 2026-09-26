@@ -3,9 +3,9 @@ document_id: dmb-architecture-surface-interaction-layer
 title: Surface Interaction Layer — Architecture Authority
 document_class: architecture_authority
 status: active
-version: 1.1
+version: 1.3
 created_at: "2026-08-01"
-updated_at: "2026-08-26"
+updated_at: "2026-09-25"
 supersedes_as_ui_shell_authority:
   - partial claims in ARCHITECTURE-plan-surface-toolbox.md (bars/projection hosts)
 companion_authorities:
@@ -14,9 +14,12 @@ companion_authorities:
   world_product_boundary: ARCHITECTURE-campaign-supergraph.md
   application_state: ARCHITECTURE-application-state-layer.md
   play_runtime: ARCHITECTURE-playable-material-and-runtime.md
-  execution: PLAN-surface-interaction-hoist-build-first.md
+  execution_history: PLAN-surface-interaction-hoist-build-first.md
+  implementation_closeout: ../Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md
+  surface_information: CONTRACT-surface-information-v1.md
 companion_targets:
   agent_source_graph_magic: DESIGN-magic-moment-contextual-source-to-world-graph.md
+  agent_runtime_direction: DECISION-agent-runtime-and-semantic-adjudication.md
 ---
 
 # Surface Interaction Layer — Architecture Authority
@@ -33,8 +36,10 @@ This document is the **neutral architecture authority** for how DungeonBuddy sur
 | Buddy durable application/work state | [`ARCHITECTURE-application-state-layer.md`](ARCHITECTURE-application-state-layer.md) |
 | Playable / Play Runtime meaning | [`ARCHITECTURE-playable-material-and-runtime.md`](ARCHITECTURE-playable-material-and-runtime.md) |
 | World product boundary / Buddy authority ports | [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md) |
+| Agent runtime / semantic-adjudication direction | [`DECISION-agent-runtime-and-semantic-adjudication.md`](DECISION-agent-runtime-and-semantic-adjudication.md) |
 | Durable World/source/evidence authority | **DungeonMind current checked-in authority/contracts/state** |
-| UI execution sequence | [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md) |
+| Historical hoist sequence | [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md) — superseded construction record |
+| Plan/Build implementation closeout | [`DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`](../Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md) |
 
 **Shared does not mean identical.** Plan, Build, and Play publish different capabilities into the same host regions. Surfaces own domain meaning, policy, authorization intent, graph lens/admissibility intent, selected Canvas/work object, and typed publication into shared hosts. Surfaces do **not** own bars, projection host chrome, DungeonMind World identity/write semantics, private agent thread bodies, or private capability stacks.
 
@@ -51,13 +56,20 @@ DungeonMind
 
 DungeonBuddy
   = surfaces, product work, Buddy application/runtime state,
-    Agent Interaction, tool policy, proposal/review UX
+    Agent Interaction, AgentRuntime contract, context assembly,
+    tool/capability policy, trace semantics, proposal/review UX
 
-Agent harness
-  = client-owned model/tool orchestration
+Runtime adapter / agent harness
+  = replaceable model/tool-loop execution mechanics behind AgentRuntime
 ```
 
 The Surface Interaction Layer never becomes a second World or source/evidence authority.
+
+The harness is not product architecture. Hermes is the current production
+adapter, PydanticAI is an existing challenger/experiment, and Pi/`pi-agent-core`
+is the preferred next adapter experiment. Those implementations remain
+replaceable behind DungeonBuddy's `AgentRuntime`; none owns Surface meaning,
+World authority, product tool semantics, or the Agent trace contract.
 
 The historical phrase “Campaign Supergraph / Kernel owns graph writes” is no longer sufficient. Current product code may route through Buddy `WorldGraphAuthority`-family ports, but durable World authority is DungeonMind.
 
@@ -138,6 +150,7 @@ flowchart TB
 | Graph lens / admissibility intent | Surface domain | Publish requested lens into shared World bindings |
 | World head / identity / writes | DungeonMind | Route through governed Buddy authority ports/capabilities only |
 | Agent interaction semantics | DungeonBuddy Agent Interaction | Publish ambient context; never make harness memory World authority |
+| Agent execution port / trace contract | DungeonBuddy AgentRuntime | Runtime adapters translate to a harness; harness-specific types do not become product contracts |
 | Private agent thread bodies | Agent host + server / selected Buddy persistence if later earned | Not surface-owned stores |
 | SurfaceShell / SurfaceFrame | Layout only | Compose regions; **no** bar ownership |
 
@@ -190,6 +203,20 @@ Rules:
 - Characterize before moving: a first consumer does not become shared API owner.
 - A surface may publish requested World scope/admissibility; DungeonMind still authorizes the actual World operation.
 
+## Companion boundary — Surface Information
+
+Surface Interaction publication remains the **structural** contract: tools, edit commands, projection registrations, agent-context contribution, canvas/work identity, and chrome capability publication.
+
+Surface Information is a **separate** runtime contract for changing observations. One channel observes one information projection from one authority. A connected renderer subscribes to that channel.
+
+The important rule is:
+
+> Changing information does not require republishing structural AppChrome configuration or a new ReactNode.
+
+Do not fold observation status, authority revision, or generation into `SurfaceInteractionPublication` identity. Do not treat AppChrome publication signatures as the reactivity mechanism for graph/APP-STATE/combat/source observations.
+
+Semantic authority: [`CONTRACT-surface-information-v1.md`](CONTRACT-surface-information-v1.md). First product adoption is SI-3 (Plan/Build graph lens), not this architecture document.
+
 ## Current mapping — re-anchored 2026-08-26
 
 | Primitive | Status | Evidence / authority |
@@ -203,12 +230,14 @@ Rules:
 | DungeonMind native World reads | **Production authority** | CUTOVER R.3 / native projection + retrieval |
 | DungeonMind governed existing-parent writes | **Production authority through Buddy ports** | CUTOVER D.1/D.2A/D.2B |
 | Reviewed first-world initialization | **Landed provider + Buddy consumer** | DungeonMind #46 / Buddy D.2C2 |
-| Native first-world continuity / manual authoring | **In-flight CUTOVER seams** | D.2C3 / D.2C4 before D.3 demolition |
+| Durable World authority | **Production authority — DungeonMind** | CUTOVER closed; Buddy #667 removed legacy graph-engine ownership |
 | Agent Bar + Projection host | **Landed primitive, target partial** | Provider owns host; richer Agent Surface remains future work |
 | Interaction Memory | **Design target, not yet durable authority** | Persistence to be selected only from dogfood evidence |
 | Source→World Magic Moment | **Design target** | `DESIGN-magic-moment-contextual-source-to-world-graph.md` |
 
-Runtime does not yet implement the full target. Labels above distinguish landed primitives, active authority, in-flight seams, and directional target ownership.
+The shared-chrome/Canvas/World-ownership baseline is settled. Remaining rows
+label genuine future product targets (for example richer Agent surfaces or
+Interaction Memory), not unfinished SI-01–SI-05 construction work.
 
 ## Interaction contracts
 
@@ -413,12 +442,15 @@ INTEGRATION
 | Agent/harness conversation execution | DungeonBuddy Agent Interaction / AgentRuntime | Host/persist pointers as product requires; never factual World authority |
 | Projection views | Surface Interaction host + owning domain read service | Compose views without becoming authority |
 
-Cross-reference CUTOVER sequencing only via current CUTOVER authorities. Do not sequence Surface Interaction work from stale historical graph PR tables.
+CUTOVER is closed. Use its reports only as migration evidence; select new
+Surface Interaction work from current workstream authority after re-anchor, not
+from historical graph/CUTOVER PR tables.
 
 ## Verification pointers
 
 - Canvas invariant: [`PLAN-shared-markdown-canvas-build-first.md`](../Plans/PLAN-shared-markdown-canvas-build-first.md) MC-01
-- Interaction hoist sequence: [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md)
+- Plan/Build interaction closeout: [`DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md`](../Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md)
+- Historical hoist sequence (do not dispatch): [`PLAN-surface-interaction-hoist-build-first.md`](../Plans/PLAN-surface-interaction-hoist-build-first.md)
 - Plan composition: [`ARCHITECTURE-plan-surface-toolbox.md`](ARCHITECTURE-plan-surface-toolbox.md)
 - Buddy durable state: [`ARCHITECTURE-application-state-layer.md`](ARCHITECTURE-application-state-layer.md)
 - Play semantics: [`ARCHITECTURE-playable-material-and-runtime.md`](ARCHITECTURE-playable-material-and-runtime.md)
