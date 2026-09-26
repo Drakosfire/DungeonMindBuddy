@@ -101,7 +101,7 @@ def main() -> int:
 
     _vlog("[4/7] Running Pass 1 entity extraction (OpenAI path, no heuristic fallback)...")
     cache_dir = OUTPUT_DIR / "entity_cache"
-    client = OpenAIResponsesEntityClient(api_key=api_key)
+    client = OpenAIResponsesEntityClient()
     model = os.getenv("DMB_ENTITY_MODEL")
     _vlog(f"  Entity model: {model or '<default>'}")
     _vlog(f"  Cache dir: {cache_dir}")

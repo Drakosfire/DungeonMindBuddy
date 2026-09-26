@@ -1004,7 +1004,7 @@ class DungeonBuddyCLI:
                     entity_ms,
                 )
             else:
-                entity_client = AsyncOpenAIResponsesEntityClient(api_key=api_key)
+                entity_client = AsyncOpenAIResponsesEntityClient()
                 t1 = time.perf_counter()
                 entity_result = run_entity_extraction(
                     evidence_units,
