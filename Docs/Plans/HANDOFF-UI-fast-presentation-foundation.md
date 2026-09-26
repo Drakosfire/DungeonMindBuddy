@@ -5,7 +5,7 @@ pr_body_template: |
   - Flow: UI
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md
-  - Branch / PR: none while BLOCKED
+  - Branch / PR: one serial implementation PR from activation-time main
   - PR topology: serial
 
   ## Verification pointer
@@ -20,13 +20,14 @@ pr_body_template: |
 # HANDOFF — UI fast presentation foundation
 
 **Created:** 2026-09-25
-**Status:** BLOCKED — PR #755 merged; this handoff must land on `main`, then the steward verifies the activation gate and activates it
+**Status:** ACTIVE — PR #755 and #756 merged; activation gate verified on `main@f430dec3ca81a93f554ff9cd546693a1d1e4dd0b`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
 **Direction:** DESIGN → CODE → REVIEW
 **Design authority base:** `fb7437aa763f32cc98cb26b06911558deb41f761` — PR #755 merge
 **Activation gate:** PR #755 merged at `fb7437aa763f32cc98cb26b06911558deb41f761`; fresh-main re-anchor confirms no conflicting frontend-foundation lease and Ladle remains compatible with the existing Vite/React toolchain
+**Activation record:** PR #756 merged at `f430dec3ca81a93f554ff9cd546693a1d1e4dd0b`; no open PR claims the frontend package/lockfile; `@ladle/react@5.1.1` requires React ≥18, Vite ^6.0.5, Node ≥20, and the target host has Node 20.20.2 available
 **Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review rather than trying to self-reference it inside this main commit.
 **PR topology:** `serial`
 **PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs
@@ -34,7 +35,9 @@ pr_body_template: |
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
-> Handoff lifecycle: the designing steward lands this file on `main`. `BLOCKED` means durable design authority only—no implementation lane and no active §4 lease. The steward changes `BLOCKED → ACTIVE` only after re-anchoring and verifying the activation gate.
+> Handoff lifecycle: this file landed on `main` as BLOCKED. The steward has now
+> re-anchored and verified the activation gate. Its §4 lease applies to the one
+> serial UI-F1 implementation lane from activation-time `main`.
 
 ## §1 Mission and merge-ready invariant
 
@@ -59,7 +62,7 @@ pr_body_template: |
 |---|---|
 | Parent authority | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md` |
 | Design authority base | `fb7437aa763f32cc98cb26b06911558deb41f761` |
-| Activation gate | PR #755 merged + re-anchor + compatibility/lease check |
+| Activation gate | satisfied on `main@f430dec3ca81a93f554ff9cd546693a1d1e4dd0b`; no package/lockfile collision; Ladle 5.1.1 compatible with React 19/Vite 6 under Node 20.20.2 |
 | Dispatch base rule | fresh current main containing this handoff after activation; exact branch base recorded at dispatch/review |
 | Predecessor contract | Existing React 19 / Vite 6 / Vitest frontend; no existing component workshop |
 | Exact input consumed | Static React props only; no server DTO fetch, provider state, database, or environment-specific product state |
@@ -70,7 +73,7 @@ pr_body_template: |
 | Authorized PR action | open/update exactly this assigned PR without asking; no additional PRs |
 | Open implementation PRs in workstream at dispatch | none required; steward must re-check |
 | Stack parent + merge/rebase order | not applicable |
-| Branch / isolated checkout | none while BLOCKED; create one isolated implementation branch/worktree from activation-time main |
+| Branch / isolated checkout | one isolated implementation branch/worktree from activated `main` |
 | Parallel lanes / collision hotspots | CON-READY PLAY may proceed if disjoint; `apps/live-control-ui/package.json` and lockfile are collision hotspots |
 | Runtime/state ownership | frontend-only; no backend/runtime state; workshop port may be chosen freely at local launch |
 | State-authority sync set after merge | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` records UI-F0 complete / UI-F1 active predecessor truth only |
