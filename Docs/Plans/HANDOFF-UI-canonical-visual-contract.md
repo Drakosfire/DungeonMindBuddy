@@ -5,11 +5,11 @@ pr_body_template: |
   - Flow: UI
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-canonical-visual-contract.md
-  - Branch / PR: none while BLOCKED
-  - PR topology: serial
+  - Branch / PR: docs/ui-canonical-visual-contract / #759
+  - PR topology: stacked provisional review on #758
 
   ## Verification pointer
-  - Design authority / head: UI-F3 handoff design head f70985d2d7c82d7bc9ea1954deae5d9505f6c1bd
+  - Review parent: #758 exact implementation head 4ee8d8d61863aa84dd5437d8b80164cc463b5487
   - Changed paths: exact §4 allowlist only
   - Verification: Ladle build + opt-in one-worker Chromium Playwright screenshots + ordinary frontend tests/build + diff checks
 
@@ -20,19 +20,25 @@ pr_body_template: |
 # HANDOFF — UI canonical visual contract
 
 **Created:** 2026-09-25  
-**Status:** BLOCKED — UI-F3 ToolHost presentation split must be accepted and merged; steward then re-anchors and activates this handoff  
+**Status:** PROVISIONAL IMPLEMENTATION REVIEW IN PR #759 — not ACTIVE on `main`; do not merge before predecessor review and re-anchor
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-canonical-visual-contract.md`  
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`  
 **Flow / owner:** `UI`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Design authority base:** `f70985d2d7c82d7bc9ea1954deae5d9505f6c1bd` — UI-F3 design head  
-**Activation gate:** UI-F3 implementation accepted/merged; re-anchor confirms current Ladle story IDs and ToolHostView/ObjectSheet storyability  
-**Dispatch base rule:** fresh current `main` containing this checked-in handoff after activation; exact implementation branch base recorded at dispatch/review  
-**PR topology:** `serial`  
-**PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs  
+**Provisional review parent:** #758 exact head `4ee8d8d61863aa84dd5437d8b80164cc463b5487`; #759 is the existing handoff PR, now carrying its implementation
+**Merge gate:** UI-F3 accepted/merged, then re-anchor this PR on current `main` and review the new exact head
+**PR topology:** stacked provisional review experiment; merge order remains UI-F0 → F1 → F2 → F3 → F4
+**PR authorization:** user explicitly directed implementation on this existing PR; do not open or merge another PR
 **PR title:** `UI: add canonical visual contract`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
+
+**User-directed review experiment, 2026-09-26:** Implementation and visual
+baselines are added to this unmerged handoff PR so the designing agent can
+review the actual slice before any merge. This is PR-local scope, not an ACTIVE
+`main` write lease. The original serial activation language below remains the
+normal merge route; predecessor acceptance is still a merge gate.
 
 ## §1 Mission and merge-ready invariant
 
@@ -57,18 +63,18 @@ pr_body_template: |
 |---|---|
 | Parent authority | UI Presentation Substrate plan |
 | Design authority base | `f70985d2d7c82d7bc9ea1954deae5d9505f6c1bd` |
-| Activation gate | UI-F3 implementation merge + re-anchor |
-| Dispatch base rule | fresh current main containing this handoff after activation |
+| Provisional review gate | UI-F3 implemented at #758 head `4ee8d8d6`; merge remains gated on predecessor acceptance |
+| Review base | exact #758 implementation head; later re-anchor on fresh `main` before merge |
 | Predecessor contract | Ladle workshop; ObjectSheet stories; ToolHostView presentation boundary |
 | Exact input consumed | selected static Ladle story IDs only |
 | Named successor | UI-F5 — Canvas Page/Print convergence experiment |
 | What remains false | no whole-app screenshot suite; no production E2E; no Firefox/WebKit matrix; no per-story auto-snapshotting |
 | Explicit non-goals | visual pixel perfection; every component/story; backend flows; accessibility audit expansion; screenshot CI across multiple OS/browser variants |
-| PR topology | serial |
-| Authorized PR action | open/update exactly this assigned PR only |
-| Open implementation PRs in workstream at dispatch | none required; steward re-checks |
-| Stack parent + merge/rebase order | not applicable |
-| Branch / isolated checkout | fresh isolated implementation branch/worktree after activation |
+| PR topology | stacked provisional review on existing #759; serial merge order preserved |
+| Authorized PR action | update #759 only; no new PR or merge |
+| Open implementation PRs in workstream at dispatch | #770 F1, #771 F2, #758 F3, all unmerged |
+| Stack parent + merge/rebase order | #758 exact head `4ee8d8d6`; F0 → F1 → F2 → F3 → F4 |
+| Branch / isolated checkout | existing #759 branch in isolated worktree |
 | Parallel lanes / collision hotspots | package.json/lockfile; `src/ui/*.stories.tsx`; any F3 ToolHostView story path |
 | Runtime/state ownership | local Ladle preview process + one Playwright Chromium worker; no application runtime state |
 | State-authority sync set after merge | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` records UI-F3 completed predecessor / UI-F4 current |
@@ -123,6 +129,7 @@ Exact snapshot names/story IDs are re-anchored at activation from real F1–F3 s
 | Create | `apps/live-control-ui/tests/ui-visual-snapshots/toolhost-overlay-desktop.webp` | Canonical baseline |
 | Create | `apps/live-control-ui/tests/ui-visual-snapshots/toolhost-peek-desktop.webp` | Canonical baseline |
 | Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Backward-looking predecessor sync |
+| Modify | `Docs/Plans/HANDOFF-UI-canonical-visual-contract.md` | Record user-directed same-PR review topology truthfully |
 
 **Bounded discovery exception:**
 ```text
@@ -246,7 +253,7 @@ Record exact selected story IDs, viewport sizes, snapshot count, browser/worker 
 
 ## §9 Acceptance rubric
 
-- [ ] UI-F3 predecessor merged and story IDs re-anchored.
+- [x] UI-F3 exact unmerged review head and activation-time story IDs recorded; merge remains gated on predecessor review.
 - [ ] Visual run is explicit/opt-in.
 - [ ] Chromium only; workers=1.
 - [ ] Total committed baselines <=10.

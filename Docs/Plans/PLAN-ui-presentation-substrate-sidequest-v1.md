@@ -325,7 +325,7 @@ UI-F0  substrate contract + roadmap                         PROPOSED — design 
 UI-F1  tokens + 4 primitives + Ladle                        IMPLEMENTED IN PR #770 — unmerged review experiment
 UI-F2  World-object showroom + ObjectSheet                  IMPLEMENTED IN PR #771 — unmerged review experiment
 UI-F3  ToolHost behavior/presentation split                 IMPLEMENTED IN PR #758 — unmerged review experiment
-UI-F4  <=10-story canonical visual contract                 QUEUED
+UI-F4  <=10-story canonical visual contract                 IMPLEMENTED IN PR #759 — unmerged review experiment
 UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
 UI-F6  post-substrate human/steward decision STOP           LATER
 ~~~
