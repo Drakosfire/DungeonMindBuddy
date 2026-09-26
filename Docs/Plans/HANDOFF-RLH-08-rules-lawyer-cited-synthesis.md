@@ -1,6 +1,6 @@
 # HANDOFF — RLH-08 Rules Lawyer cited synthesis
 
-**Status:** DEFERRED DRAFT  
+**Status:** ACTIVE — implementation candidate, pending review  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Authority:** `Drakosfire/DungeonOverMind/Docs/Plans/PLAN-rules-lawyer-graph-experiment.md`  
 **Predecessor:** `RLH_07_RULES_LAWYER_TOOLHOST_ACCEPTED`  
@@ -8,6 +8,8 @@
 **Product milestone:** first complete Rules Lawyer 2 experience
 
 ## Input boundary
+
+The server owns retrieval and synthesis in one `/api/live/rules/answer` request. It creates the RLH-06 packet from the configured exact rules space; the browser cannot supply a forged evidence packet. The existing `/query` route remains the evidence-only path.
 
 Answer generation receives only:
 
