@@ -374,53 +374,125 @@ READY   PR009 Play projection migration
 
 The tracker, not this roadmap, decides which `READY` slice is dispatched next. Current Buddy `main` is `87597f40…`. Native-read switch is the live CUTOVER lane; `DUNGEONMIND_WORLD_GRAPH_DIRECT_READ` is retired. After this PR merges, demolish the hydrated Buddy graph runtime.
 
-## UI design re-entry checkpoint — Canvas convergence
+## UI design re-entry checkpoint — Frontend Presentation Substrate sidequest
 
-**State:** DEFERRED / MUST REVIEW BEFORE NEXT BROAD UI DESIGN PASS
+**State:** ACTIVE SIDEQUEST — UI-F0 current; broad UI redesign held
 
-This checkpoint does not resume paused source→World authoring work and does not depend on World Keeper implementation. `apps/live-control-ui/src/markdownCanvas/**` is already an independent landed document authority and may be assessed separately from semantic-write ownership.
+**Re-anchor:** Buddy `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
 
-Before another broad UI implementation/design pass, explicitly decide whether Buddy's TipTap-backed document work object should compose with the standalone `Drakosfire/Canvas` package.
+**Sequencing authority:** [`PLAN-ui-presentation-substrate-sidequest-v1.md`](../Plans/PLAN-ui-presentation-substrate-sidequest-v1.md)
 
-Working ownership hypothesis:
+The prior Canvas-convergence checkpoint is superseded as the **first** UI
+re-entry action. Canvas convergence remains important, but current repository
+evidence shows that Buddy already has a surprisingly mature interaction/runtime
+kernel while visual iteration is still too coupled to production composition.
+
+Preserve:
 
 ```text
-DungeonBuddy
-  owns document identity, lifecycle, save/reconcile, commands, and product semantics
-
-TipTap
-  owns rich editing mechanics and semantic editor structure
-
-Canvas
-  owns reusable presentation/layout mechanics
-  (measurement, pagination, regions, and potentially spatial/freeform mechanics)
+SurfaceInteractionPublication + exact lease semantics
+singular Tool / Edit / Projection hosts
+Peek claim / restore semantics
+MarkdownCanvasSession + document command arbitration
+graphReference contracts
+World-object view-model boundaries
+Play durable Run / Beat / Scene identity
 ```
 
-First investigation should prove or falsify a **projection seam**, not move authority:
+Make presentation cheap to replace:
+
+```text
+tokens
+spacing
+typography
+card/panel chrome
+object-sheet composition
+Scene composition
+drawer/peek paint
+responsive presentation
+paper/chrome/ops visual treatment
+```
+
+The sidequest sequence is:
+
+```text
+UI-F0  substrate contract + roadmap                         CURRENT
+UI-F1  semantic tokens + tiny primitive layer + Ladle      NEXT
+UI-F2  canonical fixture showroom + first ObjectSheet      QUEUED
+UI-F3  controller/presentation split on mature hosts       QUEUED
+UI-F4  canonical demo fixtures + small visual regression   QUEUED
+UI-F5  Canvas Page/Print convergence experiment            QUEUED
+UI-F6  choose next broad UI product slice from evidence    LATER
+```
+
+The development machine is treated as resource-constrained. The default posture
+is Vite-native, static-fixture-first, backend-free UI iteration:
+
+- plain CSS custom properties for semantic tokens;
+- CSS Modules or narrowly scoped CSS for new reusable presentation work;
+- Ladle as the preferred lightweight isolated React/Vite workshop;
+- Base UI only selectively behind Buddy-owned wrappers for accessibility/focus
+  mechanics;
+- Playwright screenshots limited to a small canonical demo set and run explicitly
+  or in CI;
+- no Tailwind migration, CSS-in-JS runtime, large pre-styled framework, duplicate
+  component-workshop stack, or always-on visual-regression watcher.
+
+The forcing development loop is:
+
+```text
+idea
+→ static representative Buddy fixture
+→ visual implementation
+→ desktop + narrow comparison
+→ optional screenshot check
+→ product integration
+```
+
+A normal presentation experiment must not require DungeonMind, APP-STATE,
+PostgreSQL, an ingest run, or a backend API.
+
+### Canvas convergence now belongs to UI-F5
+
+After the isolated presentation lab exists, prove or falsify:
 
 ```text
 authoritative MarkdownCanvasSession / TipTap document
 → Buddy-owned adapter
-→ generic Canvas component/data-source representation
-→ read-only alternate presentation
+→ standalone Canvas representation
+→ read-only Page / Print projection
 ```
 
-Preferred first witness: Page/Print view of one representative Runbook/Plan document containing ordinary prose plus structured TipTap semantics such as a table, callout, graph reference, and playable/runbook material. Success requires no second durable document model and no alternate save path.
+The first witness remains a representative Runbook/Plan document with prose,
+table, callout, graph reference, and Playable semantics.
 
-The design review must also evaluate the longer-range **snap-to-grid / freeform board** direction. Standalone Canvas already carries locked/freeform, position, snapping, and map concepts; do not assume its current implementation is the final spatial substrate. Survey mature open-source infinite-canvas/spatial-editor projects for pan/zoom, selection, snapping, grouping, virtualization, and accessibility before committing to bespoke mechanics.
+Only after that proof should the product decide whether Flow / Page / Board are
+alternate projections of one Buddy work object, and whether spatial mechanics
+belong in Canvas, a third-party substrate, or an adapter beneath Canvas.
 
-Decision questions:
+### Sidequest boundary
 
-1. Is Canvas convergence valuable enough to precede additional UI work?
-2. Is Page/Print the right first shared Canvas consumer?
-3. Can semantic TipTap nodes gain Canvas renderers without leaking Buddy domain meaning into the Canvas package?
-4. Should Flow / Page / Board become alternate projections of one Buddy work object?
-5. Should freeform/snap-to-grid live in Canvas itself, an adopted open-source substrate, or an adapter below Canvas?
-6. What remains explicitly Buddy-owned if a third-party infinite canvas supplies spatial mechanics?
+This sidequest may run in parallel with CON-READY PLAY when file leases are
+disjoint. It does not authorize source→World semantics, WorldKeeper changes,
+DungeonMind changes, production write switching, APP-STATE ownership changes,
+or a broad frontend rewrite.
 
-**Not authorized by this checkpoint:** TipTap replacement, repository merge, freeform implementation, source→World authoring, World Keeper semantics, or broad frontend redesign.
+### Exit
 
-Root backlog capture: `Backlog.md` → **Goal 9 — Assess Canvas convergence before the next broad UI design pass**.
+The sidequest exits when Buddy has:
+
+1. semantic presentation tokens;
+2. a small reusable primitive/pattern layer;
+3. an isolated backend-free UI workshop;
+4. representative static Object/Scene/Peek/Canvas fixtures;
+5. at least one mature interaction component split cleanly between behavior and
+   replaceable presentation;
+6. a small canonical visual-regression suite;
+7. a recorded Canvas convergence YES / NO / NARROWER result;
+8. evidence that a materially different presentation can be prototyped without
+   touching domain/runtime authority.
+
+The next broad UI product slice is chosen from that evidence, not preselected.
 
 ## Phase 8 exit criteria
 
