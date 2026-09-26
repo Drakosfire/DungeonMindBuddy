@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — UI World-object showroom
 
 **Created:** 2026-09-25
-**Status:** MERGE REVIEW CANDIDATE IN PR #771 — implementation remains on this existing PR; not an ACTIVE `main` write lease
+**Status:** COMPLETE / HISTORICAL — PR #771 merged at `25cae87d66cf02f23d15f68a6163e584bd0441c8`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-world-object-showroom.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
@@ -31,6 +31,10 @@ pr_body_template: |
 **Review base:** post-#770 `main` at `b834c7f6ab26d53dcbed2149ac3660d3a47f7205`
 **PR authorization:** update existing PR #771 only; do not open or merge another F2 PR
 **PR title:** `UI: add World-object showroom`
+
+**Completion record:** The approved F2 implementation and post-#770 re-anchor
+merged in PR #771. The merge gate, PR topology, and still-false successor
+statements below are retained as execution-time evidence, not current status.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 

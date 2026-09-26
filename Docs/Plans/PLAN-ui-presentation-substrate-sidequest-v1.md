@@ -1,9 +1,9 @@
 # PLAN — UI Presentation Substrate Sidequest v1
 
 **Created:** 2026-09-25
-**Status:** UI-F0/F1/F2/F3 MERGED; UI-F4 MERGE REVIEW IN PR #759 — no retroactive main implementation lease
+**Status:** UI-F0–F4 MERGED; UI-F5 BLOCKED on Canvas packaging; UI-F6 decision STOP remains BLOCKED
 **Repository:** Drakosfire/DungeonMindBuddy
-**Re-anchor:** main@e718e51d6117f0bc01c4a2616cc588fd8fe19e30 — UI-F0/F1/F2/F3 merged as PRs #769/#770/#771/#758; F4 remains in PR #759 pending post-re-anchor evidence
+**Re-anchor:** main@300d11b4c6b6d4538a0f19f1b109e78fa1490838 — UI-F0–F4 merged as PRs #769/#770/#771/#758/#759; F5 PR #760 and F6 PR #761 remain unmerged design handoffs with unsatisfied gates
 **Roadmap owner:** Docs/Roadmaps/ROADMAP-campaign-supergraph.md UI design re-entry checkpoint
 **Architecture owner:** Docs/Design/ARCHITECTURE-surface-interaction-layer.md
 **Visual language:** Docs/Design/ui-language/DESIGN-interaction-layer-language.md
@@ -325,9 +325,9 @@ UI-F0  substrate contract + roadmap                         MERGED — PR #769 a
 UI-F1  tokens + 4 primitives + Ladle                        MERGED — PR #770 at b834c7f6
 UI-F2  World-object showroom + ObjectSheet                  MERGED — PR #771 at 25cae87d
 UI-F3  ToolHost behavior/presentation split                 MERGED — PR #758 at e718e51d
-UI-F4  <=10-story canonical visual contract                 MERGE REVIEW — PR #759, unmerged
-UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
-UI-F6  post-substrate human/steward decision STOP           LATER
+UI-F4  <=10-story canonical visual contract                 MERGED — PR #759 at 300d11b4
+UI-F5  Canvas layout-engine Page convergence experiment     BLOCKED — Canvas layout-only packaging prerequisite; PR #760 unmerged
+UI-F6  post-substrate human/steward decision STOP           BLOCKED — F5 verdict and product dogfood; PR #761 unmerged
 ~~~
 
 Each slice must be independently useful.
@@ -645,12 +645,14 @@ mature graphReference/view-model seams       PRESERVE
 UI language                                  GOOD DESIGN EVIDENCE
 UI-01..UI-05                                 MERGED / useful interaction grammar
 
-UI presentation substrate                   F0/F1/F2/F3 MERGED; F4 MERGE REVIEW — no retroactive main implementation lease
+UI presentation substrate                   F0–F4 MERGED; F5/F6 BLOCKED — no F5 implementation lease
 UI-F0                                        MERGED — PR #769 at 5f62d9c1
 UI-F1                                        MERGED — PR #770 at b834c7f6
 UI-F2                                        MERGED — PR #771 at 25cae87d
 UI-F3                                        MERGED — PR #758 at e718e51d
-UI-F4                                        IMPLEMENTED IN PR #759; not yet merged
+UI-F4                                        MERGED — PR #759 at 300d11b4
+UI-F5                                        BLOCKED — Canvas layout-only packaging and accepted F4 re-anchor; PR #760 unmerged
+UI-F6                                        BLOCKED — requires accepted F5 verdict plus product dogfood; PR #761 unmerged
 Canvas convergence                           MOVED TO UI-F5
 broad UI redesign                            HELD
 CON-READY PLAY                               INDEPENDENT / MAY RUN IN PARALLEL

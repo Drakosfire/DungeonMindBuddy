@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — UI canonical visual contract
 
 **Created:** 2026-09-25
-**Status:** MERGE REVIEW CANDIDATE IN PR #759 — re-anchored after #758; not an ACTIVE `main` write lease
+**Status:** COMPLETE / HISTORICAL — PR #759 merged at `300d11b4c6b6d4538a0f19f1b109e78fa1490838`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-canonical-visual-contract.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
@@ -31,6 +31,13 @@ pr_body_template: |
 **PR topology:** serial merge candidate after UI-F0 → F1 → F2 → F3 merged
 **PR authorization:** repair this existing PR; do not open another F4 PR
 **PR title:** `UI: add canonical visual contract`
+
+**Completion record:** F4 passed formal Cycle-2 review `5326714910` on
+`f854ab4c8f68d2e8d05f89189362678b6596d2a6`. The post-#758 re-anchor
+changed no F4 executable, story, baseline, or Playwright configuration; the
+prescribed rerun passed before PR #759 merged. The merge gate, PR topology,
+and still-false successor statements below are execution-time evidence, not
+current status. UI-F5 remains blocked on separate Canvas packaging.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 

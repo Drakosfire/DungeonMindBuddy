@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — UI ToolHost presentation split
 
 **Created:** 2026-09-25
-**Status:** CYCLE-1 REPAIR IN PR #758 — re-anchored after #771; not an ACTIVE `main` write lease
+**Status:** COMPLETE / HISTORICAL — PR #758 merged at `e718e51d6117f0bc01c4a2616cc588fd8fe19e30`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-toolhost-presentation-split.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
@@ -31,6 +31,11 @@ pr_body_template: |
 **PR topology:** serial repair/review candidate after UI-F0 → F1 → F2 merged
 **PR authorization:** user directed repair on this existing PR and merging reviewed, ready PRs in order; do not open another F3 PR
 **PR title:** `UI: separate ToolHost presentation`
+
+**Completion record:** F3 passed formal Cycle-2 review `5326714244` on exact
+head `453aabdc918d09e20b0da7d4206cdb744bd27406` and merged in PR #758.
+The merge gate, PR topology, and still-false successor statements below are
+retained as execution-time evidence, not current status.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 

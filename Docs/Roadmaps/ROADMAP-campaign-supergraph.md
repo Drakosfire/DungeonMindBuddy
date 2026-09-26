@@ -421,13 +421,13 @@ paper/chrome/ops visual treatment
 The sidequest sequence is:
 
 ```text
-UI-F0  substrate contract + roadmap                         PROPOSED — design PR only
-UI-F1  tokens + 4 primitives + Ladle                        BLOCKED until handoff is on main
-UI-F2  World-object showroom + ObjectSheet                  QUEUED
-UI-F3  ToolHost behavior/presentation split                 QUEUED
-UI-F4  <=10-story canonical visual contract                 QUEUED
-UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
-UI-F6  post-substrate human/steward decision STOP           LATER
+UI-F0  substrate contract + roadmap                         MERGED — PR #769
+UI-F1  tokens + 4 primitives + Ladle                        MERGED — PR #770
+UI-F2  World-object showroom + ObjectSheet                  MERGED — PR #771
+UI-F3  ToolHost behavior/presentation split                 MERGED — PR #758
+UI-F4  <=10-story canonical visual contract                 MERGED — PR #759
+UI-F5  Canvas layout-engine Page convergence experiment     BLOCKED — separately reviewed Canvas layout-only packaging; PR #760 unmerged
+UI-F6  post-substrate human/steward decision STOP           BLOCKED — F5 verdict and product dogfood; PR #761 unmerged
 ```
 
 The development machine is treated as resource-constrained. The default posture

@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — UI fast presentation foundation
 
 **Created:** 2026-09-25
-**Status:** MERGE REVIEW CANDIDATE IN PR #770 — implementation remains on this existing PR; not an ACTIVE `main` write lease
+**Status:** COMPLETE / HISTORICAL — PR #770 merged at `b834c7f6ab26d53dcbed2149ac3660d3a47f7205`
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
@@ -31,6 +31,10 @@ pr_body_template: |
 **Review base:** post-#769 `main` at `5f62d9c14c7b66f9e9bdf405e3c16afefe3f4632`
 **PR authorization:** update existing PR #770 only; do not open or merge another F1 PR
 **PR title:** `UI: add fast presentation workshop`
+
+**Completion record:** The approved F1 implementation and post-#769 re-anchor
+merged in PR #770. The merge gate, PR topology, and still-false successor
+statements below are retained as execution-time evidence, not current status.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
