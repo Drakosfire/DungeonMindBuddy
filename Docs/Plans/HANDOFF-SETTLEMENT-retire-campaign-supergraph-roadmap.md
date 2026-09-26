@@ -5,8 +5,8 @@
 **Flow / workstream:** SETTLEMENT
 **Handoff direction:** STEWARD → CODE after activation
 **Design-time base:** `9473244f57e7845928fc47225fd08863ea85804b`
-**PR topology:** serial after the existing UI stack
-**Activation gate:** the #755–#761 UI stack is fully merged/closed, this settlement authority is on main, and a fresh re-anchor confirms no open PR or ACTIVE handoff leases `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`.
+**PR topology:** serial after UI PR #761 releases the roadmap path
+**Activation gate:** UI PR #761 is merged/closed, this settlement authority is on main, and a fresh re-anchor confirms no open PR or ACTIVE handoff leases `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`.
 
 ## §1 Mission and merge-ready invariant
 
@@ -81,7 +81,7 @@ sequencing is workstream-specific.
 
 ## §7 Evidence required to merge
 
-1. Fresh re-anchor proves #755–#761 are drained and no replacement lease exists.
+1. Fresh re-anchor proves #761 is merged/closed and no replacement lease exists.
 2. Search proves the canonical roadmap no longer claims current/canonical
    implementation sequence.
 3. Source manifest still excludes it from the clean current bundle.
@@ -98,7 +98,7 @@ Record:
 
 - exact base/head;
 - open-PR topology at activation;
-- disposition of #755–#761;
+- disposition of #761;
 - exact changed paths;
 - verification commands/results;
 - whether an explicit archive copy was created;

@@ -15,8 +15,10 @@ Observed current open PR topology at design time:
 #755-#761   existing stacked UI presentation-design chain
 ```
 
-PR #755 edits `Docs/Roadmaps/ROADMAP-campaign-supergraph.md`. This settlement
-therefore does **not** take a competing write lease on that path.
+The UI stack has partially drained. PR #761 still explicitly leases
+`Docs/Roadmaps/ROADMAP-campaign-supergraph.md` to replace the active UI sidequest
+checkpoint. This settlement therefore does **not** take a competing write lease
+on that path.
 
 ## Finding 1 — CUTOVER closed but the mutable authority sync did not
 
@@ -106,13 +108,13 @@ Disposition:
 ## Deliberate remaining falsehood
 
 `ROADMAP-campaign-supergraph.md` still physically carries a stale canonical
-header because #755 currently owns that path inside an existing stack.
+header because #761 currently owns that path inside the remaining UI stack.
 
 That is not permission to use it.
 
 The blocked handoff
 `Docs/Plans/HANDOFF-SETTLEMENT-retire-campaign-supergraph-roadmap.md`
-activates only after #755–#761 drain and a fresh re-anchor confirms no active
+activates only after #761 merges/closes and a fresh re-anchor confirms no active
 write lease remains.
 
 ## Settlement invariant
