@@ -1,12 +1,9 @@
 # PLAN — CON-READY: Authoring v2 → derived gold → extraction ablation loop
 
-**Created:** 2026-09-18
-**Updated:** 2026-09-25
-**Status:** ACTIVE SEQUENCING AUTHORITY — WorldKeeper extraction complete; Buddy consumer migration next; V2-3 not authorized
-**Canonical path:** `Docs/Plans/PLAN-CON-READY-authoring-v2-derived-gold-ablation-loop-v1.md`
-**Workstream:** `CON-READY / DOGFOOD-CONTINUITY / campaign memory authoring`
-**Re-anchor:** `main@08e4c39967e63bc3b60791748129ca3eaa42f161`
-**Authority reconciliation:** PR #745
+**Updated:** 2026-09-25  
+**Status:** ACTIVE SEQUENCING AUTHORITY — PLAY consumer migration next; V2-3 not authorized  
+**Repository:** `Drakosfire/DungeonMindBuddy`  
+**Re-anchor:** `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
 
 ## Current sequence
 
@@ -15,24 +12,24 @@ V2-0 contract census                     COMPLETE / PASS
 V2-1 published-recap local proposal      MERGED — #738
 V2-1A working projection / UI dogfood    MERGED — #741
 V2-2 governed World commit               MERGED / HISTORICAL — #742
-WorldKeeper extraction WK-1..WK-5        COMPLETE
-DungeonMind V5.4                         COMPLETE
-WorldKeeper WK-5 consumer seam           COMPLETE
-source-to-World authority reconciliation CURRENT — #745
-Buddy consumer migration                 NEXT — NOT YET IMPLEMENTED
-V2-3 derived gold                        STILL NOT AUTHORIZED
+
+WorldKeeper extraction                    COMPLETE
+Buddy ownership reconciliation            MERGED — #745
+WorldKeeper V3 compatibility              MERGED — #8
+Buddy custom predicate profile V3         MERGED — #754
+PLAY custom-predicate amendment           MERGED — #752
+
+PLAY-0 thread activation                  CURRENT
+PLAY-1 Buddy → WorldKeeper proof          NEXT
+PLAY-2 persistent isolated authority      BLOCKED
+PLAY-3 browser dogfood vertical           BLOCKED
+
+V2-3 derived gold                        NOT AUTHORIZED
 V2-4 extraction/model ablation           PARKED
 V2-5 Agent-assisted authoring            PARKED
 ```
 
-The WorldKeeper side quest has returned. The old question—whether same-batch
-references belong in a repaired Buddy classifier or in the extracted
-boundary—is settled. WorldKeeper owns semantic dependency resolution;
-DungeonMind V5.4 owns durable-ID allocation/substitution and atomic publication.
-
 ## Product mission
-
-The product loop remains:
 
 ```text
 read source
@@ -40,88 +37,69 @@ read source
 → stage reversible intent
 → review one PreparedWorldChange
 → explicitly confirm
-→ inspect the verified durable result
+→ inspect VerifiedCommittedChange
 → continue from source or World
 ```
 
-The accepted ownership split is defined by
-`DESIGN-source-to-world-authoring-interaction-contract.md`.
-
-## Current decision
-
-PR #745 is authority reconciliation only. It must land the missing Buddy design
-ancestry, record the completed WorldKeeper extraction, retire the legacy
-transaction-semantics handoff, and establish the next gate.
-
-PR #745 must not implement:
-
-- a WorldKeeper runtime/client integration;
-- production write switching;
-- bridge-genesis migration;
-- a legacy classifier repair;
-- V2-3 or later authoring capabilities.
-
-Those runtime and cutover concerns remain outside the V6.1 foundation slice and
-belong to separately designed later work.
-
-## Next bounded capability
-
-After #745 merges and state authority is synchronized, the steward may design a
-fresh Buddy consumer-migration slice. It must use:
+The ownership split is settled:
 
 ```text
-Buddy
-  client_op_id + reversible interaction intent
-        ↓
-WorldKeeper WK-5
-  WorldChangeIntent
-  result_of(client_op_id)
-  PreparedWorldChange
-  confirmation coordination
-  verified-result reshaping
-        ↓
-DungeonMind V5.4
-  source/provenance/admission authority
-  durable-ID allocation + dependency substitution
-  atomic publication + durable recovery
+Buddy       interaction + application intent
+WorldKeeper semantic transaction interpretation/coordination
+DungeonMind durable governed truth
 ```
 
-The new handoff must re-anchor current `main`, declare PR topology, identify
-its write/runtime lease, and choose one independently useful consumer path. No
-old handoff activates automatically.
+## Immediate next capability
+
+PLAY-1 is the sole next implementation lane.
+
+It proves:
+
+```text
+Buddy object + relationship proposals
+→ WorldChangeIntent
+→ WorldKeeper #8
+→ isolated in-memory vNext authority
+→ PreparedWorldChange
+→ VerifiedCommittedChange
+```
+
+The canonical relationship uses an exact GM-authored custom predicate:
+
+```text
+dungeonbuddy.custom:works_at
+```
+
+and a second previously unknown valid custom predicate proves the namespace is
+open by contract rather than special-cased.
+
+The isolated parent uses Buddy semantic profile revision 2 from:
+
+`dungeonbuddy_dnd5e_custom_predicate_profile()`.
+
+No existing V2-pinned World is migrated.
+
+Canonical handoff:
+
+`Docs/Plans/HANDOFF-CON-READY-PLAY-worldkeeper-consumer-proof-v1.md`
 
 ## V2-3 gate
 
-V2-3 derived gold remains unauthorized until:
+V2-3 remains unauthorized until at least:
 
-1. #745 merges and the CON-READY authorities agree;
-2. a bounded Buddy consumer migration is explicitly designed, implemented,
-   reviewed, merged, and dogfooded;
-3. the source → prepared change → confirmed durable result loop is coherent
-   enough that exported examples represent the intended product;
-4. the steward explicitly activates a new V2-3 handoff.
+1. PLAY-1 consumer semantics are accepted;
+2. PLAY-2 proves persistent isolated authority and restart/reopen durability;
+3. PLAY-3 demonstrates a coherent browser source → prepare → confirm → inspect loop;
+4. Steward explicitly activates V2-3.
 
 ## Durable holds
 
-- No automatic dedupe or implicit identity authority.
-- No privileged Agent write route.
-- No generic graph editor.
-- No source-markdown mutation disguised as World authoring.
-- No partial object-then-relationship publication.
-- No prospective durable-ID prediction in Buddy or WorldKeeper.
-- No implementation lane from a COMPLETE/HISTORICAL handoff.
-
-## Authority map
-
-- interaction authority:
-  `Docs/Design/DESIGN-source-to-world-authoring-interaction-contract.md`
-- current pickup:
-  `Docs/Plans/STEWARDS-ANCHOR-con-ready.md`
-- completed side quest:
-  `Docs/Plans/HANDOFF-CON-READY-worldkeeper-sidequest-v1.md`
-- retired migration evidence:
-  `Docs/Plans/HANDOFF-CON-READY-source-to-world-transaction-semantics-v1.md`
-- durable World architecture:
-  `Docs/Design/ARCHITECTURE-campaign-supergraph.md`
-- vNext foundation boundary:
-  `Docs/Plans/HANDOFF-v6-1-dungeonbuddy-vnext-domain-runtime-foundation.md`
+- no automatic dedupe or implicit identity authority;
+- no privileged Agent write route;
+- no generic graph editor;
+- no source-markdown mutation as World authoring;
+- no object-first / relationship-repair publication;
+- no prospective durable-ID prediction in Buddy or WorldKeeper;
+- no occurrence/mention binding inferred from evidence;
+- no production authority switch hidden inside PLAY;
+- no implementation from historical/retired handoffs.
