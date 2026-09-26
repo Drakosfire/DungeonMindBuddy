@@ -86,9 +86,13 @@ export const relationshipHeavy = {
   ...richNpc,
   id: "workshop:npc:many-connections",
   label: "Many connections",
+  secondaryRoleLabel: "Campaign contact",
   aliases: [],
   gameSummary: "A contact whose long history tests whether relationships stay scannable.",
   whyItMattersNow: null,
+  evidence: [],
+  sourceDomains: [],
+  details: null,
   relationships: Array.from({ length: 15 }, (_, index) => ({
     id: `workshop:edge:${index + 1}`,
     label: `Contact ${String(index + 1).padStart(2, "0")}`,
