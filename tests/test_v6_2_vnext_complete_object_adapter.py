@@ -235,6 +235,11 @@ def test_selected_node_anchor_includes_relationship_evidence(
     )
     assert result.node.adjacency[0].anchored_to_focus_session is True
     assert result.node.anchored_to_focus_session is True
+    related = result.related_nodes[0]
+    assert related.evidence_ref_ids == [nonfocus_id]
+    assert [badge.evidence_ref_id for badge in related.evidence_badges] == [nonfocus_id]
+    assert related.adjacency[0].evidence_ref_ids == ["ev:session-28-mireward-arrival"]
+    assert related.anchored_to_focus_session is True
 
 
 def test_related_back_adjacency_uses_only_its_relationship_evidence(
@@ -250,8 +255,14 @@ def test_related_back_adjacency_uses_only_its_relationship_evidence(
 
     result = _project(preservation, _request())
 
-    assert result.related_nodes[0].anchored_to_focus_session is True
-    assert result.related_nodes[0].adjacency[0].anchored_to_focus_session is False
+    related = result.related_nodes[0]
+    assert related.evidence_ref_ids == ["ev:session-28-mireward-arrival"]
+    assert [badge.evidence_ref_id for badge in related.evidence_badges] == [
+        "ev:session-28-mireward-arrival"
+    ]
+    assert related.adjacency[0].evidence_ref_ids == [nonfocus_id]
+    assert related.anchored_to_focus_session is True
+    assert related.adjacency[0].anchored_to_focus_session is False
 
 
 def test_incoming_relationship_direction_is_relative_to_selected(

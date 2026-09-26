@@ -597,11 +597,6 @@ def project_complete_world_object_vnext(
                 if not isinstance(assertion.value, ParsedEntityRefValue)
                 for evidence_id in assertion.metadata.evidence_ref_ids
             }
-            | {
-                evidence_id
-                for relationship in touching
-                for evidence_id in relationship.evidence_ref_ids
-            }
         )
         badges = _evidence_badges(
             related_evidence_ids,
@@ -609,8 +604,29 @@ def project_complete_world_object_vnext(
             source_by_id=source_by_id,
             request=request,
         )
-        anchored = any(item.is_focus_session_evidence for item in badges)
         source_domains = sorted({item.source_domain for item in badges})
+        back_adjacency = [
+            WorldGraphProjectionAdjacencyCandidate(
+                edge_id=relationship.edge_id,
+                node_id=request.node_id,
+                label=label,
+                kind=kind,
+                predicate=relationship.predicate,
+                direction=(
+                    "incoming" if relationship.direction == "outgoing" else "outgoing"
+                ),
+                anchored_to_focus_session=relationship_presentation[
+                    relationship.edge_id
+                ][0],
+                source_domains=relationship_presentation[relationship.edge_id][1],
+                evidence_ref_ids=list(relationship.evidence_ref_ids),
+                edge_label=relationship.label,
+                session_ids=list(relationship.session_ids),
+                campaign_scope=relationship.campaign_scope,
+                related_summary=summary,
+            )
+            for relationship in touching
+        ]
         related_nodes.append(
             WorldGraphProjectionNodeView(
                 node_id=related_id,
@@ -620,35 +636,13 @@ def project_complete_world_object_vnext(
                 aliases=[],
                 source_domains=source_domains,
                 summary=related_summary,
-                anchored_to_focus_session=anchored,
+                anchored_to_focus_session=(
+                    any(item.is_focus_session_evidence for item in badges)
+                    or any(item.anchored_to_focus_session for item in back_adjacency)
+                ),
                 campaign_scope=None,
                 evidence_badges=badges,
-                adjacency=[
-                    WorldGraphProjectionAdjacencyCandidate(
-                        edge_id=relationship.edge_id,
-                        node_id=request.node_id,
-                        label=label,
-                        kind=kind,
-                        predicate=relationship.predicate,
-                        direction=(
-                            "incoming"
-                            if relationship.direction == "outgoing"
-                            else "outgoing"
-                        ),
-                        anchored_to_focus_session=relationship_presentation[
-                            relationship.edge_id
-                        ][0],
-                        source_domains=relationship_presentation[relationship.edge_id][
-                            1
-                        ],
-                        evidence_ref_ids=list(relationship.evidence_ref_ids),
-                        edge_label=relationship.label,
-                        session_ids=list(relationship.session_ids),
-                        campaign_scope=relationship.campaign_scope,
-                        related_summary=summary,
-                    )
-                    for relationship in touching
-                ],
+                adjacency=back_adjacency,
                 suggested_expansions=[],
                 evidence_ref_ids=related_evidence_ids,
                 source_artifact_ids=sorted(
