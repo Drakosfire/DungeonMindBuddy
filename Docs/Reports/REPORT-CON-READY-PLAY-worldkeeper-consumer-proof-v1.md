@@ -2,10 +2,10 @@
 
 **Status:** IMPLEMENTED / REVIEW PENDING — not an acceptance disposition
 
-**Implementation base:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`,
-the PR #767 merge. PLAY-0 / PR #753 is accepted and merged. The reviewed
-handoff is activated on this fresh-main-based branch under the user's explicit
-exception to main-first handoff placement. This is one serial PLAY-1 PR.
+**Implementation base:** `main@62f40f58`, the guarded Steward activation head
+that follows the PR #767 merge. PLAY-0 / PR #753 is accepted and merged. The
+reviewed handoff is ACTIVE on `main` before this rebased redispatch. This is one
+serial PLAY-1 PR.
 
 ## Installed authority
 
@@ -74,12 +74,12 @@ not import this consumer.
 
 - `uv sync --locked`: PASS (WorldKeeper exact reviewed #8 head pin).
 - Focused PLAY-1 test: 39 passed.
-- V6.1 and V6.0.1 regressions: 29 passed.
+- V6.0.1/V6.1/V6.2 and existing World-object regressions: 58 passed.
 - Scoped Ruff: PASS.
 - WorldKeeper runtime import: PASS.
 - `git diff --check`: PASS.
 - Default non-live suite: collection stops on eight inherited missing-module
-  errors. `main@f30b4c9` lacks the same imported modules/tests
+  errors. The activated `main@62f40f58` lacks the same imported modules/tests
   (`recap_projection`, `graph_ingest_verified_snapshot`, `digest_audit`,
   `test_graph_memory_merge_reconciliation_planner`, and
   `bench_world_graph_warm_path`); PLAY-1 adds none of those paths and changes
