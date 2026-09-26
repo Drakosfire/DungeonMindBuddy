@@ -118,7 +118,7 @@ Exact snapshot names/story IDs are re-anchored at activation from real F1–F3 s
 | Modify | `apps/live-control-ui/package.json` | Add opt-in visual scripts + Playwright dev dependency |
 | Modify | `apps/live-control-ui/package-lock.json` | Exact dependency lock |
 | Create | `apps/live-control-ui/playwright.ui.config.ts` | Chromium-only, workers=1, ignored output, Ladle preview web server |
-| Create | `apps/live-control-ui/tests/ui-visual.spec.ts` | Fixed canonical story/viewport manifest and screenshot assertions |
+| Create | `apps/live-control-ui/tests/ui-visual.pw.ts` | Fixed canonical story/viewport manifest and screenshot assertions; `.pw.ts` deliberately avoids ordinary Vitest discovery |
 | Create | `apps/live-control-ui/src/ui/VisualContract.stories.tsx` | Only if required to expose static ToolHostView canonical states; no new product behavior |
 | Create | `apps/live-control-ui/tests/ui-visual-snapshots/object-rich-desktop.webp` | Canonical baseline |
 | Create | `apps/live-control-ui/tests/ui-visual-snapshots/object-rich-narrow.webp` | Canonical baseline |

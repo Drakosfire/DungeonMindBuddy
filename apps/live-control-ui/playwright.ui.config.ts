@@ -2,7 +2,7 @@ import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
-  testMatch: "ui-visual.spec.ts",
+  testMatch: "ui-visual.pw.ts",
   workers: 1,
   fullyParallel: false,
   retries: 0,
