@@ -4,7 +4,7 @@ pr_body_template: |
   - Conversation/workstream: {{TODO}}
   - Flow: {{TODO}}
   - Direction: DESIGN → CODE → REVIEW
-  - Handoff: {{TODO: checked-in path}}
+  - Handoff: {{TODO: path + pinned ref/commit}}
   - Branch / PR: {{TODO: optional transport metadata; none while BLOCKED}}
   - PR topology: {{TODO: serial | stacked | parallel-independent}}
 
@@ -13,28 +13,28 @@ pr_body_template: |
   - Changed paths: {{TODO}}
   - Verification: {{TODO: exact result pointer}}
 
-  The checked-in ACTIVE handoff, cumulative diff, nano-commit story, and independently
+  The pinned ACTIVE handoff, cumulative diff, nano-commit story, and independently
   rerun evidence are the review contract. This body is transport metadata.
 ---
 
 # HANDOFF — {{TODO: one implementation capability}}
 
-**Created:** {{TODO: YYYY-MM-DD}}  
-**Status:** {{TODO: BLOCKED — <activation gate> | ACTIVE — one implementation capability}}  
-**Canonical handoff path:** `{{TODO}}`  
-**Conversation/workstream:** `{{TODO}}`  
-**Flow / owner:** `{{TODO}}`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Design authority base:** `{{TODO: exact main SHA/revision used to design this handoff}}`  
-**Activation gate:** {{TODO: `none — satisfied` or exact predecessor/review/merge/operator condition}}  
-**Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review rather than trying to self-reference it inside this main commit.  
-**PR topology:** `{{TODO: serial (default) | stacked | parallel-independent}}`  
-**PR authorization:** `{{TODO: exactly which implementation PR this worker may open/update without asking; normally “open/update this one assigned PR only; no successor/repair PRs”}}`  
+**Created:** {{TODO: YYYY-MM-DD}}
+**Status:** {{TODO: BLOCKED — <activation gate> | ACTIVE — one implementation capability}}
+**Handoff locator:** `{{TODO: path + pinned ref/commit}}`
+**Conversation/workstream:** `{{TODO}}`
+**Flow / owner:** `{{TODO}}`
+**Direction:** DESIGN → CODE → REVIEW
+**Design authority base:** `{{TODO: exact main SHA/revision used to design this handoff}}`
+**Activation gate:** {{TODO: `none — satisfied` or exact predecessor/review/merge/operator condition}}
+**Dispatch base rule:** re-anchor current integration state after the activation gate is satisfied; the handoff itself may be on any durable pinned ref. Record the exact implementation branch base at dispatch/review.
+**PR topology:** `{{TODO: serial (default) | stacked | parallel-independent}}`
+**PR authorization:** `{{TODO: exactly which implementation PR this worker may open/update without asking; normally “open/update this one assigned PR only; no successor/repair PRs”}}`
 **PR title:** `{{TODO: FLOW: short capability}}`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
-> Handoff lifecycle: the designing steward lands this file on `main`. `BLOCKED` means durable design authority only—no implementation lane and no active §4 lease. The steward changes `BLOCKED → ACTIVE` only after re-anchoring and verifying the activation gate. The implementation worker consumes the already-checked-in ACTIVE handoff and does not create or activate its own authority document.
+> Handoff lifecycle: the designing steward makes this file durably addressable and pins its exact ref/commit before dispatch. It does not have to be on `main`. `BLOCKED` means design authority only—no implementation lane and no active §4 lease. The steward changes `BLOCKED → ACTIVE` only after re-anchoring and verifying the activation gate. The implementation worker consumes the exact pinned ACTIVE handoff and does not materially redesign its own authority document.
 
 > PR authorization rule: once this handoff is ACTIVE, the worker should open the **one assigned implementation PR** without asking the user for another confirmation. That convenience does not let the worker choose PR topology or open successor/repair/cleanup PRs. Unless this handoff explicitly says `stacked` or `parallel-independent` and names the relationship, a newly discovered next defect is a stop/handback to the steward.
 
@@ -62,7 +62,7 @@ pr_body_template: |
 | Parent authority | `<architecture / decision / tracker / issue>` |
 | Design authority base | `<immutable SHA/revision used to design the slice>` |
 | Activation gate | `<none/satisfied, or exact prerequisite that keeps this handoff BLOCKED>` |
-| Dispatch base rule | `fresh current main containing this handoff after activation; exact branch base recorded at dispatch/review` |
+| Dispatch base rule | `fresh current integration state after activation; exact branch base recorded at dispatch/review; handoff location is independent` |
 | Predecessor contract | `<merged PR / schema / fixture / none; if unmerged, name exact gate>` |
 | Exact input consumed | `<artifact / payload / event / store revision / caller contract>` |
 | Named successor | `<capability intentionally deferred>` |
@@ -261,7 +261,7 @@ Record:
 
 ## §9 Acceptance rubric
 
-- [ ] This handoff was checked in by the steward before implementation dispatch and was ACTIVE at dispatch.
+- [ ] This handoff was durably pinned by the steward before implementation dispatch and was ACTIVE/authorized at dispatch.
 - [ ] PR topology was explicit and honored; the worker opened/updated only the PR(s) this handoff actually authorized.
 - [ ] Exactly one independently useful capability from §1 is delivered and proved by §7.
 - [ ] The §1 invariant holds across every claimed §3 path/adversarial sequence.

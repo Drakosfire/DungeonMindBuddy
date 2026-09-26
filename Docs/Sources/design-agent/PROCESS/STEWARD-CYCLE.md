@@ -1,9 +1,9 @@
 # Steward Cycle — Design, Dispatch, Review, and Re-anchor One Slice
 
-**Status:** ACTIVE PROCESS REFERENCE  
-**Use for:** a design/review steward selecting and carrying one implementation capability through merge and state synchronization.  
-**Foundational law:** [`AGENTS.md`](../../AGENTS.md)  
-**External PR mechanics:** [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md)  
+**Status:** ACTIVE PROCESS REFERENCE
+**Use for:** a design/review steward selecting and carrying one implementation capability through merge and state synchronization.
+**Foundational law:** [`AGENTS.md`](../../AGENTS.md)
+**External PR mechanics:** [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md)
 **Slice template:** [`.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md`](../../.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md)
 
 This document owns **steward judgment**: what to read, how to decompose work, when parallel lanes are safe, what belongs in one handoff, how to make that handoff durable, how to activate/dispatch it, what PR topology is authorized, how to review findings, and when the next slice may be dispatched.
@@ -19,7 +19,7 @@ DECOMPOSE
   ↓
 DESIGN ONE SLICE
   ↓
-LAND HANDOFF ON MAIN
+PIN HANDOFF AUTHORITY
   ↓
 BLOCKED? ── yes → wait for gate → RE-ANCHOR / ACTIVATE
   ↓ no / activated
@@ -140,7 +140,7 @@ The default is `serial` even when the user has said not to ask before opening PR
 
 - one open implementation PR in the workstream;
 - the implementation worker should open the one PR named by its ACTIVE handoff without asking for another confirmation;
-- a discovered successor may be designed and landed on `main` as BLOCKED, but it gets no implementation branch/PR until predecessor merge + state sync + re-anchor;
+- a discovered successor may be designed and durably pinned as BLOCKED, but it gets no implementation branch/PR until predecessor merge + state sync + re-anchor;
 - dogfood on a combined/cherry-picked diagnostic head may reveal the next repair, but that observation alone does not authorize another PR.
 
 Use `stacked` only when dependent unmerged work is deliberately worth carrying concurrently. The handoff must name the exact parent PR/head/base relation and required merge/rebase order. Do not infer a stack after several PRs already exist.
@@ -219,21 +219,21 @@ Before a handoff may become `ACTIVE`, these answers must be concrete:
 - **Stop conditions:** Does the future worker know when to stop rather than absorb adjacent work or spawn a successor PR?
 - **State-sync set:** Which mutable workstream authorities are expected to change after merge?
 
-If the mission/invariant/contract itself is unresolved, split, reconnaissance, or design resolution is required. If only a prerequisite fact is unresolved, write and land the handoff as `BLOCKED` with that explicit activation gate rather than leaving the authority in chat or an uncommitted worktree.
+If the mission/invariant/contract itself is unresolved, split, reconnaissance, or design resolution is required. If only a prerequisite fact is unresolved, write and durably pin the handoff as `BLOCKED` with that explicit activation gate rather than leaving the authority only in chat or an uncommitted worktree.
 
-## 5. Write and land the HANDOFF
+## 5. Write and pin the HANDOFF
 
 Copy the canonical template and fill §1–§9. The handoff is a **slice payload**, not a tutorial.
 
-The designing steward owns the handoff until it is durably present on `main`. The default sequence is:
+The designing steward owns the handoff until its exact content is durably addressable on a pinned ref. The handoff may be on `main`, a branch, a PR, or another durable repository location. The default sequence is:
 
 ```text
 author against current authority
 → record design-time authority snapshot
 → declare PR topology and authorization
 → set Status: BLOCKED or ACTIVE truthfully
-→ land the handoff on main
-→ re-read main and the checked-in handoff
+→ commit/push or otherwise pin the handoff durably
+→ re-read the pinned handoff and current integration state
 ```
 
 When an activation prerequisite is unresolved:
@@ -246,7 +246,7 @@ When an activation prerequisite is unresolved:
 - do not treat §4 as an active write lease;
 - do not ask the future code worker to commit or activate its own authority document.
 
-When the gate later becomes true, the steward re-anchors and makes a narrow activation sync: record the newly knowable predecessor/review/merge/current-main facts, confirm the PR topology is still safe, change `BLOCKED → ACTIVE`, verify the mission/invariant/execution semantics did not drift, then allocate the implementation lane. If satisfying the gate changes the design materially, stop and re-review/rewrite the design rather than calling it metadata activation.
+When the gate later becomes true, the steward re-anchors and makes a narrow activation sync: record the newly knowable predecessor/review/merge/current-integration facts, confirm the PR topology is still safe, change `BLOCKED → ACTIVE`, verify the mission/invariant/execution semantics did not drift, then allocate the implementation lane. If satisfying the gate changes the design materially, stop and re-review/rewrite the design rather than calling it metadata activation.
 
 The handoff should contain only what changes from slice to slice:
 
@@ -264,14 +264,14 @@ Do not copy universal vocabulary, flow definitions, nano-commit policy, review-c
 
 ## 6. Activate, allocate, and dispatch
 
-Dispatch requires an already checked-in `ACTIVE` handoff.
+Dispatch requires an explicitly authorized, durably pinned `ACTIVE` handoff.
 
-A BLOCKED handoff is never handed to an implementation worker as authority to begin code. Once the activation gate is satisfied and the handoff is ACTIVE, allocate the branch/worktree from the re-anchored current integration state and give the worker the checked-in handoff.
+A BLOCKED handoff is never handed to an implementation worker as authority to begin code. Once the activation gate is satisfied and the handoff is ACTIVE, allocate the branch/worktree from the re-anchored current integration state and give the worker the exact pinned handoff.
 
 At dispatch, the steward should know:
 
 ```text
-exact checked-in handoff path
+exact handoff path + pinned ref/commit
 Status: ACTIVE
 activation gate satisfied
 PR topology: serial | stacked | parallel-independent
@@ -379,7 +379,7 @@ Re-read:
 
 Architecture/contracts change only when their claims changed.
 
-A successor handoff may already exist on `main` as BLOCKED. Merging its predecessor does not automatically dispatch it; the steward must re-anchor, activate it truthfully, confirm topology, and only then allocate the successor lane.
+A successor handoff may already exist on any durable pinned ref as BLOCKED. Merging its predecessor does not automatically dispatch it; the steward must re-anchor, activate it truthfully, confirm topology, and only then allocate the successor lane.
 
 ## 11. Learn, then select the next slice
 
