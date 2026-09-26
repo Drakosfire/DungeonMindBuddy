@@ -1,0 +1,112 @@
+.ui-surface {
+  min-width: 0;
+  padding: var(--ui-space-6);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-md);
+}
+
+.ui-surface--chrome {
+  background: var(--ui-background-chrome);
+  color: var(--ui-text-primary);
+}
+
+.ui-surface--paper {
+  background: var(--ui-background-paper);
+  border-color: var(--ui-border-paper);
+  color: var(--ui-text-on-paper);
+}
+
+.ui-surface--ops {
+  background: var(--ui-background-ops);
+  color: var(--ui-text-primary);
+}
+
+.ui-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: var(--ui-space-2) var(--ui-space-4);
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+.ui-button--action {
+  border-color: var(--ui-accent-action);
+  background: var(--ui-accent-action);
+  color: var(--ui-background-ops);
+}
+
+.ui-button--danger {
+  border-color: var(--ui-accent-danger);
+  background: var(--ui-accent-danger);
+  color: var(--ui-text-primary);
+}
+
+.ui-button:focus-visible {
+  outline: 2px solid var(--ui-accent-action);
+  outline-offset: 3px;
+}
+
+.ui-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ui-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--ui-space-1) var(--ui-space-2);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 999px;
+  color: inherit;
+  font-size: 0.75rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.ui-badge--current {
+  border-color: var(--ui-accent-current);
+  color: var(--ui-accent-current);
+}
+
+.ui-badge--danger {
+  border-color: var(--ui-accent-danger);
+  color: var(--ui-accent-danger);
+}
+
+.ui-stack {
+  display: flex;
+  min-width: 0;
+}
+
+.ui-stack--row {
+  flex-direction: row;
+  align-items: center;
+}
+
+.ui-stack--column {
+  flex-direction: column;
+}
+
+.ui-stack--wrap {
+  flex-wrap: wrap;
+}
+
+.ui-stack--gap-small {
+  gap: var(--ui-space-2);
+}
+
+.ui-stack--gap-medium {
+  gap: var(--ui-space-4);
+}
+
+.ui-stack--gap-large {
+  gap: var(--ui-space-8);
+}
