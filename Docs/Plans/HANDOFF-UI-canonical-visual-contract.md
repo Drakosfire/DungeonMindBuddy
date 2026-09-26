@@ -6,10 +6,10 @@ pr_body_template: |
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-canonical-visual-contract.md
   - Branch / PR: docs/ui-canonical-visual-contract / #759
-  - PR topology: stacked repair/review on #758
+  - PR topology: serial merge candidate after #758
 
   ## Verification pointer
-  - Review parent: #758 repaired head 453aabdc918d09e20b0da7d4206cdb744bd27406
+  - Review base: #758 merged into main at e718e51d6117f0bc01c4a2616cc588fd8fe19e30
   - Changed paths: exact §4 allowlist only
   - Verification: Ladle build + opt-in one-worker Chromium Playwright screenshots + ordinary frontend tests/build + diff checks
 
@@ -20,15 +20,15 @@ pr_body_template: |
 # HANDOFF — UI canonical visual contract
 
 **Created:** 2026-09-25
-**Status:** CYCLE-1 REPAIR IN PR #759 — stacked on repaired #758; not ACTIVE on `main`
+**Status:** MERGE REVIEW CANDIDATE IN PR #759 — re-anchored after #758; not an ACTIVE `main` write lease
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-canonical-visual-contract.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
 **Direction:** DESIGN → CODE → REVIEW
 **Design authority base:** `f70985d2d7c82d7bc9ea1954deae5d9505f6c1bd` — UI-F3 design head
-**Current review parent:** #758 repaired head `453aabdc918d09e20b0da7d4206cdb744bd27406`; #759 is the existing handoff PR carrying its implementation
-**Merge gate:** UI-F3 accepted/merged, then re-anchor this PR on that fresh `main` and review the new exact head
-**PR topology:** stacked repair/review on #758; merge order remains UI-F0 → F1 → F2 → F3 → F4
+**Review base:** post-#758 `main` at `e718e51d6117f0bc01c4a2616cc588fd8fe19e30`; #759 is the existing handoff PR carrying its implementation
+**Merge gate:** UI-F3 merged; this branch incorporates that exact `main`; rerun §7 before merge. Review `5326714910` allows no new design review when the re-anchor is an executable no-op for F4.
+**PR topology:** serial merge candidate after UI-F0 → F1 → F2 → F3 merged
 **PR authorization:** repair this existing PR; do not open another F4 PR
 **PR title:** `UI: add canonical visual contract`
 
@@ -63,17 +63,17 @@ normal merge route; predecessor acceptance is still a merge gate.
 |---|---|
 | Parent authority | UI Presentation Substrate plan |
 | Design authority base | `f70985d2d7c82d7bc9ea1954deae5d9505f6c1bd` |
-| Provisional review gate | UI-F3 repaired at #758 head `453aabdc`; merge remains gated on predecessor acceptance |
-| Review base | exact #758 repaired head; later re-anchor on fresh `main` before merge |
+| Predecessor merge | UI-F3 PR #758 merged at `e718e51d6117f0bc01c4a2616cc588fd8fe19e30` |
+| Review base | post-#758 `main` at `e718e51d6117f0bc01c4a2616cc588fd8fe19e30` |
 | Predecessor contract | Ladle workshop; ObjectSheet stories; ToolHostView presentation boundary |
 | Exact input consumed | selected static Ladle story IDs only |
 | Named successor | UI-F5 — Canvas Page/Print convergence experiment |
 | What remains false | no whole-app screenshot suite; no production E2E; no Firefox/WebKit matrix; no per-story auto-snapshotting |
 | Explicit non-goals | visual pixel perfection; every component/story; backend flows; accessibility audit expansion; screenshot CI across multiple OS/browser variants |
-| PR topology | stacked provisional review on existing #759; serial merge order preserved |
-| Authorized PR action | update #759 only; no new PR or merge |
+| PR topology | serial merge candidate on existing #759 after #758 |
+| Authorized PR action | update #759 only; no additional F4 PR |
 | Open implementation PRs in workstream at dispatch | #770 F1, #771 F2, #758 F3, all unmerged |
-| Stack parent + merge/rebase order | #758 exact repaired head `453aabdc`; F0/F1/F2 merged → F3 → F4 |
+| Stack parent + merge/rebase order | #758 merged first; #759 now targets current `main` |
 | Branch / isolated checkout | existing #759 branch in isolated worktree |
 | Parallel lanes / collision hotspots | package.json/lockfile; `src/ui/*.stories.tsx`; any F3 ToolHostView story path |
 | Runtime/state ownership | local Ladle preview process + one Playwright Chromium worker; no application runtime state |
@@ -253,6 +253,12 @@ eight-case run passed using one Chromium worker in about 18 seconds; no
 baseline file changed. A temporary `ToolHostOverlay` heading perturbation
 failed its single case with 1,837 differing pixels, and the restored story
 passed again. This is a same-environment contract, not a cross-OS guarantee.
+After #758 merged at `e718e51d6117f0bc01c4a2616cc588fd8fe19e30`,
+the #759 re-anchor changed no executable file, story ID, baseline, or
+Playwright configuration. The post-merge rerun passed `ui:build`, 6 focused
+ordinary Vitest tests, and all 8 Chromium visual comparisons (one worker,
+18.6 seconds). Typecheck/production build still stop at the unchanged inherited
+`ThreatPublicationPanel.tsx:553` TS2503 error.
 
 ### Baseline failure handling
 
@@ -264,7 +270,7 @@ Record exact selected story IDs, viewport sizes, snapshot count, browser/worker 
 
 ## §9 Acceptance rubric
 
-- [x] UI-F3 repaired head `453aabdc` and activation-time story IDs recorded; merge remains gated on predecessor review.
+- [x] UI-F3 merged at `e718e51d`; #759 re-anchored with unchanged F4 executables, story IDs, configuration, and baselines.
 - [ ] Visual run is explicit/opt-in.
 - [ ] Chromium only; workers=1.
 - [ ] Total committed baselines <=10.
