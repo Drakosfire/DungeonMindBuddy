@@ -34,6 +34,10 @@ pr_body_template: |
 
 **Completion record:** F3 passed formal Cycle-2 review `5326714244` on exact
 head `453aabdc918d09e20b0da7d4206cdb744bd27406` and merged in PR #758.
+The 2-cycle finding classes were authority-bearing callbacks in the view and
+missing product smoke. The accepted proof was 18 focused tests plus Plan/Ingest
+placement and focus smoke against a live API; unavailable World authority was
+an explicit bounded limitation, not a claim of loaded-recap coverage.
 The merge gate, PR topology, and still-false successor statements below are
 retained as execution-time evidence, not current status.
 

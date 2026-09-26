@@ -37,7 +37,11 @@ pr_body_template: |
 changed no F4 executable, story, baseline, or Playwright configuration; the
 prescribed rerun passed before PR #759 merged. The merge gate, PR topology,
 and still-false successor statements below are execution-time evidence, not
-current status. UI-F5 remains blocked on separate Canvas packaging.
+current status. The 2-cycle findings concerned an authority-bearing visual
+fixture, missing baseline-environment provenance, and the dependent F3 gate.
+Eight visual cases and the deliberate-diff witness passed; inherited
+`ThreatPublicationPanel.tsx:553` TS2503 remained accepted baseline debt.
+UI-F5 remains blocked on separate Canvas packaging.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 

@@ -33,7 +33,10 @@ pr_body_template: |
 **PR title:** `UI: add fast presentation workshop`
 
 **Completion record:** The approved F1 implementation and post-#769 re-anchor
-merged in PR #770. The merge gate, PR topology, and still-false successor
+merged in PR #770 after 2 formal review cycles. The only re-review gate was
+fresh-main re-anchoring; 4 focused tests and the backend-free Ladle build
+passed. The inherited `ThreatPublicationPanel.tsx:553` TS2503 typecheck/build
+failure was accepted as unchanged baseline debt. The merge gate, PR topology, and still-false successor
 statements below are retained as execution-time evidence, not current status.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
