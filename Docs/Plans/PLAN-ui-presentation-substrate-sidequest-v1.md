@@ -1,9 +1,9 @@
 # PLAN — UI Presentation Substrate Sidequest v1
 
 **Created:** 2026-09-25
-**Status:** ACTIVE SIDEQUEST — bounded frontend foundation before broad UI redesign
+**Status:** DESIGN PROPOSED IN PR — no implementation lease is active
 **Repository:** Drakosfire/DungeonMindBuddy
-**Re-anchor:** main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4
+**Re-anchor:** main@3f0d5549 — prior UI-F0/F1/F2 merges reverted; unrelated settlement preserved
 **Roadmap owner:** Docs/Roadmaps/ROADMAP-campaign-supergraph.md UI design re-entry checkpoint
 **Architecture owner:** Docs/Design/ARCHITECTURE-surface-interaction-layer.md
 **Visual language:** Docs/Design/ui-language/DESIGN-interaction-layer-language.md
@@ -321,8 +321,8 @@ This is not a new domain layer.
 ## 8. Slice sequence
 
 ~~~text
-UI-F0  substrate contract + roadmap                         CURRENT DOCS SIDEQUEST
-UI-F1  tokens + 4 primitives + Ladle                        NEXT
+UI-F0  substrate contract + roadmap                         PROPOSED — design PR only
+UI-F1  tokens + 4 primitives + Ladle                        BLOCKED until handoff is on main
 UI-F2  World-object showroom + ObjectSheet                  QUEUED
 UI-F3  ToolHost behavior/presentation split                 QUEUED
 UI-F4  <=10-story canonical visual contract                 QUEUED
@@ -645,9 +645,9 @@ mature graphReference/view-model seams       PRESERVE
 UI language                                  GOOD DESIGN EVIDENCE
 UI-01..UI-05                                 MERGED / useful interaction grammar
 
-UI presentation substrate                   ACTIVE SIDEQUEST
-UI-F0                                        CURRENT
-UI-F1                                        NEXT
+UI presentation substrate                   DESIGN PROPOSED — no active implementation lease
+UI-F0                                        PROPOSED IN PR
+UI-F1                                        BLOCKED until steward-landed ACTIVE handoff
 Canvas convergence                           MOVED TO UI-F5
 broad UI redesign                            HELD
 CON-READY PLAY                               INDEPENDENT / MAY RUN IN PARALLEL

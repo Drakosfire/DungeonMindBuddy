@@ -376,9 +376,14 @@ The tracker, not this roadmap, decides which `READY` slice is dispatched next. C
 
 ## UI design re-entry checkpoint — Frontend Presentation Substrate sidequest
 
-**State:** ACTIVE SIDEQUEST — UI-F0 current; broad UI redesign held
+**State:** DESIGN PROPOSED — UI-F0 review only; broad UI redesign held
 
-**Re-anchor:** Buddy `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
+**Re-anchor:** Buddy `main@3f0d5549` after reversal of the prior UI merges
+
+This UI section is a proposal, not an active implementation lease. Repository
+settlement classifies this roadmap as `SETTLEMENT_HOLD` pending UI-stack drain;
+the checked-in HANDOFF and workstream plan, not this legacy roadmap, govern
+any later UI dispatch.
 
 **Sequencing authority:** [`PLAN-ui-presentation-substrate-sidequest-v1.md`](../Plans/PLAN-ui-presentation-substrate-sidequest-v1.md)
 
@@ -416,8 +421,8 @@ paper/chrome/ops visual treatment
 The sidequest sequence is:
 
 ```text
-UI-F0  substrate contract + roadmap                         CURRENT
-UI-F1  tokens + 4 primitives + Ladle                        NEXT
+UI-F0  substrate contract + roadmap                         PROPOSED — design PR only
+UI-F1  tokens + 4 primitives + Ladle                        BLOCKED until handoff is on main
 UI-F2  World-object showroom + ObjectSheet                  QUEUED
 UI-F3  ToolHost behavior/presentation split                 QUEUED
 UI-F4  <=10-story canonical visual contract                 QUEUED
