@@ -106,6 +106,56 @@ PR #694 removed full-document loads among the primary React surfaces and the pos
 
 # DEFERRED
 
+## [DEFERRED] Composable spatial workspace + instant theme packs
+**Kind:** PRODUCT DESIGN / FRONTEND ARCHITECTURE / RESEARCH  
+**Owner:** Buddy presentation layer / future spatial workspace  
+**Captured:** 2026-09-26  
+**Last verified:** 2026-09-26 @ `24e0565145ad578783c3b9ed3b0b672d9f6b3f30` after UI-F1–F4 substrate work merged/reviewed  
+**Trigger:** a basic demo-ready Buddy presentation is accepted and the product can afford exploratory spatial/composable UI work without delaying the demo.
+
+**Problem:** The long-term presentation dream is a fast, composable workspace where the GM can arrange reusable Buddy components freely on a large/infinite spatial surface, save different workspace arrangements, zoom between overview and detail, and swap pre-baked visual themes (for example D&D/fantasy → sci-fi) instantly without changing component semantics, data, or layout ownership. This is intentionally **not** the current demo-readiness priority.
+
+**Design direction to preserve:**
+
+```text
+Buddy domain / durable state
+        ↓
+presentation model
+        ↓
+Buddy component registry
+        ↓
+presentation engine
+  ├─ Flow
+  ├─ Page / Print
+  └─ Spatial / infinite workspace
+
+theme pack is orthogonal:
+  component + layout stay the same
+  semantic CSS/theme tokens repaint the workspace
+```
+
+Keep these concerns independent:
+
+- **component meaning:** World object, Scene, Runbook, ToolHost, Agent, Combat, note, map, etc.;
+- **spatial layout:** x/y/size/z/collapse/group/camera/workspace preset only;
+- **theme:** semantic paint/typography/radius/border/shadow/icon treatment only;
+- **durable authority:** remains in Buddy/DungeonMind/APP-STATE; the spatial layer references objects and must not copy their bodies into a second truth store.
+
+Performance is a first-class requirement because the ordinary development/client machine may be weak. A future spatial engine should therefore prefer viewport culling, cheap pan/zoom, level-of-detail rendering, stable component identity, and avoiding full expensive component renders when zoomed far out.
+
+**Next slice on trigger:** Design/research only. Re-anchor against the then-current presentation substrate and compare at least:
+
+1. a library-backed spatial engine (tldraw is a current candidate, not a decision);
+2. a deliberately small Buddy-owned spatial engine;
+3. whether the existing `Drakosfire/Canvas` package should remain Page/Print-only rather than serving spatial work.
+
+Freeze a minimal `SpatialWorkspacePort` / spatial-item contract and a theme-pack token contract before implementation. Explicitly decide persistence ownership for workspace arrangement and camera state. Do **not** start by building freeform interaction mechanics, merging Page and Spatial canvas concerns, or coupling themes to domain components.
+
+**Desired eventual experience:** the same ObjectSheet/Scene/Runbook/etc. can be moved around a saved infinite workspace, switch between workspace presets such as “At the Table” and “Worldbuilding,” and instantly change visual language (fantasy, sci-fi, clean, etc.) by swapping theme tokens without rebuilding or reauthoring the components.
+
+**Refs:** `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md`; F1–F4 presentation-substrate work; `Drakosfire/Canvas` as Page/Print-layout research ancestry only.
+
+
 ## [DEFERRED] Define campaign creation inside an existing World
 **Kind:** DESIGN / CROSS-BOUNDARY AUTHORITY  
 **Owner:** Buddy campaign lifecycle + DungeonMind campaign scope  
