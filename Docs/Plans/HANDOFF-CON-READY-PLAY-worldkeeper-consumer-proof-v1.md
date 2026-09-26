@@ -78,9 +78,9 @@ PLAY-1 requires:
 PLAY-1 starts from the #767 merge on `main`, not from its PR branch. The
 dependency and consumer paths are free in the open-PR inventory at dispatch.
 
-Open settlement PR #766 does not overlap the PLAY-1 implementation/dependency
-lease identified above. If its merge changes current authority documents before
-PLAY-1 activation, re-read them but do not broaden PLAY-1 automatically.
+Settlement PR #766 merged at `a2c400c0c90526df950f5e1be3e2d388c440757c`
+before this re-anchor. Its main-line changes do not overlap the PLAY-1
+implementation/dependency lease or broaden PLAY-1 authority.
 
 Activation checks completed after #767 resolved:
 
