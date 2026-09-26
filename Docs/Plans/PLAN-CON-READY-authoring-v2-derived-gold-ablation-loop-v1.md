@@ -3,7 +3,7 @@
 **Updated:** 2026-09-25
 **Status:** ACTIVE SEQUENCING AUTHORITY — PLAY consumer migration next; V2-3 not authorized
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor:** `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
+**Re-anchor:** `main@fa01c768d23ad802436921340a8f0a7656f7de9a`
 
 ## Current sequence
 
@@ -19,8 +19,8 @@ WorldKeeper V3 compatibility              MERGED — #8
 Buddy custom predicate profile V3         MERGED — #754
 PLAY custom-predicate amendment           MERGED — #752
 
-PLAY-0 thread activation                  CURRENT
-PLAY-1 Buddy → WorldKeeper proof          NEXT
+PLAY-0 thread activation                  COMPLETE / MERGED — #753
+PLAY-1 Buddy → WorldKeeper proof          NEXT / BLOCKED ON #767 PATH COLLISION
 PLAY-2 persistent isolated authority      BLOCKED
 PLAY-3 browser dogfood vertical           BLOCKED
 
@@ -51,7 +51,7 @@ DungeonMind durable governed truth
 
 ## Immediate next capability
 
-PLAY-1 is the sole next implementation lane.
+PLAY-1 is the sole next CON-READY implementation candidate. Its semantic design is accepted; activation waits only for open PR #767 to release `pyproject.toml` and for the Steward to re-anchor/activate the handoff on fresh `main`.
 
 It proves:
 
