@@ -1,0 +1,83 @@
+{
+  "schema_version": "dmb_rules_space_binding_v1",
+  "ruleset_id": "dnd5e-2024-srd-occupancy-v1",
+  "space_id": "space:rules-occupancy-srd-5-2-1-v1",
+  "revision_id": "rev:77293aef29dd5324f6b300da1ac970aa",
+  "graph_payload_sha256": "6aae8307c44561f6bb91129b0cb62129a8578bcf3618aa2602b703a0cc812eda",
+  "dungeonmind_revision": "54a419f99057d96e0c4e7620d8bd8ccc6816fb62",
+  "domain_contract": {
+    "schema_version": "dm_domain_contract_v1",
+    "domain_id": "rules.occupancy",
+    "domain_revision": "1",
+    "scope_axes": [],
+    "visibility_labels": [],
+    "claim_modes": [
+      "rules:source-grounded"
+    ],
+    "temporal_extension_schemas": [],
+    "domain_metadata_schemas": [],
+    "source_annotation_schemas": [],
+    "admission_policy_id": "rules.reviewed-human-gold-v1"
+  },
+  "semantic_profile": {
+    "schema_version": "dm_semantic_profile_v3",
+    "profile_id": "rules.occupancy",
+    "profile_revision": "1",
+    "term_namespaces": [
+      "rules",
+      "rules.occupancy"
+    ],
+    "predicates": [],
+    "classification_terms": [],
+    "open_predicate_namespaces": [
+      {
+        "namespace": "rules.occupancy",
+        "allowed_value_kinds": [
+          "literal"
+        ]
+      }
+    ]
+  },
+  "source_artifacts": [
+    {
+      "schema_version": "dm_source_artifact_v3",
+      "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+      "source_classification": "rules:srd",
+      "current_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+      "authority": "primary",
+      "visibility": {
+        "kind": "public"
+      },
+      "status": "active",
+      "uri": "https://media.dndbeyond.com/compendium-images/srd/5.2/SRD_CC_v5.2.1.pdf",
+      "foreign_refs": [
+        "rulesingestion:evidence-unit:04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d"
+      ],
+      "domain_metadata": [],
+      "created_at": null,
+      "updated_at": null
+    }
+  ],
+  "source_revisions": [
+    {
+      "schema_version": "dm_source_revision_v2",
+      "source_revision_id": "srcrev:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+      "source_artifact_id": "art:srd-5-2-1:8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+      "content_sha256": "8974902d109d6e63672d7c490bde9ccf052410503d9cfa768237154fbc5e3d87",
+      "body_storage": "external:official-srd-pdf",
+      "locator": "printed-page:14;section:Moving around Other Creatures",
+      "created_at": "2026-09-26T00:00:00Z"
+    }
+  ],
+  "evidence_units": {
+    "04786f12722f6b15ccb70b18995b060e473ac07115b43dfdba3ca59ae685061d": {
+      "text": "Moving around Other Creatures — You can’t willingly end a move in a space occupied by another creature. If you somehow end a turn in a space with another creature, you have the Prone condition (see “Rules Glossary”) unless you are Tiny or are of a larger size than the other creature.",
+      "content_hash": "154cf1e3e0abb269e93b9cfcad1a5b79792e482a7aa80ffc41a2e189f5596197",
+      "page_fingerprint": "008789fb51c05be746534eed53c009be3dc4ee625c6df972a993a2dba757a7b5",
+      "printed_page": 14,
+      "section": "Moving around Other Creatures",
+      "text_sha256": "198a9b0329f3878fd9f5532f1b189f5bc34831e8ede20809e3ae0592182cdba6"
+    }
+  },
+  "attribution": "This work includes material from the System Reference Document 5.2.1 (“SRD 5.2.1”) by Wizards of the Coast LLC, available at https://www.dndbeyond.com/srd. The SRD 5.2.1 is licensed under the Creative Commons Attribution 4.0 International License, available at https://creativecommons.org/licenses/by/4.0/legalcode."
+}
