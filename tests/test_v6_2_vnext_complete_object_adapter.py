@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+import apps.live_control_server.integrations.dungeonmind.vnext_complete_object as adapter
 
 from dungeonmind.application.vnext import (
     InMemoryKnowledgeSourceReader,
@@ -125,6 +126,26 @@ def _project(data: dict, request: WorldGraphObjectProjectionRequest):
     )
 
 
+def _add_nonfocus_evidence(data: dict) -> str:
+    source = copy.deepcopy(data["sources"][0])
+    source["source_artifact_id"] = "src:session-99-recap"
+    source["domain_metadata"][0]["payload"]["session_id"] = "session-99"
+    data["sources"].append(source)
+
+    revision = copy.deepcopy(data["source_revisions"][0])
+    revision["source_revision_id"] = "sr:session-99-recap-rev1"
+    revision["source_artifact_id"] = source["source_artifact_id"]
+    revision["content_sha256"] = "9" * 64
+    data["source_revisions"].append(revision)
+
+    evidence = copy.deepcopy(data["evidence"][0])
+    evidence["evidence_ref_id"] = "ev:session-99-recap"
+    evidence["source_artifact_id"] = source["source_artifact_id"]
+    evidence["source_revision_id"] = revision["source_revision_id"]
+    data["evidence"].append(evidence)
+    return evidence["evidence_ref_id"]
+
+
 def test_canonical_gm_projection_preserves_complete_object_semantics(
     preservation: dict,
 ) -> None:
@@ -195,6 +216,130 @@ def test_focus_only_changes_presentation_not_truth_or_fingerprint(
     assert focused.node.aliases == unfocused.node.aliases
     assert focused.node.summary == unfocused.node.summary
     assert focused.node.evidence_ref_ids == unfocused.node.evidence_ref_ids
+
+
+def test_selected_node_anchor_includes_relationship_evidence(
+    preservation: dict,
+) -> None:
+    nonfocus_id = _add_nonfocus_evidence(preservation)
+    for assertion in preservation["assertions"]:
+        if assertion["assertion_id"] != "as:brennan-located-in-mireward":
+            assertion["metadata"]["evidence_ref_ids"] = [nonfocus_id]
+    preservation["aliases"][0]["evidence_ref_ids"] = [nonfocus_id]
+
+    result = _project(preservation, _request())
+
+    assert result.node is not None
+    assert not any(
+        badge.is_focus_session_evidence for badge in result.node.evidence_badges
+    )
+    assert result.node.adjacency[0].anchored_to_focus_session is True
+    assert result.node.anchored_to_focus_session is True
+
+
+def test_related_back_adjacency_uses_only_its_relationship_evidence(
+    preservation: dict,
+) -> None:
+    nonfocus_id = _add_nonfocus_evidence(preservation)
+    relationship = next(
+        item
+        for item in preservation["assertions"]
+        if item["assertion_id"] == "as:brennan-located-in-mireward"
+    )
+    relationship["metadata"]["evidence_ref_ids"] = [nonfocus_id]
+
+    result = _project(preservation, _request())
+
+    assert result.related_nodes[0].anchored_to_focus_session is True
+    assert result.related_nodes[0].adjacency[0].anchored_to_focus_session is False
+
+
+def test_incoming_relationship_direction_is_relative_to_selected(
+    preservation: dict,
+) -> None:
+    relationship = next(
+        item
+        for item in preservation["assertions"]
+        if item["assertion_id"] == "as:brennan-located-in-mireward"
+    )
+    relationship["subject_entity_id"] = "entity:loc:mireward"
+    relationship["value"]["entity_id"] = NODE_ID
+
+    result = _project(preservation, _request())
+
+    assert len(result.relationships) == 1
+    assert result.relationships[0].source_node_id == "entity:loc:mireward"
+    assert result.relationships[0].target_node_id == NODE_ID
+    assert result.relationships[0].direction == "incoming"
+    assert result.node is not None
+    assert result.node.adjacency[0].direction == "incoming"
+    assert result.related_nodes[0].adjacency[0].direction == "outgoing"
+
+
+def test_bounded_read_and_presentation_work_shape(
+    preservation: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    parsed, inner_reader = _runtime(preservation)
+
+    class RecordingReader:
+        def __init__(self):
+            self.calls: list[tuple[tuple[str, ...], tuple[str, ...]]] = []
+
+        def open_coherent_view(self):
+            return self
+
+        def get_provenance_snapshot(self, *, artifact_ids, revision_ids):
+            self.calls.append((tuple(artifact_ids), tuple(revision_ids)))
+            return inner_reader.get_provenance_snapshot(
+                artifact_ids=artifact_ids, revision_ids=revision_ids
+            )
+
+    real_service = adapter.EntityReadService()
+
+    class RecordingService:
+        def __init__(self):
+            self.complete_calls: list[str] = []
+            self.basic_calls: list[str] = []
+            self.kernel_snapshot_calls = 0
+
+        def get_complete_entity(self, context, entity_id):
+            self.complete_calls.append(entity_id)
+            before = len(reader.calls)
+            result = real_service.get_complete_entity(context, entity_id)
+            self.kernel_snapshot_calls += len(reader.calls) - before
+            return result
+
+        def get_entity(self, context, entity_id):
+            self.basic_calls.append(entity_id)
+            before = len(reader.calls)
+            result = real_service.get_entity(context, entity_id)
+            self.kernel_snapshot_calls += len(reader.calls) - before
+            return result
+
+    reader = RecordingReader()
+    service = RecordingService()
+    monkeypatch.setattr(adapter, "EntityReadService", lambda: service)
+
+    result = project_complete_world_object_vnext(
+        parsed_revision=parsed,
+        source_reader=reader,
+        request=_request(),
+        read_identity=DungeonBuddyVNextReadIdentity(
+            space_id="eldyrwild",
+            revision_id=REVISION_ID,
+            head_revision_id=REVISION_ID,
+            is_head=True,
+        ),
+    )
+
+    assert service.complete_calls == [NODE_ID]
+    assert service.basic_calls == [item.node_id for item in result.related_nodes]
+    assert service.basic_calls == ["entity:loc:mireward"]
+    assert len(reader.calls) - service.kernel_snapshot_calls == 1
+    assert reader.calls[-1] == (
+        ("src:session-28-recap",),
+        ("sr:session-28-recap-rev1",),
+    )
 
 
 def test_missing_object_is_clean_and_exact_revision_identity_is_preserved(

@@ -544,6 +544,7 @@ def project_complete_world_object_vnext(
 
     related_nodes: list[WorldGraphProjectionNodeView] = []
     adjacency: list[WorldGraphProjectionAdjacencyCandidate] = []
+    relationship_presentation: dict[str, tuple[bool, list[str]]] = {}
     for relationship in relationships:
         related_id = (
             relationship.target_node_id
@@ -562,6 +563,7 @@ def project_complete_world_object_vnext(
         )
         anchored = any(item.is_focus_session_evidence for item in relationship_badges)
         source_domains = sorted({item.source_domain for item in relationship_badges})
+        relationship_presentation[relationship.edge_id] = (anchored, source_domains)
         adjacency_row = WorldGraphProjectionAdjacencyCandidate(
             edge_id=relationship.edge_id,
             node_id=related_id,
@@ -633,8 +635,12 @@ def project_complete_world_object_vnext(
                             if relationship.direction == "outgoing"
                             else "outgoing"
                         ),
-                        anchored_to_focus_session=anchored,
-                        source_domains=source_domains,
+                        anchored_to_focus_session=relationship_presentation[
+                            relationship.edge_id
+                        ][0],
+                        source_domains=relationship_presentation[relationship.edge_id][
+                            1
+                        ],
                         evidence_ref_ids=list(relationship.evidence_ref_ids),
                         edge_label=relationship.label,
                         session_ids=list(relationship.session_ids),
@@ -676,8 +682,9 @@ def project_complete_world_object_vnext(
         ],
         source_domains=sorted({item.source_domain for item in node_badges}),
         summary=summary,
-        anchored_to_focus_session=any(
-            item.is_focus_session_evidence for item in node_badges
+        anchored_to_focus_session=(
+            any(item.is_focus_session_evidence for item in node_badges)
+            or any(item.anchored_to_focus_session for item in adjacency)
         ),
         campaign_scope=None,
         evidence_badges=node_badges,
