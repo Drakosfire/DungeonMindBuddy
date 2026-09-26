@@ -94,7 +94,10 @@ The source-vocabulary boundary for projected ingestion material is defined by `D
 - One resolver module is shared by static and React.
 - One `SurfaceConfig.theme` (canvas inherits).
 
-This keeps the surface structurally incapable of forking the taxonomy registry the ladder owns. This document remains **ACTIVE REFERENCE** for Plan surface composition — it is **not** Campaign Supergraph sequencing authority (see `PR-TRACKER-campaign-supergraph.md`).
+This keeps the surface structurally incapable of forking durable World semantics.
+This document remains **ACTIVE REFERENCE** for Plan surface composition; it is
+not a sequencing authority. Current implementation order comes from the active
+workstream authorities listed in `INDEX-design-agent-source-set.md`.
 
 ```mermaid
 flowchart TB
@@ -190,7 +193,7 @@ flowchart TB
 - **ToolBar** projects configured workflow components; it does not hardcode ingestion/statblock as page-specific branches.
 - **EditBar** edits the selected canvas/document/block; it does not launch prep workflows.
 - A single projection registry keyed by kind (`tool` | `content`) backs both the ToolBar and reference-chip navigation. A reference chip resolves via graph-aware resolver → World Supergraph / projection node view → corpus-index fallback, shows a glance card, then expands into the content surface registered for the resolved kind.
-- The surface resolves kind through the shared resolver and treats `refId` as an opaque locator; it does not declare its own category enum and does no alias/identity/merge logic (those belong to Graph Review / Kernel path).
+- The surface resolves kind through the shared resolver and treats `refId` as an opaque locator; it does not declare its own category enum and does no durable identity/merge logic (those belong to DungeonMind authority through governed product boundaries).
 - Content surfaces are projected the same way tools are, sized to the content. Editing everywhere is one capability — the spike lock model plus the two-phase source writer for **source revision**; graph/memory correction uses preview_write → confirm_commit through Graph Review. The EditBar and the projected-surface edit toggle are two triggers of the source-edit capability, not two stacks.
 - One reference resolver module is shared by the static and React surfaces (both hit `/api/live/*/index` and future graph projection APIs); there is no parallel reimplementation.
 - The "shared context" is **not a single store**. It decomposes into:
@@ -202,7 +205,7 @@ flowchart TB
   - source editing → source revision (two-phase writer),
   - prep drafting → `draft_only`,
   - proposed memory change → `preview_write`,
-  - correction/commit → Graph Review / governed Kernel path (`confirm_commit`),
+  - correction/commit → governed World-change path (Buddy review/confirmation → WorldKeeper → DungeonMind),
   - Plan does **not** own durable commit semantics.
 - The surface consumes derived views through an adapter (`source artifact` → `source anchor` → `source unit`), so a later Tiptap-backed or graph-backed source is a config/adapter change, not a surface rewrite.
 
@@ -257,14 +260,19 @@ For recap-ingestion proof and "what was ingested?" surfaces, the provider consum
 
 ## Boundary with the Ontology / Taxonomy ladder and Campaign Supergraph
 
-Derived semantics, controlled vocabulary, and the graph model are owned by the Campaign Supergraph architecture and the `experiment/ontology-taxonomy-ladder` workstream, not by this plan (see `Docs/Experiments/EXPERIMENT-Ontology-Taxonomy-Ladder.md` and `Docs/Design/ARCHITECTURE-campaign-supergraph.md`). This surface plan must:
+Durable World semantics, controlled vocabulary, identity, and publication are
+not owned by Plan. The Campaign/World architecture records the product
+invariants; DungeonMind is the durable authority, with governed World changes
+coordinated through the accepted Buddy/WorldKeeper boundary. Historical
+ontology/taxonomy work informed this boundary but does not sequence new Plan
+work. This surface reference must:
 
 - Consume existing Markdown, session-memory JSONL, manifests, routes, corpus indexes, and World Supergraph / projection node views via an adapter.
 - Use `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md` as the minimal shared source vocabulary for ingestion consumers: current ingestion emits `IngestionSourceBundle`; graph-backed retrieval produces/enriches the same `SourceUnit` envelope.
 - Use `Docs/Design/CONTRACT-agent-tool-authored-prep-contributions-v0.md` for agent tool categories and durable write boundaries.
 - **Not** build a unified knowledge store here, and **not** collapse GM prep, rumor, candidate facts, and played truth into "one state everything reads and writes" — that conflation is explicitly forbidden; provenance + lifecycle belong in separate state machines (source envelope, authored-prep lifecycle, GraphContribution status).
 - **Resolve, don't declare:** the surface owns no category vocabulary. Entity kind is resolved via graph-aware resolver → World Supergraph / projection node view → corpus-index fallback; the taxonomy registry stays the canonical owner.
-- **Opaque locators, no identity work on Plan:** `refId` is a locator only. The surface performs no alias resolution, identity merge, or relationship inference — those belong to Graph Review / Kernel path.
+- **Opaque locators, no identity work on Plan:** `refId` is a locator only. The surface performs no durable alias resolution, identity merge, or relationship publication; those remain governed World-authority operations.
 - **Adapter speaks the source vocabulary** (`source artifact` → `source anchor` → `source unit`) so graph-backed retrieval is a drop-in swap, not a translation layer.
 
 ### Sequencing (decided)
@@ -296,7 +304,11 @@ Retain the config heart: styling is loaded through config, not hardcoded per sur
 - The shell applies theme tokens as CSS custom properties at the surface root and passes `themeId` down to the canvas exactly as the spike does, so a future theme is a config change, not a component rewrite.
 - Workflow and content components inherit the surface tokens so projected surfaces visually belong to the surface rather than carrying their own palette.
 
-## Implementation Approach
+## Historical implementation approach — settled, do not dispatch
+
+The construction recipe below is retained as implementation history. Current
+Plan/UI work must not resume this ladder; select work from current workstream
+authority after re-anchor.
 
 1. Add a real `/plan` route in `apps/live-control-ui/src/App.tsx`, separate from `/surface` and the static `evals/.../live-play.html` dogfood page.
 2. Introduce a `SurfaceConfig` type with only what `/plan` needs now: identity, label, context, tools, canvas, and theme. Do not pre-build nav/edit config breadth or build/combat/play knobs speculatively; generalize when a second surface arrives.
@@ -313,9 +325,10 @@ Retain the config heart: styling is loaded through config, not hardcoded per sur
 13. Build content surfaces only for kinds with a real resolver/index today (`npc`, `location`, `statblock`, `roll-table`). Do not pre-build item/map/creation surfaces; the registry stays open for them.
 14. Treat the static Mireward toolbox and current `/surface` module shell as dogfood-only or transitional. The durable product direction is React surfaces: `/plan` first, then `/play` absorbing combat/runbook/live-control modules through the same SurfaceShell + Agent Interaction projection model.
 
-## Delivery: branch ladder and agent PR stories
+## Historical delivery ladder — do not dispatch
 
-This plan's output is a sequence of agent handoffs, not a single monolithic change. Build it as a second branch ladder (sibling to `experiment/ontology-taxonomy-ladder`) so agents work in parallel on independently defensible rungs.
+The sequence below records the branch/rung strategy used to build the original
+Plan surface. It is historical evidence, not current branch or PR authority.
 
 ### Branch model
 
@@ -410,7 +423,7 @@ authority for Build/canvas follow-ons:
 - Do not hardcode ingestion/statblock as one-off ToolBar branches; register them in the one projection registry.
 - Do not build a separate projection path for reference chips. Tool launches and reference-chip expansions must resolve through the same projection registry and adaptive container.
 - Do not let edit-in-place bypass the lock model or the two-phase corpus writer. Projected content surfaces are read-only until unlocked, and unlocked edits commit through the existing writer.
-- Do not build a unified knowledge/schema store in this plan, and do not collapse prep/rumor/candidate/played truth into one shared state. Derived semantics and durable graph meaning belong to the Campaign Supergraph / Kernel path; consume source artifacts and World Supergraph projections through an adapter only.
+- Do not build a unified knowledge/schema store in Plan, and do not collapse prep/rumor/candidate/played truth into one shared state. Durable World semantics belong to DungeonMind; consume governed World/source views through Buddy boundaries rather than recreating authority in the surface.
 - Do not let Agent Interaction consume raw ingestion internals as its semantic model. Recap-ingestion proof and memory projections go through `IngestionSourceBundle` per `Docs/Design/CONTRACT-surface-vocabulary-boundary-v0.md`.
 - Do not declare a surface-owned category/type enum. Resolve kind from the corpus indexes; treat `refId` as an opaque locator; do no alias/identity/merge/relationship inference (ladder-owned).
 - Keep it singular: one projection registry, one edit capability, one reference resolver module, one `SurfaceConfig.theme`. If you find yourself adding a second of any of these, stop.

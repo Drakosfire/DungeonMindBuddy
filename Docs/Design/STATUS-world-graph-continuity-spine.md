@@ -1,36 +1,35 @@
 # Current State — World Graph Continuity Spine
 
-**Status:** Current-state guide; not a replacement for architecture or sequencing authority
-**Updated:** 2026-08-29 — D.3A mounted graph-engine excision is `COMPLETE` / MERGED Buddy #665 (accepted head `189ffd50157534d192b2af008c48a76d12ccbc4c`; merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`; 3 formal review cycles; Cycle 3 PASS-equivalent `5059851179`); D.3B physical legacy-package deletion is `DOING` / active lease (`cutover/delete-legacy-graph-engine`; dispatch base `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`); D.3 is not `DONE`
-**Active CUTOVER slice:** D.3B physical legacy-package deletion (`cutover/delete-legacy-graph-engine`). Predecessor D.3A / #665 is `COMPLETE` / MERGED. Dispatch base `d4a91d7b727c0eae7dd0e09ba068e250b4819b44`.
-**Repository anchor:** `d4a91d7b727c0eae7dd0e09ba068e250b4819b44` (Buddy `main` / D.3B dispatch base; contains D.3A merge `1a98bdb8a462ecc088ee70c2cecbed5c0d99ac3b`)
-**Dispatch gate:** D.3B physical legacy-package deletion owns the active CUTOVER write lease. Do not mark D.3B `DONE` before merge. Do not invent D.3B merge/review facts. D.3 remains not `DONE` until D.3B merges.
-**#536 design predecessor:** `413e808112dc85499651cf232ff71614dc4b18b6`
-**DungeonMind pin:** `5ca5d688612349034f8ca490d465af166d883e6e` (DungeonMind PR #47 merge / reviewed-init provenance compatibility; consumed unchanged by #658 and this D.2C3 resume). Historical D.2C2 runtime pin was PR #46 `bf40e933bdedf3cf08bb23a07a135958bdb7cc6b`.
+**Status:** FROZEN HISTORICAL SNAPSHOT — no longer the repository current-state guide
+**Settled:** 2026-09-25
+**Last live snapshot:** 2026-08-29
+**Terminal correction:** D.3B / Buddy #667 merged; CUTOVER implementation is CLOSED.
+**Current state entrypoint:** `README.md` + `Docs/Design/INDEX-design-agent-source-set.md` + active domain authorities.
+**Do not dispatch:** any gate or next-step list retained below.
+
 **Architecture:** [`ARCHITECTURE-campaign-supergraph.md`](ARCHITECTURE-campaign-supergraph.md)
 **Roadmap:** [`../Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
 **Tracker:** [`../Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
 **Integration roadmap:** [`../Roadmaps/ROADMAP-cross-surface-statblock-demo.md`](../Roadmaps/ROADMAP-cross-surface-statblock-demo.md)
 **UI shell (cross-boundary):** [`ARCHITECTURE-surface-interaction-layer.md`](ARCHITECTURE-surface-interaction-layer.md)
 
-## Why this exists
+## Why retained
 
-DungeonBuddy's graph work now spans storage, extraction, Graph Review, Recap, Build, Plan, Hermes, Play, mechanics, and DungeonMind whole-world adoption. This document is the concise operational map: what owns truth, how reads and writes move, what the durable product spine established, what the August semantic-adoption spine established, and what remains false.
+This document is the preserved August continuity/cutover snapshot. It remains
+useful for reconstructing how Buddy's graph work moved through extraction,
+Graph Review, Plan/Build/Hermes consumption, whole-world adoption, and CUTOVER.
 
-## Objective in one sentence
+It is no longer an operational map or authority stack.
 
-Turn raw campaign prose and authored records into governed, correctable World Graph memory that every surface and Hermes can use through exact identity and revision-aware projections, without giving any surface, agent, adapter, or diagnostic analyzer silent write authority.
+## Authority stack at the time of this snapshot — historical
 
-## Authority stack
+1. `ARCHITECTURE-campaign-supergraph.md` — World-model invariants (still current after ownership re-anchor).
+2. `ROADMAP-campaign-supergraph.md` — historical program roadmap.
+3. `PR-TRACKER-campaign-supergraph.md` — historical program sequence.
+4. Owning design contracts and handoffs of that era.
+5. Tests, dogfood, adjudication fixtures, source seals, and reports as evidence.
 
-1. `ARCHITECTURE-campaign-supergraph.md` — invariants and ownership.
-2. `ROADMAP-campaign-supergraph.md` — phases and critical path.
-3. `PR-TRACKER-campaign-supergraph.md` — active implementation order.
-4. Owning design contracts and current handoffs — one bounded capability.
-5. Tests, dogfood, adjudication fixtures, source seals, and reports — evidence that the contract is true.
-6. Historical handoffs and old roadmaps — context only.
-
-The repository anchor and external dependency pin above are context for this state guide. They do not freeze future work; after `main` advances, re-read the authority stack and re-anchor this document instead of assuming these hashes remain current.
+For current work, start from README + `INDEX-design-agent-source-set.md`.
 
 ## Durable model
 
@@ -360,3 +359,5 @@ When adding or reviewing a feature, ask:
 - Which obsolete path is deleted when this becomes production-ready?
 
 If those questions do not have exact answers, the capability is not yet on the continuity spine.
+
+
