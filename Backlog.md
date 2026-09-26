@@ -315,8 +315,8 @@ This is deliberately **non-status design input**, not an immediate successor to 
 
 ### Goal 9 — Make presentation iteration cheap before the next broad UI design pass
 
-**Updated:** 2026-09-25  
-**Roadmap owner:** `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` UI Presentation Substrate sidequest.  
+**Updated:** 2026-09-25
+**Roadmap owner:** `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` UI Presentation Substrate sidequest.
 **Sequencing plan:** `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`.
 
 **Outcome:** Preserve Buddy's mature frontend interaction/runtime kernel while

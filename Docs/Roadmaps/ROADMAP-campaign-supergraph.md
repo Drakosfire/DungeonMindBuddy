@@ -376,9 +376,9 @@ The tracker, not this roadmap, decides which `READY` slice is dispatched next. C
 
 ## UI design re-entry checkpoint — Frontend Presentation Substrate sidequest
 
-**State:** ACTIVE SIDEQUEST — UI-F0 current; broad UI redesign held
+**State:** ACTIVE SIDEQUEST — UI-F1 merged; UI-F2 next; broad UI redesign held
 
-**Re-anchor:** Buddy `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
+**Re-anchor:** Buddy `main@8b94fc52f08288663403ba7834f538a3de83d7c0`
 
 **Sequencing authority:** [`PLAN-ui-presentation-substrate-sidequest-v1.md`](../Plans/PLAN-ui-presentation-substrate-sidequest-v1.md)
 
@@ -416,13 +416,13 @@ paper/chrome/ops visual treatment
 The sidequest sequence is:
 
 ```text
-UI-F0  substrate contract + roadmap                         CURRENT
-UI-F1  semantic tokens + tiny primitive layer + Ladle      NEXT
-UI-F2  canonical fixture showroom + first ObjectSheet      QUEUED
-UI-F3  controller/presentation split on mature hosts       QUEUED
-UI-F4  canonical demo fixtures + small visual regression   QUEUED
-UI-F5  Canvas Page/Print convergence experiment            QUEUED
-UI-F6  choose next broad UI product slice from evidence    LATER
+UI-F0  substrate contract + roadmap                         MERGED — #755
+UI-F1  tokens + 4 primitives + Ladle                        MERGED — #768
+UI-F2  World-object showroom + ObjectSheet                  NEXT — design PR #757
+UI-F3  ToolHost behavior/presentation split                 QUEUED
+UI-F4  <=10-story canonical visual contract                 QUEUED
+UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
+UI-F6  post-substrate human/steward decision STOP           LATER
 ```
 
 The development machine is treated as resource-constrained. The default posture
@@ -454,21 +454,28 @@ PostgreSQL, an ingest run, or a backend API.
 
 ### Canvas convergence now belongs to UI-F5
 
-After the isolated presentation lab exists, prove or falsify:
+After the isolated presentation lab exists, test the narrower seam:
 
 ```text
-authoritative MarkdownCanvasSession / TipTap document
-→ Buddy-owned adapter
-→ standalone Canvas representation
-→ read-only Page / Print projection
+fixed current-schema Buddy TipTap document
+→ Buddy-owned semantic adapter
+→ Canvas layout inputs
+→ Canvas measurement / pagination
+→ LayoutPlan
+→ Buddy-owned Page projection
 ```
 
-The first witness remains a representative Runbook/Plan document with prose,
-table, callout, graph reference, and Playable semantics.
+Buddy does not adopt Canvas PageDocument persistence or Canvas's current visible
+CanvasPage treatment. An exact installable layout-only Canvas artifact is an
+activation prerequisite; local links/vendor workarounds are not acceptable.
 
-Only after that proof should the product decide whether Flow / Page / Board are
-alternate projections of one Buddy work object, and whether spatial mechanics
-belong in Canvas, a third-party substrate, or an adapter beneath Canvas.
+The first witness remains a representative Runbook/Plan document with prose,
+table, callout, exact graph reference, and Playable semantics. Record
+YES / NARROWER / NO before deciding whether Flow / Page / Board deserves further
+work.
+
+UI-F6 is then a human/steward STOP, not an implementation slice. It may authorize
+at most one successor or explicitly resume non-UI product work.
 
 ### Sidequest boundary
 
@@ -484,7 +491,8 @@ The sidequest exits when Buddy has:
 1. semantic presentation tokens;
 2. a small reusable primitive/pattern layer;
 3. an isolated backend-free UI workshop;
-4. representative static Object/Scene/Peek/Canvas fixtures;
+4. representative static World-object and ToolHost presentation fixtures,
+   plus the bounded Canvas convergence fixture;
 5. at least one mature interaction component split cleanly between behavior and
    replaceable presentation;
 6. a small canonical visual-regression suite;

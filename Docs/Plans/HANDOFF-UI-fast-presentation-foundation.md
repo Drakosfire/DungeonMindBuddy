@@ -5,11 +5,11 @@ pr_body_template: |
   - Flow: UI
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md
-  - Branch / PR: none while BLOCKED
+  - Branch / PR: one serial implementation PR from activation-time main
   - PR topology: serial
 
   ## Verification pointer
-  - Design authority / head: UI sidequest plan on PR #755 head ce0a4b7cceab035298eddf56cc80f0fa4789c5be
+  - Design authority / head: UI sidequest plan merged by PR #755 at fb7437aa763f32cc98cb26b06911558deb41f761
   - Changed paths: exact §4 allowlist only
   - Verification: npm UI workshop build + focused Vitest + typecheck + production Vite build + diff checks
 
@@ -19,22 +19,28 @@ pr_body_template: |
 
 # HANDOFF — UI fast presentation foundation
 
-**Created:** 2026-09-25  
-**Status:** BLOCKED — UI Presentation Substrate sidequest PR #755 must merge; steward then re-anchors and activates this handoff  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md`  
-**Conversation/workstream:** `UI Presentation Substrate Sidequest`  
-**Flow / owner:** `UI`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Design authority base:** `ce0a4b7cceab035298eddf56cc80f0fa4789c5be` — PR #755 design head  
-**Activation gate:** PR #755 merged; fresh-main re-anchor confirms no conflicting frontend-foundation lease and Ladle remains compatible with the existing Vite/React toolchain  
-**Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review rather than trying to self-reference it inside this main commit.  
-**PR topology:** `serial`  
-**PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs  
+**Created:** 2026-09-25
+**Status:** COMPLETE / HISTORICAL — implementation PR #768 merged at `8b94fc52f08288663403ba7834f538a3de83d7c0` after one formal review cycle
+**Canonical handoff path:** `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md`
+**Conversation/workstream:** `UI Presentation Substrate Sidequest`
+**Flow / owner:** `UI`
+**Direction:** DESIGN → CODE → REVIEW
+**Design authority base:** `fb7437aa763f32cc98cb26b06911558deb41f761` — PR #755 merge
+**Activation gate:** PR #755 merged at `fb7437aa763f32cc98cb26b06911558deb41f761`; fresh-main re-anchor confirms no conflicting frontend-foundation lease and Ladle remains compatible with the existing Vite/React toolchain
+**Activation record:** PR #756 merged at `f430dec3ca81a93f554ff9cd546693a1d1e4dd0b`; no open PR claims the frontend package/lockfile; `@ladle/react@5.1.1` requires React ≥18, Vite ^6.0.5, Node ≥20, and the target host has Node 20.20.2 available
+**Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review rather than trying to self-reference it inside this main commit.
+**PR topology:** `serial`
+**PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs
 **PR title:** `UI: add fast presentation workshop`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
-> Handoff lifecycle: the designing steward lands this file on `main`. `BLOCKED` means durable design authority only—no implementation lane and no active §4 lease. The steward changes `BLOCKED → ACTIVE` only after re-anchoring and verifying the activation gate.
+> Handoff lifecycle: this file landed on `main` as BLOCKED. The steward has now
+> re-anchored and verified the activation gate. Its §4 lease applies to the one
+> serial UI-F1 implementation lane from activation-time `main`. That lane has
+> merged; the write lease is released. The inherited `ThreatPublicationPanel.tsx`
+> JSX namespace failure was reproduced on the activation base and remained
+> outside UI-F1. The workshop build and focused primitive tests passed.
 
 ## §1 Mission and merge-ready invariant
 
@@ -58,8 +64,8 @@ pr_body_template: |
 | Field | Required content |
 |---|---|
 | Parent authority | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md` |
-| Design authority base | `ce0a4b7cceab035298eddf56cc80f0fa4789c5be` |
-| Activation gate | PR #755 merged + re-anchor |
+| Design authority base | `fb7437aa763f32cc98cb26b06911558deb41f761` |
+| Activation gate | satisfied on `main@f430dec3ca81a93f554ff9cd546693a1d1e4dd0b`; no package/lockfile collision; Ladle 5.1.1 compatible with React 19/Vite 6 under Node 20.20.2 |
 | Dispatch base rule | fresh current main containing this handoff after activation; exact branch base recorded at dispatch/review |
 | Predecessor contract | Existing React 19 / Vite 6 / Vitest frontend; no existing component workshop |
 | Exact input consumed | Static React props only; no server DTO fetch, provider state, database, or environment-specific product state |
@@ -70,7 +76,7 @@ pr_body_template: |
 | Authorized PR action | open/update exactly this assigned PR without asking; no additional PRs |
 | Open implementation PRs in workstream at dispatch | none required; steward must re-check |
 | Stack parent + merge/rebase order | not applicable |
-| Branch / isolated checkout | none while BLOCKED; create one isolated implementation branch/worktree from activation-time main |
+| Branch / isolated checkout | one isolated implementation branch/worktree from activated `main` |
 | Parallel lanes / collision hotspots | CON-READY PLAY may proceed if disjoint; `apps/live-control-ui/package.json` and lockfile are collision hotspots |
 | Runtime/state ownership | frontend-only; no backend/runtime state; workshop port may be chosen freely at local launch |
 | State-authority sync set after merge | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` records UI-F0 complete / UI-F1 active predecessor truth only |
@@ -189,6 +195,20 @@ Not applicable — no production consumer migrates in F1.
 | Workshop has no product runtime dependency | source boundary | adversarial | static search of `src/ui/**` and `.ladle/components.tsx` | no imports from live API, surface providers, graph/world runtime | any such import |
 | Weak-laptop workflow is real | developer workflow | manual | stop backend services; run `npm --prefix apps/live-control-ui run ui`; open all F1 stories; edit one token | stories render; HMR reflects token edit without backend | backend/network requirement or unusably heavy workflow |
 | Lease stays exact | Git diff | contract | `git diff --check` + `git diff --name-only <dispatch-base>...HEAD` | only §4 paths | any unexpected path |
+
+For the repository's exact-head review runner, execute the commands above from
+the repository root with Node 20 or newer. The typecheck and production build
+may fail only at the identical inherited base failure described below; the
+reviewer must compare base and head rather than mark those commands green.
+
+```bash
+npm --prefix apps/live-control-ui ci --no-audit --no-fund
+npm --prefix apps/live-control-ui run ui:build
+npm --prefix apps/live-control-ui run test -- src/ui/primitives.test.tsx
+npm --prefix apps/live-control-ui run typecheck
+npm --prefix apps/live-control-ui run build
+git diff --check fa01c768...HEAD
+```
 
 ### Minimal live / dogfood proof
 

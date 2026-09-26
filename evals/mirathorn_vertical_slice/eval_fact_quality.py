@@ -386,7 +386,7 @@ def _run_pipeline(
     _vlog(f"    chunking complete: {len(evidence_units)} evidence units")
 
     _vlog("  - Running Pass 1 entity extraction...")
-    entity_client = OpenAIResponsesEntityClient(api_key=api_key)
+    entity_client = OpenAIResponsesEntityClient()
     entity_bundle = run_entity_extraction(
         evidence_units,
         model=entity_model,

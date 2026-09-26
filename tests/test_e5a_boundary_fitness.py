@@ -270,6 +270,7 @@ BASELINE_GENERATIONENGINE_IMPORTS: frozenset[tuple[str, str]] = frozenset(
         ("src/agent/document_planner.py", "generationengine"),
         ("src/agent/synthesis.py", "generationengine"),
         ("src/compiler/wiki_compiler.py", "generationengine"),
+        ("src/ingestion/entity_extractor.py", "generationengine"),
         ("src/ingestion/frontmatter_inference.py", "generationengine"),
         ("src/ingestion/fact_extractor.py", "generationengine"),
         ("src/live_play/live_turn_classifier_client.py", "generationengine"),

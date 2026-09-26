@@ -3,7 +3,7 @@
 **Created:** 2026-09-25
 **Status:** ACTIVE SIDEQUEST — bounded frontend foundation before broad UI redesign
 **Repository:** Drakosfire/DungeonMindBuddy
-**Re-anchor:** main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4
+**Re-anchor:** main@8b94fc52 — UI-F1 merged as PR #768; UI-F0 merged as PR #755 at `fb7437aa763f32cc98cb26b06911558deb41f761`
 **Roadmap owner:** Docs/Roadmaps/ROADMAP-campaign-supergraph.md UI design re-entry checkpoint
 **Architecture owner:** Docs/Design/ARCHITECTURE-surface-interaction-layer.md
 **Visual language:** Docs/Design/ui-language/DESIGN-interaction-layer-language.md
@@ -266,20 +266,15 @@ enough to justify the cost. Do not support both.
 
 ### Headless accessibility mechanics
 
-Preferred: Base UI, selectively and behind Buddy-owned wrappers.
+Deferred option: Base UI or another focused headless primitive library may be added
+later **only when one concrete Buddy presentation pattern needs interaction
+mechanics that are costly to implement correctly**.
 
-Candidate mechanics:
+UI-F1 intentionally adds no headless library. Native elements remain preferred
+when they already satisfy the interaction.
 
-~~~text
-Dialog
-Popover
-Tooltip
-Tabs
-Menu / Select where needed
-Accordion / disclosure where native details is insufficient
-~~~
-
-Do not replace SurfaceInteraction state machines or Buddy authority with Base UI.
+Do not replace SurfaceInteraction state machines or Buddy authority with a headless
+library, and do not add one speculatively to complete a component checklist.
 
 ### Visual regression
 
@@ -303,34 +298,21 @@ apps/live-control-ui/src/ui/
   fixtures/
 ~~~
 
-Initial primitives should stay small, approximately:
+UI-F1 starts with exactly four primitives:
 
 ~~~text
-Button
-IconButton
-Badge
-Chip
-Stack
-Cluster
 Surface
-Divider
-Disclosure
-Popover
-Tooltip
-Tabs
-Dialog
+Button
+Badge
+Stack
 ~~~
 
-Initial patterns may include:
+Additional primitives are earned by a concrete presentation consumer rather than
+pre-built as a design-system inventory.
 
-~~~text
-PeekPane
-ObjectSheet
-SceneSheet
-AgentDock
-SourceExcerpt
-RelationshipList
-~~~
+The first product pattern is ObjectSheet in UI-F2. Other patterns such as PeekPane,
+SceneSheet, AgentDock, SourceExcerpt, and RelationshipList remain directional
+vocabulary only until a later consumer requires them.
 
 This is not a new domain layer.
 
@@ -339,13 +321,13 @@ This is not a new domain layer.
 ## 8. Slice sequence
 
 ~~~text
-UI-F0  substrate contract + roadmap                         CURRENT DOCS SIDEQUEST
-UI-F1  semantic tokens + tiny primitive layer + Ladle      NEXT
-UI-F2  canonical fixture showroom + first ObjectSheet      QUEUED
-UI-F3  controller/presentation split on mature hosts       QUEUED
-UI-F4  canonical demo fixtures + small visual regression   QUEUED
-UI-F5  Canvas Page/Print convergence experiment            QUEUED
-UI-F6  choose next broad UI product slice from evidence    LATER
+UI-F0  substrate contract + roadmap                         MERGED — #755
+UI-F1  tokens + 4 primitives + Ladle                        MERGED — #768
+UI-F2  World-object showroom + ObjectSheet                  NEXT — design re-anchor required
+UI-F3  ToolHost behavior/presentation split                 QUEUED
+UI-F4  <=10-story canonical visual contract                 QUEUED
+UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
+UI-F6  post-substrate human/steward decision STOP           LATER
 ~~~
 
 Each slice must be independently useful.
@@ -392,165 +374,174 @@ Keep dependencies and startup work bounded.
 
 ---
 
-## 10. UI-F2 — representative showroom
+## 10. UI-F2 — World-object showroom
 
 ### Mission
 
-Prove the presentation layer on real Buddy-shaped content without live product state.
+Prove the presentation layer on one real Buddy-shaped contract without live
+product state.
 
-Canonical static fixture families:
+The slice creates one ObjectSheet over the existing
+`GraphObjectCardViewModel` and exactly the representative pressure needed to
+judge the boundary:
 
 ~~~text
-World object
-  sparse NPC
-  rich NPC
-  Location
-  Faction
-  Threat
-  long relationship set
-
-Peek
-  object
-  tools
-  Agent
-  loading/error
-  long content
-  narrow
-
-Play
-  Scene
-  read-aloud
-  GM note
-  rule
-  warning
-  Decision
-
-Canvas
-  editable
-  dirty
-  conflict
-  loading
+sparse NPC
+rich NPC
+Location
+Faction
+relationship-heavy object
 ~~~
 
-First migration candidate: World-object presentation.
-
-Preserve the existing complete-object view-model boundary; presentation may be
-new.
+Full Threat/statblock mechanics remain on their existing mature presentation path.
+Production `GraphObjectCard` is not migrated in this slice.
 
 ### Exit question
 
-Can we materially restyle/rearrange one representative Buddy object faster in
-the isolated lab than by editing the live Ingest/Plan path?
+Can we materially restyle/rearrange representative World objects faster in the
+isolated lab than by editing the live Ingest/Plan path, **without widening the
+existing view-model contract**?
 
-If no, fix the substrate before broadening it.
+If no, fix the substrate/boundary before broadening it.
 
 ---
 
-## 11. UI-F3 — separate behavior from paint
+## 11. UI-F3 — ToolHost behavior/presentation split
 
 ### Mission
 
-Make mature interaction hosts visually replaceable without weakening their state
-machines.
+Prove one mature interaction state machine can keep all of its behavior while its
+visual DOM/CSS becomes replaceable.
 
-Priority candidates:
+UI-F3 applies that pattern to **ToolHost only**.
+
+Target:
 
 ~~~text
 ToolHost
-EditHost
-GraphObjectCard / ObjectSheet
-Agent dock
-~~~
-
-Target pattern:
-
-~~~text
-existing controller / interaction state
-→ presentation model
-→ replaceable UI pattern
+  lease / identity / open-close / async activation / focus
+        ↓
+ToolHostView
+  presentation DOM + ToolHost-specific paint
 ~~~
 
 Preserve:
 
-- exact surface/work identity;
+- exact surface identity;
 - lease invalidation;
 - disabled reasons;
+- click-time current-tool activation;
 - async stale protection;
-- focus/keyboard behavior;
-- Peek/Projection semantics.
+- Escape/focus behavior;
+- Ingest Peek versus legacy drawer placement.
 
-Do not change product authority to simplify rendering.
+No visual redesign is bundled into the extraction. EditHost, Agent dock, and other
+mature hosts remain future candidates only if this proof is cheap and successful.
 
 ---
 
-## 12. UI-F4 — demo fixture suite and visual safety net
+## 12. UI-F4 — canonical visual contract
 
 ### Mission
 
-Create a small, intentional showroom representing the demo-quality bar.
+Add a small opt-in screenshot safety net over presentation stories already earned
+by UI-F1–F3.
 
-Approximately 8–12 canonical states:
+Do **not** build a second demo-fixture system in this slice.
+
+Constraints:
 
 ~~~text
-Ingest recap + object Peek
-Play current Scene
-Plan populated prep
-Build authored source
-NPC object
-Faction object
-Threat object
-Agent useful
-narrow Play
-narrow Ingest
-first-use / empty state
+Chromium only
+workers = 1
+explicit/on-demand locally
+no Playwright in ordinary npm test
+no backend
+fixed story IDs
+<= 10 committed lossless WebP baselines
 ~~~
 
-Add a small Playwright screenshot suite.
+Initial coverage should come from ObjectSheet and ToolHostView pressure states at
+desktop/narrow widths.
 
-The suite is for large accidental presentation regressions, not pixel policing.
+The suite catches large accidental visual regressions; it is not pixel-policing
+every component and not a multi-browser E2E program.
 
 ---
 
-## 13. UI-F5 — Canvas convergence experiment
+## 13. UI-F5 — Canvas layout convergence experiment
 
-Canvas convergence remains important, but it is no longer the first UI
-re-entry decision.
+Canvas convergence remains important, but the target is now deliberately
+**narrower than adopting Canvas presentation**.
 
-Run it after the presentation lab exists.
+Design-time inspection of `Drakosfire/Canvas` found a promising generic
+measurement/pagination engine plus application-owned component/data-source
+contracts, but its visible `CanvasPage` still carries PHB/statblock-era paint and
+the package needs a separately reviewed packaging correction before Buddy can
+consume an exact layout-only artifact reproducibly.
 
-First witness:
-
-~~~text
-static representative Runbook / Plan TipTap document
-→ Buddy-owned adapter
-→ standalone Canvas representation
-→ read-only Page / Print projection
-~~~
-
-Fixture should include:
-
-- ordinary prose;
-- table;
-- callout;
-- graph reference;
-- Runbook/Playable semantic material.
-
-Success requires:
-
-- one authoritative Buddy document model;
-- no alternate save path;
-- no authority move into Canvas;
-- Buddy-specific semantics remain outside generic Canvas mechanics.
-
-Only after this witness consider:
+Candidate seam:
 
 ~~~text
-Flow
-Page
-Board
+fixed current-schema Buddy TipTap JSON
+→ Buddy semantic adapter
+→ transient Canvas layout inputs
+→ dungeonmind-canvas/layout:
+     CanvasLayoutProvider
+     useCanvasLayout
+     MeasurementPortal
+→ LayoutPlan
+→ Buddy-owned PageProjection
 ~~~
 
-and survey/adoption of a spatial/infinite-canvas substrate.
+The same Buddy block renderer must feed offscreen measurement and visible page
+rendering.
+
+The representative fixture preserves real Buddy semantics:
+
+- ordinary prose/headings;
+- standard TipTap table structure;
+- `callout` kind/label/content;
+- inline `graphNodeReference` exact `nodeId` + label;
+- Playable v2 Beat/Scene/Choice/Option identity metadata.
+
+Do not use Canvas `PageDocument`, `buildPageDocument()`, generated time/random
+IDs, `CanvasPage` visible DOM, root/map imports, or an alternate save path.
+
+The experiment records one terminal verdict:
+
+~~~text
+YES
+NARROWER
+NO
+~~~
+
+A NO is a valid result; do not rescue convergence with more glue inside the same
+slice.
+
+---
+
+## 14. UI-F6 — post-substrate decision STOP
+
+UI-F6 is **not an implementation slice**.
+
+After F1–F5 are accepted, run one bounded demo-oriented human/steward pass using
+both the isolated workshop and current merged product.
+
+The STOP may select at most one next outcome:
+
+~~~text
+one bounded UI successor
+one bounded substrate correction
+one bounded reconnaissance
+RESUME_NON_UI
+~~~
+
+Candidates are re-derived from evidence; there is no preselected Play redesign,
+ObjectSheet rollout, shell rewrite, or Canvas production adoption.
+
+If UI is no longer the highest-value blocker to a credible demo, return to
+CON-READY PLAY or other product capability work rather than polishing by momentum.
 
 ---
 
@@ -634,12 +625,12 @@ The sidequest is complete when all are true:
 1. Buddy has semantic presentation tokens.
 2. Buddy has a small reusable primitive/pattern layer.
 3. An isolated UI workshop runs without backend services.
-4. Representative Buddy objects/Scenes/Peek states can be iterated from static fixtures.
+4. Representative World-object and ToolHost presentation states can be iterated from static fixtures.
 5. At least one mature production component has behavior separated from presentation without regression.
-6. A small canonical visual-regression suite exists.
-7. The Canvas convergence experiment has a recorded YES / NO / NARROWER result.
+6. A small bounded canonical visual-regression suite exists.
+7. The Canvas layout-convergence experiment has a recorded YES / NO / NARROWER result.
 8. A developer can prototype a materially different presentation without touching domain/runtime authority.
-9. The next broad UI slice is selected from actual showroom/product evidence.
+9. A human/steward STOP selects at most one successor — or explicitly resumes non-UI work — from actual product/showroom evidence.
 
 Exit does not require migrating every existing component.
 
@@ -655,8 +646,9 @@ UI language                                  GOOD DESIGN EVIDENCE
 UI-01..UI-05                                 MERGED / useful interaction grammar
 
 UI presentation substrate                   ACTIVE SIDEQUEST
-UI-F0                                        CURRENT
-UI-F1                                        NEXT
+UI-F0                                        MERGED — #755
+UI-F1                                        MERGED — #768 at 8b94fc52
+UI-F2                                        NEXT — design PR #757 must land on current main
 Canvas convergence                           MOVED TO UI-F5
 broad UI redesign                            HELD
 CON-READY PLAY                               INDEPENDENT / MAY RUN IN PARALLEL
