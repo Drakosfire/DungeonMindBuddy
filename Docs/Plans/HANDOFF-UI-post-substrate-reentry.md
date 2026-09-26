@@ -9,7 +9,7 @@ pr_body_template: |
   - PR topology: decision STOP — no implementation PR is authorized by this handoff
 
   ## Verification pointer
-  - Current stacked review parent: #760 exact head c1e1ab086fe80f3e9127d12800bd9b5d74bd7fb2
+  - Current stacked review parent: #760 exact head ca1fef69b3ae11a090aac58ae66ea0e2d67205f6
   - Inputs: accepted UI-F1..UI-F5 handbacks + current demo/product dogfood
   - Output: one re-entry report + at most one newly designed successor handoff
 
@@ -32,7 +32,7 @@ pr_body_template: |
 **Suggested decision artifact:** `Docs/Reports/REPORT-UI-post-substrate-reentry-v1.md`
 
 **Stack re-anchor, 2026-09-26:** Existing PR #761 is based on #760 exact
-head `c1e1ab086fe80f3e9127d12800bd9b5d74bd7fb2`. UI-F5 is still
+head `ca1fef69b3ae11a090aac58ae66ea0e2d67205f6`. UI-F5 is still
 BLOCKED on Canvas's clean layout-only consumer prerequisite; #760 has not
 produced a convergence verdict. Therefore this human/steward STOP is not
 activated, no demo decision is being solicited, and no implementation or
