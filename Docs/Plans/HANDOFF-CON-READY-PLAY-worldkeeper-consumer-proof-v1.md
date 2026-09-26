@@ -24,10 +24,11 @@ pr_body_template: |
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Thread:** `CON-READY / PLAY`
 **PR topology:** serial
-**PLAY-0 accepted head:** `25197d1b9f2dbf96752e453c34456830d5a99d1a`  
-**PLAY-0 final review:** `5324695932` — PASS / READY TO MERGE  
+**PLAY-0 accepted head:** `25197d1b9f2dbf96752e453c34456830d5a99d1a`
+**PLAY-0 final review:** `5324695932` — PASS / READY TO MERGE
 **PLAY-0 merge:** `6e92bec11df22b4b4243cb58c1bbcbe43b109ff6`
-**Activation re-anchor / implementation base:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
+**Pre-activation re-anchor:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
+**Implementation redispatch base:** `main@62f40f581e3d957773cedacc2de04c8478ef861b`
 **Resolved path gate:** PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`; no open PR owns the PLAY-1 dependency or consumer paths at dispatch
 **Activation placement:** guarded Steward activation landed on `main` before implementation redispatch
 **Suggested branch:** `codex/con-ready-play-1-worldkeeper-consumer-proof`
@@ -75,12 +76,13 @@ PLAY-1 requires:
   bounded CON-READY authority/report paths
 ```
 
-PLAY-1 starts from the #767 merge on `main`, not from its PR branch. The
-dependency and consumer paths are free in the open-PR inventory at dispatch.
+PLAY-1 was activated after the #767 merge and redispatched from the guarded
+Steward activation on `main@62f40f58`, not from #767's PR branch. The dependency
+and consumer paths were free in the open-PR inventory at dispatch.
 
-Open settlement PR #766 does not overlap the PLAY-1 implementation/dependency
-lease identified above. If its merge changes current authority documents before
-PLAY-1 activation, re-read them but do not broaden PLAY-1 automatically.
+Settlement PR #766 merged at `a2c400c0c90526df950f5e1be3e2d388c440757c`
+before this re-anchor. Its main-line changes do not overlap the PLAY-1
+implementation/dependency lease or broaden PLAY-1 authority.
 
 Activation checks completed after #767 resolved:
 
@@ -99,7 +101,6 @@ Activation checks completed after #767 resolved:
 
 A later `main` advance is not itself a blocker when these contracts and leases
 remain unchanged. Material contract drift requires rebrief.
-
 
 ## 1. Mission
 
