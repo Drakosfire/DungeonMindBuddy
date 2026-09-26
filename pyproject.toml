@@ -28,7 +28,7 @@ dependencies = [
     "httpx>=0.27.0",
     "uvicorn>=0.30.0",
     "hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git@861d69c7bba8d2ea6a1cd170e989c901c74d32d1",
-    # Exact runtime pin: DungeonMind PR #75 merge (accepted V5 runtime).
+    # Exact runtime pin: DungeonMind V6.K1 authorized-alias runtime plus semantic-profile V3.
     # Frozen V0 contract provenance remains independently pinned to PR #56.
     # The postgres extra carries the in-process PostgreSQL adapter
     # dependencies used by the DungeonMind-backed World Graph authority.

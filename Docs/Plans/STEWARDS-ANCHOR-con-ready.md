@@ -4,15 +4,11 @@
 **Line of work:** `CON-READY / PLAY / DOGFOOD-CONTINUITY`
 **Updated:** 2026-09-25
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor:** `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
-**Current frontier:** **PLAY-0 activation → PLAY-1 Buddy → WorldKeeper consumer proof**
+**Re-anchor:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
+**Current frontier:** **PLAY-1 active — in-memory WorldKeeper consumer proof**
 **V2-3 derived gold:** **NOT AUTHORIZED**
 
-> Repository truth supersedes chat reconstruction. The WorldKeeper extraction,
-> V3 custom-predicate compatibility, and Buddy V3 profile are complete. PLAY-1
-> is the sole next CON-READY implementation candidate. Its handoff remains
-> BLOCKED until PLAY-0 merges, predecessor state is synchronized, and the
-> steward re-anchors and activates the handoff on `main`.
+> Repository truth supersedes chat reconstruction. PLAY-0 / PR #753 is merged and accepted. PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`, releasing `pyproject.toml`. PLAY-1 is the sole ACTIVE CON-READY implementation slice; this guarded Steward sync places its authority on `main` before redispatch.
 
 ## Mandatory pickup order
 
@@ -44,8 +40,11 @@ Buddy V6.1 domain runtime                    ACCEPTED — #749
 Buddy custom-predicate profile V3            MERGED — #754
 Buddy PLAY custom-predicate amendment        MERGED — #752
 
-PLAY-0                                       CURRENT PR
-PLAY-1 consumer proof                        NEXT / BLOCKED
+PLAY-0                                       COMPLETE / MERGED — #753
+  accepted head                              25197d1b9f2dbf96752e453c34456830d5a99d1a
+  final review                               5324695932
+  merge                                      6e92bec11df22b4b4243cb58c1bbcbe43b109ff6
+PLAY-1 consumer proof                        ACTIVE — #767 MERGED
 PLAY-2 persistent isolated authority         BLOCKED
 PLAY-3 browser dogfood                       BLOCKED
 production authority migration               SEPARATELY GOVERNED
@@ -110,12 +109,15 @@ PLAY-1 does not authorize:
 
 ## Dispatch
 
-After PLAY-0 merges:
+PR #767 merged; its `pyproject.toml` collision is resolved. Dispatch is
+authorized only for the bounded PLAY-1 handoff:
 
-1. synchronize PLAY-0 predecessor state and re-anchor fresh `main`;
-2. record the merged base and current dependencies, then activate the PLAY-1
-   handoff on `main`;
-3. create `codex/con-ready-play-1-worldkeeper-consumer-proof`;
-4. execute only the ACTIVE PLAY-1 handoff;
-5. open exactly one serial implementation PR;
-6. do not merge without Steward review.
+1. fetch fresh `main`;
+2. verify no open PR owns `pyproject.toml`, `uv.lock`, or
+   `apps/live_control_server/integrations/worldkeeper/**`;
+3. re-verify WorldKeeper, DungeonMind, and Buddy V3 profile pins;
+4. land the ACTIVE handoff on `main` through the guarded Steward sync;
+5. rebase and use `codex/con-ready-play-1-worldkeeper-consumer-proof`;
+6. execute only that ACTIVE handoff;
+7. open exactly one serial implementation PR;
+8. do not merge without Steward review.

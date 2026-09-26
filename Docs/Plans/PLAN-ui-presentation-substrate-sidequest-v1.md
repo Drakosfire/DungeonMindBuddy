@@ -1,9 +1,9 @@
 # PLAN — UI Presentation Substrate Sidequest v1
 
 **Created:** 2026-09-25
-**Status:** DESIGN PROPOSED IN PR — no implementation lease is active
+**Status:** UI-F0/F1 MERGED; UI-F2 MERGE REVIEW IN PR #771 — no retroactive main implementation lease
 **Repository:** Drakosfire/DungeonMindBuddy
-**Re-anchor:** main@3f0d5549 — prior UI merges reverted; F0 proposed in PR #769, F1 implemented for review in #770, F2 implemented for review in #771
+**Re-anchor:** main@b834c7f6ab26d53dcbed2149ac3660d3a47f7205 — UI-F0/F1 merged as PRs #769/#770; F2 implementation remains in PR #771 pending new-head evidence/review
 **Roadmap owner:** Docs/Roadmaps/ROADMAP-campaign-supergraph.md UI design re-entry checkpoint
 **Architecture owner:** Docs/Design/ARCHITECTURE-surface-interaction-layer.md
 **Visual language:** Docs/Design/ui-language/DESIGN-interaction-layer-language.md
@@ -321,9 +321,9 @@ This is not a new domain layer.
 ## 8. Slice sequence
 
 ~~~text
-UI-F0  substrate contract + roadmap                         PROPOSED — design PR only
-UI-F1  tokens + 4 primitives + Ladle                        IMPLEMENTED IN PR #770 — unmerged review experiment
-UI-F2  World-object showroom + ObjectSheet                  IMPLEMENTED IN PR #771 — unmerged review experiment
+UI-F0  substrate contract + roadmap                         MERGED — PR #769 at 5f62d9c1
+UI-F1  tokens + 4 primitives + Ladle                        MERGED — PR #770 at b834c7f6
+UI-F2  World-object showroom + ObjectSheet                  MERGE REVIEW — PR #771, unmerged
 UI-F3  ToolHost behavior/presentation split                 QUEUED
 UI-F4  <=10-story canonical visual contract                 QUEUED
 UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
@@ -645,10 +645,10 @@ mature graphReference/view-model seams       PRESERVE
 UI language                                  GOOD DESIGN EVIDENCE
 UI-01..UI-05                                 MERGED / useful interaction grammar
 
-UI presentation substrate                   STACKED PR REVIEW — no main implementation lease
-UI-F0                                        PROPOSED IN PR #769
-UI-F1                                        IMPLEMENTED IN PR #770; not merged/active on main
-UI-F2                                        IMPLEMENTED IN PR #771; not merged/active on main
+UI presentation substrate                   F0/F1 MERGED; F2 MERGE REVIEW — no retroactive main implementation lease
+UI-F0                                        MERGED — PR #769 at 5f62d9c1
+UI-F1                                        MERGED — PR #770 at b834c7f6
+UI-F2                                        IMPLEMENTED IN PR #771; not yet merged
 Canvas convergence                           MOVED TO UI-F5
 broad UI redesign                            HELD
 CON-READY PLAY                               INDEPENDENT / MAY RUN IN PARALLEL

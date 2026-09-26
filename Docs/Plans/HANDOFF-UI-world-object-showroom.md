@@ -6,10 +6,10 @@ pr_body_template: |
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-world-object-showroom.md
   - Branch / PR: codex/ui-f2-handoff-restoration / PR #771
-  - PR topology: stacked review experiment; no merge
+  - PR topology: serial merge candidate after #770
 
   ## Verification pointer
-  - Design authority / head: F1 implementation PR #770 at 564a0205
+  - Design authority: F1 PR #770 merged at b834c7f6ab26d53dcbed2149ac3660d3a47f7205
   - Changed paths: exact §4 allowlist only
   - Verification: focused ObjectSheet tests + Ladle build + typecheck + production build + diff checks
 
@@ -20,23 +20,24 @@ pr_body_template: |
 # HANDOFF — UI World-object showroom
 
 **Created:** 2026-09-25
-**Status:** PROVISIONAL IMPLEMENTATION REVIEW IN PR #771 — not ACTIVE on `main`; product owner requested implementation on the existing stacked handoff PR without merging
+**Status:** MERGE REVIEW CANDIDATE IN PR #771 — implementation remains on this existing PR; not an ACTIVE `main` write lease
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-world-object-showroom.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
 **Direction:** DESIGN → CODE → REVIEW
 **Design authority base:** `564a0205` — exact F1 implementation PR #770 head integrated into this branch
-**PR topology:** stacked review experiment on PR #770 at `564a0205`; implement this handoff directly on existing PR #771; no new PR and no merge. Historical PR #757 and implementation PR #768 were merged but reverted.
-**Activation gate for eventual merge:** F1 accepted/merged; this PR re-anchored to fresh `main`; actual primitive/token/workshop API and lease reverified; no such merge is authorized in this experiment
-**Review base:** PR #770 head `564a0205`; the implementation remains provisional until the activation gate is satisfied
+**PR topology:** serial merge candidate after F1 PR #770; the product owner has authorized merging reviewed, ready PRs in order. Historical PR #757 and implementation PR #768 were merged but reverted.
+**Merge gate:** F1 merged at `b834c7f6ab26d53dcbed2149ac3660d3a47f7205`; this branch incorporates that exact `main`; repeat §7 and review this new head before merge
+**Review base:** post-#770 `main` at `b834c7f6ab26d53dcbed2149ac3660d3a47f7205`
 **PR authorization:** update existing PR #771 only; do not open or merge another F2 PR
 **PR title:** `UI: add World-object showroom`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
 > Product-owner review exception: implementation and handoff travel together on
-> this existing stacked PR for designing-agent feedback. This does not claim
-> `ACTIVE` status or an exclusive §4 lease on `main`; §4 bounds only this PR.
+> this existing PR. This does not retroactively claim an ACTIVE `main` lease;
+> §4 bounds only this PR. The post-#770 re-anchor and review are the
+> remaining merge conditions, not a reason to open another PR.
 
 ## §1 Mission and merge-ready invariant
 
@@ -61,17 +62,17 @@ pr_body_template: |
 |---|---|
 | Parent authority | `PLAN-ui-presentation-substrate-sidequest-v1.md`; UI language Goal 4 table-first World objects |
 | Design authority base | `564a0205` — F1 implementation PR #770 exact head |
-| Activation gate | for eventual merge only: F1 merged; F2 re-anchored to current main; lease checked |
-| Review base | PR #770 exact head `564a0205`; provisional implementation on this PR branch |
+| Merge gate | F1 merged at `b834c7f6`; branch incorporates that exact main; new-head §7 and review required |
+| Review base | post-#770 `main` at `b834c7f6ab26d53dcbed2149ac3660d3a47f7205` |
 | Predecessor contract | `apps/live-control-ui/src/graphObjectCard/types.ts` `GraphObjectCardViewModel`; F1 tokens/primitives/workshop |
 | Exact input consumed | Static values conforming exactly to `GraphObjectCardViewModel` |
 | Named successor | UI-F3 — separate one mature production host/controller from replaceable presentation |
 | What remains false | Existing `GraphObjectCard` unchanged; no production ObjectSheet adoption; no Threat/statblock redesign; no screenshot regression suite |
 | Explicit non-goals | graph DTO changes; World read logic; new object fields; evidence admission; relationship semantics; Threat mechanics; production Peek integration |
-| PR topology | stacked review experiment on existing PR #771; no merge |
+| PR topology | serial merge candidate on existing PR #771 after #770 |
 | Authorized PR action | update PR #771 only; no additional F2 PR |
 | Open implementation PRs in workstream at dispatch | F1 PR #770 is the exact unmerged parent |
-| Stack parent + merge/rebase order | not applicable |
+| Stack parent + merge/rebase order | #770 merged first; #771 now targets current `main` |
 | Branch / isolated checkout | existing isolated PR #771 checkout; exact review base above |
 | Parallel lanes / collision hotspots | graphObjectCard production files are read-only evidence; UI-F2 writes only new `src/ui` files plus plan sync |
 | Runtime/state ownership | static workshop only; no backend/runtime state |
