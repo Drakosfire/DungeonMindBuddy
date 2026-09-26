@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "test": "vitest run",
     "typecheck": "tsc -b",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ui": "ladle serve",
+    "ui:build": "ladle build"
   },
   "dependencies": {
     "@tiptap/core": "^2.11.5",
@@ -30,6 +32,7 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
+    "@ladle/react": "5.1.1",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
