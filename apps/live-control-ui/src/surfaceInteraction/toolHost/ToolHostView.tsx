@@ -1,11 +1,27 @@
 import type { Ref } from "react";
 
 import { PeekClaim } from "../peekHost";
-import type { ToolHostGroup } from "./groupTools";
 import "./ToolHostView.css";
 
+/** A display-only tool. Authority callbacks and contribution objects stay in ToolHost. */
+export interface ToolHostViewTool {
+  id: string;
+  label: string;
+  eyebrow?: string;
+  availability:
+    | { status: "enabled" }
+    | { status: "disabled"; disabledReason: string };
+}
+
+export interface ToolHostViewGroup {
+  groupId: string | null;
+  groupLabel: string | null;
+  groupOrder: number;
+  tools: readonly ToolHostViewTool[];
+}
+
 export interface ToolHostViewProps {
-  groups: readonly ToolHostGroup[];
+  groups: readonly ToolHostViewGroup[];
   isOpen: boolean;
   usesIngestPeek: boolean;
   toggleRef?: Ref<HTMLButtonElement>;

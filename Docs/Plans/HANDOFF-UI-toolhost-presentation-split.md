@@ -6,10 +6,10 @@ pr_body_template: |
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-toolhost-presentation-split.md
   - Branch / PR: docs/ui-toolhost-presentation-split / #758
-  - PR topology: stacked provisional review on #771
+  - PR topology: serial repair/review candidate after #771
 
   ## Verification pointer
-  - Review parent: #771 exact implementation head f505921aa822fb4e1dd951519b12c8e1bfd6fefa
+  - Review base: #771 merged into main at 25cae87d66cf02f23d15f68a6163e584bd0441c8
   - Changed paths: exact §4 allowlist only
   - Verification: existing ToolHost behavior suite + new view tests + typecheck/build + diff checks
 
@@ -20,26 +20,24 @@ pr_body_template: |
 # HANDOFF — UI ToolHost presentation split
 
 **Created:** 2026-09-25  
-**Status:** PROVISIONAL IMPLEMENTATION REVIEW IN PR #758 — not ACTIVE on `main`; do not merge before predecessor review and re-anchor
+**Status:** CYCLE-1 REPAIR IN PR #758 — re-anchored after #771; not an ACTIVE `main` write lease
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-toolhost-presentation-split.md`  
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`  
 **Flow / owner:** `UI`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Design authority base:** `bbd3112053a6ac61356a9d3157d3e2be09cab42c` — UI-F2 design head  
-**Provisional review parent:** #771 exact head `f505921aa822fb4e1dd951519b12c8e1bfd6fefa`; #758 is the existing handoff PR, now carrying its implementation
-**Merge gate:** UI-F2 accepted/merged, then re-anchor this PR on current `main` and review the new exact head
-**PR topology:** stacked provisional review experiment; merge order remains UI-F0 → F1 → F2 → F3
-**PR authorization:** user explicitly directed implementation on this existing PR; do not open or merge another PR
+**Review base:** post-#771 `main` at `25cae87d66cf02f23d15f68a6163e584bd0441c8`; #758 is the existing handoff PR carrying its implementation
+**Merge gate:** UI-F2 merged; this branch incorporates that exact `main`; Cycle-1 review repairs and new-head review remain
+**PR topology:** serial repair/review candidate after UI-F0 → F1 → F2 merged
+**PR authorization:** user directed repair on this existing PR and merging reviewed, ready PRs in order; do not open another F3 PR
 **PR title:** `UI: separate ToolHost presentation`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
 **User-directed review experiment, 2026-09-26:** The implementation lives in the
-same unmerged PR as this handoff so the designing agent can review the actual
-slice before any merge. This is PR-local scope, not an ACTIVE `main` write lease.
-The original serial activation wording below records the normal merge route;
-for this experiment, predecessor review/merge is a *merge gate*, not a reason
-to invent another implementation PR. No current-slice completion is claimed.
+same PR as this handoff. This is PR-local scope, not a retroactive ACTIVE
+`main` write lease. The predecessor merge gate is satisfied; the current
+Cycle-1 repair and fresh review remain. No current-slice completion is claimed.
 
 ## §1 Mission and merge-ready invariant
 
@@ -64,17 +62,17 @@ to invent another implementation PR. No current-slice completion is claimed.
 |---|---|
 | Parent authority | Surface Interaction architecture; UI Presentation Substrate plan |
 | Design authority base | `bbd3112053a6ac61356a9d3157d3e2be09cab42c` |
-| Provisional review gate | UI-F2 implemented at #771 head `f505921a`; merge remains gated on predecessor acceptance |
-| Review base | exact #771 implementation head; later re-anchor on fresh `main` before merge |
+| Predecessor merge | UI-F2 PR #771 merged at `25cae87d66cf02f23d15f68a6163e584bd0441c8` |
+| Review base | post-#771 `main` at `25cae87d66cf02f23d15f68a6163e584bd0441c8` |
 | Predecessor contract | singular app-level `ToolHost`; `SurfaceInteractionPublication.tools`; `activateToolContribution`; `groupToolContributions`; Peek placement behavior |
 | Exact input consumed | current effective SurfaceInteraction publication + ToolHost local open/focus state |
 | Named successor | UI-F4 — canonical visual fixture/screenshot contract |
 | What remains false | EditHost still combined; Agent dock still combined; ToolHost visual redesign not attempted; no new tool behavior |
 | Explicit non-goals | new Tool types; command palette; Base UI adoption; ToolHost redesign; AppChrome redesign; EditHost split; projection semantics |
-| PR topology | stacked provisional review on existing #758; serial merge order preserved |
-| Authorized PR action | update #758 only; no new PR or merge |
+| PR topology | serial repair/review candidate on existing #758; F0/F1/F2 are merged |
+| Authorized PR action | update #758 only; no new F3 PR |
 | Open implementation PRs in workstream at dispatch | #770 F1 and #771 F2, both unmerged |
-| Stack parent + merge/rebase order | #771 exact head `f505921a`; F0 → F1 → F2 → F3 |
+| Stack parent + merge/rebase order | #771 merged first; #758 now targets current `main` |
 | Branch / isolated checkout | existing #758 branch in isolated worktree |
 | Parallel lanes / collision hotspots | `ToolHost.tsx`, `ToolHost.test.tsx`, `styles.css`, `surfaceInteraction/**` are shared-shell hotspots |
 | Runtime/state ownership | existing AgentInteractionProvider/SurfaceInteraction lease remains sole runtime owner |
@@ -236,6 +234,18 @@ Smallest realistic scenario: open/close Tools, launch one command/projection, sw
 Expected observation: behavior and placement are interaction-equivalent to base
 Evidence captured: reviewer records any visual/interaction delta; intentional redesign is not allowed in F3
 ```
+
+**Cycle-1 repair smoke (2026-09-26, isolated localhost):** Vite `:5188` was
+proxied to the live FastAPI process on `:8803`. On Plan, opening Tools placed
+the legacy right drawer at approximately `x=825, y=128, width=440` in the
+1265-pixel browser viewport, focused `Close Tools`, and closing it restored
+focus to the Tools toggle. On Ingest, opening Tools placed Diagnostics inside
+the `Secondary context` Peek without a backdrop; closing it removed the visible
+Peek content and left focus on the Tools toggle. This is a placement/focus/
+open-close witness, not a recap/projection witness: the locally configured
+DungeonMind World database returned `authority_unavailable`, although the
+FastAPI process and Tool inventory endpoints were reachable. No model call or
+product write was made.
 
 ### Baseline failure handling
 

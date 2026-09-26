@@ -18,7 +18,7 @@ pr_body_template: |
 # HANDOFF — V6.1 DungeonBuddy vNext domain runtime foundation
 
 **Created:** 2026-09-24  
-**Status:** ACTIVE — ready for implementation  
+**Status:** COMPLETE — `V6_1_DUNGEONBUDDY_DOMAIN_RUNTIME_ACCEPTED`
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Roadmap:** V6 — DungeonBuddy domain implementation  
 **Slice:** V6.1 — executable domain runtime foundation  
@@ -33,6 +33,10 @@ pr_body_template: |
 **Suggested branch:** `vnext/v6-1-domain-runtime-foundation`  
 **Suggested PR title:** `VNEXT: implement DungeonBuddy domain runtime foundation`  
 **Successor:** V6.2 — vNext read adaptation + World-object DTO preservation
+**PR:** `#749`
+**Accepted substantive head:** `9e2abbae42acc847b214460644caef2448637495`
+**Final review:** `5312320001`
+**Merge:** `7a63c8b39937776ddede24d3d76001ef59fd37c4`
 
 ## 1. Mission
 

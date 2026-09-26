@@ -5,7 +5,7 @@ import { sameSurfaceInteractionIdentity } from "../surfaceIdentity";
 import type { SurfaceInteractionIdentity } from "../types";
 import { activateToolContribution } from "./activateToolContribution";
 import { groupToolContributions } from "./groupTools";
-import { ToolHostView } from "./ToolHostView";
+import { ToolHostView, type ToolHostViewGroup } from "./ToolHostView";
 
 type ToolHostCloseReason = "dismiss" | "projection-launch" | "identity" | "inventory";
 
@@ -87,7 +87,19 @@ export function ToolHost() {
     return null;
   }
 
-  const groups = groupToolContributions(tools);
+  const groups: readonly ToolHostViewGroup[] = groupToolContributions(tools).map((group) => ({
+    groupId: group.groupId,
+    groupLabel: group.groupLabel,
+    groupOrder: group.groupOrder,
+    tools: group.tools.map((tool) => ({
+      id: tool.id,
+      label: tool.label,
+      eyebrow: tool.eyebrow,
+      availability: tool.availability.status === "enabled"
+        ? { status: "enabled" as const }
+        : { status: "disabled" as const, disabledReason: tool.availability.disabledReason },
+    })),
+  }));
 
   function handleActivate(toolId: string) {
     const resultOrPromise = activateToolContribution({
