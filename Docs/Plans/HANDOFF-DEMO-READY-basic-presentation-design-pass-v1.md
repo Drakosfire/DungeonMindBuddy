@@ -32,7 +32,7 @@ pr_body_template: |
 **Suggested decision artifact:** `Docs/Reports/REPORT-DEMO-READY-basic-presentation-design-pass-v1.md`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md).
-> Demo authority: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md).
+> Demo authority: [`Docs/Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md). The original C1/C2 design witness remains part of this handoff.
 > UI substrate authority: [`PLAN-ui-presentation-substrate-sidequest-v1.md`](PLAN-ui-presentation-substrate-sidequest-v1.md).
 > UI language: [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](../Design/ui-language/DESIGN-interaction-layer-language.md).
 
@@ -254,7 +254,7 @@ This handoff authorizes design evidence and optional prototype-only UI-lab work 
 |---|---|---|
 | Create | `Docs/Reports/REPORT-DEMO-READY-basic-presentation-design-pass-v1.md` | Dogfood evidence, defect ledger, candidate comparison, product-owner outcome |
 | Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Optional pointer/status sync only if this pass changes active UI posture |
-| Modify | `Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md` | Optional Stage 4/5 STOP result sync after product-owner decision |
+| Modify | `Docs/Roadmaps/ROADMAP-demo.md` | Optional presentation STOP result sync after product-owner decision |
 | Create/Modify | `apps/live-control-ui/src/ui/**/*.stories.tsx` | Prototype-only stories when an existing story cannot express a retained candidate |
 | Create/Modify | `apps/live-control-ui/src/ui/**/*.css` | Prototype-only presentation styling |
 | Create | `Docs/Plans/HANDOFF-DEMO-READY-<accepted-successor>.md` | Optional; exactly one successor after product-owner ACCEPT_ONE |

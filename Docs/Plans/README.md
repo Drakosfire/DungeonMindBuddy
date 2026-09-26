@@ -2,7 +2,7 @@
 
 Execution plans, experiments, audits, and design notes for DungeonMindBuddy.
 
-**Operational truth (lexical retrieval → autonomous demo):** [`PLAN-split-corpus-retrieval-to-autonomous-demo.md`](PLAN-split-corpus-retrieval-to-autonomous-demo.md) + [`CHECKLIST-dynamic-lexical-retrieval-rollout.md`](CHECKLIST-dynamic-lexical-retrieval-rollout.md). Everything else here is supporting context, another track, or historical reference.
+**Current Buddy demonstration:** [`STEWARDS-HANDOFF-demo.md`](STEWARDS-HANDOFF-demo.md) and [`../Roadmaps/ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md) own product execution. The lexical-retrieval plan and checklist below retain their research/rollout history; they do not sequence the DEMO journey.
 
 ---
 

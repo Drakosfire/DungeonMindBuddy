@@ -9,8 +9,8 @@ updated_at: "2026-08-20"
 architecture_authority: "ARCHITECTURE-playable-material-and-runtime.md"
 play_design: "DESIGN-play-surface-projection.md"
 authoring_design: "DESIGN-playable-authoring-and-adoption.md"
-workstream_anchor: "../Plans/STEWARDS-ANCHOR-con-ready.md"
-roadmap: "../Roadmaps/ROADMAP-con-ready.md"
+workstream_anchor: "../Plans/STEWARDS-HANDOFF-demo.md"
+roadmap: "../Roadmaps/ROADMAP-demo.md"
 ---
 
 # ANCHOR — Runbook Lantern
@@ -33,8 +33,8 @@ This anchor is a mnemonic, not sequencing authority.
 
 Read in this order for current design:
 
-1. `Docs/Plans/STEWARDS-ANCHOR-con-ready.md`
-2. `Docs/Roadmaps/ROADMAP-con-ready.md`
+1. `Docs/Plans/STEWARDS-HANDOFF-demo.md`
+2. `Docs/Roadmaps/ROADMAP-demo.md`
 3. `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md`
 4. `Docs/Design/DESIGN-play-surface-projection.md`
 5. `Docs/Design/DESIGN-playable-authoring-and-adoption.md`
