@@ -324,7 +324,7 @@ This is not a new domain layer.
 UI-F0  substrate contract + roadmap                         PROPOSED — design PR only
 UI-F1  tokens + 4 primitives + Ladle                        IMPLEMENTED IN PR #770 — unmerged review experiment
 UI-F2  World-object showroom + ObjectSheet                  IMPLEMENTED IN PR #771 — unmerged review experiment
-UI-F3  ToolHost behavior/presentation split                 QUEUED
+UI-F3  ToolHost behavior/presentation split                 IMPLEMENTED IN PR #758 — unmerged review experiment
 UI-F4  <=10-story canonical visual contract                 QUEUED
 UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
 UI-F6  post-substrate human/steward decision STOP           LATER

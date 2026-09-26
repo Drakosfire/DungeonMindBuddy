@@ -5,11 +5,11 @@ pr_body_template: |
   - Flow: UI
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-toolhost-presentation-split.md
-  - Branch / PR: none while BLOCKED
-  - PR topology: serial
+  - Branch / PR: docs/ui-toolhost-presentation-split / #758
+  - PR topology: stacked provisional review on #771
 
   ## Verification pointer
-  - Design authority / head: UI-F2 handoff design head bbd3112053a6ac61356a9d3157d3e2be09cab42c
+  - Review parent: #771 exact implementation head f505921aa822fb4e1dd951519b12c8e1bfd6fefa
   - Changed paths: exact §4 allowlist only
   - Verification: existing ToolHost behavior suite + new view tests + typecheck/build + diff checks
 
@@ -20,19 +20,26 @@ pr_body_template: |
 # HANDOFF — UI ToolHost presentation split
 
 **Created:** 2026-09-25  
-**Status:** BLOCKED — UI-F2 World-object showroom must be accepted and merged; steward then re-anchors and activates this handoff  
+**Status:** PROVISIONAL IMPLEMENTATION REVIEW IN PR #758 — not ACTIVE on `main`; do not merge before predecessor review and re-anchor
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-toolhost-presentation-split.md`  
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`  
 **Flow / owner:** `UI`  
 **Direction:** DESIGN → CODE → REVIEW  
 **Design authority base:** `bbd3112053a6ac61356a9d3157d3e2be09cab42c` — UI-F2 design head  
-**Activation gate:** UI-F2 implementation accepted/merged; fresh-main re-anchor confirms ToolHost state/DOM ownership still matches this handoff and no active lease overlaps ToolHost/styles paths  
-**Dispatch base rule:** fresh current `main` containing this checked-in handoff after activation; exact implementation branch base recorded at dispatch/review  
-**PR topology:** `serial`  
-**PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs  
+**Provisional review parent:** #771 exact head `f505921aa822fb4e1dd951519b12c8e1bfd6fefa`; #758 is the existing handoff PR, now carrying its implementation
+**Merge gate:** UI-F2 accepted/merged, then re-anchor this PR on current `main` and review the new exact head
+**PR topology:** stacked provisional review experiment; merge order remains UI-F0 → F1 → F2 → F3
+**PR authorization:** user explicitly directed implementation on this existing PR; do not open or merge another PR
 **PR title:** `UI: separate ToolHost presentation`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
+
+**User-directed review experiment, 2026-09-26:** The implementation lives in the
+same unmerged PR as this handoff so the designing agent can review the actual
+slice before any merge. This is PR-local scope, not an ACTIVE `main` write lease.
+The original serial activation wording below records the normal merge route;
+for this experiment, predecessor review/merge is a *merge gate*, not a reason
+to invent another implementation PR. No current-slice completion is claimed.
 
 ## §1 Mission and merge-ready invariant
 
@@ -57,18 +64,18 @@ pr_body_template: |
 |---|---|
 | Parent authority | Surface Interaction architecture; UI Presentation Substrate plan |
 | Design authority base | `bbd3112053a6ac61356a9d3157d3e2be09cab42c` |
-| Activation gate | UI-F2 implementation merge + re-anchor |
-| Dispatch base rule | fresh current main containing this handoff after activation |
+| Provisional review gate | UI-F2 implemented at #771 head `f505921a`; merge remains gated on predecessor acceptance |
+| Review base | exact #771 implementation head; later re-anchor on fresh `main` before merge |
 | Predecessor contract | singular app-level `ToolHost`; `SurfaceInteractionPublication.tools`; `activateToolContribution`; `groupToolContributions`; Peek placement behavior |
 | Exact input consumed | current effective SurfaceInteraction publication + ToolHost local open/focus state |
 | Named successor | UI-F4 — canonical visual fixture/screenshot contract |
 | What remains false | EditHost still combined; Agent dock still combined; ToolHost visual redesign not attempted; no new tool behavior |
 | Explicit non-goals | new Tool types; command palette; Base UI adoption; ToolHost redesign; AppChrome redesign; EditHost split; projection semantics |
-| PR topology | serial |
-| Authorized PR action | open/update exactly this assigned PR only |
-| Open implementation PRs in workstream at dispatch | none required; steward re-checks |
-| Stack parent + merge/rebase order | not applicable |
-| Branch / isolated checkout | fresh isolated implementation branch/worktree after activation |
+| PR topology | stacked provisional review on existing #758; serial merge order preserved |
+| Authorized PR action | update #758 only; no new PR or merge |
+| Open implementation PRs in workstream at dispatch | #770 F1 and #771 F2, both unmerged |
+| Stack parent + merge/rebase order | #771 exact head `f505921a`; F0 → F1 → F2 → F3 |
+| Branch / isolated checkout | existing #758 branch in isolated worktree |
 | Parallel lanes / collision hotspots | `ToolHost.tsx`, `ToolHost.test.tsx`, `styles.css`, `surfaceInteraction/**` are shared-shell hotspots |
 | Runtime/state ownership | existing AgentInteractionProvider/SurfaceInteraction lease remains sole runtime owner |
 | State-authority sync set after merge | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` records UI-F2 completed predecessor / UI-F3 current |
@@ -119,6 +126,7 @@ Adversarial sequences:
 | Modify | `apps/live-control-ui/src/surfaceInteraction/toolHost/ToolHost.test.tsx` | Preserve integrated behavioral regression proof after split |
 | Modify | `apps/live-control-ui/src/styles.css` | Remove only ToolHost-specific styles that move to view CSS; no unrelated paint |
 | Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Backward-looking predecessor sync |
+| Modify | `Docs/Plans/HANDOFF-UI-toolhost-presentation-split.md` | Record the user-directed same-PR review topology truthfully |
 
 **Bounded discovery exception:**
 ```text
@@ -239,7 +247,7 @@ Record exact head/base, ToolHost controller/view responsibility split, actual mo
 
 ## §9 Acceptance rubric
 
-- [ ] UI-F2 predecessor merged and exact F1/F2 presentation APIs recorded.
+- [x] UI-F2 exact unmerged review head and F1/F2 presentation APIs recorded; merger remains gated on predecessor review.
 - [ ] ToolHost remains the runtime/controller owner.
 - [ ] ToolHostView owns presentation only.
 - [ ] View cannot activate a captured stale contribution directly.
