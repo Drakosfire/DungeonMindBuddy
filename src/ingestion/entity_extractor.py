@@ -8,9 +8,10 @@ import re
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 import blake3
+from generationengine import GenerationClient, TextRequest
 from pydantic import BaseModel, Field
 
 from src.contracts.entity_tags import DEFAULT_MAX_ENTITY_TAGS, normalize_entity_tags
@@ -19,7 +20,7 @@ from src.contracts.entity_taxonomy import (
     normalize_semantic_facets,
 )
 from src.contracts.schema_validation import list_validation_failures, validate_many
-from src.llm.api_client import DungeonMindApiClient
+from src.llm.generation_sync import run_awaitable_sync
 from src.store import FactStore
 
 
@@ -318,22 +319,79 @@ class BatchedEntityExtractionResult(BaseModel):
     results: list[UnitEntityResult] = Field(default_factory=list)
 
 
-class OpenAIResponsesEntityClient:
-    """Adapter for OpenAI Responses API structured parsing."""
+def _generation_usage(result: Any) -> dict[str, int]:
+    observation = result.observation
+    return {
+        "input_tokens": int(observation.input_tokens or 0),
+        "output_tokens": int(observation.output_tokens or 0),
+        "cached_tokens": int(observation.cached_input_tokens or 0),
+        "api_calls": int(observation.provider_attempt_count or 0),
+    }
 
-    def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
-        if sdk_client is not None:
-            self._client = sdk_client
-            self._api_client = DungeonMindApiClient.wrap(self._client)
-            return
-        try:
-            from openai import OpenAI  # type: ignore
-        except Exception as exc:  # pragma: no cover - import failure surfaced in caller.
-            raise RuntimeError(
-                "OpenAI SDK is required for OpenAIResponsesEntityClient. Install dependency 'openai'."
-            ) from exc
-        self._client = OpenAI(api_key=api_key)
-        self._api_client = DungeonMindApiClient.wrap(self._client)
+
+async def _generate_structured_payload(
+    client: Any,
+    *,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    result_type: type[BaseModel],
+    schema_name: str,
+) -> dict[str, Any]:
+    response = await client.generate_structured(
+        TextRequest(
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            provider="openai",
+            model=model,
+            profile=None,
+            temperature=None,
+            json_schema=result_type.model_json_schema(),
+            schema_name=schema_name,
+        )
+    )
+    parsed = result_type.model_validate(response.parsed)
+    payload = parsed.model_dump()
+    payload["_usage"] = _generation_usage(response)
+    return payload
+
+
+class OpenAIResponsesEntityClient:
+    """Synchronous compatibility adapter over GenerationEngine."""
+
+    def __init__(
+        self,
+        *,
+        generation_client_factory: Callable[[], Any] | None = None,
+    ) -> None:
+        self._generation_client_factory = (
+            generation_client_factory or GenerationClient.from_env
+        )
+
+    def _run(
+        self,
+        *,
+        model: str,
+        system_prompt: str,
+        user_prompt: str,
+        result_type: type[BaseModel],
+        schema_name: str,
+    ) -> dict[str, Any]:
+        async def operation() -> dict[str, Any]:
+            client = self._generation_client_factory()
+            try:
+                return await _generate_structured_payload(
+                    client,
+                    model=model,
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    result_type=result_type,
+                    schema_name=schema_name,
+                )
+            finally:
+                await client.aclose()
+
+        return run_awaitable_sync(operation)
 
     def extract_entities(
         self,
@@ -345,24 +403,13 @@ class OpenAIResponsesEntityClient:
         known_entities: list[dict[str, Any]],
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = self._api_client.responses_parse(
-            action="entity_extractor.extract",
+        return self._run(
             model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=EntityExtractionResult,
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, EntityExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = EntityExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            result_type=EntityExtractionResult,
+            schema_name="entity_extraction",
+        )
 
     def extract_recap(
         self,
@@ -377,24 +424,13 @@ class OpenAIResponsesEntityClient:
         # Lazy import: recap_models imports ExtractedEntity from this module.
         from src.ingestion.recap_models import RecapExtractionResult as _RecapExtractionResult
 
-        response = self._api_client.responses_parse(
-            action="entity_extractor.extract_recap",
+        return self._run(
             model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=_RecapExtractionResult,
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, _RecapExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = _RecapExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            result_type=_RecapExtractionResult,
+            schema_name="recap_extraction",
+        )
 
     def extract_entities_batched(
         self,
@@ -404,42 +440,25 @@ class OpenAIResponsesEntityClient:
         user_prompt: str,
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = self._api_client.responses_parse(
-            action="entity_extractor.extract_batched",
+        return self._run(
             model=model,
-            input=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            text_format=BatchedEntityExtractionResult,
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, BatchedEntityExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = BatchedEntityExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            result_type=BatchedEntityExtractionResult,
+            schema_name="batched_entity_extraction",
+        )
 
 
 class AsyncOpenAIResponsesEntityClient:
-    """Async adapter for OpenAI Responses API structured parsing."""
+    """Preferred async GenerationEngine adapter for structured entity extraction."""
 
-    def __init__(self, *, api_key: str | None = None, sdk_client: Any | None = None) -> None:
-        if sdk_client is not None:
-            self._client = sdk_client
-            self._api_client = DungeonMindApiClient.wrap(self._client)
-            return
-        try:
-            from openai import AsyncOpenAI  # type: ignore
-        except Exception as exc:  # pragma: no cover
-            raise RuntimeError(
-                "OpenAI SDK is required for AsyncOpenAIResponsesEntityClient. Install dependency 'openai'."
-            ) from exc
-        self._client = AsyncOpenAI(api_key=api_key)
-        self._api_client = DungeonMindApiClient.wrap(self._client)
+    def __init__(self, *, generation_client: Any | None = None) -> None:
+        self._generation_client = generation_client
+
+    def _client(self) -> Any:
+        if self._generation_client is None:
+            self._generation_client = GenerationClient.from_env()
+        return self._generation_client
 
     async def extract_entities(
         self,
@@ -451,26 +470,14 @@ class AsyncOpenAIResponsesEntityClient:
         known_entities: list[dict[str, Any]],
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = (
-            await self._api_client.responses_parse_async(
-                action="entity_extractor.extract_async",
-                model=model,
-                input=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                text_format=EntityExtractionResult,
-            )
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, EntityExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = EntityExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return await _generate_structured_payload(
+            self._client(),
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            result_type=EntityExtractionResult,
+            schema_name="entity_extraction",
+        )
 
     async def extract_recap(
         self,
@@ -484,26 +491,14 @@ class AsyncOpenAIResponsesEntityClient:
     ) -> dict[str, Any]:
         from src.ingestion.recap_models import RecapExtractionResult as _RecapExtractionResult
 
-        response = (
-            await self._api_client.responses_parse_async(
-                action="entity_extractor.extract_recap_async",
-                model=model,
-                input=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                text_format=_RecapExtractionResult,
-            )
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, _RecapExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = _RecapExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return await _generate_structured_payload(
+            self._client(),
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            result_type=_RecapExtractionResult,
+            schema_name="recap_extraction",
+        )
 
     async def extract_entities_batched(
         self,
@@ -513,39 +508,18 @@ class AsyncOpenAIResponsesEntityClient:
         user_prompt: str,
         prompt_id: str,
     ) -> dict[str, Any]:
-        response = (
-            await self._api_client.responses_parse_async(
-                action="entity_extractor.extract_batched_async",
-                model=model,
-                input=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt},
-                ],
-                text_format=BatchedEntityExtractionResult,
-            )
-        ).response
-        parsed = getattr(response, "output_parsed", None)
-        if parsed is None:
-            raise ValueError("OpenAI response parse did not return output_parsed.")
-        if isinstance(parsed, BatchedEntityExtractionResult):
-            result = parsed.model_dump()
-        else:
-            result = BatchedEntityExtractionResult.model_validate(parsed).model_dump()
-        result["_usage"] = _usage_dict_from_openai_response(response)
-        return result
+        return await _generate_structured_payload(
+            self._client(),
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            result_type=BatchedEntityExtractionResult,
+            schema_name="batched_entity_extraction",
+        )
 
     async def aclose(self) -> None:
-        closer = getattr(self._client, "aclose", None)
-        if callable(closer):
-            maybe = closer()
-            if inspect.isawaitable(maybe):
-                await maybe
-            return
-        closer = getattr(self._client, "close", None)
-        if callable(closer):
-            maybe = closer()
-            if inspect.isawaitable(maybe):
-                await maybe
+        if self._generation_client is not None:
+            await self._generation_client.aclose()
 
 
 def _now_utc_iso() -> str:
@@ -860,7 +834,9 @@ def _build_batched_entity_user_prompt(
     )
 
 
-def _pop_usage_from_entity_payload(payload: Any) -> tuple[dict[str, Any], dict[str, int]]:
+def _pop_usage_from_entity_payload(
+    payload: Any,
+) -> tuple[dict[str, Any], dict[str, int | None]]:
     if not isinstance(payload, dict):
         raise TypeError("extract_entities payload must be a dict")
     raw = payload.pop("_usage", None) or {}
@@ -868,6 +844,7 @@ def _pop_usage_from_entity_payload(payload: Any) -> tuple[dict[str, Any], dict[s
         "input_tokens": int(raw.get("input_tokens", 0) or 0),
         "output_tokens": int(raw.get("output_tokens", 0) or 0),
         "cached_tokens": int(raw.get("cached_tokens", 0) or 0),
+        "api_calls": int(raw["api_calls"] or 0) if "api_calls" in raw else None,
     }
     return payload, usage
 
@@ -880,7 +857,7 @@ async def _call_extractor(
     *,
     allow_heuristic_fallback: bool,
     system_prompt: str,
-) -> tuple[EntityExtractionResult, dict[str, int]]:
+) -> tuple[EntityExtractionResult, dict[str, int | None]]:
     if openai_client is None:
         if not allow_heuristic_fallback:
             raise ValueError(
@@ -1016,7 +993,7 @@ async def _call_recap_extractor(
     *,
     allow_heuristic_fallback: bool,
     system_prompt: str,
-) -> tuple[Any, dict[str, int]]:
+) -> tuple[Any, dict[str, int | None]]:
     from src.ingestion.recap_models import RecapExtractionResult
 
     if openai_client is None:
@@ -1228,13 +1205,17 @@ async def extract_entities_batch(
     collected_event_records: list[dict[str, Any]] = []
     collected_claims: list[dict[str, Any]] = []
 
-    def _usage_for_call(udict: dict[str, int]) -> UsageStats:
+    def _usage_for_call(udict: dict[str, int | None]) -> UsageStats:
         billed = openai_client is not None
         return UsageStats(
-            input_tokens=udict.get("input_tokens", 0),
-            output_tokens=udict.get("output_tokens", 0),
-            cached_tokens=udict.get("cached_tokens", 0),
-            api_calls=1 if billed else 0,
+            input_tokens=int(udict.get("input_tokens", 0) or 0),
+            output_tokens=int(udict.get("output_tokens", 0) or 0),
+            cached_tokens=int(udict.get("cached_tokens", 0) or 0),
+            api_calls=(
+                int(udict["api_calls"] or 0)
+                if udict.get("api_calls") is not None
+                else (1 if billed else 0)
+            ),
         )
 
     slot_results: list[EntityExtractionResult | None] = [None] * len(evidence_units)
@@ -1482,15 +1463,23 @@ async def extract_entities_batch(
                     )
 
     try:
-        tasks: list[Any] = [process_recap_miss(i, u) for i, u in recap_misses]
+        work: list[Any] = [process_recap_miss(i, u) for i, u in recap_misses]
         if effective_batch <= 1:
-            tasks.extend(process_standard_one(i, u) for i, u in standard_misses)
+            work.extend(process_standard_one(i, u) for i, u in standard_misses)
         else:
             for batch_i in range(0, len(standard_misses), effective_batch):
                 chunk = standard_misses[batch_i : batch_i + effective_batch]
-                tasks.append(process_standard_batch(chunk))
-        if tasks:
-            await asyncio.gather(*tasks)
+                work.append(process_standard_batch(chunk))
+        running_tasks = [asyncio.create_task(item) for item in work]
+        if running_tasks:
+            try:
+                await asyncio.gather(*running_tasks)
+            except BaseException:
+                for task in running_tasks:
+                    if not task.done():
+                        task.cancel()
+                await asyncio.gather(*running_tasks, return_exceptions=True)
+                raise
     finally:
         closer = getattr(openai_client, "aclose", None)
         if callable(closer):
