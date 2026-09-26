@@ -491,7 +491,8 @@ The sidequest exits when Buddy has:
 1. semantic presentation tokens;
 2. a small reusable primitive/pattern layer;
 3. an isolated backend-free UI workshop;
-4. representative static Object/Scene/Peek/Canvas fixtures;
+4. representative static World-object and ToolHost presentation fixtures,
+   plus the bounded Canvas convergence fixture;
 5. at least one mature interaction component split cleanly between behavior and
    replaceable presentation;
 6. a small canonical visual-regression suite;
