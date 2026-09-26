@@ -252,7 +252,9 @@ a blank string, fails closed; do not reinterpret update, alias, or
 For the bounded relationship proof, `direction=None | "directed"` means
 directed. Reject `undirected`. `relationshipLabel` and relationship `summary`
 must be absent or blank; reject nonblank values rather than discarding them.
-Only the GM-private proposal visibility shape is supported:
+
+For **both object and relationship proposals**, only this GM-private proposal
+metadata shape is supported:
 
 ```text
 visibility.visibility = gm_private
@@ -262,10 +264,11 @@ graphScopes = exactly recap_graph + campaign_memory_graph, once each
 ```
 
 Reject any other visibility, reveal state, nonblank visibility note, or graph
-scope shape. Map the supported GM-private shape to the assertion metadata in
-§11; do not silently convert a player-visible or hidden-until-revealed
-proposal into a GM-only assertion. This bounded proof does not establish a
-general visibility conversion.
+scope shape for **either** proposal kind. Map the supported GM-private shape
+to every generated fact and relationship assertion's metadata in §11; do not
+silently convert a player-visible or hidden-until-revealed object or
+relationship proposal into GM-only durable assertions. This bounded proof
+does not establish a general visibility conversion.
 
 It must fail closed for:
 
@@ -660,6 +663,11 @@ At minimum:
 16. stale prepared change after another commit;
 17. repeated commit of same prepared value remains idempotent;
 18. custom predicate against V2-pinned parent fails closed.
+19. object proposal with player-visible visibility, non-default reveal state,
+    nonblank visibility note, or non-default/duplicate `graphScopes` fails
+    before prepare; no GM-private facts are emitted from it;
+20. relationship proposal with the same unsupported metadata shapes fails
+    before prepare; no GM-private relationship assertion is emitted from it.
 
 Do not add broad fallback logic to turn negative cases green.
 
