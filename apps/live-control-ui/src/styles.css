@@ -348,8 +348,7 @@ code {
   }
 }
 
-.app-edit-actions button span,
-.app-tools-actions button span {
+.app-edit-actions button span {
   color: #9aa3b5;
   font-size: 0.72rem;
   font-weight: 800;
@@ -492,8 +491,7 @@ code {
   margin: 0;
 }
 
-.app-edit-toolbox-hd,
-.app-tools-toolbox-hd {
+.app-edit-toolbox-hd {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
@@ -503,8 +501,7 @@ code {
   flex-shrink: 0;
 }
 
-.app-edit-toolbox-eyebrow,
-.app-tools-toolbox-eyebrow {
+.app-edit-toolbox-eyebrow {
   margin-bottom: 2px;
   color: #565f89;
   font-size: 11px;
@@ -512,15 +509,13 @@ code {
   text-transform: uppercase;
 }
 
-.app-edit-toolbox-title,
-.app-tools-toolbox-title {
+.app-edit-toolbox-title {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
 }
 
-.app-edit-toolbox-close,
-.app-tools-toolbox-close {
+.app-edit-toolbox-close {
   width: 32px;
   height: 32px;
   flex-shrink: 0;
@@ -529,8 +524,7 @@ code {
   line-height: 1;
 }
 
-.app-edit-toolbox-nav,
-.app-tools-toolbox-nav {
+.app-edit-toolbox-nav {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -539,8 +533,7 @@ code {
   flex-shrink: 0;
 }
 
-.app-edit-toolbox-nav-btn,
-.app-tools-toolbox-nav-btn {
+.app-edit-toolbox-nav-btn {
   border-radius: 999px;
   background: #1d212d;
   color: #9aa3b5;
@@ -548,49 +541,42 @@ code {
   font-size: 12px;
 }
 
-.app-edit-toolbox-nav-btn.active,
-.app-tools-toolbox-nav-btn.active {
+.app-edit-toolbox-nav-btn.active {
   border-color: #7aa2f7;
   color: #7aa2f7;
   background: rgba(122, 162, 247, 0.12);
 }
 
-.app-edit-toolbox-body,
-.app-tools-toolbox-body {
+.app-edit-toolbox-body {
   flex: 1;
   overflow: auto;
   padding: 14px 16px 18px;
 }
 
-.app-edit-fold,
-.app-tools-fold {
+.app-edit-fold {
   border: 1px solid #2a3142;
   border-radius: 8px;
   margin: 8px 0;
   background: #161922;
 }
 
-.app-edit-fold summary,
-.app-tools-fold summary {
+.app-edit-fold summary {
   cursor: pointer;
   padding: 10px 12px;
   font-size: 13px;
   font-weight: 600;
 }
 
-.app-edit-fold-bd,
-.app-tools-fold-bd {
+.app-edit-fold-bd {
   padding: 0 12px 12px;
 }
 
-.app-edit-actions,
-.app-tools-actions {
+.app-edit-actions {
   display: grid;
   gap: 0.55rem;
 }
 
-.app-edit-actions button,
-.app-tools-actions button {
+.app-edit-actions button {
   display: grid;
   gap: 0.15rem;
   justify-items: start;
@@ -598,81 +584,10 @@ code {
   text-align: left;
 }
 
-.app-edit-empty,
-.app-tools-empty {
+.app-edit-empty {
   margin: 0;
   color: #9aa3b5;
   font-size: 13px;
-}
-
-.app-tools-toolbox-toggle {
-  position: fixed;
-  right: 0;
-  top: 50%;
-  z-index: 850;
-  transform: translateY(-50%);
-  border: 1px solid #2a3142;
-  border-right: none;
-  border-radius: 8px 0 0 8px;
-  background: rgba(22, 25, 34, 0.96);
-  color: #e8eaef;
-  padding: 10px 8px 10px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.25);
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-}
-
-.app-tools-toolbox-toggle:hover,
-.app-tools-toolbox.open .app-tools-toolbox-toggle {
-  border-color: #7aa2f7;
-  color: #7aa2f7;
-}
-
-.app-tools-toolbox-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 855;
-  background: rgba(8, 10, 14, 0.45);
-}
-
-.app-tools-toolbox-backdrop[hidden] {
-  display: none !important;
-}
-
-.app-tools-toolbox-drawer {
-  position: fixed;
-  top: var(--app-chrome-top);
-  right: 0;
-  bottom: var(--app-chrome-bottom);
-  z-index: 860;
-  width: min(440px, 94vw);
-  display: flex;
-  flex-direction: column;
-  border-left: 1px solid #2a3142;
-  background: #171b24;
-  box-shadow: -12px 0 40px rgba(0, 0, 0, 0.35);
-  transform: translateX(100%);
-  transition: transform 0.2s ease;
-}
-
-.app-tools-toolbox.open .app-tools-toolbox-drawer {
-  transform: translateX(0);
-}
-
-.app-peek-claim[data-peek-claim="tools"] .app-tools-toolbox-drawer {
-  position: static;
-  inset: auto;
-  z-index: auto;
-  width: 100%;
-  min-height: 16rem;
-  max-height: none;
-  border: 0;
-  box-shadow: none;
-  transform: none;
-  transition: none;
 }
 
 .launcher-root {
@@ -2248,8 +2163,7 @@ button:disabled {
     bottom: calc(var(--app-chrome-bottom) + 0.75rem);
   }
 
-  .app-edit-toolbox-toggle,
-  .app-tools-toolbox-toggle {
+  .app-edit-toolbox-toggle {
     top: auto;
     bottom: 72px;
     transform: none;

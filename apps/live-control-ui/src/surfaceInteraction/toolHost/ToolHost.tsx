@@ -3,9 +3,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { sameSurfaceInteractionIdentity } from "../surfaceIdentity";
 import type { SurfaceInteractionIdentity } from "../types";
-import { PeekClaim } from "../peekHost";
 import { activateToolContribution } from "./activateToolContribution";
 import { groupToolContributions } from "./groupTools";
+import { ToolHostView, type ToolHostViewGroup } from "./ToolHostView";
 
 type ToolHostCloseReason = "dismiss" | "projection-launch" | "identity" | "inventory";
 
@@ -87,8 +87,19 @@ export function ToolHost() {
     return null;
   }
 
-  const groups = groupToolContributions(tools);
-  const navGroups = groups.filter((group) => group.groupId !== null);
+  const groups: readonly ToolHostViewGroup[] = groupToolContributions(tools).map((group) => ({
+    groupId: group.groupId,
+    groupLabel: group.groupLabel,
+    groupOrder: group.groupOrder,
+    tools: group.tools.map((tool) => ({
+      id: tool.id,
+      label: tool.label,
+      eyebrow: tool.eyebrow,
+      availability: tool.availability.status === "enabled"
+        ? { status: "enabled" as const }
+        : { status: "disabled" as const, disabledReason: tool.availability.disabledReason },
+    })),
+  }));
 
   function handleActivate(toolId: string) {
     const resultOrPromise = activateToolContribution({
@@ -125,111 +136,16 @@ export function ToolHost() {
     }
   }
 
-  const drawer = (
-    <aside
-      id="surface-tool-host-drawer"
-      className="app-tools-toolbox-drawer"
-      aria-label="Tools toolbar"
-    >
-      <header className="app-tools-toolbox-hd">
-        <div>
-          <div className="app-tools-toolbox-eyebrow">Command Board</div>
-          <h2 className="app-tools-toolbox-title">Tools</h2>
-        </div>
-        <button
-          ref={closeRef}
-          type="button"
-          className="app-tools-toolbox-close"
-          onClick={() => closeDrawer("dismiss")}
-          aria-label="Close Tools"
-        >
-          x
-        </button>
-      </header>
-      {navGroups.length > 0 ? (
-        <nav className="app-tools-toolbox-nav" aria-label="Tool groups">
-          {navGroups.map((group) => (
-            <button
-              key={group.groupId ?? "pinned"}
-              type="button"
-              className="app-tools-toolbox-nav-btn active"
-            >
-              {group.groupLabel ?? "Tools"}
-            </button>
-          ))}
-        </nav>
-      ) : null}
-      <div className="app-tools-toolbox-body">
-        {groups.map((group) => (
-          <details
-            key={`${group.groupOrder}:${group.groupId ?? "pinned"}`}
-            className="app-tools-fold"
-            open
-          >
-            <summary>{group.groupLabel ?? "Tools"}</summary>
-            <div className="app-tools-fold-bd app-tools-actions">
-              {group.tools.map((tool) => {
-                const disabled = tool.availability.status !== "enabled";
-                return (
-                  <button
-                    key={tool.id}
-                    type="button"
-                    disabled={disabled}
-                    title={
-                      disabled && tool.availability.status === "disabled"
-                        ? tool.availability.disabledReason
-                        : undefined
-                    }
-                    onClick={() => handleActivate(tool.id)}
-                  >
-                    {tool.eyebrow ? <span>{tool.eyebrow}</span> : null}
-                    <strong>{tool.label}</strong>
-                  </button>
-                );
-              })}
-            </div>
-          </details>
-        ))}
-      </div>
-    </aside>
-  );
-
   return (
-    <div
-      className={`app-tools-toolbox${isOpen ? " open" : ""}${usesIngestPeek ? " app-tools-toolbox--peek" : ""}`}
-      data-testid="surface-tool-host"
-    >
-      <button
-        ref={toggleRef}
-        type="button"
-        className="app-tools-toolbox-toggle"
-        onClick={() => setIsOpen((current) => !current)}
-        aria-expanded={isOpen}
-        aria-controls="surface-tool-host-drawer"
-        title="Tools"
-      >
-        Tools
-      </button>
-      {usesIngestPeek ? (
-        <PeekClaim
-          kind="tools"
-          active={isOpen}
-          label="Tools"
-          onDismiss={dismissPeek}
-        >
-          {drawer}
-        </PeekClaim>
-      ) : (
-        <>
-          <div
-            className="app-tools-toolbox-backdrop"
-            hidden={!isOpen}
-            onClick={() => closeDrawer("dismiss")}
-            aria-hidden="true"
-          />
-          {drawer}
-        </>
-      )}
-    </div>
+    <ToolHostView
+      groups={groups}
+      isOpen={isOpen}
+      usesIngestPeek={usesIngestPeek}
+      toggleRef={toggleRef}
+      closeRef={closeRef}
+      onToggle={() => setIsOpen((current) => !current)}
+      onDismiss={dismissPeek}
+      onActivate={handleActivate}
+    />
   );
 }
