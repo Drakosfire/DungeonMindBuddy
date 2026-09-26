@@ -20,16 +20,16 @@ pr_body_template: |
 # HANDOFF — CON-READY PLAY-1: Buddy → WorldKeeper consumer proof
 
 **Created:** 2026-09-25
-**Status:** BLOCKED — PLAY-0 accepted; waiting only for V6.2 PR #767 to release `pyproject.toml`, then fresh-main activation
+**Status:** ACTIVE — PLAY-1 implementation authorized on the fresh-main-based branch
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Thread:** `CON-READY / PLAY`
 **PR topology:** serial
 **PLAY-0 accepted head:** `25197d1b9f2dbf96752e453c34456830d5a99d1a`  
 **PLAY-0 final review:** `5324695932` — PASS / READY TO MERGE  
 **PLAY-0 merge:** `6e92bec11df22b4b4243cb58c1bbcbe43b109ff6`
-**Activation re-anchor:** `main@fa01c768d23ad802436921340a8f0a7656f7de9a`  
-**Implementation base:** fresh current `main` after PR #767 resolves; record exact SHA at dispatch
-**Activation gate:** PR #767 must merge or otherwise close and release `pyproject.toml`; then Steward re-anchors fresh `main`, verifies pins/path leases, changes this handoff to ACTIVE on `main`, and allocates the single serial PLAY-1 lane
+**Activation re-anchor / implementation base:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
+**Resolved path gate:** PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`; no open PR owns the PLAY-1 dependency or consumer paths at dispatch
+**Activation placement:** User explicitly permits the handoff off `main`; this ACTIVE record and implementation are carried together in one fresh-main-based serial PR, without writing to `main`
 **Suggested branch:** `codex/con-ready-play-1-worldkeeper-consumer-proof`
 **Suggested PR title:** `CON-READY PLAY-1: prove Buddy WorldKeeper consumer mapping`
 **WorldKeeper accepted head:** `49a8620f066ce7ef8972a699020c012f50af9158`
@@ -52,19 +52,19 @@ final review: 5324695932 — PASS / READY TO MERGE
 merge: 6e92bec11df22b4b4243cb58c1bbcbe43b109ff6
 ```
 
-Fresh repository re-anchor after PLAY-0:
+Fresh repository re-anchor after #767:
 
 ```text
 DungeonMindBuddy main:
-  fa01c768d23ad802436921340a8f0a7656f7de9a
+  f30b4c906bb179b25f00207c40cb38c0debdc264
 ```
 
-The reviewed PLAY-1 semantic lease remains valid. One path collision prevents
-activation today:
+The reviewed PLAY-1 semantic lease remains valid. The prior path collision is
+resolved:
 
 ```text
-open PR #767 — VNEXT: adapt complete entity reads to World-object DTO
-owns:
+merged PR #767 — VNEXT: adapt complete entity reads to World-object DTO
+formerly owned:
   pyproject.toml
 
 PLAY-1 requires:
@@ -75,15 +75,14 @@ PLAY-1 requires:
   bounded CON-READY authority/report paths
 ```
 
-PR #767 is otherwise disjoint from the PLAY-1 implementation package and proof.
-Do not stack PLAY-1 on #767 and do not race dependency edits. Wait for #767 to
-merge or close, then re-anchor current `main` and verify the collision is gone.
+PLAY-1 starts from the #767 merge on `main`, not from its PR branch. The
+dependency and consumer paths are free in the open-PR inventory at dispatch.
 
 Open settlement PR #766 does not overlap the PLAY-1 implementation/dependency
 lease identified above. If its merge changes current authority documents before
 PLAY-1 activation, re-read them but do not broaden PLAY-1 automatically.
 
-Activation procedure after #767 resolves:
+Activation checks completed after #767 resolved:
 
 1. fetch current `main`;
 2. verify no open PR owns `pyproject.toml`, `uv.lock`, or
@@ -95,8 +94,9 @@ Activation procedure after #767 resolves:
 5. verify Buddy custom profile revision 2 digest remains
    `d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339`;
 6. update only re-anchor/activation metadata if semantics are unchanged;
-7. change `Status: BLOCKED → ACTIVE` on `main`;
-8. only then create the implementation branch and PR.
+7. record `Status: ACTIVE` in this fresh-main-based implementation PR under the
+   user's explicit exception to main-first placement;
+8. open only the serial PLAY-1 implementation PR; do not merge it here.
 
 A later `main` advance is not itself a blocker when these contracts and leases
 remain unchanged. Material contract drift requires rebrief.
@@ -890,7 +890,7 @@ DungeonMind
 
 ## 23. Acceptance rubric
 
-- [ ] handoff was ACTIVE on fresh `main` before implementation branch dispatch;
+- [ ] handoff is ACTIVE on the fresh-main-based implementation branch under the explicit user exception to main-first placement;
 - [ ] PR #767 collision was resolved and dependency paths were free at dispatch;
 - [ ] WorldKeeper dependency pinned to reviewed #8 head `49a8620...`;
 - [ ] existing DungeonMind runtime pin remains coherent;

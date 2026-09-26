@@ -4,11 +4,11 @@
 **Line of work:** `CON-READY / PLAY / DOGFOOD-CONTINUITY`
 **Updated:** 2026-09-25
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor:** `main@fa01c768d23ad802436921340a8f0a7656f7de9a`
-**Current frontier:** **PLAY-1 activation — blocked only on PR #767 dependency-path collision**
+**Re-anchor:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
+**Current frontier:** **PLAY-1 active — in-memory WorldKeeper consumer proof**
 **V2-3 derived gold:** **NOT AUTHORIZED**
 
-> Repository truth supersedes chat reconstruction. PLAY-0 / PR #753 is merged and accepted. PLAY-1 is the sole next CON-READY implementation candidate. Its reviewed semantic handoff remains BLOCKED only because open V6.2 PR #767 currently owns `pyproject.toml`, which PLAY-1 must edit to add WorldKeeper.
+> Repository truth supersedes chat reconstruction. PLAY-0 / PR #753 is merged and accepted. PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`, releasing `pyproject.toml`. PLAY-1 is the sole ACTIVE CON-READY implementation slice on a fresh-main-based branch under the user's explicit exception to main-first handoff placement.
 
 ## Mandatory pickup order
 
@@ -44,7 +44,7 @@ PLAY-0                                       COMPLETE / MERGED — #753
   accepted head                              25197d1b9f2dbf96752e453c34456830d5a99d1a
   final review                               5324695932
   merge                                      6e92bec11df22b4b4243cb58c1bbcbe43b109ff6
-PLAY-1 consumer proof                        NEXT / BLOCKED ON #767
+PLAY-1 consumer proof                        ACTIVE — #767 MERGED
 PLAY-2 persistent isolated authority         BLOCKED
 PLAY-3 browser dogfood                       BLOCKED
 production authority migration               SEPARATELY GOVERNED
@@ -109,16 +109,16 @@ PLAY-1 does not authorize:
 
 ## Dispatch
 
-Do not dispatch while PR #767 owns `pyproject.toml`.
-
-After #767 merges or closes:
+PR #767 merged; its `pyproject.toml` collision is resolved. Dispatch is
+authorized only for the bounded PLAY-1 handoff:
 
 1. fetch fresh `main`;
 2. verify no open PR owns `pyproject.toml`, `uv.lock`, or
    `apps/live_control_server/integrations/worldkeeper/**`;
 3. re-verify WorldKeeper, DungeonMind, and Buddy V3 profile pins;
-4. change the canonical PLAY-1 handoff from BLOCKED to ACTIVE on `main`;
-5. create `codex/con-ready-play-1-worldkeeper-consumer-proof`;
+4. record the ACTIVE handoff on the fresh-main-based implementation branch
+   under the user's explicit exception to main-first placement;
+5. use `codex/con-ready-play-1-worldkeeper-consumer-proof`;
 6. execute only that ACTIVE handoff;
 7. open exactly one serial implementation PR;
 8. do not merge without Steward review.

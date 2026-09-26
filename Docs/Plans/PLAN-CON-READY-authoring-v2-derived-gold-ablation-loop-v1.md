@@ -3,7 +3,7 @@
 **Updated:** 2026-09-25
 **Status:** ACTIVE SEQUENCING AUTHORITY — PLAY consumer migration next; V2-3 not authorized
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor:** `main@fa01c768d23ad802436921340a8f0a7656f7de9a`
+**Re-anchor:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
 
 ## Current sequence
 
@@ -20,7 +20,7 @@ Buddy custom predicate profile V3         MERGED — #754
 PLAY custom-predicate amendment           MERGED — #752
 
 PLAY-0 thread activation                  COMPLETE / MERGED — #753
-PLAY-1 Buddy → WorldKeeper proof          NEXT / BLOCKED ON #767 PATH COLLISION
+PLAY-1 Buddy → WorldKeeper proof          ACTIVE — #767 MERGED
 PLAY-2 persistent isolated authority      BLOCKED
 PLAY-3 browser dogfood vertical           BLOCKED
 
@@ -51,7 +51,7 @@ DungeonMind durable governed truth
 
 ## Immediate next capability
 
-PLAY-1 is the sole next CON-READY implementation candidate. Its semantic design is accepted; activation waits only for open PR #767 to release `pyproject.toml` and for the Steward to re-anchor/activate the handoff on fresh `main`.
+PLAY-1 is the sole active CON-READY implementation slice. Its semantic design is accepted; PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`, releasing `pyproject.toml`. The handoff is ACTIVE on the fresh-main-based implementation branch under the user's explicit exception to main-first placement.
 
 It proves:
 

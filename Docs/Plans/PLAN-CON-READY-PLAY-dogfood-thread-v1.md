@@ -1,9 +1,9 @@
 # PLAN — CON-READY PLAY: play-like World authoring dogfood thread
 
 **Updated:** 2026-09-25
-**Status:** ACTIVE SEQUENCING AUTHORITY — PLAY-0 complete; PLAY-1 activation blocked only on PR #767
+**Status:** ACTIVE SEQUENCING AUTHORITY — PLAY-0 complete; PLAY-1 active
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor:** `main@fa01c768d23ad802436921340a8f0a7656f7de9a`
+**Re-anchor:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
 **WorldKeeper authority:** #8 merge `a0a70db275cf6c5f3876fe7b4d2a557de12388f5`
 **DungeonMind runtime authority:** `0f709d76fdc53bac9c9258d1751463ae2c76ca71`
 **Buddy custom profile authority:** #754 merge `7addcd05b20c894eb4d50b9d63e5ebdee4bc2cc7`
@@ -30,7 +30,7 @@ source/session material
 
 ```text
 PLAY-0  thread design + truthful PLAY-1 handoff        COMPLETE — #753
-PLAY-1  Buddy → WorldKeeper in-memory consumer proof   NEXT / BLOCKED ON #767
+PLAY-1  Buddy → WorldKeeper in-memory consumer proof   ACTIVE
 PLAY-2  persistent isolated vNext PostgreSQL authority
 PLAY-3  browser play-like dogfood vertical
 PLAY-4  production-authority migration                 separately governed
@@ -96,28 +96,28 @@ WorldKeeper #8 V3 compatibility                  MERGED
 Buddy #754 custom predicate profile              MERGED
 Buddy #752 custom-predicate PLAY amendment       MERGED
 PLAY-0                                           COMPLETE / MERGED — #753
-PLAY-1                                           BLOCKED — #767 owns pyproject.toml
+PLAY-1                                           ACTIVE — #767 merged
 PLAY-2                                           BLOCKED ON PLAY-1
 PLAY-3                                           BLOCKED ON PLAY-2
 production cutover                               SEPARATELY GOVERNED
 V2-3                                             NOT AUTHORIZED
 ```
 
-Canonical PLAY-1 handoff (semantic design accepted; write lease begins only after
-#767 resolves and Steward activates it on fresh main):
+Canonical PLAY-1 handoff (ACTIVE on the fresh-main-based implementation branch
+under the user's explicit exception to main-first placement):
 
 `Docs/Plans/HANDOFF-CON-READY-PLAY-worldkeeper-consumer-proof-v1.md`
 
 
-## Activation collision
+## Resolved activation collision
 
-Current re-anchor found one concrete collision:
+The previous re-anchor found one concrete collision:
 
 ```text
 PR #767 — VNEXT: adapt complete entity reads to World-object DTO
-owns pyproject.toml
+merged at f30b4c906bb179b25f00207c40cb38c0debdc264
+formerly owned pyproject.toml
 ```
 
 PLAY-1 also requires `pyproject.toml` to add the exact WorldKeeper dependency.
-Do not stack or race the dependency edit. After #767 merges/closes, re-anchor and
-activate PLAY-1 if no new collision or material contract drift exists.
+The implementation starts from the #767 merge; the collision is resolved.
