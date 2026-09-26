@@ -1,9 +1,9 @@
 # PLAN — CON-READY PLAY: play-like World authoring dogfood thread
 
 **Updated:** 2026-09-25
-**Status:** ACTIVE SEQUENCING DESIGN — PLAY-0 activation
+**Status:** ACTIVE SEQUENCING AUTHORITY — PLAY-0 complete; PLAY-1 activation blocked only on PR #767
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Re-anchor:** `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
+**Re-anchor:** `main@fa01c768d23ad802436921340a8f0a7656f7de9a`
 **WorldKeeper authority:** #8 merge `a0a70db275cf6c5f3876fe7b4d2a557de12388f5`
 **DungeonMind runtime authority:** `0f709d76fdc53bac9c9258d1751463ae2c76ca71`
 **Buddy custom profile authority:** #754 merge `7addcd05b20c894eb4d50b9d63e5ebdee4bc2cc7`
@@ -29,8 +29,8 @@ source/session material
 ## Sequence
 
 ```text
-PLAY-0  thread design + truthful PLAY-1 handoff        CURRENT PR
-PLAY-1  Buddy → WorldKeeper in-memory consumer proof   NEXT
+PLAY-0  thread design + truthful PLAY-1 handoff        COMPLETE — #753
+PLAY-1  Buddy → WorldKeeper in-memory consumer proof   NEXT / BLOCKED ON #767
 PLAY-2  persistent isolated vNext PostgreSQL authority
 PLAY-3  browser play-like dogfood vertical
 PLAY-4  production-authority migration                 separately governed
@@ -95,14 +95,29 @@ DungeonMind semantic-profile V3                  ACCEPTED
 WorldKeeper #8 V3 compatibility                  MERGED
 Buddy #754 custom predicate profile              MERGED
 Buddy #752 custom-predicate PLAY amendment       MERGED
-PLAY-0                                           CURRENT PR
-PLAY-1                                           BLOCKED — activate after PLAY-0 merge, sync, and re-anchor
+PLAY-0                                           COMPLETE / MERGED — #753
+PLAY-1                                           BLOCKED — #767 owns pyproject.toml
 PLAY-2                                           BLOCKED ON PLAY-1
 PLAY-3                                           BLOCKED ON PLAY-2
 production cutover                               SEPARATELY GOVERNED
 V2-3                                             NOT AUTHORIZED
 ```
 
-Canonical PLAY-1 handoff (write lease begins only after activation):
+Canonical PLAY-1 handoff (semantic design accepted; write lease begins only after
+#767 resolves and Steward activates it on fresh main):
 
 `Docs/Plans/HANDOFF-CON-READY-PLAY-worldkeeper-consumer-proof-v1.md`
+
+
+## Activation collision
+
+Current re-anchor found one concrete collision:
+
+```text
+PR #767 — VNEXT: adapt complete entity reads to World-object DTO
+owns pyproject.toml
+```
+
+PLAY-1 also requires `pyproject.toml` to add the exact WorldKeeper dependency.
+Do not stack or race the dependency edit. After #767 merges/closes, re-anchor and
+activate PLAY-1 if no new collision or material contract drift exists.
