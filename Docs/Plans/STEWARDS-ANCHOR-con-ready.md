@@ -1,16 +1,18 @@
 # STEWARD'S ANCHOR — CON-READY
 
-**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT  
-**Line of work:** `CON-READY / PLAY / DOGFOOD-CONTINUITY`  
-**Updated:** 2026-09-25  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Re-anchor:** `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`  
-**Current frontier:** **PLAY-0 activation → PLAY-1 Buddy → WorldKeeper consumer proof**  
+**Status:** ACTIVE — MANDATORY PICKUP DOCUMENT
+**Line of work:** `CON-READY / PLAY / DOGFOOD-CONTINUITY`
+**Updated:** 2026-09-25
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**Re-anchor:** `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
+**Current frontier:** **PLAY-0 activation → PLAY-1 Buddy → WorldKeeper consumer proof**
 **V2-3 derived gold:** **NOT AUTHORIZED**
 
 > Repository truth supersedes chat reconstruction. The WorldKeeper extraction,
 > V3 custom-predicate compatibility, and Buddy V3 profile are complete. PLAY-1
-> is the sole next CON-READY implementation lane after this PLAY-0 PR merges.
+> is the sole next CON-READY implementation candidate. Its handoff remains
+> BLOCKED until PLAY-0 merges, predecessor state is synchronized, and the
+> steward re-anchors and activates the handoff on `main`.
 
 ## Mandatory pickup order
 
@@ -43,7 +45,7 @@ Buddy custom-predicate profile V3            MERGED — #754
 Buddy PLAY custom-predicate amendment        MERGED — #752
 
 PLAY-0                                       CURRENT PR
-PLAY-1 consumer proof                        NEXT
+PLAY-1 consumer proof                        NEXT / BLOCKED
 PLAY-2 persistent isolated authority         BLOCKED
 PLAY-3 browser dogfood                       BLOCKED
 production authority migration               SEPARATELY GOVERNED
@@ -110,8 +112,10 @@ PLAY-1 does not authorize:
 
 After PLAY-0 merges:
 
-1. re-anchor fresh `main`;
-2. create `codex/con-ready-play-1-worldkeeper-consumer-proof`;
-3. execute only the checked-in PLAY-1 handoff;
-4. open exactly one serial implementation PR;
-5. do not merge without Steward review.
+1. synchronize PLAY-0 predecessor state and re-anchor fresh `main`;
+2. record the merged base and current dependencies, then activate the PLAY-1
+   handoff on `main`;
+3. create `codex/con-ready-play-1-worldkeeper-consumer-proof`;
+4. execute only the ACTIVE PLAY-1 handoff;
+5. open exactly one serial implementation PR;
+6. do not merge without Steward review.

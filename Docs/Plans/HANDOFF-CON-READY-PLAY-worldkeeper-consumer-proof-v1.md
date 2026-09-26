@@ -7,6 +7,7 @@ pr_body_template: |
   - Slice: PLAY-1 — Buddy → WorldKeeper consumer proof
   - Handoff: Docs/Plans/HANDOFF-CON-READY-PLAY-worldkeeper-consumer-proof-v1.md
   - PLAY-0 design base: e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4
+  - WorldKeeper reviewed implementation pin: 49a8620f066ce7ef8972a699020c012f50af9158
   - WorldKeeper accepted merge: a0a70db275cf6c5f3876fe7b4d2a557de12388f5
   - DungeonMind runtime pin already in Buddy: 0f709d76fdc53bac9c9258d1751463ae2c76ca71
   - Buddy V3 profile prerequisite: PR #754 merge 7addcd05b20c894eb4d50b9d63e5ebdee4bc2cc7
@@ -18,20 +19,23 @@ pr_body_template: |
 
 # HANDOFF — CON-READY PLAY-1: Buddy → WorldKeeper consumer proof
 
-**Created:** 2026-09-25  
-**Status:** READY FOR IMPLEMENTATION AFTER PLAY-0 MERGES  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Thread:** `CON-READY / PLAY`  
-**PR topology:** serial  
-**PLAY-0 design base:** `e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`  
-**Implementation base:** fresh `main` after PLAY-0 merge; record exact SHA at dispatch  
-**Suggested branch:** `codex/con-ready-play-1-worldkeeper-consumer-proof`  
-**Suggested PR title:** `CON-READY PLAY-1: prove Buddy WorldKeeper consumer mapping`  
-**WorldKeeper accepted head:** `49a8620f066ce7ef8972a699020c012f50af9158`  
-**WorldKeeper merge / dependency target:** `a0a70db275cf6c5f3876fe7b4d2a557de12388f5`  
-**DungeonMind runtime head already pinned by Buddy:** `0f709d76fdc53bac9c9258d1751463ae2c76ca71`  
-**DungeonMind V3 authority finalization:** `54a419f99057d96e0c4e7620d8bd8ccc6816fb62`  
-**Buddy custom-profile prerequisite:** PR #754 merge `7addcd05b20c894eb4d50b9d63e5ebdee4bc2cc7`  
+**Created:** 2026-09-25
+**Status:** BLOCKED — PLAY-0 merge, predecessor sync, and fresh-main re-anchor required before activation
+**Repository:** `Drakosfire/DungeonMindBuddy`
+**Thread:** `CON-READY / PLAY`
+**PR topology:** serial
+**PLAY-0 design base:** `e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
+**Implementation base:** fresh `main` after PLAY-0 merge; record exact SHA at dispatch
+**Activation gate:** steward records the merged PLAY-0 revision and current dependency pins, changes this handoff to ACTIVE on `main`, then allocates its serial lane
+**Suggested branch:** `codex/con-ready-play-1-worldkeeper-consumer-proof`
+**Suggested PR title:** `CON-READY PLAY-1: prove Buddy WorldKeeper consumer mapping`
+**WorldKeeper accepted head:** `49a8620f066ce7ef8972a699020c012f50af9158`
+**WorldKeeper implementation dependency:** `49a8620f066ce7ef8972a699020c012f50af9158`
+**WorldKeeper accepted merge evidence:** `a0a70db275cf6c5f3876fe7b4d2a557de12388f5`
+**DungeonMind runtime head already pinned by Buddy:** `0f709d76fdc53bac9c9258d1751463ae2c76ca71`
+**DungeonMind V3 authority finalization:** `54a419f99057d96e0c4e7620d8bd8ccc6816fb62`
+**Buddy custom-profile prerequisite:** PR #754 merge `7addcd05b20c894eb4d50b9d63e5ebdee4bc2cc7`
+**Buddy V3 profile descriptor SHA-256:** `d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339`
 **V2-3:** NOT AUTHORIZED
 
 ## 1. Mission
@@ -129,6 +133,7 @@ Use Buddy's accepted opt-in semantic profile:
 profile_id       dungeonbuddy.dnd5e
 profile_revision 2
 schema_version   dm_semantic_profile_v3
+descriptor_sha256 d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339
 ```
 
 Runtime constructor:
@@ -154,10 +159,10 @@ custom-predicate witness.
 
 ## 5. WorldKeeper dependency
 
-Add an exact WorldKeeper dependency at the accepted #8 merge:
+Add an exact WorldKeeper dependency at the reviewed #8 implementation head:
 
 ```text
-worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@a0a70db275cf6c5f3876fe7b4d2a557de12388f5
+worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@49a8620f066ce7ef8972a699020c012f50af9158
 ```
 
 Update `uv.lock`.
@@ -788,9 +793,9 @@ DungeonMind
 ## 23. Acceptance rubric
 
 - [ ] implementation dispatched from fresh post-PLAY-0 `main`;
-- [ ] WorldKeeper pinned to #8 merge `a0a70db...`;
+- [ ] WorldKeeper dependency pinned to reviewed #8 head `49a8620...`;
 - [ ] existing DungeonMind runtime pin remains coherent;
-- [ ] canonical parent uses exact Buddy custom profile V3 revision 2;
+- [ ] canonical parent uses exact Buddy custom profile V3 revision 2 and descriptor SHA-256 `d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339`;
 - [ ] consumer depends on injected `WorldChangeService`;
 - [ ] consumer emits generic WorldKeeper contracts only;
 - [ ] object create mapping is exact;

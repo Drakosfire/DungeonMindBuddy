@@ -1,8 +1,8 @@
 # PLAN — CON-READY: Authoring v2 → derived gold → extraction ablation loop
 
-**Updated:** 2026-09-25  
-**Status:** ACTIVE SEQUENCING AUTHORITY — PLAY consumer migration next; V2-3 not authorized  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
+**Updated:** 2026-09-25
+**Status:** ACTIVE SEQUENCING AUTHORITY — PLAY consumer migration next; V2-3 not authorized
+**Repository:** `Drakosfire/DungeonMindBuddy`
 **Re-anchor:** `main@e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
 
 ## Current sequence
