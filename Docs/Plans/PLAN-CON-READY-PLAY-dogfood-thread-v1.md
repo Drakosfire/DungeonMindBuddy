@@ -103,8 +103,8 @@ production cutover                               SEPARATELY GOVERNED
 V2-3                                             NOT AUTHORIZED
 ```
 
-Canonical PLAY-1 handoff (ACTIVE on the fresh-main-based implementation branch
-under the user's explicit exception to main-first placement):
+Canonical PLAY-1 handoff (ACTIVE on `main` through the guarded Steward
+activation sync before implementation redispatch):
 
 `Docs/Plans/HANDOFF-CON-READY-PLAY-worldkeeper-consumer-proof-v1.md`
 

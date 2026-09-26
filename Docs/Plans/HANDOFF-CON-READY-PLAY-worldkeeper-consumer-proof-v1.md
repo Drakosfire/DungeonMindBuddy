@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — CON-READY PLAY-1: Buddy → WorldKeeper consumer proof
 
 **Created:** 2026-09-25
-**Status:** ACTIVE — PLAY-1 implementation authorized on the fresh-main-based branch
+**Status:** ACTIVE — PLAY-1 implementation authorized from current `main`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Thread:** `CON-READY / PLAY`
 **PR topology:** serial
@@ -29,7 +29,7 @@ pr_body_template: |
 **PLAY-0 merge:** `6e92bec11df22b4b4243cb58c1bbcbe43b109ff6`
 **Activation re-anchor / implementation base:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
 **Resolved path gate:** PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`; no open PR owns the PLAY-1 dependency or consumer paths at dispatch
-**Activation placement:** User explicitly permits the handoff off `main`; this ACTIVE record and implementation are carried together in one fresh-main-based serial PR, without writing to `main`
+**Activation placement:** guarded Steward activation landed on `main` before implementation redispatch
 **Suggested branch:** `codex/con-ready-play-1-worldkeeper-consumer-proof`
 **Suggested PR title:** `CON-READY PLAY-1: prove Buddy WorldKeeper consumer mapping`
 **WorldKeeper accepted head:** `49a8620f066ce7ef8972a699020c012f50af9158`
@@ -94,9 +94,8 @@ Activation checks completed after #767 resolved:
 5. verify Buddy custom profile revision 2 digest remains
    `d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339`;
 6. update only re-anchor/activation metadata if semantics are unchanged;
-7. record `Status: ACTIVE` in this fresh-main-based implementation PR under the
-   user's explicit exception to main-first placement;
-8. open only the serial PLAY-1 implementation PR; do not merge it here.
+7. land `Status: ACTIVE` on `main` through the guarded Steward activation sync;
+8. rebase and redispatch only the serial PLAY-1 implementation PR; do not merge it here.
 
 A later `main` advance is not itself a blocker when these contracts and leases
 remain unchanged. Material contract drift requires rebrief.
@@ -890,7 +889,7 @@ DungeonMind
 
 ## 23. Acceptance rubric
 
-- [ ] handoff is ACTIVE on the fresh-main-based implementation branch under the explicit user exception to main-first placement;
+- [ ] handoff was ACTIVE on current `main` before implementation redispatch;
 - [ ] PR #767 collision was resolved and dependency paths were free at dispatch;
 - [ ] WorldKeeper dependency pinned to reviewed #8 head `49a8620...`;
 - [ ] existing DungeonMind runtime pin remains coherent;

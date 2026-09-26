@@ -51,7 +51,7 @@ DungeonMind durable governed truth
 
 ## Immediate next capability
 
-PLAY-1 is the sole active CON-READY implementation slice. Its semantic design is accepted; PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`, releasing `pyproject.toml`. The handoff is ACTIVE on the fresh-main-based implementation branch under the user's explicit exception to main-first placement.
+PLAY-1 is the sole active CON-READY implementation slice. Its semantic design is accepted; PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`, releasing `pyproject.toml`. The guarded Steward sync places the ACTIVE handoff on `main` before implementation redispatch.
 
 It proves:
 

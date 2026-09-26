@@ -1,6 +1,6 @@
 # HANDOFF — V6.2 vNext complete-object read adaptation + World-object DTO preservation
 
-**Status:** ACTIVE  
+**Status:** COMPLETE
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Buddy base:** `9473244f57e7845928fc47225fd08863ea85804b`  
 **DungeonMind current main at design:** `54a419f99057d96e0c4e7620d8bd8ccc6816fb62`  
@@ -11,6 +11,11 @@
 **Suggested branch:** `vnext/v6-2-complete-object-read-adaptation`  
 **Suggested PR title:** `VNEXT: adapt complete entity reads to World-object DTO`  
 **Acceptance token:** `V6_2_VNEXT_COMPLETE_OBJECT_DTO_PRESERVATION_ACCEPTED`  
+**PR:** #767
+**Accepted substantive head:** `69fedb9918c602a92af32d74453a2b00ed2b73da`
+**Steward review:** `5324647959` — `V6_2_SUBSTANTIVE_PASS`
+**Merge:** `f30b4c906bb179b25f00207c40cb38c0debdc264` — exact reviewed substantive implementation
+**Disposition:** `V6_2_VNEXT_COMPLETE_OBJECT_DTO_PRESERVATION_ACCEPTED`
 **Successor:** V6.3 — Buddy governed-write adaptation / publication mapping
 
 ## 1. Primary question

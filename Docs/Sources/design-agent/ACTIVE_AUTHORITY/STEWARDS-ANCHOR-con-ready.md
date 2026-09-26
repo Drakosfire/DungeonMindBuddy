@@ -8,7 +8,7 @@
 **Current frontier:** **PLAY-1 active — in-memory WorldKeeper consumer proof**
 **V2-3 derived gold:** **NOT AUTHORIZED**
 
-> Repository truth supersedes chat reconstruction. PLAY-0 / PR #753 is merged and accepted. PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`, releasing `pyproject.toml`. PLAY-1 is the sole ACTIVE CON-READY implementation slice on a fresh-main-based branch under the user's explicit exception to main-first handoff placement.
+> Repository truth supersedes chat reconstruction. PLAY-0 / PR #753 is merged and accepted. PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`, releasing `pyproject.toml`. PLAY-1 is the sole ACTIVE CON-READY implementation slice; this guarded Steward sync places its authority on `main` before redispatch.
 
 ## Mandatory pickup order
 
@@ -116,9 +116,8 @@ authorized only for the bounded PLAY-1 handoff:
 2. verify no open PR owns `pyproject.toml`, `uv.lock`, or
    `apps/live_control_server/integrations/worldkeeper/**`;
 3. re-verify WorldKeeper, DungeonMind, and Buddy V3 profile pins;
-4. record the ACTIVE handoff on the fresh-main-based implementation branch
-   under the user's explicit exception to main-first placement;
-5. use `codex/con-ready-play-1-worldkeeper-consumer-proof`;
+4. land the ACTIVE handoff on `main` through the guarded Steward sync;
+5. rebase and use `codex/con-ready-play-1-worldkeeper-consumer-proof`;
 6. execute only that ACTIVE handoff;
 7. open exactly one serial implementation PR;
 8. do not merge without Steward review.
