@@ -18,22 +18,22 @@ pr_body_template: |
 
 # HANDOFF — DEMO-READY basic presentation design pass
 
-**Created:** 2026-09-26  
-**Status:** ACTIVE AFTER MERGE — design/dogfood decision only; no application-code lease  
-**Canonical handoff path:** `Docs/Plans/HANDOFF-DEMO-READY-basic-presentation-design-pass-v1.md`  
-**Conversation/workstream:** `DEMO-READY / UI presentation`  
-**Flow / owner:** `PRODUCT-DESIGN`  
-**Direction:** DESIGN → DOGFOOD → DECISION  
-**Design authority base:** `016a2351032f731aaa68eaffccad6f0c97a859f6`  
-**Activation gate:** none beyond this handoff merging to current main; UI-F0–F4 are already merged  
-**Dispatch base rule:** re-anchor on fresh current `main` containing this handoff before beginning the dogfood/design pass; record that SHA in the report  
-**PR topology:** `decision STOP`  
-**PR authorization:** no application-code PR is authorized by this handoff. The design worker may produce one report and, after product-owner acceptance, at most one bounded successor implementation handoff.  
+**Created:** 2026-09-26
+**Status:** ACTIVE AFTER MERGE — design/dogfood decision only; no application-code lease
+**Canonical handoff path:** `Docs/Plans/HANDOFF-DEMO-READY-basic-presentation-design-pass-v1.md`
+**Conversation/workstream:** `DEMO-READY / UI presentation`
+**Flow / owner:** `PRODUCT-DESIGN`
+**Direction:** DESIGN → DOGFOOD → DECISION
+**Design authority base:** `016a2351032f731aaa68eaffccad6f0c97a859f6`
+**Activation gate:** none beyond this handoff merging to current main; UI-F0–F4 are already merged
+**Dispatch base rule:** re-anchor on fresh current `main` containing this handoff before beginning the dogfood/design pass; record that SHA in the report
+**PR topology:** `decision STOP`
+**PR authorization:** no application-code PR is authorized by this handoff. The design worker may produce one report and, after product-owner acceptance, at most one bounded successor implementation handoff.
 **Suggested decision artifact:** `Docs/Reports/REPORT-DEMO-READY-basic-presentation-design-pass-v1.md`
 
-> Repository law: [`AGENTS.md`](../../AGENTS.md).  
-> Demo authority: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md).  
-> UI substrate authority: [`PLAN-ui-presentation-substrate-sidequest-v1.md`](PLAN-ui-presentation-substrate-sidequest-v1.md).  
+> Repository law: [`AGENTS.md`](../../AGENTS.md).
+> Demo authority: [`Docs/Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md`](../Roadmaps/ROADMAP-demo-ready-c1-c2-to-of-conks.md).
+> UI substrate authority: [`PLAN-ui-presentation-substrate-sidequest-v1.md`](PLAN-ui-presentation-substrate-sidequest-v1.md).
 > UI language: [`Docs/Design/ui-language/DESIGN-interaction-layer-language.md`](../Design/ui-language/DESIGN-interaction-layer-language.md).
 
 ## §1 Mission and decision-ready invariant
