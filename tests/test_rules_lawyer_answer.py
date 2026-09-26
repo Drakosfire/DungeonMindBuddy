@@ -47,6 +47,7 @@ def test_supported_answer_cites_exact_admitted_evidence_only():
     generator = FakeGenerator({
         "answer": "No, you cannot willingly end movement there.",
         "citation_evidence_ref_ids": ["evidence:exact"],
+        "support_quotes": [{"evidence_ref_id": "evidence:exact", "quote": "You can't willingly end a move"}],
         "support_status": "supported", "needs_more_evidence": False, "reason": "",
     })
     result = run(packet(), generator)
@@ -63,6 +64,7 @@ def test_unknown_citation_and_uncited_answer_fail_closed():
     for citations, reason in ((["evidence:forged"], "unknown_citation"), ([], "answer_lacks_support")):
         result = run(packet(), FakeGenerator({
             "answer": "No.", "citation_evidence_ref_ids": citations,
+            "support_quotes": [],
             "support_status": "supported", "needs_more_evidence": False, "reason": "",
         }))
         assert result.answer.status == "insufficient_evidence"
@@ -83,3 +85,15 @@ def test_provider_failure_and_unparsed_output_fail_closed():
         result = run(packet(), generator)
         assert result.answer.status == "insufficient_evidence"
         assert result.answer.answer is None
+
+
+def test_fabricated_quote_cannot_launder_an_exact_citation():
+    result = run(packet(), FakeGenerator({
+        "answer": "You may end movement there.",
+        "citation_evidence_ref_ids": ["evidence:exact"],
+        "support_quotes": [{"evidence_ref_id": "evidence:exact", "quote": "You may end movement there."}],
+        "support_status": "supported", "needs_more_evidence": False, "reason": "",
+    }))
+    assert result.answer.status == "insufficient_evidence"
+    assert result.answer.reason == "unverified_support_quote"
+    assert result.answer.answer is None

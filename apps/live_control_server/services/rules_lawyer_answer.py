@@ -15,10 +15,13 @@ from src.model_policy import load_buddy_model_policy
 
 ANSWER_SCHEMA = {
     "type": "object", "additionalProperties": False,
-    "required": ["answer", "citation_evidence_ref_ids", "support_status", "needs_more_evidence", "reason"],
+    "required": ["answer", "citation_evidence_ref_ids", "support_quotes", "support_status", "needs_more_evidence", "reason"],
     "properties": {
         "answer": {"type": "string"},
         "citation_evidence_ref_ids": {"type": "array", "items": {"type": "string"}},
+        "support_quotes": {"type": "array", "items": {"type": "object", "additionalProperties": False,
+                           "required": ["evidence_ref_id", "quote"],
+                           "properties": {"evidence_ref_id": {"type": "string"}, "quote": {"type": "string"}}}},
         "support_status": {"type": "string", "enum": ["supported", "insufficient_evidence"]},
         "needs_more_evidence": {"type": "boolean"},
         "reason": {"type": "string"},
@@ -49,7 +52,7 @@ def unavailable(packet: RulesQueryPacket, reason: str) -> RulesAnswerResponse:
 async def synthesize_rules_answer(
     *, question: str, packet: RulesQueryPacket, generator: StructuredGenerator | None = None,
 ) -> RulesAnswerResponse:
-    if packet.status != "success" or not packet.evidence:
+    if packet.status != "success" or not packet.evidence or not any(item.excerpt for item in packet.evidence):
         return unavailable(packet, f"retrieval_{packet.status}")
 
     evidence = [
@@ -66,6 +69,7 @@ async def synthesize_rules_answer(
         system_prompt=(
             "Answer the user's rules question using only the supplied evidence excerpts. "
             "Never use remembered rulebook knowledge. Cite evidence_ref_id values exactly. "
+            "For each citation, return one short verbatim support quote from that evidence excerpt. "
             "If the excerpts cannot support the answer, say so and set support_status to "
             "insufficient_evidence. Do not make unsupported claims."
         ),
@@ -86,6 +90,18 @@ async def synthesize_rules_answer(
         answer = str(parsed.get("answer") or "").strip()
         if status == "supported" and (not answer or not cited):
             return unavailable(packet, "answer_lacks_support")
+        if status == "supported":
+            quotes = parsed.get("support_quotes")
+            excerpts = {item.evidence_ref_id: item.excerpt or "" for item in packet.evidence}
+            if (not isinstance(quotes, list) or
+                    {quote.get("evidence_ref_id") for quote in quotes if isinstance(quote, dict)} != set(cited) or
+                    len(quotes) != len(set(cited)) or
+                    any(not isinstance(quote, dict) or
+                        not isinstance(quote.get("quote"), str) or
+                        not quote["quote"].strip() or
+                        quote["quote"] not in excerpts.get(quote.get("evidence_ref_id"), "")
+                        for quote in quotes)):
+                return unavailable(packet, "unverified_support_quote")
         if status not in {"supported", "insufficient_evidence"}:
             return unavailable(packet, "invalid_support_status")
         if status == "insufficient_evidence":
