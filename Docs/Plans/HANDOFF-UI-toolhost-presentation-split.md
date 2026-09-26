@@ -71,7 +71,7 @@ Cycle-1 repair and fresh review remain. No current-slice completion is claimed.
 | Explicit non-goals | new Tool types; command palette; Base UI adoption; ToolHost redesign; AppChrome redesign; EditHost split; projection semantics |
 | PR topology | serial repair/review candidate on existing #758; F0/F1/F2 are merged |
 | Authorized PR action | update #758 only; no new F3 PR |
-| Open implementation PRs in workstream at dispatch | #770 F1 and #771 F2, both unmerged |
+| Open implementation PRs in workstream at current review | F0/F1/F2 are merged; #758 is F3; #759 is the unmerged F4 successor |
 | Stack parent + merge/rebase order | #771 merged first; #758 now targets current `main` |
 | Branch / isolated checkout | existing #758 branch in isolated worktree |
 | Parallel lanes / collision hotspots | `ToolHost.tsx`, `ToolHost.test.tsx`, `styles.css`, `surfaceInteraction/**` are shared-shell hotspots |
@@ -123,7 +123,8 @@ Adversarial sequences:
 | Create | `apps/live-control-ui/src/surfaceInteraction/toolHost/ToolHostView.test.tsx` | Pure presentation contract tests |
 | Modify | `apps/live-control-ui/src/surfaceInteraction/toolHost/ToolHost.test.tsx` | Preserve integrated behavioral regression proof after split |
 | Modify | `apps/live-control-ui/src/styles.css` | Remove only ToolHost-specific styles that move to view CSS; no unrelated paint |
-| Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Backward-looking predecessor sync |
+| Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Backward-looking predecessor/current-frontier sync |
+| Modify | `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | Canonical UI checkpoint state sync only |
 | Modify | `Docs/Plans/HANDOFF-UI-toolhost-presentation-split.md` | Record the user-directed same-PR review topology truthfully |
 
 **Bounded discovery exception:**
