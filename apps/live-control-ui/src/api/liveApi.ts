@@ -759,8 +759,10 @@ export async function getJobs(): Promise<LiveJobsResponse> {
   return apiFetch<LiveJobsResponse>("/api/live/jobs");
 }
 
-export async function getPlanView(): Promise<PlanViewProjection> {
-  return apiFetch<PlanViewProjection>("/api/live/plan-view");
+export async function getPlanView(worldId?: string | null): Promise<PlanViewProjection> {
+  return apiFetch<PlanViewProjection>(
+    worldId ? `/api/live/plan-view?world_id=${encodeURIComponent(worldId)}` : "/api/live/plan-view",
+  );
 }
 
 export async function getPartyRegistry(

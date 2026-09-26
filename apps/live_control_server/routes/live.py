@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 from typing import Annotated, Any, Literal
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from apps.live_control_server.config import repo_root, session_dir
+from apps.live_control_server.services.world_container_registry import (
+    WorldContainerRegistryError,
+    get_world_container,
+)
+from apps.live_control_server.services.workspace_document_registry import (
+    WorkspaceDocumentRegistryError,
+    get_workspace_document,
+)
 from apps.live_control_server.schema_validation import LiveRowValidationError
 from apps.live_control_server.services.agent_surface_context import AgentSurfaceContextRequest
 from apps.live_control_server.services.agent_world_graph_query_context import (
@@ -895,12 +904,53 @@ def post_tiptap_markdown_write_commit(
 @router.post("/query", response_model=None)
 def post_live_query(body: LiveQueryRequest) -> Any:
     base = session_dir()
-    packet, _, _, _ = load_session(base)
-    if body.campaign_id != packet["campaign_id"] or body.session != packet["session"]:
-        raise HTTPException(
-            status_code=400,
-            detail="campaign_id/session do not match loaded live packet",
-        )
+    managed_packet: dict[str, Any] | None = None
+    # Legacy C1/C2 Hermes queries use Eldyrwild as their World. They must not
+    # acquire a new dependency on the managed-world registry's availability.
+    legacy_shape = body.campaign_id in {"longmont-c1", "longmont-c2"} and (
+        body.world_graph_context is None
+        or body.world_graph_context.world_id != body.campaign_id
+    )
+    managed_world = None
+    if not legacy_shape:
+        try:
+            managed_world = get_world_container(repo_root(), body.campaign_id)
+        except WorldContainerRegistryError as exc:
+            if exc.status_code != 404:
+                raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if managed_world is not None:
+        if body.query_backend != "hermes":
+            raise HTTPException(status_code=422, detail="managed World Ask requires Hermes")
+        if body.world_graph_context is None or (
+            body.world_graph_context.world_id != managed_world.world_id
+            or body.world_graph_context.campaign_id != managed_world.world_id
+        ):
+            raise HTTPException(status_code=422, detail="managed World graph context mismatch")
+        if body.hermes_session_pointer is not None:
+            raise HTTPException(status_code=422, detail="managed World session pointer is not supported")
+        if body.surface_context is None or body.surface_context.document_id is None:
+            raise HTTPException(status_code=422, detail="managed World Ask requires an exact Plan document")
+        try:
+            document = get_workspace_document(repo_root(), body.surface_context.document_id)
+        except WorkspaceDocumentRegistryError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        if (
+            document.kind != "plan"
+            or document.campaign_id != managed_world.world_id
+            or document.target_session != body.session
+            or body.surface_context.campaign_id != managed_world.world_id
+            or body.surface_context.session_number != body.session
+        ):
+            raise HTTPException(status_code=422, detail="managed World Plan document scope mismatch")
+        managed_packet = {"campaign_id": managed_world.world_id, "session": body.session}
+
+    if managed_packet is None:
+        packet, _, _, _ = load_session(base)
+        if body.campaign_id != packet["campaign_id"] or body.session != packet["session"]:
+            raise HTTPException(
+                status_code=400,
+                detail="campaign_id/session do not match loaded live packet",
+            )
     try:
         normalized_history = _parse_live_query_conversation_history(
             query_backend=body.query_backend,
@@ -919,6 +969,7 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             outer_campaign_id=body.campaign_id,
             conversation_history=normalized_history,
             surface_context=body.surface_context,
+            managed_world_packet=managed_packet,
         )
     except HermesGraphQueryRequestError as exc:
         return JSONResponse(status_code=exc.status_code, content=exc.response_body())
@@ -978,7 +1029,22 @@ def get_live_surface() -> dict[str, Any]:
 
 
 @router.get("/plan-view")
-def get_live_plan_view() -> dict[str, Any]:
+def get_live_plan_view(world_id: str | None = Query(default=None)) -> dict[str, Any]:
+    if world_id is not None:
+        try:
+            world = get_world_container(repo_root(), world_id)
+        except WorldContainerRegistryError as exc:
+            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        return {
+            "schema_version": "dmb_managed_world_plan_context_v1",
+            "campaign_id": world.world_id,
+            "world_id": world.world_id,
+            "session": 0,
+            "authoritative": False,
+            "generated_at": datetime.now(timezone.utc).isoformat(),
+            "derived_from": ["managed_world_container"],
+            "timeline": [],
+        }
     base = session_dir()
     packet, _, events, jobs = load_session(base)
     return build_session_plan_projection(packet, events, jobs)

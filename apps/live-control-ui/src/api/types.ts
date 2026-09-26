@@ -122,6 +122,7 @@ export interface PlanViewTimelineRow {
 export interface PlanViewProjection {
   schema_version: string;
   campaign_id: string;
+  world_id?: string;
   session: number;
   authoritative: false;
   generated_at: string;

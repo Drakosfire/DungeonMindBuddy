@@ -56,6 +56,7 @@ import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChro
 import { LegacyProjectionHostAdapter } from "./projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { createWorkspaceDocumentCreationController } from "../workspaceDocument/workspaceDocumentCreation";
 import {
   adoptCreatedPlanIdentity,
@@ -82,6 +83,8 @@ import { AgentInteractionProjectionTestHost } from "./projection/projectionTestH
 import * as liveApi from "../api/liveApi";
 import type { WorkspaceDocumentSnapshot } from "../api/types";
 import { readWorkspaceDocumentLocalState } from "../tiptap/state/tiptapLocalState";
+import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
+import type { PlanViewProjection } from "../api/types";
 
 const worldGraphProjection = {
   schema: "dmb_world_graph_projection_v1" as const,
@@ -174,23 +177,28 @@ function mockWorldGraphQueryContext(
   };
 }
 
-function PlanSurfaceTestHarness() {
+function PlanSurfaceTestHarness({ planView = mockPlanView, managedWorldId }: {
+  planView?: PlanViewProjection;
+  managedWorldId?: string;
+}) {
   const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
 
   return (
     <AgentInteractionProvider>
       <PlanPublicationProbe />
       <AskPluginSlotProvider>
-        <WorldGraphLensProvider planCampaignId="longmont-c2">
+        <WorldGraphLensProvider planCampaignId={planView.campaign_id} managedWorldId={managedWorldId}>
           <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
             <SurfaceContextProvider>
-              <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-                <PlanSurfaceShell planView={mockPlanView} onEditorToolsChange={setEditorTools} />
-              </AppChrome>
+              <PeekRegionProvider>
+                <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+                  <PlanSurfaceShell planView={planView} onEditorToolsChange={setEditorTools} />
+                </AppChrome>
+                <ToolHost />
+                <LegacyProjectionHostAdapter />
+                <AgentInteractionChrome />
+              </PeekRegionProvider>
             </SurfaceContextProvider>
-            <ToolHost />
-            <LegacyProjectionHostAdapter />
-            <AgentInteractionChrome />
           </WorldGraphLensProjectionProvider>
         </WorldGraphLensProvider>
       </AskPluginSlotProvider>
@@ -213,6 +221,13 @@ function PlanPublicationProbe() {
 
 function renderPlanSurface() {
   return render(<PlanSurfaceTestHarness />);
+}
+
+function ManagedPlanTestGate({ planView }: { planView: PlanViewProjection }) {
+  const selected = useSelectedWorld();
+  return selected.kind === "managed"
+    ? <PlanSurfaceTestHarness planView={planView} managedWorldId={selected.worldId} />
+    : <span>{selected.kind}</span>;
 }
 
 async function openWorldGraphLoadPanel(user: ReturnType<typeof userEvent.setup>) {
@@ -406,7 +421,9 @@ describe("PlanSurfaceShell", () => {
     expect(screen.queryByRole("alert")).not.toHaveTextContent(
       "Surface plan does not accept document kind runbook.",
     );
-    expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeDisabled();
+    // Runbook authoring is now a supported Plan path (covered in the dedicated
+    // Runbook suite); the exact document must retain its own save affordance.
+    expect(screen.getByRole("button", { name: "Save to Markdown" })).toBeEnabled();
   });
 
   it("opens Recap from the tool query parameter", async () => {
@@ -3180,6 +3197,135 @@ describe("PlanSurfaceShell", () => {
         kind: "plan",
         status: "active",
       });
+    });
+
+    it("creates and reopens prep in the verified managed World without a C2 packet", async () => {
+      const worldId = "of-conks-cons-demo";
+      const managedDocumentId = "44444444-4444-4444-8444-444444444444";
+      const managedRecord = fixtureWorkspaceDocumentRecord({
+        document_id: managedDocumentId,
+        title: "Of Conks Session 1 Prep",
+        campaign_id: worldId,
+        target_session: 1,
+        target_relpath: `out/workspace/plan/${managedDocumentId}.md`,
+      });
+      const managedView: PlanViewProjection = {
+        ...mockPlanView,
+        schema_version: "dmb_managed_world_plan_context_v1",
+        world_id: worldId,
+        campaign_id: worldId,
+        session: 0,
+        timeline: [],
+        derived_from: ["managed_world_container"],
+      };
+      const actualDescriptor = await vi.importActual<typeof import("./config/planSessionDescriptor")>(
+        "./config/planSessionDescriptor",
+      );
+      vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementation(
+        actualDescriptor.resolvePlanningDocument,
+      );
+      vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+        schema_version: "dmb_world_container_registry_v1",
+        records: [{
+          schema_version: "dmb_world_container_record_v1",
+          world_id: worldId,
+          name: "Of Conks",
+          source_root_relpath: "corpus/of-conks-cons-demo-markdown",
+          created_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      let created = false;
+      vi.mocked(liveApi.listWorkspaceDocuments).mockImplementation(async () => ({
+        schema_version: "dmb_workspace_document_registry_v1",
+        records: created ? [managedRecord] : [],
+      }));
+      vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(managedRecord);
+      vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+        fixtureWorkspaceDocumentSnapshot({ record: managedRecord }),
+      );
+      vi.mocked(liveApi.createWorkspaceDocument).mockImplementation(async () => {
+        created = true;
+        return managedRecord;
+      });
+      vi.mocked(liveApi.postWorldGraphProjection).mockRejectedValue(new Error("no published head"));
+      const bundle = vi.mocked(liveApi.getSourceBundle);
+      window.history.pushState({}, "", `/plan?world=${worldId}`);
+      const view = render(
+        <SelectedWorldProvider locationSnapshot={window.location.href}>
+          <ManagedPlanTestGate planView={managedView} />
+        </SelectedWorldProvider>,
+      );
+      await waitFor(() => expect(screen.getByTestId("plan-blank-canvas")).toBeInTheDocument());
+      expect(screen.queryByRole("button", { name: "Open" })).not.toBeInTheDocument();
+      expect(liveApi.listWorkspaceDocuments).toHaveBeenCalledWith({
+        campaign_id: worldId,
+        kind: "plan",
+        status: "active",
+      });
+      const user = userEvent.setup();
+      await user.click(screen.getByTestId("plan-document-create-open"));
+      await user.click(screen.getByTestId("plan-document-create-submit"));
+      await waitFor(() => expect(new URL(window.location.href).searchParams.get("documentId")).toBe(managedDocumentId));
+      expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(expect.objectContaining({
+        campaign_id: worldId,
+        target_session: 1,
+      }));
+      expect(vi.mocked(liveApi.createWorkspaceDocument).mock.calls[0]?.[0]).not.toHaveProperty("world_id");
+      expect(bundle).not.toHaveBeenCalled();
+      view.unmount();
+      vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+        ...worldGraphProjection,
+        snapshot: {
+          ...worldGraphProjection.snapshot,
+          worldId,
+          campaignId: worldId,
+          revisionId: "rev-of-conks-1",
+          headRevisionId: "rev-of-conks-1",
+        },
+      });
+      vi.spyOn(globalThis, "fetch").mockResolvedValue({
+        ok: true,
+        text: async () => JSON.stringify({
+          answer: "The World has no matching facts yet.",
+          status: "ok",
+          mode: "hermes_graph_agent",
+          classification: {},
+          events_written: [],
+          jobs_queued: [],
+          next_suggestions: [],
+          diagnostics: {},
+          provenance: { backend: "hermes" },
+          citations: [],
+        }),
+      } as Response);
+      render(
+        <SelectedWorldProvider locationSnapshot={window.location.href}>
+          <ManagedPlanTestGate planView={managedView} />
+        </SelectedWorldProvider>,
+      );
+      await waitFor(() => expect(screen.getByTestId("plan-canvas-title")).toHaveTextContent(managedRecord.title));
+      expect(new URL(window.location.href).searchParams.get("world")).toBe(worldId);
+      expect(bundle).not.toHaveBeenCalled();
+      await user.click(await screen.findByRole("button", { name: "Open" }));
+      await user.type(screen.getByLabelText("Question"), "What do we know?");
+      await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+      await waitFor(() => expect(liveQueryFetchCalls()).toHaveLength(1));
+      expect(latestLiveQueryBody()).toMatchObject({
+        campaign_id: worldId,
+        session: 1,
+        query_backend: "hermes",
+        world_graph_context: {
+          world_id: worldId,
+          campaign_id: worldId,
+          revision_pin: "rev-of-conks-1",
+        },
+        surface_context: {
+          campaign_id: worldId,
+          document_id: managedDocumentId,
+        },
+      });
+      expect(latestLiveQueryBody().hermes_session_pointer).toBeUndefined();
+      expect(bundle).not.toHaveBeenCalled();
     });
 
     it("switches the active prep document by exact documentId", async () => {

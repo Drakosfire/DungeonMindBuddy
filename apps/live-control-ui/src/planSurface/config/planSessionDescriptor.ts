@@ -138,7 +138,9 @@ export function buildPlanContextFromPlanView(
   planningDocument: PlanDocumentDescriptor,
   overrides: PlanSessionLocationOverrides = {},
 ): PlanContextDescriptor {
-  const liveSession = planView.session;
+  const liveSession = planView.world_id
+    ? planningDocument.targetSession ?? 0
+    : planView.session;
   const ingestSession = overrides.memorySession ?? liveSession;
   return {
     campaignId: planView.campaign_id,
@@ -220,6 +222,13 @@ export class CrossCampaignRunbookAdmissionError extends Error {
   }
 }
 
+export class CrossCampaignPlanAdmissionError extends Error {
+  constructor(documentId: string, documentCampaignId: string, planCampaignId: string) {
+    super(`Plan ${documentId} belongs to campaign ${documentCampaignId} and cannot be authored under campaign ${planCampaignId}.`);
+    this.name = "CrossCampaignPlanAdmissionError";
+  }
+}
+
 export async function resolvePlanningDocument(args: {
   planView: PlanViewProjection;
   locationSearch?: string | null;
@@ -230,12 +239,11 @@ export async function resolvePlanningDocument(args: {
 
   if (requestedId) {
     const record = await getWorkspaceDocument(requestedId);
-    if (record.kind === "runbook" && record.campaign_id !== campaignId) {
-      throw new CrossCampaignRunbookAdmissionError(
-        requestedId,
-        record.campaign_id,
-        campaignId,
-      );
+    if (record.campaign_id !== campaignId) {
+      if (record.kind === "runbook") {
+        throw new CrossCampaignRunbookAdmissionError(requestedId, record.campaign_id, campaignId);
+      }
+      throw new CrossCampaignPlanAdmissionError(requestedId, record.campaign_id, campaignId);
     }
     return workspaceRecordToPlanDocumentDescriptor(record);
   }
@@ -260,7 +268,9 @@ export function createPlanSessionDescriptor(
   const memorySession =
     overrides.memorySession === undefined ? null : overrides.memorySession;
   const sourceStatusLabel =
-    memorySession == null
+    planView.world_id
+      ? "Managed World · no live session is implied"
+      : memorySession == null
       ? "World graph (all sessions) · set ?session=N to focus"
       : `Session ${memorySession} · open /ingest to review`;
   return {
@@ -268,7 +278,9 @@ export function createPlanSessionDescriptor(
     campaignId: planView.campaign_id,
     campaignLabel: formatReviewCampaignLabel(planView.campaign_id),
     memorySession,
-    liveSession: planView.session,
+    liveSession: planView.world_id
+      ? planningDocument.targetSession ?? 0
+      : planView.session,
     sourceStatusLabel,
     sourceStatusKind: "unknown",
     planningDocument,

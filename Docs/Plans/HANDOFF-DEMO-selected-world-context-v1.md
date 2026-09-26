@@ -72,8 +72,10 @@ Pre-dispatch critique:
   World head. Existing C1/C2 `/query` behavior is unchanged.
 - Explicitly false afterward: candidate publication, extraction quality,
   beats/encounters, Plan→Play Run creation, and final DEMO acceptance.
-- Runtime lease: use the existing isolated Of Conks DB pair and ports 8812/5192
-  for live witness; do not mutate C1/C2 or another lane's runtime. The licensed
+- Runtime lease: use the existing isolated Of Conks DB pair and new ports
+  8813/5194 for the live witness; the prior steward's 8812/5192 listeners
+  remain occupied and are not this lane's to terminate. Do not mutate C1/C2
+  or another lane's runtime. The licensed
   source root under `corpus/of-conks-cons-demo-markdown/` is local-only and must
   never be staged or committed. No model call is needed; replay the saved run.
 - State-authority sync: this handoff and `ROADMAP-demo.md` plus its active

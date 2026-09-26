@@ -62,6 +62,8 @@ const PlanGraphLensContext = createContext<PlanGraphLensContextValue | null>(nul
 
 interface PlanGraphLensProviderProps {
   planCampaignId: string;
+  /** Server-verified managed World; legacy C1/C2 controls do not apply. */
+  managedWorldId?: string | null;
   children: ReactNode;
   /** Injectable for tests; defaults to live `getSourceBundle`. */
   loadBundle?: typeof getSourceBundle;
@@ -115,12 +117,13 @@ const BUNDLE_LOAD_IDLE: BundleLoadState = {
 
 export function PlanGraphLensProvider({
   planCampaignId,
+  managedWorldId = null,
   children,
   loadBundle = getSourceBundle,
   focusOptions: focusOptionsOverride,
 }: PlanGraphLensProviderProps) {
   const [lens, setLens] = useState<PlanGraphLens>(() =>
-    resolvePlanGraphLens(
+    managedWorldId ? { selectedCampaignIds: [], focus: null } : resolvePlanGraphLens(
       planCampaignId,
       typeof window !== "undefined" ? window.location.search : "",
     ),
@@ -129,7 +132,7 @@ export function PlanGraphLensProvider({
     () => focusOptionsOverride ?? [],
   );
   const [bundleLoadState, setBundleLoadState] = useState<BundleLoadState>(() => {
-    const initialLens = resolvePlanGraphLens(
+    const initialLens = managedWorldId ? { selectedCampaignIds: [], focus: null } : resolvePlanGraphLens(
       planCampaignId,
       typeof window !== "undefined" ? window.location.search : "",
     );
@@ -149,7 +152,7 @@ export function PlanGraphLensProvider({
     status: PlanGraphFocusValidationStatus;
     boundKey: string;
   }>(() => {
-    const initialLens = resolvePlanGraphLens(
+    const initialLens = managedWorldId ? { selectedCampaignIds: [], focus: null } : resolvePlanGraphLens(
       planCampaignId,
       typeof window !== "undefined" ? window.location.search : "",
     );
@@ -190,6 +193,7 @@ export function PlanGraphLensProvider({
 
   const setSelectedCampaignIds = useCallback(
     (ids: ReviewCampaignId[]) => {
+      if (managedWorldId) return;
       unverifiedOverrideKeyRef.current = null;
       setLens((previous) => {
         const next: PlanGraphLens = {
@@ -203,10 +207,11 @@ export function PlanGraphLensProvider({
         return next;
       });
     },
-    [],
+    [managedWorldId],
   );
 
   const toggleCampaign = useCallback((campaignId: ReviewCampaignId) => {
+    if (managedWorldId) return;
     unverifiedOverrideKeyRef.current = null;
     setLens((previous) => {
       const selected = new Set(previous.selectedCampaignIds);
@@ -226,7 +231,7 @@ export function PlanGraphLensProvider({
       syncPlanGraphLensUrl(next);
       return next;
     });
-  }, []);
+  }, [managedWorldId]);
 
   const setFocus = useCallback(
     (focus: PlanGraphLensFocus | null) => {
@@ -397,13 +402,13 @@ export function PlanGraphLensProvider({
   ]);
 
   const derived = useMemo(
-    () => deriveApiLens(lens, planCampaignId),
-    [lens, planCampaignId],
+    () => managedWorldId ? null : deriveApiLens(lens, planCampaignId),
+    [lens, managedWorldId, planCampaignId],
   );
 
   const summaryLabel = useMemo(
-    () => formatPlanGraphLensSummary(lens, planCampaignId),
-    [lens, planCampaignId],
+    () => managedWorldId ? `World · ${managedWorldId}` : formatPlanGraphLensSummary(lens, planCampaignId),
+    [lens, managedWorldId, planCampaignId],
   );
 
   const value = useMemo(

@@ -4,6 +4,7 @@ import { GraphLoadPanel } from "../graphLens/GraphLoadPanel";
 import type { PlanGraphLensFocus, ReviewCampaignId } from "../graphLens/sessionCampaignContext";
 import { useOptionalPlanGraphLens } from "../graphLens/WorldGraphLensContext";
 import { useOptionalWorldGraphLensProjection } from "../graphLens/useWorldGraphLensProjection";
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import {
   SurfaceContextPopover,
 } from "../surfaceInteraction/contextHost";
@@ -155,12 +156,27 @@ function WorldGraphConstellation({ tone }: { tone: WorldGraphChromeTone }) {
  */
 export function AppChromeWorldGraphStatus() {
   const [open, setOpen] = useState(false);
+  const selectedWorld = useSelectedWorld();
   const projection = useOptionalWorldGraphLensProjection();
   const lens = useOptionalPlanGraphLens();
 
   const presentation = useMemo(
-    () =>
-      presentWorldGraphChromeStatus({
+    () => selectedWorld.kind === "managed"
+      ? (() => {
+          const state = projection?.projectionState;
+          const tone: WorldGraphChromeTone = state === "unavailable" ? "unavailable"
+            : state === "ready" ? "ready"
+              : state === "error" ? "error" : "loading";
+          const status = state === "unavailable" ? "Not initialized"
+            : state === "ready" ? "Ready"
+              : state === "error" ? "Needs attention" : "Loading…";
+          return {
+            tone,
+            compactLabel: `${selectedWorld.name} · ${status}`,
+            fullLabel: `World · ${selectedWorld.name} · ${status}`,
+          };
+        })()
+      : presentWorldGraphChromeStatus({
         hasProjectionContext: projection != null,
         hasLensControls: lens != null,
         projectionState: projection?.projectionState ?? null,
@@ -169,7 +185,7 @@ export function AppChromeWorldGraphStatus() {
         selectedCampaignIds: lens?.lens.selectedCampaignIds ?? null,
         focus: lens?.lens.focus ?? null,
       }),
-    [lens, projection],
+    [lens, projection, selectedWorld],
   );
 
   const trigger = (

@@ -17,6 +17,7 @@ import { PeekRegionSlot, usePeekRegionState } from "../surfaceInteraction/peekHo
 import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 import { interceptPrimaryNavigationClick } from "./appNavigation";
 import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
 let nextCallbackIdentityKey = 1;
@@ -130,6 +131,7 @@ export function AppChrome({
   editToolboxLayout = "overlay",
   children,
 }: AppChromeProps) {
+  const selectedWorld = useSelectedWorld();
   const { winner: secondaryContext } = usePeekRegionState();
   const priorSecondaryKindRef = useRef(secondaryContext?.kind ?? null);
   const secondaryKindRef = useRef(secondaryContext?.kind ?? null);
@@ -319,7 +321,9 @@ export function AppChrome({
             {APP_NAV_ITEMS.map((item) => (
               <a
                 key={item.href}
-                href={item.href}
+                href={selectedWorld.kind === "managed" && ["plan", "build", "ingest"].includes(item.route ?? "")
+                  ? `${item.href}?world=${encodeURIComponent(selectedWorld.worldId)}`
+                  : item.href}
                 className={item.route === activeRoute ? "active" : undefined}
                 onClick={interceptPrimaryNavigationClick}
               >

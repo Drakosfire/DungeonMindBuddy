@@ -28,6 +28,7 @@ export interface WorldGraphRevisionCommittedDetail {
 }
 
 import { getWorldIdForCampaign } from "../../worldGraph/worldGraphSurfaceContext";
+import { getVerifiedManagedWorld } from "../../selectedWorld/SelectedWorldContext";
 
 export {
   buildBuildWorldGraphProjectionRequest,
@@ -53,6 +54,16 @@ export function getPlanWorldGraphContext(
   options?: { scopeMode?: PlanGraphScopeMode; lens?: PlanGraphLens | null },
 ): PlanWorldGraphContext | null {
   if (!sessionDescriptor) return null;
+
+  const managed = getVerifiedManagedWorld();
+  if (managed && sessionDescriptor.campaignId === managed.worldId) {
+    return {
+      worldId: managed.worldId,
+      campaignId: managed.worldId,
+      scopeMode: "world",
+      focus: { kind: "none", sessionId: null },
+    };
+  }
 
   let lens: PlanGraphLens;
   if (options != null && "lens" in options && options.lens != null) {

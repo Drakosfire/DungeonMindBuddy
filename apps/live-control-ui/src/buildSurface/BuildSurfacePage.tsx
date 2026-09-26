@@ -1,4 +1,7 @@
+import { useEffect } from "react";
+
 import { AppChrome } from "../chrome/AppChrome";
+import { announceSelectedWorldLocationChange } from "../selectedWorld/SelectedWorldContext";
 import { MarkdownCanvasSessionProvider } from "../markdownCanvas/MarkdownCanvasSession";
 import { BUILD_MARKDOWN_CANVAS } from "./buildMarkdownCanvasAdapter";
 import { BUILD_SAVE_CONFLICTS_WITH } from "./buildDocumentCommands";
@@ -12,6 +15,13 @@ import "./buildSurface.css";
 
 export function BuildSurfacePage() {
   const controller = useBuildWorkspaceDocumentController();
+
+  useEffect(() => {
+    if (!controller.activeRecord || typeof window === "undefined") return;
+    if (new URLSearchParams(window.location.search).get("documentId") === controller.activeRecord.document_id) {
+      announceSelectedWorldLocationChange();
+    }
+  }, [controller.activeRecord]);
 
   return (
     <AppChrome activeRoute="build">

@@ -4,6 +4,7 @@ import * as liveApi from "../../api/liveApi";
 import { mockPlanView } from "../../test/fixtures";
 import {
   buildPlanContextFromPlanView,
+  CrossCampaignPlanAdmissionError,
   CrossCampaignRunbookAdmissionError,
   createPlanSessionDescriptor,
   defaultPlanTargetRelpath,
@@ -218,18 +219,15 @@ describe("resolvePlanningDocument campaign admission", () => {
     })).rejects.toThrow(/longmont-c1.*longmont-c2/);
   });
 
-  it("does not apply the Runbook campaign guard to exact Plan documents", async () => {
+  it("fails closed on an exact cross-campaign Plan document", async () => {
     const record = fixtureWorkspaceDocumentRecord({
       kind: "plan",
       campaign_id: "longmont-c1",
     });
     vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(record);
-    const document = await resolvePlanningDocument({
+    await expect(resolvePlanningDocument({
       planView: mockPlanView,
       locationSearch: `?documentId=${FIXTURE_DOC_ID}`,
-    });
-    expect(document.kind).toBe("plan");
-    expect(document.documentId).toBe(FIXTURE_DOC_ID);
-    expect(document.campaignId).toBe("longmont-c1");
+    })).rejects.toBeInstanceOf(CrossCampaignPlanAdmissionError);
   });
 });
