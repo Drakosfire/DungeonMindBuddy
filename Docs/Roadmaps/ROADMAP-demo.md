@@ -198,18 +198,45 @@ that their foundations are absent. Historical slices retain their IDs.
   tests, locked sync, Ruff, runtime import and diff check pass; default suite
   retains eight inherited collection errors. No product write route or
   persistent authority changed. No PLAY-2/3 dispatch follows automatically.
-- **DEMO-J1, first local corpus preflight:** unverified. The purchased Of Conks
-  v2.1 Markdown/gold package exists only in the operator's local Downloads;
-  module prose must not be committed. `specimens/01-cleaned-single-column.md`
-  and `specimens/02-prepared.md` match their local manifest hashes, but
-  `playable/hempholm-prep.md` currently hashes to
+- **DEMO-J1, isolated Of Conks rehearsal:** **blocked after successful source
+  import and extraction, before connected Plan/World use.** At Buddy main
+  `29fa749c094ab891d5041e6d5f7e09d54176b7bc`, an isolated local pair
+  (`dungeonmind_demo_ofconks_v1` at DungeonMind schema 0010 and
+  `dungeonbuddy_application_state_demo_ofconks_v1` at APP-STATE schema 0006)
+  was established without touching C1/C2. Ordinary Build Import created the
+  managed `of-conks-cons-demo` source and committed document
+  `c03fbfcb-79fc-46ae-9124-3f1f7c384c1b` revision 2 from local purchased
+  `specimens/01-cleaned-single-column.md`, SHA-256
+  `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`.
+  One ordinary Build Extract produced reviewable run
+  `07a33f99-7520-4c59-bee2-b38514cb61b8` under the current bounded
+  worldbuilding profile, with 33 object candidates and 30 relationship
+  candidates; Graph Review displayed the first-World review with 63 changes.
+  This is candidate evidence, not a quality PASS or World publication. No
+  candidate facts were confirmed. The default profile intentionally omits
+  adventure beats/encounters; its suitability for the full demo is unproven.
+
+  The first connected product failure is **Build/imported managed World → Plan**:
+  Plan still opens a C2 Session 23 prep, `+ New prep` offers only a C2 session
+  number/title, and Ask names Longmont C2. There is no ordinary selection of
+  the newly imported World as the Plan destination. Build also disables
+  `Find existing object` with `Unknown Build document scope:
+  of-conks-cons-demo`, while shared World chrome tries Eldyrwild rather than
+  the selected managed World. These are Buddy context/routing gaps, not
+  presentation defects or evidence that the extraction failed. J1 remains
+  blocked; J2–J6 are not certified by this partial rehearsal. Next: design the
+  smallest managed-World Plan-context slice, preserving C1/C2, then re-test
+  this exact transition. Independently determine the bounded World-reference
+  lens repair before any accepted first-World publication. Do not spend on
+  another extraction to fix routing.
+
+  The licensed Of Conks package remains local-only and must not be committed.
+  Its `specimens/02-prepared.md` matches its local manifest; the local
+  `playable/hempholm-prep.md` SHA-256 is
   `c473329dd3a0425559e1d2fae60707a13036e0c473f1dd802e8a96804a2fd86f`,
-  not the manifest's `1b350f...` pin. The older seeded worktree named in local
-  NOTES is absent. No isolated durable demo World/APP-STATE pair has yet been
-  established or imported through ordinary product controls. This is a
-  reproducibility/setup gap, not a claim that J1 product import failed.
-  Next: establish exact local input pins and isolated persistent authorities;
-  then execute the ordinary J1 import transition and record its first failure.
+  not the manifest's `1b350f...` pin. Resolve that input pin before claiming a
+  fully reproducible final rehearsal. The new demo DBs and source root are
+  disposable local rehearsal state, not production authority.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
