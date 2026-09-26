@@ -100,7 +100,6 @@ Activation checks completed after #767 resolved:
 A later `main` advance is not itself a blocker when these contracts and leases
 remain unchanged. Material contract drift requires rebrief.
 
-
 ## 1. Mission
 
 Answer one question:

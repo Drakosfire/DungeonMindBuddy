@@ -33,6 +33,8 @@ dependencies = [
     # The postgres extra carries the in-process PostgreSQL adapter
     # dependencies used by the DungeonMind-backed World Graph authority.
     "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@0f709d76fdc53bac9c9258d1751463ae2c76ca71",
+    # PLAY-1 consumer seam: accepted WorldKeeper #8 V3-compatible merge.
+    "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@a0a70db275cf6c5f3876fe7b4d2a557de12388f5",
     # Exact pin: GenerationEngine PR #10 merge (E5L deterministic client cleanup).
     "generationengine[openai] @ git+https://github.com/Drakosfire/GenerationEngine.git@9122257f5a8842e4771990a3316130bc1bf7e332",
     "psycopg[binary]>=3.2",
