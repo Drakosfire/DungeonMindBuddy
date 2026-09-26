@@ -13,7 +13,7 @@ This branch was planted while Buddy UI foundation PRs #755–#761 were in flight
 
 This PR is backend/application-contract work. It must not redesign ToolHost.
 
-Re-anchored on Buddy `main@705ffd851363d312132039115d78abffc854b5cd` after RulesIngestion PR #4 merged at `b4a06e8b28ac34d40add64978a11116c6a24cf9c`. The operator explicitly activated Phase H, which the central platform-refresh steward handoff permits before the platform golden path. This slice remains read-only backend work; UI foundation PR #761 is still open and belongs to RLH-07's re-anchor. Open Buddy PR #767 also edits `pyproject.toml`; the DungeonMind pin conflict must be reconciled before final merge.
+Re-anchored on Buddy `main@3f0d554919c3fa093598a18ef6d5c740f81ddc0e` after RulesIngestion PR #4 merged at `b4a06e8b28ac34d40add64978a11116c6a24cf9c`. The operator explicitly activated Phase H, which the central platform-refresh steward handoff permits before the platform golden path. This slice remains read-only backend work; UI foundation PR #761 is still open and belongs to RLH-07's re-anchor. Open Buddy PR #767 also edits `pyproject.toml`; the DungeonMind pin conflict must be reconciled before final merge.
 
 **PR topology:** RLH-06 → RLH-07 → RLH-08 is stacked. This PR's implementation lease is `apps/live_control_server/{models,services,routes,integrations/dungeonmind}/rules_query*`, the trusted SRD rules binding JSON, `apps/live_control_server/main.py`, `pyproject.toml`, `uv.lock`, and focused tests. It does not write UI ToolHost paths.
 
