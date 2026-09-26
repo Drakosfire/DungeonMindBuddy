@@ -376,21 +376,14 @@ The tracker, not this roadmap, decides which `READY` slice is dispatched next. C
 
 ## UI design re-entry checkpoint — Frontend Presentation Substrate sidequest
 
-**State:** DESIGN PROPOSED — UI-F0 review only; broad UI redesign held
+**State:** ACTIVE / MID-SIDEQUEST — F0/F1/F2 merged; F3/F4 review-accepted; F5 externally blocked; broad UI redesign held
 
-**Re-anchor:** Buddy `main@3f0d5549` after reversal of the prior UI merges
-
-This UI section is a proposal, not an active implementation lease. Repository
-settlement classifies this roadmap as `SETTLEMENT_HOLD` pending UI-stack drain;
-the checked-in HANDOFF and workstream plan, not this legacy roadmap, govern
-any later UI dispatch.
+**Re-anchor:** Buddy `main@25cae87d66cf02f23d15f68a6163e584bd0441c8` after merged PRs #769/#770/#771
 
 **Sequencing authority:** [`PLAN-ui-presentation-substrate-sidequest-v1.md`](../Plans/PLAN-ui-presentation-substrate-sidequest-v1.md)
 
-The prior Canvas-convergence checkpoint is superseded as the **first** UI
-re-entry action. Canvas convergence remains important, but current repository
-evidence shows that Buddy already has a surprisingly mature interaction/runtime
-kernel while visual iteration is still too coupled to production composition.
+The sidequest has now proven the first half of its thesis: Buddy can gain a cheap
+presentation layer without disturbing its mature interaction/runtime kernel.
 
 Preserve:
 
@@ -418,94 +411,164 @@ responsive presentation
 paper/chrome/ops visual treatment
 ```
 
-The sidequest sequence is:
+Current sequence:
 
 ```text
-UI-F0  substrate contract + roadmap                         PROPOSED — design PR only
-UI-F1  tokens + 4 primitives + Ladle                        BLOCKED until handoff is on main
-UI-F2  World-object showroom + ObjectSheet                  QUEUED
-UI-F3  ToolHost behavior/presentation split                 QUEUED
-UI-F4  <=10-story canonical visual contract                 QUEUED
-UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
-UI-F6  post-substrate human/steward decision STOP           LATER
+UI-F0  substrate contract + roadmap                         MERGED — PR #769 @ 5f62d9c1
+UI-F1  tokens + 4 primitives + Ladle                        MERGED — PR #770 @ b834c7f6
+UI-F2  World-object showroom + ObjectSheet                  MERGED — PR #771 @ 25cae87d
+UI-F3  ToolHost behavior/presentation split                 MERGE READY — PR #758 @ 453aabdc
+UI-F4  <=10-story canonical visual contract                 MERGE READY after F3 — PR #759 @ f854ab4c
+UI-F5  Canvas layout-engine Page convergence experiment     BLOCKED — Canvas packaging prerequisite
+UI-F6  post-substrate human/steward decision STOP           BLOCKED on accepted F5 verdict
 ```
 
-The development machine is treated as resource-constrained. The default posture
-is Vite-native, static-fixture-first, backend-free UI iteration:
+### What F0–F4 have proven
 
-- plain CSS custom properties for semantic tokens;
-- CSS Modules or narrowly scoped CSS for new reusable presentation work;
-- Ladle as the preferred lightweight isolated React/Vite workshop;
-- Base UI only selectively behind Buddy-owned wrappers for accessibility/focus
-  mechanics;
-- Playwright screenshots limited to a small canonical demo set and run explicitly
-  or in CI;
-- no Tailwind migration, CSS-in-JS runtime, large pre-styled framework, duplicate
-  component-workshop stack, or always-on visual-regression watcher.
+The merged/accepted substrate now establishes:
 
-The forcing development loop is:
+- a lightweight backend-free Ladle workshop;
+- semantic CSS tokens;
+- four deliberately small primitives: Surface, Button, Badge, Stack;
+- one real Buddy-shaped ObjectSheet over the existing
+  `GraphObjectCardViewModel`;
+- static sparse/rich/Location/Faction/relationship-heavy World-object fixtures;
+- a ToolHost controller/presentation split where the view receives a callback-free
+  presentation model rather than authority-bearing tool contributions;
+- preserved ToolHost lease, activation, stale-state, identity, focus, drawer, and
+  Peek behavior;
+- a bounded visual contract of 8 fixed Chromium/WebP cases, one worker, explicit
+  invocation only, with a deliberate-diff witness proving fail-closed behavior.
+
+The resource-constrained-development rule remains in force:
+
+- Vite/React/Vitest remain the base;
+- no backend is required for normal presentation iteration;
+- no Tailwind migration or CSS-in-JS runtime;
+- no giant pre-styled component framework;
+- no duplicate workshop stack;
+- no always-on screenshot watcher;
+- headless interaction libraries are earned only by a concrete consumer.
+
+### Immediate merge frontier
+
+F3 review is accepted at:
+
+`#758 @ 453aabdc918d09e20b0da7d4206cdb744bd27406`
+(formal review `5326714244`).
+
+F4 review is accepted relative to that F3 head at:
+
+`#759 @ f854ab4c8f68d2e8d05f89189362678b6596d2a6`
+(formal review `5326714910`).
+
+Required order:
 
 ```text
-idea
-→ static representative Buddy fixture
-→ visual implementation
-→ desktop + narrow comparison
-→ optional screenshot check
-→ product integration
+merge #758
+→ re-anchor #759 on fresh main
+→ rerun F4 workshop/visual evidence
+→ merge #759
 ```
 
-A normal presentation experiment must not require DungeonMind, APP-STATE,
-PostgreSQL, an ingest run, or a backend API.
+The inherited `ThreatPublicationPanel.tsx:553 TS2503` build/typecheck failure is
+baseline debt and is not attributed to this sidequest.
 
-### Canvas convergence now belongs to UI-F5
+### UI-F5 — current hard blocker
 
-After the isolated presentation lab exists, test the narrower seam:
+Canvas convergence is deliberately narrower than adopting Canvas presentation.
+
+Candidate seam:
 
 ```text
 fixed current-schema Buddy TipTap document
-→ Buddy-owned semantic adapter
-→ Canvas layout inputs
+→ Buddy semantic adapter
+→ transient Canvas layout inputs
 → Canvas measurement / pagination
 → LayoutPlan
 → Buddy-owned Page projection
 ```
 
-Buddy does not adopt Canvas PageDocument persistence or Canvas's current visible
-CanvasPage treatment. An exact installable layout-only Canvas artifact is an
-activation prerequisite; local links/vendor workarounds are not acceptable.
+Buddy does not adopt Canvas `PageDocument`, `buildPageDocument()`,
+`CanvasPage`/PHB visible presentation, map mode, or an alternate save path.
 
-The first witness remains a representative Runbook/Plan document with prose,
-table, callout, exact graph reference, and Playable semantics. Record
-YES / NARROWER / NO before deciding whether Flow / Page / Board deserves further
-work.
+The blocker is packaging, not Buddy UI code.
 
-UI-F6 is then a human/steward STOP, not an implementation slice. It may authorize
-at most one successor or explicitly resume non-UI product work.
+`Drakosfire/Canvas@e352c71558a0ff020ef97c63dbbe6b3a93e72528`
+still declares `konva` and `react-konva` as required package-wide peers.
+
+Before F5 activation, a separately reviewed Canvas predecessor must prove:
+
+1. an exact clean install from a reproducible Canvas SHA/artifact;
+2. `dungeonmind-canvas/layout` resolves without sibling checkout, source deep
+   import, vendoring, or `npm link`;
+3. layout-only consumption does not install/require Konva/react-konva;
+4. the layout import graph does not pull map code;
+5. Buddy React 19 resolves as one React/ReactDOM singleton.
+
+No Buddy workaround is authorized.
+
+The F5 experiment must terminate with exactly one evidence-backed verdict:
+
+```text
+YES
+NARROWER
+NO
+```
+
+A NO is valid and should end the experiment rather than trigger rescue glue.
+
+### UI-F6 — final human re-entry gate
+
+F6 remains intentionally dormant until F5 has an accepted verdict.
+
+It is not an implementation slice.
+
+It combines:
+
+- F1 weak-laptop workshop evidence;
+- F2 World-object presentation evidence;
+- F3 controller/presentation extraction cost;
+- F4 visual-safety-net cost/value;
+- F5 Canvas verdict;
+- one bounded product-owner demo pass through current merged Buddy.
+
+It may authorize at most one next result:
+
+```text
+one bounded UI successor
+one bounded substrate correction
+one bounded reconnaissance
+RESUME_NON_UI
+```
+
+There is no preselected Play redesign, ObjectSheet rollout, shell rewrite, or
+Canvas production adoption.
+
+If presentation is no longer the highest-value blocker to a credible demo,
+`RESUME_NON_UI` is the expected truthful result.
 
 ### Sidequest boundary
 
-This sidequest may run in parallel with CON-READY PLAY when file leases are
-disjoint. It does not authorize source→World semantics, WorldKeeper changes,
-DungeonMind changes, production write switching, APP-STATE ownership changes,
-or a broad frontend rewrite.
+This work may continue in parallel with CON-READY PLAY where file leases are
+disjoint. It does not authorize WorldKeeper/DungeonMind changes, source→World
+semantics, production write switching, APP-STATE ownership changes, or a broad
+frontend rewrite.
 
 ### Exit
 
-The sidequest exits when Buddy has:
+The sidequest exits when:
 
-1. semantic presentation tokens;
-2. a small reusable primitive/pattern layer;
-3. an isolated backend-free UI workshop;
-4. representative static World-object and ToolHost presentation fixtures,
-   plus the bounded Canvas convergence fixture;
-5. at least one mature interaction component split cleanly between behavior and
-   replaceable presentation;
-6. a small canonical visual-regression suite;
-7. a recorded Canvas convergence YES / NO / NARROWER result;
-8. evidence that a materially different presentation can be prototyped without
-   touching domain/runtime authority.
+1. the lightweight presentation substrate is merged and usable;
+2. representative World-object/ToolHost states can be iterated without backend
+   state;
+3. one mature interaction controller is demonstrably presentation-replaceable;
+4. the bounded visual contract is useful and cheap on the target laptop;
+5. Canvas has an accepted YES / NARROWER / NO result;
+6. the F6 human STOP chooses at most one successor or explicitly resumes non-UI
+   work.
 
-The next broad UI product slice is chosen from that evidence, not preselected.
+The sidequest does **not** require migrating every existing component.
 
 ## Phase 8 exit criteria
 
