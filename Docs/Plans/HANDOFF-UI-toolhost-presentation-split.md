@@ -19,13 +19,13 @@ pr_body_template: |
 
 # HANDOFF — UI ToolHost presentation split
 
-**Created:** 2026-09-25  
+**Created:** 2026-09-25
 **Status:** CYCLE-1 REPAIR IN PR #758 — re-anchored after #771; not an ACTIVE `main` write lease
-**Canonical handoff path:** `Docs/Plans/HANDOFF-UI-toolhost-presentation-split.md`  
-**Conversation/workstream:** `UI Presentation Substrate Sidequest`  
-**Flow / owner:** `UI`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Design authority base:** `bbd3112053a6ac61356a9d3157d3e2be09cab42c` — UI-F2 design head  
+**Canonical handoff path:** `Docs/Plans/HANDOFF-UI-toolhost-presentation-split.md`
+**Conversation/workstream:** `UI Presentation Substrate Sidequest`
+**Flow / owner:** `UI`
+**Direction:** DESIGN → CODE → REVIEW
+**Design authority base:** `bbd3112053a6ac61356a9d3157d3e2be09cab42c` — UI-F2 design head
 **Review base:** post-#771 `main` at `25cae87d66cf02f23d15f68a6163e584bd0441c8`; #758 is the existing handoff PR carrying its implementation
 **Merge gate:** UI-F2 merged; this branch incorporates that exact `main`; Cycle-1 review repairs and new-head review remain
 **PR topology:** serial repair/review candidate after UI-F0 → F1 → F2 merged
