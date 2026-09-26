@@ -20,7 +20,7 @@ pr_body_template: |
 # HANDOFF — CON-READY PLAY-1: Buddy → WorldKeeper consumer proof
 
 **Created:** 2026-09-25
-**Status:** ACTIVE — PLAY-1 implementation authorized from current `main`
+**Status:** COMPLETE / HISTORICAL — PLAY-1 consumer proof merged as PR #773
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Thread:** `CON-READY / PLAY`
 **PR topology:** serial
@@ -41,6 +41,13 @@ pr_body_template: |
 **Buddy custom-profile prerequisite:** PR #754 merge `7addcd05b20c894eb4d50b9d63e5ebdee4bc2cc7`
 **Buddy V3 profile descriptor SHA-256:** `d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339`
 **V2-3:** NOT AUTHORIZED
+
+**Accepted implementation head:** `5a1736c55988e4b852bbcc2f0ada36d493fa5668`
+**Final review:** `5327172769` — Review Cycle 2, PASS / MERGE-READY
+**Merge:** `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9`
+**Limit:** in-memory consumer proof only; no production route, persistent World,
+source admission, or connected DEMO-J3 acceptance. Current execution authority
+is [`ROADMAP-demo.md`](../Roadmaps/ROADMAP-demo.md).
 
 ## 0. Activation re-anchor
 

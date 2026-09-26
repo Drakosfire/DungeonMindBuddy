@@ -1,6 +1,10 @@
 # REPORT — CON-READY PLAY-1 WorldKeeper consumer proof
 
-**Status:** IMPLEMENTED / REVIEW PENDING — not an acceptance disposition
+**Status:** ACCEPTED / HISTORICAL — PR #773 merged at
+`7fe771e86df2e796484b058aa2e6a8e7c94c9fb9` after two formal review
+cycles. Cycle 1 held for missing main-first activation; Cycle 2 accepted the
+re-anchored exact head `5a1736c55988e4b852bbcc2f0ada36d493fa5668`
+(review `5327172769`).
 
 **Implementation base:** `main@62f40f58`, the guarded Steward activation head
 that follows the PR #767 merge. PLAY-0 / PR #753 is accepted and merged. The
@@ -87,7 +91,6 @@ not import this consumer.
 
 ## Still false / next gate
 
-The implementation is not accepted until review of the exact implementation
-head. No production route, persistent/PostgreSQL authority,
+The bounded in-memory consumer proof is accepted. No production route, persistent/PostgreSQL authority,
 browser surface, source admission, V2→V3 migration, or live Eldyrwild state
 has been changed. PLAY-2 is not authorized here.
