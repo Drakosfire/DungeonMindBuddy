@@ -20,13 +20,16 @@ pr_body_template: |
 # HANDOFF — CON-READY PLAY-1: Buddy → WorldKeeper consumer proof
 
 **Created:** 2026-09-25
-**Status:** BLOCKED — PLAY-0 merge, predecessor sync, and fresh-main re-anchor required before activation
+**Status:** ACTIVE — PLAY-1 implementation authorized from current `main`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Thread:** `CON-READY / PLAY`
 **PR topology:** serial
-**PLAY-0 design base:** `e696b20e5f5e34f0fb7cf2c8fb04dc48c1706ea4`
-**Implementation base:** fresh `main` after PLAY-0 merge; record exact SHA at dispatch
-**Activation gate:** steward records the merged PLAY-0 revision and current dependency pins, changes this handoff to ACTIVE on `main`, then allocates its serial lane
+**PLAY-0 accepted head:** `25197d1b9f2dbf96752e453c34456830d5a99d1a`  
+**PLAY-0 final review:** `5324695932` — PASS / READY TO MERGE  
+**PLAY-0 merge:** `6e92bec11df22b4b4243cb58c1bbcbe43b109ff6`
+**Activation re-anchor / implementation base:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
+**Resolved path gate:** PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`; no open PR owns the PLAY-1 dependency or consumer paths at dispatch
+**Activation placement:** guarded Steward activation landed on `main` before implementation redispatch
 **Suggested branch:** `codex/con-ready-play-1-worldkeeper-consumer-proof`
 **Suggested PR title:** `CON-READY PLAY-1: prove Buddy WorldKeeper consumer mapping`
 **WorldKeeper accepted head:** `49a8620f066ce7ef8972a699020c012f50af9158`
@@ -37,6 +40,66 @@ pr_body_template: |
 **Buddy custom-profile prerequisite:** PR #754 merge `7addcd05b20c894eb4d50b9d63e5ebdee4bc2cc7`
 **Buddy V3 profile descriptor SHA-256:** `d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339`
 **V2-3:** NOT AUTHORIZED
+
+## 0. Activation re-anchor
+
+PLAY-0 is complete and accepted:
+
+```text
+PR #753
+accepted head: 25197d1b9f2dbf96752e453c34456830d5a99d1a
+final review: 5324695932 — PASS / READY TO MERGE
+merge: 6e92bec11df22b4b4243cb58c1bbcbe43b109ff6
+```
+
+Fresh repository re-anchor after #767:
+
+```text
+DungeonMindBuddy main:
+  f30b4c906bb179b25f00207c40cb38c0debdc264
+```
+
+The reviewed PLAY-1 semantic lease remains valid. The prior path collision is
+resolved:
+
+```text
+merged PR #767 — VNEXT: adapt complete entity reads to World-object DTO
+formerly owned:
+  pyproject.toml
+
+PLAY-1 requires:
+  pyproject.toml
+  uv.lock
+  apps/live_control_server/integrations/worldkeeper/**
+  tests/test_con_ready_play_worldkeeper_consumer.py
+  bounded CON-READY authority/report paths
+```
+
+PLAY-1 starts from the #767 merge on `main`, not from its PR branch. The
+dependency and consumer paths are free in the open-PR inventory at dispatch.
+
+Open settlement PR #766 does not overlap the PLAY-1 implementation/dependency
+lease identified above. If its merge changes current authority documents before
+PLAY-1 activation, re-read them but do not broaden PLAY-1 automatically.
+
+Activation checks completed after #767 resolved:
+
+1. fetch current `main`;
+2. verify no open PR owns `pyproject.toml`, `uv.lock`, or
+   `apps/live_control_server/integrations/worldkeeper/**`;
+3. verify Buddy still pins DungeonMind runtime
+   `0f709d76fdc53bac9c9258d1751463ae2c76ca71` or classify any accepted successor;
+4. verify WorldKeeper dependency target remains reviewed head
+   `49a8620f066ce7ef8972a699020c012f50af9158`;
+5. verify Buddy custom profile revision 2 digest remains
+   `d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339`;
+6. update only re-anchor/activation metadata if semantics are unchanged;
+7. land `Status: ACTIVE` on `main` through the guarded Steward activation sync;
+8. rebase and redispatch only the serial PLAY-1 implementation PR; do not merge it here.
+
+A later `main` advance is not itself a blocker when these contracts and leases
+remain unchanged. Material contract drift requires rebrief.
+
 
 ## 1. Mission
 
@@ -826,7 +889,8 @@ DungeonMind
 
 ## 23. Acceptance rubric
 
-- [ ] implementation dispatched from fresh post-PLAY-0 `main`;
+- [ ] handoff was ACTIVE on current `main` before implementation redispatch;
+- [ ] PR #767 collision was resolved and dependency paths were free at dispatch;
 - [ ] WorldKeeper dependency pinned to reviewed #8 head `49a8620...`;
 - [ ] existing DungeonMind runtime pin remains coherent;
 - [ ] canonical parent uses exact Buddy custom profile V3 revision 2 and descriptor SHA-256 `d40a352d1c6cbd24df68be887be6dc65a470e4cea8fb64970ef9ad89b96a3339`;
