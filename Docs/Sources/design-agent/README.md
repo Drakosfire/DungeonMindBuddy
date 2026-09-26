@@ -60,8 +60,8 @@ Do not upload as current:
 - download-suffixed historical copies.
 
 The Campaign roadmap's canonical path remains temporarily unrevised only because
-the live #755–#761 UI stack currently owns that path. Exclusion from this export
-is deliberate.
+live UI PR #761 explicitly owns that path. Exclusion from this export is
+deliberate.
 
 ## Maintenance rule
 

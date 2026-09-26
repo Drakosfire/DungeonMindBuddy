@@ -75,7 +75,7 @@ implementation sequence. Use workstream-specific authorities.
 
 | Document | Classification | Reason |
 |---|---|---|
-| `ROADMAP-campaign-supergraph.md` | **SETTLEMENT_HOLD / program history** | Self-declared roadmap is stale; physical retirement waits for the #755–#761 UI stack to release the path |
+| `ROADMAP-campaign-supergraph.md` | **SETTLEMENT_HOLD / program history** | Self-declared roadmap is stale; physical retirement waits for UI PR #761 to release the path |
 | `PR-TRACKER-campaign-supergraph.md` | **HISTORICAL / FROZEN** | CUTOVER closed; no new dispatch |
 | `STATUS-world-graph-continuity-spine.md` | **HISTORICAL / FROZEN** | August migration snapshot, not current state |
 | `PLAN-surface-interaction-hoist-build-first.md` | **SUPERSEDED** | Construction target landed; DOGFOOD-POLISH closeout owns evidence |
@@ -89,10 +89,9 @@ uploaded as current Project Sources.
 ## Settlement hold
 
 `ROADMAP-campaign-supergraph.md` is the one intentionally unresolved physical
-retirement in this pass. UI PR #755 edits that path and #755–#761 are an
-existing stack. The blocked successor handoff
+retirement in this pass. UI PR #761 explicitly edits that path. The blocked successor handoff
 `Docs/Plans/HANDOFF-SETTLEMENT-retire-campaign-supergraph-roadmap.md`
-owns retirement only after that stack drains and a fresh re-anchor confirms the
+owns retirement only after #761 merges/closes and a fresh re-anchor confirms the
 path is free.
 
 ## Refresh procedure

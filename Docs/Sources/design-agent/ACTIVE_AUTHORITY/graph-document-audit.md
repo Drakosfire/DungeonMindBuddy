@@ -32,7 +32,7 @@ and ownership have moved past it.
 | Document | Classification | Current role |
 |---|---|---|
 | `Docs/Design/ARCHITECTURE-campaign-supergraph.md` | **ACTIVE AUTHORITY** | World-model invariants; runtime ownership re-anchored to DungeonMind/WorldKeeper/Buddy |
-| `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | **SETTLEMENT_HOLD** | Program history; self-claim to current roadmap is stale, physical retirement blocked by UI #755–#761 path lease |
+| `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` | **SETTLEMENT_HOLD** | Program history; self-claim to current roadmap is stale, physical retirement blocked by UI #761 path lease |
 | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` | **HISTORICAL / FROZEN** | Old Campaign/CUTOVER sequence; no dispatch |
 | `Docs/Design/STATUS-world-graph-continuity-spine.md` | **HISTORICAL / FROZEN** | August continuity snapshot |
 | `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` | **ACTIVE AUTHORITY** | Stable shared chrome/Surface/Canvas ownership |
@@ -93,9 +93,8 @@ The exact pre-settlement audit body is archived at
 ## Settlement hold: Campaign roadmap
 
 The canonical Campaign roadmap path is intentionally not modified in this pass.
-Open UI PR #755 edits it and is the root of the #755–#761 stack. Creating a
-second write lane on that path would violate the repository's own settlement
-discipline.
+Open UI PR #761 explicitly edits it. Creating a second write lane on that path
+would violate the repository's own settlement discipline.
 
 Until the blocked successor runs:
 
