@@ -1,9 +1,9 @@
 # Architecture — Campaign Supergraph
 
-**Status:** Canonical architecture authority  
-**Date:** 2026-07-10  
-**Updated:** 2026-07-10 (PR322 re-review — tenancy, authority, contribution lifecycle, head invariants, epistemic metadata, identity outcomes)  
-**Mode:** Documentation / architectural north star  
+**Status:** Canonical World-model architecture authority
+**Date:** 2026-07-10
+**Updated:** 2026-09-25 — post-CUTOVER ownership settlement; durable World authority is DungeonMind and WorldKeeper is the governed change coordinator
+**Mode:** Documentation / architectural north star
 **Supersedes as architecture authority:**
 
 - `Docs/Design/GRAPH-MEMORY-SUPERGRAPH-ARCHITECTURE-ROADMAP.md` (archived)
@@ -11,11 +11,17 @@
 - `Docs/Experiments/GRAPH-MEMORY-WORKSTREAM-ANCHOR.md` (archived as operational anchor)
 - `Docs/Design/ANCHOR-dungeonBuddy-graph-retrieval.md` (archived as pre-supergraph thesis)
 
-**Companion docs:**
+**Current companions:**
 
-- Roadmap: [`Docs/Roadmaps/ROADMAP-campaign-supergraph.md`](../Roadmaps/ROADMAP-campaign-supergraph.md)
-- PR tracker: [`Docs/Plans/PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md)
-- Document audit: [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
+- Document authority audit: [`Docs/Reports/graph-document-audit.md`](../Reports/graph-document-audit.md)
+- Current-source manifest: [`INDEX-design-agent-source-set.md`](INDEX-design-agent-source-set.md)
+- Source-to-World interaction authority: [`DESIGN-source-to-world-authoring-interaction-contract.md`](DESIGN-source-to-world-authoring-interaction-contract.md)
+- Repository settlement record: [`Docs/Reports/REPORT-repository-settlement-2026-09-25.md`](../Reports/REPORT-repository-settlement-2026-09-25.md)
+
+**Historical program records:** `ROADMAP-campaign-supergraph.md`,
+`PR-TRACKER-campaign-supergraph.md`, and
+`STATUS-world-graph-continuity-spine.md` preserve the Buddy-owned migration
+program. They do not authorize new work after the 2026-09-25 settlement.
 
 **Still in force as contracts / surface product (not graph-workstream roadmap authority):**
 
@@ -27,7 +33,43 @@
 - [`DESIGN-plan-surface-session-prep-current-goal-2026-07.md`](DESIGN-plan-surface-session-prep-current-goal-2026-07.md)
 - Evidence / identity / taxonomy contracts under `Docs/Design/GRAPH-MEMORY-*` that the audit marks KEEP
 
-The **only** active implementation sequence for Campaign Supergraph work is [`PR-TRACKER-campaign-supergraph.md`](../Plans/PR-TRACKER-campaign-supergraph.md). Older handoffs are reference or historical evidence; they cannot override this architecture or tracker.
+The architectural invariants in this document remain current. The old Buddy
+Campaign Supergraph implementation sequence is settled; current implementation
+order is owned by the active domain workstream authorities listed in
+[`INDEX-design-agent-source-set.md`](INDEX-design-agent-source-set.md).
+
+### 0.1 Post-CUTOVER ownership re-anchor
+
+The World model survived; its runtime ownership moved.
+
+```text
+DungeonBuddy
+  GM/product interaction
+  source and work surfaces
+  reversible drafts/intents
+  projection and presentation
+  AgentRuntime + product capability policy
+
+WorldKeeper
+  WorldChangeIntent interpretation
+  same-transaction dependency resolution
+  PreparedWorldChange
+  confirmation coordination
+  verified-result reshaping
+
+DungeonMind
+  durable World identity
+  source/provenance authority
+  semantic profile + admission
+  immutable revisions/head
+  governed publication + recovery
+  general World reads
+```
+
+References below to the historical Buddy Graph Kernel or `src/graph_memory`
+describe semantic responsibilities and migration-era implementation placement.
+They are **not** a claim that Buddy still owns durable World storage, identity,
+revision, or publication. CUTOVER #667 physically removed that legacy ownership.
 
 ---
 
@@ -195,14 +237,15 @@ v0 may physically store one world (Eldyrwild) with one active campaign scope emp
 
 | Concern | Owner |
 |---|---|
-| Graph state + graph head | World Supergraph (`src/graph_memory` durable contracts + persistent store) |
-| Identity / aliases / merge / split | Graph Kernel |
-| Evidence / provenance / contributions | Graph Kernel + evidence contracts |
-| Projection focus / lenses / admissibility | Projection Engine |
-| Surface UX | Surface apps (`apps/live-control-ui`, etc.) |
-| Proof / dogfood / gold | `evals/graph_memory_layer` (never architecture ownership) |
-| Corpus markdown on disk | Human-authored **prose** source of truth; feeds write path; is not the graph |
-| Authored graph assertions / identity decisions | Durable **source artifacts or governed graph records** in the write path |
+| Graph state + graph head | **DungeonMind** durable World authority |
+| Identity / aliases / merge / split | **DungeonMind** |
+| Evidence / provenance / contributions | **DungeonMind** contracts and governed publication |
+| Semantic World-change coordination | **WorldKeeper** |
+| Projection focus / lenses / admissibility | DungeonBuddy consumer/projection layer over DungeonMind reads |
+| Surface UX | DungeonBuddy surface apps (`apps/live-control-ui`, etc.) |
+| Proof / dogfood / gold | Buddy evals/reports (never architecture ownership) |
+| Corpus/source material | Human-authored **prose** and source artifacts; evidentiary input, not the durable World |
+| Authored World assertions / identity decisions | Governed World change through WorldKeeper → DungeonMind |
 
 ### 4.1 Authority model (decision)
 
@@ -244,7 +287,11 @@ The graph can be reconstructed without silently losing approved corrections.
 
 ## 5. GraphContribution lifecycle (decision)
 
-The compressed write sketch “extract → resolve → merge” is insufficient. The Kernel’s unit of write work is a **GraphContribution**.
+The compressed write sketch “extract → resolve → merge” is insufficient. The
+historical Buddy write pipeline used **GraphContribution** as its explicit
+provenance/replay unit; current Buddy ingestion adapters may still produce or
+map that shape. Durable acceptance/publication semantics belong to DungeonMind,
+and the accepted interactive authoring seam is Buddy → WorldKeeper → DungeonMind.
 
 ### 5.1 Concept
 
@@ -264,7 +311,7 @@ GraphContribution
   status: active | superseded | retracted
 ```
 
-### 5.2 Lifecycle events the Kernel must support
+### 5.2 Lifecycle semantics the durable World path must preserve
 
 | Event | Required behavior |
 |---|---|
@@ -287,7 +334,7 @@ GraphContribution
 6. Reconstruction from contributions + identity decisions produces an equivalent graph head.
 7. Failed merges leave the prior graph head readable (see §7).
 
-### 5.4 Kernel questions that must be answerable
+### 5.4 Provenance/replay questions that must remain answerable
 
 - Which contribution introduced this node, edge, alias, or evidence reference?
 - Is this assertion still supported by the current source revision set?
@@ -330,7 +377,10 @@ Preview / session-keyed ingest runs were a **temporary materialization strategy*
 
 ## 7. Graph head and versioning (decision)
 
-### Minimum invariants (normative for PR002+)
+### Minimum invariants
+
+These invariants remain normative for the durable World even though the original
+Buddy PR sequence that first proved them is historical.
 
 1. A published graph **revision is immutable**.
 2. The **graph head** points to exactly one validated revision per `worldId`.
@@ -355,7 +405,7 @@ v0 may be file-backed. File-backed storage makes atomicity and concurrency **mor
 
 ### Version what
 
-- Graph schema / model contracts (Kernel)
+- Durable World schema / model contracts (DungeonMind)
 - Projection payload contracts (read API)
 - Extraction profiles (write pipeline knobs)
 - Gold fixtures (eval only)
@@ -419,7 +469,7 @@ Missing projection is an honest failure of materialization, scope, or focus — 
 
 ## 9. Epistemic, temporal, visibility, and canon metadata (decision)
 
-These are **Kernel invariants**, not optional node decorations.
+These are **durable World invariants**, not optional node decorations.
 
 Every **durable assertion** (and evidence-bearing edge instance) must carry enough metadata to answer:
 
@@ -441,7 +491,9 @@ Every **durable assertion** (and evidence-bearing edge instance) must carry enou
 - A player-facing agent must not receive GM-only secrets merely because both are adjacent to the same node.
 - Union/merge must preserve these distinctions; projection must enforce them.
 
-PR002’s model and PR005’s merge semantics must prove these fields survive union. PR007 must test visibility/admissibility, not only focus highlighting.
+Historical Buddy PR002/PR005/PR007 first proved these properties. Current
+DungeonMind-backed publication/read paths must preserve the same metadata and
+fail-closed visibility/admissibility behavior.
 
 ---
 
@@ -469,7 +521,9 @@ Identity resolution is not a single silent merge step. Every mention/candidate r
 
 ### Reversibility
 
-PR004 must include **split / unmerge**, not only alias merge and blocked collision. Identity mistakes are inevitable; reversibility is foundational.
+The durable identity authority must support **split / unmerge**, not only alias
+merge and blocked collision. Identity mistakes are inevitable; reversibility is
+foundational. The original Buddy PR004 proof is historical.
 
 ---
 
@@ -509,7 +563,11 @@ World Supergraph (head) + campaign=C2 + Play combat lens → encounter-relevant 
 
 ## 12. Graph Kernel
 
-The Graph Kernel is the durable core inside `src/graph_memory` that owns graph semantics.
+This section defines the semantic responsibilities historically proven by
+Buddy's Graph Kernel. Durable production ownership of these responsibilities now
+lives in **DungeonMind**. Buddy code under `src/graph_memory` may still provide
+extraction, candidate/review, projection, retrieval, and compatibility seams; it
+must not become a second durable World owner.
 
 ### In scope
 
@@ -527,17 +585,25 @@ The Graph Kernel is the durable core inside `src/graph_memory` that owns graph s
 - Hermes / Agent Interaction prompts
 - Eval harness orchestration
 - Corpus markdown editing UX
-- Retrieval ranking policies that belong to the retrieval layer (Kernel provides graph facts; retrieval composes them)
+- Retrieval ranking policies that belong to Buddy's retrieval layer (DungeonMind provides admitted durable World facts; retrieval composes them)
 
-### Implementation sequencing
+### Historical Buddy implementation sequencing
+
+The sequence below records how the semantics were originally established in
+Buddy. It is evidence, not current dispatch authority.
 
 1. **Public boundary and invariants** — package/API surface, what adapters may call, what is forbidden; enforceable import/API guards
 2. **Identity and reconciliation semantics** — outcomes, provisional nodes, split/unmerge
 3. **Durable contribution merge** — contribution IDs, idempotency, supersession, retraction, rebuild, head advancement
 
-A “Kernel” PR that only rearranges packages without identity or merge is incomplete relative to this definition; the thin boundary PR is allowed only when explicitly scoped as contract-boundary work.
+Historical note: the original Buddy “Kernel” program was considered incomplete
+until identity and merge/replay semantics were proven, not merely packages
+rearranged. Do not interpret that historical sequencing rule as authority to
+recreate a Buddy Kernel.
 
-Surfaces and adapters call the Kernel. They do not reimplement it.
+Buddy surfaces/adapters consume the current World boundary. They do not
+reimplement DungeonMind identity/publication semantics or resurrect the removed
+Buddy graph engine.
 
 ---
 
@@ -547,10 +613,10 @@ Top-level product surfaces:
 
 | Surface | Role relative to the graph |
 |---|---|
-| **Plan** | Prep cockpit. Consumes focused projections for object cards, chip insert, and (later) prep Q&A. Escalates corrections to Graph Review / ingest write path. |
+| **Plan** | Prep cockpit. Consumes focused projections for object cards, references, and Agent context. Escalates durable corrections/authoring to governed product write flows; does not own World mutation. |
 | **Play** | Live table, including combat and encounter operation as Play modes/lenses. Consumes projections for turn-relevant objects; does not own merge. |
 | **Build** | Authoring / worldbuilding tooling. May feed write path; does not become a second graph. |
-| **Graph Review** (`/ingest` workbench) | Controlled write workbench. Writes through Kernel merge as contributions / identity decisions; reads projections for review. |
+| **Graph Review** (`/ingest` workbench) | Controlled review/authoring workbench. Buddy may prepare/select/propose through current adapters, but durable World publication is DungeonMind authority; the accepted consumer-migration seam coordinates semantic changes through WorldKeeper. |
 | **Agent Interaction** | Cross-surface interaction layer / graph consumer. Asks questions against admissible projected/retrieved context. Does not own graph semantics. |
 
 **Combat is not a peer surface.** Combat-specific projection behavior is a Play mode or Play projection lens.
@@ -561,7 +627,10 @@ Shared UI primitives (especially `GraphObjectCard`) are **presentation of projec
 
 ## 14. Ingestion architecture
 
-Ingestion is the write-side pipeline that turns source artifacts into Kernel contributions.
+Ingestion is Buddy's source-side extraction/review pipeline. It may still
+produce contribution-shaped candidate/provenance material for compatibility and
+mapping, but it does not own the durable World. Durable publication terminates
+in DungeonMind authority.
 
 Target shape:
 
@@ -596,7 +665,9 @@ Requirements that do not change with storage technology:
 5. No surface reaches into storage internals or selects stores by path/manifest.
 6. Machine-readable integrity / health reports (head revision, coverage, unresolved identities, stale contributions, etc.).
 
-When storage evolves (DB, event log, etc.), the Kernel API and projection contracts stay stable; adapters change.
+DungeonMind's durable World contract and Buddy's consumer/projection boundaries
+must remain stable across storage evolution; storage adapters change underneath
+their owning boundaries.
 
 ---
 
@@ -608,7 +679,7 @@ Near-term:
 
 - Surfaces may still use transitional corpus-index / live-query paths for **non-graph** memory answers until graph-native retrieval lands.
 - Those paths are **not** the graph architecture target and must not be used as a substitute World Supergraph.
-- Graph-backed prep Q&A and agent context must consume validated projections / Kernel retrieval, not invent a parallel memory model.
+- World-backed prep Q&A and Agent context must consume DungeonMind-backed admitted retrieval/projections through Buddy boundaries, not invent a parallel memory model.
 
 See also: surface vocabulary boundary (`SourceArtifact → SourceAnchor → SourceUnit`) — still the shared language for source-facing consumers until graph-native retrieval fully replaces transitional adapters.
 
@@ -644,9 +715,14 @@ Durable agent-proposed writes require **explicit revision-bound GM confirmation*
 
 Authored prep uses a separate lifecycle (`draft` → `planned` → `placed` → `played` → `world_canon`, plus `retracted` / `superseded`) that must not be collapsed into assertion acceptance, epistemic kind, or contribution status. `played` requires actual-play evidence or an explicit played-event assertion; `world_canon` requires explicit promotion and must not automatically universalize campaign-scoped plans or play.
 
-**PR011** implements the runtime tool registry, context assembly, and confirmation plumbing against this contract. PR006 remains initial materialization only.
+Historical Buddy PR011/PR006 records show how the first runtime tool and
+materialization paths were proven. Current Agent/write work must follow the
+current AgentRuntime and source-to-World authorities instead of redispatching
+those PR labels.
 
-Agent Interaction’s durable backend is the World Supergraph + retrieval layer, not Hermes-shaped transitional drawers. Hermes/UI/thread memory remains non-canonical continuity.
+Agent Interaction’s durable knowledge backend is DungeonMind World authority
+plus Buddy's governed retrieval/projection layer, not Hermes-shaped thread
+memory. Hermes/UI/thread memory remains non-canonical continuity.
 
 ---
 
@@ -667,13 +743,16 @@ At minimum, machine-readable health/coverage reports must expose:
 - visibility / admissibility denials (aggregate, not secret leakage)
 - merge diff summary between revisions
 
-PR002, PR005, PR006, and PR007 each own slices of this surface. The first real graph must expose a health report, not only a one-time markdown audit.
+Historical Buddy PR002/PR005/PR006/PR007 proved slices of this surface. Current
+World/consumer paths still require machine-readable health evidence; a one-time
+Markdown audit is not sufficient.
 
 ---
 
-## 19. Future evolution
+## 19. Historical evolution record
 
-Ordered product evolution (detail in the roadmap):
+The following sequence records the Campaign Supergraph program that established
+the current World invariants. It is no longer an implementation roadmap:
 
 0. Architecture reset (this document set)
 1. Persistent World Supergraph storage + immutable revision / graph-head contract
@@ -721,10 +800,10 @@ A new contributor can answer, from this document and its companions alone:
 3. What is a GraphContribution, and how do supersession/retraction/replay work?
 4. What are the graph-head / immutable revision invariants?
 5. How does data enter the graph, and how do surfaces consume it?
-6. What belongs in the Graph Kernel?
+6. Which durable graph semantics are owned by DungeonMind, and which Buddy-side extraction/projection responsibilities remain consumers/adapters?
 7. What identity resolution outcomes exist, including split/unmerge?
 8. Why are epistemic, temporal, and visibility fields mandatory?
 9. How is the first real populated union defined (named acceptance corpus) before Plan migrates?
-10. What is the long-term roadmap, which PRs remain, and which older docs are superseded?
+10. Where do current runtime ownership and workstream sequencing live after the DungeonMind/WorldKeeper extraction?
 
 If answering any of those requires reading experimental ladder docs as authority, the documentation reset is incomplete.

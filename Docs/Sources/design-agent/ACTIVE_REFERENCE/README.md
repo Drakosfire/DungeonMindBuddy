@@ -1,41 +1,53 @@
 # DungeonMindBuddy
 
-DungeonMindBuddy is a narrative knowledge graph and canon-reduction project for
-TTRPG campaign material. Its current product architecture is a persistent
-**World Supergraph**: one durable graph per world, with campaign-scoped
-assertions, evidence, chronology, visibility, and projections for every
-product surface.
+DungeonMindBuddy is a narrative knowledge and campaign-operation product for
+TTRPG material. Its durable World model remains one World per setting with
+campaign-scoped assertions, evidence, chronology, visibility, and projections,
+but durable World authority now lives in **DungeonMind**. DungeonBuddy owns the
+GM-facing interaction, source/work surfaces, projections, and Agent product
+boundary; **WorldKeeper** coordinates governed semantic World-change intent.
 
 ## Current product model
 
 ```text
 source artifacts and authored records
-  → extraction / authoring
-  → GraphContribution + identity resolution
-  → proposed immutable graph revision
-  → validation and atomic graph-head advancement
-  → campaign / focus / admissibility projection
+  → Buddy extraction / authoring / reversible intent
+  → WorldKeeper prepared semantic World change
+  → explicit confirmation
+  → DungeonMind validation + immutable World revision
+  → Buddy campaign / focus / admissibility projection
   → Plan, Play, Build, Graph Review, and Agent Interaction
 ```
 
-The graph owns identity, provenance, contribution history, and durable
-assertions. Surfaces consume projections; they do not own graph state or
-silently mutate canon. Agents are graph consumers with typed capabilities, not
-privileged graph writers. Conversation history is continuity, not campaign
-truth.
+DungeonMind owns durable identity, provenance, contribution history, assertions,
+revision/head authority, admission, and governed publication. WorldKeeper is a
+thin change coordinator; it does not own durable identity or recovery.
+DungeonBuddy surfaces consume and author through those boundaries rather than
+owning World state. Agents are governed consumers/proposers, not privileged
+World writers. Conversation history is continuity, not campaign truth.
+
+Agent orchestration remains a DungeonBuddy product concern behind the
+Buddy-owned `AgentRuntime` boundary. Hermes is the current production adapter
+and PydanticAI remains a challenger/experiment; the next preferred harness
+experiment is a thin `PiAgentRuntimeAdapter` over `pi-agent-core`, not a
+migration of DungeonBuddy architecture into Pi. A future semantic-adjudication
+layer may help with retrieval reranking, duplicate/entity alignment, assertion
+verification, and tool preselection, but it must remain advisory rather than an
+authority boundary. Jev / TypeSafe AI is the current research candidate for
+that role, is not accessible to this project today, and creates no runtime or
+dependency requirement.
 
 ## Current state
 
-The durable World Graph, Graph Kernel, source and agent contracts, initial
-Eldyrwild publication, projection engine, graph-first Hermes reads, and the
-human confirm/reload authority path are in place. The current whole-world
-DungeonMind work has advanced from broad compatibility inventory to an exact,
-source-grounded relationship residual ledger with descendant-safe effective
-conformance. The next semantic write gap is assertion-granular correction:
-fixing one adjudicated durable assertion without retiring unrelated assertions
-from the same source contribution. Candidate-path cleanup, Play migration, and
-governed agent writes remain separate active or blocked workstreams under the
-Campaign Supergraph tracker.
+The World-model migration is complete: CUTOVER PR #667 removed the legacy Buddy
+graph-engine ownership, and DungeonMind is the durable World authority. The
+accepted source-to-World interaction boundary now places reversible product
+intent and review UX in Buddy, semantic prepare/confirm coordination in
+WorldKeeper, and durable identity/provenance/revision/publication in DungeonMind.
+The old Campaign Supergraph tracker/status documents are retained as frozen
+program records; they no longer authorize new dispatch. Current product
+sequencing is workstream-specific (CON-READY, Play/Playable, Agent, UI, and
+other explicitly active authorities).
 
 The Plan/Build **DOGFOOD-POLISH** workstream closed on 2026-08-11 after
 establishing the shared surface/document-authoring baseline. AppChrome now owns
@@ -57,24 +69,30 @@ worldbuilding authority elevation. See
 [DOGFOOD-POLISH closeout](Docs/Reports/DOGFOOD-POLISH-CLOSEOUT-2026-08-11.md)
 for the completed PR chain and residual ownership.
 
-The current phase status and critical path are maintained in the
-[Campaign Supergraph roadmap](Docs/Roadmaps/ROADMAP-campaign-supergraph.md).
-The [PR tracker](Docs/Plans/PR-TRACKER-campaign-supergraph.md) is the sole
-implementation sequence. For a concise operational snapshot of what is true
-and what remains false, use the
-[World Graph continuity state guide](Docs/Design/STATUS-world-graph-continuity-spine.md).
+The Campaign Supergraph roadmap/tracker/status set is now program history, not
+whole-repository sequencing. The one remaining physical retirement is the
+roadmap file itself; it is settlement-blocked while the current UI documentation
+stack holds that path. Use the
+[design-agent source manifest](Docs/Design/INDEX-design-agent-source-set.md)
+to find current domain authorities, and the
+[repository settlement report](Docs/Reports/REPORT-repository-settlement-2026-09-25.md)
+for the exact retirement boundary.
 
 ## Authority and design-agent sources
 
 The root README is a product overview, not an architecture or sequencing
 authority. Use these documents for current design work:
 
-- [Campaign Supergraph architecture](Docs/Design/ARCHITECTURE-campaign-supergraph.md)
-- [Campaign Supergraph roadmap](Docs/Roadmaps/ROADMAP-campaign-supergraph.md)
-- [Campaign Supergraph PR tracker](Docs/Plans/PR-TRACKER-campaign-supergraph.md)
-- [World Graph continuity state guide](Docs/Design/STATUS-world-graph-continuity-spine.md)
+- [Campaign / World model architecture](Docs/Design/ARCHITECTURE-campaign-supergraph.md)
+- [Source-to-World authoring interaction](Docs/Design/DESIGN-source-to-world-authoring-interaction-contract.md)
 - [Shared surface-interaction architecture](Docs/Design/ARCHITECTURE-surface-interaction-layer.md)
-- [Graph document audit](Docs/Reports/graph-document-audit.md)
+- [CON-READY stewardship anchor](Docs/Plans/STEWARDS-ANCHOR-con-ready.md)
+- [CON-READY product roadmap](Docs/Roadmaps/ROADMAP-con-ready.md)
+- [Playable/Play sequencing](Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md)
+- [Graph/document authority audit](Docs/Reports/graph-document-audit.md)
+- [E5A inference and knowledge boundary baseline](Docs/Reports/REPORT-E5A-buddy-boundary-baseline.md)
+- [Agent context compilation decision](Docs/Design/DECISION-agent-context-compilation.md)
+- [AgentRuntime and semantic-adjudication direction](Docs/Design/DECISION-agent-runtime-and-semantic-adjudication.md)
 - [Design-agent source manifest](Docs/Design/INDEX-design-agent-source-set.md)
 
 The manifest is the checked-in entry point for the exact Project Sources to
@@ -89,8 +107,9 @@ authority model.
 
 ## Repository structure
 
-- `src/graph_memory/` — durable graph contracts, Kernel semantics, storage,
-  contributions, identity, and projections
+- `src/graph_memory/` — Buddy-side extraction, candidate/review, projection,
+  retrieval, interaction, and compatibility helpers; durable World authority is
+  owned by DungeonMind
 - `apps/` — product surfaces and server adapters
 - `schemas/` — versioned contracts and examples
 - `tests/` — contract, runtime, and integration tests
@@ -111,6 +130,23 @@ For local OpenAI-backed commands, put `OPENAI_API_KEY` in a repo-root `.env` or
 `.env.development` file. The CLI, eval harnesses, and pytest load it through
 `src.bootstrap_env.load_dungeonmindbuddy_dotenv()`; do not export or print the
 key. See `.cursor/rules/dungeonbuddy-environment.mdc`.
+
+## Local Play
+
+Play stores Buddy application state in a **separate PostgreSQL logical
+database**. It does not use the World Graph database, and FastAPI startup does
+not create, migrate, or import that state.
+
+1. Set `DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL` in repo `.env` or
+   `.env.development` to a Buddy database such as
+   `dungeonbuddy_application_state`.
+2. Run `uv run python scripts/bootstrap_local_play.py apply` once (and again
+   after application-state schema changes).
+3. Start FastAPI and the Vite UI, then open `/play`.
+
+See [`Docs/Runbooks/RUNBOOK-local-play-dogfood.md`](Docs/Runbooks/RUNBOOK-local-play-dogfood.md).
+Inspect without mutating with
+`uv run python scripts/bootstrap_local_play.py check`.
 
 ## Baseline verification
 

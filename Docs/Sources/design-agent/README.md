@@ -1,46 +1,41 @@
 # Design Agent / Project Sources Export
 
-**Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies  
-**Source capture basis:** 2026-09-15 CON-READY accepted-World dogfood re-anchor; canonical steward authority now distinguishes structural PASS from product/operator dogfood readiness and sequences published-object addressability after the gauntlet report lands  
-**Export refreshed:** 2026-09-15  
+**Status:** ACTIVE EXPORT MIRROR — non-authoritative convenience copies
+**Export refreshed:** 2026-09-25 settlement pass on `main@9473244f57e7845928fc47225fd08863ea85804b`
 **Canonical source-set index:** [`Docs/Design/INDEX-design-agent-source-set.md`](../../Design/INDEX-design-agent-source-set.md)
 
-This directory is the clean pickup point for refreshing ChatGPT immediate / Project Sources.
+This directory is the clean pickup point for refreshing ChatGPT immediate /
+Project Sources. Canonical repository paths always win.
 
-Export copies are **not a second source of truth**. If an export copy and its canonical repository path ever differ, the canonical path wins and this export needs refresh. Files added or changed by the Playable design transaction use the exact same Git blob at canonical and export paths; unchanged mapped sources retain their existing canonical content.
-
-The user-managed Project Sources snapshot date does **not** advance merely because this repository export changed. Advance it only after the operator actually refreshes or re-observes the product-level source set.
+The user-managed Project Sources snapshot date does not advance merely because
+this export changed.
 
 ## Upload set
-
-Upload the files in these folders. Classification is useful context, not precedence over the canonical source index.
 
 ### `ACTIVE_AUTHORITY/`
 
 1. `ARCHITECTURE-campaign-supergraph.md`
-2. `ROADMAP-campaign-supergraph.md`
-3. `PR-TRACKER-campaign-supergraph.md`
-4. `graph-document-audit.md`
-5. `ARCHITECTURE-surface-interaction-layer.md`
-6. `STEWARDS-ANCHOR-con-ready.md`
-7. `ROADMAP-con-ready.md`
-8. `ARCHITECTURE-playable-material-and-runtime.md`
-9. `ROADMAP-playable-hoist-dungeonmind-kernel.md`
+2. `graph-document-audit.md`
+3. `ARCHITECTURE-surface-interaction-layer.md`
+4. `DESIGN-source-to-world-authoring-interaction-contract.md`
+5. `STEWARDS-ANCHOR-con-ready.md`
+6. `ROADMAP-con-ready.md`
+7. `ARCHITECTURE-playable-material-and-runtime.md`
+8. `ROADMAP-playable-hoist-dungeonmind-kernel.md`
 
 ### `ACTIVE_REFERENCE/`
 
-10. `STATUS-world-graph-continuity-spine.md`
-11. `ARCHITECTURE-plan-surface-toolbox.md`
-12. `GRAPH-MEMORY-PROJECT-LAYOUT.md`
-13. `PLAN-surface-interaction-hoist-build-first.md`
-14. `INDEX-hermes-campaign-authoring-foundation.md`
-15. `DESIGN-play-surface-projection.md`
-16. `DESIGN-playable-authoring-and-adoption.md`
-17. `DESIGN-play-current-moment-cockpit.md`
-18. `DESIGN-play-surface-gm-cockpit-target.md`
-19. `ANCHOR-runbook-lantern.md`
-20. `README.md`
-21. `INDEX-design-agent-source-set.md`
+9. `ARCHITECTURE-plan-surface-toolbox.md`
+10. `GRAPH-MEMORY-PROJECT-LAYOUT.md`
+11. `DESIGN-play-current-moment-cockpit.md`
+12. `DESIGN-play-surface-projection.md`
+13. `DESIGN-playable-authoring-and-adoption.md`
+14. `DESIGN-play-surface-gm-cockpit-target.md`
+15. `ANCHOR-runbook-lantern.md`
+16. `DECISION-agent-context-compilation.md`
+17. `DECISION-agent-runtime-and-semantic-adjudication.md`
+18. `README.md`
+19. `INDEX-design-agent-source-set.md`
 
 ### `SOURCE_ANCHOR/`
 
@@ -52,46 +47,24 @@ Upload the files in these folders. Classification is useful context, not precede
 22. `STEWARD-CYCLE.md`
 23. `HANDOFF.template.md`
 
-## Replace / remove from the older immediate-source set
+## Explicit removals from prior bundles
 
-- Replace every download-suffixed older copy (`(1)`, `(2)`, `(3)`, `(4)`, etc.) with the clean file from this export.
-- Remove `JUMPSTART-docs-relevance-first.md` from active immediate sources. It is superseded by `PROCESS/STEWARD-CYCLE.md`.
-- Replace the old large handoff template with `PROCESS/HANDOFF.template.md`.
-- Add the CON-READY anchor + roadmap and the Playable/Play authority documents listed above.
-- Do not re-promote historical runbook design documents merely because they informed the new Playable architecture.
+Do not upload as current:
 
-Do not upload unresolved source-only/historical drafts by default. See the canonical source-set index and graph document audit if a historical decision specifically requires them.
+- `ROADMAP-campaign-supergraph.md` — settlement hold/program history;
+- `PR-TRACKER-campaign-supergraph.md` — frozen history;
+- `STATUS-world-graph-continuity-spine.md` — frozen history;
+- `PLAN-surface-interaction-hoist-build-first.md` — superseded;
+- `INDEX-hermes-campaign-authoring-foundation.md` — superseded;
+- `JUMPSTART-docs-relevance-first.md` — superseded;
+- download-suffixed historical copies.
 
-## Canonical mapping
-
-| Export file | Canonical repository path |
-|---|---|
-| `ACTIVE_AUTHORITY/ARCHITECTURE-campaign-supergraph.md` | `Docs/Design/ARCHITECTURE-campaign-supergraph.md` |
-| `ACTIVE_AUTHORITY/ROADMAP-campaign-supergraph.md` | `Docs/Roadmaps/ROADMAP-campaign-supergraph.md` |
-| `ACTIVE_AUTHORITY/PR-TRACKER-campaign-supergraph.md` | `Docs/Plans/PR-TRACKER-campaign-supergraph.md` |
-| `ACTIVE_AUTHORITY/graph-document-audit.md` | `Docs/Reports/graph-document-audit.md` |
-| `ACTIVE_AUTHORITY/ARCHITECTURE-surface-interaction-layer.md` | `Docs/Design/ARCHITECTURE-surface-interaction-layer.md` |
-| `ACTIVE_AUTHORITY/STEWARDS-ANCHOR-con-ready.md` | `Docs/Plans/STEWARDS-ANCHOR-con-ready.md` |
-| `ACTIVE_AUTHORITY/ROADMAP-con-ready.md` | `Docs/Roadmaps/ROADMAP-con-ready.md` |
-| `ACTIVE_AUTHORITY/ARCHITECTURE-playable-material-and-runtime.md` | `Docs/Design/ARCHITECTURE-playable-material-and-runtime.md` |
-| `ACTIVE_AUTHORITY/ROADMAP-playable-hoist-dungeonmind-kernel.md` | `Docs/Roadmaps/ROADMAP-playable-hoist-dungeonmind-kernel.md` |
-| `ACTIVE_REFERENCE/STATUS-world-graph-continuity-spine.md` | `Docs/Design/STATUS-world-graph-continuity-spine.md` |
-| `ACTIVE_REFERENCE/ARCHITECTURE-plan-surface-toolbox.md` | `Docs/Design/ARCHITECTURE-plan-surface-toolbox.md` |
-| `ACTIVE_REFERENCE/GRAPH-MEMORY-PROJECT-LAYOUT.md` | `Docs/Design/GRAPH-MEMORY-PROJECT-LAYOUT.md` |
-| `ACTIVE_REFERENCE/PLAN-surface-interaction-hoist-build-first.md` | `Docs/Plans/PLAN-surface-interaction-hoist-build-first.md` |
-| `ACTIVE_REFERENCE/INDEX-hermes-campaign-authoring-foundation.md` | `Docs/Design/INDEX-hermes-campaign-authoring-foundation.md` |
-| `ACTIVE_REFERENCE/DESIGN-play-surface-projection.md` | `Docs/Design/DESIGN-play-surface-projection.md` |
-| `ACTIVE_REFERENCE/DESIGN-playable-authoring-and-adoption.md` | `Docs/Design/DESIGN-playable-authoring-and-adoption.md` |
-| `ACTIVE_REFERENCE/DESIGN-play-current-moment-cockpit.md` | `Docs/Design/DESIGN-play-current-moment-cockpit.md` |
-| `ACTIVE_REFERENCE/DESIGN-play-surface-gm-cockpit-target.md` | `Docs/Design/DESIGN-play-surface-gm-cockpit-target.md` |
-| `ACTIVE_REFERENCE/ANCHOR-runbook-lantern.md` | `Docs/Design/ANCHOR-runbook-lantern.md` |
-| `ACTIVE_REFERENCE/README.md` | `README.md` |
-| `ACTIVE_REFERENCE/INDEX-design-agent-source-set.md` | `Docs/Design/INDEX-design-agent-source-set.md` |
-| `SOURCE_ANCHOR/CORPUS-ANCHOR.md` | `Docs/Anchors/CORPUS-ANCHOR.md` |
-| `PROCESS/AGENTS.md` | `AGENTS.md` |
-| `PROCESS/STEWARD-CYCLE.md` | `Docs/Process/STEWARD-CYCLE.md` |
-| `PROCESS/HANDOFF.template.md` | `.cursor/skills/external-agent-pr-loop/templates/HANDOFF.template.md` |
+The Campaign roadmap's canonical path remains temporarily unrevised only because
+the live #755–#761 UI stack currently owns that path. Exclusion from this export
+is deliberate.
 
 ## Maintenance rule
 
-Never repair an export copy in place. Repair/update the canonical repository file first, then refresh its export copy. A bundle refresh should preserve byte equality for every mapped file and should update this README's capture basis.
+Never repair an export copy in place. Repair the canonical document first, then
+refresh its mapped export copy byte-for-byte. The canonical source index owns
+the mapping.
