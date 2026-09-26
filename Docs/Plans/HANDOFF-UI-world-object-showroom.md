@@ -9,7 +9,7 @@ pr_body_template: |
   - PR topology: serial
 
   ## Verification pointer
-  - Design authority / head: UI-F1 merged as PR #768 at 8b94fc52f08288663403ba7834f538a3de83d7c0
+  - Design authority / head: BLOCKED F1 handoff design PR #770 at f44091de
   - Changed paths: exact §4 allowlist only
   - Verification: focused ObjectSheet tests + Ladle build + typecheck + production build + diff checks
 
@@ -20,13 +20,14 @@ pr_body_template: |
 # HANDOFF — UI World-object showroom
 
 **Created:** 2026-09-25
-**Status:** BLOCKED — predecessor UI-F1 is merged; this design PR must land on current `main`, then the steward must verify the lease and activate the checked-in handoff
+**Status:** BLOCKED — UI-F1 implementation is not current authority after rollback; this design PR may land as blocked, but F2 implementation requires F1 to merge first
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-world-object-showroom.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
 **Direction:** DESIGN → CODE → REVIEW
-**Design authority base:** `753d92ad` — current `main` after UI-F1 merge and state-authority sync
-**Activation gate:** UI-F1 implementation merged as PR #768 at `8b94fc52f08288663403ba7834f538a3de83d7c0`; design PR #757 merged; fresh-main re-anchor confirms the actual primitive/token/workshop API and no conflicting UI lease
+**Design authority base:** `f44091de` — open F1 handoff design PR #770 head
+**Design PR topology:** stacked on PR #770 at `f44091de`; merge/re-anchor #769, then #770, then this one-file handoff PR. Historical PR #757 and F1 implementation PR #768 were merged but reverted and are not current authority.
+**Activation gate:** F1 implementation accepted/merged after its steward-landed handoff is ACTIVE; this F2 design handoff landed on main; fresh-main re-anchor confirms the actual primitive/token/workshop API and no conflicting UI lease
 **Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review.
 **PR topology:** `serial`
 **PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs
@@ -56,8 +57,8 @@ pr_body_template: |
 | Field | Required content |
 |---|---|
 | Parent authority | `PLAN-ui-presentation-substrate-sidequest-v1.md`; UI language Goal 4 table-first World objects |
-| Design authority base | `753d92ad` — UI-F1 completed and synchronized on main |
-| Activation gate | UI-F1 merged; design PR #757 must merge; steward re-anchors and verifies no conflicting UI lease |
+| Design authority base | `f44091de` — BLOCKED F1 handoff design PR #770 |
+| Activation gate | F1 implementation merged; this F2 handoff landed on main; steward re-anchors and verifies no conflicting UI lease |
 | Dispatch base rule | fresh current main containing this handoff after activation |
 | Predecessor contract | `apps/live-control-ui/src/graphObjectCard/types.ts` `GraphObjectCardViewModel`; F1 tokens/primitives/workshop |
 | Exact input consumed | Static values conforming exactly to `GraphObjectCardViewModel` |
