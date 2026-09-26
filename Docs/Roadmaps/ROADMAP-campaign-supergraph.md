@@ -417,12 +417,12 @@ The sidequest sequence is:
 
 ```text
 UI-F0  substrate contract + roadmap                         CURRENT
-UI-F1  semantic tokens + tiny primitive layer + Ladle      NEXT
-UI-F2  canonical fixture showroom + first ObjectSheet      QUEUED
-UI-F3  controller/presentation split on mature hosts       QUEUED
-UI-F4  canonical demo fixtures + small visual regression   QUEUED
-UI-F5  Canvas Page/Print convergence experiment            QUEUED
-UI-F6  choose next broad UI product slice from evidence    LATER
+UI-F1  tokens + 4 primitives + Ladle                        NEXT
+UI-F2  World-object showroom + ObjectSheet                  QUEUED
+UI-F3  ToolHost behavior/presentation split                 QUEUED
+UI-F4  <=10-story canonical visual contract                 QUEUED
+UI-F5  Canvas layout-engine Page convergence experiment     QUEUED
+UI-F6  post-substrate human/steward decision STOP           LATER
 ```
 
 The development machine is treated as resource-constrained. The default posture
@@ -454,21 +454,28 @@ PostgreSQL, an ingest run, or a backend API.
 
 ### Canvas convergence now belongs to UI-F5
 
-After the isolated presentation lab exists, prove or falsify:
+After the isolated presentation lab exists, test the narrower seam:
 
 ```text
-authoritative MarkdownCanvasSession / TipTap document
-→ Buddy-owned adapter
-→ standalone Canvas representation
-→ read-only Page / Print projection
+fixed current-schema Buddy TipTap document
+→ Buddy-owned semantic adapter
+→ Canvas layout inputs
+→ Canvas measurement / pagination
+→ LayoutPlan
+→ Buddy-owned Page projection
 ```
 
-The first witness remains a representative Runbook/Plan document with prose,
-table, callout, graph reference, and Playable semantics.
+Buddy does not adopt Canvas PageDocument persistence or Canvas's current visible
+CanvasPage treatment. An exact installable layout-only Canvas artifact is an
+activation prerequisite; local links/vendor workarounds are not acceptable.
 
-Only after that proof should the product decide whether Flow / Page / Board are
-alternate projections of one Buddy work object, and whether spatial mechanics
-belong in Canvas, a third-party substrate, or an adapter beneath Canvas.
+The first witness remains a representative Runbook/Plan document with prose,
+table, callout, exact graph reference, and Playable semantics. Record
+YES / NARROWER / NO before deciding whether Flow / Page / Board deserves further
+work.
+
+UI-F6 is then a human/steward STOP, not an implementation slice. It may authorize
+at most one successor or explicitly resume non-UI product work.
 
 ### Sidequest boundary
 
