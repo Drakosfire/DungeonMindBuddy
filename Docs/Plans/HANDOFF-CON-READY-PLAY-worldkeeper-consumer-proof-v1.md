@@ -24,8 +24,8 @@ pr_body_template: |
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Thread:** `CON-READY / PLAY`
 **PR topology:** serial
-**PLAY-0 accepted head:** `25197d1b9f2dbf96752e453c34456830d5a99d1a`  
-**PLAY-0 final review:** `5324695932` — PASS / READY TO MERGE  
+**PLAY-0 accepted head:** `25197d1b9f2dbf96752e453c34456830d5a99d1a`
+**PLAY-0 final review:** `5324695932` — PASS / READY TO MERGE
 **PLAY-0 merge:** `6e92bec11df22b4b4243cb58c1bbcbe43b109ff6`
 **Activation re-anchor / implementation base:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`
 **Resolved path gate:** PR #767 merged at `f30b4c906bb179b25f00207c40cb38c0debdc264`; no open PR owns the PLAY-1 dependency or consumer paths at dispatch

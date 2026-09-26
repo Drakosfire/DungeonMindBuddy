@@ -2,14 +2,14 @@
 
 **Status:** IMPLEMENTED / REVIEW PENDING — not an acceptance disposition
 
-**Dispatch base:** `1367bf2cc3828055ed71774414086a2c3fa421ff`, the
-checked-in PLAY-0 PR #753 head. The user authorized execution before that
-handoff reached `main`; PR #753 has not been merged by this implementation.
-The implementation branch remains dependent on the PLAY-0 design decision.
+**Implementation base:** `main@f30b4c906bb179b25f00207c40cb38c0debdc264`,
+the PR #767 merge. PLAY-0 / PR #753 is accepted and merged. The reviewed
+handoff is activated on this fresh-main-based branch under the user's explicit
+exception to main-first handoff placement. This is one serial PLAY-1 PR.
 
 ## Installed authority
 
-- WorldKeeper `a0a70db275cf6c5f3876fe7b4d2a557de12388f5` — #8 merge,
+- WorldKeeper `49a8620f066ce7ef8972a699020c012f50af9158` — reviewed #8 head,
   verified from installed package `direct_url.json`.
 - DungeonMind `0f709d76fdc53bac9c9258d1751463ae2c76ca71` — unchanged Buddy
   runtime pin, verified from installed package `direct_url.json`.
@@ -49,8 +49,8 @@ durable-ID prediction, production writer fallback, or predicate substitution.
 ## Runtime witnesses
 
 The canonical test seeds an in-memory native vNext parent pinned to the Buddy
-V3-backed profile revision 2, with `ent:pippa` and exact evidence ID
-`ev:play-session-note`. Its source artifact/revision fixture is coherent.
+V3-backed profile revision 2, with `ent:pippa` and exact `EvidenceRefV3` ID
+`ev:play-session-note` in the graph payload. No source reader is involved.
 
 The submitted relationship appears before the brewery object, yet maps to
 `Pippa dungeonbuddy.custom:works_at ResultOf(brewery)`. Prepare leaves the
@@ -63,22 +63,23 @@ same result and adds no head event.
 Independent `mentors` and `trained_by` tests take the same generic namespace
 branch and appear as exact qualified predicates in committed children. A
 V2-pinned parent fails at prepare with no profile transition or child.
-Additional tests cover missing admitted evidence, stale prepared values,
+Additional tests cover missing evidence, stale prepared values,
 client-operation collisions, reference integrity, unsupported product
-semantics, and source-level guards against DungeonMind write APIs or old Buddy
-writer imports. Production route modules remain unmodified and do not import
-this consumer.
+semantics (including both object- and relationship-side visibility, reveal, and
+scope rejection), and source-level guards against DungeonMind write APIs or
+old Buddy writer imports. Production route modules remain unmodified and do
+not import this consumer.
 
 ## Verification
 
-- `uv sync --locked`: PASS (100 packages; WorldKeeper exact #8 merge pin).
-- Focused PLAY-1 test: 29 passed.
+- `uv sync --locked`: PASS (WorldKeeper exact reviewed #8 head pin).
+- Focused PLAY-1 test: 39 passed.
 - V6.1 and V6.0.1 regressions: 29 passed.
 - Scoped Ruff: PASS.
 - WorldKeeper runtime import: PASS.
 - `git diff --check`: PASS.
 - Default non-live suite: collection stops on eight inherited missing-module
-  errors. The exact PLAY-0 base lacks the same imported modules/tests
+  errors. `main@f30b4c9` lacks the same imported modules/tests
   (`recap_projection`, `graph_ingest_verified_snapshot`, `digest_audit`,
   `test_graph_memory_merge_reconciliation_planner`, and
   `bench_world_graph_warm_path`); PLAY-1 adds none of those paths and changes
@@ -86,9 +87,7 @@ this consumer.
 
 ## Still false / next gate
 
-PR #753 remains the unmerged PLAY-0 design predecessor at dispatch. The
-implementation is not accepted until review of the exact implementation head,
-reconciliation onto fresh `main` after #753 merges, and the remaining PR
-topology decision. No production route, persistent/PostgreSQL authority,
+The implementation is not accepted until review of the exact implementation
+head. No production route, persistent/PostgreSQL authority,
 browser surface, source admission, V2→V3 migration, or live Eldyrwild state
 has been changed. PLAY-2 is not authorized here.

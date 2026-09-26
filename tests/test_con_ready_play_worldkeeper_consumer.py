@@ -7,7 +7,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
-from dungeonmind.application.vnext import InMemoryKnowledgeSourceReader
 from dungeonmind.application.vnext.materialization import (
     NATIVE_VNEXT_GRAPH_SCHEMA,
     encode_native_graph_payload,
@@ -17,10 +16,7 @@ from dungeonmind.contracts.vnext import (
     DomainContractRef,
     Entity,
     EvidenceRefV3,
-    SourceArtifactV3,
-    SourceRevisionV2,
 )
-from dungeonmind.contracts.vnext.common import LabelsAnyVisibility
 from dungeonmind.contracts.vnext.knowledge import PublishKnowledgeRevisionCommand
 from dungeonmind.domain.canonical import canonical_sha256
 from dungeonmind.infrastructure.memory.vnext_knowledge import (
@@ -246,39 +242,6 @@ def test_works_at_witness_prepares_without_mutation_commits_once_and_retries() -
     assert assertion["value"] == {"kind": "entity_ref", "entity_id": entity_id}
 
 
-def test_evidence_fixture_names_one_coherent_source_revision() -> None:
-    reader = InMemoryKnowledgeSourceReader(
-        artifacts={
-            "art:play-session-note": SourceArtifactV3(
-                source_artifact_id="art:play-session-note",
-                source_classification="dungeonbuddy:source_classification",
-                current_revision_id="srcrev:play-session-note",
-                authority="primary",
-                visibility=LabelsAnyVisibility(labels=["dungeonbuddy.visibility:gm"]),
-                status="active",
-            )
-        },
-        revisions={
-            "srcrev:play-session-note": SourceRevisionV2(
-                source_revision_id="srcrev:play-session-note",
-                source_artifact_id="art:play-session-note",
-                content_sha256="a" * 64,
-                body_storage="memory:play-session-note",
-                created_at=NOW,
-            )
-        },
-    )
-    snapshot = reader.get_provenance_snapshot(
-        artifact_ids=["art:play-session-note"],
-        revision_ids=["srcrev:play-session-note"],
-    )
-    assert not snapshot.missing_artifact_ids
-    assert not snapshot.missing_revision_ids
-    assert snapshot.artifacts_by_id["art:play-session-note"].current_revision_id == (
-        "srcrev:play-session-note"
-    )
-
-
 def test_operation_order_and_fixed_predicate_preserve_exact_mapping() -> None:
     consumer = _consumer(_repository())
     ordered = consumer.build_intent(
@@ -295,6 +258,18 @@ def test_operation_order_and_fixed_predicate_preserve_exact_mapping() -> None:
     )
     assert isinstance(fixed.operations[1], CreateRelationship)
     assert fixed.operations[1].predicate == "dnd5e:located_in"
+
+
+def test_explicit_create_operation_matches_implicit_create_for_both_kinds() -> None:
+    consumer = _consumer(_repository())
+    implicit = consumer.build_intent(
+        context=_context(), proposals=(_brewery(), _relationship())
+    )
+    explicit = consumer.build_intent(
+        context=_context(),
+        proposals=(_brewery(operation="create"), _relationship(operation="create")),
+    )
+    assert explicit == implicit
 
 
 def test_consumer_uses_only_injected_service_for_prepare_and_commit() -> None:
@@ -487,6 +462,36 @@ def test_unsupported_proposal_meaning_fails_closed(
         )
     with pytest.raises(PlayAuthoringMappingError) as error:
         _consumer(_repository()).build_intent(context=_context(), proposals=supplied)
+    assert error.value.code == code
+
+
+@pytest.mark.parametrize("kind", ["object", "relationship"])
+@pytest.mark.parametrize(
+    ("field", "value", "code"),
+    [
+        ("visibility", "player_visible", "unsupported_visibility"),
+        ("reveal_state", "revealed", "unsupported_visibility"),
+        ("visibility_note", "Player-facing", "unsupported_visibility"),
+        ("graph_scopes", ("recap_graph",), "unsupported_graph_scope"),
+        (
+            "graph_scopes",
+            ("recap_graph", "recap_graph"),
+            "unsupported_graph_scope",
+        ),
+    ],
+)
+def test_both_proposal_kinds_reject_unsupported_metadata(
+    kind: str, field: str, value: object, code: str
+) -> None:
+    proposal = _brewery() if kind == "object" else _relationship()
+    if field == "graph_scopes":
+        changed = proposal.model_copy(update={"graph_scopes": value})
+    else:
+        changed = proposal.model_copy(
+            update={"visibility": proposal.visibility.model_copy(update={field: value})}
+        )
+    with pytest.raises(PlayAuthoringMappingError) as error:
+        _consumer(_repository()).build_intent(context=_context(), proposals=(changed,))
     assert error.value.code == code
 
 
