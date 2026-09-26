@@ -5,37 +5,39 @@ pr_body_template: |
   - Flow: UI
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md
-  - Branch / PR: none while BLOCKED
-  - PR topology: serial
+  - Branch / PR: codex/ui-f1-handoff-restoration / PR #770
+  - PR topology: stacked review experiment; no merge
 
   ## Verification pointer
   - Design authority / head: proposed UI-F0 restoration PR #769 at 0ca516a5
   - Changed paths: exact §4 allowlist only
   - Verification: npm UI workshop build + focused Vitest + typecheck + production Vite build + diff checks
 
-  The checked-in ACTIVE handoff, cumulative diff, nano-commit story, and independently
+  The PR-local handoff, cumulative diff, nano-commit story, and independently
   rerun evidence are the review contract. This body is transport metadata.
 ---
 
 # HANDOFF — UI fast presentation foundation
 
 **Created:** 2026-09-25
-**Status:** BLOCKED — design PR #769 must merge, then this handoff must land on current `main` before the steward may activate it
+**Status:** PROVISIONAL IMPLEMENTATION REVIEW IN PR #770 — not ACTIVE on `main`; product owner explicitly requested implementation on the existing stacked handoff PR without merging
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
 **Direction:** DESIGN → CODE → REVIEW
 **Design authority base:** `0ca516a5` — proposed UI-F0 restoration PR #769 head
-**Design PR topology:** stacked on PR #769 at `0ca516a5`; merge #769 first, re-anchor this handoff PR on the resulting `main`, then review/merge it. Historical PR #755 was merged but subsequently reverted and is not current authority.
-**Activation gate:** PR #769 and this handoff design PR merged; fresh-main re-anchor confirms no conflicting frontend-foundation lease and Ladle remains compatible with the existing Vite/React toolchain
-**Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review rather than trying to self-reference it inside this main commit.
-**PR topology:** `serial`
-**PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs
+**PR topology:** stacked review experiment on PR #769 at `0ca516a5`; implement this handoff directly on existing PR #770; no new PR and no merge. Historical PR #755 was merged but subsequently reverted and is not current authority.
+**Activation gate for eventual merge:** PR #769 merged, this PR re-anchored to fresh `main`, and the usual lease/toolchain checks repeated; no such merge is authorized in this experiment
+**Review base:** PR #769 head `0ca516a5`; the implementation remains provisional until the activation gate is satisfied
+**PR authorization:** update existing PR #770 only; do not open or merge another F1 PR
 **PR title:** `UI: add fast presentation workshop`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
-> Handoff lifecycle: the designing steward lands this file on `main`. `BLOCKED` means durable design authority only—no implementation lane and no active §4 lease. The steward changes `BLOCKED → ACTIVE` only after re-anchoring and verifying the activation gate.
+> Product-owner review exception: the implementation and handoff travel together on
+> this existing stacked PR so the designing agent can critique the complete slice.
+> This does not claim `ACTIVE` status or an exclusive §4 lease on `main`. §4 bounds
+> only this PR's changes. Eventual merge still requires the normal re-anchor.
 
 ## §1 Mission and merge-ready invariant
 
@@ -60,18 +62,18 @@ pr_body_template: |
 |---|---|
 | Parent authority | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md` |
 | Design authority base | `0ca516a5` — proposed UI-F0 restoration PR #769 |
-| Activation gate | PR #769 and this handoff design PR merged + re-anchor + compatibility/lease check |
-| Dispatch base rule | fresh current main containing this handoff after activation; exact branch base recorded at dispatch/review |
+| Activation gate | for eventual merge only: PR #769 merged + current-main re-anchor + compatibility/lease check |
+| Review base | PR #769 head `0ca516a5`; provisional implementation on this PR branch |
 | Predecessor contract | Existing React 19 / Vite 6 / Vitest frontend; no existing component workshop |
 | Exact input consumed | Static React props only; no server DTO fetch, provider state, database, or environment-specific product state |
 | Named successor | UI-F2 — representative World-object showroom using real Buddy view-model fixtures |
 | What remains false | No production surface uses the new primitives; no ObjectSheet migration; no Base UI; no visual regression suite |
 | Explicit non-goals | Tailwind; CSS-in-JS; Storybook; Base UI dependency; AppChrome redesign; Tool/Edit/Peek migration; production CSS cleanup |
-| PR topology | serial |
-| Authorized PR action | open/update exactly this assigned PR without asking; no additional PRs |
-| Open implementation PRs in workstream at dispatch | none required; steward must re-check |
+| PR topology | stacked review experiment on existing PR #770; no merge |
+| Authorized PR action | update PR #770 only; no additional F1 PR |
+| Open implementation PRs in workstream at dispatch | no other F1 implementation PR; later UI slices are separate existing PRs |
 | Stack parent + merge/rebase order | not applicable |
-| Branch / isolated checkout | none while BLOCKED; create one isolated implementation branch/worktree from activation-time main |
+| Branch / isolated checkout | existing isolated PR #770 checkout; exact review base above |
 | Parallel lanes / collision hotspots | CON-READY PLAY may proceed if disjoint; `apps/live-control-ui/package.json` and lockfile are collision hotspots |
 | Runtime/state ownership | frontend-only; no backend/runtime state; workshop port may be chosen freely at local launch |
 | State-authority sync set after merge | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` records UI-F0 complete / UI-F1 active predecessor truth only |
@@ -105,7 +107,7 @@ Adversarial sequences:
 | Add/change token → workshop HMR → production build | Story changes immediately; production build still succeeds | manual + build |
 | Search story/primitive sources for API/provider imports | None from `api/liveApi`, AgentInteraction, SurfaceInteraction providers, graph/world services | source guard |
 
-## §4 Files in scope — write lease
+## §4 Files in scope — PR-local write bounds (not a main lease)
 
 | Action | Path | Purpose |
 |---|---|---|
@@ -117,7 +119,8 @@ Adversarial sequences:
 | Create | `apps/live-control-ui/src/ui/primitives.css` | Primitive styling consuming semantic tokens |
 | Create | `apps/live-control-ui/src/ui/Foundation.stories.tsx` | Static workshop proof for four primitives and token tones |
 | Create | `apps/live-control-ui/src/ui/primitives.test.tsx` | Semantic/accessibility contract proof for primitive props |
-| Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Backward-looking sync: UI-F0 completed by merged roadmap authority; UI-F1 current |
+| Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Truthful PR-stack review state; no premature merge/activation claim |
+| Modify | `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md` | Record product-owner PR-stack review exception without claiming ACTIVE main authority |
 
 **Bounded discovery exception:** Not applicable — if Ladle requires additional production/config paths, stop and report instead of widening the slice.
 
@@ -189,7 +192,19 @@ Not applicable — no production consumer migrates in F1.
 | Production app still builds | Vite production app | regression | `npm --prefix apps/live-control-ui run build` | PASS or exact inherited base comparison | new failure |
 | Workshop has no product runtime dependency | source boundary | adversarial | static search of `src/ui/**` and `.ladle/components.tsx` | no imports from live API, surface providers, graph/world runtime | any such import |
 | Weak-laptop workflow is real | developer workflow | manual | stop backend services; run `npm --prefix apps/live-control-ui run ui`; open all F1 stories; edit one token | stories render; HMR reflects token edit without backend | backend/network requirement or unusably heavy workflow |
-| Lease stays exact | Git diff | contract | `git diff --check` + `git diff --name-only <dispatch-base>...HEAD` | only §4 paths | any unexpected path |
+| PR scope stays exact | Git diff | contract | `git diff --check` + `git diff --name-only <review-base>...HEAD` | only §4 paths | any unexpected path |
+
+Exact review commands from the repository root (Node 20 required):
+
+```bash
+npm ci --prefix apps/live-control-ui
+npm --prefix apps/live-control-ui run ui:build
+npm --prefix apps/live-control-ui run test -- src/ui/primitives.test.tsx
+npm --prefix apps/live-control-ui run typecheck
+npm --prefix apps/live-control-ui run build
+git diff --check
+git diff --name-only 0ca516a5...HEAD
+```
 
 ### Minimal live / dogfood proof
 
@@ -202,7 +217,7 @@ Evidence captured: reviewer notes exact command, stories opened, and whether HMR
 
 ### Baseline failure handling
 
-If typecheck/build/test fails on dispatch base, run the exact same command on base and head and report the comparison. No new frontend failure is acceptable.
+If typecheck/build/test fails on the review base, run the exact same command on base and head and report the comparison. No new frontend failure is acceptable.
 
 ## §8 Required review handback
 
@@ -210,7 +225,7 @@ Record:
 
 1. Review Cycle N and exact PR/branch/head SHA;
 2. exact implementation branch base;
-3. serial topology and open PRs at dispatch;
+3. stacked review topology and the exact open PR parent;
 4. §1 mission/invariant disposition;
 5. all §7 results + provenance;
 6. nano-commit story;
@@ -225,7 +240,7 @@ Record:
 
 ## §9 Acceptance rubric
 
-- [ ] Handoff was ACTIVE before dispatch.
+- [ ] Provisional PR-stack exception is stated honestly; no `ACTIVE` main claim.
 - [ ] Exactly one fast-workshop capability was delivered.
 - [ ] Workshop runs with backend services off.
 - [ ] Exactly four named primitives exist; no speculative component library grew around them.
@@ -240,7 +255,7 @@ Record:
 
 Stop and report instead of expanding when:
 
-- the restored UI-F0 design or this handoff is not merged at activation;
+- an eventual merge is attempted before the restored F0 design and this handoff are re-anchored on main;
 - Ladle requires invasive production Vite changes;
 - the workshop needs product providers/network state;
 - more than Surface/Button/Badge/Stack is required to prove the mission;
