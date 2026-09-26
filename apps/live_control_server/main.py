@@ -57,6 +57,7 @@ from apps.live_control_server.routes.source_navigation import (
     router as source_navigation_router,
 )
 from apps.live_control_server.routes.rules_query import router as rules_query_router
+from apps.live_control_server.routes.rules_lawyer_answer import router as rules_lawyer_answer_router
 from apps.live_control_server.services.hermes_graph_agent_host import (
     get_hermes_graph_agent_host,
     shutdown_hermes_graph_agent_host,
@@ -105,6 +106,7 @@ def create_app() -> FastAPI:
     application.include_router(statblock_candidates_router)
     application.include_router(source_navigation_router)
     application.include_router(rules_query_router)
+    application.include_router(rules_lawyer_answer_router)
 
     @application.get("/health")
     def health() -> dict[str, str]:

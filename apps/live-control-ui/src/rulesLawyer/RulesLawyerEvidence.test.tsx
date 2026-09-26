@@ -56,3 +56,34 @@ it.each([
   await submit();
   await waitFor(() => expect(screen.getByText(new RegExp(expected))).toBeInTheDocument());
 });
+
+it("renders cited synthesis with the exact source inspection affordance", async () => {
+  vi.stubGlobal("fetch", vi.fn()
+    .mockResolvedValueOnce({ ok: true, json: async () => ({
+      schema_version: "dmb_rules_query_packet_v1", query_id: "q1", ruleset_id: "r1",
+      rules_space_id: "s1", rules_revision_id: "v1", status: "success",
+      evidence: [evidence], trace: { completeness: "complete", reason: null },
+    }) })
+    .mockResolvedValueOnce({ ok: true, json: async () => ({
+      schema_version: "dmb_rules_answer_response_v1",
+      packet: {
+        schema_version: "dmb_rules_query_packet_v1", query_id: "q1", ruleset_id: "r1",
+        rules_space_id: "s1", rules_revision_id: "v1", status: "success",
+        evidence: [evidence], trace: { completeness: "complete", reason: null },
+      },
+      answer: {
+        status: "supported", answer: "No, the rule prohibits it.",
+        citation_evidence_ref_ids: ["ref-exact"], needs_more_evidence: false,
+        reason: null, generation_trace_id: "trace-exact",
+      },
+    }) }));
+  render(<RulesLawyerEvidence />);
+  await submit();
+  fireEvent.click(await screen.findByRole("button", { name: "Synthesize cited answer" }));
+  await screen.findByText("No, the rule prohibits it.");
+  const answer = screen.getByRole("region", { name: "Cited answer" });
+  const citation = answer.querySelector('button[aria-label="Inspect citation 1"]');
+  expect(citation).not.toBeNull();
+  fireEvent.click(citation!);
+  expect(answer.textContent).toContain("unit-exact");
+});

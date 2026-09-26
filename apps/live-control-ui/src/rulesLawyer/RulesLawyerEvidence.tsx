@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 
-import { queryRules, type RulesEvidenceItem, type RulesQueryPacket } from "../api/rulesQuery";
+import { answerRules, queryRules, type RulesAnswerResponse, type RulesEvidenceItem, type RulesQueryPacket } from "../api/rulesQuery";
 
 function Citation({ item }: { item: RulesEvidenceItem }) {
   return (
@@ -33,6 +33,8 @@ export function RulesLawyerEvidence() {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [packet, setPacket] = useState<RulesQueryPacket | null>(null);
+  const [synthesis, setSynthesis] = useState<RulesAnswerResponse | null>(null);
+  const [answerLoading, setAnswerLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [controller, setController] = useState<AbortController | null>(null);
 
@@ -48,12 +50,28 @@ export function RulesLawyerEvidence() {
     setLoading(true);
     setError(null);
     setPacket(null);
+    setSynthesis(null);
     try {
       setPacket(await queryRules(submitted, next.signal));
     } catch (caught) {
       if (!next.signal.aborted) setError(caught instanceof Error ? caught.message : "Rules service unavailable");
     } finally {
       if (!next.signal.aborted) setLoading(false);
+    }
+  }
+
+  async function synthesize() {
+    const next = new AbortController();
+    setAnswerLoading(true);
+    setError(null);
+    try {
+      const result = await answerRules(question.trim(), next.signal);
+      setSynthesis(result);
+      setPacket(result.packet);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Rules answer service unavailable");
+    } finally {
+      setAnswerLoading(false);
     }
   }
 
@@ -77,6 +95,25 @@ export function RulesLawyerEvidence() {
           <p>{packet.status === "success" ? "Cited rules evidence" : "Available evidence"}</p>
           <ol>{packet.evidence.map((item) => <Citation key={`${item.evidence_ref_id}:${item.evidence_unit_id}`} item={item} />)}</ol>
         </div>
+      ) : null}
+      {packet?.status === "success" ? (
+        <button type="button" disabled={answerLoading} onClick={() => void synthesize()}>
+          Synthesize cited answer
+        </button>
+      ) : null}
+      {answerLoading ? <p role="status">Checking answer against evidence…</p> : null}
+      {synthesis?.answer.status === "supported" ? (
+        <section aria-label="Cited answer">
+          <h3>Answer</h3>
+          <p>{synthesis.answer.answer}</p>
+          <ol>{synthesis.answer.citation_evidence_ref_ids.map((id) => {
+            const item = synthesis.packet.evidence.find((entry) => entry.evidence_ref_id === id);
+            return item ? <Citation key={`answer:${id}`} item={item} /> : null;
+          })}</ol>
+        </section>
+      ) : null}
+      {synthesis && synthesis.answer.status !== "supported" ? (
+        <p role="status">A supported answer is unavailable: {synthesis.answer.reason || "more evidence needed"}.</p>
       ) : null}
     </section>
   );

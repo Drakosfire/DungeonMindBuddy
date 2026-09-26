@@ -27,6 +27,19 @@ export interface RulesQueryPacket {
   };
 }
 
+export interface RulesAnswerResponse {
+  schema_version: "dmb_rules_answer_response_v1";
+  packet: RulesQueryPacket;
+  answer: {
+    status: "supported" | "insufficient_evidence" | "unavailable";
+    answer: string | null;
+    citation_evidence_ref_ids: string[];
+    needs_more_evidence: boolean;
+    reason: string | null;
+    generation_trace_id: string | null;
+  };
+}
+
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 
 export async function queryRules(question: string, signal?: AbortSignal): Promise<RulesQueryPacket> {
@@ -49,4 +62,23 @@ export async function queryRules(question: string, signal?: AbortSignal): Promis
     !Array.isArray((packet as RulesQueryPacket).evidence)
   ) throw new Error("Invalid rules query packet");
   return packet as RulesQueryPacket;
+}
+
+export async function answerRules(question: string, signal?: AbortSignal): Promise<RulesAnswerResponse> {
+  const response = await fetch(`${baseUrl}/api/live/rules/answer`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      schema_version: "dmb_rules_query_request_v1", question,
+      ruleset_id: "dnd5e-2024-srd-occupancy-v1", max_hits: 5,
+    }),
+    signal,
+  });
+  if (!response.ok) throw new Error(`Rules answer service returned ${response.status}`);
+  const result: unknown = await response.json();
+  if (typeof result !== "object" || result === null ||
+      (result as RulesAnswerResponse).schema_version !== "dmb_rules_answer_response_v1") {
+    throw new Error("Invalid rules answer response");
+  }
+  return result as RulesAnswerResponse;
 }
