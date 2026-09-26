@@ -2,6 +2,20 @@
 
 This file is the durable repository operating law for agents working in DungeonMindBuddy. It states invariants and ownership rules. Procedural commands belong in the linked Cursor rules/skills; slice-specific facts belong in the checked-in HANDOFF.
 
+## Ecosystem execution core — overmind-agent-core-v1
+
+These rules are intentionally shared across active DungeonMind ecosystem repositories. Repository-specific law may add constraints, but it must not weaken this core.
+
+1. **Re-anchor before action.** Fetch the current remote default branch and inspect relevant open PRs/active work before editing, reviewing, or merging. Chat history, stale handoffs, and local `main` are not current authority.
+2. **Respect ownership boundaries.** Cross-repository architecture and sequencing belong in DungeonOverMind; runtime/product implementation belongs in the repository that owns the capability. When a change crosses owners, name the contract.
+3. **Handoffs are portable bounded contracts.** A handoff may live on `main`, a branch, a PR, or another durable pinned ref/location. Its location alone neither activates nor invalidates it. Execution authority comes from explicit authorization/status, a pinned authority/ref, and bounded scope/write ownership. Do not require a handoff to be merged to `main` unless the specific workstream explicitly makes that a gate.
+4. **Finish authorized implementation work all the way to a PR.** Once implementation is authorized, ordinary completion includes: implement → test/verify → inspect the cumulative diff → commit intended changes → push the branch → open or update the assigned PR. If no PR exists, open it. Do not stop with intended work only local, uncommitted, or unpushed and wait for another prompt to commit/push/open the PR.
+5. **Merge is separate authority.** Opening/updating a PR is part of implementation completion; merging it is not. Merge only when the user or the repository's explicit process authorizes merge.
+6. **Use isolated Git lanes.** Do not develop on local `main`. Use a branch/worktree or equivalent isolated checkout, and treat file/runtime/state collisions as coordination problems rather than relying on Git conflicts.
+7. **Keep slices bounded.** One implementation slice should deliver one independently useful capability. A second capability, new durable/public contract, or unplanned extra PR is a stop/split signal unless explicitly authorized.
+8. **Verify at the owning boundary.** Review the exact cumulative base→head diff and prove behavior at the layer that owns the invariant. A green helper test is not evidence for a boundary it does not exercise.
+9. **Settle after merge.** Re-anchor, synchronize mutable authority that now became stale, and prune superseded process/transition scaffolding. Git history is the default archive; preserve a separate archive copy only when it carries unique durable evidence.
+
 ## Development cycle
 
 A development cycle is:
@@ -10,7 +24,7 @@ A development cycle is:
 re-anchor
 → decompose candidate capabilities
 → design one slice
-→ land the HANDOFF on main
+→ pin durable HANDOFF authority
 → satisfy activation gate / re-anchor
 → declare PR topology
 → allocate an isolated implementation lane
@@ -27,8 +41,8 @@ The cycle does not end at a green merge. It ends when the repository state and e
 
 1. **Re-anchor before dispatch.** Current repository authority and `main` beat chat history, stale handoffs, Project Sources, and old summaries.
 2. **One independently useful capability.** One slice has one merge-ready invariant. Split when a second independently useful/revertible contract appears.
-3. **The designing steward owns handoff durability.** The steward/designing agent authors the implementation HANDOFF and is responsible for ensuring that authoritative file is durably landed on `main` before any implementation worker is dispatched. An implementation worker consumes an already checked-in handoff; it does not create, land, activate, or materially redesign its own authority document unless the explicitly assigned slice is itself a design/architecture slice.
-4. **BLOCKED is durable, not dispatched.** A handoff may be landed on `main` with `Status: BLOCKED` while a predecessor, review, merge, operator decision, or other activation gate remains unresolved. Landing that handoff does not create an implementation lane, reserve its §4 paths, or authorize code changes. Only an `ACTIVE` handoff may be dispatched. Activation requires re-anchoring after the gate becomes true and recording the newly knowable activation facts without changing the slice mission/invariant unless the design is deliberately re-reviewed.
+3. **The designing steward owns handoff durability.** The steward/designing agent authors or adopts the implementation HANDOFF and ensures the exact authority is durably addressable at a pinned path/ref before dispatch. It does not have to be on `main`. An implementation worker consumes that pinned handoff; it does not materially redesign or activate its own authority document unless the assigned slice is itself design/architecture work.
+4. **BLOCKED is durable, not dispatched.** A handoff may be stored on any durable pinned ref with `Status: BLOCKED` while a predecessor, review, merge, operator decision, or other activation gate remains unresolved. Its presence does not create an implementation lane, reserve its §4 paths, or authorize code changes. Only an explicitly authorized `ACTIVE` handoff may be dispatched. Activation requires re-anchoring after the gate becomes true and recording the newly knowable activation facts without changing the slice mission/invariant unless the design is deliberately re-reviewed.
 5. **The HANDOFF §4 allowlist is a write lease only while the slice is ACTIVE.** While a slice is active, its listed paths are that lane's exclusive expected write set. BLOCKED handoffs are durable design authority but hold no write lease. Other lanes may read leased paths but must not edit them without an explicit split, transfer, or serialization decision.
 6. **Parallel lanes use branches + isolated checkouts.** Worktrees are the normal local mechanism; an external/remote worker may provide equivalent checkout isolation. Two or more agents may work concurrently when their write leases and runtime/state ownership do not conflict. Git merge conflicts are a last-resort safety net, not the coordination protocol.
 7. **Source isolation is not runtime isolation.** Separate worktrees/checkouts can still collide through ports, services, databases, `out/`, caches, generated state, shared fixtures, or external resources. A lane must name those collisions when relevant.
@@ -36,7 +50,7 @@ The cycle does not end at a green merge. It ends when the repository state and e
 9. **Evidence lives at the owning boundary.** Helper tests cannot prove a service, workflow, persistence, concurrency, or surface invariant they do not exercise.
 10. **No silent scope expansion.** A path outside the write lease, a second durable/public contract, or a new operator/product workflow is a stop/split signal unless the handoff explicitly bounded discovery for it.
 11. **Atomic state-authority sync is backward-looking maintenance.** Each implementation handoff must identify the mutable authority documents that need to be synchronized for its already-completed predecessor. Those updates travel in the implementation PR when they are truthfully knowable before that PR merges. They record completed prior work; they do not pre-mark the in-flight implementation slice complete, invent its future merge SHA/review count, or advance a successor as already done. Facts that become knowable only when the current implementation merges are normally recorded by the next dependent implementation PR's predecessor sync. If no suitable successor exists, or delaying the truth would leave repository authority materially misleading, the steward applies a direct guarded sync after re-anchoring. Cross-repository sync follows the same rule. Plan/checklist/handoff are common members, not a closed set; roadmaps, trackers, status docs, or indexes belong in the sync when they carry that state.
-12. **Documentation-only PRs are exceptional, not forbidden.** Routine handoff maintenance, roadmap/tracker/status synchronization, completion recording, and other state-authority bookkeeping do not get standalone PRs. The steward may land a new or blocked implementation handoff directly on `main` as a guarded documentation transaction when repository policy allows; that is handoff creation, not an implementation lane. Rare steward-designated **design or architecture PRs** are allowed when the design artifact itself needs explicit review before implementation. They must use the owning workstream/flow label, stay narrowly limited to the design/architecture decision and its implementation handoff, and must not become a generic `DOCUMENTS` lane. Executable process/tooling changes use normal implementation PRs with their documentation included unless the user explicitly directs a guarded `main` edit.
+12. **Documentation-only PRs are exceptional, not forbidden.** Routine handoff maintenance, roadmap/tracker/status synchronization, completion recording, and other state-authority bookkeeping should usually travel with the work that consumes them. A handoff may be committed/pushed on a branch, carried in a design PR, merged to `main`, or otherwise pinned durably; no one storage location is required by repository law. Rare steward-designated **design or architecture PRs** are allowed when the design artifact itself needs explicit review before implementation. Executable process/tooling changes use normal implementation PRs unless the user explicitly directs another guarded transaction.
 13. **Stable authorities do not churn for ceremony.** Architecture, contracts, and reference docs change only when their claims changed—not merely because an implementation PR merged.
 14. **PR topology is handoff authority; the default is serial.** Every ACTIVE implementation handoff must declare whether its assigned PR is `serial`, `stacked`, or `parallel-independent`. If the field is absent or ambiguous, treat it as `serial`: one open implementation PR in that workstream, and any newly discovered successor/repair returns to the steward rather than opening another PR. “Open the assigned PR without asking” means the worker does not need separate user confirmation for the one PR already authorized by its ACTIVE handoff; it is not permission to choose or expand PR topology. A `stacked` handoff must name its exact unmerged predecessor and required merge/rebase order. `parallel-independent` requires no dependency on another unmerged result plus safe write/runtime ownership. A dogfood STOP or new defect observed on a synthetic/combined unmerged head is evidence for steward re-decomposition, not automatic authority to spawn another PR.
 
@@ -70,7 +84,7 @@ The HANDOFF must name one topology:
 serial
   default
   one open implementation PR in the workstream
-  dependent/successor handoffs may exist on main as BLOCKED
+  dependent/successor handoffs may exist durably as BLOCKED
   no successor branch/PR until predecessor merge + state sync + re-anchor
 
 stacked
@@ -91,7 +105,7 @@ The user may direct agents not to ask for confirmation before opening the PR nam
 When a new defect appears while another PR in the same workstream is open:
 
 1. if it violates the current slice invariant and fits the current lease, fix the current PR;
-2. if it is a separate capability/repair, return it to the steward, who may land a `BLOCKED` successor handoff on `main` without dispatching it;
+2. if it is a separate capability/repair, return it to the steward, who may author and pin a `BLOCKED` successor handoff without dispatching it;
 3. open another PR only when the steward has deliberately changed the topology to `stacked` or `parallel-independent` and the relevant handoff records that decision.
 
 If the repository already contains an unplanned fan-out of dependent PRs, freeze new PR creation, land a stewardship recovery handoff, declare a drain order, and rebase/review/merge against real `main` one PR at a time. A synthetic combined branch may be useful diagnostic evidence, but it is not integration authority.
@@ -209,7 +223,7 @@ Handoffs use:
 Docs/Plans/HANDOFF-<FLOW>-<short-slug>.md
 ```
 
-Implementation handoffs are steward-authored and steward-landed on `main` before dispatch. If a prerequisite is unresolved, land the handoff as `BLOCKED` with an explicit activation gate and the design-time authority snapshot. When the gate becomes true, the steward re-anchors, records the newly knowable predecessor/merge/base facts, changes `BLOCKED → ACTIVE`, and only then allocates/dispatches the implementation lane. A rare steward-designated design/architecture PR may create or revise the implementation handoff when that handoff is itself the reviewed output of the design decision.
+Implementation handoffs are steward-authored or steward-adopted and durably pinned before dispatch; they do not need to be on `main`. If a prerequisite is unresolved, keep the handoff `BLOCKED` with an explicit activation gate and design-time authority snapshot. When the gate becomes true, the steward re-anchors, records the newly knowable predecessor/merge/base facts, changes `BLOCKED → ACTIVE`, and only then allocates/dispatches the implementation lane.
 
 Implementation PR titles use:
 
