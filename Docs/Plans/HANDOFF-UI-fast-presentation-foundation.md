@@ -193,6 +193,20 @@ Not applicable — no production consumer migrates in F1.
 | Weak-laptop workflow is real | developer workflow | manual | stop backend services; run `npm --prefix apps/live-control-ui run ui`; open all F1 stories; edit one token | stories render; HMR reflects token edit without backend | backend/network requirement or unusably heavy workflow |
 | Lease stays exact | Git diff | contract | `git diff --check` + `git diff --name-only <dispatch-base>...HEAD` | only §4 paths | any unexpected path |
 
+For the repository's exact-head review runner, execute the commands above from
+the repository root with Node 20 or newer. The typecheck and production build
+may fail only at the identical inherited base failure described below; the
+reviewer must compare base and head rather than mark those commands green.
+
+```bash
+npm --prefix apps/live-control-ui ci --no-audit --no-fund
+npm --prefix apps/live-control-ui run ui:build
+npm --prefix apps/live-control-ui run test -- src/ui/primitives.test.tsx
+npm --prefix apps/live-control-ui run typecheck
+npm --prefix apps/live-control-ui run build
+git diff --check fa01c768...HEAD
+```
+
 ### Minimal live / dogfood proof
 
 ```text
