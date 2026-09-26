@@ -5,7 +5,7 @@ pr_body_template: |
   - Flow: UI
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-world-object-showroom.md
-  - Branch / PR: none while BLOCKED
+  - Branch / PR: one serial implementation PR from activation-time main
   - PR topology: serial
 
   ## Verification pointer
@@ -20,13 +20,14 @@ pr_body_template: |
 # HANDOFF — UI World-object showroom
 
 **Created:** 2026-09-25
-**Status:** BLOCKED — predecessor UI-F1 is merged; this design PR must land on current `main`, then the steward must verify the lease and activate the checked-in handoff
+**Status:** ACTIVE — UI-F1 merged; design PR #757 merged at `96be2786d29be5fa49af80f909d26333fb799bd7`; activation gate verified on current main
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-world-object-showroom.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
 **Direction:** DESIGN → CODE → REVIEW
 **Design authority base:** `753d92ad` — current `main` after UI-F1 merge and state-authority sync
-**Activation gate:** UI-F1 implementation merged as PR #768 at `8b94fc52f08288663403ba7834f538a3de83d7c0`; design PR #757 merged; fresh-main re-anchor confirms the actual primitive/token/workshop API and no conflicting UI lease
+**Activation gate:** satisfied: UI-F1 implementation merged as PR #768 at `8b94fc52f08288663403ba7834f538a3de83d7c0`; design PR #757 merged at `96be2786d29be5fa49af80f909d26333fb799bd7`
+**Activation record:** current main exposes the F1 `Surface`, `Button`, `Badge`, `Stack` exports and Ladle scripts; no open implementation PR claims the F2 `src/ui` files or sidequest plan lease
 **Dispatch base rule:** fresh current `main` containing this checked-in handoff after the activation gate is satisfied; record the exact implementation branch base at dispatch/review.
 **PR topology:** `serial`
 **PR authorization:** once ACTIVE, open/update exactly one implementation PR for this capability without asking; no successor/repair PRs
@@ -57,7 +58,7 @@ pr_body_template: |
 |---|---|
 | Parent authority | `PLAN-ui-presentation-substrate-sidequest-v1.md`; UI language Goal 4 table-first World objects |
 | Design authority base | `753d92ad` — UI-F1 completed and synchronized on main |
-| Activation gate | UI-F1 merged; design PR #757 must merge; steward re-anchors and verifies no conflicting UI lease |
+| Activation gate | satisfied on main after PR #757 merge; F1 API and lease checked |
 | Dispatch base rule | fresh current main containing this handoff after activation |
 | Predecessor contract | `apps/live-control-ui/src/graphObjectCard/types.ts` `GraphObjectCardViewModel`; F1 tokens/primitives/workshop |
 | Exact input consumed | Static values conforming exactly to `GraphObjectCardViewModel` |
@@ -68,7 +69,7 @@ pr_body_template: |
 | Authorized PR action | open/update exactly this assigned PR without asking; no additional PRs |
 | Open implementation PRs in workstream at dispatch | none required; steward re-checks |
 | Stack parent + merge/rebase order | not applicable |
-| Branch / isolated checkout | none while BLOCKED; fresh implementation branch/worktree after activation |
+| Branch / isolated checkout | fresh implementation branch/worktree from activated main |
 | Parallel lanes / collision hotspots | graphObjectCard production files are read-only evidence; UI-F2 writes only new `src/ui` files plus plan sync |
 | Runtime/state ownership | static workshop only; no backend/runtime state |
 | State-authority sync set after merge | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` records UI-F1 completed predecessor / UI-F2 current |
