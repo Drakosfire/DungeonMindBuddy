@@ -5,11 +5,11 @@ pr_body_template: |
   - Flow: UI
   - Direction: DESIGN → DOGFOOD → DECISION
   - Handoff: Docs/Plans/HANDOFF-UI-post-substrate-reentry.md
-  - Branch / PR: none while BLOCKED
+  - Branch / PR: docs/ui-post-substrate-reentry / #761 (BLOCKED design STOP)
   - PR topology: decision STOP — no implementation PR is authorized by this handoff
 
   ## Verification pointer
-  - Design authority / head: UI-F5 handoff design head 738d7984520f21987e1dabc4151d68623e0451a4
+  - Current stacked review parent: #760 exact head c1e1ab086fe80f3e9127d12800bd9b5d74bd7fb2
   - Inputs: accepted UI-F1..UI-F5 handbacks + current demo/product dogfood
   - Output: one re-entry report + at most one newly designed successor handoff
 
@@ -30,6 +30,14 @@ pr_body_template: |
 **PR topology:** `decision STOP` — this handoff itself authorizes no application-code PR  
 **PR authorization:** none for implementation. After the STOP, Steward may design **at most one** successor handoff from the accepted outcome.  
 **Suggested decision artifact:** `Docs/Reports/REPORT-UI-post-substrate-reentry-v1.md`
+
+**Stack re-anchor, 2026-09-26:** Existing PR #761 is based on #760 exact
+head `c1e1ab086fe80f3e9127d12800bd9b5d74bd7fb2`. UI-F5 is still
+BLOCKED on Canvas's clean layout-only consumer prerequisite; #760 has not
+produced a convergence verdict. Therefore this human/steward STOP is not
+activated, no demo decision is being solicited, and no implementation or
+successor PR is authorized here. The re-anchor keeps this one-handoff PR
+reviewable without pretending the missing predecessor evidence exists.
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). This is intentionally a design/product decision handoff rather than DESIGN → CODE.
 
