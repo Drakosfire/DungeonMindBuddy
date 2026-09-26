@@ -38,26 +38,27 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 **No integrated rehearsal was performed by the survey. No journey milestone is
 certified complete by the adoption transaction.**
 
-Inherited work: PLAY-1 / Buddy #773 open at survey time; next technical witnesses
-remain persistent isolated authority and browser interaction. Basic presentation
+Inherited work: PLAY-1 / Buddy #773 merged at
+`7fe771e86df2e796484b058aa2e6a8e7c94c9fb9` after two review cycles;
+it proves only the in-memory Buddy→WorldKeeper consumer mapping. Next technical
+witnesses remain persistent isolated authority and browser interaction. Basic presentation
 design/dogfood has an existing merged handoff independent of Canvas F5/F6.
 Foundation evidence and exact snapshot PRs are in the reconciliation; refresh at
 activation rather than copying those snapshots into another permanent tracker.
 
 First actions:
 
-1. Reconcile current #773 disposition and review/finish it under its existing
-   contract. Do not broaden that PR into the full demo.
-2. Establish one reproducible demo checkout/version combination, corpus and
+1. Establish one reproducible demo checkout/version combination, corpus and
    isolated durable state. Inventory actual codepaths for ingestion, graph reads,
    graph writes, document persistence, generation and Run persistence.
-3. Rehearse the journey, recording the first broken transition and any explicitly
+2. Rehearse the journey, recording the first broken transition and any explicitly
    prepared downstream checkpoints. Do not skip to implementing every proposed lane.
-4. Start the already-available basic-presentation pass on disjoint scope while
+3. Continue the already-available basic-presentation pass on disjoint scope while
    knowledge integration progresses. It remains design/dogfood until its successor
    direction is accepted.
-5. Resolve shared dependency-file ordering with ARCHITECTURE/SERVER before adding
-   competing pin changes. Route minimal external gaps to their existing owners.
+4. Keep the dependency-file order explicit: #773 is merged first; Rules #763
+   must re-anchor/review against that main before its own merge; E5Q remains
+   blocked behind #763. Route minimal external gaps to their existing owners.
 
 ## DEMO-J1 — import and prepare
 
@@ -186,8 +187,33 @@ Next action or delegated dependency + return contract
 ```
 
 The initial state of J1–J6 is **unverified as a connected journey**, not an assertion
-that their foundations are absent. Populate the first implementation record from
-the inherited #773 state and actual rehearsal. Historical slices retain their IDs.
+that their foundations are absent. Historical slices retain their IDs.
+
+### 2026-09-26 — PLAY-1 integration and DEMO preflight
+
+- **DEMO-J3, in-memory consumer boundary:** integrated, not human-accepted.
+  Buddy #773 accepted head `5a1736c55988e4b852bbcc2f0ada36d493fa5668`,
+  merge `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9`, final review
+  `5327172769` (2 cycles). Independent exact-head evidence: 68 focused/V6
+  tests, locked sync, Ruff, runtime import and diff check pass; default suite
+  retains eight inherited collection errors. No product write route or
+  persistent authority changed. No PLAY-2/3 dispatch follows automatically.
+- **DEMO-J1, first local corpus preflight:** unverified. The purchased Of Conks
+  v2.1 Markdown/gold package exists only in the operator's local Downloads;
+  module prose must not be committed. `specimens/01-cleaned-single-column.md`
+  and `specimens/02-prepared.md` match their local manifest hashes, but
+  `playable/hempholm-prep.md` currently hashes to
+  `c473329dd3a0425559e1d2fae60707a13036e0c473f1dd802e8a96804a2fd86f`,
+  not the manifest's `1b350f...` pin. The older seeded worktree named in local
+  NOTES is absent. No isolated durable demo World/APP-STATE pair has yet been
+  established or imported through ordinary product controls. This is a
+  reproducibility/setup gap, not a claim that J1 product import failed.
+  Next: establish exact local input pins and isolated persistent authorities;
+  then execute the ordinary J1 import transition and record its first failure.
+- **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
+  Rules #763 still owns its open PR and must re-anchor against the new main;
+  ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
+  lease. DEMO will not edit Rules or E5Q paths.
 
 ## External dependencies and independent programs
 
