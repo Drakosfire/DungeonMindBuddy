@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
 
 import blake3
 import pytest
@@ -284,23 +284,56 @@ class TestStubRecapClient:
         assert recap_artifacts.get("claims", []) == []
 
 
+class _RecordingGenerationClient:
+    def __init__(
+        self,
+        parsed: dict[str, Any],
+        *,
+        input_tokens: int = 1,
+        output_tokens: int = 1,
+    ) -> None:
+        self.parsed = parsed
+        self.input_tokens = input_tokens
+        self.output_tokens = output_tokens
+        self.requests: list[Any] = []
+        self.close_calls = 0
+
+    async def generate_structured(self, request: Any) -> Any:
+        self.requests.append(request)
+        return SimpleNamespace(
+            parsed=self.parsed,
+            observation=SimpleNamespace(
+                input_tokens=self.input_tokens,
+                output_tokens=self.output_tokens,
+                cached_input_tokens=0,
+                provider_attempt_count=1,
+            ),
+        )
+
+    async def aclose(self) -> None:
+        self.close_calls += 1
+
+
 class TestExtractRecapOpenAIClient:
     def test_sync_extract_recap_uses_recap_schema(self) -> None:
-        """Verify sync client passes RecapExtractionResult as text_format to the SDK."""
-        mock_response = MagicMock()
-        mock_response.output_parsed = RecapExtractionResult(
-            entities=[],
-            event_records=[
-                EventRecord(event_class="combat", time_scope="scene", certainty="observed")
-            ],
-            claims=[],
+        generation_client = _RecordingGenerationClient(
+            RecapExtractionResult(
+                entities=[],
+                event_records=[
+                    EventRecord(
+                        event_class="combat",
+                        time_scope="scene",
+                        certainty="observed",
+                    )
+                ],
+                claims=[],
+            ).model_dump(),
+            input_tokens=100,
+            output_tokens=50,
         )
-        mock_response.usage = MagicMock(input_tokens=100, output_tokens=50)
-
-        mock_sdk = MagicMock()
-        mock_sdk.responses.parse.return_value = mock_response
-
-        client = OpenAIResponsesEntityClient(sdk_client=mock_sdk)
+        client = OpenAIResponsesEntityClient(
+            generation_client_factory=lambda: generation_client
+        )
         result = client.extract_recap(
             model="test",
             system_prompt="test",
@@ -309,34 +342,38 @@ class TestExtractRecapOpenAIClient:
             known_entities=[],
             prompt_id="recap_extraction_v2_prompt_cache",
         )
-        call_kwargs = mock_sdk.responses.parse.call_args[1]
-        assert call_kwargs["text_format"] is RecapExtractionResult
         assert len(result.get("event_records", [])) == 1
         assert result["_usage"]["input_tokens"] == 100
+        assert generation_client.close_calls == 1
+        request = generation_client.requests[0]
+        assert request.schema_name == "recap_extraction"
+        assert request.json_schema == RecapExtractionResult.model_json_schema()
+        assert request.temperature is None
 
     def test_async_extract_recap_uses_recap_schema(self) -> None:
-        mock_response = MagicMock()
-        mock_response.output_parsed = RecapExtractionResult(
-            entities=[],
-            event_records=[],
-            claims=[
-                ClaimRecord(
-                    subject="A",
-                    predicate="b",
-                    object="C",
-                    claim_type="fact",
-                    speaker_or_source="narrator",
-                    certainty="high",
-                )
-            ],
+        generation_client = _RecordingGenerationClient(
+            RecapExtractionResult(
+                entities=[],
+                event_records=[],
+                claims=[
+                    ClaimRecord(
+                        subject="A",
+                        predicate="b",
+                        object="C",
+                        claim_type="fact",
+                        speaker_or_source="narrator",
+                        certainty="high",
+                    )
+                ],
+            ).model_dump(),
+            input_tokens=10,
+            output_tokens=20,
         )
-        mock_response.usage = MagicMock(input_tokens=10, output_tokens=20)
-
-        mock_sdk = MagicMock()
-        mock_sdk.responses.parse = AsyncMock(return_value=mock_response)
 
         async def _run() -> None:
-            client = AsyncOpenAIResponsesEntityClient(sdk_client=mock_sdk)
+            client = AsyncOpenAIResponsesEntityClient(
+                generation_client=generation_client
+            )
             out = await client.extract_recap(
                 model="test",
                 system_prompt="test",
@@ -346,38 +383,43 @@ class TestExtractRecapOpenAIClient:
                 prompt_id="recap_extraction_v2_prompt_cache",
             )
             assert len(out.get("claims", [])) == 1
+            await client.aclose()
 
         asyncio.run(_run())
-        call_kwargs = mock_sdk.responses.parse.call_args[1]
-        assert call_kwargs["text_format"] is RecapExtractionResult
+        assert generation_client.close_calls == 1
+        request = generation_client.requests[0]
+        assert request.schema_name == "recap_extraction"
+        assert request.json_schema == RecapExtractionResult.model_json_schema()
 
     def test_call_recap_extractor_preserves_events_and_claims(self) -> None:
-        mock_response = MagicMock()
-        mock_response.output_parsed = RecapExtractionResult(
-            entities=[],
-            event_records=[
-                EventRecord(
-                    event_name="Bridge Battle",
-                    event_class="combat",
-                    time_scope="scene",
-                    certainty="observed",
-                )
-            ],
-            claims=[
-                ClaimRecord(
-                    subject="X",
-                    predicate="knows",
-                    object="Y",
-                    claim_type="fact",
-                    speaker_or_source="narrator",
-                    certainty="high",
-                )
-            ],
+        generation_client = _RecordingGenerationClient(
+            RecapExtractionResult(
+                entities=[],
+                event_records=[
+                    EventRecord(
+                        event_name="Bridge Battle",
+                        event_class="combat",
+                        time_scope="scene",
+                        certainty="observed",
+                    )
+                ],
+                claims=[
+                    ClaimRecord(
+                        subject="X",
+                        predicate="knows",
+                        object="Y",
+                        claim_type="fact",
+                        speaker_or_source="narrator",
+                        certainty="high",
+                    )
+                ],
+            ).model_dump(),
+            input_tokens=1,
+            output_tokens=2,
         )
-        mock_response.usage = MagicMock(input_tokens=1, output_tokens=2)
-        mock_sdk = MagicMock()
-        mock_sdk.responses.parse.return_value = mock_response
-        client = OpenAIResponsesEntityClient(sdk_client=mock_sdk)
+        client = OpenAIResponsesEntityClient(
+            generation_client_factory=lambda: generation_client
+        )
 
         unit = {
             "text": "The party fought at the bridge.",
@@ -401,8 +443,7 @@ class TestExtractRecapOpenAIClient:
         assert len(parsed.claims) == 1
         assert parsed.claims[0].claim_type == "fact"
         assert usage["input_tokens"] == 1
-        recap_call = mock_sdk.responses.parse.call_args[1]
-        assert recap_call["text_format"] is RecapExtractionResult
+        assert generation_client.requests[0].schema_name == "recap_extraction"
 
 
 class TestEventRecordSchemaValidation:

@@ -133,7 +133,7 @@ def _run_direct_cell(
             campaign_id=None,
             source_class="seed_reference",
         )
-        entity_client = OpenAIResponsesEntityClient(api_key=api_key)
+        entity_client = OpenAIResponsesEntityClient()
         entity_bundle = run_entity_extraction(
             evidence_units,
             model=ENTITY_MODEL,
