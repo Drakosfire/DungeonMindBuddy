@@ -1,24 +1,20 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import type { SurfaceInteractionToolContribution } from "../types";
-import type { ToolHostGroup } from "./groupTools";
-import { ToolHostView } from "./ToolHostView";
+import { ToolHostView, type ToolHostViewGroup, type ToolHostViewTool } from "./ToolHostView";
 
-function tool(id: string, disabledReason?: string): SurfaceInteractionToolContribution {
+function tool(id: string, disabledReason?: string): ToolHostViewTool {
   return {
     id,
     label: id,
     eyebrow: "Action",
-    placement: { groupId: "group", groupLabel: "Group", groupOrder: 1, itemOrder: 0 },
     availability: disabledReason
       ? { status: "disabled", disabledReason }
       : { status: "enabled" },
-    activation: { kind: "command", invoke: vi.fn() },
   };
 }
 
-function group(...tools: SurfaceInteractionToolContribution[]): ToolHostGroup {
+function group(...tools: ToolHostViewTool[]): ToolHostViewGroup {
   return { groupId: "group", groupLabel: "Group", groupOrder: 1, tools };
 }
 
@@ -45,8 +41,6 @@ describe("ToolHostView", () => {
     expect(buttons.map((button) => button.textContent)).toEqual(["Actionfirst", "Actionsecond"]);
     fireEvent.click(buttons[1]);
     expect(onActivate).toHaveBeenCalledExactlyOnceWith("second");
-    expect(first.activation.kind === "command" && first.activation.invoke).not.toHaveBeenCalled();
-    expect(second.activation.kind === "command" && second.activation.invoke).not.toHaveBeenCalled();
   });
 
   it("preserves disabled reason, close controls, and legacy drawer structure", () => {

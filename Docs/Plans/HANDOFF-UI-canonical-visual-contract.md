@@ -6,10 +6,10 @@ pr_body_template: |
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-canonical-visual-contract.md
   - Branch / PR: docs/ui-canonical-visual-contract / #759
-  - PR topology: stacked provisional review on #758
+  - PR topology: stacked repair/review on #758
 
   ## Verification pointer
-  - Review parent: #758 exact implementation head 4ee8d8d61863aa84dd5437d8b80164cc463b5487
+  - Review parent: #758 repaired head 453aabdc918d09e20b0da7d4206cdb744bd27406
   - Changed paths: exact §4 allowlist only
   - Verification: Ladle build + opt-in one-worker Chromium Playwright screenshots + ordinary frontend tests/build + diff checks
 
@@ -19,17 +19,17 @@ pr_body_template: |
 
 # HANDOFF — UI canonical visual contract
 
-**Created:** 2026-09-25  
-**Status:** PROVISIONAL IMPLEMENTATION REVIEW IN PR #759 — not ACTIVE on `main`; do not merge before predecessor review and re-anchor
-**Canonical handoff path:** `Docs/Plans/HANDOFF-UI-canonical-visual-contract.md`  
-**Conversation/workstream:** `UI Presentation Substrate Sidequest`  
-**Flow / owner:** `UI`  
-**Direction:** DESIGN → CODE → REVIEW  
-**Design authority base:** `f70985d2d7c82d7bc9ea1954deae5d9505f6c1bd` — UI-F3 design head  
-**Provisional review parent:** #758 exact head `4ee8d8d61863aa84dd5437d8b80164cc463b5487`; #759 is the existing handoff PR, now carrying its implementation
-**Merge gate:** UI-F3 accepted/merged, then re-anchor this PR on current `main` and review the new exact head
-**PR topology:** stacked provisional review experiment; merge order remains UI-F0 → F1 → F2 → F3 → F4
-**PR authorization:** user explicitly directed implementation on this existing PR; do not open or merge another PR
+**Created:** 2026-09-25
+**Status:** CYCLE-1 REPAIR IN PR #759 — stacked on repaired #758; not ACTIVE on `main`
+**Canonical handoff path:** `Docs/Plans/HANDOFF-UI-canonical-visual-contract.md`
+**Conversation/workstream:** `UI Presentation Substrate Sidequest`
+**Flow / owner:** `UI`
+**Direction:** DESIGN → CODE → REVIEW
+**Design authority base:** `f70985d2d7c82d7bc9ea1954deae5d9505f6c1bd` — UI-F3 design head
+**Current review parent:** #758 repaired head `453aabdc918d09e20b0da7d4206cdb744bd27406`; #759 is the existing handoff PR carrying its implementation
+**Merge gate:** UI-F3 accepted/merged, then re-anchor this PR on that fresh `main` and review the new exact head
+**PR topology:** stacked repair/review on #758; merge order remains UI-F0 → F1 → F2 → F3 → F4
+**PR authorization:** repair this existing PR; do not open another F4 PR
 **PR title:** `UI: add canonical visual contract`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
@@ -63,8 +63,8 @@ normal merge route; predecessor acceptance is still a merge gate.
 |---|---|
 | Parent authority | UI Presentation Substrate plan |
 | Design authority base | `f70985d2d7c82d7bc9ea1954deae5d9505f6c1bd` |
-| Provisional review gate | UI-F3 implemented at #758 head `4ee8d8d6`; merge remains gated on predecessor acceptance |
-| Review base | exact #758 implementation head; later re-anchor on fresh `main` before merge |
+| Provisional review gate | UI-F3 repaired at #758 head `453aabdc`; merge remains gated on predecessor acceptance |
+| Review base | exact #758 repaired head; later re-anchor on fresh `main` before merge |
 | Predecessor contract | Ladle workshop; ObjectSheet stories; ToolHostView presentation boundary |
 | Exact input consumed | selected static Ladle story IDs only |
 | Named successor | UI-F5 — Canvas Page/Print convergence experiment |
@@ -73,7 +73,7 @@ normal merge route; predecessor acceptance is still a merge gate.
 | PR topology | stacked provisional review on existing #759; serial merge order preserved |
 | Authorized PR action | update #759 only; no new PR or merge |
 | Open implementation PRs in workstream at dispatch | #770 F1, #771 F2, #758 F3, all unmerged |
-| Stack parent + merge/rebase order | #758 exact head `4ee8d8d6`; F0 → F1 → F2 → F3 → F4 |
+| Stack parent + merge/rebase order | #758 exact repaired head `453aabdc`; F0/F1/F2 merged → F3 → F4 |
 | Branch / isolated checkout | existing #759 branch in isolated worktree |
 | Parallel lanes / collision hotspots | package.json/lockfile; `src/ui/*.stories.tsx`; any F3 ToolHostView story path |
 | Runtime/state ownership | local Ladle preview process + one Playwright Chromium worker; no application runtime state |
@@ -243,6 +243,17 @@ Expected observation: one Chromium worker checks <=10 images; ordinary editor/La
 Evidence captured: total cases, elapsed observation, failures/diffs, worker/browser count
 ```
 
+**Cycle-1 repair baseline environment (2026-09-26):** Ubuntu 24.04 LTS,
+Linux `7.0.0-31-generic`, `x86_64`; Node `20.20.2`; Playwright `1.63.0`;
+Playwright-managed Chromium revision `1243`, Chrome for Testing
+`153.0.8010.12`. The eight committed lossless WebP baselines were created on
+this same local host/toolchain in commit `eb159a275f52e194a027fb3396637fde25be3370`
+and were compared again after the #758 presentation-model repair. The full
+eight-case run passed using one Chromium worker in about 18 seconds; no
+baseline file changed. A temporary `ToolHostOverlay` heading perturbation
+failed its single case with 1,837 differing pixels, and the restored story
+passed again. This is a same-environment contract, not a cross-OS guarantee.
+
 ### Baseline failure handling
 
 Browser binary installation is environment setup, not a product failure. Any story/test/build failure must use exact base/head comparison. Screenshot baselines are generated/reviewed on one declared environment; cross-OS equality is not claimed.
@@ -253,7 +264,7 @@ Record exact selected story IDs, viewport sizes, snapshot count, browser/worker 
 
 ## §9 Acceptance rubric
 
-- [x] UI-F3 exact unmerged review head and activation-time story IDs recorded; merge remains gated on predecessor review.
+- [x] UI-F3 repaired head `453aabdc` and activation-time story IDs recorded; merge remains gated on predecessor review.
 - [ ] Visual run is explicit/opt-in.
 - [ ] Chromium only; workers=1.
 - [ ] Total committed baselines <=10.

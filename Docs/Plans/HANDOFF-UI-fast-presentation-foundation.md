@@ -6,10 +6,10 @@ pr_body_template: |
   - Direction: DESIGN → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md
   - Branch / PR: codex/ui-f1-handoff-restoration / PR #770
-  - PR topology: stacked review experiment; no merge
+  - PR topology: serial merge candidate after #769
 
   ## Verification pointer
-  - Design authority / head: proposed UI-F0 restoration PR #769 at 0ca516a5
+  - Design authority: UI-F0 PR #769 merged at 5f62d9c14c7b66f9e9bdf405e3c16afefe3f4632
   - Changed paths: exact §4 allowlist only
   - Verification: npm UI workshop build + focused Vitest + typecheck + production Vite build + diff checks
 
@@ -20,24 +20,24 @@ pr_body_template: |
 # HANDOFF — UI fast presentation foundation
 
 **Created:** 2026-09-25
-**Status:** PROVISIONAL IMPLEMENTATION REVIEW IN PR #770 — not ACTIVE on `main`; product owner explicitly requested implementation on the existing stacked handoff PR without merging
+**Status:** MERGE REVIEW CANDIDATE IN PR #770 — implementation remains on this existing PR; not an ACTIVE `main` write lease
 **Canonical handoff path:** `Docs/Plans/HANDOFF-UI-fast-presentation-foundation.md`
 **Conversation/workstream:** `UI Presentation Substrate Sidequest`
 **Flow / owner:** `UI`
 **Direction:** DESIGN → CODE → REVIEW
 **Design authority base:** `0ca516a5` — proposed UI-F0 restoration PR #769 head
-**PR topology:** stacked review experiment on PR #769 at `0ca516a5`; implement this handoff directly on existing PR #770; no new PR and no merge. Historical PR #755 was merged but subsequently reverted and is not current authority.
-**Activation gate for eventual merge:** PR #769 merged, this PR re-anchored to fresh `main`, and the usual lease/toolchain checks repeated; no such merge is authorized in this experiment
-**Review base:** PR #769 head `0ca516a5`; the implementation remains provisional until the activation gate is satisfied
+**PR topology:** serial merge candidate after UI-F0 PR #769; the product owner has now authorized merging reviewed, ready PRs in order. Historical PR #755 was merged but subsequently reverted and is not current authority.
+**Merge gate:** PR #769 merged at `5f62d9c14c7b66f9e9bdf405e3c16afefe3f4632`; this branch incorporates that exact `main`; repeat §7 and review this new head before merge
+**Review base:** post-#769 `main` at `5f62d9c14c7b66f9e9bdf405e3c16afefe3f4632`
 **PR authorization:** update existing PR #770 only; do not open or merge another F1 PR
 **PR title:** `UI: add fast presentation workshop`
 
 > Repository law: [`AGENTS.md`](../../AGENTS.md). Steward process: [`Docs/Process/STEWARD-CYCLE.md`](../../Docs/Process/STEWARD-CYCLE.md). External PR mechanics: [`.cursor/skills/external-agent-pr-loop/SKILL.md`](../../.cursor/skills/external-agent-pr-loop/SKILL.md).
 
 > Product-owner review exception: the implementation and handoff travel together on
-> this existing stacked PR so the designing agent can critique the complete slice.
-> This does not claim `ACTIVE` status or an exclusive §4 lease on `main`. §4 bounds
-> only this PR's changes. Eventual merge still requires the normal re-anchor.
+> this existing PR. This does not retroactively claim an ACTIVE `main` lease;
+> §4 bounds this PR's changes. The post-#769 re-anchor and review are the
+> remaining merge conditions, not a reason to open another PR.
 
 ## §1 Mission and merge-ready invariant
 
@@ -62,17 +62,17 @@ pr_body_template: |
 |---|---|
 | Parent authority | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md`; `Docs/Design/ui-language/DESIGN-interaction-layer-language.md` |
 | Design authority base | `0ca516a5` — proposed UI-F0 restoration PR #769 |
-| Activation gate | for eventual merge only: PR #769 merged + current-main re-anchor + compatibility/lease check |
-| Review base | PR #769 head `0ca516a5`; provisional implementation on this PR branch |
+| Merge gate | PR #769 merged at `5f62d9c1`; branch incorporates that exact main; new-head §7 and review required |
+| Review base | post-#769 `main` at `5f62d9c14c7b66f9e9bdf405e3c16afefe3f4632` |
 | Predecessor contract | Existing React 19 / Vite 6 / Vitest frontend; no existing component workshop |
 | Exact input consumed | Static React props only; no server DTO fetch, provider state, database, or environment-specific product state |
 | Named successor | UI-F2 — representative World-object showroom using real Buddy view-model fixtures |
 | What remains false | No production surface uses the new primitives; no ObjectSheet migration; no Base UI; no visual regression suite |
 | Explicit non-goals | Tailwind; CSS-in-JS; Storybook; Base UI dependency; AppChrome redesign; Tool/Edit/Peek migration; production CSS cleanup |
-| PR topology | stacked review experiment on existing PR #770; no merge |
+| PR topology | serial merge candidate on existing PR #770 after #769 |
 | Authorized PR action | update PR #770 only; no additional F1 PR |
 | Open implementation PRs in workstream at dispatch | no other F1 implementation PR; later UI slices are separate existing PRs |
-| Stack parent + merge/rebase order | not applicable |
+| Stack parent + merge/rebase order | #769 merged first; #770 now targets current `main` |
 | Branch / isolated checkout | existing isolated PR #770 checkout; exact review base above |
 | Parallel lanes / collision hotspots | CON-READY PLAY may proceed if disjoint; `apps/live-control-ui/package.json` and lockfile are collision hotspots |
 | Runtime/state ownership | frontend-only; no backend/runtime state; workshop port may be chosen freely at local launch |
@@ -203,7 +203,7 @@ npm --prefix apps/live-control-ui run test -- src/ui/primitives.test.tsx
 npm --prefix apps/live-control-ui run typecheck
 npm --prefix apps/live-control-ui run build
 git diff --check
-git diff --name-only 0ca516a5...HEAD
+git diff --name-only 5f62d9c14c7b66f9e9bdf405e3c16afefe3f4632...HEAD
 ```
 
 ### Minimal live / dogfood proof

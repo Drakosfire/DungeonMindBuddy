@@ -1,31 +1,26 @@
 import { PeekRegionProvider, PeekRegionSlot } from "../surfaceInteraction/peekHost";
-import type { SurfaceInteractionToolContribution } from "../surfaceInteraction/types";
-import type { ToolHostGroup } from "../surfaceInteraction/toolHost/groupTools";
-import { ToolHostView } from "../surfaceInteraction/toolHost/ToolHostView";
+import { ToolHostView, type ToolHostViewGroup } from "../surfaceInteraction/toolHost/ToolHostView";
 import "../styles.css";
 
-const tools: readonly SurfaceInteractionToolContribution[] = [
-  {
-    id: "inspect-world",
-    label: "Inspect World",
-    eyebrow: "Reference",
-    placement: { groupId: "memory", groupLabel: "Memory", groupOrder: 0, itemOrder: 0 },
-    availability: { status: "enabled" },
-    activation: { kind: "command", invoke: () => undefined },
-  },
-  {
-    id: "diagnostics",
-    label: "Diagnostics",
-    eyebrow: "Review",
-    placement: { groupId: "memory", groupLabel: "Memory", groupOrder: 0, itemOrder: 1 },
-    availability: { status: "disabled", disabledReason: "Review-only fixture" },
-    activation: { kind: "command", invoke: () => undefined },
-  },
-];
-
-const groups: readonly ToolHostGroup[] = [
-  { groupId: "memory", groupLabel: "Memory", groupOrder: 0, tools },
-];
+const groups: readonly ToolHostViewGroup[] = [{
+  groupId: "memory",
+  groupLabel: "Memory",
+  groupOrder: 0,
+  tools: [
+    {
+      id: "inspect-world",
+      label: "Inspect World",
+      eyebrow: "Reference",
+      availability: { status: "enabled" },
+    },
+    {
+      id: "diagnostics",
+      label: "Diagnostics",
+      eyebrow: "Review",
+      availability: { status: "disabled", disabledReason: "Review-only fixture" },
+    },
+  ],
+}];
 
 const noAction = () => undefined;
 
