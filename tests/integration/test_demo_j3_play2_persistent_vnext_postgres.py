@@ -9,6 +9,7 @@ import sys
 import threading
 import uuid
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
@@ -28,7 +29,11 @@ from dungeonmind.infrastructure.postgres.vnext_knowledge import (
     PostgresKnowledgeRevisionRepository,
 )
 from worldkeeper.application import InvalidWorldChange
-from worldkeeper.application.commit import PreparedChangeConflict, PreparedChangeStale
+from worldkeeper.application.commit import (
+    PreparedChangeConflict,
+    PreparedChangeIntegrityFailure,
+    PreparedChangeStale,
+)
 from worldkeeper.integrations.dungeonmind import DungeonMindWorldKeeperRuntime
 
 from apps.live_control_server.integrations.worldkeeper import (
@@ -58,16 +63,21 @@ def _replace_db(dsn: str, name: str) -> str:
     p = urlsplit(dsn)
     if p.scheme not in {"postgres", "postgresql"} or not p.hostname:
         raise ValueError("PLAY-2 requires a PostgreSQL URL with a host")
-    return urlunsplit((p.scheme, p.netloc, f"/{name}", p.query, ""))
+    if p.query or p.fragment:
+        raise ValueError("PLAY-2 database DSNs must not contain routing overrides")
+    return urlunsplit((p.scheme, p.netloc, f"/{name}", "", ""))
 
 
 def _assert_safe_admin(dsn: str) -> None:
+    parsed = urlsplit(dsn)
     live = {
         os.getenv("DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL", "").strip(),
         os.getenv("DUNGEONBUDDY_APPLICATION_STATE_DATABASE_URL", "").strip(),
     }
     if not dsn or dsn in live:
         raise ValueError("admin DSN must not be a configured live authority")
+    if parsed.query or parsed.fragment:
+        raise ValueError("admin DSN must not contain routing overrides")
     if _dbname(dsn) not in {"postgres", "template1"}:
         raise ValueError("admin DSN must target an administrative database")
 
@@ -390,6 +400,22 @@ def test_negative_admission_identity_and_stale_paths_are_atomic(play2_db: str) -
     with pytest.raises(PreparedChangeConflict, match="already bound"):
         _consumer(play2_db, "unused").commit(changed, confirmed_by="user:gm")
     assert _counts(play2_db, space) == (2, 2, 1, 1)
+
+    space = "space:tampered-preparation"
+    _seed(play2_db, space)
+    sealed = _consumer(play2_db, "prepared:sealed").prepare(
+        context=_context(space), proposals=_proposals()
+    )
+    before = _counts(play2_db, space)
+    tampered_values = (
+        replace(sealed, dungeonmind_publication_id="prepared:forged-publication"),
+        replace(sealed, producer="dungeonbuddy:forged-producer"),
+        replace(sealed, prepared_at=NOW.replace(minute=1)),
+    )
+    for tampered in tampered_values:
+        with pytest.raises(PreparedChangeIntegrityFailure, match="failed integrity"):
+            _consumer(play2_db, "unused").commit(tampered, confirmed_by="user:gm")
+        assert _counts(play2_db, space) == before
     space = "space:stale"
     _seed(play2_db, space)
     stale = _consumer(play2_db, "prepared:stale").prepare(
@@ -413,3 +439,21 @@ def test_live_or_non_admin_dsn_is_rejected_before_connection(
         _assert_safe_admin(live)
     with pytest.raises(ValueError, match="administrative database"):
         _assert_safe_admin("postgresql://user:secret@127.0.0.1:5432/shared_test")
+
+
+def test_fixture_rejects_effective_database_override_before_io(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(
+        "DMB_PLAY2_PG_ADMIN_DSN",
+        "postgresql://user:secret@127.0.0.1:5432/postgres?dbname=live_world",
+    )
+    monkeypatch.setenv("DMB_PLAY2_DUNGEONMIND_SOURCE", "/not/inspected")
+
+    def unexpected_connect(*args: object, **kwargs: object) -> None:
+        raise AssertionError("unsafe DSN reached PostgreSQL I/O")
+
+    monkeypatch.setattr(psycopg, "connect", unexpected_connect)
+    fixture = play2_db.__wrapped__()
+    with pytest.raises(ValueError, match="routing overrides"):
+        next(fixture)
