@@ -115,13 +115,17 @@ export function parseHermesGraphGrounding(value: unknown): HermesGraphGrounding 
 }
 
 /** Parse a graph citation from unknown JSON without throwing on null/primitives. */
-export function parseWorldGraphAnchorCitation(value: unknown): WorldGraphAnchorCitation | null {
+export function parseWorldGraphAnchorCitation(
+  value: unknown,
+  scopeMode: "campaign" | "world" = "campaign",
+): WorldGraphAnchorCitation | null {
   if (!isRecord(value)) return null;
   if (value.schema !== "dmb_world_graph_anchor_citation_v1") return null;
   if (value.kind !== "world_graph_anchor") return null;
   if (!isNonEmptyString(value.anchor_id)) return null;
   if (!isNonEmptyString(value.world_id)) return null;
-  if (!isNonEmptyString(value.campaign_id)) return null;
+  if (typeof value.campaign_id !== "string") return null;
+  if (scopeMode === "campaign" && !isNonEmptyString(value.campaign_id)) return null;
   if (!isNonEmptyString(value.admissibility)) return null;
   if (!isNonEmptyString(value.revision_id)) return null;
   const focus = parseFocus(value.focus);
@@ -210,7 +214,7 @@ export function validateHermesGraphCitations(
 
   const rawList = Array.isArray(citations) ? citations : [];
   const graphCitations = rawList
-    .map((item) => parseWorldGraphAnchorCitation(item))
+    .map((item) => parseWorldGraphAnchorCitation(item, parsedGrounding.scope_mode ?? "campaign"))
     .filter((item): item is WorldGraphAnchorCitation => item !== null);
 
   if (parsedGrounding.state === "conversation_context") {

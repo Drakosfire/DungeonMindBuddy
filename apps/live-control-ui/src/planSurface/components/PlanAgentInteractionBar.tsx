@@ -180,7 +180,10 @@ function parseSourceAnchorSnapshot(
 ): WorldGraphSourceAnchorReadResponse["snapshot"] | null {
   if (!isRecord(value)) return null;
   if (!isNonEmptyString(value.worldId)) return null;
-  if (!isNonEmptyString(value.campaignId)) return null;
+  const scopeMode = value.scopeMode === undefined ? "campaign" : value.scopeMode;
+  if (scopeMode !== "campaign" && scopeMode !== "world") return null;
+  if (typeof value.campaignId !== "string") return null;
+  if (scopeMode === "campaign" && !isNonEmptyString(value.campaignId)) return null;
   if (!isNonEmptyString(value.revisionId)) return null;
   if (typeof value.headRevisionId !== "string") return null;
   if (typeof value.isHead !== "boolean") return null;
@@ -190,6 +193,7 @@ function parseSourceAnchorSnapshot(
   return {
     worldId: value.worldId,
     campaignId: value.campaignId,
+    scopeMode,
     revisionId: value.revisionId,
     headRevisionId: value.headRevisionId,
     isHead: value.isHead,
@@ -201,9 +205,11 @@ function parseSourceAnchorSnapshot(
 function snapshotMatchesCitation(
   citation: WorldGraphAnchorCitation,
   snapshot: NonNullable<WorldGraphSourceAnchorReadResponse["snapshot"]>,
+  scopeMode: "campaign" | "world",
 ): boolean {
   if (snapshot.worldId !== citation.world_id) return false;
   if (snapshot.campaignId !== citation.campaign_id) return false;
+  if ((snapshot.scopeMode ?? "campaign") !== scopeMode) return false;
   if (snapshot.admissibility !== citation.admissibility) return false;
   if (snapshot.revisionId !== citation.revision_id) return false;
   if (snapshot.focus.kind !== citation.focus.kind) return false;
@@ -237,6 +243,7 @@ function isCanonicalSourceAnchorOutcome(value: unknown): value is CanonicalSourc
 function validateGraphSourceAnchorRead(
   citation: WorldGraphAnchorCitation,
   response: unknown,
+  scopeMode: "campaign" | "world",
 ): { ok: true; response: WorldGraphSourceAnchorReadResponse } | { ok: false; reason: string } {
   if (!isRecord(response)) {
     return { ok: false, reason: "Source-anchor read response was not an object." };
@@ -274,7 +281,7 @@ function validateGraphSourceAnchorRead(
     if (!snapshot) {
       return { ok: false, reason: "Source-anchor unavailable response has malformed snapshot." };
     }
-    if (!snapshotMatchesCitation(citation, snapshot)) {
+    if (!snapshotMatchesCitation(citation, snapshot, scopeMode)) {
       return { ok: false, reason: "Source-anchor unavailable snapshot does not match the pinned citation." };
     }
     return {
@@ -294,7 +301,7 @@ function validateGraphSourceAnchorRead(
   if (!snapshot) {
     return { ok: false, reason: "Source-anchor read requires a matching snapshot." };
   }
-  if (!snapshotMatchesCitation(citation, snapshot)) {
+  if (!snapshotMatchesCitation(citation, snapshot, scopeMode)) {
     return { ok: false, reason: "Source-anchor read snapshot does not match the pinned citation." };
   }
 
@@ -782,7 +789,11 @@ export function PlanAgentInteractionBar({
     }
   }
 
-  async function openGraphCitationSource(turnId: string, citation: WorldGraphAnchorCitation) {
+  async function openGraphCitationSource(
+    turnId: string,
+    citation: WorldGraphAnchorCitation,
+    scopeMode: "campaign" | "world",
+  ) {
     setActiveTurnId(turnId);
     if (thread) {
       setThread({
@@ -803,6 +814,7 @@ export function PlanAgentInteractionBar({
         schema: "dmb_world_graph_source_anchor_read_request_v1",
         worldId: citation.world_id,
         campaignId: citation.campaign_id,
+        ...(scopeMode === "world" ? { scopeMode: "world" as const } : {}),
         focus: {
           kind: citation.focus.kind,
           sessionId: citation.focus.session_id ?? null,
@@ -812,7 +824,7 @@ export function PlanAgentInteractionBar({
         anchorId: citation.anchor_id,
         maxChars: 4000,
       });
-      const validated = validateGraphSourceAnchorRead(citation, response);
+      const validated = validateGraphSourceAnchorRead(citation, response, scopeMode);
       if (!validated.ok) {
         setGraphReadStatus("contract_error");
         setGraphReadError(validated.reason);
@@ -1089,7 +1101,7 @@ export function PlanAgentInteractionBar({
                           wire?.citations ?? turnAnswer.citations,
                           wire?.grounding ?? turnAnswer.grounding,
                         )
-                      : { citations: [] as WorldGraphAnchorCitation[], contractWarning: null as string | null };
+                      : { grounding: null, citations: [] as WorldGraphAnchorCitation[], contractWarning: null as string | null };
                     const turnGraphCitationCards = turnHermesCitationValidation.citations;
                     const turnHermesGrounding = parseHermesGraphGroundingView(turnAnswer);
                     const turnIsConversationContext = turnHermesGrounding.kind === "valid"
@@ -1233,7 +1245,11 @@ export function PlanAgentInteractionBar({
                                       </span>
                                       <button
                                         type="button"
-                                        onClick={() => void openGraphCitationSource(turn.turnId, citation)}
+                                        onClick={() => void openGraphCitationSource(
+                                          turn.turnId,
+                                          citation,
+                                          turnHermesCitationValidation.grounding?.scope_mode ?? "campaign",
+                                        )}
                                       >
                                         Open evidence
                                       </button>

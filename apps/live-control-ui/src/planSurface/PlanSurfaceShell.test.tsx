@@ -3300,21 +3300,69 @@ describe("PlanSurfaceShell", () => {
           headRevisionId: "rev-of-conks-1",
         },
       });
-      vi.spyOn(globalThis, "fetch").mockResolvedValue({
-        ok: true,
-        text: async () => JSON.stringify({
-          answer: "The World has no matching facts yet.",
-          status: "ok",
-          mode: "hermes_graph_agent",
-          classification: {},
-          events_written: [],
-          jobs_queued: [],
-          next_suggestions: [],
-          diagnostics: {},
-          provenance: { backend: "hermes" },
-          citations: [],
-        }),
-      } as Response);
+      const worldCitation = {
+        ...buildGraphAnchorCitation("rev-of-conks-1"),
+        world_id: worldId,
+        campaign_id: "",
+        focus: { kind: "none", session_id: null },
+      };
+      vi.spyOn(globalThis, "fetch")
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => JSON.stringify(buildHermesGraphQueryResponse({
+            answer: "Hempholm contains The Shacks.",
+            citations: [worldCitation],
+            grounding: buildHermesGraphGrounding("grounded", {
+              world_id: worldId,
+              campaign_id: "",
+              scope_mode: "world",
+              focus: { kind: "none", session_id: null },
+              revision_id: "rev-of-conks-1",
+            }),
+          })),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => JSON.stringify({
+            schema: "dmb_world_graph_source_anchor_read_v1",
+            outcome: "enough",
+            anchorId: "source-anchor:v1:fixture-anchor",
+            truncated: false,
+            content: "Pinned Of Conks source excerpt.",
+            diagnostics: [],
+            snapshot: {
+              worldId,
+              campaignId: "",
+              scopeMode: "world",
+              revisionId: "rev-of-conks-1",
+              headRevisionId: "rev-of-conks-1",
+              isHead: true,
+              focus: { kind: "none", sessionId: null },
+              admissibility: "gm",
+            },
+          }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          text: async () => JSON.stringify({
+            schema: "dmb_world_graph_source_anchor_read_v1",
+            outcome: "enough",
+            anchorId: "source-anchor:v1:fixture-anchor",
+            truncated: false,
+            content: "This mismatched source must not render.",
+            diagnostics: [],
+            snapshot: {
+              worldId,
+              campaignId: "",
+              scopeMode: "campaign",
+              revisionId: "rev-of-conks-1",
+              headRevisionId: "rev-of-conks-1",
+              isHead: true,
+              focus: { kind: "none", sessionId: null },
+              admissibility: "gm",
+            },
+          }),
+        } as Response);
       render(
         <SelectedWorldProvider locationSnapshot={window.location.href}>
           <ManagedPlanTestGate planView={managedView} />
@@ -3352,6 +3400,23 @@ describe("PlanSurfaceShell", () => {
       });
       expect(latestLiveQueryBody().hermes_session_pointer).toBeUndefined();
       expect(bundle).not.toHaveBeenCalled();
+      await user.click(await screen.findByRole("button", { name: "Open evidence" }));
+      expect(await screen.findByRole("region", { name: "Graph evidence preview" })).toHaveTextContent(
+        "Pinned Of Conks source excerpt.",
+      );
+      const sourceReadCall = vi.mocked(globalThis.fetch).mock.calls.find(([url]) =>
+        String(url).includes("/api/live/world-graph/retrieval/source-anchor/read"),
+      );
+      expect(JSON.parse(String(sourceReadCall?.[1]?.body))).toMatchObject({
+        worldId,
+        campaignId: "",
+        scopeMode: "world",
+        revisionPin: "rev-of-conks-1",
+        anchorId: "source-anchor:v1:fixture-anchor",
+      });
+      await user.click(screen.getByRole("button", { name: "Open evidence" }));
+      expect(await screen.findByText("Source-anchor read requires a matching snapshot.")).toBeInTheDocument();
+      expect(screen.queryByText("This mismatched source must not render.")).not.toBeInTheDocument();
     });
 
     it("does not author a same-World source document through Plan", async () => {

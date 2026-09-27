@@ -127,6 +127,26 @@ describe("prepMemoryQa helpers", () => {
     expect(answerHeading(worldAnswer)).toBe("Hermes answer");
     expect(hasGrounding(worldAnswer)).toBe(true);
 
+    const worldCitation = {
+      ...graphCitation,
+      world_id: "of-conks-j1-fresh-rehearsal",
+      campaign_id: "",
+      focus: { kind: "none" as const, session_id: null },
+      revision_id: "rev:published-world",
+    };
+    const withWorldCitation = { ...worldAnswer, citations: [worldCitation] };
+    expect(parseWorldGraphAnchorCitation(worldCitation)).toBeNull();
+    expect(parseWorldGraphAnchorCitation(worldCitation, "world")).toEqual(worldCitation);
+    expect(validateHermesGraphCitations(withWorldCitation.citations, withWorldCitation.grounding)).toEqual({
+      grounding: expect.objectContaining({ scope_mode: "world", campaign_id: "" }),
+      citations: [worldCitation],
+      contractWarning: null,
+    });
+    expect(validateHermesGraphCitations(withWorldCitation.citations, {
+      ...worldAnswer.grounding,
+      scope_mode: "campaign",
+    }).contractWarning).toBe("Hermes grounding contract error");
+
     expect(parseHermesGraphGrounding({ ...worldAnswer.grounding, scope_mode: "campaign" })).toBeNull();
     expect(parseHermesGraphGrounding({ ...worldAnswer.grounding, scope_mode: undefined })).toBeNull();
     expect(parseHermesGraphGrounding({ ...worldAnswer.grounding, scope_mode: "unknown" })).toBeNull();
