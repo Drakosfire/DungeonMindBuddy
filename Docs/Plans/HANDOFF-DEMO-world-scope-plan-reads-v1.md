@@ -29,13 +29,16 @@ pr_body_template: |
 ## §1 Mission and merge-ready invariant
 
 The GM can inspect a published managed-World object from Plan and ask
-DungeonBuddy about that same World without an invented campaign. The one
-invariant is that every Plan graph read carries the exact verified World ID,
-`scope_mode=world`, blank campaign ID, and pinned revision end to end. Blank
-campaign is permitted **only** in world scope; campaign scope, cross-World,
-stale revision, missing head and malformed requests fail closed. The Agent's
-graph tools must inherit the server-resolved scope, not a model-supplied or
-UI-fabricated scope.
+DungeonBuddy about that same World without an invented campaign. The invariant
+for this managed World is that Plan sends the exact verified World ID,
+`scope_mode=world`, blank campaign ID, and pinned revision through projection,
+selected-object reads, Agent context, Hermes tool binding, and retrieval.
+Campaign scope always requires its exact nonblank campaign. Other existing
+world-scope callers may retain a nonblank narrative/focus campaign anchor; the
+contract must not reinterpret that anchor as campaign-only filtering. Blank
+campaign is valid only with explicit world scope. Cross-World, stale revision,
+missing head and malformed requests fail closed. The Agent's graph tools must
+inherit the server-resolved scope, not a model-supplied or UI-fabricated scope.
 
 Pre-dispatch critique: the easy false fix is relaxing Plan's first guard while
 Hermes still injects no `scopeMode` and retrieval still requires a nonblank
@@ -80,10 +83,11 @@ stop and rebrief.
 
 | Path | Required outcome | Owning boundary |
 |---|---|---|
-| Plan World objects → View | Exact world-scope projection opens the selected complete object | UI reference resolution + normal object request |
+| Managed World objects → View | Exact world-scope projection opens the selected complete object with `campaignId=""` | UI reference resolution + complete-object request |
 | Plan Ask → graph retrieval | Server-resolved world scope reaches Hermes tools and returns source-grounded World context | query route, Agent assembly, Hermes binding, retrieval request |
 | Campaign C1/C2 | Nonblank campaign and focus rules unchanged | existing contract/surface regressions |
 | World with blank campaign | Allowed only with explicit world mode and exact World/revision | request validation |
+| World with narrative anchor | Existing nonblank anchor remains legal under world mode and does not narrow retrieval to campaign mode | existing C1/C2 controls |
 | Campaign with blank campaign | Rejected, never upgraded to world mode | request validation |
 | Model supplies a different scope | Authoritative World/revision/mode overrides or rejects it | Hermes graph-tool binding |
 | World switch or head change mid-request | Stale answer/object not presented as current | Plan surface + server pin validation |
@@ -93,17 +97,25 @@ stop and rebrief.
 
 | Action | Path | Purpose |
 |---|---|---|
+| Modify | `apps/live-control-ui/src/planSurface/reference/planGraphContextRequest.ts` | Stop substituting managed World ID into campaign ID |
+| Modify | `apps/live-control-ui/src/planSurface/reference/planGraphContextRequest.test.ts` | Managed World blank-campaign request and existing anchored-world controls |
+| Modify | `apps/live-control-ui/src/graphLens/useWorldGraphLensProjection.test.tsx` | Preserve existing nonblank narrative-anchor world projection |
 | Modify | `apps/live-control-ui/src/graphReference/resolveGraphReference.ts` | Accept blank campaign only for exact world scope |
 | Modify | `apps/live-control-ui/src/graphReference/resolveGraphReference.test.ts` | Adversarial scope cases |
-| Create | `apps/live-control-ui/src/planSurface/components/PlanWorldGraphObjectsPanel.worldScope.test.tsx` | Plan object View integration without claiming the older BUILD lane's shell test |
-| Modify | `apps/live_control_server/services/agent_context_assembler.py` | Preserve scope mode and world-only blank campaign |
+| Modify | `apps/live-control-ui/src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx` | Plan object View integration with exact blank-campaign/world projection |
+| Modify | `apps/live_control_server/models/world_graph_object_projection.py` | Permit blank campaign for world-scope complete-object reads; keep campaign strict |
+| Modify | `tests/test_world_graph_object_projection.py` | Complete-object request validation and scope mapping |
+| Modify | `apps/live_control_server/services/agent_world_graph_query_context.py` | Validate campaign conditionally by scope mode; preserve resolved mode |
+| Modify | `apps/live_control_server/services/agent_context_assembler.py` | Preserve scope mode and validate campaign conditionally |
 | Modify | `apps/live_control_server/services/agent_runtime.py` | Typed Agent scope mode, if required by propagation |
 | Modify | `apps/live_control_server/services/hermes_agent_runtime.py` | Exact world-mode mapping into Hermes |
 | Modify | `apps/live_control_server/services/hermes_graph_query.py` | Exact dispatch scope propagation, if required |
+| Modify | `apps/live_control_server/services/hermes_graph_agent_contract.py` | Carry authoritative scope mode through strict policy and turn-request IPC |
+| Modify | `apps/live_control_server/services/hermes_graph_agent.py` | Bind deserialized scope mode into tool capability scope and turn execution |
 | Modify | `src/graph_memory/hermes_graph_plugin.py` | Inject authoritative scope mode into graph tools |
 | Modify | `src/graph_memory/retrieval/models.py` | Conditional campaign validation by scope mode |
-| Modify | `tests/test_agent_context_assembler.py`, `tests/test_hermes_agent_runtime.py`, `tests/test_live_query_hermes_graph.py`, `tests/test_hermes_graph_agent.py`, `tests/test_hermes_graph_agent_host.py`, `tests/test_graph_retrieval_interaction.py` | Owning service/host/retrieval proof |
-| Create | `tests/test_world_graph_retrieval_contract.py` | Direct conditional scope validation: world with blank campaign accepted; campaign with blank campaign rejected |
+| Modify | `tests/test_agent_context_assembler.py`, `tests/test_hermes_agent_runtime.py`, `tests/test_live_query_hermes_graph.py`, `tests/test_hermes_graph_agent.py`, `tests/test_hermes_graph_agent_host.py`, `tests/test_graph_retrieval_interaction.py` | Owning query/service/host/retrieval proof |
+| Create | `tests/test_world_graph_retrieval_contract.py` | Direct conditional scope validation: world with blank campaign accepted; campaign with blank campaign rejected; anchored world remains accepted |
 
 **Bounded discovery:** up to four additional focused test files under the
 listed UI/server/graph-memory test directories if the named tests cannot
@@ -129,30 +141,33 @@ verified Plan document + published World revision
 → world-scope retrieval request/read
 ```
 
-For `scopeMode=campaign`, `campaignId` remains required and exact. For
-`scopeMode=world`, campaign is empty/absent as represented by the accepted
-projection contract; it is not inferred from Plan's storage campaign label.
-Focus and source admissibility retain their existing checks. A graph tool's
-model arguments cannot override server World, campaign, mode or revision.
-Changing World or revision invalidates stale resolution; no cached C2 result
-may be used as fallback. Existing Plan document persistence is untouched.
+For `scopeMode=campaign`, `campaignId` remains required and exact. For this
+managed World, Plan sends an empty campaign rather than copying the World ID or
+Plan's storage campaign label. In general world scope, an explicitly supplied
+narrative/focus campaign anchor remains legal and does not narrow the scope;
+absence of an anchor is also legal. Focus and source admissibility retain
+their existing checks. A graph tool's model arguments cannot override server
+World, campaign anchor, mode or revision. Changing World or revision
+invalidates stale resolution; no cached C2 result may be used as fallback.
+Existing Plan document persistence is untouched.
 
 ## §7 Evidence required to merge
 
 | Guarantee | Owning proof |
 |---|---|
-| Conditional blank-campaign rule | Retrieval request and UI exact-scope tests: world blank pass, campaign blank fail, invalid mode fail |
-| Agent scope propagation | Agent assembler + Hermes mapping tests assert exact world/mode/revision and no synthetic campaign |
+| Conditional blank-campaign rule | Projection, complete-object, retrieval request and UI exact-scope tests: world blank pass, campaign blank fail, invalid mode fail |
+| Existing world anchors | C1/C2 and lens-projection regression: nonblank anchor remains legal under world mode |
+| Agent scope propagation | Query-context, Agent assembler + Hermes IPC/runtime mapping tests assert exact world/mode/revision and no synthetic campaign |
 | Tool authority | Host/plugin test supplies hostile model scope and observes authoritative injected scope |
 | Real retrieval | Query-route/integration test reaches world-scope graph retrieval and returns a known object/evidence; C1/C2 controls remain green |
 | Product transition | Exact-head browser: reopen saved Of Conks Plan, View Hempholm, Ask one grounded question, inspect response and query receipt; no C2/Eldyrwild fallback |
 | Backward state truth | Steward's pre-dispatch roadmap sync is byte-identical and accurately describes #778 plus publication, not this PR as merged |
 
 ```bash
-uv run pytest -q tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py tests/test_world_graph_retrieval_contract.py
-npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.worldScope.test.tsx
+uv run pytest -q tests/test_world_graph_object_projection.py tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py tests/test_world_graph_retrieval_contract.py
+npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/planSurface/reference/planGraphContextRequest.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx src/graphLens/useWorldGraphLensProjection.test.tsx
 npm --prefix apps/live-control-ui run typecheck
-uv run ruff check apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/retrieval/models.py
+uv run ruff check apps/live_control_server/models/world_graph_object_projection.py apps/live_control_server/services/agent_world_graph_query_context.py apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py apps/live_control_server/services/hermes_graph_agent_contract.py apps/live_control_server/services/hermes_graph_agent.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/retrieval/models.py
 git diff --check
 git diff --name-only origin/main...HEAD
 ```
@@ -173,7 +188,8 @@ baseline failures, and the remaining demo gaps. Review every distinct head.
 
 - [x] Steward activation and backward-looking #778/World publication sync preceded dispatch.
 - [ ] The one assigned PR alone owns the listed paths and does not collide with #779.
-- [ ] World scope with empty campaign works in Plan View and actual Ask retrieval.
+- [ ] Managed World scope with empty campaign works in Plan View, selected-object View, and actual Ask retrieval.
+- [ ] Existing C1/C2 world scope with a nonblank narrative anchor remains valid.
 - [ ] Campaign scope and adversarial mismatch remain fail-closed.
 - [ ] Hermes tools receive the server scope mode; no fabricated campaign or C2 fallback.
 - [ ] Exact-head browser witness uses the published Of Conks World and saved Plan.
