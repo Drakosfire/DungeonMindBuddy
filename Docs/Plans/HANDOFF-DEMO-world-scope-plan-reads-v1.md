@@ -67,8 +67,10 @@ stop and rebrief.
 - Backward-looking state sync before activation: the DEMO steward updated
   `Docs/Roadmaps/ROADMAP-demo.md` and its byte-identical active mirror in one
   guarded transaction, recording #778 and the actual 21-object/5-edge World
-  publication. The implementation PR leases both paths for post-merge
-  evidence/status sync.
+  publication. This implementation PR does not edit those roadmap paths. After
+  merge, the next dependent DEMO handoff carries the accepted repair and new J1
+  frontier as predecessor sync; if no successor is ready, the steward updates
+  the roadmap and mirror directly after re-anchoring.
 
 | Field | Required content |
 |---|---|
@@ -102,7 +104,6 @@ stop and rebrief.
 | Modify | `src/graph_memory/retrieval/models.py` | Conditional campaign validation by scope mode |
 | Modify | `tests/test_agent_context_assembler.py`, `tests/test_hermes_agent_runtime.py`, `tests/test_live_query_hermes_graph.py`, `tests/test_hermes_graph_agent.py`, `tests/test_hermes_graph_agent_host.py`, `tests/test_graph_retrieval_interaction.py` | Owning service/host/retrieval proof |
 | Create | `tests/test_world_graph_retrieval_contract.py` | Direct conditional scope validation: world with blank campaign accepted; campaign with blank campaign rejected |
-| Modify | `Docs/Roadmaps/ROADMAP-demo.md`, `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` | After merge, record this repair and the newly observed J1 frontier; keep copies synchronized |
 
 **Bounded discovery:** up to four additional focused test files under the
 listed UI/server/graph-memory test directories if the named tests cannot
@@ -176,7 +177,7 @@ baseline failures, and the remaining demo gaps. Review every distinct head.
 - [ ] Campaign scope and adversarial mismatch remain fail-closed.
 - [ ] Hermes tools receive the server scope mode; no fabricated campaign or C2 fallback.
 - [ ] Exact-head browser witness uses the published Of Conks World and saved Plan.
-- [ ] State sync is backward-looking; no claim of full DEMO-J1/J1–J6 acceptance.
+- [ ] Next dependent handoff or guarded steward sync records this PR's merged result; no claim of full DEMO-J1/J1–J6 acceptance.
 
 Stop if World-scope Agent retrieval needs a new DungeonMind schema, a new
 durable identity mapping, a second production route, a path outside §4, a
