@@ -71,6 +71,12 @@ copyrighted prose into Git fixtures.
 | Product UI | Flagged quote editor offers the canonical paragraph as reference, requires a deliberate replacement, shows pending corrections, and submits once. On success open the child run; do not relabel the parent as valid. Publish remains disabled for incomplete/invalid parent or child. |
 | No mutation | Correction itself makes zero DungeonMind World writes and zero model calls. Only a later, separate governed confirm could create a World head. |
 
+This v1 route accepts only a managed-World parent whose exact profile is
+`worldbuilding_shepherds_flock_v0@0.1`. The existing worldbuilding profile
+validator must pass on the full child before `reviewable` seal, in addition to
+strict quote and source/span binding. Recap runs and other profiles fail
+closed; generic evidence correction is not authorized by this handoff.
+
 The child must retain the parent's source-domain/profile/world binding. A child
 with a newly invented campaign/session/World or changed non-evidence semantics
 is invalid. The implementation may use canonical serialized correction content
@@ -86,8 +92,10 @@ API parameter.
 | Modify | `apps/live_control_server/services/graph_run_registry.py` | If needed, accept a server-determined child run ID with fail-closed duplicate handling. |
 | Modify | `apps/live_control_server/models/extract_promote.py` | Typed correction request/result and child lineage projection. |
 | Modify | `apps/live_control_server/routes/extract_promote.py` | One bounded correction route. |
-| Modify | `apps/live-control-ui/src/api/liveApi.ts` | Typed API client. |
+| Modify | `apps/live-control-ui/src/api/extractPromoteApi.ts` | Exact-run correction request and child result API call. |
+| Modify | `apps/live-control-ui/src/api/types.ts` | Typed correction DTOs. |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx` | Operator quote correction and child navigation. |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewExactRunProjection.tsx` | Flagged quote editor beside the canonical paragraph. |
 | Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.test.tsx` | Product integration proof. |
 | Create | `tests/test_demo_derived_candidate_evidence_correction.py` | Owning-boundary adversarial service tests. |
 | Modify if needed | `tests/test_promotable_ingest_run.py` | Durable registry/prepare/confirm proof if its fixture is the owning seam. |
@@ -139,6 +147,7 @@ strict prepare/first-World/confirm bindings. Product test must prove parent
 blocker, deliberate quote edit, child navigation, and publish gating. Live
 disposable replay uses the pinned Of Conks source and frozen candidate with
 zero model calls, and checks no World head appears from correction alone.
+Test a recap or wrong-profile parent as a hard rejection.
 Report any inherited base failure separately; do not claim a green build if
 the known `ThreatPublicationPanel.tsx` JSX error remains.
 
