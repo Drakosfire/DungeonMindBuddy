@@ -38,10 +38,10 @@ No other paths are in scope. The handoff is committed and pushed before implemen
 
 ## §5 Re-anchored concurrent work
 
-Buddy `main` was re-anchored at `bf67c16fceba09026cef7a6e833a58666fa5855a`; the implementation branch is based on that exact ref.
+Buddy `main` was re-anchored at `bf67c16fceba09026cef7a6e833a58666fa5855a` before implementation. It later advanced to `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`; that commit only rebriefed the active DEMO-J1 handoff and did not change this slice’s base code.
 
-- Buddy main advanced after the initial re-anchor: `10a7b42` recorded accepted DEMO-J3 PLAY-2 authority, then `bf67c16` rebriefed the active DEMO-J1 Plan-read handoff. The latter explicitly permits this separately authorized experiment in parallel and records its ownership of only the two new `agentInteraction/semanticActionProjection*` files; fixture runtime remains disjoint.
-- DEMO-J1 still has no accepted Plan-read witness. Its rebrief records the blank-campaign Surface Information failure and retains that mapper repair in DEMO ownership. The experiment does not depend on the repair.
+- Buddy main advanced after the initial re-anchor: `10a7b42` recorded accepted DEMO-J3 PLAY-2 authority, `bf67c16` rebriefed DEMO-J1, and `d5f0ada` added selected-object World-scope reads to the DEMO-J1 lease. The latest handoff explicitly permits this experiment in parallel and confines its code ownership to the two new `agentInteraction/semanticActionProjection*` files; its added Plan/graph-reference paths do not overlap this slice. Fixture runtime remains disjoint.
+- DEMO-J1 still has no accepted Plan-read witness. Its rebrief records the blank-campaign Surface Information and selected-object scope gaps; those repairs remain DEMO-owned. The experiment does not depend on them.
 - Buddy PRs #763/#764/#765 are the open Rules Lawyer stack; #764 touches the Plan projection catalog, but none of these PRs writes this slice's three leased paths or is a behavioral prerequisite.
 - Buddy PRs #760/#761 are blocked documentation-only UI handoffs. #767 is closed; Buddy #779 is merged at `2ccc96f`, before the current base.
 - OverMind PR #13 remains an exploratory design seed; it supplies no runtime schema or implementation contract.
