@@ -15,7 +15,7 @@ pr_body_template: |
 # HANDOFF — DEMO: inspect invalid candidate evidence without publishing it
 
 **Created:** 2026-09-27  
-**Status:** ACTIVE — bounded J1 repair, not a full-demo acceptance  
+**Status:** COMPLETE / HISTORICAL — PR #777 merged at `89a3065074b3e911bc73ca84820b647fc9927057`; J1 remains open
 **Flow / owner:** DEMO / Buddy extraction-review boundary  
 **PR topology:** serial; one assigned implementation PR, no successor until review/merge/sync  
 **Base:** Buddy `main@2733a2a41558257f86577e57cd4bdeb606258ef8`; activation commit is this handoff's guarded landing on `main`  
@@ -42,6 +42,17 @@ all prepare/first-World/confirm paths continue to reject a candidate containing
 any invalid evidence. `reviewable` remains the extraction lifecycle status,
 not proof of publication eligibility. Inspection must not mutate the source,
 candidate, span index, or World head.
+
+**Completion record (2026-09-27):** PRIME approved exact head
+`3d88c8c84f1bab65f911445a08e80d4ff596a5f5` in review cycle 1; formal
+review [#5330870931](https://github.com/Drakosfire/DungeonMindBuddy/pull/777#pullrequestreview-5330870931)
+was posted as a verdict-bearing comment because GitHub disallows self-approval.
+The exact frozen run opens with 48 assertions and 3 visibly invalid quotes;
+both publication capabilities remain false, and the disposable World has no
+head. Synthetic service tests passed 4/4 and the owning-boundary PostgreSQL
+cohort passed 31/31. Graph Review passed 36/37, with the one failure reproduced
+on base. This closes inspection only: the candidate is not qualified or
+published, and the J1 import/prepare journey is not accepted.
 
 The observed source is local licensed material. It is never copied into Git or
 test fixtures. Product evidence may identify its IDs, hashes, counts, and
