@@ -957,6 +957,21 @@ def test_resolve_rejects_extraction_run_with_missing_candidate_bytes(
     assert exc.value.code == "run_not_promotable"
 
 
+def test_resolve_rejects_reviewable_candidate_byte_drift(tmp_path: Path) -> None:
+    """A child run cannot prepare from bytes changed after its candidate SHA seal."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    run_id, _source = _write_reviewable_extraction_run(repo)
+    candidate = (
+        repo / "out" / "graph_memory" / "runs" / "extraction" / "wb1" / "candidate_graph.json"
+    )
+    candidate.write_bytes(candidate.read_bytes() + b"\n")
+
+    with pytest.raises(PromotableIngestRunError) as exc:
+        resolve_promotable_ingest_run(run_id, root=repo)
+    assert exc.value.code == "run_not_promotable"
+
+
 def test_resolve_rejects_non_reviewable_extraction_run(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     repo.mkdir()

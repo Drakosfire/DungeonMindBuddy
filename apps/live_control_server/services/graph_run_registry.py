@@ -471,6 +471,7 @@ def get_reviewable_extraction_run(root: Path, run_id: str) -> ExtractionRun:
 def create_extraction_run(
     root: Path,
     *,
+    run_id: str | None = None,
     source_artifact_id: str,
     source_domain: str,
     campaign_id: str | None = None,
@@ -497,7 +498,7 @@ def create_extraction_run(
 
     now = _utc_now_iso()
     run = ExtractionRun(
-        run_id=str(uuid4()),
+        run_id=run_id or str(uuid4()),
         source_artifact_id=artifact.source_artifact_id,
         source_domain=str(artifact.source_domain),
         status=status,

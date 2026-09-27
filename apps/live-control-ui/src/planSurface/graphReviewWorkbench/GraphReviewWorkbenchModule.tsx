@@ -22,9 +22,10 @@ import type {
 import {
   ExtractPromoteApiError,
   getExactRunReviewPackage,
+  correctExactRunEvidence,
   prepareExtractPromote,
 } from "../../api/extractPromoteApi";
-import type { ExactRunReviewPackage, ExtractPromotePrepareResponse } from "../../api/types";
+import type { ExactRunEvidenceQuoteCorrection, ExactRunReviewPackage, ExtractPromotePrepareResponse } from "../../api/types";
 import type { GoldReviewSelection } from "../graphGoldReview/graphGoldReviewUtils";
 import { requestedSessionFromLocation } from "../graphGoldReview/graphGoldReviewUtils";
 import { createIngestSurfaceConfig } from "../config/ingestSurfaceConfig";
@@ -156,7 +157,7 @@ export function GraphReviewWorkbenchModule({
   const projectionInstanceKey = projectionPublication.identity.instanceKey;
   const projectionPublicationRef = useRef(projectionPublication);
   projectionPublicationRef.current = projectionPublication;
-  const [exactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
+  const [exactHandoff, setExactHandoff] = useState<GraphReviewExactRunHandoff | null>(() =>
     parseGraphReviewRunHandoff(
       typeof window !== "undefined" ? window.location.search : "",
     ),
@@ -228,6 +229,8 @@ export function GraphReviewWorkbenchModule({
     "idle",
   );
   const [exactReviewError, setExactReviewError] = useState<string | null>(null);
+  const [exactCorrecting, setExactCorrecting] = useState(false);
+  const [exactCorrectionError, setExactCorrectionError] = useState<string | null>(null);
   const [historicalRecapProjection, setHistoricalRecapProjection] =
     useState<HistoricalRecapWorldProjectionResponse | null>(null);
   const [historicalRecapProjectionStatus, setHistoricalRecapProjectionStatus] = useState<
@@ -672,6 +675,40 @@ export function GraphReviewWorkbenchModule({
         }
       : null;
 
+  const onCorrectExactEvidence = useCallback(async (
+    corrections: ExactRunEvidenceQuoteCorrection[],
+  ) => {
+    const parentRunId = exactRun?.run_id;
+    const parentCandidateSha256 = exactRun?.components?.candidate_graph?.sha256;
+    if (!parentRunId || !parentCandidateSha256 || exactReview?.inspectionStatus !== "invalid_evidence") {
+      setExactCorrectionError("Exact parent candidate identity is unavailable.");
+      return;
+    }
+    setExactCorrecting(true);
+    setExactCorrectionError(null);
+    try {
+      const child = await correctExactRunEvidence({
+        parentRunId,
+        parentCandidateSha256,
+        corrections,
+      });
+      if (child.parentRunId !== parentRunId || child.parentCandidateSha256 !== parentCandidateSha256) {
+        throw new Error("Corrected child identity does not match the exact parent run.");
+      }
+      const url = new URL(window.location.href);
+      url.searchParams.set("extractionRunId", child.runId);
+      window.history.replaceState(window.history.state, "", url);
+      setExactPrepared(null);
+      setExactHandoff((current) => current ? { ...current, extractionRunId: child.runId } : current);
+    } catch (error) {
+      setExactCorrectionError(
+        error instanceof Error ? error.message : "Could not create a reviewed child candidate.",
+      );
+    } finally {
+      setExactCorrecting(false);
+    }
+  }, [exactRun, exactReview]);
+
   const onPrepareExactRun = useCallback(async () => {
     const runId = exactHandoff?.extractionRunId ?? exactRun?.run_id;
     if (!runId || !exactRunPromotable || exactPreparing || exactConfirmInFlight) return;
@@ -840,6 +877,9 @@ export function GraphReviewWorkbenchModule({
               exactConfirmInFlight={exactConfirmInFlight}
               exactPrepareError={exactPrepareError}
               exactPrepared={exactPrepared}
+              exactCorrecting={exactCorrecting}
+              exactCorrectionError={exactCorrectionError}
+              onCorrectEvidence={(corrections) => { void onCorrectExactEvidence(corrections); }}
               onPrepare={() => {
                 void onPrepareExactRun();
               }}
@@ -869,6 +909,9 @@ function GraphReviewExactRunBranch(props: {
   exactConfirmInFlight: boolean;
   exactPrepareError: string | null;
   exactPrepared: ExtractPromotePrepareResponse | null;
+  exactCorrecting: boolean;
+  exactCorrectionError: string | null;
+  onCorrectEvidence: (corrections: ExactRunEvidenceQuoteCorrection[]) => void;
   onPrepare: () => void;
   onClosePrepared: () => void;
   onConfirmInFlightChange: (inFlight: boolean) => void;
@@ -915,7 +958,18 @@ function GraphReviewExactRunBranch(props: {
           {props.historicalRecapProjectionError}
         </p>
       ) : null}
-      {props.exactReview ? <GraphReviewExactRunProjection review={props.exactReview} /> : null}
+      {props.exactReview ? (
+        <GraphReviewExactRunProjection
+          review={props.exactReview}
+          correctionEnabled={props.exactRun.source_domain === "worldbuilding"
+            && props.exactRun.profile_id === "worldbuilding_shepherds_flock_v0@0.1"
+            && Boolean(props.exactRun.components?.candidate_graph?.sha256)
+            && props.exactReview.inspectionStatus === "invalid_evidence"}
+          correctionPending={props.exactCorrecting}
+          correctionError={props.exactCorrectionError}
+          onCorrectEvidence={props.onCorrectEvidence}
+        />
+      ) : null}
       {historicalRecapInspectable && props.historicalRecapProjection
         ? (
           <GraphReviewHistoricalRecapProjection projection={props.historicalRecapProjection} />

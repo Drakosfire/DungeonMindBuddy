@@ -817,8 +817,22 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             world_id=getattr(resolved, "world_id", None),
             source_artifact_id=resolved.source_artifact_id,
         )
+        from apps.live_control_server.services.graph_run_registry import (
+            GraphRunRegistryError,
+            get_extraction_run,
+        )
+
+        derived_from_run_id: str | None = None
+        try:
+            run_record = get_extraction_run(repo_root(), resolved.run_id)
+            if run_record.lineage.get("derivation") == "operator_literal_evidence_correction_v1":
+                derived_from_run_id = str(run_record.lineage.get("parent_run_id") or "") or None
+        except GraphRunRegistryError as exc:
+            if exc.status_code != 404:
+                raise
         return ExactRunReviewPackage(
             run_id=resolved.run_id,
+            derived_from_run_id=derived_from_run_id,
             source_domain=resolved.source_domain,
             source_artifact_id=resolved.source_artifact_id,
             source_revision_id=resolved.source_revision_id,

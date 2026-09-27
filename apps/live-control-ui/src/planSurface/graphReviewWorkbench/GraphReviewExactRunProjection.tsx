@@ -1,12 +1,26 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-import type { ExactRunReviewAssertion, ExactRunReviewPackage } from "../../api/types";
+import type {
+  ExactRunEvidenceQuoteCorrection,
+  ExactRunReviewAssertion,
+  ExactRunReviewPackage,
+} from "../../api/types";
 
 interface GraphReviewExactRunProjectionProps {
   review: ExactRunReviewPackage;
+  correctionEnabled?: boolean;
+  correctionPending?: boolean;
+  correctionError?: string | null;
+  onCorrectEvidence?: (corrections: ExactRunEvidenceQuoteCorrection[]) => void;
 }
 
-export function GraphReviewExactRunProjection({ review }: GraphReviewExactRunProjectionProps) {
+export function GraphReviewExactRunProjection({
+  review,
+  correctionEnabled = false,
+  correctionPending = false,
+  correctionError = null,
+  onCorrectEvidence,
+}: GraphReviewExactRunProjectionProps) {
   const [selectedAssertionId, setSelectedAssertionId] = useState<string | null>(
     review.assertions[0]?.assertionId ?? null,
   );
@@ -21,6 +35,31 @@ export function GraphReviewExactRunProjection({ review }: GraphReviewExactRunPro
     () => new Set((selected?.evidence ?? []).map((item) => item.sourceSpanRefId)),
     [selected],
   );
+  const [replacements, setReplacements] = useState<Record<string, string>>({});
+  useEffect(() => setReplacements({}), [review.runId]);
+  const invalidTargets = useMemo(() => review.assertions.flatMap((assertion) =>
+    assertion.evidence.flatMap((evidence, evidenceIndex) =>
+      evidence.anchorQuotes.flatMap((quote, quoteIndex) =>
+        evidence.invalidAnchorQuotes?.includes(quote)
+          ? [{
+              key: `${assertion.assertionId}:${evidenceIndex}:${quoteIndex}`,
+              label: assertion.label,
+              paragraph: evidence.paragraphText,
+              correction: {
+                assertionId: assertion.assertionId,
+                evidenceIndex,
+                sourceSpanRefId: evidence.sourceSpanRefId,
+                quoteIndex,
+                originalQuote: quote,
+              },
+            }]
+          : [],
+      ),
+    ),
+  ), [review.assertions]);
+  const readyToCorrect = invalidTargets.length > 0 && invalidTargets.every(
+    (target) => (replacements[target.key] ?? "").trim().length > 0,
+  );
 
   return (
     <div
@@ -32,6 +71,45 @@ export function GraphReviewExactRunProjection({ review }: GraphReviewExactRunPro
           {review.invalidEvidenceCount ?? "Some"} nonliteral evidence quote(s) in this exact
           candidate. Inspect the affected assertions below; publication is blocked.
         </p>
+      ) : null}
+      {review.derivedFromRunId ? (
+        <p data-testid="graph-review-derived-candidate-lineage">
+          Reviewed evidence child of exact run <code>{review.derivedFromRunId}</code>.
+          The original candidate remains unchanged.
+        </p>
+      ) : null}
+      {correctionEnabled && invalidTargets.length > 0 ? (
+        <form
+          data-testid="graph-review-evidence-correction-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!readyToCorrect || correctionPending || !onCorrectEvidence) return;
+            onCorrectEvidence(invalidTargets.map((target) => ({
+              ...target.correction,
+              replacementQuote: replacements[target.key].trim(),
+            })));
+          }}
+        >
+          <h3>Correct nonliteral evidence</h3>
+          <p>Choose exact words from each pinned source paragraph. This creates a new child run; it never edits this one.</p>
+          {invalidTargets.map((target) => (
+            <label key={target.key}>
+              {target.label}: replace “{target.correction.originalQuote}”
+              <blockquote>{target.paragraph}</blockquote>
+              <input
+                aria-label={`Literal replacement for ${target.label} quote ${target.correction.quoteIndex + 1}`}
+                value={replacements[target.key] ?? ""}
+                onChange={(event) => setReplacements((current) => ({
+                  ...current, [target.key]: event.target.value,
+                }))}
+              />
+            </label>
+          ))}
+          {correctionError ? <p className="graph-review-error" role="alert">{correctionError}</p> : null}
+          <button type="submit" disabled={!readyToCorrect || correctionPending}>
+            {correctionPending ? "Checking corrections…" : "Create reviewed child candidate"}
+          </button>
+        </form>
       ) : null}
       <section
         className="graph-review-exact-run-source"

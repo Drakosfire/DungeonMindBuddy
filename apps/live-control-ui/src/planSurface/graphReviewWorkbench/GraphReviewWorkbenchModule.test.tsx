@@ -1130,15 +1130,25 @@ describe("GraphReviewWorkbenchModule", () => {
   });
 
   it("keeps a false-anchor exact run inspectable but hides publication controls", async () => {
+    const user = userEvent.setup();
     const run = canonicalRun({
       run_id: "er_false_anchor",
       source_artifact_id: "artifact:worldbuilding:demo:r1:abc",
       source_domain: "worldbuilding",
       campaign_id: "demo",
       session_id: null,
+      profile_id: "worldbuilding_shepherds_flock_v0@0.1",
+      components: { candidate_graph: { kind: "candidate_graph", uri: "out/parent.json", sha256: "a".repeat(64) } },
     });
-    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
-    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue({
+    const child = canonicalRun({
+      ...run,
+      run_id: "er_literal_child",
+      components: { candidate_graph: { kind: "candidate_graph", uri: "out/child.json", sha256: "b".repeat(64) } },
+    });
+    vi.spyOn(liveApi, "getExtractionRun").mockImplementation(async (runId) =>
+      runId === child.run_id ? child : run,
+    );
+    const parentReview = {
       ...exactReviewPackageForRun(run),
       sourceProse: "Torbin, who bought the strange seed, repaired the roof.",
       inspectionStatus: "invalid_evidence",
@@ -1160,6 +1170,35 @@ describe("GraphReviewWorkbenchModule", () => {
           endLine: 1,
         }],
       }],
+    };
+    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockImplementation(async (runId) =>
+      runId === child.run_id
+        ? {
+          ...parentReview,
+          runId: child.run_id,
+          derivedFromRunId: run.run_id,
+          inspectionStatus: "ready",
+          invalidEvidenceCount: 0,
+          firstWorldPublishEligible: true,
+          assertions: [{
+            ...parentReview.assertions[0],
+            evidence: [{
+              ...parentReview.assertions[0].evidence[0],
+              anchorQuotes: ["who bought the strange seed"],
+              invalidAnchorQuotes: [],
+            }],
+          }],
+        }
+        : parentReview,
+    );
+    const correctionSpy = vi.spyOn(extractPromoteApi, "correctExactRunEvidence").mockResolvedValue({
+      schema: "dmb_exact_run_evidence_correction_response_v1",
+      runId: child.run_id,
+      parentRunId: run.run_id,
+      parentCandidateSha256: "a".repeat(64),
+      candidateSha256: "b".repeat(64),
+      correctionDigest: "c".repeat(64),
+      status: "reviewable",
     });
     window.history.replaceState(
       {},
@@ -1182,6 +1221,25 @@ describe("GraphReviewWorkbenchModule", () => {
     );
     expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
     expect(screen.queryByText("Create World Graph")).not.toBeInTheDocument();
+    await user.type(
+      screen.getByRole("textbox", { name: /Literal replacement for Torbin quote 1/i }),
+      "who bought the strange seed",
+    );
+    await user.click(screen.getByRole("button", { name: "Create reviewed child candidate" }));
+    await waitFor(() => expect(correctionSpy).toHaveBeenCalledWith({
+      parentRunId: run.run_id,
+      parentCandidateSha256: "a".repeat(64),
+      corrections: [{
+        assertionId: "torbin",
+        evidenceIndex: 0,
+        sourceSpanRefId: "span:1",
+        quoteIndex: 0,
+        originalQuote: "Torbin bought the strange seed",
+        replacementQuote: "who bought the strange seed",
+      }],
+    }));
+    expect(await screen.findByTestId("graph-review-derived-candidate-lineage")).toHaveTextContent(run.run_id);
+    expect(window.location.search).toContain(`extractionRunId=${child.run_id}`);
   });
 
   it("lets exact-run handoff win Advanced details over a stale persisted catalog run", async () => {
