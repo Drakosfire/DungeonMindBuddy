@@ -4,7 +4,7 @@ pr_body_template: |
   - Workstream: DEMO / J1
   - Direction: STEWARD → CODE → REVIEW
   - Handoff: Docs/Plans/HANDOFF-DEMO-world-scope-plan-reads-v1.md
-  - PR topology: parallel-independent of #779
+  - PR topology: serial within DEMO-J1; disjoint from the separately authorized Interaction Map experiment
 
   ## Review contract
   A published managed World with a legitimate blank campaign ID must be
@@ -15,14 +15,15 @@ pr_body_template: |
 # HANDOFF — DEMO: consume exact world-scope Plan reads
 
 **Created:** 2026-09-27
-**Status:** ACTIVE — DEMO-J1 world-scope Plan read repair
+**Status:** ACTIVE — DEMO-J1 world-scope Plan read repair, rebriefed after #779 merge
 **Conversation/workstream:** LOCAL DEMO ACCEPTED / DEMO-J1
 **Flow / owner:** DEMO / Buddy Plan and graph-read consumer
 **Direction:** STEWARD → CODE → REVIEW
 **Design authority base:** Buddy `main@58c650e80eee0825c4d713999fcbbd3789856c33` after #778 merge `d41a2cc59bff5e9f6133d774cc932e05e981b7f1`
 **Activation gate:** satisfied 2026-09-27. The product owner directed the demo to resume functional work; the optional DEMO-READY roadmap decision sync records `RESUME_NON_UI`; both roadmap copies record #778 and the published World. Re-anchored to Buddy `main@712dbc93fa6721d35cb4a9ccf2b2db950ee709fd` before activation.
 **Dispatch base:** fresh `origin/main` containing this handoff; record the exact SHA
-**PR topology:** parallel-independent of open DEMO-J3 PR #779 at `b3eab88b27acc547e76998c7960cd9c06ad31e62`; #779 owns only a new PostgreSQL integration test and report, and has no behavioral dependency on this read repair. Exact head rechecked at activation.
+**Rebrief base:** Buddy `main@10a7b42da2c028889acbf085a577844252bc7f79` after #779 merged and its guarded PLAY-2 state sync; no Plan-read implementation PR or live checkout remains from the interrupted attempt.
+**PR topology:** serial within DEMO-J1. The separately authorized Interaction Map Build experiment is parallel-independent only for its two new `agentInteraction/semanticActionProjection*` files and fixture-only runtime; it does not lease this slice's paths or Of Conks database.
 **PR authorization:** open/update one PR titled `DEMO: read managed World scope in Plan`; no successor/repair PR.
 **Runtime/state ownership:** implementation tests use fixtures; the post-implementation browser witness uses the existing isolated Of Conks DB, serialized with its current API/UI processes, never C1/C2 or another lane's database
 
@@ -61,9 +62,13 @@ stop and rebrief.
   world_graph_context is missing world_id or campaign_id.` No model answer
   was accepted. `WorldGraphRetrievalRequestContext` also has an unconditional
   `campaign_id` minimum length, and Hermes tool injection omits scope mode.
-- No unmerged behavioral dependency on #779. The two lanes must not share
-  files, disposable databases, migration source, or test outputs. If overlap
-  appears, serialize/transfer before edits.
+  A focused Plan panel run also exposed a Surface Information descriptor with
+  `{kind:"campaign", id:""}` for the valid managed-World request; strict channel
+  validation rejects that empty reference before Plan can show the projection.
+- PLAY-2 #779 merged at `2ccc96ff2a7d76328578609d5289fd3babcf6442`;
+  its test/report lease is released. Its persistent composition proof does not
+  change this Plan-read contract. The Interaction Map experiment owns only its
+  new files and fixture runtime; report any newly discovered overlap before edits.
 - Named successor: DEMO-J1 Plan authoring/generation and the remaining J1–J6
   journey. This slice does not make extraction complete, make Agent writing
   useful, fix publication qualification, or certify the human demo.
@@ -100,6 +105,8 @@ stop and rebrief.
 | Modify | `apps/live-control-ui/src/planSurface/reference/planGraphContextRequest.ts` | Stop substituting managed World ID into campaign ID |
 | Modify | `apps/live-control-ui/src/planSurface/reference/planGraphContextRequest.test.ts` | Managed World blank-campaign request and existing anchored-world controls |
 | Modify | `apps/live-control-ui/src/graphLens/useWorldGraphLensProjection.test.tsx` | Preserve existing nonblank narrative-anchor world projection |
+| Modify | `apps/live-control-ui/src/graphLens/worldGraphLensSurfaceInformation.ts` | Omit a blank campaign reference from exact world-scope descriptor and observation inspection targets while retaining nonblank narrative anchors and strict campaign mode |
+| Modify | `apps/live-control-ui/src/graphLens/worldGraphLensSurfaceInformation.test.ts` | Prove world blank-campaign descriptors and observations are valid, campaign blank remains invalid, and nonblank world anchors remain visible |
 | Modify | `apps/live-control-ui/src/graphReference/resolveGraphReference.ts` | Accept blank campaign only for exact world scope |
 | Modify | `apps/live-control-ui/src/graphReference/resolveGraphReference.test.ts` | Adversarial scope cases |
 | Modify | `apps/live-control-ui/src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx` | Plan object View integration with exact blank-campaign/world projection |
@@ -125,7 +132,7 @@ production path, schema, route, dependency, or contract owner is a stop report.
 
 ## §5 Explicit collision boundary
 
-Do not edit #779's `tests/integration/test_demo_j3_play2_persistent_vnext_postgres.py`
+Do not edit #779's historical `tests/integration/test_demo_j3_play2_persistent_vnext_postgres.py`
 or `Docs/Reports/REPORT-DEMO-J3-PLAY-2-persistent-vnext-postgres.md`;
 DungeonMind/WorldKeeper repositories, DB migrations, package pins/lockfiles,
 first-World prepare/confirm, extraction prompts/profiles, source corpus, Play,
@@ -158,6 +165,7 @@ Existing Plan document persistence is untouched.
 |---|---|
 | Conditional blank-campaign rule | Projection, complete-object, retrieval request and UI exact-scope tests: world blank pass, campaign blank fail, invalid mode fail |
 | Existing world anchors | C1/C2 and lens-projection regression: nonblank anchor remains legal under world mode |
+| Surface Information identity | Exact descriptor/observation tests and Plan panel integration: world mode with blank campaign has no empty campaign reference; campaign mode stays strict and nonblank world anchors are retained |
 | Agent scope propagation | Query-context, Agent assembler + Hermes IPC/runtime mapping tests assert exact world/mode/revision and no synthetic campaign |
 | Tool authority | Host/plugin test supplies hostile model scope and observes authoritative injected scope |
 | Real retrieval | Query-route/integration test reaches world-scope graph retrieval and returns a known object/evidence; C1/C2 controls remain green |
@@ -166,7 +174,7 @@ Existing Plan document persistence is untouched.
 
 ```bash
 uv run pytest -q tests/test_world_graph_object_projection.py tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py tests/test_world_graph_retrieval_contract.py
-npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/planSurface/reference/planGraphContextRequest.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx src/graphLens/useWorldGraphLensProjection.test.tsx
+npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/planSurface/reference/planGraphContextRequest.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx src/graphLens/useWorldGraphLensProjection.test.tsx src/graphLens/worldGraphLensSurfaceInformation.test.ts
 npm --prefix apps/live-control-ui run typecheck
 uv run ruff check apps/live_control_server/models/world_graph_object_projection.py apps/live_control_server/services/agent_world_graph_query_context.py apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py apps/live_control_server/services/hermes_graph_agent_contract.py apps/live_control_server/services/hermes_graph_agent.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/projection/world_projection.py src/graph_memory/retrieval/models.py
 git diff --check
@@ -188,7 +196,7 @@ baseline failures, and the remaining demo gaps. Review every distinct head.
 ## §9 Acceptance rubric and stop conditions
 
 - [x] Steward activation and backward-looking #778/World publication sync preceded dispatch.
-- [ ] The one assigned PR alone owns the listed paths and does not collide with #779.
+- [ ] The one assigned PR alone owns the listed paths; any collision with another active lane is reported before edits.
 - [ ] Managed World scope with empty campaign works in Plan View, selected-object View, and actual Ask retrieval.
 - [ ] Existing C1/C2 world scope with a nonblank narrative anchor remains valid.
 - [ ] Campaign scope and adversarial mismatch remain fail-closed.
@@ -198,4 +206,4 @@ baseline failures, and the remaining demo gaps. Review every distinct head.
 
 Stop if World-scope Agent retrieval needs a new DungeonMind schema, a new
 durable identity mapping, a second production route, a path outside §4, a
-collision with #779, or a change to the meaning of campaign-scope reads.
+collision with another active lane, or a change to the meaning of campaign-scope reads.
