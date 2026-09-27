@@ -83,6 +83,15 @@ stop and rebrief.
   and its presentation parser must accept blank campaign only for explicit
   world scope; campaign mode remains strict. This is part of the same Plan-read
   invariant, not a new Agent answer contract.
+  The same final UI boundary also drops World-scope graph citations and cannot
+  open them later: `prepMemoryQa.ts` requires a nonblank citation campaign,
+  while `PlanAgentInteractionBar.tsx` omits scope mode from the source-anchor
+  read request and rejects a blank-campaign response snapshot. Carry the
+  already-resolved grounding mode through citation validation and evidence
+  opening; do not infer World scope from an empty campaign alone or change the
+  source-anchor wire schema. The current Of Conks World separately has
+  `locatorKind=unsupported` anchors, so live source opening remains an explicit
+  data-authority limitation rather than a reason to fake a citation.
 - PLAY-2 #779 merged at `2ccc96ff2a7d76328578609d5289fd3babcf6442`;
   its test/report lease is released. Its persistent composition proof does not
   change this Plan-read contract. The Interaction Map experiment owns only its
@@ -126,16 +135,17 @@ stop and rebrief.
 | Modify | `apps/live-control-ui/src/graphLens/useWorldGraphLensProjection.test.tsx` | Managed-World blank-campaign request plus existing nonblank narrative-anchor world projection |
 | Modify | `apps/live-control-ui/src/graphLens/worldGraphLensSurfaceInformation.ts` | Omit a blank campaign reference from exact world-scope descriptor and observation inspection targets while retaining nonblank narrative anchors and strict campaign mode |
 | Modify | `apps/live-control-ui/src/graphLens/worldGraphLensSurfaceInformation.test.ts` | Prove world blank-campaign descriptors and observations are valid, campaign blank remains invalid, and nonblank world anchors remain visible |
-| Modify | `apps/live-control-ui/src/api/types.ts` | Carry optional explicit `scopeMode` on complete-object API requests and explicit scope mode in Hermes grounding without changing existing nonblank callers |
-| Modify | `apps/live-control-ui/src/planSurface/components/prepMemoryQa.ts` | Parse Hermes grounding with conditional blank-campaign rule using explicit scope mode |
-| Modify | `apps/live-control-ui/src/planSurface/components/prepMemoryQa.test.ts` | World-scope blank-campaign grounding accepted; campaign blank and malformed scope rejected |
+| Modify | `apps/live-control-ui/src/api/types.ts` | Carry optional explicit `scopeMode` on complete-object and source-anchor read requests/snapshots, and explicit scope mode in Hermes grounding, without changing existing nonblank callers |
+| Modify | `apps/live-control-ui/src/planSurface/components/prepMemoryQa.ts` | Parse Hermes grounding and graph citations with conditional blank-campaign rule using the explicit grounding scope mode |
+| Modify | `apps/live-control-ui/src/planSurface/components/prepMemoryQa.test.ts` | World-scope blank-campaign grounding/citation accepted; campaign blank and malformed scope rejected |
+| Modify | `apps/live-control-ui/src/planSurface/components/PlanAgentInteractionBar.tsx` | Pass validated grounding scope into source-anchor read and accept an exact matching World-scope snapshot with blank campaign |
 | Modify | `apps/live-control-ui/src/graphReference/resolveGraphReference.ts` | Accept blank campaign only for exact world scope |
 | Modify | `apps/live-control-ui/src/graphReference/resolveGraphReference.test.ts` | Adversarial scope cases |
 | Modify | `apps/live-control-ui/src/graphReference/fullWorldObjectProjection.ts` | Carry the selected projection's explicit scope mode through the complete-object hook and request |
 | Modify | `apps/live-control-ui/src/graphReference/ResolvedGraphObjectProjection.tsx` | Pass exact selected graph scope mode to the complete-object hook |
 | Modify | `apps/live-control-ui/src/graphReference/ResolvedGraphObjectProjection.test.tsx` | Prove managed World blank-campaign selected-object request retains explicit world mode and pinned revision |
 | Modify | `apps/live-control-ui/src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx` | Plan object View integration with exact blank-campaign/world projection |
-| Modify | `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` | Product-shaped managed Plan projection → Ask witness: outgoing projection and graph context retain blank campaign while outer document campaign stays bound to World ID |
+| Modify | `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` | Product-shaped managed Plan projection → Ask and evidence-open witness: outgoing projection, graph context and source-anchor read retain blank campaign with explicit world mode while outer document campaign stays bound to World ID |
 | Modify | `apps/live_control_server/models/world_graph_object_projection.py` | Permit blank campaign for world-scope complete-object reads; keep campaign strict |
 | Modify | `tests/test_world_graph_object_projection.py` | Complete-object request validation and scope mapping |
 | Modify | `apps/live_control_server/services/agent_world_graph_query_context.py` | Validate campaign conditionally by scope mode; preserve resolved mode |
@@ -201,6 +211,7 @@ Existing Plan document persistence is untouched.
 | Tool authority | Host/plugin test supplies hostile model scope and observes authoritative injected scope |
 | Real retrieval | Query-route/integration test reaches world-scope graph retrieval and returns a known object/evidence; C1/C2 controls remain green |
 | Plan grounding presentation | Hermes grounding envelope and Plan parser carry explicit world scope with blank campaign; campaign blank is rejected; no false grounding-contract error for a valid world-scope answer |
+| Plan citation/evidence opening | A World-scope citation is accepted only under matching explicit World grounding; its source-anchor read carries `scopeMode=world`, and an exact blank-campaign World snapshot is accepted. Campaign and mismatched snapshots still fail closed. The current published World may truthfully return unsupported/unreadable anchors. |
 | Product transition | Exact-head browser: reopen saved Of Conks Plan, View Hempholm, Ask one grounded question, inspect response and query receipt; no C2/Eldyrwild fallback |
 | Backward state truth | Steward's pre-dispatch roadmap sync is byte-identical and accurately describes #778 plus publication, not this PR as merged |
 
