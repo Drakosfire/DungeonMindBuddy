@@ -78,10 +78,11 @@ describe("PlanAgentInteractionBar graph lens", () => {
   beforeEach(() => {
     Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
     vi.restoreAllMocks();
+    window.localStorage.clear();
     window.history.replaceState({}, "", "/plan");
   });
 
-  it("keeps Compose in the existing managed-World Agent pane with review before Apply", async () => {
+  function renderManagedCompose(options: { proposalGate?: Promise<void>; askGate?: Promise<void> } = {}) {
     const user = userEvent.setup();
     const record = fixtureWorkspaceDocumentRecord({
       document_id: FIXTURE_DOC_ID,
@@ -141,7 +142,9 @@ describe("PlanAgentInteractionBar graph lens", () => {
     };
     const apply = vi.fn().mockResolvedValue(undefined);
     const bridge: PlanEditBridge = { capture: vi.fn().mockResolvedValue(captured), apply };
-    const propose = vi.fn().mockImplementation(async (request) => ({
+    const propose = vi.fn().mockImplementation(async (request) => {
+      await options.proposalGate;
+      return {
       schema_version: "dmb_plan_document_edit_proposal_v1",
       document_id: request.document_id,
       world_id: request.world_id,
@@ -159,7 +162,17 @@ describe("PlanAgentInteractionBar graph lens", () => {
       model_latency_ms: 1,
       wall_latency_ms: 1,
       usage: null,
-    }));
+      };
+    });
+    const askCorpus = vi.fn().mockImplementation(async () => {
+      await options.askGate;
+      return {
+        answer: "Preserved ordinary Ask answer",
+        mode: "hermes_graph_agent",
+        classification: {}, events_written: [], jobs_queued: [], next_suggestions: [], diagnostics: [],
+        provenance: { backend: "hermes" }, citations: [],
+      };
+    });
     window.history.replaceState({}, "", `/plan?world=longmont-c2&documentId=${FIXTURE_DOC_ID}`);
     render(
       <SelectedWorldProvider locationSnapshot={window.location.href}>
@@ -168,10 +181,16 @@ describe("PlanAgentInteractionBar graph lens", () => {
           sessionDescriptor={sessionDescriptor}
           agentEditBridge={bridge}
           proposePlanEdit={propose}
+          askCorpus={askCorpus}
         />
       </SelectedWorldProvider>,
       { wrapper },
     );
+    return { user, apply, propose, askCorpus };
+  }
+
+  it("keeps Compose in the existing managed-World Agent pane with review before Apply", async () => {
+    const { user, apply, propose } = renderManagedCompose();
     await user.click(await screen.findByRole("button", { name: "Open" }));
     await user.click(screen.getByRole("button", { name: "Capture Plan target" }));
     expect(screen.getByTestId("plan-compose-target")).toHaveTextContent("Insert at caret");
@@ -184,6 +203,74 @@ describe("PlanAgentInteractionBar graph lens", () => {
     await user.click(screen.getByRole("button", { name: "Apply to draft" }));
     await waitFor(() => expect(apply).toHaveBeenCalledTimes(1));
     expect(screen.getByText(/Applied to local draft/)).toBeInTheDocument();
+  });
+
+  it("serializes Compose then Ask without losing either turn", async () => {
+    let release!: () => void;
+    const proposalGate = new Promise<void>((resolve) => { release = resolve; });
+    const { user, propose, askCorpus } = renderManagedCompose({ proposalGate });
+    await user.click(await screen.findByRole("button", { name: "Open" }));
+    await user.click(screen.getByRole("button", { name: "Capture Plan target" }));
+    await user.type(screen.getByLabelText("What should DungeonBuddy write or revise?"), "Add Stacy.");
+    await user.click(screen.getByRole("button", { name: "Compose proposal" }));
+    await waitFor(() => expect(propose).toHaveBeenCalledTimes(1));
+    await user.type(screen.getByLabelText("Question"), "Who is here?");
+    const ask = screen.getByRole("button", { name: "Ask DungeonBuddy" });
+    expect(ask).toBeDisabled();
+    await user.click(ask);
+    expect(askCorpus).not.toHaveBeenCalled();
+    release();
+    await screen.findByRole("region", { name: "Plan edit proposal" });
+    await waitFor(() => expect(ask).toBeEnabled());
+    await user.click(ask);
+    await screen.findByText("Preserved ordinary Ask answer");
+    expect(screen.getByRole("region", { name: "Plan edit proposal" })).toBeInTheDocument();
+    expect(askCorpus).toHaveBeenCalledTimes(1);
+  });
+
+  it("serializes Ask then Compose and keeps the Ask answer in its conversation", async () => {
+    let release!: () => void;
+    const askGate = new Promise<void>((resolve) => { release = resolve; });
+    const { user, propose, askCorpus } = renderManagedCompose({ askGate });
+    await user.click(await screen.findByRole("button", { name: "Open" }));
+    await user.click(screen.getByRole("button", { name: "Capture Plan target" }));
+    await user.type(screen.getByLabelText("What should DungeonBuddy write or revise?"), "Add Stacy.");
+    await user.type(screen.getByLabelText("Question"), "Who is here?");
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await waitFor(() => expect(askCorpus).toHaveBeenCalledTimes(1));
+    const compose = screen.getByRole("button", { name: "Compose proposal" });
+    expect(compose).toBeDisabled();
+    await user.click(compose);
+    expect(propose).not.toHaveBeenCalled();
+    release();
+    await screen.findByText("Preserved ordinary Ask answer");
+    await waitFor(() => expect(compose).toBeEnabled());
+    await user.click(compose);
+    await screen.findByRole("region", { name: "Plan edit proposal" });
+    expect(screen.getByText("Preserved ordinary Ask answer")).toBeInTheDocument();
+    expect(propose.mock.calls[0][0].conversation_history).toEqual(expect.arrayContaining([
+      expect.objectContaining({ role: "assistant", content: expect.stringContaining("Preserved ordinary Ask answer") }),
+    ]));
+  });
+
+  it.each(["Clear history", "New prep thread"])("does not resurrect a delayed Compose after %s", async (action) => {
+    let release!: () => void;
+    const proposalGate = new Promise<void>((resolve) => { release = resolve; });
+    const { user, propose } = renderManagedCompose({ proposalGate });
+    await user.click(await screen.findByRole("button", { name: "Open" }));
+    await user.type(screen.getByLabelText("Question"), "Who is here?");
+    await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
+    await screen.findByText("Preserved ordinary Ask answer");
+    await user.click(screen.getByRole("button", { name: "Capture Plan target" }));
+    await user.type(screen.getByLabelText("What should DungeonBuddy write or revise?"), "Add Stacy.");
+    await user.click(screen.getByRole("button", { name: "Compose proposal" }));
+    await waitFor(() => expect(propose).toHaveBeenCalledTimes(1));
+    await user.click(screen.getByRole("button", { name: "Config" }));
+    await user.click(screen.getByRole("button", { name: action }));
+    release();
+    await screen.findByText(/Agent context or thread changed/);
+    expect(screen.queryByRole("region", { name: "Plan edit proposal" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply to draft" })).not.toBeInTheDocument();
   });
 
   it("asks with campaign scope when only C1 is selected", async () => {

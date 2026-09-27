@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -522,7 +522,10 @@ export function PlanAgentInteractionBar({
   } | null>(null);
   const thread = agentInteraction.activeThread;
   const turns = agentInteraction.turns;
-  const setThread = agentInteraction.updateThread;
+  function setThread(nextThread: AgentInteractionThread) {
+    latestAgentContext.current.thread = nextThread;
+    agentInteraction.updateThread(nextThread);
+  }
   const setTurns = (nextTurns: AgentInteractionTurn[]) => {
     if (thread) agentInteraction.updateThread({ ...thread, turns: nextTurns, updatedAt: new Date().toISOString() });
   };
@@ -549,6 +552,38 @@ export function PlanAgentInteractionBar({
   // not memorySession. World-graph focus uses memorySession when ?session= is set;
   // otherwise focus is world-union (kind: none).
   const querySession = sessionDescriptor.liveSession;
+  const agentContextKey = JSON.stringify([
+    selectedWorld,
+    sessionDescriptor.campaignId,
+    querySession,
+    planningDocumentId,
+  ]);
+  const latestAgentContext = useRef({ key: agentContextKey, thread, mounted: true });
+  const pendingAgentRequest = useRef<symbol | null>(null);
+  const agentContextGeneration = useRef(0);
+  useLayoutEffect(() => {
+    if (latestAgentContext.current.key !== agentContextKey) agentContextGeneration.current += 1;
+    latestAgentContext.current = { key: agentContextKey, thread, mounted: true };
+  }, [agentContextKey, thread]);
+  useLayoutEffect(() => () => {
+    latestAgentContext.current.mounted = false;
+    agentContextGeneration.current += 1;
+  }, []);
+
+  function invalidatePendingAgentResponse() {
+    agentContextGeneration.current += 1;
+  }
+
+  function currentRequestThread(requestThread: AgentInteractionThread, generation: number): AgentInteractionThread {
+    const latest = latestAgentContext.current;
+    if (
+      !latest.mounted
+      || latest.key !== agentContextKey
+      || generation !== agentContextGeneration.current
+      || latest.thread?.threadId !== requestThread.threadId
+    ) throw new Error("Agent context or thread changed. Submit again in the current Plan.");
+    return latest.thread;
+  }
 
   useEffect(() => {
     const { planningDocument } = sessionDescriptor;
@@ -660,6 +695,7 @@ export function PlanAgentInteractionBar({
   }, [open, loadBundle, selectedWorld.kind, sessionDescriptor.campaignId]);
 
   function clearHistory() {
+    invalidatePendingAgentResponse();
     if (thread) {
       agentInteraction.clearThread();
       const nextThread = {
@@ -682,6 +718,7 @@ export function PlanAgentInteractionBar({
   }
 
   function createNewThread() {
+    invalidatePendingAgentResponse();
     const nextThread = createAgentInteractionThread(
       sessionDescriptor.campaignId,
       querySession,
@@ -690,7 +727,7 @@ export function PlanAgentInteractionBar({
       "New prep thread",
       planningDocumentId,
     );
-    agentInteraction.updateThread(nextThread);
+    setThread(nextThread);
     activateThread(nextThread);
     setThreadSwitcherOpen(false);
   }
@@ -710,6 +747,7 @@ export function PlanAgentInteractionBar({
   }
 
   function switchThread(threadId: string) {
+    invalidatePendingAgentResponse();
     const nextThread = agentInteraction.switchThread(threadId);
     if (!nextThread) return;
     activateThread(nextThread);
@@ -731,6 +769,7 @@ export function PlanAgentInteractionBar({
   }
 
   function deleteThread(threadId: string) {
+    invalidatePendingAgentResponse();
     agentInteraction.deleteThread(threadId);
     activateThread(agentInteraction.activeThread);
   }
@@ -870,6 +909,7 @@ export function PlanAgentInteractionBar({
     const trimmed = question.trim();
     if (
       !trimmed
+      || pendingAgentRequest.current
       || askStatus === "asking"
       || !lensAllowsAsk
       || focusValidationPending
@@ -879,8 +919,11 @@ export function PlanAgentInteractionBar({
     }
     setAskStatus("asking");
     setAskError(null);
+    const requestToken = Symbol("ask");
+    pendingAgentRequest.current = requestToken;
+    const requestGeneration = agentContextGeneration.current;
     try {
-      const currentThread = thread ?? createAgentInteractionThread(
+      let currentThread = latestAgentContext.current.thread ?? createAgentInteractionThread(
         sessionDescriptor.campaignId,
         querySession,
         "plan",
@@ -888,6 +931,7 @@ export function PlanAgentInteractionBar({
         threadTitleFromQuestion(trimmed),
         planningDocumentId,
       );
+      setThread(currentThread);
       // Outer campaign/session must match the loaded live packet (Plan descriptor).
       // Graph lens campaign + scopeMode live only in worldGraphContext.
       // Submit-time snapshot from lease-guarded publication only — never
@@ -920,8 +964,9 @@ export function PlanAgentInteractionBar({
           surfaceContext,
         },
       );
+      currentThread = currentRequestThread(currentThread, requestGeneration);
       const nextTurn = turnFromResponse(trimmed, response, "hermes");
-      const nextTurns = [nextTurn, ...turns].slice(0, AGENT_TURN_HISTORY_CAP);
+      const nextTurns = [nextTurn, ...currentThread.turns].slice(0, AGENT_TURN_HISTORY_CAP);
       const isHermesGraphAgentTurn = response.mode === "hermes_graph_agent"
         || response.agent_trace?.mode === "hermes_graph_agent";
       const nextThread: AgentInteractionThread = {
@@ -951,6 +996,8 @@ export function PlanAgentInteractionBar({
     } catch (loadError) {
       setAskStatus("error");
       setAskError(loadError instanceof Error ? loadError.message : "Unable to ask corpus");
+    } finally {
+      if (pendingAgentRequest.current === requestToken) pendingAgentRequest.current = null;
     }
   }
 
@@ -970,11 +1017,24 @@ export function PlanAgentInteractionBar({
   async function submitCompose(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const instruction = composeInstruction.trim();
-    if (!instruction || !composeTarget || !agentEditBridge || composeStatus === "composing") return;
+    if (!instruction || !composeTarget || !agentEditBridge || pendingAgentRequest.current) return;
     setComposeError(null);
     setComposeStatus("composing");
+    const requestToken = Symbol("compose");
+    pendingAgentRequest.current = requestToken;
+    const requestGeneration = agentContextGeneration.current;
+    const requestThread = latestAgentContext.current.thread ?? createAgentInteractionThread(
+      sessionDescriptor.campaignId,
+      querySession,
+      "plan",
+      "hermes",
+      threadTitleFromQuestion(instruction),
+      planningDocumentId,
+    );
+    setThread(requestThread);
     try {
       const currentTarget = await agentEditBridge.capture();
+      currentRequestThread(requestThread, requestGeneration);
       if (
         currentTarget.editor !== composeTarget.editor
         || currentTarget.editorJson !== composeTarget.editorJson
@@ -987,17 +1047,10 @@ export function PlanAgentInteractionBar({
       const response: PlanDocumentEditProposalResponse = await proposePlanEdit({
         ...composeTarget.request,
         instruction,
-        conversation_history: buildHermesConversationHistory(turns),
+        conversation_history: buildHermesConversationHistory(requestThread.turns),
       });
       const admitted = await admitPlanEditProposal(composeTarget, response);
-      const currentThread = thread ?? createAgentInteractionThread(
-        sessionDescriptor.campaignId,
-        querySession,
-        "plan",
-        "hermes",
-        threadTitleFromQuestion(instruction),
-        planningDocumentId,
-      );
+      const currentThread = currentRequestThread(requestThread, requestGeneration);
       const now = new Date().toISOString();
       const turnId = crypto.randomUUID();
       const turn: AgentInteractionTurn = {
@@ -1034,22 +1087,26 @@ export function PlanAgentInteractionBar({
       setComposeStatus("idle");
       setComposeProposal(null);
       setComposeError(composeFailure instanceof Error ? composeFailure.message : "Agent could not compose a Plan edit.");
+    } finally {
+      if (pendingAgentRequest.current === requestToken) pendingAgentRequest.current = null;
     }
   }
 
   async function applyComposeProposal() {
-    if (!composeProposal || !agentEditBridge) return;
+    if (!composeProposal || !agentEditBridge || pendingAgentRequest.current) return;
+    const requestGeneration = agentContextGeneration.current;
     setComposeError(null);
     try {
       if (thread?.threadId !== composeProposal.threadId) {
         throw new Error("Agent thread changed. Compose again in the current thread.");
       }
       await agentEditBridge.apply(composeProposal.captured, composeProposal.admitted);
+      const currentThread = currentRequestThread(thread!, requestGeneration);
       const updatedAt = new Date().toISOString();
-      if (thread) setThread({
-        ...thread,
+      setThread({
+        ...currentThread,
         updatedAt,
-        turns: thread.turns.map((turn) => turn.turnId === composeProposal.turnId
+        turns: currentThread.turns.map((turn) => turn.turnId === composeProposal.turnId
           ? { ...turn, planEdit: turn.planEdit ? { ...turn.planEdit, applied: true } : null }
           : turn),
       });
@@ -1604,7 +1661,7 @@ export function PlanAgentInteractionBar({
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => void captureComposeTarget()}
-                disabled={!agentEditBridge || composeStatus === "composing"}
+                disabled={!agentEditBridge || composeStatus === "composing" || askStatus === "asking"}
               >
                 Capture Plan target
               </button>
@@ -1625,7 +1682,7 @@ export function PlanAgentInteractionBar({
                     rows={3}
                     maxLength={4000}
                   />
-                  <button type="submit" disabled={!composeInstruction.trim() || composeStatus === "composing"}>
+                  <button type="submit" disabled={!composeInstruction.trim() || composeStatus === "composing" || askStatus === "asking"}>
                     {composeStatus === "composing" ? "Composing…" : "Compose proposal"}
                   </button>
                 </form>
@@ -1658,7 +1715,7 @@ export function PlanAgentInteractionBar({
                     <div><strong>Before</strong><pre>{composeProposal.captured.request.selected_text || "[caret insertion]"}</pre></div>
                     <div><strong>After</strong><pre>{composeProposal.admitted.canonicalMarkdown}</pre></div>
                   </div>
-                  <button type="button" onClick={() => void applyComposeProposal()}>Apply to draft</button>
+                  <button type="button" disabled={askStatus === "asking"} onClick={() => void applyComposeProposal()}>Apply to draft</button>
                   <button type="button" onClick={() => { setComposeProposal(null); setComposeStatus("idle"); }}>Discard proposal</button>
                 </section>
               ) : null}
@@ -1699,6 +1756,7 @@ export function PlanAgentInteractionBar({
               disabled={
                 !question.trim()
                 || askStatus === "asking"
+                || composeStatus === "composing"
                 || graphContextInitializing
                 || !lensAllowsAsk
               }
