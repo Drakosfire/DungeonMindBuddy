@@ -76,6 +76,13 @@ stop and rebrief.
   request before Agent assembly; the route must instead require exact World ID,
   explicit world mode, and blank nested campaign while leaving the outer managed
   Plan/document campaign binding intact.
+  Exact-head browser Ask subsequently returned a correct World relationship and
+  query receipt, but Plan displayed a grounding-contract error because
+  `prepMemoryQa.ts` unconditionally rejects blank `campaign_id` in the Hermes
+  grounding envelope. The envelope must identify world versus campaign scope,
+  and its presentation parser must accept blank campaign only for explicit
+  world scope; campaign mode remains strict. This is part of the same Plan-read
+  invariant, not a new Agent answer contract.
 - PLAY-2 #779 merged at `2ccc96ff2a7d76328578609d5289fd3babcf6442`;
   its test/report lease is released. Its persistent composition proof does not
   change this Plan-read contract. The Interaction Map experiment owns only its
@@ -119,7 +126,9 @@ stop and rebrief.
 | Modify | `apps/live-control-ui/src/graphLens/useWorldGraphLensProjection.test.tsx` | Managed-World blank-campaign request plus existing nonblank narrative-anchor world projection |
 | Modify | `apps/live-control-ui/src/graphLens/worldGraphLensSurfaceInformation.ts` | Omit a blank campaign reference from exact world-scope descriptor and observation inspection targets while retaining nonblank narrative anchors and strict campaign mode |
 | Modify | `apps/live-control-ui/src/graphLens/worldGraphLensSurfaceInformation.test.ts` | Prove world blank-campaign descriptors and observations are valid, campaign blank remains invalid, and nonblank world anchors remain visible |
-| Modify | `apps/live-control-ui/src/api/types.ts` | Carry optional explicit `scopeMode` on complete-object API requests without changing existing nonblank callers |
+| Modify | `apps/live-control-ui/src/api/types.ts` | Carry optional explicit `scopeMode` on complete-object API requests and explicit scope mode in Hermes grounding without changing existing nonblank callers |
+| Modify | `apps/live-control-ui/src/planSurface/components/prepMemoryQa.ts` | Parse Hermes grounding with conditional blank-campaign rule using explicit scope mode |
+| Modify | `apps/live-control-ui/src/planSurface/components/prepMemoryQa.test.ts` | World-scope blank-campaign grounding accepted; campaign blank and malformed scope rejected |
 | Modify | `apps/live-control-ui/src/graphReference/resolveGraphReference.ts` | Accept blank campaign only for exact world scope |
 | Modify | `apps/live-control-ui/src/graphReference/resolveGraphReference.test.ts` | Adversarial scope cases |
 | Modify | `apps/live-control-ui/src/graphReference/fullWorldObjectProjection.ts` | Carry the selected projection's explicit scope mode through the complete-object hook and request |
@@ -135,7 +144,7 @@ stop and rebrief.
 | Modify | `apps/live_control_server/services/agent_context_assembler.py` | Preserve scope mode and validate campaign conditionally |
 | Modify | `apps/live_control_server/services/agent_runtime.py` | Typed Agent scope mode, if required by propagation |
 | Modify | `apps/live_control_server/services/hermes_agent_runtime.py` | Exact world-mode mapping into Hermes |
-| Modify | `apps/live_control_server/services/hermes_graph_query.py` | Exact dispatch scope propagation, if required |
+| Modify | `apps/live_control_server/services/hermes_graph_query.py` | Exact dispatch scope propagation and explicit scope mode in the Hermes grounding envelope |
 | Modify | `apps/live_control_server/services/hermes_graph_agent_contract.py` | Carry authoritative scope mode through strict policy and turn-request IPC |
 | Modify | `apps/live_control_server/services/hermes_graph_agent.py` | Bind deserialized scope mode into tool capability scope and turn execution |
 | Modify | `src/graph_memory/hermes_graph_plugin.py` | Inject authoritative scope mode into graph tools |
@@ -191,12 +200,13 @@ Existing Plan document persistence is untouched.
 | Managed-World route | Route test sends blank nested campaign with explicit world mode and proves exact outer World/document binding; a nonblank/fabricated nested campaign and cross-World request fail closed |
 | Tool authority | Host/plugin test supplies hostile model scope and observes authoritative injected scope |
 | Real retrieval | Query-route/integration test reaches world-scope graph retrieval and returns a known object/evidence; C1/C2 controls remain green |
+| Plan grounding presentation | Hermes grounding envelope and Plan parser carry explicit world scope with blank campaign; campaign blank is rejected; no false grounding-contract error for a valid world-scope answer |
 | Product transition | Exact-head browser: reopen saved Of Conks Plan, View Hempholm, Ask one grounded question, inspect response and query receipt; no C2/Eldyrwild fallback |
 | Backward state truth | Steward's pre-dispatch roadmap sync is byte-identical and accurately describes #778 plus publication, not this PR as merged |
 
 ```bash
 uv run pytest -q tests/test_world_graph_object_projection.py tests/test_selected_world_plan_context.py tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py tests/test_world_graph_retrieval_contract.py
-npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/graphReference/ResolvedGraphObjectProjection.test.tsx src/planSurface/reference/planGraphContextRequest.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx src/planSurface/PlanSurfaceShell.test.tsx src/graphLens/useWorldGraphLensProjection.test.tsx src/graphLens/worldGraphLensSurfaceInformation.test.ts
+npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/graphReference/ResolvedGraphObjectProjection.test.tsx src/planSurface/reference/planGraphContextRequest.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx src/planSurface/components/prepMemoryQa.test.ts src/planSurface/PlanSurfaceShell.test.tsx src/graphLens/useWorldGraphLensProjection.test.tsx src/graphLens/worldGraphLensSurfaceInformation.test.ts
 npm --prefix apps/live-control-ui run typecheck
 uv run ruff check apps/live_control_server/models/world_graph_object_projection.py apps/live_control_server/routes/live.py apps/live_control_server/services/agent_world_graph_query_context.py apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py apps/live_control_server/services/hermes_graph_agent_contract.py apps/live_control_server/services/hermes_graph_agent.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/projection/world_projection.py src/graph_memory/retrieval/models.py
 git diff --check
