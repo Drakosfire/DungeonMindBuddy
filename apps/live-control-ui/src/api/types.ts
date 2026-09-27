@@ -358,6 +358,8 @@ export interface HermesGraphGrounding {
   state: HermesGraphGroundingState;
   world_id: string;
   campaign_id: string;
+  /** Older campaign-scoped envelopes omit this field. */
+  scope_mode?: "campaign" | "world";
   focus: { kind: "none" | "session"; session_id: string | null };
   admissibility: string;
   revision_id: string | null;

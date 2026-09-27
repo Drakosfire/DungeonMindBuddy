@@ -66,7 +66,10 @@ export function parseHermesGraphGrounding(value: unknown): HermesGraphGrounding 
     return null;
   }
   if (!isNonEmptyString(value.world_id)) return null;
-  if (!isNonEmptyString(value.campaign_id)) return null;
+  const scopeMode = value.scope_mode === undefined ? "campaign" : value.scope_mode;
+  if (scopeMode !== "campaign" && scopeMode !== "world") return null;
+  if (typeof value.campaign_id !== "string") return null;
+  if (scopeMode === "campaign" && !isNonEmptyString(value.campaign_id)) return null;
   if (!isNonEmptyString(value.admissibility)) return null;
   if (!(value.revision_id === null || typeof value.revision_id === "string")) return null;
   if (typeof value.successful_tool_count !== "number" || !Number.isFinite(value.successful_tool_count)) {
@@ -86,6 +89,7 @@ export function parseHermesGraphGrounding(value: unknown): HermesGraphGrounding 
     state: value.state as HermesGraphGroundingState,
     world_id: value.world_id,
     campaign_id: value.campaign_id,
+    scope_mode: scopeMode,
     focus,
     admissibility: value.admissibility,
     revision_id: value.revision_id,

@@ -346,6 +346,47 @@ def test_turn_request_preserves_managed_world_scope_without_campaign(
     assert invocation.context_packet.world_scope.campaign_id == scope.campaign_id
 
 
+def test_managed_world_response_grounding_seals_explicit_scope(
+    tmp_path: Path,
+    no_fallback: None,
+) -> None:
+    world_id = "of-conks-j1-fresh-rehearsal"
+    revision_id = "rev:22ef509825ee1048efc73a1a1aa4a60c"
+    envelope = {
+        **READY_ENVELOPE,
+        "world_id": world_id,
+        "campaign_id": "",
+        "scope_mode": "world",
+        "revision_id": revision_id,
+        "focus": {"kind": "none"},
+    }
+    host = _FakeHost(_ok_result(events=[
+        _tool_event(
+            world_id=world_id,
+            campaign_id="",
+            focus={"kind": "none"},
+            revision_pin=revision_id,
+            outcome="empty",
+            matched_node_ids=[],
+            source_anchor_ids=[],
+        ),
+    ]))
+    response = run_hermes_graph_query(
+        text="What is known about Hempholm?",
+        packet={"campaign_id": world_id, "session": 1},
+        graph_envelope=envelope,
+        agent_thread_id="agent-thread-world",
+        turn_id="turn-world",
+        root=tmp_path,
+        agent_runtime=host,
+    )
+
+    assert response["grounding"]["world_id"] == world_id
+    assert response["grounding"]["campaign_id"] == ""
+    assert response["grounding"]["scope_mode"] == "world"
+    assert response["grounding"]["revision_id"] == revision_id
+
+
 def test_grounded_partial_abstention_and_error_classification() -> None:
     request, scope = build_hermes_graph_turn_request(
         question="q",
