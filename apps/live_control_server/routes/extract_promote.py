@@ -18,6 +18,8 @@ from apps.live_control_server.models.extract_promote import (
     ExtractPromotePrepareRequest,
     ExtractPromotePrepareResponse,
     ExactRunReviewPackage,
+    ExactRunEvidenceCorrectionRequest,
+    ExactRunEvidenceCorrectionResponse,
     ExtractPromoteStatusResponse,
     FirstWorldGraphConfirmReceipt,
     FirstWorldGraphConfirmRequest,
@@ -38,6 +40,9 @@ from apps.live_control_server.services.extract_promote import (
     prepare,
     prepare_first_world,
     prepare_worldbuilding,
+)
+from apps.live_control_server.services.exact_run_evidence_correction import (
+    correct_exact_run_evidence,
 )
 
 logger = logging.getLogger(__name__)
@@ -153,6 +158,36 @@ def get_extract_promote_exact_run_review(
         return _error_response(
             ExtractPromoteError(
                 "The exact-run review package operation failed unexpectedly.",
+                code="extract_promote_internal_error",
+                status_code=500,
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post("/runs/{run_id}/evidence-corrections", response_model=ExactRunEvidenceCorrectionResponse)
+def post_exact_run_evidence_corrections(
+    request_context: Request,
+    run_id: str,
+    request: ExactRunEvidenceCorrectionRequest,
+) -> dict[str, Any] | JSONResponse:
+    """Create a quote-only child ExtractionRun; never publish to World."""
+    try:
+        _reject_selector_query(request_context)
+        if run_id != request.parent_run_id:
+            raise ExtractPromoteError(
+                "path run ID does not match parentRunId",
+                code="invalid_request",
+                status_code=422,
+            )
+        response = correct_exact_run_evidence(request)
+    except ExtractPromoteError as exc:
+        return _error_response(exc)
+    except Exception:
+        logger.exception("exact-run evidence correction failed unexpectedly")
+        return _error_response(
+            ExtractPromoteError(
+                "The exact-run evidence correction failed unexpectedly.",
                 code="extract_promote_internal_error",
                 status_code=500,
             )

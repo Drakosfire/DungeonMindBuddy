@@ -4,6 +4,8 @@
 
 import type {
   ExactRunReviewPackage,
+  ExactRunEvidenceCorrectionResponse,
+  ExactRunEvidenceQuoteCorrection,
   ExtractPromoteConfirmReceipt,
   ExtractPromoteConfirmRequest,
   ExtractPromoteErrorBody,
@@ -84,6 +86,20 @@ export async function getExtractPromoteStatus(): Promise<ExtractPromoteStatusRes
 export async function getExactRunReviewPackage(runId: string): Promise<ExactRunReviewPackage> {
   return extractPromoteFetch<ExactRunReviewPackage>(
     `/api/live/extract-promote/runs/${encodeURIComponent(runId)}/review-package`,
+  );
+}
+
+export async function correctExactRunEvidence(input: {
+  parentRunId: string;
+  parentCandidateSha256: string;
+  corrections: ExactRunEvidenceQuoteCorrection[];
+}): Promise<ExactRunEvidenceCorrectionResponse> {
+  return extractPromoteFetch<ExactRunEvidenceCorrectionResponse>(
+    `/api/live/extract-promote/runs/${encodeURIComponent(input.parentRunId)}/evidence-corrections`,
+    {
+      method: "POST",
+      body: JSON.stringify({ schema: "dmb_exact_run_evidence_correction_request_v1", ...input }),
+    },
   );
 }
 

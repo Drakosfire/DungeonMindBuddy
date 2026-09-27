@@ -19,6 +19,8 @@ CONFIRM_REQUEST_SCHEMA = "dmb_extract_promote_confirm_request_v2"
 CONFIRM_RESPONSE_SCHEMA = "dmb_extract_promote_confirm_v2"
 ERROR_SCHEMA = "dmb_extract_promote_error_v1"
 EXACT_RUN_REVIEW_SCHEMA = "dmb_extract_promote_exact_run_review_v1"
+EVIDENCE_CORRECTION_REQUEST_SCHEMA = "dmb_exact_run_evidence_correction_request_v1"
+EVIDENCE_CORRECTION_RESPONSE_SCHEMA = "dmb_exact_run_evidence_correction_response_v1"
 WORLD_BUILDING_WRITE_PLAN_REQUEST_SCHEMA = (
     "dmb_worldbuilding_write_plan_prepare_request_v1"
 )
@@ -414,6 +416,36 @@ class ExactRunReviewAssertion(_ExtractPromoteModel):
     evidence: list[ExactRunReviewEvidence] = Field(default_factory=list)
 
 
+class ExactRunEvidenceQuoteCorrection(_ExtractPromoteModel):
+    assertion_id: str
+    evidence_index: int = Field(ge=0)
+    source_span_ref_id: str
+    quote_index: int = Field(ge=0)
+    original_quote: str
+    replacement_quote: str
+
+
+class ExactRunEvidenceCorrectionRequest(_ExtractPromoteModel):
+    schema_: Literal["dmb_exact_run_evidence_correction_request_v1"] = Field(
+        default=EVIDENCE_CORRECTION_REQUEST_SCHEMA, alias="schema"
+    )
+    parent_run_id: str
+    parent_candidate_sha256: str
+    corrections: list[ExactRunEvidenceQuoteCorrection] = Field(min_length=1)
+
+
+class ExactRunEvidenceCorrectionResponse(_ExtractPromoteModel):
+    schema_: Literal["dmb_exact_run_evidence_correction_response_v1"] = Field(
+        default=EVIDENCE_CORRECTION_RESPONSE_SCHEMA, alias="schema"
+    )
+    run_id: str
+    parent_run_id: str
+    parent_candidate_sha256: str
+    candidate_sha256: str
+    correction_digest: str
+    status: Literal["reviewable"] = "reviewable"
+
+
 class ExactRunReviewPackage(_ExtractPromoteModel):
     """Server-owned exact-run review projection — source prose + assertion evidence.
 
@@ -424,6 +456,7 @@ class ExactRunReviewPackage(_ExtractPromoteModel):
         default=EXACT_RUN_REVIEW_SCHEMA, alias="schema"
     )
     run_id: str
+    derived_from_run_id: str | None = None
     source_domain: str
     source_artifact_id: str
     source_revision_id: str

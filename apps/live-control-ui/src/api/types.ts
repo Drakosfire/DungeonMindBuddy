@@ -3535,6 +3535,7 @@ export type FirstWorldGraphState =
 export interface ExactRunReviewPackage {
   schema: "dmb_extract_promote_exact_run_review_v1";
   runId: string;
+  derivedFromRunId?: string | null;
   sourceDomain: string;
   sourceArtifactId: string;
   sourceRevisionId: string;
@@ -3553,6 +3554,25 @@ export interface ExactRunReviewPackage {
   worldState?: FirstWorldGraphState | null;
   firstWorldPublishEligible?: boolean;
   firstWorldPublishReason?: string | null;
+}
+
+export interface ExactRunEvidenceQuoteCorrection {
+  assertionId: string;
+  evidenceIndex: number;
+  sourceSpanRefId: string;
+  quoteIndex: number;
+  originalQuote: string;
+  replacementQuote: string;
+}
+
+export interface ExactRunEvidenceCorrectionResponse {
+  schema: "dmb_exact_run_evidence_correction_response_v1";
+  runId: string;
+  parentRunId: string;
+  parentCandidateSha256: string;
+  candidateSha256: string;
+  correctionDigest: string;
+  status: "reviewable";
 }
 
 export type FirstWorldDecision = "create_new" | "reject" | "accept";
