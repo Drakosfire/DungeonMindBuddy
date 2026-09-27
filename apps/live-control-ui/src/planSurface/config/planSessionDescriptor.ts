@@ -317,6 +317,9 @@ function sessionPrepStarterMarkdown(sessionDescriptor: PlanSessionDescriptor): s
   const targetLine = targetSession != null
     ? `Summarize what the party knows, unresolved threads, and likely pressure going into Session ${targetSession}.`
     : "Summarize what the party knows, unresolved threads, and likely pressure for this session.";
+  const referencePrompt = /^longmont-c[12]$/.test(planningDocument.campaignId)
+    ? "Add corpus references as you identify the NPCs, locations, and tables you expect to need. Example: [North Reach Gate](#dmb-ref:location:north-reach-gate)."
+    : "Add references to people, places, and material in this World as you discover them.";
   return String.raw`# ${planningDocument.title}
 
 ## Session intent
@@ -335,7 +338,7 @@ ${targetLine}
 
 ## Reference chips
 
-Add corpus references as you identify the NPCs, locations, and tables you expect to need. Example: [North Reach Gate](#dmb-ref:location:north-reach-gate).`;
+${referencePrompt}`;
 }
 
 export function createStarterContentForPlanDocument(

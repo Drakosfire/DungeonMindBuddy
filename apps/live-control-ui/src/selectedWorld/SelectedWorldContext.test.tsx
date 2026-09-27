@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { getWorkspaceDocument, listWorldContainers } from "../api/liveApi";
@@ -7,6 +7,7 @@ import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 import {
   SelectedWorldProvider,
   requestedWorldSelection,
+  useRetrySelectedWorld,
   useSelectedWorld,
   verifyManagedWorldSelection,
 } from "./SelectedWorldContext";
@@ -43,6 +44,12 @@ const document: WorkspaceDocumentRecord = {
 function Probe() {
   const selection = useSelectedWorld();
   return <div>{selection.kind}:{selection.kind === "managed" ? getWorldIdForCampaign(selection.worldId) : "none"}</div>;
+}
+
+function RecoveryProbe() {
+  const selection = useSelectedWorld();
+  const retry = useRetrySelectedWorld();
+  return <div><span>{selection.kind}</span><button type="button" onClick={retry}>Retry</button></div>;
 }
 
 afterEach(() => vi.clearAllMocks());
@@ -87,5 +94,35 @@ describe("selected managed World", () => {
     await waitFor(() => expect(screen.getByText(`managed:${world.world_id}`)).toBeTruthy());
     expect(getWorkspaceDocument).toHaveBeenCalledWith(document.document_id);
     view.unmount();
+  });
+
+  it("retries a registry failure without accepting stale content", async () => {
+    vi.mocked(listWorldContainers)
+      .mockRejectedValueOnce(new Error("registry offline"))
+      .mockResolvedValueOnce({ schema_version: "dmb_world_container_registry_v1", records: [world] });
+    render(
+      <SelectedWorldProvider locationSnapshot={`/plan?world=${world.world_id}`}>
+        <RecoveryProbe />
+      </SelectedWorldProvider>,
+    );
+    expect(await screen.findByText("error")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("managed")).toBeInTheDocument();
+    expect(listWorldContainers).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps C1/C2 exact documents legacy even with their Eldyrwild mapping", async () => {
+    vi.mocked(getWorkspaceDocument).mockResolvedValue({
+      ...document,
+      campaign_id: "longmont-c2",
+      world_id: "eldyrwild",
+    });
+    render(
+      <SelectedWorldProvider locationSnapshot={`/build?documentId=${document.document_id}`}>
+        <RecoveryProbe />
+      </SelectedWorldProvider>,
+    );
+    expect(await screen.findByText("legacy")).toBeInTheDocument();
+    expect(listWorldContainers).not.toHaveBeenCalled();
   });
 });

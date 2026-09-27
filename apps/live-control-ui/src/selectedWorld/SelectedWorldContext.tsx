@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
 import { getWorkspaceDocument, listWorldContainers } from "../api/liveApi";
 import type { WorkspaceDocumentRecord, WorldContainerRecord } from "../api/types";
@@ -17,6 +17,7 @@ export type SelectedWorldState =
   | VerifiedManagedWorld;
 
 const SelectedWorldContext = createContext<SelectedWorldState>({ kind: "legacy" });
+const SelectedWorldRetryContext = createContext<() => void>(() => undefined);
 export const SELECTED_WORLD_LOCATION_CHANGED_EVENT = "dmb:selected-world-location-changed";
 
 export function announceSelectedWorldLocationChange(): void {
@@ -81,7 +82,12 @@ export function SelectedWorldProvider({
 }) {
   const selection = requestedWorldSelection(locationSnapshot);
   const selectionKey = `${selection.explicit ? "explicit" : "inferred"}::${selection.worldId ?? ""}::${selection.documentId ?? ""}`;
+  const [retryGeneration, setRetryGeneration] = useState(0);
   const [loaded, setLoaded] = useState<{ key: string; value: SelectedWorldState } | null>(null);
+  const retry = useCallback(() => {
+    setLoaded(null);
+    setRetryGeneration((current) => current + 1);
+  }, []);
   const state: SelectedWorldState = !selection.explicit && !selection.documentId
     ? { kind: "legacy" }
     : loaded?.key === selectionKey
@@ -105,8 +111,8 @@ export function SelectedWorldProvider({
         const document = selection.documentId
           ? await getWorkspaceDocument(selection.documentId)
           : null;
-        if (!selection.explicit && document && !document.world_id
-          && /^longmont-c[12]$/.test(document.campaign_id)) {
+        if (!selection.explicit && document && /^longmont-c[12]$/.test(document.campaign_id)
+          && (!document.world_id || document.world_id === "eldyrwild")) {
           if (!cancelled) setLoaded({ key: selectionKey, value: { kind: "legacy" } });
           return;
         }
@@ -134,11 +140,19 @@ export function SelectedWorldProvider({
       }
     })();
     return () => { cancelled = true; };
-  }, [selectionKey]);
+  }, [selectionKey, retryGeneration]);
 
-  return <SelectedWorldContext.Provider value={state}>{children}</SelectedWorldContext.Provider>;
+  return (
+    <SelectedWorldRetryContext.Provider value={retry}>
+      <SelectedWorldContext.Provider value={state}>{children}</SelectedWorldContext.Provider>
+    </SelectedWorldRetryContext.Provider>
+  );
 }
 
 export function useSelectedWorld(): SelectedWorldState {
   return useContext(SelectedWorldContext);
+}
+
+export function useRetrySelectedWorld(): () => void {
+  return useContext(SelectedWorldRetryContext);
 }

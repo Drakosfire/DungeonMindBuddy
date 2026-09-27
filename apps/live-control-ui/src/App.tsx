@@ -46,8 +46,11 @@ import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
 import {
   SELECTED_WORLD_LOCATION_CHANGED_EVENT,
   SelectedWorldProvider,
+  useRetrySelectedWorld,
   useSelectedWorld,
 } from "./selectedWorld/SelectedWorldContext";
+import { WorldSelector } from "./selectedWorld/WorldSelector";
+import { worldScopedSurfaceHref } from "./selectedWorld/worldSelectionNavigation";
 
 type LoadStatus = "loading" | "ready" | "error";
 
@@ -89,6 +92,8 @@ function TiptapSpikeRouteLeasePublisher() {
 }
 
 function MirewardIndex() {
+  const selectedWorld = useSelectedWorld();
+  const worldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   return (
     <main className="launcher-root">
       <IndexSurfacePublisher />
@@ -98,22 +103,22 @@ function MirewardIndex() {
       </header>
 
       <section className="launcher-grid" aria-label="Main surfaces">
-        <a className="launcher-card primary" href="/plan" onClick={interceptPrimaryNavigationClick}>
+        <a className="launcher-card primary" href={worldScopedSurfaceHref("/plan", worldId)} onClick={interceptPrimaryNavigationClick}>
           <span className="launcher-kicker">Plan</span>
           <strong>Prep surface</strong>
           <span>Session prep canvas with reference chips and planning tools.</span>
         </a>
-        <a className="launcher-card" href="/play" onClick={interceptPrimaryNavigationClick}>
+        <a className="launcher-card" href={worldScopedSurfaceHref("/play", worldId)} onClick={interceptPrimaryNavigationClick}>
           <span className="launcher-kicker">Play</span>
           <strong>Runbook table deck</strong>
           <span>Open one exact durable Run and play its bound Runbook.</span>
         </a>
-        <a className="launcher-card" href="/ingest" onClick={interceptPrimaryNavigationClick}>
+        <a className="launcher-card" href={worldScopedSurfaceHref("/ingest", worldId)} onClick={interceptPrimaryNavigationClick}>
           <span className="launcher-kicker">Ingest</span>
           <strong>Memory review</strong>
           <span>Graph Review workbench for reviewing and committing campaign memory.</span>
         </a>
-        <a className="launcher-card" href="/build" onClick={interceptPrimaryNavigationClick}>
+        <a className="launcher-card" href={worldScopedSurfaceHref("/build", worldId)} onClick={interceptPrimaryNavigationClick}>
           <span className="launcher-kicker">Build</span>
           <strong>Worldbuilding source</strong>
           <span>Create and edit worldbuilding workspace documents.</span>
@@ -286,11 +291,19 @@ function LiveControlApp() {
 
 function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   const selectedWorld = useSelectedWorld();
+  const retrySelectedWorld = useRetrySelectedWorld();
   if (selectedWorld.kind === "loading") {
     return <main className="app-status" role="status">Verifying World selection…</main>;
   }
   if (selectedWorld.kind === "error") {
-    return <main className="app-status app-error" role="alert">{selectedWorld.message}</main>;
+    return (
+      <main className="app-status app-error" role="alert">
+        <h1>World selection unavailable</h1>
+        <p>{selectedWorld.message}</p>
+        <button type="button" onClick={retrySelectedWorld}>Retry selection</button>
+        <WorldSelector />
+      </main>
+    );
   }
   const route = appRouteFromLocationSnapshot(locationSnapshot);
   let content;
@@ -307,7 +320,15 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
   } else if (route === "play") {
     content = <PlaySurfacePage />;
   } else if (route === "ingest") {
-    content = <MemoryIngestPage />;
+    // Graph Review reads its exact-run handoff at mount. Back/forward that
+    // changes or clears that identity must replace the old review controller.
+    const params = new URLSearchParams(new URL(locationSnapshot, "http://localhost").search);
+    content = <MemoryIngestPage key={[
+      params.get("extractionRunId") ?? "",
+      params.get("sourceArtifactId") ?? "",
+      params.get("documentId") ?? "",
+      params.get("revision") ?? "",
+    ].join("::")} />;
   } else if (route === "build") {
     content = <BuildSurfacePage />;
   } else {
@@ -323,7 +344,7 @@ function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
         >
           <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
             <SurfaceContextProvider>
-              <PeekRegionProvider>
+              <PeekRegionProvider key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}>
                 {content}
                 <ToolHost />
                 <LegacyProjectionHostAdapter />
