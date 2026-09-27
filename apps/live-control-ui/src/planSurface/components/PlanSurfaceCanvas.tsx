@@ -46,6 +46,13 @@ import { usePlanGraphReferenceResolver } from "../reference/usePlanGraphReferenc
 import { adaptWorldGraphNodeForPlanCard } from "../reference/worldGraphProjectionAdapter";
 import { PlanWorldGraphObjectsPanel } from "./PlanWorldGraphObjectsPanel";
 import { glanceOnlyForGraphReference } from "../../graphReference/openGraphReferencePolicy";
+import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
+import {
+  applyPlanEditProposal,
+  capturePlanEditTarget,
+  type PlanEditBridge,
+  type PlanEditEditorState,
+} from "../agentEdit/planAgentEditProposal";
 import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig } from "../types";
 import "../../tiptap/prepMarkdownThemes.css";
 import "../../tiptap/tiptapSpike.css";
@@ -145,6 +152,7 @@ interface PlanSurfaceCanvasProps {
     retainedCreateId: string | null;
     error: string | null;
   }) => void;
+  onAgentEditBridgeChange?: (bridge: PlanEditBridge | null) => void;
 }
 
 export function PlanSurfaceCanvas(props: PlanSurfaceCanvasProps) {
@@ -187,6 +195,7 @@ function PlanDurableSurfaceCanvas({
   onEditorToolsChange,
   onSaveStatusChange,
   onPlanningDocumentCommitted,
+  onAgentEditBridgeChange,
   shellState,
 }: PlanSurfaceCanvasProps) {
   const canvasWorkTarget = useMemo(() => planShellWorkObject(shellState), [shellState]);
@@ -195,6 +204,7 @@ function PlanDurableSurfaceCanvas({
   const authoringSurface: WorkspaceDocumentLocalSurface =
     documentKind === "runbook" ? "runbook" : "plan";
   const { isLocked, canEdit, toggleLock } = useEditCapability();
+  const selectedWorld = useSelectedWorld();
   const { openGraphReference } = useProjection();
   const {
     resolvePlanReference,
@@ -263,6 +273,41 @@ function PlanDurableSurfaceCanvas({
   }, [onSaveStatusChange, authoring.statusLabel]);
 
   const [editor, setEditor] = useState<Editor | null>(null);
+
+  const agentEditState = useMemo<PlanEditEditorState>(() => ({
+    editor,
+    documentId: planningDocument.documentId,
+    worldId: selectedWorld.kind === "managed" ? selectedWorld.worldId : null,
+    session: sessionDescriptor.liveSession,
+    baseRevision: authoring.snapshot?.loaded_revision ?? null,
+    baseContentSha256: authoring.snapshot?.content_sha256 ?? null,
+    sourceMarkdown: authoring.snapshot?.markdown ?? "",
+    canEdit: canEdit && isEditorInteractive(authoring.phase)
+      && !authoring.exportedMarkdownAuthoritative,
+  }), [
+    editor,
+    planningDocument.documentId,
+    selectedWorld,
+    sessionDescriptor.liveSession,
+    authoring.snapshot,
+    authoring.phase,
+    authoring.exportedMarkdownAuthoritative,
+    canEdit,
+  ]);
+
+  const agentEditBridge = useMemo<PlanEditBridge>(() => ({
+    capture: () => capturePlanEditTarget(agentEditState),
+    apply: (captured, admitted) => applyPlanEditProposal({
+      captured,
+      admitted,
+      current: agentEditState,
+    }),
+  }), [agentEditState]);
+
+  useEffect(() => {
+    onAgentEditBridgeChange?.(agentEditBridge);
+    return () => onAgentEditBridgeChange?.(null);
+  }, [agentEditBridge, onAgentEditBridgeChange]);
 
   const handleEditorChange = useCallback((nextEditor: Editor | null) => {
     authoring.setEditor(nextEditor);

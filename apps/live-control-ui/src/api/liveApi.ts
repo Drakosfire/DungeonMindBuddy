@@ -14,6 +14,8 @@ import type {
   LiveQueryResponse,
   LiveQueryBackend,
   LiveQueryOptions,
+  PlanDocumentEditProposalRequest,
+  PlanDocumentEditProposalResponse,
   LiveSurfaceResponse,
   AddGeneratedStatblockCombatRequest,
   AddGeneratedStatblockCombatResponse,
@@ -1253,6 +1255,15 @@ export async function postLiveQuery(
   return apiFetch<LiveQueryResponse>("/api/live/query", {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+export async function postPlanDocumentEditProposal(
+  request: PlanDocumentEditProposalRequest,
+): Promise<PlanDocumentEditProposalResponse> {
+  return apiFetch<PlanDocumentEditProposalResponse>("/api/live/plan-document-edit/propose", {
+    method: "POST",
+    body: JSON.stringify(request),
   });
 }
 

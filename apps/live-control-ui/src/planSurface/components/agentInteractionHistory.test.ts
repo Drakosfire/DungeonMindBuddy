@@ -107,6 +107,25 @@ describe("agentInteractionHistory", () => {
     localStorage.clear();
   });
 
+  it("keeps bounded reviewed Plan proposal turns in the existing thread", () => {
+    const thread = makeThread();
+    thread.turns[0].backend = "plan_edit";
+    thread.turns[0].planEdit = {
+      proposalSummary: "Opening scene",
+      replacementMarkdown: "> [!READ-ALOUD]\n> The children gather.",
+      applied: true,
+      targetKind: "insert_at_caret",
+    };
+    persistAgentThread(thread);
+    const restored = loadAgentThreadById(thread.campaignId, thread.threadId, thread.documentId);
+    expect(restored?.turns[0].planEdit).toEqual(thread.turns[0].planEdit);
+    expect(restored?.turns[0].backend).toBe("plan_edit");
+
+    thread.turns[0].planEdit.replacementMarkdown = "x".repeat(12_001);
+    persistAgentThread(thread);
+    expect(loadAgentThreadById(thread.campaignId, thread.threadId, thread.documentId)?.turns[0].planEdit).toBeNull();
+  });
+
   it("forces Plan threads to Hermes even when constructed or persisted as Live", () => {
     const created = createAgentInteractionThread("longmont-c2", 22, "plan", "live", "Forced");
     expect(created.activeBackend).toBe("hermes");

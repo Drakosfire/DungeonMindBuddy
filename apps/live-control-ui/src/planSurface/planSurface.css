@@ -5,6 +5,60 @@
   color: var(--fg, var(--text, #e8eaef));
 }
 
+.plan-agent-compose {
+  display: grid;
+  gap: 0.55rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 0.65rem;
+  background: var(--bg-input, #12141a);
+}
+
+.plan-agent-compose h3,
+.plan-agent-compose h4,
+.plan-agent-compose p {
+  margin: 0;
+}
+
+.plan-agent-compose form {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.plan-agent-compose textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.plan-agent-compose-target,
+.plan-agent-compose-review {
+  min-width: 0;
+}
+
+.plan-agent-compose pre {
+  max-height: 12rem;
+  overflow: auto;
+  margin: 0.4rem 0;
+  padding: 0.55rem;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 0.4rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.plan-agent-compose-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (max-width: 700px) {
+  .plan-agent-compose-comparison {
+    grid-template-columns: 1fr;
+  }
+}
+
 .plan-surface-kicker {
   margin: 0 0 0.35rem;
   color: var(--accent, #7aa2f7);

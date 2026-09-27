@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import type { Editor } from "@tiptap/core";
+import { webcrypto } from "node:crypto";
 import type { ComponentProps } from "react";
 import userEvent from "@testing-library/user-event";
 import { useMemo, useState } from "react";
@@ -290,6 +291,7 @@ function fixtureWorkspaceDocumentSnapshot(
 
 describe("PlanSurfaceShell", () => {
   beforeEach(() => {
+    Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
     vi.restoreAllMocks();
     planShellTestEditor = null;
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(worldGraphProjection);
@@ -304,6 +306,101 @@ describe("PlanSurfaceShell", () => {
     localStorage.clear();
     // Default multi-campaign lens matches Ask drawer expectations (Union · C1+C2).
     window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
+  });
+
+  it("bridges the exact managed Plan editor into reviewed Agent composition without direct save", async () => {
+    const worldId = "of-conks-reviewed-edit";
+    const documentId = "44444444-4444-4444-8444-444444444445";
+    const record = fixtureWorkspaceDocumentRecord({
+      document_id: documentId,
+      campaign_id: worldId,
+      target_session: 1,
+      title: "Of Conks Opening",
+      target_relpath: `out/workspace/plan/${documentId}.md`,
+    });
+    const view: PlanViewProjection = {
+      ...mockPlanView,
+      schema_version: "dmb_managed_world_plan_context_v1",
+      world_id: worldId,
+      campaign_id: worldId,
+      session: 1,
+      timeline: [],
+      derived_from: ["managed_world_container"],
+    };
+    const actualDescriptor = await vi.importActual<typeof import("./config/planSessionDescriptor")>(
+      "./config/planSessionDescriptor",
+    );
+    vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementation(actualDescriptor.resolvePlanningDocument);
+    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{
+        schema_version: "dmb_world_container_record_v1",
+        world_id: worldId,
+        name: "Of Conks",
+        source_root_relpath: "corpus/of-conks-test-markdown",
+        created_at: "2026-01-01T00:00:00Z",
+      }],
+    });
+    vi.mocked(liveApi.listWorkspaceDocuments).mockResolvedValue({
+      schema_version: "dmb_workspace_document_registry_v1",
+      records: [record],
+    });
+    vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(record);
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(fixtureWorkspaceDocumentSnapshot({
+      record,
+      markdown: "# Opening\n\nOpening frame",
+      loaded_revision: record.revision,
+    }));
+    vi.mocked(liveApi.postWorldGraphProjection).mockResolvedValue({
+      ...worldGraphProjection,
+      snapshot: {
+        ...worldGraphProjection.snapshot,
+        worldId,
+        campaignId: "",
+        scopeMode: "world",
+      },
+    });
+    const durableWrite = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+    const proposalCall = vi.spyOn(liveApi, "postPlanDocumentEditProposal").mockImplementation(async (request) => ({
+      schema_version: "dmb_plan_document_edit_proposal_v1",
+      document_id: request.document_id,
+      world_id: request.world_id,
+      session: request.session,
+      base_revision: request.base_revision,
+      base_content_sha256: request.base_content_sha256,
+      draft_sha256: request.draft_sha256,
+      target_kind: request.target_kind,
+      selected_text_sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      replacement_markdown: "> [!READ-ALOUD]\n> The children gather at the waystation.",
+      summary: "Read-aloud opening",
+      assumptions: ["Stacy is one of the children."],
+      model: "test-model",
+      model_observed: true,
+      model_latency_ms: 2,
+      wall_latency_ms: 2,
+      usage: null,
+    }));
+    window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+    render(
+      <SelectedWorldProvider locationSnapshot={window.location.href}>
+        <ManagedPlanTestGate planView={view} />
+      </SelectedWorldProvider>,
+    );
+    const user = userEvent.setup();
+    await waitFor(() => expect(planShellTestEditor).not.toBeNull());
+    await user.click(screen.getByRole("button", { name: /Unlock editing/ }));
+    await user.click(await screen.findByRole("button", { name: "Open" }));
+    await user.click(screen.getByRole("button", { name: "Capture Plan target" }));
+    expect(screen.getByTestId("plan-compose-target")).toHaveTextContent("Insert at caret");
+    await user.type(screen.getByLabelText("What should DungeonBuddy write or revise?"), "Write the opening read-aloud.");
+    await user.click(screen.getByRole("button", { name: "Compose proposal" }));
+    await waitFor(() => expect(proposalCall).toHaveBeenCalledTimes(1));
+    expect(proposalCall.mock.calls[0][0]).toMatchObject({ document_id: documentId, world_id: worldId, session: 1 });
+    expect(planShellTestEditor?.getText()).not.toContain("The children gather");
+    await user.click(await screen.findByRole("button", { name: "Apply to draft" }));
+    await waitFor(() => expect(planShellTestEditor?.getText()).toContain("The children gather"));
+    expect(planShellTestEditor?.getJSON().content?.some((item) => item.type === "callout")).toBe(true);
+    expect(durableWrite).not.toHaveBeenCalled();
   });
 
   it("does not restore an old Plan document ID after its World shell unmounts", async () => {
