@@ -106,6 +106,7 @@ stop and rebrief.
 | Modify | `apps/live_control_server/models/world_graph_object_projection.py` | Permit blank campaign for world-scope complete-object reads; keep campaign strict |
 | Modify | `tests/test_world_graph_object_projection.py` | Complete-object request validation and scope mapping |
 | Modify | `apps/live_control_server/services/agent_world_graph_query_context.py` | Validate campaign conditionally by scope mode; preserve resolved mode |
+| Modify | `src/graph_memory/projection/world_projection.py` | Enforce nonblank campaign for campaign-scoped projection requests |
 | Modify | `apps/live_control_server/services/agent_context_assembler.py` | Preserve scope mode and validate campaign conditionally |
 | Modify | `apps/live_control_server/services/agent_runtime.py` | Typed Agent scope mode, if required by propagation |
 | Modify | `apps/live_control_server/services/hermes_agent_runtime.py` | Exact world-mode mapping into Hermes |
@@ -115,7 +116,7 @@ stop and rebrief.
 | Modify | `src/graph_memory/hermes_graph_plugin.py` | Inject authoritative scope mode into graph tools |
 | Modify | `src/graph_memory/retrieval/models.py` | Conditional campaign validation by scope mode |
 | Modify | `tests/test_agent_context_assembler.py`, `tests/test_hermes_agent_runtime.py`, `tests/test_live_query_hermes_graph.py`, `tests/test_hermes_graph_agent.py`, `tests/test_hermes_graph_agent_host.py`, `tests/test_graph_retrieval_interaction.py` | Owning query/service/host/retrieval proof |
-| Create | `tests/test_world_graph_retrieval_contract.py` | Direct conditional scope validation: world with blank campaign accepted; campaign with blank campaign rejected; anchored world remains accepted |
+| Create | `tests/test_world_graph_retrieval_contract.py` | Direct conditional scope validation across projection and retrieval models: world with blank campaign accepted; campaign with blank campaign rejected; anchored world remains accepted |
 
 **Bounded discovery:** up to four additional focused test files under the
 listed UI/server/graph-memory test directories if the named tests cannot
@@ -167,7 +168,7 @@ Existing Plan document persistence is untouched.
 uv run pytest -q tests/test_world_graph_object_projection.py tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py tests/test_world_graph_retrieval_contract.py
 npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/planSurface/reference/planGraphContextRequest.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx src/graphLens/useWorldGraphLensProjection.test.tsx
 npm --prefix apps/live-control-ui run typecheck
-uv run ruff check apps/live_control_server/models/world_graph_object_projection.py apps/live_control_server/services/agent_world_graph_query_context.py apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py apps/live_control_server/services/hermes_graph_agent_contract.py apps/live_control_server/services/hermes_graph_agent.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/retrieval/models.py
+uv run ruff check apps/live_control_server/models/world_graph_object_projection.py apps/live_control_server/services/agent_world_graph_query_context.py apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py apps/live_control_server/services/hermes_graph_agent_contract.py apps/live_control_server/services/hermes_graph_agent.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/projection/world_projection.py src/graph_memory/retrieval/models.py
 git diff --check
 git diff --name-only origin/main...HEAD
 ```
