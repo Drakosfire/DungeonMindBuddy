@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
 import {
@@ -6,6 +6,7 @@ import {
   postCitationFreshness,
   postCitationSource,
   postLiveQuery,
+  postPlanDocumentEditProposal,
   postWorldGraphSourceAnchorRead,
 } from "../../api/liveApi";
 import type {
@@ -18,12 +19,19 @@ import type {
   LegacyPathCitation,
   LiveQueryResponse,
   PlanViewProjection,
+  PlanDocumentEditProposalResponse,
   SourceUnit,
   WorldGraphAnchorCitation,
   WorldGraphProjectionFocus,
   WorldGraphSourceAnchorReadResponse,
 } from "../../api/types";
 import type { PlanSessionDescriptor } from "../types";
+import {
+  admitPlanEditProposal,
+  type AdmittedPlanEditProposal,
+  type CapturedPlanEditTarget,
+  type PlanEditBridge,
+} from "../agentEdit/planAgentEditProposal";
 
 import {
   AGENT_THREAD_SUGGEST_NEW_AFTER_TURNS,
@@ -72,6 +80,8 @@ interface PlanAgentInteractionBarProps {
   readCitationSource?: typeof postCitationSource;
   readGraphSourceAnchor?: typeof postWorldGraphSourceAnchorRead;
   checkCitationFreshness?: typeof postCitationFreshness;
+  agentEditBridge?: PlanEditBridge | null;
+  proposePlanEdit?: typeof postPlanDocumentEditProposal;
 }
 
 type BundleStatus = "idle" | "loading" | "ready" | "error";
@@ -463,6 +473,8 @@ export function PlanAgentInteractionBar({
   readCitationSource = postCitationSource,
   readGraphSourceAnchor = postWorldGraphSourceAnchorRead,
   checkCitationFreshness = postCitationFreshness,
+  agentEditBridge = null,
+  proposePlanEdit = postPlanDocumentEditProposal,
 }: PlanAgentInteractionBarProps) {
   const agentInteraction = useAgentInteraction();
   const selectedWorld = useSelectedWorld();
@@ -498,9 +510,22 @@ export function PlanAgentInteractionBar({
   const [question, setQuestion] = useState("");
   const [askStatus, setAskStatus] = useState<AskStatus>("idle");
   const [askError, setAskError] = useState<string | null>(null);
+  const [composeTarget, setComposeTarget] = useState<CapturedPlanEditTarget | null>(null);
+  const [composeInstruction, setComposeInstruction] = useState("");
+  const [composeStatus, setComposeStatus] = useState<"idle" | "composing" | "ready">("idle");
+  const [composeError, setComposeError] = useState<string | null>(null);
+  const [composeProposal, setComposeProposal] = useState<{
+    captured: CapturedPlanEditTarget;
+    admitted: AdmittedPlanEditProposal;
+    turnId: string;
+    threadId: string;
+  } | null>(null);
   const thread = agentInteraction.activeThread;
   const turns = agentInteraction.turns;
-  const setThread = agentInteraction.updateThread;
+  function setThread(nextThread: AgentInteractionThread) {
+    latestAgentContext.current.thread = nextThread;
+    agentInteraction.updateThread(nextThread);
+  }
   const setTurns = (nextTurns: AgentInteractionTurn[]) => {
     if (thread) agentInteraction.updateThread({ ...thread, turns: nextTurns, updatedAt: new Date().toISOString() });
   };
@@ -527,6 +552,38 @@ export function PlanAgentInteractionBar({
   // not memorySession. World-graph focus uses memorySession when ?session= is set;
   // otherwise focus is world-union (kind: none).
   const querySession = sessionDescriptor.liveSession;
+  const agentContextKey = JSON.stringify([
+    selectedWorld,
+    sessionDescriptor.campaignId,
+    querySession,
+    planningDocumentId,
+  ]);
+  const latestAgentContext = useRef({ key: agentContextKey, thread, mounted: true });
+  const pendingAgentRequest = useRef<symbol | null>(null);
+  const agentContextGeneration = useRef(0);
+  useLayoutEffect(() => {
+    if (latestAgentContext.current.key !== agentContextKey) agentContextGeneration.current += 1;
+    latestAgentContext.current = { key: agentContextKey, thread, mounted: true };
+  }, [agentContextKey, thread]);
+  useLayoutEffect(() => () => {
+    latestAgentContext.current.mounted = false;
+    agentContextGeneration.current += 1;
+  }, []);
+
+  function invalidatePendingAgentResponse() {
+    agentContextGeneration.current += 1;
+  }
+
+  function currentRequestThread(requestThread: AgentInteractionThread, generation: number): AgentInteractionThread {
+    const latest = latestAgentContext.current;
+    if (
+      !latest.mounted
+      || latest.key !== agentContextKey
+      || generation !== agentContextGeneration.current
+      || latest.thread?.threadId !== requestThread.threadId
+    ) throw new Error("Agent context or thread changed. Submit again in the current Plan.");
+    return latest.thread;
+  }
 
   useEffect(() => {
     const { planningDocument } = sessionDescriptor;
@@ -638,6 +695,7 @@ export function PlanAgentInteractionBar({
   }, [open, loadBundle, selectedWorld.kind, sessionDescriptor.campaignId]);
 
   function clearHistory() {
+    invalidatePendingAgentResponse();
     if (thread) {
       agentInteraction.clearThread();
       const nextThread = {
@@ -660,6 +718,7 @@ export function PlanAgentInteractionBar({
   }
 
   function createNewThread() {
+    invalidatePendingAgentResponse();
     const nextThread = createAgentInteractionThread(
       sessionDescriptor.campaignId,
       querySession,
@@ -668,7 +727,7 @@ export function PlanAgentInteractionBar({
       "New prep thread",
       planningDocumentId,
     );
-    agentInteraction.updateThread(nextThread);
+    setThread(nextThread);
     activateThread(nextThread);
     setThreadSwitcherOpen(false);
   }
@@ -688,6 +747,7 @@ export function PlanAgentInteractionBar({
   }
 
   function switchThread(threadId: string) {
+    invalidatePendingAgentResponse();
     const nextThread = agentInteraction.switchThread(threadId);
     if (!nextThread) return;
     activateThread(nextThread);
@@ -709,6 +769,7 @@ export function PlanAgentInteractionBar({
   }
 
   function deleteThread(threadId: string) {
+    invalidatePendingAgentResponse();
     agentInteraction.deleteThread(threadId);
     activateThread(agentInteraction.activeThread);
   }
@@ -848,6 +909,7 @@ export function PlanAgentInteractionBar({
     const trimmed = question.trim();
     if (
       !trimmed
+      || pendingAgentRequest.current
       || askStatus === "asking"
       || !lensAllowsAsk
       || focusValidationPending
@@ -857,8 +919,11 @@ export function PlanAgentInteractionBar({
     }
     setAskStatus("asking");
     setAskError(null);
+    const requestToken = Symbol("ask");
+    pendingAgentRequest.current = requestToken;
+    const requestGeneration = agentContextGeneration.current;
     try {
-      const currentThread = thread ?? createAgentInteractionThread(
+      let currentThread = latestAgentContext.current.thread ?? createAgentInteractionThread(
         sessionDescriptor.campaignId,
         querySession,
         "plan",
@@ -866,6 +931,7 @@ export function PlanAgentInteractionBar({
         threadTitleFromQuestion(trimmed),
         planningDocumentId,
       );
+      setThread(currentThread);
       // Outer campaign/session must match the loaded live packet (Plan descriptor).
       // Graph lens campaign + scopeMode live only in worldGraphContext.
       // Submit-time snapshot from lease-guarded publication only — never
@@ -898,8 +964,9 @@ export function PlanAgentInteractionBar({
           surfaceContext,
         },
       );
+      currentThread = currentRequestThread(currentThread, requestGeneration);
       const nextTurn = turnFromResponse(trimmed, response, "hermes");
-      const nextTurns = [nextTurn, ...turns].slice(0, AGENT_TURN_HISTORY_CAP);
+      const nextTurns = [nextTurn, ...currentThread.turns].slice(0, AGENT_TURN_HISTORY_CAP);
       const isHermesGraphAgentTurn = response.mode === "hermes_graph_agent"
         || response.agent_trace?.mode === "hermes_graph_agent";
       const nextThread: AgentInteractionThread = {
@@ -929,6 +996,128 @@ export function PlanAgentInteractionBar({
     } catch (loadError) {
       setAskStatus("error");
       setAskError(loadError instanceof Error ? loadError.message : "Unable to ask corpus");
+    } finally {
+      if (pendingAgentRequest.current === requestToken) pendingAgentRequest.current = null;
+    }
+  }
+
+  async function captureComposeTarget() {
+    setComposeError(null);
+    setComposeProposal(null);
+    try {
+      if (!agentEditBridge) throw new Error("Open a managed-World Plan editor first.");
+      setComposeTarget(await agentEditBridge.capture());
+      setComposeStatus("idle");
+    } catch (captureError) {
+      setComposeTarget(null);
+      setComposeError(captureError instanceof Error ? captureError.message : "Cannot capture Plan target.");
+    }
+  }
+
+  async function submitCompose(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const instruction = composeInstruction.trim();
+    if (!instruction || !composeTarget || !agentEditBridge || pendingAgentRequest.current) return;
+    setComposeError(null);
+    setComposeStatus("composing");
+    const requestToken = Symbol("compose");
+    pendingAgentRequest.current = requestToken;
+    const requestGeneration = agentContextGeneration.current;
+    const requestThread = latestAgentContext.current.thread ?? createAgentInteractionThread(
+      sessionDescriptor.campaignId,
+      querySession,
+      "plan",
+      "hermes",
+      threadTitleFromQuestion(instruction),
+      planningDocumentId,
+    );
+    setThread(requestThread);
+    try {
+      const currentTarget = await agentEditBridge.capture();
+      currentRequestThread(requestThread, requestGeneration);
+      if (
+        currentTarget.editor !== composeTarget.editor
+        || currentTarget.editorJson !== composeTarget.editorJson
+        || currentTarget.selectionJson !== composeTarget.selectionJson
+        || currentTarget.request.draft_sha256 !== composeTarget.request.draft_sha256
+        || currentTarget.request.document_id !== composeTarget.request.document_id
+        || currentTarget.request.world_id !== composeTarget.request.world_id
+        || currentTarget.request.base_revision !== composeTarget.request.base_revision
+      ) throw new Error("Plan target changed. Capture it again before composing.");
+      const response: PlanDocumentEditProposalResponse = await proposePlanEdit({
+        ...composeTarget.request,
+        instruction,
+        conversation_history: buildHermesConversationHistory(requestThread.turns),
+      });
+      const admitted = await admitPlanEditProposal(composeTarget, response);
+      const currentThread = currentRequestThread(requestThread, requestGeneration);
+      const now = new Date().toISOString();
+      const turnId = crypto.randomUUID();
+      const turn: AgentInteractionTurn = {
+        turnId,
+        askedAt: now,
+        completedAt: now,
+        question: `Compose in Plan: ${instruction}`,
+        answer: `Proposed, not saved: ${response.summary}`,
+        backend: "plan_edit",
+        status: "ok",
+        citations: [],
+        planEdit: {
+          proposalSummary: response.summary,
+          replacementMarkdown: admitted.canonicalMarkdown,
+          applied: false,
+          targetKind: response.target_kind,
+        },
+      };
+      setThread({
+        ...currentThread,
+        documentId: planningDocumentId,
+        title: currentThread.turns.length ? currentThread.title : threadTitleFromQuestion(instruction),
+        updatedAt: now,
+        turns: [turn, ...currentThread.turns].slice(0, AGENT_TURN_HISTORY_CAP),
+        uiState: {
+          traceVisible: currentThread.uiState?.traceVisible ?? false,
+          newThreadSuggestionDismissed: currentThread.uiState?.newThreadSuggestionDismissed ?? false,
+          scrollAnchorTurnId: turnId,
+        },
+      });
+      setComposeProposal({ captured: composeTarget, admitted, turnId, threadId: currentThread.threadId });
+      setComposeStatus("ready");
+    } catch (composeFailure) {
+      setComposeStatus("idle");
+      setComposeProposal(null);
+      setComposeError(composeFailure instanceof Error ? composeFailure.message : "Agent could not compose a Plan edit.");
+    } finally {
+      if (pendingAgentRequest.current === requestToken) pendingAgentRequest.current = null;
+    }
+  }
+
+  async function applyComposeProposal() {
+    if (!composeProposal || !agentEditBridge || pendingAgentRequest.current) return;
+    const requestGeneration = agentContextGeneration.current;
+    setComposeError(null);
+    try {
+      if (thread?.threadId !== composeProposal.threadId) {
+        throw new Error("Agent thread changed. Compose again in the current thread.");
+      }
+      await agentEditBridge.apply(composeProposal.captured, composeProposal.admitted);
+      const currentThread = currentRequestThread(thread!, requestGeneration);
+      const updatedAt = new Date().toISOString();
+      setThread({
+        ...currentThread,
+        updatedAt,
+        turns: currentThread.turns.map((turn) => turn.turnId === composeProposal.turnId
+          ? { ...turn, planEdit: turn.planEdit ? { ...turn.planEdit, applied: true } : null }
+          : turn),
+      });
+      setComposeProposal(null);
+      setComposeTarget(null);
+      setComposeInstruction("");
+      setComposeStatus("idle");
+    } catch (applyFailure) {
+      setComposeError(applyFailure instanceof Error ? applyFailure.message : "Plan proposal is stale.");
+      setComposeProposal(null);
+      setComposeStatus("idle");
     }
   }
 
@@ -1128,12 +1317,17 @@ export function PlanAgentInteractionBar({
                           <div
                             className="plan-agent-chat-bubble plan-agent-chat-bubble-assistant"
                             role="region"
-                            aria-label="Hermes reply"
+                            aria-label={turn.planEdit ? "Plan edit proposal" : "Hermes reply"}
                           >
-                            <p className="plan-surface-kicker">Hermes</p>
+                            <p className="plan-surface-kicker">{turn.planEdit ? "DungeonBuddy · Plan proposal" : "Hermes"}</p>
                             <p className="plan-agent-chat-answer">{turn.answer}</p>
                           </div>
                         </div>
+                        {turn.planEdit ? (
+                          <p className="plan-agent-muted">
+                            Plan proposal · {turn.planEdit.applied ? "Applied to local draft" : "Not applied"}
+                          </p>
+                        ) : null}
                         {turnS1Support ? (
                           <details className="plan-agent-s1-support">
                             <summary>Latest-recap comparison support</summary>
@@ -1147,7 +1341,7 @@ export function PlanAgentInteractionBar({
                             ) : null}
                           </details>
                         ) : null}
-                        <details
+                        {!turn.planEdit ? <details
                           className="plan-agent-turn-inspection"
                           open={false}
                         >
@@ -1374,7 +1568,7 @@ export function PlanAgentInteractionBar({
                             </>
                           )}
                           </div>
-                        </details>
+                        </details> : null}
                       </article>
                     );
                   })}
@@ -1459,6 +1653,76 @@ export function PlanAgentInteractionBar({
             </details>
           </div>
 
+          {selectedWorld.kind === "managed" ? (
+            <section className="plan-agent-compose" aria-label="Compose in Plan">
+              <h3>Compose in Plan</h3>
+              <p className="plan-agent-muted">Choose text or a caret in the unlocked Plan, then capture that exact target.</p>
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => void captureComposeTarget()}
+                disabled={!agentEditBridge || composeStatus === "composing" || askStatus === "asking"}
+              >
+                Capture Plan target
+              </button>
+              {composeTarget ? (
+                <div className="plan-agent-compose-target" data-testid="plan-compose-target">
+                  <strong>{composeTarget.request.target_kind === "replace_selection" ? "Replace selection" : "Insert at caret"}</strong>
+                  <span> · {sessionDescriptor.planningDocument.title}</span>
+                  <pre>{composeTarget.request.selected_text || "[caret insertion]"}</pre>
+                </div>
+              ) : null}
+              {composeTarget ? (
+                <form onSubmit={submitCompose}>
+                  <label htmlFor="plan-agent-compose-instruction">What should DungeonBuddy write or revise?</label>
+                  <textarea
+                    id="plan-agent-compose-instruction"
+                    value={composeInstruction}
+                    onChange={(event) => setComposeInstruction(event.currentTarget.value)}
+                    rows={3}
+                    maxLength={4000}
+                  />
+                  <button type="submit" disabled={!composeInstruction.trim() || composeStatus === "composing" || askStatus === "asking"}>
+                    {composeStatus === "composing" ? "Composing…" : "Compose proposal"}
+                  </button>
+                </form>
+              ) : null}
+              {composeProposal ? (
+                <section className="plan-agent-compose-review" aria-label="Review Plan proposal">
+                  <h4>{composeProposal.admitted.response.summary}</h4>
+                  <p className="plan-agent-muted">Review before applying. This has not changed or saved the Plan.</p>
+                  {composeProposal.admitted.response.assumptions.length ? (
+                    <ul>{composeProposal.admitted.response.assumptions.map((assumption) => <li key={assumption}>{assumption}</li>)}</ul>
+                  ) : null}
+                  <details>
+                    <summary>Generation details</summary>
+                    <p>
+                      Model: {composeProposal.admitted.response.model}
+                      {composeProposal.admitted.response.model_observed ? " (provider-reported)" : " (resolved by runtime)"}
+                    </p>
+                    <p>
+                      Model {composeProposal.admitted.response.model_latency_ms} ms · request wall {composeProposal.admitted.response.wall_latency_ms} ms
+                    </p>
+                    {composeProposal.admitted.response.usage ? (
+                      <p>
+                        Input {composeProposal.admitted.response.usage.input_tokens ?? "unknown"} tokens · output {composeProposal.admitted.response.usage.output_tokens ?? "unknown"} tokens
+                        {composeProposal.admitted.response.usage.cost_usd != null
+                          ? ` · $${composeProposal.admitted.response.usage.cost_usd.toFixed(4)}` : ""}
+                      </p>
+                    ) : null}
+                  </details>
+                  <div className="plan-agent-compose-comparison">
+                    <div><strong>Before</strong><pre>{composeProposal.captured.request.selected_text || "[caret insertion]"}</pre></div>
+                    <div><strong>After</strong><pre>{composeProposal.admitted.canonicalMarkdown}</pre></div>
+                  </div>
+                  <button type="button" disabled={askStatus === "asking"} onClick={() => void applyComposeProposal()}>Apply to draft</button>
+                  <button type="button" onClick={() => { setComposeProposal(null); setComposeStatus("idle"); }}>Discard proposal</button>
+                </section>
+              ) : null}
+              {composeError ? <p className="plan-agent-error" role="alert">{composeError}</p> : null}
+            </section>
+          ) : null}
+
           <form className="plan-agent-ask" onSubmit={submitQuestion}>
             <label>
               <span className="sr-only">Question</span>
@@ -1492,6 +1756,7 @@ export function PlanAgentInteractionBar({
               disabled={
                 !question.trim()
                 || askStatus === "asking"
+                || composeStatus === "composing"
                 || graphContextInitializing
                 || !lensAllowsAsk
               }

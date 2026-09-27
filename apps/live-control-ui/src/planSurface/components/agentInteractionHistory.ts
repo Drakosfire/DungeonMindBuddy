@@ -658,6 +658,25 @@ function isHermesGraphTurn(turn: Pick<AgentInteractionTurn, "backend" | "groundi
     || (turn.backend === "hermes" && Boolean(turn.grounding));
 }
 
+function safePlanEditForPersistence(turn: AgentInteractionTurn): AgentInteractionTurn["planEdit"] {
+  const edit = turn.planEdit;
+  if (!edit || typeof edit !== "object") return null;
+  if (
+    typeof edit.proposalSummary !== "string"
+    || typeof edit.replacementMarkdown !== "string"
+    || typeof edit.applied !== "boolean"
+    || !["replace_selection", "insert_at_caret"].includes(edit.targetKind)
+    || edit.proposalSummary.length > 500
+    || edit.replacementMarkdown.length > 12_000
+  ) return null;
+  return {
+    proposalSummary: edit.proposalSummary,
+    replacementMarkdown: edit.replacementMarkdown,
+    applied: edit.applied,
+    targetKind: edit.targetKind,
+  };
+}
+
 /** Re-validate grounding/citations and re-project Hermes traces on load and write. */
 export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteractionTurn {
   if (isHermesGraphTurn(turn)) {
@@ -667,6 +686,7 @@ export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteract
       : turn.trace;
     return {
       ...turn,
+      planEdit: safePlanEditForPersistence(turn),
       grounding: validated.grounding,
       citations: validated.citations,
       evidenceSnapshots: [],
@@ -679,6 +699,7 @@ export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteract
   const citations = Array.isArray(turn.citations) ? turn.citations : [];
   return {
     ...turn,
+    planEdit: safePlanEditForPersistence(turn),
     citations: citations.filter((citation) => {
       if (!citation || typeof citation !== "object") return false;
       return isLegacyPathCitationForSnapshot(citation) || Boolean((citation as unknown as LegacyPathCitation).path);

@@ -28,6 +28,7 @@ import { formatReviewCampaignLabel, requestedDocumentIdFromLocation } from "./se
 import { EditCapabilityProvider } from "./edit/editCapability";
 import { PlanReferenceProjectionBinding } from "./reference/PlanReferenceProjectionBinding";
 import { PlanGraphReferenceResolverProvider } from "./reference/usePlanGraphReferenceResolver";
+import type { PlanEditBridge } from "./agentEdit/planAgentEditProposal";
 import {
   adoptCreatedPlanIdentity,
   createPlanLocalDraftMetadata,
@@ -57,7 +58,18 @@ function themeStyle(config: PlanSurfaceConfig): CSSProperties {
   return (config.theme.tokens ?? {}) as CSSProperties;
 }
 
-function appChromeToolsPublicationSignature(tools: AppChromeToolsGeneration): string {
+const actionCallbackIds = new WeakMap<() => void, number>();
+let nextActionCallbackId = 0;
+
+function actionCallbackId(callback: () => void): number {
+  const existing = actionCallbackIds.get(callback);
+  if (existing != null) return existing;
+  const next = ++nextActionCallbackId;
+  actionCallbackIds.set(callback, next);
+  return next;
+}
+
+export function appChromeToolsPublicationSignature(tools: AppChromeToolsGeneration): string {
   const generation = tools.tools;
   return JSON.stringify({
     target: tools.target,
@@ -67,6 +79,10 @@ function appChromeToolsPublicationSignature(tools: AppChromeToolsGeneration): st
       action.disabledReason ?? null,
       action.label,
       action.pressed === true,
+      // The exact-document Copy action is bound to the mounted editor. Its
+      // identity changes on remount even when all visible toolbar fields do
+      // not; publishing it also refreshes the sibling Save action.
+      action.id === "plan-copy-markdown" ? actionCallbackId(action.onClick) : null,
     ]),
     sections: (generation.sections ?? []).map((section) => [
       section.id,
@@ -75,6 +91,7 @@ function appChromeToolsPublicationSignature(tools: AppChromeToolsGeneration): st
         action.disabled === true,
         action.disabledReason ?? null,
         action.label,
+        action.id === "plan-copy-markdown" ? actionCallbackId(action.onClick) : null,
       ]),
     ]),
   });
@@ -93,6 +110,10 @@ function shellIdentityFromPlanView(
 }
 
 export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceShellProps) {
+  const [agentEditBridge, setAgentEditBridge] = useState<PlanEditBridge | null>(null);
+  const handleAgentEditBridgeChange = useCallback((bridge: PlanEditBridge | null) => {
+    setAgentEditBridge(bridge);
+  }, []);
   const [locationSearch, setLocationSearch] = useState(
     () => (typeof window !== "undefined" ? window.location.search : ""),
   );
@@ -791,10 +812,15 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
                 onPlanningDocumentCommitted={handlePlanningDocumentCommitted}
                 onBlankPromoted={handleBlankPromoted}
                 onBlankPromotionStateChange={handleBlankPromotionStateChange}
+                onAgentEditBridgeChange={handleAgentEditBridgeChange}
               />
             </div>
           </div>
-          <PlanAgentInteractionBar planView={planView} sessionDescriptor={config.sessionDescriptor} />
+          <PlanAgentInteractionBar
+            planView={planView}
+            sessionDescriptor={config.sessionDescriptor}
+            agentEditBridge={agentEditBridge}
+          />
         </div>
       </PlanGraphReferenceResolverProvider>
     </EditCapabilityProvider>

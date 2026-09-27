@@ -646,7 +646,7 @@ export interface AgentInteractionTurn {
   completedAt?: string | null;
   question: string;
   answer: string;
-  backend: LiveQueryBackend;
+  backend: LiveQueryBackend | "plan_edit";
   status: "ok" | "error" | "partial" | string;
   contextSummary?: AgentInteractionContextSummary;
   citations?: LiveQueryCitation[];
@@ -662,6 +662,46 @@ export interface AgentInteractionTurn {
     lagDisclosure?: string | null;
     admittedRecapExcerpt?: string | null;
   } | null;
+  planEdit?: {
+    proposalSummary: string;
+    replacementMarkdown: string;
+    applied: boolean;
+    targetKind: "replace_selection" | "insert_at_caret";
+  } | null;
+}
+
+export interface PlanDocumentEditProposalRequest {
+  document_id: string;
+  world_id: string;
+  session: number;
+  base_revision: number;
+  base_content_sha256: string;
+  draft_markdown: string;
+  draft_sha256: string;
+  target_kind: "replace_selection" | "insert_at_caret";
+  selected_text: string;
+  instruction: string;
+  conversation_history: { role: "user" | "assistant"; content: string }[];
+}
+
+export interface PlanDocumentEditProposalResponse {
+  schema_version: "dmb_plan_document_edit_proposal_v1";
+  document_id: string;
+  world_id: string;
+  session: number;
+  base_revision: number;
+  base_content_sha256: string;
+  draft_sha256: string;
+  target_kind: "replace_selection" | "insert_at_caret";
+  selected_text_sha256: string;
+  replacement_markdown: string;
+  summary: string;
+  assumptions: string[];
+  model: string;
+  model_observed: boolean;
+  model_latency_ms: number;
+  wall_latency_ms: number;
+  usage: Record<string, number> | null;
 }
 
 export interface AgentInteractionThread {
@@ -832,7 +872,7 @@ export interface AgentInteractionTurnMeta {
   id: string;
   question: string;
   answer: string;
-  backend: LiveQueryBackend;
+  backend: LiveQueryBackend | "plan_edit";
   model: string | null;
   status: string;
   askedAt: string;
