@@ -22,6 +22,10 @@ pr_body_template: |
 **Review authority:** PRIME, then merge under the user's explicit DEMO merge authorization  
 **Runtime/state ownership:** isolated Of Conks witness on API `8813`, UI `5194`, World DB `dungeonmind_demo_ofconks_v1`, APP-STATE DB `dungeonbuddy_application_state_demo_ofconks_v1`; do not touch C1/C2 or the older Of Conks ghost run.
 
+| Field | Contract |
+|---|---|
+| Runtime/state ownership | Serialized API 8813 / UI 5194 and the disposable Of Conks World/APP-STATE DB pair; the older ghost run and C1/C2 are excluded. |
+
 ## §1 Mission and invariant
 
 The fresh Of Conks J1 rehearsal imported an exact committed source and produced
