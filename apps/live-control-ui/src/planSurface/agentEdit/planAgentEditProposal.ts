@@ -98,6 +98,9 @@ export async function capturePlanEditTarget(input: PlanEditEditorState): Promise
     throw new PlanEditGuardError("Select text or place a caret in the Plan editor.");
   }
   const json = editor.getJSON();
+  const editorJson = JSON.stringify(json);
+  const selectionJson = JSON.stringify(editor.state.selection.toJSON());
+  const wholeBulletItem = wholeBulletItemSelection(editor, from, to, selectedText);
   if (markdownToTiptapDoc(input.sourceMarkdown).diagnostics.some((diagnostic) => diagnostic.level === "warning")) {
     throw new PlanEditGuardError("This Plan source cannot round-trip safely; resolve its Markdown warnings first.");
   }
@@ -111,6 +114,16 @@ export async function capturePlanEditTarget(input: PlanEditEditorState): Promise
   if (draftMarkdown.length > 80_000 || selectedText.length > 8_000) {
     throw new PlanEditGuardError("The selected Plan material is too large for one proposal.");
   }
+  const draftSha256 = await sha256(draftMarkdown);
+  // Hashing yields to local edits and navigation. Never combine a pre-hash
+  // body with a post-hash selection, or return an already-stale target.
+  if (
+    editor.isDestroyed
+    || JSON.stringify(editor.getJSON()) !== editorJson
+    || JSON.stringify(editor.state.selection.toJSON()) !== selectionJson
+  ) {
+    throw new PlanEditGuardError("Plan or selection changed while capturing the target. Capture again.");
+  }
   return {
     editor,
     request: {
@@ -120,15 +133,15 @@ export async function capturePlanEditTarget(input: PlanEditEditorState): Promise
       base_revision: input.baseRevision!,
       base_content_sha256: input.baseContentSha256!,
       draft_markdown: draftMarkdown,
-      draft_sha256: await sha256(draftMarkdown),
+      draft_sha256: draftSha256,
       target_kind: targetKind,
       selected_text: selectedText,
     },
     from,
     to,
-    editorJson: JSON.stringify(json),
-    selectionJson: JSON.stringify(editor.state.selection.toJSON()),
-    wholeBulletItem: wholeBulletItemSelection(editor, from, to, selectedText),
+    editorJson,
+    selectionJson,
+    wholeBulletItem,
   };
 }
 
@@ -224,12 +237,21 @@ export async function applyPlanEditProposal(args: {
   captured: CapturedPlanEditTarget;
   admitted: AdmittedPlanEditProposal;
   current: PlanEditEditorState;
+  getCurrent?: () => PlanEditEditorState;
 }): Promise<void> {
   const { captured, admitted } = args;
   const editor = currentEditor(args.current);
   const now = await capturePlanEditTarget(args.current);
+  const live = args.getCurrent?.() ?? args.current;
   if (
-    editor !== captured.editor
+    currentEditor(live) !== editor
+    || editor !== captured.editor
+    || live.documentId !== captured.request.document_id
+    || live.worldId !== captured.request.world_id
+    || live.session !== captured.request.session
+    || live.baseRevision !== captured.request.base_revision
+    || live.baseContentSha256 !== captured.request.base_content_sha256
+    || live.sourceMarkdown !== args.current.sourceMarkdown
     || now.request.document_id !== captured.request.document_id
     || now.request.world_id !== captured.request.world_id
     || now.request.session !== captured.request.session
@@ -269,6 +291,14 @@ export async function applyPlanEditProposal(args: {
     }
   } finally {
     simulated.destroy();
+  }
+  // No await separates this final live-state guard from the single mutation.
+  if (
+    currentEditor(args.getCurrent?.() ?? live) !== editor
+    || JSON.stringify(editor.getJSON()) !== captured.editorJson
+    || JSON.stringify(editor.state.selection.toJSON()) !== captured.selectionJson
+  ) {
+    throw new PlanEditGuardError("Plan or selection changed after the Agent proposal. Compose again.");
   }
   if (!editor.commands.insertContentAt(insertion.range, insertion.content)) {
     throw new PlanEditGuardError("The mounted Plan editor could not apply this proposal.");

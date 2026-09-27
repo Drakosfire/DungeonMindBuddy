@@ -1,6 +1,6 @@
 import { Editor } from "@tiptap/core";
 import { webcrypto } from "node:crypto";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
@@ -67,6 +67,7 @@ function responseFor(
 }
 
 afterEach(() => {
+  vi.restoreAllMocks();
   for (const editor of editors.splice(0)) {
     const element = editor.options.element;
     editor.destroy();
@@ -165,6 +166,75 @@ describe("reviewed Plan edit admission", () => {
     expect(editor.getJSON()).toEqual(body);
     await expect(applyPlanEditProposal({ captured, admitted, current: { ...state, documentId: "plan-2" } })).rejects.toThrow(/changed/);
     await expect(applyPlanEditProposal({ captured, admitted, current: { ...state, baseRevision: 3 } })).rejects.toThrow(/changed/);
+  });
+
+  it("does not capture a mixed target when an edit races the asynchronous draft digest", async () => {
+    const { editor, state } = mountedState();
+    editor.commands.setTextSelection({ from: 7, to: 14 });
+    const originalDigest = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    vi.spyOn(crypto.subtle, "digest").mockImplementationOnce(async (...args) => {
+      await gate;
+      return originalDigest(...args);
+    });
+    const capture = capturePlanEditTarget(state);
+    editor.commands.insertContentAt({ from: 7, to: 14 }, "Changed");
+    editor.commands.setTextSelection({ from: 7, to: 14 });
+    release();
+    await expect(capture).rejects.toThrow(/changed/);
+    expect(editor.getText()).toContain("Changed");
+  });
+
+  it("preserves an edit made during the asynchronous Apply recheck", async () => {
+    const { editor, state } = mountedState();
+    editor.commands.setTextSelection({ from: 7, to: 14 });
+    const captured = await capturePlanEditTarget(state);
+    const selectedDigest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("Opening"));
+    const selectedSha = Array.from(new Uint8Array(selectedDigest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const admitted = await admitPlanEditProposal(captured, {
+      ...responseFor(captured, "Agent text"), selected_text_sha256: selectedSha,
+    });
+    const originalDigest = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    vi.spyOn(crypto.subtle, "digest").mockImplementationOnce(async (...args) => {
+      await gate;
+      return originalDigest(...args);
+    });
+    const apply = applyPlanEditProposal({ captured, admitted, current: state });
+    editor.commands.insertContentAt({ from: 7, to: 14 }, "Changed");
+    editor.commands.setTextSelection({ from: 7, to: 14 });
+    const localEdit = editor.getJSON();
+    release();
+    await expect(apply).rejects.toThrow(/changed/);
+    expect(editor.getJSON()).toEqual(localEdit);
+  });
+
+  it.each([
+    ["lock", { canEdit: false }],
+    ["document", { documentId: "plan-2" }],
+    ["World", { worldId: "world-2" }],
+    ["revision", { baseRevision: 3 }],
+    ["session", { session: 2 }],
+  ] as const)("rechecks the live %s binding after hashing, without mutation", async (_label, change) => {
+    const { editor, state } = mountedState();
+    const captured = await capturePlanEditTarget(state);
+    const admitted = await admitPlanEditProposal(captured, responseFor(captured, "Agent text"));
+    const originalDigest = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    vi.spyOn(crypto.subtle, "digest").mockImplementationOnce(async (...args) => {
+      await gate;
+      return originalDigest(...args);
+    });
+    let live = state;
+    const before = editor.getJSON();
+    const apply = applyPlanEditProposal({ captured, admitted, current: state, getCurrent: () => live });
+    live = { ...state, ...change };
+    release();
+    await expect(apply).rejects.toThrow();
+    expect(editor.getJSON()).toEqual(before);
   });
 
   it.each([

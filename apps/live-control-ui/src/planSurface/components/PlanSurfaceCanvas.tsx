@@ -295,12 +295,21 @@ function PlanDurableSurfaceCanvas({
     canEdit,
   ]);
 
+  const committedAgentEditState = useRef(agentEditState);
+  useLayoutEffect(() => {
+    committedAgentEditState.current = agentEditState;
+    return () => {
+      committedAgentEditState.current = { ...agentEditState, editor: null, canEdit: false };
+    };
+  }, [agentEditState]);
+
   const agentEditBridge = useMemo<PlanEditBridge>(() => ({
     capture: () => capturePlanEditTarget(agentEditState),
     apply: (captured, admitted) => applyPlanEditProposal({
       captured,
       admitted,
       current: agentEditState,
+      getCurrent: () => committedAgentEditState.current,
     }),
   }), [agentEditState]);
 
