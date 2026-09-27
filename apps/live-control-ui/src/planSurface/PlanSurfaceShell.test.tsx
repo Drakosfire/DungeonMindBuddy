@@ -3328,6 +3328,52 @@ describe("PlanSurfaceShell", () => {
       expect(bundle).not.toHaveBeenCalled();
     });
 
+    it("does not author a same-World source document through Plan", async () => {
+      const worldId = "of-conks-cons-demo";
+      const sourceId = "c03fbfcb-79fc-46ae-9124-3f1f7c384c1b";
+      const source = fixtureWorkspaceDocumentRecord({
+        document_id: sourceId,
+        kind: "worldbuilding_source",
+        campaign_id: worldId,
+        title: "Of Conks source",
+      });
+      const managedView: PlanViewProjection = {
+        ...mockPlanView,
+        world_id: worldId,
+        campaign_id: worldId,
+      };
+      const actualDescriptor = await vi.importActual<typeof import("./config/planSessionDescriptor")>(
+        "./config/planSessionDescriptor",
+      );
+      vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementation(
+        actualDescriptor.resolvePlanningDocument,
+      );
+      vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+        schema_version: "dmb_world_container_registry_v1",
+        records: [{
+          schema_version: "dmb_world_container_record_v1",
+          world_id: worldId,
+          name: "Of Conks",
+          source_root_relpath: "corpus/of-conks-cons-demo-markdown",
+          created_at: "2026-01-01T00:00:00Z",
+        }],
+      });
+      vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(source);
+      window.history.pushState({}, "", `/plan?world=${worldId}&documentId=${sourceId}`);
+
+      render(
+        <SelectedWorldProvider locationSnapshot={window.location.href}>
+          <ManagedPlanTestGate planView={managedView} />
+        </SelectedWorldProvider>,
+      );
+
+      await waitFor(() => expect(screen.getByTestId("plan-canvas-authoring-error")).toHaveTextContent(
+        "Plan accepts only Plan or Runbook documents",
+      ));
+      expect(screen.queryByTestId("plan-surface-canvas-editor")).not.toBeInTheDocument();
+      expect(liveApi.createWorkspaceDocument).not.toHaveBeenCalled();
+    });
+
     it("switches the active prep document by exact documentId", async () => {
       mockRegistry(DOC_A, DOC_B);
       mockResolutionByDocumentId();

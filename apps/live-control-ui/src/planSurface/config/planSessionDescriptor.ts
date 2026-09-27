@@ -61,6 +61,9 @@ export function planDocumentOptionLabel(record: WorkspaceDocumentRecord): string
 export function workspaceRecordToPlanDocumentDescriptor(
   record: WorkspaceDocumentRecord,
 ): PlanDocumentDescriptor {
+  if (record.kind !== "plan" && record.kind !== "runbook") {
+    throw new UnsupportedPlanningDocumentKindError(record.document_id, record.kind);
+  }
   return {
     documentId: record.document_id,
     title: record.title,
@@ -71,7 +74,7 @@ export function workspaceRecordToPlanDocumentDescriptor(
     status: record.status,
     contentStatus: record.content_status,
     revision: record.revision,
-    kind: record.kind === "runbook" ? "runbook" : "plan",
+    kind: record.kind,
     description: record.target_session != null
       ? `Session ${record.target_session} preparation board.`
       : undefined,
@@ -206,6 +209,13 @@ export class NoActivePlanningDocumentsError extends Error {
   constructor(campaignId: string) {
     super(`No active planning documents for campaign ${campaignId}`);
     this.name = "NoActivePlanningDocumentsError";
+  }
+}
+
+export class UnsupportedPlanningDocumentKindError extends Error {
+  constructor(documentId: string, kind: WorkspaceDocumentRecord["kind"]) {
+    super(`Document ${documentId} has kind ${kind}. Plan accepts only Plan or Runbook documents. Open this source in Build.`);
+    this.name = "UnsupportedPlanningDocumentKindError";
   }
 }
 
