@@ -385,10 +385,22 @@ that their foundations are absent. Historical slices retain their IDs.
   The existing WorldKeeper consumer has no production caller. Its native
   PostgreSQL proof uses a different repository composition from the ordinary
   reviewed-initialized World read path; compatibility is not established by
-  sharing a World label or a “v3” name. Existing WORLDKEEPER is examining this
-  seam read-only after MIND's clarification request returned no answer.
-  No external merge, bridge, fresh genesis, fake campaign identity or J3
-  successor implementation is authorized by the checkpoint.
+  sharing a World label or a “v3” name. WORLDKEEPER's read-only owner ruling
+  confirms the accepted native runtime cannot consume this legacy parent:
+  `bundle.world_graph` and `KnowledgeRevisionRepository` are distinct durable
+  authorities, and native materialization rejects a legacy parent. A repin or
+  shape wrapper is not a bridge. Preserving this selected World requires an
+  explicitly accepted bridge-genesis, authentic source/evidence translation,
+  and ordinary-read authority selection. A fresh isolated native World would
+  still need a real product initialization/source-admission path, not fixture
+  seeding. That minimum prerequisite is routed to existing MIND for an owner
+  ruling/design; no bridge, external merge or fresh genesis is authorized here.
+  Separately, WORLDKEEPER confirms Buddy's mandatory-campaign mapper is a
+  consumer restriction: a bounded extension can use World-global `scope=()`
+  without a fake campaign, but that does not solve parent/evidence/read authority.
+  Accepted inspected pins: WorldKeeper
+  `49a8620f066ce7ef8972a699020c012f50af9158`, DungeonMind
+  `0f709d76fdc53bac9c9258d1751463ae2c76ca71`. No J3 implementation is active.
 - **DEMO-J4 prepared-checkpoint scope defect:** opening Plan Tools → Statblock
   in Of Conks displays `eldyrwild · longmont-c2` creation defaults. Code
   inspection confirms `LIVE_CONTROL_CREATE_CONTEXT` drives projection
