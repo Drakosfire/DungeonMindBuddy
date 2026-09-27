@@ -1,6 +1,6 @@
 # HANDOFF — DEMO-J3 / V6.4 / CON-READY PLAY-2: persistent vNext authority composition
 
-**Status:** ACTIVE — DEMO-J3 steward activation accepted 2026-09-26
+**Status:** COMPLETE / HISTORICAL — Buddy #779 merged 2026-09-27 at `2ccc96ff2a7d76328578609d5289fd3babcf6442`
 **Execution owner:** `Drakosfire/DungeonMindBuddy` (Buddy composition proof)
 **Roadmap owner:** Buddy `Docs/Roadmaps/ROADMAP-demo.md`, milestone DEMO-J3
 **Kernel context:** DungeonMind V6 consumer/domain phase; V6.4 is this proof label, not a Kernel runtime cutover
@@ -23,6 +23,8 @@ context, but its production/UI write set is disjoint from this proof's two new
 paths and its runtime witness does not own the disposable PLAY-2 database.
 The user explicitly selected this as the next Kernel/DEMO-J3 slice; execution
 is parallel-independent of #775 while remaining serial within DEMO Knowledge/J3.
+
+The activation and acceptance sections below are retained as historical implementation evidence. Their write lease is released; the merged proof does not authorize PLAY-3 or product cutover.
 
 ## 0. Authority and activation
 
@@ -261,3 +263,9 @@ The successor is a fresh DEMO-J3 re-anchor: decide the smallest browser/
 next-turn retrieval integration or external contract repair from the observed
 journey. Do not auto-dispatch PLAY-3 or change the Kernel roadmap phase merely
 because this proof passes.
+
+## 9. Accepted completion record
+
+Buddy PR [#779](https://github.com/Drakosfire/DungeonMindBuddy/pull/779) merged on 2026-09-27 at `2ccc96ff2a7d76328578609d5289fd3babcf6442` from exact accepted head `2d5ab6ade1d89ec608c941093819ea36404fd18e`. PRIME Cycle 1 HOLD review `5331382343` covered `b3eab88b27acc547e76998c7960cd9c06ad31e62`; Cycle 2 PASS review `5331441470` accepted the repaired head. Independent Cycle 2 evidence: four isolated PostgreSQL tests passed with zero skips, 54 PLAY-1/V6.2 regressions passed, scoped Ruff and cumulative diff check passed, and no disposable `dmb_play2_test_*` database remained. The eight default-suite collection errors were inherited on base and head.
+
+`CON_READY_PLAY_2_PERSISTENT_VNEXT_POSTGRES_ACCEPTED` is now recorded for isolated persistent composition only. Source admission, browser interaction, next-turn retrieval, DEMO-J3 human acceptance, and production cutover remain open.

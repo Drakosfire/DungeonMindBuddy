@@ -60,15 +60,17 @@ The next bounded J1 capability is exact world-scope consumption by Plan object
 View and Agent graph retrieval. The projection has `scopeMode=world` and an
 empty `campaignId`; both consumers currently reject that valid shape. The
 handoff `HANDOFF-DEMO-world-scope-plan-reads-v1.md` is ACTIVE on Buddy main
-after the guarded roadmap sync. It is independent of open
-DEMO-J3 PR #779's PostgreSQL test/report lease. The original basic-presentation
+after the guarded roadmap sync. Buddy #779 has since merged at
+`2ccc96ff2a7d76328578609d5289fd3babcf6442`; its isolated PostgreSQL
+proof is accepted and its test/report lease is released. The original basic-presentation
 design STOP resolves to `RESUME_NON_UI` for this observed functional blocker;
 no UI redesign successor is authorized by that decision.
 
 Inherited work: PLAY-1 / Buddy #773 merged at
 `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9` after two review cycles;
-it proves only the in-memory Buddy→WorldKeeper consumer mapping. Next technical
-witnesses remain persistent isolated authority and browser interaction. Basic presentation
+it proves only the in-memory Buddy→WorldKeeper consumer mapping. Buddy #779
+now proves isolated persistent composition; browser interaction, source
+admission, and next-turn retrieval remain open. Basic presentation
 design/dogfood has an existing merged handoff independent of Canvas F5/F6.
 Foundation evidence and exact snapshot PRs are in the reconciliation; refresh at
 activation rather than copying those snapshots into another permanent tracker.
@@ -129,8 +131,9 @@ then ask the agent a factual question requiring the new node. Normal retrieval
 must find it under the same scope/authority; a creation-payload echo is insufficient.
 Reopen after restart.
 
-**Inherited evidence:** PLAY-1 #773; PLAY-2/3 planned successors; V6.2 adapter;
-WorldKeeper #7/#8; CR-U4–U7. Existing in-memory proof does not close this milestone.
+**Inherited evidence:** PLAY-1 #773 and accepted isolated persistent PLAY-2
+#779; PLAY-3 is not dispatched; V6.2 adapter; WorldKeeper #7/#8; CR-U4–U7.
+These proofs do not close the connected DEMO-J3 journey.
 
 **Likely owner:** DEMO Knowledge consumer; external repairs to MIND/WORLDKEEPER.
 
@@ -225,6 +228,16 @@ that their foundations are absent. Historical slices retain their IDs.
   tests, locked sync, Ruff, runtime import and diff check pass; default suite
   retains eight inherited collection errors. No product write route or
   persistent authority changed. No PLAY-2/3 dispatch follows automatically.
+- **DEMO-J3, isolated persistent composition:** integrated, not human-accepted.
+  Buddy #779 accepted head `2d5ab6ade1d89ec608c941093819ea36404fd18e`,
+  merged at `2ccc96ff2a7d76328578609d5289fd3babcf6442` after two formal
+  review cycles (Cycle 1 HOLD `5331382343`, Cycle 2 PASS `5331441470`).
+  Independent Cycle 2 evidence: four isolated PostgreSQL tests, zero skips;
+  54 PLAY-1/V6.2 regressions; scoped Ruff and cumulative diff check pass;
+  no disposable database residue. Token
+  `CON_READY_PLAY_2_PERSISTENT_VNEXT_POSTGRES_ACCEPTED` records this bounded
+  proof only. The ordinary product write route, source admission, next-turn
+  retrieval, restartable browser journey and human J3 acceptance remain open.
 - **DEMO-J1, isolated Of Conks rehearsal:** **blocked after successful source
   import and extraction, before connected Plan/World use.** At Buddy main
   `29fa749c094ab891d5041e6d5f7e09d54176b7bc`, an isolated local pair

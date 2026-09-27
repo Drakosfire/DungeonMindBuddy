@@ -1,6 +1,6 @@
 # DEMO-J3 PLAY-2 — persistent vNext PostgreSQL composition evidence
 
-**Disposition:** IMPLEMENTED / REVIEW CYCLE 1 HOLD REPAIRED
+**Disposition:** ACCEPTED / MERGED — Buddy #779 at `2ccc96ff2a7d76328578609d5289fd3babcf6442`
 **Buddy base:** `58c650e80eee0825c4d713999fcbbd3789856c33`
 **DungeonMind runtime and migration pin:** `0f709d76fdc53bac9c9258d1751463ae2c76ca71`
 **WorldKeeper runtime pin:** `49a8620f066ce7ef8972a699020c012f50af9158`
@@ -49,11 +49,11 @@ and posted HOLD as review `5331382343`. This head repairs both findings: effecti
 DSN routing overrides now fail before I/O, and pre-commit prepared-value identity,
 meaning, and publication metadata tampering fails closed with zero mutation.
 
+PRIME Review Cycle 2 accepted exact head `2d5ab6ade1d89ec608c941093819ea36404fd18e` in review `5331441470`; Buddy #779 then merged at `2ccc96ff2a7d76328578609d5289fd3babcf6442`. Independent Cycle 2 evidence: four isolated PostgreSQL tests passed with zero skips, 54 PLAY-1/V6.2 regressions passed, scoped Ruff and cumulative diff check passed, and no disposable `dmb_play2_test_*` database remained. The default suite retained the same eight inherited collection errors on base and head.
+
 ## Explicitly unproved
 
 This is not a production route, browser journey, source-ingestion witness,
 bridge migration, V2→V3 transition, live Eldyrwild publication, or cutover.
 The fixture evidence reference does not prove source-content persistence.
-DEMO-J3 next-turn retrieval and human acceptance remain open. The token
-`CON_READY_PLAY_2_PERSISTENT_VNEXT_POSTGRES_ACCEPTED` remains unauthorized
-until independent exact-head review and merge.
+DEMO-J3 next-turn retrieval and human acceptance remain open. The token `CON_READY_PLAY_2_PERSISTENT_VNEXT_POSTGRES_ACCEPTED` is accepted for the isolated persistent-composition boundary after Cycle 2 review and merge.
