@@ -1541,6 +1541,8 @@ describe("useBuildWorkspaceDocumentController", () => {
 
     await waitForWorldDocumentUrl(GLASS_ORCHARD_WORLD.world_id, DOC_B);
     expect(result.current.activeRecord).toBeNull();
+    expect(result.current.pendingImportDocumentId).toBeNull();
+    expect(result.current.importError).toBeNull();
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(expect.objectContaining({
       campaign_id: GLASS_ORCHARD_WORLD.world_id,
       world_id: GLASS_ORCHARD_WORLD.world_id,

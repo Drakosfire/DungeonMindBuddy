@@ -528,6 +528,9 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         // selection change to App without asking that controller to resolve
         // the new World's document through its obsolete scope.
         announceSelectedWorldLocationChange();
+        setActivationError(null);
+        persistPendingImportDocumentId(null);
+        importCommittedRef.current = false;
         return true;
       }
       const createState = createControllerRef.current.getState();
