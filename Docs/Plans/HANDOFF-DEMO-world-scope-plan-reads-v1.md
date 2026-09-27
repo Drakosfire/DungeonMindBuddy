@@ -15,15 +15,15 @@ pr_body_template: |
 # HANDOFF — DEMO: consume exact world-scope Plan reads
 
 **Created:** 2026-09-27
-**Status:** BLOCKED — roadmap state sync/lease transfer before dispatch
+**Status:** ACTIVE — DEMO-J1 world-scope Plan read repair
 **Conversation/workstream:** LOCAL DEMO ACCEPTED / DEMO-J1
 **Flow / owner:** DEMO / Buddy Plan and graph-read consumer
 **Direction:** STEWARD → CODE → REVIEW
 **Design authority base:** Buddy `main@58c650e80eee0825c4d713999fcbbd3789856c33` after #778 merge `d41a2cc59bff5e9f6133d774cc932e05e981b7f1`
-**Activation gate:** the DEMO steward resolves the active DEMO-READY design lane's optional roadmap write lease, synchronizes `ROADMAP-demo.md` and its mirror to the actual #778/World-head state, re-anchors fresh `main`, and explicitly changes this handoff to ACTIVE without widening §1
+**Activation gate:** satisfied 2026-09-27. The product owner directed the demo to resume functional work; the optional DEMO-READY roadmap decision sync records `RESUME_NON_UI`; both roadmap copies record #778 and the published World. Re-anchored to Buddy `main@712dbc93fa6721d35cb4a9ccf2b2db950ee709fd` before activation.
 **Dispatch base:** fresh `origin/main` containing this handoff; record the exact SHA
-**PR topology after activation:** parallel-independent of open DEMO-J3 PR #779 at `b3eab88b27acc547e76998c7960cd9c06ad31e62`; #779 owns only a new PostgreSQL integration test and report, and has no behavioral dependency on this read repair. Recheck its exact head/lease before activation.
-**PR authorization after activation:** open/update one PR titled `DEMO: read managed World scope in Plan`; no successor/repair PR. No PR or code lane while BLOCKED.
+**PR topology:** parallel-independent of open DEMO-J3 PR #779 at `b3eab88b27acc547e76998c7960cd9c06ad31e62`; #779 owns only a new PostgreSQL integration test and report, and has no behavioral dependency on this read repair. Exact head rechecked at activation.
+**PR authorization:** open/update one PR titled `DEMO: read managed World scope in Plan`; no successor/repair PR.
 **Runtime/state ownership:** implementation tests use fixtures; the post-implementation browser witness uses the existing isolated Of Conks DB, serialized with its current API/UI processes, never C1/C2 or another lane's database
 
 ## §1 Mission and merge-ready invariant
@@ -64,11 +64,11 @@ stop and rebrief.
 - Named successor: DEMO-J1 Plan authoring/generation and the remaining J1–J6
   journey. This slice does not make extraction complete, make Agent writing
   useful, fix publication qualification, or certify the human demo.
-- Backward-looking state sync: the DEMO steward must update
-  `Docs/Roadmaps/ROADMAP-demo.md` and its byte-identical active mirror in a
-  guarded transaction before dispatch, recording #778 and the actual
-  21-object/5-edge World publication. They are not part of this code lane's
-  lease because the active DEMO-READY design/dogfood handoff names the roadmap.
+- Backward-looking state sync before activation: the DEMO steward updated
+  `Docs/Roadmaps/ROADMAP-demo.md` and its byte-identical active mirror in one
+  guarded transaction, recording #778 and the actual 21-object/5-edge World
+  publication. The implementation PR leases both paths for post-merge
+  evidence/status sync.
 
 | Field | Required content |
 |---|---|
@@ -87,7 +87,7 @@ stop and rebrief.
 | World switch or head change mid-request | Stale answer/object not presented as current | Plan surface + server pin validation |
 | No head, unknown World, malformed scope | Visible unavailable/error; no C2/Eldyrwild fallback | route and UI integration |
 
-## §4 Files in scope — prospective write lease, inactive while BLOCKED
+## §4 Files in scope — ACTIVE write lease
 
 | Action | Path | Purpose |
 |---|---|---|
@@ -100,7 +100,9 @@ stop and rebrief.
 | Modify | `apps/live_control_server/services/hermes_graph_query.py` | Exact dispatch scope propagation, if required |
 | Modify | `src/graph_memory/hermes_graph_plugin.py` | Inject authoritative scope mode into graph tools |
 | Modify | `src/graph_memory/retrieval/models.py` | Conditional campaign validation by scope mode |
-| Modify | `tests/test_agent_context_assembler.py`, `tests/test_hermes_agent_runtime.py`, `tests/test_live_query_hermes_graph.py`, `tests/test_hermes_graph_agent_host.py`, `tests/test_graph_retrieval_interaction.py` | Owning service/host/retrieval proof |
+| Modify | `tests/test_agent_context_assembler.py`, `tests/test_hermes_agent_runtime.py`, `tests/test_live_query_hermes_graph.py`, `tests/test_hermes_graph_agent.py`, `tests/test_hermes_graph_agent_host.py`, `tests/test_graph_retrieval_interaction.py` | Owning service/host/retrieval proof |
+| Create | `tests/test_world_graph_retrieval_contract.py` | Direct conditional scope validation: world with blank campaign accepted; campaign with blank campaign rejected |
+| Modify | `Docs/Roadmaps/ROADMAP-demo.md`, `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` | After merge, record this repair and the newly observed J1 frontier; keep copies synchronized |
 
 **Bounded discovery:** up to four additional focused test files under the
 listed UI/server/graph-memory test directories if the named tests cannot
@@ -146,7 +148,7 @@ may be used as fallback. Existing Plan document persistence is untouched.
 | Backward state truth | Steward's pre-dispatch roadmap sync is byte-identical and accurately describes #778 plus publication, not this PR as merged |
 
 ```bash
-uv run pytest -q tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py
+uv run pytest -q tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py tests/test_world_graph_retrieval_contract.py
 npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.worldScope.test.tsx
 npm --prefix apps/live-control-ui run typecheck
 uv run ruff check apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/retrieval/models.py
@@ -168,7 +170,7 @@ baseline failures, and the remaining demo gaps. Review every distinct head.
 
 ## §9 Acceptance rubric and stop conditions
 
-- [ ] Steward activation and backward-looking roadmap sync preceded the one assigned PR.
+- [x] Steward activation and backward-looking #778/World publication sync preceded dispatch.
 - [ ] The one assigned PR alone owns the listed paths and does not collide with #779.
 - [ ] World scope with empty campaign works in Plan View and actual Ask retrieval.
 - [ ] Campaign scope and adversarial mismatch remain fail-closed.

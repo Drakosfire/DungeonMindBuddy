@@ -35,8 +35,8 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 
 ## Current execution checkpoint
 
-**No integrated rehearsal was performed by the survey. No journey milestone is
-certified complete by the adoption transaction.**
+The end-to-end demo remains unaccepted. Several integration and rehearsal steps
+are now proven; J1–J6 have not passed as a connected journey.
 
 **Latest re-anchor (2026-09-27):** #775–#778 are integrated. #776
 proves ordinary named-World switching across Build, Plan, Ingest and Play on
@@ -45,12 +45,25 @@ adventure Markdown through Buddy's local source-import API and produced one
 reviewable extraction candidate. #777 made all 48 assertions inspectable,
 including 3 nonliteral evidence quotes. #778 enabled explicit literal quote
 correction as a distinct immutable child run; its 48 assertions have zero
-invalid quotes, and an inert first-World prepare accepted 25 objects and 23
-relationships. No governed confirm was called, so the disposable World still
-has no graph head. This is neither a long-file UI import witness nor
-extraction-quality/full-J1 acceptance. The older ghost run remains untouched.
-No successor implementation lane is active; re-anchor before the next bounded
-publication/product-journey decision.
+invalid quotes. The first inert prepare identified three selected relationships
+whose endpoint kinds the current DungeonMind predicate contract does not admit;
+those were explicitly rejected in review. A governed confirmation through the
+normal Buddy product flow published 21 objects and 5 `contains` relationships
+as `rev:22ef509825ee1048efc73a1a1aa4a60c`, with no model call, SQL repair or
+manual ID assignment. This is a reviewed initial World, not a claim that every
+candidate is good or that the extraction profile captures all adventure
+content. The source was imported through the local source-import path; the
+long-file browser import witness remains outstanding. The older ghost run
+remains untouched.
+
+The next bounded J1 capability is exact world-scope consumption by Plan object
+View and Agent graph retrieval. The projection has `scopeMode=world` and an
+empty `campaignId`; both consumers currently reject that valid shape. The
+handoff `HANDOFF-DEMO-world-scope-plan-reads-v1.md` is ACTIVE on Buddy main
+after the guarded roadmap sync. It is independent of open
+DEMO-J3 PR #779's PostgreSQL test/report lease. The original basic-presentation
+design STOP resolves to `RESUME_NON_UI` for this observed functional blocker;
+no UI redesign successor is authorized by that decision.
 
 Inherited work: PLAY-1 / Buddy #773 merged at
 `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9` after two review cycles;
@@ -274,6 +287,15 @@ that their foundations are absent. Historical slices retain their IDs.
   graph A-versus-B isolation. World B had no graph head and truthfully reported
   it unavailable. This is synthetic product routing evidence, not recovery of
   the licensed Of Conks artifacts or full DEMO acceptance.
+- **DEMO-J1 first World publication:** completed through reviewed Buddy
+  extraction correction and the ordinary governed publication flow after #778.
+  The selected candidate contained 25 objects and 23 relationships; three
+  relationships were rejected after DungeonMind returned an explicit
+  endpoint-kind admission error. The reviewed retry published 21 objects and
+  five location `contains` relationships at
+  `rev:22ef509825ee1048efc73a1a1aa4a60c`. Plan's normal projection reads the
+  same head with 21 objects and 5 relationships. This proves a durable World
+  head, not broad extraction quality, all source coverage, or J1 completion.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
