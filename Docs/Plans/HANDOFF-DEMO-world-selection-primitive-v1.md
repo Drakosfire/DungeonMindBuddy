@@ -15,7 +15,7 @@ pr_body_template: |
 # HANDOFF — DEMO: ordinary World selection on stable storage
 
 **Created / activated:** 2026-09-27
-**Status:** ACTIVE — one serial implementation slice
+**Status:** COMPLETE / HISTORICAL — #776 merged; no active write lease
 **Canonical path:** `Docs/Plans/HANDOFF-DEMO-world-selection-primitive-v1.md`
 **Flow / owner:** DEMO / Buddy product integration
 **Direction:** PRIME design → DEMO steward activation → CODE → PRIME review
@@ -23,10 +23,10 @@ pr_body_template: |
 **Design authority base:** `029004be50057fa7f31d50e0b071633ed36f52f9`
 **Activation base:** Buddy `main@029004be50057fa7f31d50e0b071633ed36f52f9` (#775 merge)
 **Activation gate:** satisfied: #775 independently accepted and merged; predecessor authority synchronized in this guarded activation transaction
-**Dispatch base:** fresh `origin/main` containing this ACTIVE handoff; record exact SHA in the PR
-**PR topology:** serial; no open DEMO implementation PR
-**Authorized PR:** open/update exactly one PR titled `DEMO: switch Worlds without reconfiguring storage`, suggested branch `codex/demo-world-picker`; no successor/repair PR without new steward decision.
-**Runtime/state ownership:** serialize ports 8813/5194 and the exact isolated Of Conks DB pair with the predecessor witness; one implementation checkout owns its World/source registry and synthetic corpus roots.
+**Dispatch base:** `62e3b7db219d21d60ee00c8a248b8780bee72e32`
+**PR topology:** serial; completed without a successor implementation PR
+**Completed PR:** [#776](https://github.com/Drakosfire/DungeonMindBuddy/pull/776), accepted head `59f71fe68bac981c275d7bbeb2e1ceab4764edf7`, merged at `4f341eb5ca5edc6c81d5dd956bcea70ff9d9be85` after two formal PRIME review cycles.
+**Runtime/state ownership:** the 8813/5194 and disposable Of Conks DB-pair implementation lease is released. Its synthetic witness state remains local; no C1/C2 authority was changed.
 
 ## §1 Mission and invariant
 
@@ -78,15 +78,21 @@ new tenancy/security contract.
   cataloged run, unconfirmed original candidate, and synthetic World/source.
   Prove A/B switching in **one** deployment/registry and DB pair; do not use
   two deployments as isolation evidence. No paid model call is required.
-- The completed predecessor's mutable-state sync is performed in this activation
-  transaction. During implementation, only correct already-knowable facts in
-  the §4 authority paths; do not pre-mark this slice complete. After its merge,
-  guarded steward sync settles this handoff and both roadmap copies before a
-  dependent dispatch.
-- Named successor: resume the DEMO-J1 imported-adventure journey and remaining
-  Play/knowledge work only after this primitive's actual product witness.
-  Full DEMO, extraction quality, source durability migration and hosted
-  tenancy remain false.
+- The predecessor's mutable-state sync was performed in the activation
+  transaction. This guarded post-merge sync records #776 in this handoff and
+  both roadmap copies before any dependent dispatch. PRIME approved exact head
+  `59f71fe68bac981c275d7bbeb2e1ceab4764edf7` in Review Cycle 2; the
+  accepted witness used two synthetic Worlds in one runtime and DB pair,
+  including exact Run admission, unsaved draft return, alternate import
+  destination, and native graph A-versus-B isolation. The broad frontend suite
+  had 56 failures on both base and head, with three head-only failures passing
+  in isolated reruns; it is not claimed green. Typecheck/build and Ruff failures
+  were traced to unchanged base blobs.
+- Named successor: re-anchor and design the next bounded DEMO-J1
+  imported-adventure/Play-knowledge slice after this primitive's actual product
+  witness. No successor implementation handoff or PR is activated by #776's
+  merge. Full DEMO, licensed Of Conks artifact recovery, extraction quality,
+  source durability migration and hosted tenancy remain false.
 
 ## §3 Observable paths and failure behavior
 
@@ -241,10 +247,10 @@ explicitly approved merge. No implementation self-approval.
 
 ## §9 Acceptance checklist
 
-- [ ] Handoff is ACTIVE and durably on `main` before implementation branch.
-- [ ] One verified selected World scopes every claimed ordinary path.
-- [ ] A/B same-runtime, same-DB browser and DB-backed evidence passes.
-- [ ] Exact object/Run mismatch and stale async response fail closed.
-- [ ] No phantom per-World DB config, new durable pointer or C1/C2 regression.
-- [ ] Exact-head checks, diff lease audit, and PRIME review are complete.
-- [ ] No successor PR or full-DEMO completion claim is made by this slice.
+- [x] Handoff was ACTIVE and durably on `main` before implementation branch.
+- [x] One verified selected World scopes every claimed ordinary path.
+- [x] A/B same-runtime, same-DB browser and DB-backed evidence passes.
+- [x] Exact object/Run mismatch and stale async response fail closed.
+- [x] No phantom per-World DB config, new durable pointer or C1/C2 regression.
+- [x] Exact-head checks, diff lease audit, and PRIME review are complete; inherited baseline failures are recorded above.
+- [x] No successor PR or full-DEMO completion claim is made by this slice.

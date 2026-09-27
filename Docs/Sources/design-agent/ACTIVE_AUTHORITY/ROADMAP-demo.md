@@ -38,11 +38,14 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 **No integrated rehearsal was performed by the survey. No journey milestone is
 certified complete by the adoption transaction.**
 
-**Latest re-anchor (2026-09-27):** #775 is integrated, proving selected
-managed-World preparation context on a disposable synthetic fixture. Ordinary
-World switching is now the one ACTIVE DEMO slice. The original Of Conks run's
-file-backed artifacts are unavailable despite its surviving catalog row; no
-imported-adventure, extraction-quality or full-J1 acceptance is claimed.
+**Latest re-anchor (2026-09-27):** #775 and #776 are integrated. #776 proves
+ordinary named-World switching across Build, Plan, Ingest and Play on one
+runtime and DB pair, using disposable synthetic A/B witnesses. The World
+selection handoff is complete; no successor implementation lane is active.
+The original Of Conks run's file-backed artifacts remain unavailable despite
+its surviving catalog row; no imported-adventure, extraction-quality or
+full-J1 acceptance is claimed. Re-anchor and design the next bounded J1 slice
+before opening its implementation PR.
 
 Inherited work: PLAY-1 / Buddy #773 merged at
 `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9` after two review cycles;
@@ -253,14 +256,19 @@ that their foundations are absent. Historical slices retain their IDs.
   behavior, then a user-approved one-node reviewed initialization and exact
   Plan Ask request routing captured without forwarding to a model. This is
   selected-context evidence, not licensed adventure retrieval or DEMO-J1 PASS.
-- **DEMO-J1 ordinary World selection:** ACTIVE handoff
+- **DEMO-J1 ordinary World selection:** integrated, not full J1 acceptance.
+  Buddy #776 accepted head `59f71fe68bac981c275d7bbeb2e1ceab4764edf7`,
+  merged at `4f341eb5ca5edc6c81d5dd956bcea70ff9d9be85` after two
+  formal PRIME review cycles. Historical handoff:
   [`HANDOFF-DEMO-world-selection-primitive-v1.md`](../Plans/HANDOFF-DEMO-world-selection-primitive-v1.md),
-  adopted from PRIME's pinned OverMind design `936c7c9` after #775 merge.
-  One serial implementation PR may make named World choice scope ordinary
-  Build/Plan/Ingest/Play navigation, inventories and exact admission while
-  both DB URLs stay fixed. The live proof must use two synthetic Worlds in one
-  deployment and DB pair. Plan→Build's stale Plan `documentId` is included.
-  No implementation or merge result is pre-claimed here.
+  adopted from PRIME's pinned OverMind design `936c7c9`. One verified World
+  now scopes ordinary Build/Plan/Ingest/Play navigation, inventories and exact
+  admission while both DB URLs stay fixed. The accepted same-runtime A/B proof
+  covered a Plan→Build stale `documentId`, foreign Run refusal, browser
+  back/forward, an unsaved draft return, alternate source import, and native
+  graph A-versus-B isolation. World B had no graph head and truthfully reported
+  it unavailable. This is synthetic product routing evidence, not recovery of
+  the licensed Of Conks artifacts or full DEMO acceptance.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
