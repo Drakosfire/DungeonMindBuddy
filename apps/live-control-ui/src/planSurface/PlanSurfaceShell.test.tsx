@@ -306,6 +306,22 @@ describe("PlanSurfaceShell", () => {
     window.history.pushState({}, "", "/plan?campaigns=longmont-c1,longmont-c2");
   });
 
+  it("does not restore an old Plan document ID after its World shell unmounts", async () => {
+    let resolveDocument: ((document: ReturnType<typeof fixturePlanDocumentDescriptor>) => void) | undefined;
+    vi.mocked(planSessionDescriptor.resolvePlanningDocument).mockImplementationOnce(
+      () => new Promise((resolve) => { resolveDocument = resolve; }),
+    );
+    window.history.replaceState({}, "", "/plan?world=world-a");
+
+    const rendered = renderPlanSurface();
+    await waitFor(() => expect(planSessionDescriptor.resolvePlanningDocument).toHaveBeenCalled());
+    rendered.unmount();
+    window.history.replaceState({}, "", "/plan?world=world-b");
+    await act(async () => { resolveDocument?.(fixturePlanDocumentDescriptor()); });
+
+    expect(window.location.search).toBe("?world=world-b");
+  });
+
   it("renders context bar prep controls, edit bar, and canvas regions", async () => {
     renderPlanSurface();
     await waitForPlanSurfaceReady();
