@@ -62,6 +62,9 @@ stop and rebrief.
   world_graph_context is missing world_id or campaign_id.` No model answer
   was accepted. `WorldGraphRetrievalRequestContext` also has an unconditional
   `campaign_id` minimum length, and Hermes tool injection omits scope mode.
+  The graph-lens provider also seeds a managed-World projection request with
+  `campaignId=worldId`; its outgoing request must instead carry blank campaign
+  and explicit world mode, not merely rely on a blank-campaign response.
   A focused Plan panel run also exposed a Surface Information descriptor with
   `{kind:"campaign", id:""}` for the valid managed-World request; strict channel
   validation rejects that empty reference before Plan can show the projection.
@@ -112,7 +115,8 @@ stop and rebrief.
 |---|---|---|
 | Modify | `apps/live-control-ui/src/planSurface/reference/planGraphContextRequest.ts` | Stop substituting managed World ID into campaign ID |
 | Modify | `apps/live-control-ui/src/planSurface/reference/planGraphContextRequest.test.ts` | Managed World blank-campaign request and existing anchored-world controls |
-| Modify | `apps/live-control-ui/src/graphLens/useWorldGraphLensProjection.test.tsx` | Preserve existing nonblank narrative-anchor world projection |
+| Modify | `apps/live-control-ui/src/graphLens/useWorldGraphLensProjection.ts` | Seed managed-World projection requests with exact World ID, blank campaign, and explicit world mode |
+| Modify | `apps/live-control-ui/src/graphLens/useWorldGraphLensProjection.test.tsx` | Managed-World blank-campaign request plus existing nonblank narrative-anchor world projection |
 | Modify | `apps/live-control-ui/src/graphLens/worldGraphLensSurfaceInformation.ts` | Omit a blank campaign reference from exact world-scope descriptor and observation inspection targets while retaining nonblank narrative anchors and strict campaign mode |
 | Modify | `apps/live-control-ui/src/graphLens/worldGraphLensSurfaceInformation.test.ts` | Prove world blank-campaign descriptors and observations are valid, campaign blank remains invalid, and nonblank world anchors remain visible |
 | Modify | `apps/live-control-ui/src/api/types.ts` | Carry optional explicit `scopeMode` on complete-object API requests without changing existing nonblank callers |
@@ -122,6 +126,7 @@ stop and rebrief.
 | Modify | `apps/live-control-ui/src/graphReference/ResolvedGraphObjectProjection.tsx` | Pass exact selected graph scope mode to the complete-object hook |
 | Modify | `apps/live-control-ui/src/graphReference/ResolvedGraphObjectProjection.test.tsx` | Prove managed World blank-campaign selected-object request retains explicit world mode and pinned revision |
 | Modify | `apps/live-control-ui/src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx` | Plan object View integration with exact blank-campaign/world projection |
+| Modify | `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` | Product-shaped managed Plan projection → Ask witness: outgoing projection and graph context retain blank campaign while outer document campaign stays bound to World ID |
 | Modify | `apps/live_control_server/models/world_graph_object_projection.py` | Permit blank campaign for world-scope complete-object reads; keep campaign strict |
 | Modify | `tests/test_world_graph_object_projection.py` | Complete-object request validation and scope mapping |
 | Modify | `apps/live_control_server/services/agent_world_graph_query_context.py` | Validate campaign conditionally by scope mode; preserve resolved mode |
@@ -179,6 +184,7 @@ Existing Plan document persistence is untouched.
 |---|---|
 | Conditional blank-campaign rule | Projection, complete-object, retrieval request and UI exact-scope tests: world blank pass, campaign blank fail, invalid mode fail |
 | Existing world anchors | C1/C2 and lens-projection regression: nonblank anchor remains legal under world mode |
+| Managed-World projection request | Provider and Plan shell tests observe outgoing `worldId`, `campaignId:""`, `scopeMode:"world"` before reading the returned snapshot |
 | Surface Information identity | Exact descriptor/observation tests and Plan panel integration: world mode with blank campaign has no empty campaign reference; campaign mode stays strict and nonblank world anchors are retained |
 | Complete-object request scope | Resolved object/hook test observes `campaignId:""`, `scopeMode:"world"`, exact World/node/revision in the outgoing API request; campaign blank without explicit world mode fails server validation |
 | Agent scope propagation | Query-context, Agent assembler + Hermes IPC/runtime mapping tests assert exact world/mode/revision and no synthetic campaign |
@@ -190,7 +196,7 @@ Existing Plan document persistence is untouched.
 
 ```bash
 uv run pytest -q tests/test_world_graph_object_projection.py tests/test_selected_world_plan_context.py tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py tests/test_world_graph_retrieval_contract.py
-npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/graphReference/ResolvedGraphObjectProjection.test.tsx src/planSurface/reference/planGraphContextRequest.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx src/graphLens/useWorldGraphLensProjection.test.tsx src/graphLens/worldGraphLensSurfaceInformation.test.ts
+npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/graphReference/ResolvedGraphObjectProjection.test.tsx src/planSurface/reference/planGraphContextRequest.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx src/planSurface/PlanSurfaceShell.test.tsx src/graphLens/useWorldGraphLensProjection.test.tsx src/graphLens/worldGraphLensSurfaceInformation.test.ts
 npm --prefix apps/live-control-ui run typecheck
 uv run ruff check apps/live_control_server/models/world_graph_object_projection.py apps/live_control_server/routes/live.py apps/live_control_server/services/agent_world_graph_query_context.py apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py apps/live_control_server/services/hermes_graph_agent_contract.py apps/live_control_server/services/hermes_graph_agent.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/projection/world_projection.py src/graph_memory/retrieval/models.py
 git diff --check
