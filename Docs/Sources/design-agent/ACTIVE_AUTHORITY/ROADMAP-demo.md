@@ -401,6 +401,25 @@ that their foundations are absent. Historical slices retain their IDs.
   bounded asset-context repair, which must define truthful world-only scope,
   preserve legacy campaign behavior and fail closed on context drift before
   executing. No C2 fallback or invented campaign may make the witness pass.
+  PRIME's read-only critique confirmed generation needs no new SERVER argument,
+  but found no accepted World-only ThreatDraft contract. The steward's explicit
+  versioned scope decision is now durable in
+  [`HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md`](../Plans/HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md):
+  **BLOCKED on independent design acceptance; no implementation lease or PR**.
+  It proposes one capability: create, generate and reopen a selected-World draft,
+  preserving campaign V1 records and rejecting World-only graph publication.
+  J3 integration, images and Plan placement remain separate.
+- **DEMO-J1 input-pin recheck:** the local purchased
+  `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
+  is still 48,778 bytes / 565 lines, SHA-256
+  `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`.
+  It is human-normalized parsed Markdown, not proof of production PDF parsing.
+  `specimens/02-prepared.md` matches its manufactured-target pin; the actual
+  `playable/hempholm-prep.md` remains at the already recorded `c473329d…`
+  rather than its stale local manifest pin. Do not use either manufactured
+  target as real-generation evidence. Browser Import source currently exposes
+  a Markdown paste field, not a file chooser. No new full-source import was
+  submitted in this checkpoint, so the long-file browser witness remains open.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
