@@ -18,6 +18,8 @@ import { APP_NAV_ITEMS, type AppRouteKey } from "./appChromeConfig";
 import { interceptPrimaryNavigationClick } from "./appNavigation";
 import { AppChromeWorldGraphStatus } from "./AppChromeWorldGraphStatus";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
+import { WorldSelector } from "../selectedWorld/WorldSelector";
+import { worldScopedSurfaceHref } from "../selectedWorld/worldSelectionNavigation";
 
 const callbackIdentityKeys = new WeakMap<() => void, number>();
 let nextCallbackIdentityKey = 1;
@@ -321,8 +323,8 @@ export function AppChrome({
             {APP_NAV_ITEMS.map((item) => (
               <a
                 key={item.href}
-                href={selectedWorld.kind === "managed" && ["plan", "build", "ingest"].includes(item.route ?? "")
-                  ? `${item.href}?world=${encodeURIComponent(selectedWorld.worldId)}`
+                href={item.route && selectedWorld.kind === "managed"
+                  ? worldScopedSurfaceHref(item.href, selectedWorld.worldId)
                   : item.href}
                 className={item.route === activeRoute ? "active" : undefined}
                 onClick={interceptPrimaryNavigationClick}
@@ -331,6 +333,7 @@ export function AppChrome({
               </a>
             ))}
           </div>
+          <WorldSelector />
           <AppChromeWorldGraphStatus />
         </nav>
         <SurfaceContextHost />

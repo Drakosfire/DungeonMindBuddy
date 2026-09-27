@@ -350,7 +350,14 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
     };
     sync();
     window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      // A World switch unmounts this shell while its document lookup can still
+      // be in flight. The old shell must never restore its documentId into the
+      // newly selected World's URL after the response arrives.
+      documentLoadGenerationRef.current += 1;
+      selectorListGenerationRef.current += 1;
+    };
   }, [loadPlanningDocument]);
 
   const handleSelectPlanningDocument = useCallback(

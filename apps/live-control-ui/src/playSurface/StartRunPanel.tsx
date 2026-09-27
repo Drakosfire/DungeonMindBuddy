@@ -41,9 +41,11 @@ type AttemptStatus = "idle" | "starting" | "incomplete" | "blocked" | "replay_cr
 export function StartRunPanel({
   onStarted,
   productCampaignId = null,
+  verifiedWorldId = null,
 }: {
   onStarted: (runId: string) => void;
   productCampaignId?: string | null;
+  verifiedWorldId?: string | null;
 }) {
   const [listStatus, setListStatus] = useState<ListStatus>("loading");
   const [listDetail, setListDetail] = useState<string | null>(null);
@@ -62,12 +64,16 @@ export function StartRunPanel({
   const refreshRunbooks = useCallback(async () => {
     setListStatus("loading");
     setListDetail(null);
-    const listed = await listWorkspaceDocuments({ kind: "runbook", status: "active" });
+    const listed = await listWorkspaceDocuments({
+      kind: "runbook",
+      status: "active",
+      ...(verifiedWorldId ? { campaign_id: verifiedWorldId } : {}),
+    });
     const records = listed.records;
     setRunbooks(records);
     setListStatus(records.length === 0 ? "empty" : "ready");
     return records;
-  }, []);
+  }, [verifiedWorldId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -90,6 +96,13 @@ export function StartRunPanel({
 
   const runAttempt = useCallback(async (phase: StartRunPhase, currentAttempt: StartRunBinding | null) => {
     if (selectedDocumentId == null) return;
+    if (verifiedWorldId && !runbooks.some((record) =>
+      record.document_id === selectedDocumentId && record.campaign_id === verifiedWorldId
+    )) {
+      setAttemptStatus("blocked");
+      setAttemptDetail("Runbook does not belong to the selected World.");
+      return;
+    }
     setAttemptStatus("starting");
     setAttemptDetail(null);
     const result = await executeStartRunAttempt({
@@ -120,7 +133,7 @@ export function StartRunPanel({
     setAttempt(result.binding ?? currentAttempt);
     setAttemptStatus("blocked");
     setAttemptDetail(result.detail);
-  }, [onStarted, selectedDocumentId]);
+  }, [onStarted, runbooks, selectedDocumentId, verifiedWorldId]);
 
   const resolvedCampaignId = resolveBlankRunbookCampaignId(productCampaignId, campaignDraft);
   const showCreate = listStatus === "empty" || listStatus === "ready";

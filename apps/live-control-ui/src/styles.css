@@ -115,6 +115,53 @@ code {
   min-width: 0;
 }
 
+.app-world-selector {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.app-world-selector > button,
+.app-world-selector__menu button {
+  border: 1px solid #565f89;
+  border-radius: 6px;
+  background: #171b24;
+  color: #e8eaef;
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.65rem;
+  cursor: pointer;
+}
+
+.app-world-selector__menu {
+  position: absolute;
+  z-index: 30;
+  right: 0;
+  top: calc(100% + 0.4rem);
+  display: grid;
+  gap: 0.4rem;
+  min-width: 14rem;
+  max-height: min(65vh, 28rem);
+  overflow: auto;
+  padding: 0.7rem;
+  border: 1px solid #565f89;
+  border-radius: 8px;
+  background: #171b24;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.4);
+}
+
+.app-world-selector__menu button {
+  text-align: left;
+}
+
+.app-world-selector__menu button[aria-current="true"] {
+  border-color: #7aa2f7;
+}
+
+.app-world-selector__menu p {
+  margin: 0;
+  color: #e8eaef;
+}
+
 .app-site-nav a {
   padding: 6px 12px;
   border-radius: 6px;

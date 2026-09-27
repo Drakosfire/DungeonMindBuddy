@@ -6,6 +6,7 @@ import {
   buildPlanContextFromPlanView,
   CrossCampaignPlanAdmissionError,
   CrossCampaignRunbookAdmissionError,
+  createStarterContentForPlanDocument,
   createPlanSessionDescriptor,
   defaultPlanTargetRelpath,
   durablePlanTargetRelpath,
@@ -25,6 +26,16 @@ import {
 } from "./planSessionDescriptor";
 
 describe("planSessionDescriptor", () => {
+  it("does not seed a Longmont graph reference into a new managed-World prep", () => {
+    const descriptor = fixturePlanDocumentDescriptor({ campaignId: "world-b" });
+    const session = createPlanSessionDescriptor(
+      { ...mockPlanView, campaign_id: "world-b", world_id: "world-b", session: 0 },
+      descriptor,
+    );
+    const content = JSON.stringify(createStarterContentForPlanDocument(session));
+    expect(content).toContain("this World");
+    expect(content).not.toContain("North Reach Gate");
+  });
   it("does not invent live-1 as the memory session without an explicit override", () => {
     const planningDocument = fixturePlanDocumentDescriptor();
     const sessionDescriptor = createPlanSessionDescriptor(mockPlanView, planningDocument);

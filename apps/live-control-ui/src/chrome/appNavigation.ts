@@ -103,8 +103,13 @@ export function navigatePrimaryAppHref(href: string): void {
   if (!url) return;
   const pathname = normalizeAppPathname(url.pathname);
   if (!isPrimaryAppPathname(pathname)) return;
-  if (normalizeAppPathname(window.location.pathname) === pathname) return;
+  if (normalizeAppPathname(window.location.pathname) === pathname) {
+    const currentWorld = new URLSearchParams(window.location.search).get("world");
+    const nextWorld = url.searchParams.get("world");
+    if (currentWorld === nextWorld) return;
+  }
   const next = `${pathname}${url.search}${url.hash}`;
+  if (getAppLocationSnapshot() === next) return;
   window.history.pushState({}, "", next);
   window.dispatchEvent(new PopStateEvent("popstate"));
 }

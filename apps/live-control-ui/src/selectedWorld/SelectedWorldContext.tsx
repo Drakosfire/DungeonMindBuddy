@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
 
-import { getWorkspaceDocument, listWorldContainers } from "../api/liveApi";
+import { getExtractionRun, getPlayRun, getWorkspaceDocument, listWorldContainers } from "../api/liveApi";
 import type { WorkspaceDocumentRecord, WorldContainerRecord } from "../api/types";
 
 export interface VerifiedManagedWorld {
@@ -17,6 +17,7 @@ export type SelectedWorldState =
   | VerifiedManagedWorld;
 
 const SelectedWorldContext = createContext<SelectedWorldState>({ kind: "legacy" });
+const SelectedWorldRetryContext = createContext<() => void>(() => undefined);
 export const SELECTED_WORLD_LOCATION_CHANGED_EVENT = "dmb:selected-world-location-changed";
 
 export function announceSelectedWorldLocationChange(): void {
@@ -35,6 +36,8 @@ export function getVerifiedManagedWorld(): VerifiedManagedWorld | null {
 export function requestedWorldSelection(locationSnapshot: string): {
   worldId: string | null;
   documentId: string | null;
+  runId: string | null;
+  extractionRunId: string | null;
   explicit: boolean;
 } {
   const url = new URL(locationSnapshot, "http://localhost");
@@ -43,7 +46,13 @@ export function requestedWorldSelection(locationSnapshot: string): {
   const documentId = ["/plan", "/build", "/ingest"].includes(url.pathname)
     ? url.searchParams.get("documentId")?.trim() || null
     : null;
-  return { worldId, documentId, explicit };
+  const runId = !explicit && url.pathname === "/play"
+    ? url.searchParams.get("run")?.trim() || null
+    : null;
+  const extractionRunId = !explicit && !documentId && url.pathname === "/ingest"
+    ? url.searchParams.get("extractionRunId")?.trim() || null
+    : null;
+  return { worldId, documentId, runId, extractionRunId, explicit };
 }
 
 export function verifyManagedWorldSelection(input: {
@@ -80,9 +89,14 @@ export function SelectedWorldProvider({
   children: ReactNode;
 }) {
   const selection = requestedWorldSelection(locationSnapshot);
-  const selectionKey = `${selection.explicit ? "explicit" : "inferred"}::${selection.worldId ?? ""}::${selection.documentId ?? ""}`;
+  const selectionKey = `${selection.explicit ? "explicit" : "inferred"}::${selection.worldId ?? ""}::${selection.documentId ?? ""}::${selection.runId ?? ""}::${selection.extractionRunId ?? ""}`;
+  const [retryGeneration, setRetryGeneration] = useState(0);
   const [loaded, setLoaded] = useState<{ key: string; value: SelectedWorldState } | null>(null);
-  const state: SelectedWorldState = !selection.explicit && !selection.documentId
+  const retry = useCallback(() => {
+    setLoaded(null);
+    setRetryGeneration((current) => current + 1);
+  }, []);
+  const state: SelectedWorldState = !selection.explicit && !selection.documentId && !selection.runId && !selection.extractionRunId
     ? { kind: "legacy" }
     : loaded?.key === selectionKey
       ? loaded.value
@@ -94,7 +108,7 @@ export function SelectedWorldProvider({
   useEffect(() => () => { currentVerifiedManagedWorld = null; }, []);
 
   useEffect(() => {
-    if (!selection.explicit && !selection.documentId) return;
+    if (!selection.explicit && !selection.documentId && !selection.runId && !selection.extractionRunId) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -105,21 +119,51 @@ export function SelectedWorldProvider({
         const document = selection.documentId
           ? await getWorkspaceDocument(selection.documentId)
           : null;
-        if (!selection.explicit && document && !document.world_id
-          && /^longmont-c[12]$/.test(document.campaign_id)) {
+        // An exact Play link can arrive without a World query. Resolve the
+        // server-owned Run before mounting Play, so its campaign cannot be
+        // hydrated under the legacy C1/C2 shell by default.
+        const run = selection.runId ? await getPlayRun(selection.runId) : null;
+        const extractionRun = selection.extractionRunId
+          ? await getExtractionRun(selection.extractionRunId)
+          : null;
+        const extractionCampaignId = extractionRun?.campaign_id?.trim() || null;
+        if (extractionRun && !extractionCampaignId) {
+          throw new Error(`Extraction Run ${selection.extractionRunId} has no campaign binding.`);
+        }
+        if (!selection.explicit && document && /^longmont-c[12]$/.test(document.campaign_id)
+          && (!document.world_id || document.world_id === "eldyrwild")) {
+          if (!cancelled) setLoaded({ key: selectionKey, value: { kind: "legacy" } });
+          return;
+        }
+        if (!selection.explicit && run && /^longmont-c[12]$/.test(run.campaign_id)) {
+          if (!cancelled) setLoaded({ key: selectionKey, value: { kind: "legacy" } });
+          return;
+        }
+        if (!selection.explicit && extractionCampaignId && /^longmont-c[12]$/.test(extractionCampaignId)) {
           if (!cancelled) setLoaded({ key: selectionKey, value: { kind: "legacy" } });
           return;
         }
         const worldResponse = await listWorldContainers();
         if (!cancelled) {
+          const verified = verifyManagedWorldSelection({
+            requestedWorldId: selection.worldId ?? run?.campaign_id ?? extractionCampaignId,
+            document,
+            worlds: worldResponse.records,
+          });
           setLoaded({
             key: selectionKey,
-            value: verifyManagedWorldSelection({
-              requestedWorldId: selection.worldId,
-              document,
-              worlds: worldResponse.records,
-            }),
+            value: verified,
           });
+          if (verified.kind === "managed" && (selection.runId || selection.extractionRunId)
+            && `${window.location.pathname}${window.location.search}${window.location.hash}` === locationSnapshot) {
+            // Run-only deep links need a stable World query before a chooser
+            // transition removes the Run ID. Replace, never create a second
+            // history entry for the same exact object.
+            const canonical = new URL(window.location.href);
+            canonical.searchParams.set("world", verified.worldId);
+            window.history.replaceState({}, "", `${canonical.pathname}${canonical.search}${canonical.hash}`);
+            announceSelectedWorldLocationChange();
+          }
         }
       } catch (error) {
         if (!cancelled) {
@@ -134,11 +178,19 @@ export function SelectedWorldProvider({
       }
     })();
     return () => { cancelled = true; };
-  }, [selectionKey]);
+  }, [selectionKey, retryGeneration, locationSnapshot]);
 
-  return <SelectedWorldContext.Provider value={state}>{children}</SelectedWorldContext.Provider>;
+  return (
+    <SelectedWorldRetryContext.Provider value={retry}>
+      <SelectedWorldContext.Provider value={state}>{children}</SelectedWorldContext.Provider>
+    </SelectedWorldRetryContext.Provider>
+  );
 }
 
 export function useSelectedWorld(): SelectedWorldState {
   return useContext(SelectedWorldContext);
+}
+
+export function useRetrySelectedWorld(): () => void {
+  return useContext(SelectedWorldRetryContext);
 }

@@ -24,6 +24,7 @@ import { useOptionalWorldGraphLens } from "../graphLens";
 import { campaignIdFromProductContext } from "./blankRunbook";
 import { buildPlaySurfaceAgentContext } from "./playSurfaceAgentContext";
 import { StartRunPanel } from "./StartRunPanel";
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import {
   admitNativeRunbook,
   isCanonicalUuid,
@@ -67,8 +68,16 @@ function playChooserQuery(search: string): boolean {
   return params.get("choose") === "1" && !params.has("run");
 }
 
+function playHref(query: Record<string, string>): string {
+  const params = new URLSearchParams();
+  const worldId = new URLSearchParams(window.location.search).get("world");
+  if (worldId) params.set("world", worldId);
+  for (const [key, value] of Object.entries(query)) params.set(key, value);
+  return `/play?${params.toString()}`;
+}
+
 function navigateToRun(runId: string): void {
-  window.history.pushState({}, "", `/play?run=${encodeURIComponent(runId)}`);
+  window.history.pushState({}, "", playHref({ run: runId }));
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -95,12 +104,12 @@ function LocalPlaySetupHint({ message }: { message: string | null | undefined })
 }
 
 function replaceToRun(runId: string): void {
-  window.history.replaceState({}, "", `/play?run=${encodeURIComponent(runId)}`);
+  window.history.replaceState({}, "", playHref({ run: runId }));
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
 function navigateToChooser(): void {
-  window.history.pushState({}, "", "/play?choose=1");
+  window.history.pushState({}, "", playHref({ choose: "1" }));
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 
@@ -190,8 +199,10 @@ function PlaySurfacePublisher({
 }
 
 function PlayChooser({ continuityWarning }: { continuityWarning?: string | null }) {
+  const selectedWorld = useSelectedWorld();
+  const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const world = useOptionalWorldGraphLens();
-  const productCampaignId = campaignIdFromProductContext(world);
+  const productCampaignId = selectedWorldId ?? campaignIdFromProductContext(world);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable" | "recovery_pending">("loading");
   const [detail, setDetail] = useState<string | null>(null);
   const [records, setRecords] = useState<PlayRunRecord[]>([]);
@@ -201,7 +212,7 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
     (async () => {
       setStatus("loading");
       try {
-        const listed = await listPlayRuns();
+        const listed = await listPlayRuns(selectedWorldId ? { campaign_id: selectedWorldId } : {});
         if (cancelled) return;
         setRecords(listed.records);
         setStatus("ready");
@@ -224,7 +235,7 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [selectedWorldId]);
 
   return (
     <main className="play-surface play-chooser" data-testid="play-run-chooser">
@@ -256,7 +267,7 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
             {records.map((record) => (
               <li key={record.run_id}>
                 <a
-                  href={`/play?run=${encodeURIComponent(record.run_id)}`}
+                  href={playHref({ run: record.run_id })}
                   onClick={(event) => {
                     event.preventDefault();
                     navigateToRun(record.run_id);
@@ -273,7 +284,7 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
           </ul>
         ) : null}
       </section>
-      <StartRunPanel onStarted={navigateToRun} productCampaignId={productCampaignId} />
+      <StartRunPanel onStarted={navigateToRun} productCampaignId={productCampaignId} verifiedWorldId={selectedWorldId} />
     </main>
   );
 }
@@ -305,6 +316,8 @@ function statusCopy(status: PlayLoadStatus, detail: string | null): { title: str
 }
 
 export function PlaySurfacePage() {
+  const selectedWorld = useSelectedWorld();
+  const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const locationSearch = useSyncExternalStore(subscribeLocation, playLocationSearch, () => "");
   const runQuery = playRunQuery(locationSearch);
   const chooserQuery = playChooserQuery(locationSearch);
@@ -326,8 +339,24 @@ export function PlaySurfacePage() {
     setAdmission(null);
     setMutationStatus("idle");
     try {
+      // Native readiness may write derived state. Verify the exact Run's
+      // server-owned campaign before asking the server to perform that work.
+      if (selectedWorldId) {
+        const observed = await getPlayRun(runId);
+        if (loadSerialRef.current !== serial) return;
+        if (observed.campaign_id !== selectedWorldId) {
+          setLoadStatus("integrity_failure");
+          setDetail(`Run ${runId} does not belong to World ${selectedWorldId}.`);
+          return;
+        }
+      }
       const loaded = await getPlayRun(runId, { ensureNativeReady: true });
       if (loadSerialRef.current !== serial) return;
+      if (selectedWorldId && loaded.campaign_id !== selectedWorldId) {
+        setLoadStatus("integrity_failure");
+        setDetail(`Run ${runId} does not belong to World ${selectedWorldId}.`);
+        return;
+      }
       let manifest;
       try {
         manifest = await getPlayRunReferenceManifest(loaded.run_id);
@@ -382,6 +411,7 @@ export function PlaySurfacePage() {
           activeWriteQueueRef.current = activeWriteQueueRef.current
             .catch(() => undefined)
             .then(async () => {
+              if (loadSerialRef.current !== serial) return;
               try {
                 await putPlayActiveRun(loaded.run_id);
               } catch (error) {
@@ -406,7 +436,7 @@ export function PlaySurfacePage() {
       setDetail(error instanceof Error ? error.message : null);
       setAdmission(null);
     }
-  }, []);
+  }, [selectedWorldId]);
 
   useEffect(() => {
     if (chooserQuery) {
@@ -437,6 +467,14 @@ export function PlaySurfacePage() {
             setDetail("Resume state is malformed. Choose a Run explicitly.");
             return;
           }
+          if (selectedWorldId) {
+            const activeRun = await getPlayRun(active.run_id);
+            if (loadSerialRef.current !== serial) return;
+            if (activeRun.campaign_id !== selectedWorldId) {
+              setLoadStatus("chooser");
+              return;
+            }
+          }
           replaceToRun(active.run_id);
         } catch (error) {
           if (loadSerialRef.current !== serial) return;
@@ -448,7 +486,7 @@ export function PlaySurfacePage() {
           );
         }
       })();
-      return;
+      return () => { loadSerialRef.current += 1; };
     }
     if (!isCanonicalUuid(runQuery)) {
       loadSerialRef.current += 1;
@@ -461,7 +499,7 @@ export function PlaySurfacePage() {
     return () => {
       loadSerialRef.current += 1;
     };
-  }, [chooserQuery, locationSearch, runQuery, loadExactRun]);
+  }, [chooserQuery, locationSearch, runQuery, loadExactRun, selectedWorldId]);
 
   const v1Deck: NativeRunbookReadyDeck | null =
     loadStatus === "ready" && admission != null && isNativeRunbookReadyV1(admission)

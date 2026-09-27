@@ -15,6 +15,10 @@ import type {
   WorkspaceDocumentSnapshot,
 } from "../api/types";
 import {
+  announceSelectedWorldLocationChange,
+  useSelectedWorld,
+} from "../selectedWorld/SelectedWorldContext";
+import {
   classifyBuildDocumentScope,
   getWorldIdForCampaign,
 } from "../worldGraph/worldGraphSurfaceContext";
@@ -53,6 +57,7 @@ function readDocumentIdFromSearch(search: string): string | null {
 function validateBuildSourceRecord(
   record: WorkspaceDocumentRecord,
   requestedId: string,
+  selectedWorldId: string | null,
 ): WorkspaceDocumentRecord {
   if (record.document_id !== requestedId) {
     throw new Error("Document identity mismatch");
@@ -62,6 +67,11 @@ function validateBuildSourceRecord(
   }
   if (record.status !== "active") {
     throw new Error("Document is not active");
+  }
+  if (selectedWorldId && (
+    record.world_id !== selectedWorldId || record.campaign_id !== selectedWorldId
+  )) {
+    throw new Error(`Source ${requestedId} does not belong to World ${selectedWorldId}.`);
   }
   return record;
 }
@@ -260,6 +270,8 @@ export interface BuildWorkspaceDocumentController {
 }
 
 export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentController {
+  const selectedWorld = useSelectedWorld();
+  const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const [locationSearch, setLocationSearch] = useState(
     () => (typeof window !== "undefined" ? window.location.search : ""),
   );
@@ -319,6 +331,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       const list = await listWorkspaceDocuments({
         kind: "worldbuilding_source",
         status: "active",
+        ...(selectedWorldId ? { campaign_id: selectedWorldId } : {}),
       });
       if (generation !== selectorListGenerationRef.current) return;
       setDocuments(list.records);
@@ -327,7 +340,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       if (generation !== selectorListGenerationRef.current) return;
       setListStatus("error");
     }
-  }, []);
+  }, [selectedWorldId]);
 
   useEffect(() => {
     void refreshDocuments();
@@ -368,7 +381,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
 
       try {
         const snapshot = await getWorkspaceDocumentSnapshot(requestedId);
-        const record = validateBuildSourceRecord(snapshot.record, requestedId);
+        const record = validateBuildSourceRecord(snapshot.record, requestedId, selectedWorldId);
         if (generation !== documentLoadGenerationRef.current) return false;
 
         setActiveRecord(record);
@@ -445,7 +458,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         return false;
       }
     },
-    [persistPendingImportDocumentId, refreshDocuments],
+    [persistPendingImportDocumentId, refreshDocuments, selectedWorldId],
   );
 
   useEffect(() => {
@@ -456,7 +469,11 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     };
     sync();
     window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      documentLoadGenerationRef.current += 1;
+      selectorListGenerationRef.current += 1;
+    };
   }, [loadBuildDocument]);
 
   const selectDocument = useCallback(
@@ -496,6 +513,26 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         record.document_id,
         record.campaign_id,
       );
+      // An explicitly chosen alternate managed destination changes the
+      // verified selection before the newly created document is mounted.
+      if ((selectedWorldId !== null && record.world_id !== selectedWorldId)
+        || (selectedWorldId === null && record.world_id === record.campaign_id)) {
+        const params = new URLSearchParams(search);
+        if (record.world_id === record.campaign_id) {
+          params.set("world", record.world_id);
+        } else {
+          params.delete("world");
+        }
+        window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
+        // The old Build controller owns the previous World. Announce the
+        // selection change to App without asking that controller to resolve
+        // the new World's document through its obsolete scope.
+        announceSelectedWorldLocationChange();
+        setActivationError(null);
+        persistPendingImportDocumentId(null);
+        importCommittedRef.current = false;
+        return true;
+      }
       const createState = createControllerRef.current.getState();
       const canUseCreateControllerActivate =
         createState.record != null &&
@@ -525,7 +562,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       }
       return applied;
     },
-    [loadBuildDocument, persistPendingImportDocumentId],
+    [loadBuildDocument, persistPendingImportDocumentId, selectedWorldId],
   );
 
   const commitSourceImport = useCallback(
@@ -918,6 +955,12 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
   const suggestedDestinationValue = useMemo(() => {
     const activeCampaign = activeRecord?.campaign_id?.trim() ?? "";
     const activeWorld = activeRecord?.world_id?.trim() ?? "";
+    if (selectedWorldId) {
+      const selectedDestination = destinationOptions.find(
+        (option) => option.kind === "world" && option.worldId === selectedWorldId,
+      );
+      if (selectedDestination) return selectedDestination.value;
+    }
 
     // World-level Build sources use campaign_id === world_id. Prefer the
     // kind-qualified world destination before any campaign suggestion so a
@@ -950,7 +993,7 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       if (worldMatch) return worldMatch.value;
     }
     return destinationOptions[0]?.value ?? null;
-  }, [activeRecord?.campaign_id, activeRecord?.world_id, destinationOptions, suggestedCreateCampaignId]);
+  }, [activeRecord?.campaign_id, activeRecord?.world_id, destinationOptions, selectedWorldId, suggestedCreateCampaignId]);
 
   return {
     activeRecord,
