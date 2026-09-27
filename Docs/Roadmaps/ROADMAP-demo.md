@@ -64,9 +64,15 @@ The saved Of Conks Plan opened Hempholm and a real model Ask answered its
 relationship to The Shacks and The Greenfields under the pinned World revision.
 The published evidence anchors are still unreadable; Buddy #783 owns that
 separate provenance defect. This was a bounded Plan-read PASS, not full J1 or
-source-verified grounding. Rehearse the next connected transition from the
-saved Plan—agent prose/component writing and revision across turns—before
-selecting the next implementation slice. Buddy #779 previously merged at
+source-verified grounding. The next connected Plan transition was rehearsed
+on the saved document: when asked to write a Hempholm opening frame into the
+Plan, Agent produced prose only in chat and offered to write it later; on the
+explicit follow-up it acknowledged it has no direct editing access. The Plan
+canvas did not change. This is the first observed J2 blocker: Agent-to-editor
+authoring, not another extraction or prompt tweak. The test used two real
+runtime `gpt-4.1-mini` Hermes turns against the isolated Of Conks World;
+the model override was runtime-only. A bounded edit-proposal/document-authority
+design must precede implementation. Buddy #779 previously merged at
 `2ccc96ff2a7d76328578609d5289fd3babcf6442`; its isolated PostgreSQL
 proof is accepted and its test/report lease is released. The original basic-presentation
 design STOP resolves to `RESUME_NON_UI` for this observed functional blocker;
@@ -323,6 +329,14 @@ that their foundations are absent. Historical slices retain their IDs.
   readable typed locator. Buddy #783 tracks that source-authority gap. Neither
   source-verified grounding nor the editable multi-turn Plan or full J1 journey
   has passed.
+- **DEMO-J2 first broken transition:** two real Plan Agent turns asked for a
+  brief Hempholm opening frame to be written into the selected Plan. The first
+  reply stayed in chat and offered a later direct write; the second explicitly
+  said the Agent cannot edit the document and suggested manual copy/paste.
+  The TipTap canvas remained unchanged. Agent currently receives the selected
+  Plan's metadata, not an authorized edit path into its mounted local draft.
+  Next design must preserve the existing editor's dirty-draft/revision-safe
+  save semantics and make any Agent edit reviewable before application.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
