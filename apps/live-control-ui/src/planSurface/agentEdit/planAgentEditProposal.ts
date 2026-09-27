@@ -180,8 +180,9 @@ function validateFragment(markdown: string): { content: JSONContent[]; canonical
     throw new PlanEditGuardError("Agent proposed unsupported markup, a path, or a graph identity.");
   }
   const parsed = markdownToTiptapDoc(markdown);
-  if (parsed.diagnostics.some((diagnostic) => diagnostic.level === "warning")) {
-    throw new PlanEditGuardError("Agent proposed Markdown the Plan editor cannot import safely.");
+  const importWarning = parsed.diagnostics.find((diagnostic) => diagnostic.level === "warning");
+  if (importWarning) {
+    throw new PlanEditGuardError(`Agent proposed Markdown the Plan editor cannot import safely: ${importWarning.message}`);
   }
   if (semanticMarkdownSerializationDiagnostics(parsed.doc).length) {
     throw new PlanEditGuardError("Agent proposed a component the Plan editor cannot serialize safely.");

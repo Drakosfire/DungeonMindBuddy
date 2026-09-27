@@ -86,15 +86,15 @@ describe("mounted Plan reviewed edit integration", () => {
 
   it("applies a prose + two-component proposal locally, then saves and reloads the exact Plan", async () => {
     let storedMarkdown = sourceMarkdown;
-    let committed = false;
+    let revision = record.revision;
     const snapshot = (): WorkspaceDocumentSnapshot => ({
       schema_version: "dmb_workspace_document_snapshot_v1",
-      record: committed ? { ...record, revision: record.revision + 1, content_status: "committed" } : record,
+      record: revision > record.revision ? { ...record, revision, content_status: "committed" } : record,
       markdown: storedMarkdown,
-      content_sha256: committed ? savedSha : originalSha,
-      file_fingerprint: committed ? "file-fp-2" : "file-fp-1",
+      content_sha256: revision > record.revision ? savedSha : originalSha,
+      file_fingerprint: revision > record.revision ? "file-fp-2" : "file-fp-1",
       file_exists: true,
-      loaded_revision: committed ? record.revision + 1 : record.revision,
+      loaded_revision: revision,
     });
     vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockImplementation(async () => snapshot());
     const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockImplementation(async () => ({
@@ -113,15 +113,15 @@ describe("mounted Plan reviewed edit integration", () => {
     } as never));
     const commit = vi.spyOn(liveApi, "commitTiptapMarkdownWrite").mockImplementation(async (request) => {
       storedMarkdown = request.markdown;
-      committed = true;
+      revision += 1;
       return {
         schema_version: "dmb_tiptap_markdown_write_commit_v1",
         document_id: record.document_id,
         title: record.title,
         target_relpath: record.target_relpath,
         target_display_path: record.target_relpath,
-        registry_revision: record.revision + 1,
-        committed_revision: record.revision + 1,
+        registry_revision: revision,
+        committed_revision: revision,
         committed_record: snapshot().record,
         normalized_content_sha256: savedSha,
         writer_ok: true,
@@ -197,10 +197,50 @@ describe("mounted Plan reviewed edit integration", () => {
     expect(prepare.mock.calls[0][0].markdown).toContain("[!DECISION-CONSEQUENCE]");
     await waitFor(() => expect(screen.getByTestId("save-status")).toHaveTextContent(/Committed/i));
 
+    await waitFor(() => expect(bridge).not.toBeNull());
+    const currentEditor = (await bridge!.capture()).editor;
+    let phraseFrom = -1;
+    currentEditor.state.doc.descendants((node, position) => {
+      if (node.isText && node.text?.includes("Stacy waits")) phraseFrom = position + node.text.indexOf("Stacy");
+    });
+    expect(phraseFrom).toBeGreaterThan(0);
+    await act(async () => { currentEditor.commands.setTextSelection({ from: phraseFrom, to: phraseFrom + "Stacy".length }); });
+    const revisionTarget = await bridge!.capture();
+    const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("Stacy"));
+    const selectedSha = Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+    const revisionProposal = await admitPlanEditProposal(revisionTarget, {
+      schema_version: "dmb_plan_document_edit_proposal_v1",
+      document_id: revisionTarget.request.document_id,
+      world_id: revisionTarget.request.world_id,
+      session: revisionTarget.request.session,
+      base_revision: revisionTarget.request.base_revision,
+      base_content_sha256: revisionTarget.request.base_content_sha256,
+      draft_sha256: revisionTarget.request.draft_sha256,
+      target_kind: revisionTarget.request.target_kind,
+      selected_text_sha256: selectedSha,
+      replacement_markdown: "Mara",
+      summary: "Revise one phrase",
+      assumptions: [],
+      model: "test-model",
+      model_observed: true,
+      model_latency_ms: 1,
+      wall_latency_ms: 1,
+      usage: null,
+    });
+    await act(async () => { await bridge!.apply(revisionTarget, revisionProposal); });
+    expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveTextContent("Mara waits beside the gate");
+    await waitFor(() => expect(tools?.tools.sections.flatMap((section) => section.actions)
+      .find((action) => action.id === "plan-save-markdown")?.disabled).toBe(false));
+    const secondSave = tools!.tools.sections.flatMap((section) => section.actions)
+      .find((action) => action.id === "plan-save-markdown");
+    await act(async () => { secondSave?.onClick?.(); });
+    await waitFor(() => expect(commit).toHaveBeenCalledTimes(2));
+    expect(storedMarkdown).toContain("Mara waits beside the gate");
+
     mounted.unmount();
     bridge = null;
     render(<MountedPlan {...callbacks} />);
-    await waitFor(() => expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveTextContent("Stacy remembers the kindness."));
-    expect(commit).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(screen.getByTestId("plan-surface-canvas-editor")).toHaveTextContent("Mara waits beside the gate"));
+    expect(commit).toHaveBeenCalledTimes(2);
   });
 });

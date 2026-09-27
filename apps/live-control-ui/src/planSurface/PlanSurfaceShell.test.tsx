@@ -69,7 +69,7 @@ import {
   retainCreatedPlan,
   type PlanAuthoringShellState,
 } from "./planBlankAuthoringState";
-import { PlanSurfaceShell } from "./PlanSurfaceShell";
+import { appChromeToolsPublicationSignature, PlanSurfaceShell } from "./PlanSurfaceShell";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
 import { createPlanSurfaceConfig } from "./config/planSurfaceConfig";
 import { createPlanSessionDescriptor } from "./config/planSessionDescriptor";
@@ -290,6 +290,25 @@ function fixtureWorkspaceDocumentSnapshot(
 }
 
 describe("PlanSurfaceShell", () => {
+  it("re-publishes editor actions when their handlers change without a visible toolbar change", () => {
+    const oldCopy = vi.fn();
+    const newCopy = vi.fn();
+    const tools = (onClick: () => void): AppChromeToolsGeneration => ({
+      target: { kind: "plan", id: "same-document" },
+      tools: {
+        sections: [{
+          id: "markdown-export",
+          title: "Markdown export",
+          actions: [{ id: "plan-copy-markdown", label: "Copy Markdown", onClick }],
+        }],
+      },
+    });
+    expect(appChromeToolsPublicationSignature(tools(oldCopy)))
+      .not.toBe(appChromeToolsPublicationSignature(tools(newCopy)));
+    expect(appChromeToolsPublicationSignature(tools(oldCopy)))
+      .toBe(appChromeToolsPublicationSignature(tools(oldCopy)));
+  });
+
   beforeEach(() => {
     Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
     vi.restoreAllMocks();
