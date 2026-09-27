@@ -56,11 +56,17 @@ content. The source was imported through the local source-import path; the
 long-file browser import witness remains outstanding. The older ghost run
 remains untouched.
 
-The next bounded J1 capability is exact world-scope consumption by Plan object
-View and Agent graph retrieval. The projection has `scopeMode=world` and an
-empty `campaignId`; both consumers currently reject that valid shape. The
-handoff `HANDOFF-DEMO-world-scope-plan-reads-v1.md` is ACTIVE on Buddy main
-after the guarded roadmap sync. Buddy #779 has since merged at
+Buddy #782 now supplies exact world-scope consumption by Plan object View,
+Agent graph retrieval, grounding, and source-citation requests. PRIME passed
+the exact `5762cf335593e9836ec07a40a7ba1632741f7231` head in one formal
+review cycle; it merged at `9d31fef89e74a4e8b1f6fd9a5d4f9ed98f283437`.
+The saved Of Conks Plan opened Hempholm and a real model Ask answered its
+relationship to The Shacks and The Greenfields under the pinned World revision.
+The published evidence anchors are still unreadable; Buddy #783 owns that
+separate provenance defect. This was a bounded Plan-read PASS, not full J1 or
+source-verified grounding. Rehearse the next connected transition from the
+saved Plan—agent prose/component writing and revision across turns—before
+selecting the next implementation slice. Buddy #779 previously merged at
 `2ccc96ff2a7d76328578609d5289fd3babcf6442`; its isolated PostgreSQL
 proof is accepted and its test/report lease is released. The original basic-presentation
 design STOP resolves to `RESUME_NON_UI` for this observed functional blocker;
@@ -309,6 +315,14 @@ that their foundations are absent. Historical slices retain their IDs.
   `rev:22ef509825ee1048efc73a1a1aa4a60c`. Plan's normal projection reads the
   same head with 21 objects and 5 relationships. This proves a durable World
   head, not broad extraction quality, all source coverage, or J1 completion.
+- **DEMO-J1 managed-World Plan read:** Buddy #782 passed one exact-head PRIME
+  review cycle and merged at `9d31fef89e74a4e8b1f6fd9a5d4f9ed98f283437`.
+  The saved Of Conks Plan opened Hempholm and a real Agent turn retrieved the
+  pinned World under explicit world scope with a blank campaign ID. Its answer
+  remained `partial_coverage`: the current published source anchors have no
+  readable typed locator. Buddy #783 tracks that source-authority gap. Neither
+  source-verified grounding nor the editable multi-turn Plan or full J1 journey
+  has passed.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file

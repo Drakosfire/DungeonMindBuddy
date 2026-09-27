@@ -15,7 +15,7 @@ pr_body_template: |
 # HANDOFF — DEMO: consume exact world-scope Plan reads
 
 **Created:** 2026-09-27
-**Status:** ACTIVE — DEMO-J1 world-scope Plan read repair, rebriefed after #779 merge
+**Status:** COMPLETE / HISTORICAL — Buddy #782 merged at `9d31fef89e74a4e8b1f6fd9a5d4f9ed98f283437` after one formal exact-head PRIME review cycle; write lease released
 **Conversation/workstream:** LOCAL DEMO ACCEPTED / DEMO-J1
 **Flow / owner:** DEMO / Buddy Plan and graph-read consumer
 **Direction:** STEWARD → CODE → REVIEW
@@ -26,6 +26,15 @@ pr_body_template: |
 **PR topology:** serial within DEMO-J1. The separately authorized Interaction Map Build experiment is parallel-independent only for its two new `agentInteraction/semanticActionProjection*` files and fixture-only runtime; it does not lease this slice's paths or Of Conks database.
 **PR authorization:** open/update one PR titled `DEMO: read managed World scope in Plan`; no successor/repair PR.
 **Runtime/state ownership:** implementation tests use fixtures; the post-implementation browser witness uses the existing isolated Of Conks DB, serialized with its current API/UI processes, never C1/C2 or another lane's database
+
+**Accepted outcome:** Plan consumes the published managed World with explicit
+world scope, blank campaign, and pinned revision through object View, Agent,
+retrieval, grounding, and source-citation requests. The exact-head browser
+witness opened Hempholm and answered a real Ask about The Shacks and The
+Greenfields. Published Of Conks source anchors remain unreadable
+(`locatorKind=unsupported`); [Buddy #783](https://github.com/Drakosfire/DungeonMindBuddy/issues/783)
+owns that separate publication-provenance defect. This merge does not certify
+source-verified grounding or DEMO-J1 acceptance.
 
 ## §1 Mission and merge-ready invariant
 
