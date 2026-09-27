@@ -68,6 +68,11 @@ stop and rebrief.
   The shared selected-object hook also omits `scopeMode` from its complete-object
   API request, so the managed World must carry explicit `world` mode through that
   existing hook rather than asking the server to infer it from a blank campaign.
+  A route-level guard in `post_live_query` still requires a managed World's nested
+  graph `campaign_id` to equal its World ID. That rejects the correct blank-campaign
+  request before Agent assembly; the route must instead require exact World ID,
+  explicit world mode, and blank nested campaign while leaving the outer managed
+  Plan/document campaign binding intact.
 - PLAY-2 #779 merged at `2ccc96ff2a7d76328578609d5289fd3babcf6442`;
   its test/report lease is released. Its persistent composition proof does not
   change this Plan-read contract. The Interaction Map experiment owns only its
@@ -120,6 +125,7 @@ stop and rebrief.
 | Modify | `apps/live_control_server/models/world_graph_object_projection.py` | Permit blank campaign for world-scope complete-object reads; keep campaign strict |
 | Modify | `tests/test_world_graph_object_projection.py` | Complete-object request validation and scope mapping |
 | Modify | `apps/live_control_server/services/agent_world_graph_query_context.py` | Validate campaign conditionally by scope mode; preserve resolved mode |
+| Modify | `apps/live_control_server/routes/live.py` | Accept exact managed-World graph scope with explicit world mode and blank nested campaign; retain exact outer World/Plan binding and C1/C2 routing |
 | Modify | `src/graph_memory/projection/world_projection.py` | Enforce nonblank campaign for campaign-scoped projection requests |
 | Modify | `apps/live_control_server/services/agent_context_assembler.py` | Preserve scope mode and validate campaign conditionally |
 | Modify | `apps/live_control_server/services/agent_runtime.py` | Typed Agent scope mode, if required by propagation |
@@ -130,6 +136,7 @@ stop and rebrief.
 | Modify | `src/graph_memory/hermes_graph_plugin.py` | Inject authoritative scope mode into graph tools |
 | Modify | `src/graph_memory/retrieval/models.py` | Conditional campaign validation by scope mode |
 | Modify | `tests/test_agent_context_assembler.py`, `tests/test_hermes_agent_runtime.py`, `tests/test_live_query_hermes_graph.py`, `tests/test_hermes_graph_agent.py`, `tests/test_hermes_graph_agent_host.py`, `tests/test_graph_retrieval_interaction.py` | Owning query/service/host/retrieval proof |
+| Modify | `tests/test_selected_world_plan_context.py` | Managed-World live-query route accepts only exact World-mode blank-campaign graph context while preserving outer World/Plan validation and legacy C1/C2 control |
 | Create | `tests/test_world_graph_retrieval_contract.py` | Direct conditional scope validation across projection and retrieval models: world with blank campaign accepted; campaign with blank campaign rejected; anchored world remains accepted |
 
 **Bounded discovery:** up to four additional focused test files under the
@@ -175,16 +182,17 @@ Existing Plan document persistence is untouched.
 | Surface Information identity | Exact descriptor/observation tests and Plan panel integration: world mode with blank campaign has no empty campaign reference; campaign mode stays strict and nonblank world anchors are retained |
 | Complete-object request scope | Resolved object/hook test observes `campaignId:""`, `scopeMode:"world"`, exact World/node/revision in the outgoing API request; campaign blank without explicit world mode fails server validation |
 | Agent scope propagation | Query-context, Agent assembler + Hermes IPC/runtime mapping tests assert exact world/mode/revision and no synthetic campaign |
+| Managed-World route | Route test sends blank nested campaign with explicit world mode and proves exact outer World/document binding; a nonblank/fabricated nested campaign and cross-World request fail closed |
 | Tool authority | Host/plugin test supplies hostile model scope and observes authoritative injected scope |
 | Real retrieval | Query-route/integration test reaches world-scope graph retrieval and returns a known object/evidence; C1/C2 controls remain green |
 | Product transition | Exact-head browser: reopen saved Of Conks Plan, View Hempholm, Ask one grounded question, inspect response and query receipt; no C2/Eldyrwild fallback |
 | Backward state truth | Steward's pre-dispatch roadmap sync is byte-identical and accurately describes #778 plus publication, not this PR as merged |
 
 ```bash
-uv run pytest -q tests/test_world_graph_object_projection.py tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py tests/test_world_graph_retrieval_contract.py
+uv run pytest -q tests/test_world_graph_object_projection.py tests/test_selected_world_plan_context.py tests/test_agent_context_assembler.py tests/test_hermes_agent_runtime.py tests/test_live_query_hermes_graph.py tests/test_hermes_graph_agent.py tests/test_hermes_graph_agent_host.py tests/test_graph_retrieval_interaction.py tests/test_world_graph_retrieval_contract.py
 npm --prefix apps/live-control-ui test -- src/graphReference/resolveGraphReference.test.ts src/graphReference/ResolvedGraphObjectProjection.test.tsx src/planSurface/reference/planGraphContextRequest.test.ts src/planSurface/components/PlanWorldGraphObjectsPanel.test.tsx src/graphLens/useWorldGraphLensProjection.test.tsx src/graphLens/worldGraphLensSurfaceInformation.test.ts
 npm --prefix apps/live-control-ui run typecheck
-uv run ruff check apps/live_control_server/models/world_graph_object_projection.py apps/live_control_server/services/agent_world_graph_query_context.py apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py apps/live_control_server/services/hermes_graph_agent_contract.py apps/live_control_server/services/hermes_graph_agent.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/projection/world_projection.py src/graph_memory/retrieval/models.py
+uv run ruff check apps/live_control_server/models/world_graph_object_projection.py apps/live_control_server/routes/live.py apps/live_control_server/services/agent_world_graph_query_context.py apps/live_control_server/services/agent_context_assembler.py apps/live_control_server/services/agent_runtime.py apps/live_control_server/services/hermes_agent_runtime.py apps/live_control_server/services/hermes_graph_query.py apps/live_control_server/services/hermes_graph_agent_contract.py apps/live_control_server/services/hermes_graph_agent.py src/graph_memory/hermes_graph_plugin.py src/graph_memory/projection/world_projection.py src/graph_memory/retrieval/models.py
 git diff --check
 git diff --name-only origin/main...HEAD
 ```
