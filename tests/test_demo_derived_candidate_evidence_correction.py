@@ -197,3 +197,26 @@ def test_recap_parent_rejected(monkeypatch, tmp_path):
     with pytest.raises(correction.ExtractPromoteError):
         correction.correct_exact_run_evidence(_request(sha, span_id))
     assert not children
+
+
+def test_interrupted_draft_is_not_reviewable_and_same_request_resumes(monkeypatch, tmp_path):
+    _, _, sha, span_id, children = _fixture(monkeypatch, tmp_path)
+    original_update = correction.update_extraction_run_status
+    interrupted = False
+
+    def stop_once(repo, run_id, *, status, expected_revision):
+        nonlocal interrupted
+        if status == ExtractionRunStatus.EXTRACTED and not interrupted:
+            interrupted = True
+            raise RuntimeError("simulated process interruption")
+        return original_update(repo, run_id, status=status, expected_revision=expected_revision)
+
+    monkeypatch.setattr(correction, "update_extraction_run_status", stop_once)
+    with pytest.raises(RuntimeError, match="simulated process interruption"):
+        correction.correct_exact_run_evidence(_request(sha, span_id))
+    assert len(children) == 1
+    only = next(iter(children.values()))
+    assert only.status == ExtractionRunStatus.PREPARED
+    monkeypatch.setattr(correction, "update_extraction_run_status", original_update)
+    response = correction.correct_exact_run_evidence(_request(sha, span_id))
+    assert children[response.run_id].status == ExtractionRunStatus.REVIEWABLE

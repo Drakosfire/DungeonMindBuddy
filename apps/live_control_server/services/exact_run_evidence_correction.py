@@ -95,8 +95,12 @@ def _qualify_payload(*, payload: dict, resolved: object, source_prose: str, span
         raise _reject("child candidate failed managed-World profile validation: " + "; ".join(errors))
 
 
-def _write_child_candidate(path: Path, data: bytes) -> None:
+def _write_child_candidate(path: Path, data: bytes, *, repo: Path) -> None:
+    if not path.parent.resolve().is_relative_to(repo.resolve()) or path.is_symlink():
+        raise _reject("derived candidate output path is unsafe", status_code=409)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if not path.parent.resolve().is_relative_to(repo.resolve()) or path.is_symlink():
+        raise _reject("derived candidate output path is unsafe", status_code=409)
     if path.exists():
         if path.read_bytes() != data:
             raise _reject("derived candidate path contains different bytes", status_code=409)
@@ -245,7 +249,7 @@ def correct_exact_run_evidence(
             child = get_extraction_run(repo, child_id)
     if child.lineage != lineage or child.components != components or child.source_artifact_id != parent.source_artifact_id:
         raise _reject("derived run identity conflicts with existing run", status_code=409)
-    _write_child_candidate(child_path, child_bytes)
+    _write_child_candidate(child_path, child_bytes, repo=repo)
     for _ in range(8):
         child = get_extraction_run(repo, child_id)
         if child.status == ExtractionRunStatus.REVIEWABLE:
