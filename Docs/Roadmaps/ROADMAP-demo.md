@@ -377,6 +377,30 @@ that their foundations are absent. Historical slices retain their IDs.
   A read-only contract clarification is routed to existing MIND; no answer,
   migration, source admission or J3 implementation is yet claimed. #783 remains
   independently owned and source-verified grounding remains unproven.
+- **DEMO-J3 post-#784 product checkpoint:** read-only rehearsal on integrated
+  `main@c19a6c2bf51ae01337b2ad8a3188d45ad6f0fd64`, same isolated World
+  and disposable saved Plan. Unlocking and selecting Stacy in the mounted
+  document exposes existing edit/insert/reference controls but no governed
+  source-to-node/edge action. No document or graph mutation was performed.
+  The existing WorldKeeper consumer has no production caller. Its native
+  PostgreSQL proof uses a different repository composition from the ordinary
+  reviewed-initialized World read path; compatibility is not established by
+  sharing a World label or a “v3” name. Existing WORLDKEEPER is examining this
+  seam read-only after MIND's clarification request returned no answer.
+  No external merge, bridge, fresh genesis, fake campaign identity or J3
+  successor implementation is authorized by the checkpoint.
+- **DEMO-J4 prepared-checkpoint scope defect:** opening Plan Tools → Statblock
+  in Of Conks displays `eldyrwild · longmont-c2` creation defaults. Code
+  inspection confirms `LIVE_CONTROL_CREATE_CONTEXT` drives projection
+  bootstrap, exact-revision override and freestanding fallback, not just the
+  label. The ThreatDraft create contract also requires a nonblank campaign;
+  the accepted managed-World Plan context uses world scope / blank nested
+  campaign. Generation was not submitted: no threat, model call or foreign
+  World write occurred. This is an independent downstream diagnostic, not a
+  bypass counted toward connected J3/J4 acceptance. DEMO owns the eventual
+  bounded asset-context repair, which must define truthful world-only scope,
+  preserve legacy campaign behavior and fail closed on context drift before
+  executing. No C2 fallback or invented campaign may make the witness pass.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
