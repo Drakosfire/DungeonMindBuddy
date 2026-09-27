@@ -20,7 +20,7 @@ pr_body_template: |
 **PR topology:** serial; one assigned implementation PR, no successor until review/merge/sync  
 **Base:** Buddy `main@2733a2a41558257f86577e57cd4bdeb606258ef8`; activation commit is this handoff's guarded landing on `main`  
 **Review authority:** PRIME, then merge under the user's explicit DEMO merge authorization  
-**Runtime/state lease:** isolated Of Conks witness on API `8813`, UI `5194`, World DB `dungeonmind_demo_ofconks_v1`, APP-STATE DB `dungeonbuddy_application_state_demo_ofconks_v1`; do not touch C1/C2 or the older Of Conks ghost run.
+**Runtime/state ownership:** isolated Of Conks witness on API `8813`, UI `5194`, World DB `dungeonmind_demo_ofconks_v1`, APP-STATE DB `dungeonbuddy_application_state_demo_ofconks_v1`; do not touch C1/C2 or the older Of Conks ghost run.
 
 ## §1 Mission and invariant
 
