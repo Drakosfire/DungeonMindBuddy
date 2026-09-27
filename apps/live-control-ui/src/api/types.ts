@@ -358,6 +358,8 @@ export interface HermesGraphGrounding {
   state: HermesGraphGroundingState;
   world_id: string;
   campaign_id: string;
+  /** Older campaign-scoped envelopes omit this field. */
+  scope_mode?: "campaign" | "world";
   focus: { kind: "none" | "session"; session_id: string | null };
   admissibility: string;
   revision_id: string | null;
@@ -2716,6 +2718,7 @@ export interface WorldGraphObjectProjectionRequest {
   schema: "dmb_world_graph_object_projection_request_v1";
   worldId: string;
   campaignId: string;
+  scopeMode?: "campaign" | "world";
   nodeId: string;
   focus?: WorldGraphProjectionFocus;
   admissibility?: "gm" | "player";
@@ -2804,6 +2807,7 @@ export interface WorldGraphSourceAnchorReadRequest {
   schema: "dmb_world_graph_source_anchor_read_request_v1";
   worldId: string;
   campaignId: string;
+  scopeMode?: "campaign" | "world";
   focus: WorldGraphProjectionFocus;
   admissibility: "gm" | "player" | string;
   revisionPin: string | null;
@@ -2814,6 +2818,7 @@ export interface WorldGraphSourceAnchorReadRequest {
 export interface WorldGraphSourceAnchorReadSnapshot {
   worldId: string;
   campaignId: string;
+  scopeMode?: "campaign" | "world";
   revisionId: string;
   headRevisionId: string;
   isHead: boolean;

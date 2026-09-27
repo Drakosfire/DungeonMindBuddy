@@ -63,6 +63,7 @@ class HermesGraphScope:
     focus: Mapping[str, Any]
     admissibility: str
     revision_pin: str | None = None
+    scope_mode: Literal["campaign", "world"] = "campaign"
 
 
 @dataclass(frozen=True, slots=True)
@@ -341,6 +342,7 @@ def apply_capability_policy_to_arguments(
         # Authoritative inject — model-supplied scope cannot override the turn.
         payload["worldId"] = scope.world_id
         payload["campaignId"] = scope.campaign_id
+        payload["scopeMode"] = scope.scope_mode
         payload["focus"] = dict(scope.focus)
         payload["admissibility"] = scope.admissibility
         payload["revisionPin"] = scope.revision_pin

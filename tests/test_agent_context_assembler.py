@@ -199,6 +199,49 @@ def test_missing_revision_raises_neutral_error(tmp_path: Path) -> None:
     assert excinfo.value.code == "world_graph_context_invalid"
 
 
+def test_managed_world_scope_allows_blank_campaign(tmp_path: Path) -> None:
+    envelope = {
+        **READY_ENVELOPE,
+        "world_id": "of-conks-j1-fresh-rehearsal",
+        "campaign_id": "",
+        "scope_mode": "world",
+    }
+    assembly = assemble_agent_graph_context(
+        question="What is known about Hempholm?",
+        graph_envelope=envelope,
+        root=tmp_path,
+    )
+    scope = assembly.invocation.context_packet.world_scope
+    assert scope.world_id == "of-conks-j1-fresh-rehearsal"
+    assert scope.campaign_id == ""
+    assert scope.scope_mode == "world"
+
+
+def test_blank_campaign_requires_explicit_world_scope(tmp_path: Path) -> None:
+    envelope = {**READY_ENVELOPE, "campaign_id": ""}
+    with pytest.raises(AgentContextAssemblyError) as excinfo:
+        assemble_agent_graph_context(
+            question="q",
+            graph_envelope=envelope,
+            root=tmp_path,
+        )
+    assert excinfo.value.code == "world_graph_context_invalid"
+
+
+def test_selected_object_scope_does_not_widen_campaign_retrieval(tmp_path: Path) -> None:
+    envelope = {
+        **READY_ENVELOPE,
+        "scope_mode": "world",
+        "retrieval_scope_mode": "campaign",
+    }
+    assembly = assemble_agent_graph_context(
+        question="q",
+        graph_envelope=envelope,
+        root=tmp_path,
+    )
+    assert assembly.invocation.context_packet.world_scope.scope_mode == "campaign"
+
+
 def test_compatibility_wrapper_translates_errors(tmp_path: Path) -> None:
     with pytest.raises(HermesGraphQueryRequestError) as excinfo:
         build_hermes_graph_turn_request(

@@ -7,6 +7,7 @@ import {
   findGraphNodeInProjection,
   parseGraphNodeLocator,
   resolveGraphReference,
+  validateExactGraphReferenceScope,
 } from "./resolveGraphReference";
 
 const glowkindleNode: WorldGraphProjectionNodeView = {
@@ -620,5 +621,23 @@ describe("resolveGraphReference", () => {
         snapshot: { ...projection.snapshot, revisionId: "  " },
       }),
     ).toBeNull();
+  });
+
+  it("preserves a blank campaign only for an exact world-scope projection", () => {
+    const worldProjection = {
+      ...projection,
+      snapshot: { ...projection.snapshot, campaignId: "", scopeMode: "world" as const },
+    };
+    expect(extractExactGraphReferenceScope(worldProjection)).toEqual({
+      worldId: "eldyrwild",
+      campaignId: "",
+      scopeMode: "world",
+      revisionId: "rev-1",
+    });
+    expect(validateExactGraphReferenceScope(extractExactGraphReferenceScope(worldProjection))).toBe(true);
+    expect(extractExactGraphReferenceScope({
+      ...worldProjection,
+      snapshot: { ...worldProjection.snapshot, scopeMode: "campaign" },
+    })).toBeNull();
   });
 });

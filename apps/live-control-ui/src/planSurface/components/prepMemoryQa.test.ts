@@ -105,6 +105,57 @@ describe("prepMemoryQa helpers", () => {
     expect(hasGrounding(hermesResponse("partial"))).toBe(true);
   });
 
+  it("accepts explicit World grounding without a campaign while campaign scope remains strict", () => {
+    const worldAnswer = hermesResponse("partial", [], {
+      world_id: "of-conks-j1-fresh-rehearsal",
+      campaign_id: "",
+      scope_mode: "world",
+      focus: { kind: "none", session_id: null },
+      revision_id: "rev:published-world",
+      source_anchor_count: 0,
+      accepted_claim_ids: ["identity:loc_3"],
+      graph_reference_count: 1,
+      reason_codes: ["hermes_agent_answer", "source_anchor_unreadable"],
+    });
+
+    expect(parseHermesGraphGrounding(worldAnswer.grounding)).toEqual(expect.objectContaining({
+      world_id: "of-conks-j1-fresh-rehearsal",
+      campaign_id: "",
+      scope_mode: "world",
+    }));
+    expect(validateHermesGraphCitations(worldAnswer.citations, worldAnswer.grounding).contractWarning).toBeNull();
+    expect(answerHeading(worldAnswer)).toBe("Hermes answer");
+    expect(hasGrounding(worldAnswer)).toBe(true);
+
+    const worldCitation = {
+      ...graphCitation,
+      world_id: "of-conks-j1-fresh-rehearsal",
+      campaign_id: "",
+      focus: { kind: "none" as const, session_id: null },
+      revision_id: "rev:published-world",
+    };
+    const withWorldCitation = { ...worldAnswer, citations: [worldCitation] };
+    expect(parseWorldGraphAnchorCitation(worldCitation)).toBeNull();
+    expect(parseWorldGraphAnchorCitation(worldCitation, "world")).toEqual(worldCitation);
+    expect(validateHermesGraphCitations(withWorldCitation.citations, withWorldCitation.grounding)).toEqual({
+      grounding: expect.objectContaining({ scope_mode: "world", campaign_id: "" }),
+      citations: [worldCitation],
+      contractWarning: null,
+    });
+    expect(validateHermesGraphCitations(withWorldCitation.citations, {
+      ...worldAnswer.grounding,
+      scope_mode: "campaign",
+    }).contractWarning).toBe("Hermes grounding contract error");
+
+    expect(parseHermesGraphGrounding({ ...worldAnswer.grounding, scope_mode: "campaign" })).toBeNull();
+    expect(parseHermesGraphGrounding({ ...worldAnswer.grounding, scope_mode: undefined })).toBeNull();
+    expect(parseHermesGraphGrounding({ ...worldAnswer.grounding, scope_mode: "unknown" })).toBeNull();
+    expect(parseHermesGraphGrounding({ ...baseGrounding, scope_mode: undefined })).toEqual(expect.objectContaining({
+      scope_mode: "campaign",
+      campaign_id: "longmont-c2",
+    }));
+  });
+
   it("accepts S1 named-gap partials with zero claims or citations", () => {
     const s1Partial = hermesResponse("partial", [], {
       source_anchor_count: 0,

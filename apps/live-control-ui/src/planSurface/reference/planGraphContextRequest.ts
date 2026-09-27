@@ -59,7 +59,7 @@ export function getPlanWorldGraphContext(
   if (managed && sessionDescriptor.campaignId === managed.worldId) {
     return {
       worldId: managed.worldId,
-      campaignId: managed.worldId,
+      campaignId: "",
       scopeMode: "world",
       focus: { kind: "none", sessionId: null },
     };

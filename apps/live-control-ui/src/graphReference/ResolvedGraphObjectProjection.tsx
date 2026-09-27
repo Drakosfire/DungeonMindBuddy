@@ -67,6 +67,7 @@ export function ResolvedGraphObjectProjection({
     enabled: !glanceOnly && !isThreatSheet && Boolean(scope?.worldId && scope.revisionId),
     worldId: scope?.worldId,
     campaignId: scope?.campaignId ?? "",
+    scopeMode: scope?.scopeMode,
     nodeId: resolution.graphNodeId,
     revisionPin: scope?.revisionId ?? null,
     originSurface,

@@ -6,6 +6,9 @@ from types import SimpleNamespace
 from typing import cast
 from uuid import UUID
 
+import pytest
+from pydantic import ValidationError
+
 from dungeonmind.application.graph_snapshot import GraphRelationshipView
 from dungeonmind.application.world_graph_retrieval import AdmittedAssertionValue
 from dungeonmind.contracts.projection import Admissibility
@@ -55,6 +58,17 @@ def _request(**overrides):
     }
     payload.update(overrides)
     return WorldGraphObjectProjectionRequest.model_validate(payload)
+
+
+def test_complete_object_request_accepts_blank_campaign_only_with_world_mode():
+    request = _request(campaignId="", scopeMode="world")
+    assert request.world_id == "eldyrwild"
+    assert request.campaign_id == ""
+    assert request.scope_mode == "world"
+    with pytest.raises(ValidationError, match="campaignId is required"):
+        _request(campaignId="")
+    with pytest.raises(ValidationError, match="campaignId is required"):
+        _request(campaignId="  ", scopeMode="campaign")
 
 
 def test_complete_object_request_forces_world_cross_campaign_scope():
@@ -585,4 +599,3 @@ def test_agent_without_selected_node_keeps_generic_projection(monkeypatch):
     assert calls["complete"] == 0
     assert envelope["scope_mode"] == "campaign"
     assert envelope["status"] in {"empty", "ready", "unavailable"}
-

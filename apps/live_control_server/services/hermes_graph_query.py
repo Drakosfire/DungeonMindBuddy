@@ -138,6 +138,7 @@ class HermesGraphQueryRequestError(ValueError):
 class _DispatchedScope:
     world_id: str
     campaign_id: str
+    scope_mode: str
     focus: dict[str, Any]
     admissibility: str
     revision_id: str
@@ -292,6 +293,7 @@ def _assemble_graph_turn(
     scope = _DispatchedScope(
         world_id=world_scope.world_id,
         campaign_id=world_scope.campaign_id,
+        scope_mode=world_scope.scope_mode,
         focus=dict(world_scope.focus),
         admissibility=world_scope.admissibility,
         revision_id=world_scope.revision_id,
@@ -871,6 +873,7 @@ def _grounding_block(
         "state": state,
         "world_id": scope.world_id,
         "campaign_id": scope.campaign_id,
+        "scope_mode": scope.scope_mode,
         "focus": dict(scope.focus),
         "admissibility": scope.admissibility,
         "revision_id": scope.revision_id,
@@ -1083,9 +1086,12 @@ def _persist_pointer_after_turn(
 def _scope_from_unavailable_envelope(graph_envelope: Mapping[str, Any]) -> _DispatchedScope:
     focus_raw = graph_envelope.get("focus")
     focus_map = focus_raw if isinstance(focus_raw, Mapping) else None
+    scope_mode = str(graph_envelope.get("scope_mode") or "campaign").strip()
+    campaign_id = str(graph_envelope.get("campaign_id") or "").strip()
     return _DispatchedScope(
         world_id=str(graph_envelope.get("world_id") or "").strip() or "world:unknown",
-        campaign_id=str(graph_envelope.get("campaign_id") or "").strip() or "campaign:unknown",
+        campaign_id=campaign_id if scope_mode == "world" else campaign_id or "campaign:unknown",
+        scope_mode=scope_mode,
         focus=_focus_for_grounding(focus_map),
         admissibility=str(graph_envelope.get("admissibility") or "gm"),
         revision_id="",
@@ -1154,6 +1160,7 @@ def build_hermes_graph_unavailable_response(
             "state": "error",
             "world_id": scope.world_id,
             "campaign_id": scope.campaign_id,
+            "scope_mode": scope.scope_mode,
             "focus": dict(scope.focus),
             "admissibility": scope.admissibility,
             "revision_id": None,

@@ -987,6 +987,32 @@ def test_request_result_round_trip_is_bounded_and_deterministic() -> None:
     assert restored_result.messages == []
 
 
+def test_managed_world_scope_round_trips_without_campaign() -> None:
+    scope = HermesGraphScope(
+        world_id="of-conks-j1-fresh-rehearsal",
+        campaign_id="",
+        focus={"kind": "none", "sessionId": None},
+        admissibility="gm",
+        revision_pin="rev:22ef509825ee1048efc73a1a1aa4a60c",
+        scope_mode="world",
+    )
+    request = _request(
+        world_id=scope.world_id,
+        campaign_id="",
+        revision_pin=scope.revision_pin,
+        scope_mode="world",
+        capability_policy=default_graph_only_capability_policy(scope),
+    )
+    wire = serialize_hermes_graph_agent_turn_request(request)
+    restored = deserialize_hermes_graph_agent_turn_request(wire)
+    assert restored.campaign_id == ""
+    assert restored.scope_mode == "world"
+    assert restored.revision_pin == scope.revision_pin
+    assert restored.capability_policy is not None
+    assert restored.capability_policy.graph_scope.scope_mode == "world"
+    assert restored.capability_policy.graph_scope.campaign_id == ""
+
+
 def test_encode_json_wire_round_trips_and_is_bytes() -> None:
     payload = {"type": "ready", "pid": 1234}
     raw = encode_json_wire(payload)

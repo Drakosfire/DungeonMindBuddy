@@ -4,6 +4,7 @@ import { createElement } from "react";
 
 import * as liveApi from "../api/liveApi";
 import type { WorldGraphProjection } from "../api/types";
+import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import {
   WorldGraphLensProvider,
   WorldGraphLensProjectionProvider,
@@ -142,6 +143,44 @@ describe("WorldGraphLensProjectionProvider", () => {
       }),
     );
     expect(result.current.projectionError).toBeNull();
+  });
+
+  it("requests a managed World without fabricating a campaign", async () => {
+    const worldId = "of-conks-j1-fresh-rehearsal";
+    window.history.pushState({}, "", `/plan?world=${worldId}`);
+    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{
+        schema_version: "dmb_world_container_record_v1",
+        world_id: worldId,
+        name: "Of Conks",
+        source_root_relpath: "corpus/of-conks",
+        created_at: "2026-01-01T00:00:00Z",
+      }],
+    });
+    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
+      headProjection({ worldId, campaignId: "", scopeMode: "world" }),
+    );
+    const managedWrapper = ({ children }: { children: ReactNode }) =>
+      createElement(
+        SelectedWorldProvider,
+        { locationSnapshot: window.location.href },
+        createElement(
+          WorldGraphLensProvider,
+          { planCampaignId: worldId },
+          createElement(WorldGraphLensProjectionProvider, { defaultCampaignId: worldId }, children),
+        ),
+      );
+
+    const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper: managedWrapper });
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+    expect(spy).toHaveBeenCalledWith(expect.objectContaining({
+      worldId,
+      campaignId: "",
+      scopeMode: "world",
+    }));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(result.current.projection?.snapshot.campaignId).toBe("");
   });
 
   it("fails closed when head claim is inconsistent", async () => {

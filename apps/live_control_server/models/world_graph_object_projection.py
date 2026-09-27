@@ -12,7 +12,7 @@ import hashlib
 import json
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 from pydantic.alias_generators import to_camel
 
 from graph_memory.projection.world_projection import (
@@ -67,20 +67,32 @@ class WorldGraphObjectProjectionRequest(_ObjectProjectionRequestModel):
         alias="schema"
     )
     world_id: str = Field(min_length=1)
-    campaign_id: str = Field(min_length=1)
+    campaign_id: str
+    scope_mode: Literal["campaign", "world"] = "campaign"
     node_id: str = Field(min_length=1)
     focus: WorldGraphRetrievalFocus = Field(default_factory=WorldGraphRetrievalFocus)
     admissibility: str = "gm"
     revision_pin: str | None = None
     origin_surface: ObjectProjectionOrigin | None = None
 
-    @field_validator("world_id", "campaign_id", "node_id")
+    @field_validator("world_id", "node_id")
     @classmethod
     def _reject_blank(cls, value: str) -> str:
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("must be a non-empty string")
         return cleaned
+
+    @field_validator("campaign_id")
+    @classmethod
+    def _normalize_campaign(cls, value: str) -> str:
+        return value.strip()
+
+    @model_validator(mode="after")
+    def _require_campaign_for_campaign_scope(self) -> WorldGraphObjectProjectionRequest:
+        if self.scope_mode == "campaign" and not self.campaign_id:
+            raise ValueError("campaignId is required when scopeMode is campaign")
+        return self
 
 
 class SelectedObjectCompletenessView(_ObjectProjectionModel):

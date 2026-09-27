@@ -116,13 +116,19 @@ class WorldGraphRetrievalRequestContext(_RetrievalRequestModel):
     """Common request context shared by every PR010A operation."""
 
     world_id: str = Field(min_length=1)
-    campaign_id: str = Field(min_length=1)
+    campaign_id: str
     focus: WorldGraphRetrievalFocus = Field(default_factory=WorldGraphRetrievalFocus)
     admissibility: str = "gm"
     revision_pin: str | None = None
     # campaign: narrative campaign only (+ world-owned null).
     # world: all campaign scopes in the same world (GM cross-campaign lens).
     scope_mode: Literal["campaign", "world"] = "campaign"
+
+    @model_validator(mode="after")
+    def _require_campaign_for_campaign_scope(self) -> WorldGraphRetrievalRequestContext:
+        if self.scope_mode == "campaign" and not self.campaign_id.strip():
+            raise ValueError("campaignId is required when scopeMode is campaign")
+        return self
 
 
 def _reject_blank_ids(value: list[str]) -> list[str]:

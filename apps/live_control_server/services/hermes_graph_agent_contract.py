@@ -59,6 +59,7 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "question",
         "worldId",
         "campaignId",
+        "scopeMode",
         "focus",
         "admissibility",
         "revisionPin",
@@ -84,7 +85,7 @@ _POLICY_ALLOWED_KEYS = frozenset(
     }
 )
 _SCOPE_ALLOWED_KEYS = frozenset(
-    {"worldId", "campaignId", "focus", "admissibility", "revisionPin"}
+    {"worldId", "campaignId", "scopeMode", "focus", "admissibility", "revisionPin"}
 )
 _ACTIVATION_ALLOWED_KEYS = frozenset({"pluginId", "toolsets"})
 _RULE_ALLOWED_KEYS = frozenset(
@@ -242,6 +243,7 @@ class HermesGraphAgentTurnRequest:
     question: str
     world_id: str
     campaign_id: str
+    scope_mode: Literal["campaign", "world"] = "campaign"
     focus: Mapping[str, Any] | None = None
     admissibility: str | None = None
     revision_pin: str | None = None
@@ -266,6 +268,14 @@ def _require_str(value: Any, *, label: str, max_chars: int) -> str:
     if len(value) > max_chars:
         raise ValueError(f"{label} exceeds max length {max_chars}")
     return value
+
+
+def _scope_mode(value: Any) -> Literal["campaign", "world"]:
+    if value is None or value == "campaign":
+        return "campaign"
+    if value == "world":
+        return "world"
+    raise ValueError("scopeMode must be 'campaign' or 'world'")
 
 
 def _optional_str(value: Any, *, label: str, max_chars: int) -> str | None:
@@ -435,6 +445,9 @@ def decode_json_wire(raw: bytes | bytearray | memoryview | str) -> dict[str, Any
 
 def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any]:
     """Serialize a capability policy to a bounded JSON-compatible dict."""
+    scope_mode = _scope_mode(policy.graph_scope.scope_mode)
+    if scope_mode == "campaign" and not policy.graph_scope.campaign_id.strip():
+        raise ValueError("campaignId is required when scopeMode is campaign")
     toolsets = list(policy.enabled_toolsets)
     tool_names = list(policy.enabled_tool_names)
     if len(toolsets) > MAX_POLICY_TOOLSETS:
@@ -463,6 +476,7 @@ def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any
                 label="campaignId",
                 max_chars=MAX_ID_CHARS,
             ),
+            "scopeMode": scope_mode,
             "focus": _serialize_focus(policy.graph_scope.focus),
             "admissibility": _require_str(
                 policy.graph_scope.admissibility,
@@ -603,6 +617,12 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
         )
 
     focus = _deserialize_focus(scope_raw.get("focus"))
+    scope_mode = _scope_mode(scope_raw.get("scopeMode"))
+    campaign_id = _require_str(
+        scope_raw.get("campaignId"), label="campaignId", max_chars=MAX_ID_CHARS
+    ).strip()
+    if scope_mode == "campaign" and not campaign_id:
+        raise ValueError("campaignId is required when scopeMode is campaign")
     return HermesCapabilityPolicy(
         enabled_toolsets=tuple(
             _require_str(item, label="toolset", max_chars=MAX_ID_CHARS) for item in toolsets_raw
@@ -612,11 +632,8 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
         ),
         graph_scope=HermesGraphScope(
             world_id=_require_str(scope_raw.get("worldId"), label="worldId", max_chars=MAX_ID_CHARS).strip(),
-            campaign_id=_require_str(
-                scope_raw.get("campaignId"),
-                label="campaignId",
-                max_chars=MAX_ID_CHARS,
-            ).strip(),
+            campaign_id=campaign_id,
+            scope_mode=scope_mode,
             focus=focus or {},
             admissibility=_require_str(
                 scope_raw.get("admissibility") or "gm",
@@ -641,6 +658,9 @@ def serialize_hermes_graph_agent_turn_request(
     question = _require_str(request.question, label="question", max_chars=MAX_QUESTION_CHARS)
     world_id = _require_str(request.world_id, label="worldId", max_chars=MAX_ID_CHARS)
     campaign_id = _require_str(request.campaign_id, label="campaignId", max_chars=MAX_ID_CHARS)
+    scope_mode = _scope_mode(request.scope_mode)
+    if scope_mode == "campaign" and not campaign_id.strip():
+        raise ValueError("campaignId is required when scopeMode is campaign")
     root = request.root
     root_str = None if root is None else str(Path(root))
     if root_str is not None:
@@ -668,6 +688,7 @@ def serialize_hermes_graph_agent_turn_request(
         "question": question,
         "worldId": world_id,
         "campaignId": campaign_id,
+        "scopeMode": scope_mode,
         "focus": focus,
         "admissibility": _optional_str(
             request.admissibility,
@@ -714,10 +735,17 @@ def deserialize_hermes_graph_agent_turn_request(
     retrieval_session_raw = payload.get("retrievalSession")
     if retrieval_session_raw is not None and not isinstance(retrieval_session_raw, Mapping):
         raise ValueError("retrievalSession must be a mapping or null")
+    scope_mode = _scope_mode(payload.get("scopeMode"))
+    campaign_id = _require_str(
+        payload.get("campaignId") or "", label="campaignId", max_chars=MAX_ID_CHARS
+    )
+    if scope_mode == "campaign" and not campaign_id.strip():
+        raise ValueError("campaignId is required when scopeMode is campaign")
     return HermesGraphAgentTurnRequest(
         question=_require_str(payload.get("question") or "", label="question", max_chars=MAX_QUESTION_CHARS),
         world_id=_require_str(payload.get("worldId") or "", label="worldId", max_chars=MAX_ID_CHARS),
-        campaign_id=_require_str(payload.get("campaignId") or "", label="campaignId", max_chars=MAX_ID_CHARS),
+        campaign_id=campaign_id,
+        scope_mode=scope_mode,
         focus=focus,
         admissibility=_optional_str(
             payload.get("admissibility"),
