@@ -91,30 +91,44 @@ external repo, stop and return to PRIME.
 
 ## §4 ACTIVE write lease
 
-Expected production paths:
-
-- `apps/live_control_server/services/extract_promote.py` — separate
-  inspection classification from strict publication validation.
-- `apps/live_control_server/models/extract_promote.py` — additive exact review
-  DTO fields only.
-- `apps/live-control-ui/src/api/types.ts` — matching additive DTO types.
-- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx`
-  — do not render preparation/first-World controls for invalid evidence.
-- `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewExactRunProjection.tsx`
-  — render invalid evidence beside the exact assertion/paragraph.
-
-Focused tests in existing adjacent test files and one new owning-boundary
-Python test module under `tests/` are leased. Backward-looking DEMO state
-authority updates, only if needed, are limited to
-`Docs/Roadmaps/ROADMAP-demo.md` and its byte-identical mirror
-`Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md`.
+| Action | Path | Purpose |
+|---|---|---|
+| Modify | `apps/live_control_server/services/extract_promote.py` | Separate inspection classification from strict publication validation. |
+| Modify | `apps/live_control_server/models/extract_promote.py` | Additive exact review DTO fields only. |
+| Modify | `apps/live-control-ui/src/api/types.ts` | Matching additive DTO types. |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.tsx` | Never render preparation/first-World controls for invalid evidence. |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewExactRunProjection.tsx` | Show invalid evidence beside the exact assertion/paragraph. |
+| Modify | `apps/live-control-ui/src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.test.tsx` | Focused UI integration proof. |
+| Create | `tests/test_demo_invalid_candidate_evidence_inspection.py` | Owning-boundary synthetic service proof. |
+| Modify if needed | `Docs/Roadmaps/ROADMAP-demo.md` | Backward-looking J1 observation only. |
+| Modify if needed | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` | Byte-identical roadmap mirror. |
 
 No other production path is leased. If the API route or other component truly
 must change, stop and state the exact missing path/contract to PRIME before
 editing. No licensed source content, `.env`, runtime artifact, or output root
 enters the PR.
 
-## §5 Proof and stop conditions
+## §5 Exclusions and stop conditions
+
+| Path | Boundary |
+|---|---|
+| `src/graph_memory/extraction/`, `MODEL_POLICY.json` | No model, prompt, or extraction contract change. |
+| `apps/live_control_server/services/first_world_graph_publication.py` | Keep strict verification; if a change is necessary, stop and rebrief. |
+| `apps/live_control_server/routes/extract_promote.py` | Existing route/response shape only; do not add a route without rebrief. |
+| DungeonMind, WorldKeeper, `.env`, `corpus/`, `out/` | No external authority, secrets, licensed content, or runtime artifact in PR. |
+
+Stop if the repair silently corrects a quote, drops an assertion, makes an
+invalid package publication-eligible, requires changing DungeonMind or a
+model prompt, or exceeds this one inspection capability. Product planning and
+projection remain STOP-gated until a qualified candidate can be published;
+this PR alone does not promise a green World head.
+
+## §6 Contract matrix
+
+The §3 table is the behavior contract. An inspection success is neither a
+candidate-admission plan nor a confirmation receipt.
+
+## §7 Evidence required before review
 
 1. Synthetic service test: one valid and one invalid quote in a coherent
    candidate; exact review returns all assertions and flags the invalid one.
@@ -125,17 +139,18 @@ enters the PR.
 3. Live exact-run replay against the frozen J1 run returns inspectable package
    with the same 3 invalid anchors, same candidate/source digests, no model
    call, and no World head. Browser Graph Review must show this state.
-4. Focused Python/UI tests, Ruff, frontend typecheck/build where applicable,
-   and `git diff --check`. Distinguish inherited baseline failures from new
-   failures; report exact head and commands to PRIME.
+4. Run these exact-head commands. Compare inherited failures against base:
 
-Stop if the repair silently corrects a quote, drops an assertion, makes an
-invalid package publication-eligible, requires changing DungeonMind or a
-model prompt, or exceeds this one inspection capability. Product planning and
-projection remain STOP-gated until a qualified candidate can be published;
-this PR alone does not promise a green World head.
+```bash
+uv run pytest -q tests/test_demo_invalid_candidate_evidence_inspection.py tests/test_promotable_ingest_run.py
+npm --prefix apps/live-control-ui test -- --run src/planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule.test.tsx
+npm --prefix apps/live-control-ui run typecheck
+npm --prefix apps/live-control-ui run build
+uv run ruff check apps/live_control_server/models/extract_promote.py apps/live_control_server/services/extract_promote.py tests/test_demo_invalid_candidate_evidence_inspection.py
+git diff --check
+```
 
-## §6 Handback and state
+## §8 Review handback
 
 Open one `DEMO: inspect invalid candidate evidence safely` PR from an isolated
 implementation worktree after this handoff lands on `main`. Review each
@@ -144,3 +159,11 @@ inspection classification, invalid-quote count, UI witness, test evidence,
 no-mutation proof, and any residual extraction-quality follow-up. Merge only
 after PRIME approves the exact head. Post-merge, synchronize this handoff and
 both DEMO roadmap copies atomically; do not claim full J1 completed.
+
+## §9 Acceptance rubric
+
+- [ ] Exact frozen candidate remains intact and all assertions inspectable.
+- [ ] Invalid quotes are explicit at their assertion and span; no inferred correction.
+- [ ] No prepare/first-World/confirm control or server authority accepts invalid evidence.
+- [ ] Live replay shows 3 invalid anchors, zero model calls, and no World head.
+- [ ] PRIME reviews the exact implementation head before merge.
