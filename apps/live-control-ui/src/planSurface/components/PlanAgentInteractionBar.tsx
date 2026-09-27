@@ -51,6 +51,7 @@ import {
   getPlanWorldGraphContext,
 } from "../reference/planGraphContextRequest";
 import { usePlanGraphLens } from "../PlanGraphLensContext";
+import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 import { isFocusValidationBlocking } from "../planGraphFocusOptions";
 import {
   hasGrounding,
@@ -457,7 +458,7 @@ export function PlanAgentInteractionBar({
   checkCitationFreshness = postCitationFreshness,
 }: PlanAgentInteractionBarProps) {
   const agentInteraction = useAgentInteraction();
-  useRegisterAskPluginPresence(true);
+  const selectedWorld = useSelectedWorld();
   const askSlot = useAskPluginSlotOptional();
   const { projection, projectionState, projectionError } = usePlanGraphReferenceResolver();
   const {
@@ -469,10 +470,19 @@ export function PlanAgentInteractionBar({
   const focusValidationPending = isFocusValidationBlocking(focusValidationStatus);
   const planWorldGraphContext = getPlanWorldGraphContext(sessionDescriptor, { lens });
   const hasSupportedGraphContext = planWorldGraphContext != null;
+  const managedAskReady = selectedWorld.kind === "managed"
+    && projectionState === "ready"
+    && sessionDescriptor.liveSession > 0
+    && sessionDescriptor.planningDocument.kind === "plan"
+    && sessionDescriptor.planningDocument.status === "active"
+    && !sessionDescriptor.planningDocument.documentId.startsWith("local");
+  useRegisterAskPluginPresence(selectedWorld.kind === "managed" ? managedAskReady : true);
   const graphContextInitializing =
     focusValidationPending
     || (hasSupportedGraphContext && projectionState === "loading");
-  const lensAllowsAsk = derived != null && !focusValidationPending;
+  const lensAllowsAsk = selectedWorld.kind === "managed"
+    ? managedAskReady
+    : derived != null && !focusValidationPending;
   const open = agentInteraction.paneState.isOpen;
   const setOpen = agentInteraction.setPaneOpen;
   const [status, setStatus] = useState<BundleStatus>("idle");
@@ -593,6 +603,11 @@ export function PlanAgentInteractionBar({
 
   useEffect(() => {
     if (!open) return;
+    if (selectedWorld.kind === "managed") {
+      setBundle(null);
+      setStatus("ready");
+      return;
+    }
     let cancelled = false;
     setStatus("loading");
     setError(null);
@@ -613,7 +628,7 @@ export function PlanAgentInteractionBar({
     return () => {
       cancelled = true;
     };
-  }, [open, loadBundle, sessionDescriptor.campaignId]);
+  }, [open, loadBundle, selectedWorld.kind, sessionDescriptor.campaignId]);
 
   function clearHistory() {
     if (thread) {
@@ -822,7 +837,7 @@ export function PlanAgentInteractionBar({
     if (
       !trimmed
       || askStatus === "asking"
-      || !derived
+      || !lensAllowsAsk
       || focusValidationPending
       || !planWorldGraphContext
     ) {
@@ -865,7 +880,9 @@ export function PlanAgentInteractionBar({
               })
             : null,
           conversationHistory: buildHermesConversationHistory(currentThread.turns),
-          hermesSessionPointer: currentThread.hermesSession?.sessionId ?? null,
+          hermesSessionPointer: selectedWorld.kind === "managed"
+            ? null
+            : currentThread.hermesSession?.sessionId ?? null,
           surfaceContext,
         },
       );
@@ -1451,7 +1468,7 @@ export function PlanAgentInteractionBar({
                 The server will resolve the authoritative revision for Hermes graph queries.
               </p>
             ) : null}
-            {derived == null ? (
+            {derived == null && selectedWorld.kind !== "managed" ? (
               <p className="plan-agent-warning">Select at least one campaign on Plan Board.</p>
             ) : null}
             <button

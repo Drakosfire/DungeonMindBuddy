@@ -18,7 +18,7 @@ pr_body_template: |
 **Status:** ACTIVE — J1 selected-World context repair
 **Canonical path:** `Docs/Plans/HANDOFF-DEMO-selected-world-context-v1.md`
 **Flow / owner:** DEMO / Buddy product integration
-**Design base:** `main@1ced31f774d62802893d46670eecebe91d37df60`
+**Design base:** `main@1ced31f774d62802893d46670eecebe91d37df60`; re-anchored after #772 at `397e60791f938a4662f134dbf8e11538f61cb51d`
 **Activation gate:** none; J1 browser failure recorded in `ROADMAP-demo.md`
 **Dispatch base:** fresh `main` containing this handoff; record exact SHA in PR
 **PR topology:** serial; no other open DEMO implementation PR
@@ -48,7 +48,7 @@ Pre-dispatch critique:
 | One invariant? | Yes: selected World identity and scope are coherent across the J1 transition. |
 | Adversarial sequence | Import W → navigate Plan → stale C2 default → create prep or Ask under C2. |
 | Owning proof | Browser flow plus Plan route/service, context resolver and graph-request tests. |
-| Easy-to-miss boundary | Plan's legacy `plan-view` is C2; changing a badge alone does not change document/Ask authority. |
+| Easy-to-miss boundary | Plan's legacy `plan-view` and Hermes `/query` both load the C2 live packet; changing a badge or nested graph request cannot change document/Ask authority. |
 | Stop/split | A new DungeonMind/WorldKeeper contract or a generic extraction/Play redesign is required. |
 
 ## §2 Authority, topology and runtime
@@ -64,10 +64,18 @@ Pre-dispatch critique:
 - Output: one typed, read-only selected-context result for Buddy consumers;
   a Plan document under the selected managed World; graph/Ask requests with
   the same world/campaign identity. Do not introduce a new durable authority.
+- Managed Plan Ask must cross the existing Hermes runtime without loading the
+  legacy C2 packet. Its minimal request packet may carry the verified managed
+  campaign and the selected Plan document's *target* session as transport
+  identity; it must contain no invented session events, state, or recap facts.
+  Ask remains disabled without a selected durable Plan document and native
+  World head. Existing C1/C2 `/query` behavior is unchanged.
 - Explicitly false afterward: candidate publication, extraction quality,
   beats/encounters, Plan→Play Run creation, and final DEMO acceptance.
-- Runtime lease: use the existing isolated Of Conks DB pair and ports 8812/5192
-  for live witness; do not mutate C1/C2 or another lane's runtime. The licensed
+- Runtime lease: use the existing isolated Of Conks DB pair and new ports
+  8813/5194 for the live witness; the prior steward's 8812/5192 listeners
+  remain occupied and are not this lane's to terminate. Do not mutate C1/C2
+  or another lane's runtime. The licensed
   source root under `corpus/of-conks-cons-demo-markdown/` is local-only and must
   never be staged or committed. No model call is needed; replay the saved run.
 - State-authority sync: this handoff and `ROADMAP-demo.md` plus its active
@@ -105,7 +113,14 @@ may remain; an explicit but invalid managed selection must **not** fall back.
 | Modify | `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx`, `apps/live-control-ui/src/planSurface/PlanSurfaceShell.tsx`, `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts`, `apps/live-control-ui/src/planSurface/reference/planGraphContextRequest.ts`, `apps/live-control-ui/src/planSurface/components/PlanAgentInteractionBar.tsx` and focused tests | Bind Plan document and Ask to selected W. |
 | Modify | `apps/live-control-ui/src/api/liveApi.ts`, `apps/live-control-ui/src/api/types.ts` | Optional validated managed-world Plan projection request/DTO. |
 | Modify | `apps/live_control_server/routes/live.py` and focused route tests | Ground Plan's managed-world context in server-owned registry; retain legacy default. |
+| Modify | `apps/live_control_server/services/live_agent_loop.py` and focused service tests | Accept a route-validated, minimal managed-World Hermes packet without loading C2; no change to legacy live/Hermes behavior. |
 | Modify | `Docs/Roadmaps/ROADMAP-demo.md`, `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` | Backward-looking evidence only. |
+
+**2026-09-26 steward rebrief:** tracing `/query` showed that the old server
+requires the loaded C2 packet before interpreting nested graph context. The
+service path above is included explicitly so the implementation cannot use a
+C2 packet as a managed-World workaround. This is the same selected-context
+capability and the existing Hermes wire contract, not a new query API.
 
 **Bounded discovery:** up to 8 additional focused tests or immediate
 presentation adapters under the listed frontend directories, only when the

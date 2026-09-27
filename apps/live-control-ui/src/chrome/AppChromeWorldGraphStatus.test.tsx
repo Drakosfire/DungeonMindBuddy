@@ -8,6 +8,7 @@ import {
   WorldGraphLensProjectionProvider,
 } from "../graphLens";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { AppChrome } from "./AppChrome";
 import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "./appChromeConfig";
 import { presentWorldGraphChromeStatus } from "./AppChromeWorldGraphStatus";
@@ -57,9 +58,11 @@ function renderChrome(activeRoute: "index" | "plan" | "build" | "ingest") {
         <WorldGraphLensProvider planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
           <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
             <SurfaceContextProvider>
-              <AppChrome activeRoute={activeRoute}>
-                <main>page</main>
-              </AppChrome>
+              <PeekRegionProvider>
+                <AppChrome activeRoute={activeRoute}>
+                  <main>page</main>
+                </AppChrome>
+              </PeekRegionProvider>
             </SurfaceContextProvider>
           </WorldGraphLensProjectionProvider>
         </WorldGraphLensProvider>

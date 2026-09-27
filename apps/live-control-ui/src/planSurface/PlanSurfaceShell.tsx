@@ -10,6 +10,7 @@ import {
   WorkspaceDocumentCreationError,
 } from "../workspaceDocument/workspaceDocumentCreation";
 import { workspaceDocumentSelectionSearch } from "../workspaceDocument/workspaceDocumentNavigation";
+import { announceSelectedWorldLocationChange } from "../selectedWorld/SelectedWorldContext";
 import { PlanAgentInteractionBar } from "./components/PlanAgentInteractionBar";
 import { PlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvas } from "./components/PlanSurfaceCanvas";
@@ -270,6 +271,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
           if (urlCommit.mode === "push") {
             window.history.pushState({}, "", `${window.location.pathname}${urlCommit.search}`);
             setLocationSearch(urlCommit.search);
+            announceSelectedWorldLocationChange();
           } else {
             const named = new URLSearchParams(window.location.search).get("documentId");
             if (named === document.documentId) {
@@ -281,6 +283,7 @@ export function PlanSurfaceShell({ planView, onEditorToolsChange }: PlanSurfaceS
               );
               window.history.replaceState({}, "", `${window.location.pathname}${canonical}`);
               setLocationSearch(canonical);
+              announceSelectedWorldLocationChange();
             }
           }
         }

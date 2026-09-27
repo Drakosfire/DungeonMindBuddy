@@ -17,6 +17,7 @@ import {
 } from "../surfaceInformation";
 import { worldGraphProjectionRequestKey } from "../worldGraph/worldGraphProjectionRequestKey";
 import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { isFocusValidationBlocking } from "./planGraphFocusOptions";
 import { useOptionalWorldGraphLens } from "./WorldGraphLensContext";
 import { WORLD_GRAPH_REVISION_COMMITTED_EVENT } from "../planSurface/reference/planGraphContextRequest";
@@ -157,6 +158,7 @@ export function WorldGraphLensProjectionProvider({
   children: ReactNode;
 }) {
   const graphLens = useOptionalWorldGraphLens();
+  const selectedWorld = useSelectedWorld();
   const [stored, setStored] = useState<StoredProjectionLoad | null>(null);
   const [revisionEventBump, setRevisionEventBump] = useState(0);
 
@@ -165,9 +167,17 @@ export function WorldGraphLensProjectionProvider({
   const lensState = graphLens?.lens ?? null;
 
   const context = useMemo(() => {
+    if (selectedWorld.kind === "managed") {
+      return {
+        worldId: selectedWorld.worldId,
+        campaignId: selectedWorld.worldId,
+        scopeMode: "world" as const,
+        focus: { kind: "none" as const, sessionId: null as null },
+      };
+    }
     if (!lensState) return null;
     return getWorldGraphContextFromLens(lensState, defaultCampaignId);
-  }, [defaultCampaignId, lensState]);
+  }, [defaultCampaignId, lensState, selectedWorld]);
 
   const desiredRequest = useMemo(() => {
     if (!context) return null;

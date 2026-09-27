@@ -43,8 +43,22 @@ import { PlanSurfacePage } from "./planSurface/PlanSurfacePage";
 import { PlaySurfacePage } from "./playSurface/PlaySurfacePage";
 import { BuildSurfacePage } from "./buildSurface/BuildSurfacePage";
 import { TiptapCalloutBridgeSpike } from "./tiptap/TiptapCalloutBridgeSpike";
+import {
+  SELECTED_WORLD_LOCATION_CHANGED_EVENT,
+  SelectedWorldProvider,
+  useSelectedWorld,
+} from "./selectedWorld/SelectedWorldContext";
 
 type LoadStatus = "loading" | "ready" | "error";
+
+function subscribeSelectedWorldLocation(onChange: () => void): () => void {
+  const unsubscribe = subscribeAppLocation(onChange);
+  window.addEventListener(SELECTED_WORLD_LOCATION_CHANGED_EVENT, onChange);
+  return () => {
+    unsubscribe();
+    window.removeEventListener(SELECTED_WORLD_LOCATION_CHANGED_EVENT, onChange);
+  };
+}
 
 function IndexSurfacePublisher() {
   const context = useMemo(
@@ -270,12 +284,14 @@ function LiveControlApp() {
   );
 }
 
-export function App() {
-  const locationSnapshot = useSyncExternalStore(
-    subscribeAppLocation,
-    getAppLocationSnapshot,
-    getAppLocationSnapshot,
-  );
+function SelectedWorldApp({ locationSnapshot }: { locationSnapshot: string }) {
+  const selectedWorld = useSelectedWorld();
+  if (selectedWorld.kind === "loading") {
+    return <main className="app-status" role="status">Verifying World selection…</main>;
+  }
+  if (selectedWorld.kind === "error") {
+    return <main className="app-status app-error" role="alert">{selectedWorld.message}</main>;
+  }
   const route = appRouteFromLocationSnapshot(locationSnapshot);
   let content;
   if (route === "index") {
@@ -300,7 +316,11 @@ export function App() {
   return (
     <AgentInteractionProvider>
       <AskPluginSlotProvider>
-        <WorldGraphLensProvider planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
+        <WorldGraphLensProvider
+          key={selectedWorld.kind === "managed" ? selectedWorld.worldId : "legacy"}
+          planCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}
+          managedWorldId={selectedWorld.kind === "managed" ? selectedWorld.worldId : null}
+        >
           <WorldGraphLensProjectionProvider defaultCampaignId={WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID}>
             <SurfaceContextProvider>
               <PeekRegionProvider>
@@ -314,5 +334,18 @@ export function App() {
         </WorldGraphLensProvider>
       </AskPluginSlotProvider>
     </AgentInteractionProvider>
+  );
+}
+
+export function App() {
+  const locationSnapshot = useSyncExternalStore(
+    subscribeSelectedWorldLocation,
+    getAppLocationSnapshot,
+    getAppLocationSnapshot,
+  );
+  return (
+    <SelectedWorldProvider locationSnapshot={locationSnapshot}>
+      <SelectedWorldApp locationSnapshot={locationSnapshot} />
+    </SelectedWorldProvider>
   );
 }

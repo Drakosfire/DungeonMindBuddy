@@ -1,31 +1,39 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 
 import { getPlanView } from "../api/liveApi";
 import type { PlanViewProjection } from "../api/types";
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 
 type LoadStatus = "loading" | "ready" | "error";
 
 export function PlanSurfacePage() {
+  const selectedWorld = useSelectedWorld();
+  const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [error, setError] = useState<string | null>(null);
   const [planView, setPlanView] = useState<PlanViewProjection | null>(null);
   const [editorTools, setEditorTools] = useState<AppChromeToolsGeneration | null>(null);
-
-  const refresh = useCallback(async () => {
-    const response = await getPlanView();
-    setPlanView(response);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setStatus("loading");
       setError(null);
+      setPlanView(null);
       try {
-        await refresh();
-        if (!cancelled) setStatus("ready");
+        const response = await getPlanView(managedWorldId);
+        if (!cancelled) {
+          if (managedWorldId && (
+            response.world_id !== managedWorldId
+            || response.campaign_id !== managedWorldId
+          )) {
+            throw new Error(`Plan context does not match selected World ${managedWorldId}.`);
+          }
+          setPlanView(response);
+          setStatus("ready");
+        }
       } catch (loadError) {
         if (!cancelled) {
           setStatus("error");
@@ -36,7 +44,7 @@ export function PlanSurfacePage() {
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [managedWorldId]);
 
   if (status === "loading") {
     return (

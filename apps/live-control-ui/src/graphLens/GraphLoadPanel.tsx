@@ -2,6 +2,7 @@ import { useMemo } from "react";
 
 import type { PlanGraphProjectionState } from "../planSurface/reference/graphAwareReferenceResolver";
 import { useOptionalPlanGraphLens } from "./WorldGraphLensContext";
+import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import "./graphLens.css";
 import {
   focusOptionKey,
@@ -106,6 +107,7 @@ export function PlanGraphLoadPanel({
   showEmptyLensWarning = true,
   lensControls = null,
 }: PlanGraphLoadPanelProps) {
+  const selectedWorld = useSelectedWorld();
   const fromContext = useOptionalPlanGraphLens();
   const controls = lensControls ?? fromContext;
 
@@ -121,6 +123,16 @@ export function PlanGraphLoadPanel({
       projectionError,
     );
   }, [controls, nodeCount, projectionError, projectionState]);
+
+  if (selectedWorld.kind === "managed") {
+    return (
+      <div className="plan-graph-load-panel" aria-label="World Graph load" data-testid="plan-graph-load-panel">
+        <p className="plan-graph-load-panel__status" role="status" data-testid="plan-graph-load-status">
+          {selectedWorld.name} · {formatProjectionLoadStatus(projectionState, nodeCount, projectionError)}
+        </p>
+      </div>
+    );
+  }
 
   if (!controls) {
     return (

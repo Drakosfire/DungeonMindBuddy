@@ -10,6 +10,7 @@ import { buildGraphObjectCardFromNodeView } from "../graphObjectCard";
 import { referenceFromGraphNode } from "../graphReference/referenceFromGraphNode";
 import { MarkdownCanvasSessionProvider, useMarkdownCanvasSession } from "../markdownCanvas/MarkdownCanvasSession";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { LegacyProjectionHostAdapter } from "../planSurface/projection/LegacyProjectionHostAdapter";
 import { ToolHost } from "../surfaceInteraction/toolHost/ToolHost";
@@ -31,9 +32,11 @@ function renderBuildPage() {
   return render(
     <AgentInteractionProvider>
       <SurfaceContextProvider>
-        <BuildSurfacePage />
-        <ToolHost />
-        <LegacyProjectionHostAdapter />
+        <PeekRegionProvider>
+          <BuildSurfacePage />
+          <ToolHost />
+          <LegacyProjectionHostAdapter />
+        </PeekRegionProvider>
       </SurfaceContextProvider>
     </AgentInteractionProvider>,
   );
@@ -1118,9 +1121,11 @@ describe("BuildSurfacePage", () => {
       <StrictMode>
         <AgentInteractionProvider>
           <SurfaceContextProvider>
-            <BuildSurfacePage />
-            <ToolHost />
-            <LegacyProjectionHostAdapter />
+            <PeekRegionProvider>
+              <BuildSurfacePage />
+              <ToolHost />
+              <LegacyProjectionHostAdapter />
+            </PeekRegionProvider>
           </SurfaceContextProvider>
         </AgentInteractionProvider>
       </StrictMode>,
@@ -1226,10 +1231,12 @@ describe("BuildSurfacePage", () => {
     render(
       <AgentInteractionProvider>
         <SurfaceContextProvider>
-          <BuildSurfacePage />
-          <ToolHost />
-          <LegacyProjectionHostAdapter />
-          <PublicationProbe />
+          <PeekRegionProvider>
+            <BuildSurfacePage />
+            <ToolHost />
+            <LegacyProjectionHostAdapter />
+            <PublicationProbe />
+          </PeekRegionProvider>
         </SurfaceContextProvider>
       </AgentInteractionProvider>,
     );

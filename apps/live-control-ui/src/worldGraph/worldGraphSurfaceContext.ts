@@ -1,4 +1,5 @@
 import type { WorldGraphProjectionRequest } from "../api/types";
+import { getVerifiedManagedWorld } from "../selectedWorld/SelectedWorldContext";
 
 export const WORLD_ID_BY_CAMPAIGN: Record<string, string> = {
   "longmont-c1": "eldyrwild",
@@ -6,10 +7,13 @@ export const WORLD_ID_BY_CAMPAIGN: Record<string, string> = {
 };
 
 export function getWorldIdForCampaign(campaignId: string): string | null {
-  return WORLD_ID_BY_CAMPAIGN[campaignId] ?? null;
+  const managed = getVerifiedManagedWorld();
+  return WORLD_ID_BY_CAMPAIGN[campaignId]
+    ?? (managed?.worldId === campaignId ? managed.worldId : null);
 }
 
 export function getCampaignIdsForWorld(worldId: string): readonly string[] {
+  if (getVerifiedManagedWorld()?.worldId === worldId) return [worldId];
   return Object.entries(WORLD_ID_BY_CAMPAIGN)
     .filter(([, mappedWorldId]) => mappedWorldId === worldId)
     .map(([campaignId]) => campaignId)
@@ -25,8 +29,11 @@ export function classifyBuildDocumentScope(
   documentCampaignId: string,
 ): BuildDocumentScopeClassification {
   const trimmed = documentCampaignId.trim();
-  const mappedWorldId = WORLD_ID_BY_CAMPAIGN[trimmed];
+  const mappedWorldId = getWorldIdForCampaign(trimmed);
   if (mappedWorldId) {
+    if (getVerifiedManagedWorld()?.worldId === trimmed) {
+      return { kind: "world", worldId: trimmed };
+    }
     return { kind: "campaign", campaignId: trimmed, worldId: mappedWorldId };
   }
 

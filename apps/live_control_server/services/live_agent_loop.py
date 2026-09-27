@@ -175,8 +175,14 @@ def process_live_query(
     conversation_history: Any | None = None,
     agent_runtime: AgentRuntime | None = None,
     surface_context: AgentSurfaceContextRequest | None = None,
+    managed_world_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()
+    if managed_world_packet is not None:
+        if query_backend != "hermes":
+            raise ValueError("managed World queries require Hermes")
+        if set(managed_world_packet) != {"campaign_id", "session"}:
+            raise ValueError("managed World packet must contain only campaign_id and session")
     resolved_agent_thread_id = agent_thread_id or _new_agent_thread_id()
     resolved_turn_id = _new_turn_id()
     repo = root or repo_root()
@@ -202,7 +208,12 @@ def process_live_query(
         )
         try:
             with builder.phase("session_load"):
-                packet, _layout, _events, _jobs = load_session(session_base)
+                if managed_world_packet is None:
+                    packet, _layout, _events, _jobs = load_session(session_base)
+                else:
+                    # Route-validated transport identity only. Never import a C2
+                    # live packet or fabricate session narrative for this World.
+                    packet = managed_world_packet
             _ = trace_requested  # accepted for API compatibility; unused in this slice
             campaign_id = outer_campaign_id or str(packet.get("campaign_id") or "")
             with builder.phase("request_validation"):
@@ -271,7 +282,7 @@ def process_live_query(
                 root=world_graph_root(),
                 corpus_root=repo,
                 conversation_history=normalized_history,
-                session_base=session_base,
+                session_base=session_base if managed_world_packet is None else None,
                 hermes_session_pointer=hermes_session_pointer,
                 trace_builder=builder,
                 agent_runtime=agent_runtime,
