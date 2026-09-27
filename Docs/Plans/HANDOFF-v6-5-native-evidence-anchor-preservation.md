@@ -1,19 +1,21 @@
 # HANDOFF — V6.5: Buddy native evidence/anchor preservation and V6 exit receipt
 
 **Created:** 2026-09-27
-**Status:** BLOCKED — owner acceptance of current-state sync and Buddy sequencing required
+**Status:** ACTIVE — activated 2026-09-27 after MIND/Buddy predecessor sync
 **Owner/repository:** DungeonMindBuddy; MIND receives the V6 exit evidence, DEMO coordinates Buddy leases
 **Design base:** Buddy `2ccc96ff2a7d76328578609d5289fd3babcf6442`
-**DungeonMind main:** `4d11686d679029ae4ef0902a13edc0509c0ce476`
+**Activation base:** Buddy `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`
+**DungeonMind main:** `0ab1ae0133ca9038a1d82eb488ed805f09e49feb`
 **WorldKeeper main:** `662a028fb1882719c4c3e192134a1a6b7a58026c`
 **Installed DungeonMind pin:** `0f709d76fdc53bac9c9258d1751463ae2c76ca71`
 **Installed WorldKeeper pin:** `49a8620f066ce7ef8972a699020c012f50af9158`
-**PR topology:** serial; one assigned V6 preservation proof PR after owner activation
-**Implementation base:** record fresh accepted Buddy `origin/main` at activation
+**PR topology:** parallel-independent; one assigned hermetic V6 preservation proof PR
+**Implementation base:** Buddy `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`
 **Suggested branch/title:** `codex/v6-5-evidence-anchor-preservation` / `VNEXT: prove Buddy evidence and anchor preservation`
 
-This is design authority only. No implementation lane, runtime mutation, V7
-dispatch or production switch is authorized by this BLOCKED document.
+This ACTIVE handoff authorizes exactly one hermetic proof lane under the two-path
+write lease in §4. It authorizes no runtime mutation, V7 dispatch or production
+switch.
 
 ## 1. Exit ruling and accepted predecessors
 
@@ -154,17 +156,28 @@ remains a DEMO product repair; it is not a Kernel or V6 prerequisite.
 
 ## 5. Activation and isolation
 
-BLOCKED until MIND accepts the V6 checkpoint/scope, the two owner sync sets are
-truthful, and Buddy's steward records an isolated lane and exact fresh base/pins.
-#779's merge gate is already satisfied; do not report it as still open. Inspect
-current PRs and ACTIVE handoffs before activation. Rules #763 owns dependencies;
-#764/#765 own Rules consumers and #760/#761 are UI designs. At design time none
-leases these two new files. The ACTIVE World-scope Plan-read repair and BLOCKED
-first-World edge repair remain separate Buddy scheduling responsibilities.
+The activation gates are satisfied. MIND PR #80 merged at
+`0ab1ae0133ca9038a1d82eb488ed805f09e49feb` after PRIME PASS on reviewed head
+`f4bb49cad88847877fc0e6862b72f8066bcde69f`. Buddy's PLAY-2 predecessor sync
+landed on main at `10a7b42da2c028889acbf085a577844252bc7f79` and records
+#779 as accepted/merged. DEMO then rebriefed its disjoint world-scope Plan-read
+lease at `bf67c16fceba09026cef7a6e833a58666fa5855a` and clarified selected-object
+world scope at `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3` before this branch dispatched.
 
-Topology is serial within the V6 preservation lane. No successor branch/PR may
-be opened by the worker. Any parallel coexistence with other Buddy execution
-must be explicitly recorded as independent with disjoint writes/runtime state.
+A clean `uv sync --locked` at activation installed DungeonMind
+`0f709d76fdc53bac9c9258d1751463ae2c76ca71`, WorldKeeper
+`49a8620f066ce7ef8972a699020c012f50af9158`, and GenerationEngine
+`9122257f5a8842e4771990a3316130bc1bf7e332`.
+
+Open PRs #763/#764/#765 are the stacked Rules sequence; #760/#761 are stacked UI
+design work. None leases the two §4 paths or shares runtime state with this
+proof. DEMO's active Plan-read work and blocked first-World edge repair remain
+separately serialized by DEMO. V6.5 is explicitly parallel-independent of those
+lanes: it uses only a new test, a new report, an in-memory source reader, and no
+database/network/provider/server/port.
+
+No successor branch/PR may be opened by the worker. Any discovered production
+defect or required path outside §4 stops this lane and returns to the steward.
 
 The new proof is hermetic: in-memory source reader, synthetic variants and no
 network/provider/database/server/port use. Existing PLAY-2 acceptance is inherited
