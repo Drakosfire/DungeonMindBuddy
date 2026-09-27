@@ -38,16 +38,19 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 **No integrated rehearsal was performed by the survey. No journey milestone is
 certified complete by the adoption transaction.**
 
-**Latest re-anchor (2026-09-27):** #775, #776, and #777 are integrated. #776
+**Latest re-anchor (2026-09-27):** #775–#778 are integrated. #776
 proves ordinary named-World switching across Build, Plan, Ingest and Play on
 one runtime and DB pair. A fresh Of Conks World then received the exact parsed
 adventure Markdown through Buddy's local source-import API and produced one
-reviewable extraction candidate. #777 makes all 48 assertions inspectable,
-including 3 nonliteral evidence quotes, while publication remains blocked;
-the disposable World still has no graph head. This is neither a long-file UI
-import witness nor extraction-quality/full-J1 acceptance. The older ghost run
-remains untouched. No successor implementation lane is active; re-anchor and
-design the next bounded evidence-repair/qualification slice before opening it.
+reviewable extraction candidate. #777 made all 48 assertions inspectable,
+including 3 nonliteral evidence quotes. #778 enabled explicit literal quote
+correction as a distinct immutable child run; its 48 assertions have zero
+invalid quotes, and an inert first-World prepare accepted 25 objects and 23
+relationships. No governed confirm was called, so the disposable World still
+has no graph head. This is neither a long-file UI import witness nor
+extraction-quality/full-J1 acceptance. The older ghost run remains untouched.
+No successor implementation lane is active; re-anchor before the next bounded
+publication/product-journey decision.
 
 Inherited work: PLAY-1 / Buddy #773 merged at
 `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9` after two review cycles;

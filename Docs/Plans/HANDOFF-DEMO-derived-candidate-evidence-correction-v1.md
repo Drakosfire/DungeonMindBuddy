@@ -9,7 +9,7 @@ pr_body_template: |
 # HANDOFF — DEMO: derive a qualified candidate from reviewed evidence corrections
 
 **Created:** 2026-09-27
-**Status:** ACTIVE — #777 merged and state authority synchronized; no predecessor gate
+**Status:** COMPLETE / HISTORICAL — PR #778 merged at `d41a2cc59bff5e9f6133d774cc932e05e981b7f1`; J1 remains open
 **Flow / owner:** DEMO / Buddy extraction-review and candidate-run boundary
 **PR topology:** serial; one assigned implementation PR; no dependent PR before merge and state sync
 **Base:** Buddy `main@076047e241ad1ac665083806ea9578ed6ec1e547`
@@ -38,6 +38,24 @@ The child is a derived candidate, not a rewrite or silent model repair.
 The UI must display its parent identity and navigate to the child after seal.
 The source is licensed local material; never commit it or candidate-derived
 copyrighted prose into Git fixtures.
+
+**Completion record (2026-09-27):** PRIME's first formal review held exact
+head `4ee15cd61889f9bf96173598541693ecddc13fc3` for an incomplete
+existing-child identity comparison. Review cycle 2 approved exact head
+`05f0c7fbf3ac4966e0007f23546fbb30d6ef9598` after full inherited
+domain/profile/campaign/session checks and a real registry byte-drift test.
+Formal reviews are [Cycle 1](https://github.com/Drakosfire/DungeonMindBuddy/pull/778#pullrequestreview-5331010436)
+and [Cycle 2](https://github.com/Drakosfire/DungeonMindBuddy/pull/778#pullrequestreview-5331037164).
+The disposable Of Conks replay produced child
+`ababe16c-7cd7-5d9a-b602-a8299a038af4` (candidate SHA
+`618a74272a0511834a37620eb8671d5bc84dc9c1a9a9b18e31b47bf0a1589806`)
+from the unchanged frozen parent. The child has 48 assertions, zero invalid
+quotes, and inert first-World prepare accepted 25 objects and 23 relationships
+with zero rejections. No confirm ran and the World head count remains zero.
+Focused server/PostgreSQL tests passed 40/40; UI passed 36/37 with the same
+inherited focus-session URL failure; Ruff and diff hygiene passed. The
+`ThreatPublicationPanel.tsx` typecheck failure is inherited. This closes
+derived-candidate correction, not extraction quality, publication, or J1.
 
 ## §2 Exact authority and predecessor sync
 
