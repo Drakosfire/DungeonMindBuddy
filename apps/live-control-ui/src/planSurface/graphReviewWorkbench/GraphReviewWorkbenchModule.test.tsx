@@ -1129,6 +1129,61 @@ describe("GraphReviewWorkbenchModule", () => {
     expect(screen.queryByTestId("graph-review-exact-run-review-error")).not.toBeInTheDocument();
   });
 
+  it("keeps a false-anchor exact run inspectable but hides publication controls", async () => {
+    const run = canonicalRun({
+      run_id: "er_false_anchor",
+      source_artifact_id: "artifact:worldbuilding:demo:r1:abc",
+      source_domain: "worldbuilding",
+      campaign_id: "demo",
+      session_id: null,
+    });
+    vi.spyOn(liveApi, "getExtractionRun").mockResolvedValue(run);
+    vi.spyOn(extractPromoteApi, "getExactRunReviewPackage").mockResolvedValue({
+      ...exactReviewPackageForRun(run),
+      sourceProse: "Torbin, who bought the strange seed, repaired the roof.",
+      inspectionStatus: "invalid_evidence",
+      invalidEvidenceCount: 1,
+      promotable: false,
+      firstWorldPublishEligible: true, // stale capability must not override invalid evidence
+      assertions: [{
+        assertionId: "torbin",
+        kind: "object",
+        label: "Torbin",
+        summary: "Villager",
+        evidence: [{
+          sourceArtifactId: run.source_artifact_id,
+          sourceSpanRefId: "span:1",
+          paragraphText: "Torbin, who bought the strange seed, repaired the roof.",
+          anchorQuotes: ["Torbin bought the strange seed"],
+          invalidAnchorQuotes: ["Torbin bought the strange seed"],
+          startLine: 1,
+          endLine: 1,
+        }],
+      }],
+    });
+    window.history.replaceState(
+      {},
+      "",
+      `/ingest?extractionRunId=${run.run_id}&sourceArtifactId=${encodeURIComponent(run.source_artifact_id)}`,
+    );
+    renderWorkbench([run], { ...context, campaignId: "demo", ingestSession: 1 });
+
+    expect(await screen.findByTestId("graph-review-invalid-evidence-block")).toHaveTextContent(
+      "publication is blocked",
+    );
+    expect(screen.getByTestId("graph-review-exact-run-assertion-torbin")).toHaveTextContent(
+      "Invalid evidence",
+    );
+    expect(screen.getByTestId("graph-review-invalid-evidence-quote")).toHaveTextContent(
+      "Not found in this exact source paragraph",
+    );
+    expect(screen.getByTestId("graph-review-exact-run-evidence-paragraph")).toHaveTextContent(
+      "Torbin, who bought the strange seed",
+    );
+    expect(screen.queryByTestId("graph-review-exact-run-prepare")).not.toBeInTheDocument();
+    expect(screen.queryByText("Create World Graph")).not.toBeInTheDocument();
+  });
+
   it("lets exact-run handoff win Advanced details over a stale persisted catalog run", async () => {
     const staleCatalog = canonicalRun({ status: "validated", run_id: "er_stale_catalog" });
     const handoffRun = canonicalRun({

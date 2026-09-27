@@ -401,6 +401,7 @@ class ExactRunReviewEvidence(_ExtractPromoteModel):
     source_span_ref_id: str
     paragraph_text: str
     anchor_quotes: list[str] = Field(default_factory=list)
+    invalid_anchor_quotes: list[str] = Field(default_factory=list)
     start_line: int | None = None
     end_line: int | None = None
 
@@ -430,6 +431,8 @@ class ExactRunReviewPackage(_ExtractPromoteModel):
     session_id: str | None = None
     source_prose: str
     assertions: list[ExactRunReviewAssertion] = Field(default_factory=list)
+    inspection_status: ExtractPromoteInspectionStatus = "ready"
+    invalid_evidence_count: int = 0
     diagnostics: list[str] = Field(default_factory=list)
     # BLD-07 narrowed: worldbuilding_draft runs are inspect-only; publication
     # remains reserved for promote-eligible (played_canon) recap paths.
