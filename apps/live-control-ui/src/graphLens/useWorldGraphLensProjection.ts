@@ -170,11 +170,12 @@ export function WorldGraphLensProjectionProvider({
     if (selectedWorld.kind === "managed") {
       return {
         worldId: selectedWorld.worldId,
-        campaignId: selectedWorld.worldId,
+        campaignId: "",
         scopeMode: "world" as const,
         focus: { kind: "none" as const, sessionId: null as null },
       };
     }
+    if (selectedWorld.kind !== "legacy") return null;
     if (!lensState) return null;
     return getWorldGraphContextFromLens(lensState, defaultCampaignId);
   }, [defaultCampaignId, lensState, selectedWorld]);

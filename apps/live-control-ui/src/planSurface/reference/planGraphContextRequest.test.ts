@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { fixturePlanSessionDescriptor } from "../config/planSessionDescriptor";
+import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
 import {
   buildPlanAgentWorldGraphQueryContextRequest,
   buildPlanWorldGraphProjectionRequest,
@@ -12,7 +13,47 @@ import {
 
 const sessionDescriptor = fixturePlanSessionDescriptor({ memorySession: null });
 
+vi.mock("../../selectedWorld/SelectedWorldContext", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../../selectedWorld/SelectedWorldContext")>(),
+  getVerifiedManagedWorld: vi.fn(),
+}));
+
 describe("planGraphContextRequest", () => {
+  beforeEach(() => {
+    vi.mocked(selectedWorld.getVerifiedManagedWorld).mockReturnValue(null);
+  });
+
+  it("uses the published managed World with an explicit world mode and blank campaign", () => {
+    vi.mocked(selectedWorld.getVerifiedManagedWorld).mockReturnValue({
+      kind: "managed",
+      worldId: "of-conks-j1-fresh-rehearsal",
+      name: "Of Conks",
+      documentId: "plan-doc",
+    });
+    const context = getPlanWorldGraphContext(
+      fixturePlanSessionDescriptor({ campaignId: "of-conks-j1-fresh-rehearsal" }),
+    );
+    expect(context).toEqual({
+      worldId: "of-conks-j1-fresh-rehearsal",
+      campaignId: "",
+      scopeMode: "world",
+      focus: { kind: "none", sessionId: null },
+    });
+    expect(buildPlanWorldGraphProjectionRequest(context!)).toMatchObject({
+      worldId: "of-conks-j1-fresh-rehearsal",
+      campaignId: "",
+      scopeMode: "world",
+    });
+    expect(buildPlanAgentWorldGraphQueryContextRequest(context!, {
+      revisionPin: "rev:22ef509825ee1048efc73a1a1aa4a60c",
+    })).toMatchObject({
+      world_id: "of-conks-j1-fresh-rehearsal",
+      campaign_id: "",
+      scope_mode: "world",
+      revision_pin: "rev:22ef509825ee1048efc73a1a1aa4a60c",
+    });
+  });
+
   it("defaults to both-campaign world union when lens is default", () => {
     const context = getPlanWorldGraphContext(sessionDescriptor, {
       lens: {

@@ -44,6 +44,7 @@ class AgentWorldScope:
     focus: Mapping[str, Any]
     admissibility: str
     revision_id: str
+    scope_mode: Literal["campaign", "world"] = "campaign"
 
 
 @dataclass(frozen=True, slots=True)

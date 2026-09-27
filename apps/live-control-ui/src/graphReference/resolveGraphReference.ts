@@ -85,7 +85,7 @@ export function extractExactGraphReferenceScope(
   const revisionId = String(snapshot.revisionId ?? "").trim();
   if (
     !worldId
-    || !campaignId
+    || (scopeMode === "campaign" && !campaignId)
     || !revisionId
     || (scopeMode !== "campaign" && scopeMode !== "world")
   ) {
@@ -100,7 +100,7 @@ export function validateExactGraphReferenceScope(
 ): scope is ExactGraphReferenceScope {
   return Boolean(
     scope?.worldId?.trim()
-    && scope?.campaignId?.trim()
+    && (scope.scopeMode === "world" || Boolean(scope.campaignId?.trim()))
     && (scope?.scopeMode === "campaign" || scope?.scopeMode === "world")
     && scope?.revisionId?.trim(),
   );

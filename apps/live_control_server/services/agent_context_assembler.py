@@ -154,7 +154,17 @@ def assemble_agent_graph_context(
     revision_id = _require_resolved_revision(graph_envelope)
     world_id = str(graph_envelope.get("world_id") or "").strip()
     campaign_id = str(graph_envelope.get("campaign_id") or "").strip()
-    if not world_id or not campaign_id:
+    scope_mode = str(
+        graph_envelope.get("retrieval_scope_mode")
+        or graph_envelope.get("scope_mode")
+        or "campaign"
+    ).strip()
+    if scope_mode not in {"campaign", "world"}:
+        raise AgentContextAssemblyError(
+            "Resolved world_graph_context has invalid scope_mode.",
+            code="world_graph_context_invalid",
+        )
+    if not world_id or (scope_mode == "campaign" and not campaign_id):
         raise AgentContextAssemblyError(
             "Resolved world_graph_context is missing world_id or campaign_id.",
             code="world_graph_context_invalid",
@@ -216,6 +226,7 @@ def assemble_agent_graph_context(
         focus=product_focus,
         admissibility=admissibility,
         revision_id=revision_id,
+        scope_mode=scope_mode,
     )
     continuity = runtime_session_id or None
     invocation = AgentRuntimeInvocation(

@@ -64,6 +64,7 @@ export interface UseCompleteWorldObjectArgs {
   enabled: boolean;
   worldId: string | null | undefined;
   campaignId: string;
+  scopeMode?: WorldGraphObjectProjectionRequest["scopeMode"];
   nodeId: string | null;
   originSurface: NonNullable<WorldGraphObjectProjectionRequest["originSurface"]>;
   revisionPin?: string | null;
@@ -83,6 +84,7 @@ export function useCompleteWorldObject({
   enabled,
   worldId,
   campaignId,
+  scopeMode,
   nodeId,
   originSurface,
   revisionPin = null,
@@ -125,6 +127,7 @@ export function useCompleteWorldObject({
       completeWorldObjectRequest({
         worldId,
         campaignId,
+        scopeMode,
         nodeId,
         originSurface,
         revisionPin,
@@ -173,6 +176,7 @@ export function useCompleteWorldObject({
     nodeId,
     originSurface,
     revisionPin,
+    scopeMode,
     worldId,
   ]);
 

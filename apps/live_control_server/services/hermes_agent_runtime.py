@@ -103,6 +103,7 @@ def map_invocation_to_hermes_request(
     graph_scope = HermesGraphScope(
         world_id=world_scope.world_id,
         campaign_id=world_scope.campaign_id,
+        scope_mode=world_scope.scope_mode,
         focus=host_focus,
         admissibility=world_scope.admissibility,
         revision_pin=world_scope.revision_id,
@@ -122,6 +123,7 @@ def map_invocation_to_hermes_request(
         question=invocation.message,
         world_id=world_scope.world_id,
         campaign_id=world_scope.campaign_id,
+        scope_mode=world_scope.scope_mode,
         focus=host_focus,
         admissibility=world_scope.admissibility,
         revision_pin=world_scope.revision_id,

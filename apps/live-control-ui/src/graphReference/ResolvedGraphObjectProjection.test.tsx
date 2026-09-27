@@ -61,6 +61,31 @@ describe("ResolvedGraphObjectProjection partial completeness", () => {
     vi.mocked(liveApi.postWorldGraphCompleteObject).mockReset();
   });
 
+  it("passes exact managed World scope through the selected-object request", async () => {
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(completeObject("complete"));
+    render(<ResolvedGraphObjectProjection
+      resolution={{
+        ...resolvedCaelynn(),
+        graphScope: {
+          worldId: "of-conks-j1-fresh-rehearsal",
+          campaignId: "",
+          scopeMode: "world",
+          revisionId: "rev:22ef509825ee1048efc73a1a1aa4a60c",
+        },
+      }}
+      originSurface="plan"
+    />);
+    await waitFor(() => expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(
+      expect.objectContaining({
+        worldId: "of-conks-j1-fresh-rehearsal",
+        campaignId: "",
+        scopeMode: "world",
+        nodeId: "pc_caelynn",
+        revisionPin: "rev:22ef509825ee1048efc73a1a1aa4a60c",
+      }),
+    ));
+  });
+
   it("does not treat a partial object as ordinary ready", async () => {
     vi.mocked(liveApi.postWorldGraphCompleteObject).mockResolvedValue(completeObject("partial"));
 

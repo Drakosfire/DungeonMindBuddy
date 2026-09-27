@@ -132,6 +132,12 @@ class WorldGraphProjectionRequest(_ProjectionModel):
     # world: all campaign scopes in the same world (GM cross-campaign lens).
     scope_mode: ScopeMode = "campaign"
 
+    @model_validator(mode="after")
+    def _require_campaign_for_campaign_scope(self) -> WorldGraphProjectionRequest:
+        if self.scope_mode == "campaign" and not self.campaign_id.strip():
+            raise ValueError("campaignId is required when scopeMode is campaign")
+        return self
+
 
 class WorldGraphProjectionSnapshot(_ProjectionModel):
     world_id: str

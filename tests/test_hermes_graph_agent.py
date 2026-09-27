@@ -1699,10 +1699,43 @@ def test_query_threat_mechanics_hydration_tool_is_registered_and_scoped(
         assert payload is not None
         assert payload["worldId"] == "world_eldyrwild"
         assert payload["campaignId"] == "campaign_eldyrwild"
+        assert payload["scopeMode"] == "campaign"
         assert payload["revisionPin"] == "rev_graph_pin_001"
         assert payload["queryText"] == "Float Goat"
     finally:
         reset_active_capability_policy(token)
+
+
+def test_graph_tool_scope_rejects_model_supplied_world_and_campaign() -> None:
+    from apps.live_control_server.services.hermes_graph_interaction_tools import (
+        QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+    )
+
+    scope = HermesGraphScope(
+        world_id="of-conks-j1-fresh-rehearsal",
+        campaign_id="",
+        focus={"kind": "none"},
+        admissibility="gm",
+        revision_pin="rev:22ef509825ee1048efc73a1a1aa4a60c",
+        scope_mode="world",
+    )
+    payload, denied = apply_capability_policy_to_arguments(
+        QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME,
+        {
+            "queryText": "Hempholm",
+            "worldId": "world:foreign",
+            "campaignId": "campaign:foreign",
+            "scopeMode": "campaign",
+            "revisionPin": "revision:foreign",
+        },
+        policy=default_graph_only_capability_policy(scope),
+    )
+    assert denied is None
+    assert payload is not None
+    assert payload["worldId"] == scope.world_id
+    assert payload["campaignId"] == ""
+    assert payload["scopeMode"] == "world"
+    assert payload["revisionPin"] == scope.revision_pin
 
 
 HERMES_OBSERVER_PRIVACY_SENTINEL = "HERMES-OBSERVER-SECRET-BODY-7a1e"
@@ -1972,4 +2005,3 @@ def test_surface_context_block_appended_to_ephemeral_system_not_question(
     assert _FakeAgent.last_run is not None
     assert _FakeAgent.last_run["user_message"] == question
     assert question not in json.dumps(_FakeAgent.last_run.get("conversation_history") or [])
-

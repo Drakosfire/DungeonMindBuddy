@@ -76,6 +76,24 @@ const glowkindleNode = {
 };
 
 describe("worldGraphLensInformationDescriptor", () => {
+  it("omits an empty campaign reference only for an exact world request", () => {
+    const descriptor = worldGraphLensInformationDescriptor(request({
+      worldId: "of-conks-j1-fresh-rehearsal",
+      campaignId: "",
+      scopeMode: "world",
+    }));
+    expect(descriptor.subject).toEqual({ kind: "world", id: "of-conks-j1-fresh-rehearsal" });
+    expect(descriptor.scope).not.toContainEqual({ kind: "campaign", id: "" });
+    expect(descriptor.scope).toContainEqual({ kind: "scope_mode", id: "world" });
+    expect(worldGraphLensInformationDescriptor(request({ campaignId: "" })).scope)
+      .toContainEqual({ kind: "campaign", id: "" });
+  });
+
+  it("retains a nonblank narrative campaign anchor in world mode", () => {
+    const descriptor = worldGraphLensInformationDescriptor(request({ scopeMode: "world" }));
+    expect(descriptor.scope).toContainEqual({ kind: "campaign", id: "longmont-c2" });
+  });
+
   it("names dungeonmind authority, exact world subject, and request scope without revision", () => {
     const descriptor = worldGraphLensInformationDescriptor(request());
     expect(descriptor.authority).toBe("dungeonmind");
@@ -111,6 +129,23 @@ describe("worldGraphLensInformationDescriptor", () => {
 });
 
 describe("mapWorldGraphLensObservation", () => {
+  it("retains exact World and revision inspection targets without a blank campaign target", () => {
+    const state = mapWorldGraphLensObservation({
+      request: request({ worldId: "of-conks-j1-fresh-rehearsal", campaignId: "", scopeMode: "world" }),
+      response: projection({ nodes: [glowkindleNode] }, {
+        worldId: "of-conks-j1-fresh-rehearsal",
+        campaignId: "",
+        scopeMode: "world",
+      }),
+    });
+    expect(state.status).toBe("ready");
+    if (state.status !== "ready") return;
+    expect(state.inspectionTargets).toEqual([
+      { kind: "world", id: "of-conks-j1-fresh-rehearsal" },
+      { kind: "world_graph_revision", id: "rev:abc" },
+    ]);
+  });
+
   it("maps a verified non-empty projection to READY with an exact revision", () => {
     const response = projection({ nodes: [glowkindleNode] });
     const state = mapWorldGraphLensObservation({ request: request(), response });

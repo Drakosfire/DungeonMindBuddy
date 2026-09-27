@@ -229,6 +229,28 @@ def test_map_invocation_does_not_infer_missing_scope() -> None:
     assert request.capability_policy.graph_scope.revision_pin == "revision:resolved-server"
 
 
+def test_adapter_preserves_managed_world_scope_without_campaign() -> None:
+    scope = AgentWorldScope(
+        world_id="of-conks-j1-fresh-rehearsal",
+        campaign_id="",
+        focus={"kind": "none"},
+        admissibility="gm",
+        revision_id="rev:22ef509825ee1048efc73a1a1aa4a60c",
+        scope_mode="world",
+    )
+    invocation = _invocation(
+        context_packet=AgentContextPacket(world_scope=scope, retrieval_session=None)
+    )
+    request = map_invocation_to_hermes_request(invocation)
+    assert request.world_id == scope.world_id
+    assert request.campaign_id == ""
+    assert request.scope_mode == "world"
+    assert request.revision_pin == scope.revision_id
+    assert request.capability_policy is not None
+    assert request.capability_policy.graph_scope.scope_mode == "world"
+    assert request.capability_policy.graph_scope.campaign_id == ""
+
+
 def test_error_host_result_keeps_partial_telemetry() -> None:
     call = {
         "schema": "dmb_agent_model_call_v1",

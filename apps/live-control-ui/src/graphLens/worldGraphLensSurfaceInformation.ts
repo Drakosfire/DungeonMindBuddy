@@ -31,7 +31,9 @@ export function worldGraphLensInformationDescriptor(
 ): SurfaceInformationDescriptor {
   const requestKey = worldGraphLensRequestKey(request);
   const scope: SurfaceInformationReference[] = [
-    { kind: "campaign", id: request.campaignId },
+    ...(request.scopeMode === "world" && !request.campaignId.trim()
+      ? []
+      : [{ kind: "campaign", id: request.campaignId }]),
     { kind: "scope_mode", id: request.scopeMode ?? "campaign" },
     { kind: "admissibility", id: request.admissibility },
   ];
@@ -90,7 +92,9 @@ function observedMetadata(
     provenance: [{ kind: "world_graph_revision", id: revisionId }],
     inspectionTargets: [
       { kind: "world", id: response.snapshot.worldId },
-      { kind: "campaign", id: response.snapshot.campaignId },
+      ...(response.snapshot.scopeMode === "world" && !response.snapshot.campaignId.trim()
+        ? []
+        : [{ kind: "campaign" as const, id: response.snapshot.campaignId }]),
       { kind: "world_graph_revision", id: revisionId },
     ],
     diagnostics: boundedDiagnostics(

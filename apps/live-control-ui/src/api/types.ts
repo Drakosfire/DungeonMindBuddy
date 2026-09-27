@@ -2716,6 +2716,7 @@ export interface WorldGraphObjectProjectionRequest {
   schema: "dmb_world_graph_object_projection_request_v1";
   worldId: string;
   campaignId: string;
+  scopeMode?: "campaign" | "world";
   nodeId: string;
   focus?: WorldGraphProjectionFocus;
   admissibility?: "gm" | "player";

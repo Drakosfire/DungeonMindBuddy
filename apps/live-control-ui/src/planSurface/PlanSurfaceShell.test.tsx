@@ -3294,7 +3294,8 @@ describe("PlanSurfaceShell", () => {
         snapshot: {
           ...worldGraphProjection.snapshot,
           worldId,
-          campaignId: worldId,
+          campaignId: "",
+          scopeMode: "world",
           revisionId: "rev-of-conks-1",
           headRevisionId: "rev-of-conks-1",
         },
@@ -3326,13 +3327,22 @@ describe("PlanSurfaceShell", () => {
       await user.type(screen.getByLabelText("Question"), "What do we know?");
       await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
       await waitFor(() => expect(liveQueryFetchCalls()).toHaveLength(1));
+      expect(vi.mocked(liveApi.postWorldGraphProjection).mock.calls.length).toBeGreaterThan(0);
+      for (const [projectionRequest] of vi.mocked(liveApi.postWorldGraphProjection).mock.calls) {
+        expect(projectionRequest).toMatchObject({
+          worldId,
+          campaignId: "",
+          scopeMode: "world",
+        });
+      }
       expect(latestLiveQueryBody()).toMatchObject({
         campaign_id: worldId,
         session: 1,
         query_backend: "hermes",
         world_graph_context: {
           world_id: worldId,
-          campaign_id: worldId,
+          campaign_id: "",
+          scope_mode: "world",
           revision_pin: "rev-of-conks-1",
         },
         surface_context: {

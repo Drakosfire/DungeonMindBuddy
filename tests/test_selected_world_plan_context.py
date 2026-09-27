@@ -46,7 +46,7 @@ def _managed_query(world_id: str, *, graph_world_id: str | None = None) -> dict:
         "world_graph_context": {
             "schema": "dmb_agent_world_graph_query_context_request_v1",
             "world_id": graph_world_id or world_id,
-            "campaign_id": world_id,
+            "campaign_id": "",
             "focus": {"kind": "none", "session_id": None, "campaign_id": None},
             "scope_mode": "world",
         },
@@ -90,6 +90,20 @@ def test_managed_ask_uses_exact_world_packet_not_c2(
         ))
     assert error.value.status_code == 422
     assert calls == []
+
+    for nested_campaign, mode in ((world_id, "world"), (world_id, "campaign")):
+        bad = _managed_query(world_id)
+        bad["world_graph_context"]["campaign_id"] = nested_campaign
+        bad["world_graph_context"]["scope_mode"] = mode
+        with pytest.raises(HTTPException) as error:
+            live.post_live_query(live.LiveQueryRequest.model_validate(bad))
+        assert error.value.status_code == 422
+        assert calls == []
+
+    missing_campaign = _managed_query(world_id)
+    missing_campaign["world_graph_context"]["scope_mode"] = "campaign"
+    with pytest.raises(ValueError, match="campaign_id is required"):
+        live.LiveQueryRequest.model_validate(missing_campaign)
 
 
 def test_legacy_c2_query_does_not_require_managed_world_registry(

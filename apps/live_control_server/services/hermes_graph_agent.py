@@ -198,6 +198,7 @@ def _resolve_capability_policy(
     scope = HermesGraphScope(
         world_id=str(request.world_id).strip(),
         campaign_id=str(request.campaign_id).strip(),
+        scope_mode=request.scope_mode,
         focus=focus,
         admissibility=str(admissibility),
         revision_pin=request.revision_pin,
@@ -246,6 +247,7 @@ def _scope_block(
     payload: dict[str, Any] = {
         "worldId": scope.world_id,
         "campaignId": scope.campaign_id,
+        "scopeMode": scope.scope_mode,
         "focus": dict(scope.focus),
         "admissibility": scope.admissibility,
         "revisionPin": scope.revision_pin,
@@ -841,11 +843,15 @@ def run_hermes_graph_agent_turn(
             error_code="invalid_request",
             error_message="Hermes graph-agent turn requires a non-empty question.",
         )
-    if not str(request.world_id or "").strip() or not str(request.campaign_id or "").strip():
+    if (
+        not str(request.world_id or "").strip()
+        or request.scope_mode not in {"campaign", "world"}
+        or (request.scope_mode == "campaign" and not str(request.campaign_id or "").strip())
+    ):
         return _error_result(
             hermes_session_id=session_id,
             error_code="invalid_request",
-            error_message="Hermes graph-agent turn requires worldId and campaignId.",
+            error_message="Hermes graph-agent turn requires valid worldId, campaignId and scopeMode.",
         )
 
     policy = _resolve_capability_policy(request)

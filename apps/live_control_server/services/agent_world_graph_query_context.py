@@ -144,13 +144,24 @@ class AgentWorldGraphQueryContextRequest(BaseModel):
     scope_mode: Literal["campaign", "world"] = "campaign"
     selected_node_id: str | None = None
 
-    @field_validator("world_id", "campaign_id")
+    @field_validator("world_id")
     @classmethod
     def _non_empty(cls, value: str) -> str:
         cleaned = value.strip()
         if not cleaned:
             raise ValueError("must be a non-empty string")
         return cleaned
+
+    @field_validator("campaign_id")
+    @classmethod
+    def _normalize_campaign(cls, value: str) -> str:
+        return value.strip()
+
+    @model_validator(mode="after")
+    def _require_campaign_for_campaign_scope(self) -> AgentWorldGraphQueryContextRequest:
+        if self.scope_mode == "campaign" and not self.campaign_id:
+            raise ValueError("campaign_id is required when scope_mode is campaign")
+        return self
 
     @field_validator("selected_node_id")
     @classmethod
@@ -543,6 +554,7 @@ def resolve_agent_world_graph_query_context(
                         "schema": "dmb_world_graph_object_projection_request_v1",
                         "worldId": nested.world_id,
                         "campaignId": nested.campaign_id,
+                        "scopeMode": nested.scope_mode,
                         "nodeId": selected_node_id,
                         "admissibility": nested.admissibility,
                         "revisionPin": nested.revision_pin,

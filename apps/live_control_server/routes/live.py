@@ -923,7 +923,8 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             raise HTTPException(status_code=422, detail="managed World Ask requires Hermes")
         if body.world_graph_context is None or (
             body.world_graph_context.world_id != managed_world.world_id
-            or body.world_graph_context.campaign_id != managed_world.world_id
+            or body.world_graph_context.scope_mode != "world"
+            or body.world_graph_context.campaign_id != ""
         ):
             raise HTTPException(status_code=422, detail="managed World graph context mismatch")
         if body.hermes_session_pointer is not None:

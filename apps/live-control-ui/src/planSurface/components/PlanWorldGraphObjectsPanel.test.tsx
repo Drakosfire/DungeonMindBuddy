@@ -129,6 +129,50 @@ function renderPanel(
 }
 
 describe("PlanWorldGraphObjectsPanel", () => {
+  it("Views a managed World object at its blank-campaign world scope", async () => {
+    openGraphReference.mockReset();
+    const worldRequest = {
+      ...request,
+      worldId: "of-conks-j1-fresh-rehearsal",
+      campaignId: "",
+      scopeMode: "world" as const,
+    };
+    const channel = createSurfaceInformationChannel<WorldGraphProjection>(
+      worldGraphLensInformationDescriptor(worldRequest),
+    );
+    renderPanel(channel);
+    const ticket = channel.beginObservation({ publishLoading: false });
+    act(() => {
+      channel.commit(ticket!, {
+        status: "ready",
+        value: projection({ nodes: [glowkindleNode] }, {
+          worldId: "of-conks-j1-fresh-rehearsal",
+          campaignId: "",
+          scopeMode: "world",
+        }),
+        revision: { kind: "exact", value: "rev:abc" },
+        provenance: [{ kind: "world_graph_revision", id: "rev:abc" }],
+        inspectionTargets: [
+          { kind: "world", id: "of-conks-j1-fresh-rehearsal" },
+          { kind: "world_graph_revision", id: "rev:abc" },
+        ],
+        diagnostics: [],
+      });
+    });
+    await userEvent.setup().click(screen.getByRole("button", { name: "View" }));
+    expect(openGraphReference).toHaveBeenCalledWith(expect.objectContaining({
+      resolution: expect.objectContaining({
+        kind: "resolved_graph",
+        graphScope: {
+          worldId: "of-conks-j1-fresh-rehearsal",
+          campaignId: "",
+          scopeMode: "world",
+          revisionId: "rev:abc",
+        },
+      }),
+    }));
+  });
+
   it("reports no exact channel without implying an empty projection", () => {
     renderPanel(null);
     expect(screen.getByTestId("plan-world-graph-objects-panel")).toHaveAttribute(

@@ -253,6 +253,17 @@ def test_validate_rejects_missing_context_and_legacy_fields() -> None:
         outer_campaign_id="longmont-c2",
     )
 
+    # A managed World has no campaign anchor at all; it must not be invented.
+    validate_hermes_query_inputs(
+        world_graph_context=SimpleNamespace(
+            campaign_id="",
+            scope_mode="world",
+        ),
+        request_manifest_path=None,
+        hermes_session_id=None,
+        outer_campaign_id="",
+    )
+
     with pytest.raises(Exception) as bad_scope:
         validate_hermes_query_inputs(
             world_graph_context=SimpleNamespace(
@@ -310,6 +321,29 @@ def test_turn_request_uses_resolved_revision_server_root_and_no_continuity(
     assert request.capability_policy.policy_id == "world_graph_read_v1"
     assert request.context_packet.world_scope.focus == {"kind": "session", "session_id": "session-21", "campaign_id": None}
     assert scope.revision_id == "revision:resolved-server"
+
+
+def test_turn_request_preserves_managed_world_scope_without_campaign(
+    tmp_path: Path,
+) -> None:
+    envelope = {
+        **READY_ENVELOPE,
+        "world_id": "of-conks-j1-fresh-rehearsal",
+        "campaign_id": "",
+        "scope_mode": "world",
+        "revision_id": "rev:22ef509825ee1048efc73a1a1aa4a60c",
+    }
+    invocation, scope = build_hermes_graph_turn_request(
+        question="What is known about Hempholm?",
+        graph_envelope=envelope,
+        root=tmp_path,
+    )
+    assert scope.world_id == envelope["world_id"]
+    assert scope.campaign_id == ""
+    assert scope.scope_mode == "world"
+    assert scope.revision_id == envelope["revision_id"]
+    assert invocation.context_packet.world_scope.scope_mode == scope.scope_mode
+    assert invocation.context_packet.world_scope.campaign_id == scope.campaign_id
 
 
 def test_grounded_partial_abstention_and_error_classification() -> None:
@@ -2468,8 +2502,9 @@ def _guard_retired_graph_imports(monkeypatch) -> None:
 
 
 
+@pytest.mark.parametrize("world_scope", [False, True])
 def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, world_scope: bool
 ) -> None:
     """The Hermes ``expand_graph_retrieval`` tool path dispatches to DungeonMind.
 
@@ -2534,7 +2569,8 @@ def test_hermes_expansion_tool_executes_via_direct_dungeonmind_read(
             "schema": "dmb_agent_world_graph_query_context_v1",
             "status": "ready",
             "world_id": DIRECT_WORLD_ID,
-            "campaign_id": CAMPAIGN_ONE,
+            "campaign_id": "" if world_scope else CAMPAIGN_ONE,
+            "scope_mode": "world" if world_scope else "campaign",
             "revision_id": published.revision_id,
             "is_head": True,
             "focus": {"kind": "none"},
