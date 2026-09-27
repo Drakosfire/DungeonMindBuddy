@@ -75,6 +75,10 @@ Pre-dispatch critique:
   encounter context, actor and request ID to SERVER, not World/graph pointers.
   Consume that unchanged contract. A revision pin is recorded provenance, not
   proof that generation is graph-grounded.
+- PRIME's first activation-design judgment on `84e8d87c2aa48c0d1732732a34ddaf7c3fa83d0d`
+  was HOLD for two bounded repairs: explicitly lease the revision/history
+  consumers and specify browser-persisted same-attempt generation identity.
+  Those repairs are included below; this is not a PR review cycle or activation.
 - Named successors: governed World-only Threat publication/lookup; Agent brief
   transfer; image generation/selection and Plan placement. J3 remains a separate
   source/read/write authority transition, not a prerequisite for inert drafts.
@@ -121,6 +125,9 @@ Pre-dispatch critique:
 | Modify | `apps/live-control-ui/src/api/liveApi.ts` | Typed calls; no new global context store |
 | Modify | `apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.tsx` | Scope admission, async launch guards and scoped restore |
 | Modify | `apps/live-control-ui/src/surface/modules/StatblockWorkbenchModule.test.tsx` | Deferred callbacks, exact ownership and legacy regressions |
+| Modify | `apps/live-control-ui/src/statblocks/revision/statblockRevisionAttempt.ts` | Consume version-independent common fields or explicit draft union; no V2-to-V1 cast |
+| Modify | `apps/live-control-ui/src/statblocks/revision/StatblockRevisePanels.tsx` | Version-safe proposal history/revision presentation |
+| Modify | `apps/live-control-ui/src/statblocks/revision/statblockRevisionAttempt.test.ts` | V1/V2 revision lineage and reconciliation |
 | Add | `apps/live-control-ui/src/surface/modules/statblockDraftScope.ts` | Small pure scope/restore guard if needed |
 | Add | `apps/live-control-ui/src/surface/modules/statblockDraftScope.test.ts` | Pure guard support, not substitute for mounted proof |
 | Modify | `tests/test_threat_draft_store.py` | V1/V2 and journal/acceptance round-trip |
@@ -184,6 +191,12 @@ explicit; old campaign-filtered results retain their shape. World-only summaries
 carry their World/null-campaign scope. Immutable operation snapshots and digests
 are not migrated. World-only drafts are rejected by the publication service's
 eligibility boundary before operation/graph effects; show that limitation in UX.
+Keep the publication panel campaign-only by narrowing the draft in Workbench;
+show the World-only limitation instead of mounting it with a fake V1 view.
+The existing operation lock infrastructure may create its lockfile before
+eligibility. The required zero-effect boundary is no operation admission or
+ledger write and no graph read/write; do not misreport lock acquisition as
+publication or require an unrelated lock redesign.
 
 ### Generation and restore
 
@@ -192,6 +205,21 @@ projection response World, scope and campaign fields; no `response || default`
 identity repair. Recheck activation before create and before starting generation
 from its returned draft. Once dispatched, use existing durable request/candidate
 lineage and recovery instead of canceling/rebinding its result on navigation.
+
+Generation recovery must bind the already accepted optional `client_request_id`:
+mint it once per deliberate generation attempt and persist it under the original
+verified scope/draft, with the exact source draft version, **before dispatch**.
+Pass that same key to generation. Retain it while the outcome is unresolved;
+reload, disconnect, navigation, Clear and remount must not silently replace it.
+Same-attempt retry/reconciliation reuses the exact key and original source
+version, including after candidate attachment advances the current draft version.
+A new key requires an explicit new attempt after the prior attempt is settled;
+this slice does not add an unresolved-attempt abandonment policy. Clear may
+clear visible working state, but may not erase the unresolved attempt identity.
+If local persistence cannot preserve the key, fail before starting a request
+that promises recovery, or visibly retain an unresolved/non-auto-retry state.
+Use the existing durable generation journal; no generic job store or SERVER
+contract change is permitted.
 
 Consume `useSelectedWorld()` and existing admitted legacy campaign context.
 Unknown/loading/error context cannot submit, restore foreign work, or fall back.
@@ -213,6 +241,10 @@ recording a World revision does not claim the model retrieved that graph.
   identity rejected; scoped lists do not return foreign entries.
 - Provider seam: unchanged SERVER request shape, real candidate exact source-
   draft lineage, failure/retry/reconciliation preserves identity and authored brief.
+  Reload/disconnect while provider pending retains exact attempt key/source
+  version; later same-key recovery after draft version advancement, Clear/New
+  attempt interleavings and persistence failure cannot launch a second logical
+  provider generation or silently discard an unresolved key.
 - Mounted Workbench: defer head/create/generate/load callbacks at each §3
   interleaving, inspect dispatched requests and localStorage writes, verify A→B→A
   restore including dirty copy. Helper-only guards are insufficient.
@@ -225,7 +257,7 @@ Exact scoped commands (run from implementation root/UI as indicated):
 .venv/bin/pytest -q tests/test_threat_draft_store.py tests/test_threat_draft_routes.py tests/test_statblock_candidate_generation.py tests/test_statblock_candidate_routes.py tests/test_world_scoped_threat_publication_guard.py
 .venv/bin/ruff check apps/live_control_server/models/threat_draft.py apps/live_control_server/services/threat_draft_store.py apps/live_control_server/routes/threat_drafts.py apps/live_control_server/services/statblock_candidate_generation.py apps/live_control_server/services/threat_publication_operations.py
 cd apps/live-control-ui
-npx vitest run src/surface/modules/StatblockWorkbenchModule.test.tsx src/surface/modules/statblockDraftScope.test.ts --maxWorkers=1
+npx vitest run src/surface/modules/StatblockWorkbenchModule.test.tsx src/surface/modules/statblockDraftScope.test.ts src/statblocks/revision/statblockRevisionAttempt.test.ts --maxWorkers=1
 npm run typecheck
 cd ../..
 git diff --check
