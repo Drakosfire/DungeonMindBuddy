@@ -16,7 +16,7 @@ pr_body_template: |
 # HANDOFF — DEMO: reviewed Agent edits on the Plan canvas
 
 **Created:** 2026-09-27
-**Status:** ACTIVE — DEMO-J2 first Agent-to-Plan authoring capability
+**Status:** COMPLETE / HISTORICAL — bounded reviewed Agent-to-Plan editing accepted; full DEMO-J2 remains unaccepted
 **Conversation/workstream:** LOCAL DEMO ACCEPTED / DEMO-J2
 **Flow / owner:** DEMO / Buddy Plan and Agent interaction
 **Direction:** STEWARD → CODE → REVIEW
@@ -24,6 +24,29 @@ pr_body_template: |
 **PR topology:** serial; open exactly one implementation PR titled `DEMO: apply reviewed Agent edits to Plan`
 **Runtime/state ownership:** use fixtures for tests, then the isolated `of-conks-j1-fresh-rehearsal` World and its dedicated Buddy/APP-STATE databases on the existing local demo ports; never C1/C2
 **Concurrent-lane check:** open #781 leases only its semantic-action projection pair and handoff; open #780 leases v6.5 evidence-preservation documentation/test paths. Neither leases the expected Plan edit files or isolated Of Conks runtime. Recheck at dispatch.
+
+## Completion record — 2026-09-27
+
+Buddy #784 merged at `b6c63a56f784be5cc2fc7de5bb6d167e32520bb8` after
+two formal PRIME review cycles. Cycle 1 HOLD `5332599377` identified live-target
+drift during asynchronous hashing and stale Ask/Compose thread replacement.
+Cycle 2 PASS `5332645721` accepted exact head
+`57c1e632f30e43702e640e301ab26aba14016bf2` against
+`main@129332d29626d3de5a9bb4d91820d5a0019e5a10`.
+Independent evidence: 154 focused UI tests, 10 Python tests, six additional
+reviewer race/boundary witnesses, scoped Ruff and cumulative diff check. No
+hosted checks were published; UI typecheck retains only the unchanged
+ThreatPublicationPanel JSX failure. Exact-head real browser proposals revised
+Read Aloud and Decision content, preserved an intervening ordinary Ask, applied
+through the mounted editor, and survived Save/reload with the conversation.
+Detailed execution and partial model telemetry are in the sole DEMO roadmap
+and PR record; absent cost/usage fields are not inferred.
+
+Serial topology was preserved. The §4 lease is released. This closes only the
+capability below; source-verified grounding (#783), J3 source-to-World authoring
+and later-turn retrieval, the full connected journey and operator acceptance
+remain false. A successor requires fresh rehearsal, authority clarification,
+re-anchor and its own durable activation; it is not dispatched by this merge.
 
 ## §1 Mission and merge-ready invariant
 
