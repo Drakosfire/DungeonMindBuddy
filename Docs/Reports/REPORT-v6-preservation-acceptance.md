@@ -1,6 +1,6 @@
 # V6 preservation acceptance report
 
-**Disposition:** `V6_5_IMPLEMENTED_AWAITING_PRIME_REVIEW`
+**Disposition:** `V6_5_HOLD_KERNEL_VISIBILITY_ANCHOR_IDENTITY`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Design ref:** `1c43888fc29c4d2e8e9354f103f1cdcb6b1b10d3`
 **Activation base:** `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`
@@ -90,16 +90,19 @@ expansion of the executable lease.
 7. **Pinned coherence and fresh-source revalidation.**
    `test_pinned_context_stays_coherent_while_fresh_context_rejects_stale_anchor`
    proves the original context remains coherent after live-reader mutation and
-   a fresh context rejects the old token after missing artifact, missing
-   revision, retracted lifecycle, changed current revision, source-revision /
-   artifact mismatch, or revision-digest drift. Fresh direct admission is also
+   requires a fresh context to reject the old token after missing artifact,
+   missing revision, retracted lifecycle, visibility change, changed current
+   revision, source-revision/artifact mismatch, or revision-digest drift.
+   `test_fresh_context_rejects_anchor_after_evidence_locator_drift` separately
+   proves evidence locator/line drift invalidation. Fresh direct admission is
    checked for each mutation rather than inferred from token failure.
 
 8. **Generic native boundary.**
    `test_native_vnext_boundaries_do_not_import_buddy_or_legacy_policy` audits
    `dungeonmind.application.vnext.admission`, `evidence_reads`,
-   `materialization`, and `publication`. Those native serving/materialization /
-   publication entry points import no Buddy, live-control, or WorldKeeper
+   `source_anchors`, `materialization`, and `publication`. Those concrete native
+   serving/materialization/publication entry points import no Buddy,
+   live-control, or WorldKeeper
    implementation and contain no DungeonBuddy GM/player/campaign/NPC/fictional-
    time term. Buddy semantics remain in `graph_memory.vnext.domain_runtime`.
    Historical compatibility readers and exports are outside this V6/V10 gate.
@@ -135,7 +138,13 @@ git diff --check
 PASS
 ```
 
-All required witnesses ran with zero skips.
+PRIME Cycle 1 reviewed exact head
+`fd5228e0be15b93fdc9e61c55e5a8bd35d748e65` and issued HOLD in review
+`5331744992`. The new visibility-drift witness intentionally fails on the
+installed DungeonMind pin because native `EntityReadSourceArtifact` and
+`source_anchors.visible_source_payload` omit source visibility from anchor
+identity. DungeonMind owns that production repair. All other required witnesses
+run with zero skips; updated final counts follow the repair and exact repin.
 
 ## Limitations and proposed exit judgment
 
@@ -144,7 +153,8 @@ anchor revalidation. It deliberately does not open source bodies, render
 highlights, wire a browser, switch product routes, migrate legacy Worlds, or
 repeat PostgreSQL durability. Those remain later consumer/cutover obligations.
 
-Subject to green required regressions and independent PRIME acceptance, this
+Subject to the owner-correct Kernel repair, green required regressions and
+independent PRIME acceptance, this
 report proposes `V6_DUNGEONBUDDY_PRESERVATION_ACCEPTED`. V7 remains
 undispatched until MIND records the accepted V6 exit and designs its first
 bounded bridge-genesis slice.

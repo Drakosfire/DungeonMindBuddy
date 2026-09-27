@@ -15,7 +15,13 @@ from dungeonmind.application.vnext import (
     InMemoryKnowledgeSourceReader,
     build_parsed_knowledge_revision,
 )
-from dungeonmind.application.vnext import admission, evidence_reads, materialization, publication
+from dungeonmind.application.vnext import (
+    admission,
+    evidence_reads,
+    materialization,
+    publication,
+    source_anchors,
+)
 from dungeonmind.contracts.semantic_profile import SemanticProfileRef
 from dungeonmind.contracts.vnext import (
     Assertion,
@@ -387,12 +393,30 @@ def test_focus_changes_anchor_identity_not_truth_or_fictional_time(
     ).resolved
 
 
+def test_fresh_context_rejects_anchor_after_evidence_locator_drift(
+    preservation: dict,
+) -> None:
+    service = EvidenceReadService()
+    old_context = _context(preservation)
+    token = service.get_evidence(old_context, EVIDENCE_ID).anchors[0].anchor_id
+
+    changed = copy.deepcopy(preservation)
+    changed["evidence"][0]["locator"] = "paragraph:15"
+    changed["evidence"][0]["line_ref"] = "L147-L150"
+    fresh = _context(changed)
+
+    assert service.resolve_source_anchor(old_context, token).resolved
+    assert service.get_evidence(fresh, EVIDENCE_ID).available
+    assert not service.resolve_source_anchor(fresh, token).resolved
+
+
 @pytest.mark.parametrize(
     ("mutation", "expected_available"),
     [
         ("missing_artifact", False),
         ("missing_revision", False),
         ("artifact_retracted", False),
+        ("artifact_visibility", True),
         ("artifact_revision", True),
         ("revision_artifact", False),
         ("revision_digest", True),
@@ -429,6 +453,13 @@ def test_pinned_context_stays_coherent_while_fresh_context_rejects_stale_anchor(
             update={"status": "retracted"}
         )
         reader._artifacts[ARTIFACT_ID] = artifact
+    elif mutation == "artifact_visibility":
+        payload = reader._artifacts[ARTIFACT_ID].model_dump(mode="json")
+        payload["visibility"] = {
+            "kind": "labels_any",
+            "labels": ["dungeonbuddy.visibility:gm"],
+        }
+        reader._artifacts[ARTIFACT_ID] = SourceArtifactV3.model_validate(payload)
     elif mutation == "artifact_revision":
         artifact = reader._artifacts[ARTIFACT_ID].model_copy(
             update={"current_revision_id": "sr:other"}
@@ -464,7 +495,7 @@ def test_pinned_context_stays_coherent_while_fresh_context_rejects_stale_anchor(
 
 
 def test_native_vnext_boundaries_do_not_import_buddy_or_legacy_policy() -> None:
-    modules = (admission, evidence_reads, materialization, publication)
+    modules = (admission, evidence_reads, source_anchors, materialization, publication)
     forbidden_imports = (
         "from graph_memory",
         "import graph_memory",
