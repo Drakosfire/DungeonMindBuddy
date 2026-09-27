@@ -15,7 +15,7 @@ pr_body_template: |
 # HANDOFF — DEMO: one selected World context
 
 **Created:** 2026-09-26
-**Status:** ACTIVE — J1 selected-World context repair
+**Status:** COMPLETE / HISTORICAL — #775 merged; write lease released
 **Canonical path:** `Docs/Plans/HANDOFF-DEMO-selected-world-context-v1.md`
 **Flow / owner:** DEMO / Buddy product integration
 **Design base:** `main@1ced31f774d62802893d46670eecebe91d37df60`; re-anchored after #772 at `397e60791f938a4662f134dbf8e11538f61cb51d`
@@ -25,6 +25,37 @@ pr_body_template: |
 **Authorized PR:** open/update one PR titled `DEMO: carry one selected World across preparation`
 **Suggested branch:** `codex/demo-selected-world-context`
 **No successor authorization:** a discovered extraction, publication, Play or generic-lens redesign is a stop/handback, not a second PR.
+
+## Completion record — 2026-09-27
+
+PR [#775](https://github.com/Drakosfire/DungeonMindBuddy/pull/775) merged at
+`029004be50057fa7f31d50e0b071633ed36f52f9` from accepted head
+`ad26172c099f1dd3f8aa983d5f950aa407bd610e` after two formal review
+cycles. PRIME's final exact-head verdict is
+[APPROVE](https://github.com/Drakosfire/DungeonMindBuddy/pull/775#pullrequestreview-5329083919)
+(GitHub recorded `COMMENTED` because the reviewer and author share an account).
+The accepted product invariant is selected managed-World context across the
+claimed preparation paths, not completed DEMO-J1 or imported-adventure retrieval.
+
+The originally required Of Conks run remains cataloged, but its file-backed
+components and World/source registry are unavailable. PRIME's pinned
+OverMind evidence amendment `3e605f1b87fb22724a1a1be25cea7f7d3c645085`
+substituted a fresh synthetic World/source witness without changing the
+product invariant. Ordinary Build created and committed a synthetic source;
+Plan created/saved/reopened a same-World prep; a missing graph head returned
+`authority_receipt_missing` without C2/Eldyrwild fallback. After direct user
+approval, one verification-only, source-bound synthetic node was initialized
+through DungeonMind's reviewed API in the disposable local database. Readback
+showed one genesis head `rev:b68647f3c2681afa83f73ebdd4d62479` and matching
+receipt; the browser then showed the node, and a no-model capture proxy proved
+the actual Plan Ask request carried that World, exact Plan document and revision
+pin. No paid model call occurred. This does **not** certify the unavailable
+licensed run, extraction quality or full adventure retrieval. The evidence is
+recorded in the [PR handback](https://github.com/Drakosfire/DungeonMindBuddy/pull/775#issuecomment-5853258422).
+
+The next bounded capability is ordinary World selection/switching on stable
+storage, activated separately in
+[`HANDOFF-DEMO-world-selection-primitive-v1.md`](HANDOFF-DEMO-world-selection-primitive-v1.md).
 
 ## §1 Mission and invariant
 
@@ -100,7 +131,7 @@ exact document validation. A URL, local-storage value or display label alone is
 not authority. If navigation has no managed selection, the existing C2 default
 may remain; an explicit but invalid managed selection must **not** fall back.
 
-## §4 Files in scope — ACTIVE write lease
+## §4 Files in scope — historical lease, now released
 
 | Action | Path | Purpose |
 |---|---|---|
@@ -169,6 +200,10 @@ proves published graph content. A candidate preview does neither.
 | C1/C2 preserved | Existing graph lens, Build, Plan, Ingest tests. |
 | Real product | Rehearse saved Of Conks source/document and exact extraction run on isolated ports; W Plan editable, C2 absent, first-World candidate still unconfirmed. |
 
+The original Of Conks row above is historical design intent, not a claim that
+its unavailable artifacts were rehearsed. The pinned PRIME amendment and
+completion record describe the accepted synthetic evidence substitution.
+
 Run focused Vitest and server tests, frontend typecheck/build, scoped Ruff,
 `git diff --check`, and compare changed paths to §4. If inherited full-build
 failures remain, show the same command/base failure and the exact changed-file
@@ -182,13 +217,13 @@ identities, explicit non-publication, inherited failures, and any stop/follow-up
 The only merge-ready claim is the §1 selected-context invariant; J1/J2–J6 and
 the full demo remain open.
 
-- [ ] Handoff was on `main` and ACTIVE before implementation branch.
-- [ ] One selected World governs all claimed paths; mismatches fail closed.
-- [ ] Managed-world Plan create/reopen and uninitialized graph behavior proven.
-- [ ] Existing C1/C2 behavior proven unchanged.
-- [ ] Exact-head tests and browser witness recorded; no model calls.
-- [ ] Only §4 paths changed; licensed source remains untracked/local.
-- [ ] Independent review passes before merge.
+- [x] Handoff was on `main` and ACTIVE before implementation branch.
+- [x] One selected World governs all claimed paths; mismatches fail closed.
+- [x] Managed-world Plan create/reopen and uninitialized graph behavior proven.
+- [x] Existing C1/C2 behavior proven unchanged.
+- [x] Exact-head tests and browser witness recorded; no model calls.
+- [x] Only §4 paths changed; licensed source remains untracked/local.
+- [x] Independent review passes before merge.
 
 ## Stop conditions
 

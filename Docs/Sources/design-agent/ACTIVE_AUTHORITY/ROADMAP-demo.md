@@ -38,6 +38,12 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 **No integrated rehearsal was performed by the survey. No journey milestone is
 certified complete by the adoption transaction.**
 
+**Latest re-anchor (2026-09-27):** #775 is integrated, proving selected
+managed-World preparation context on a disposable synthetic fixture. Ordinary
+World switching is now the one ACTIVE DEMO slice. The original Of Conks run's
+file-backed artifacts are unavailable despite its surviving catalog row; no
+imported-adventure, extraction-quality or full-J1 acceptance is claimed.
+
 Inherited work: PLAY-1 / Buddy #773 merged at
 `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9` after two review cycles;
 it proves only the in-memory Buddy→WorldKeeper consumer mapping. Next technical
@@ -46,7 +52,7 @@ design/dogfood has an existing merged handoff independent of Canvas F5/F6.
 Foundation evidence and exact snapshot PRs are in the reconciliation; refresh at
 activation rather than copying those snapshots into another permanent tracker.
 
-First actions:
+Initial actions at roadmap adoption (historical sequence):
 
 1. Establish one reproducible demo checkout/version combination, corpus and
    isolated durable state. Inventory actual codepaths for ingestion, graph reads,
@@ -223,12 +229,10 @@ that their foundations are absent. Historical slices retain their IDs.
   `Find existing object` with `Unknown Build document scope:
   of-conks-cons-demo`, while shared World chrome tries Eldyrwild rather than
   the selected managed World. These are Buddy context/routing gaps, not
-  presentation defects or evidence that the extraction failed. J1 remains
-  blocked; J2–J6 are not certified by this partial rehearsal. Next: design the
-  smallest managed-World Plan-context slice, preserving C1/C2, then re-test
-  this exact transition. Independently determine the bounded World-reference
-  lens repair before any accepted first-World publication. Do not spend on
-  another extraction to fix routing.
+  presentation defects or evidence that the extraction failed. At this
+  historical checkpoint J1 remained blocked; J2–J6 were not certified by the
+  partial rehearsal. The selected-context repair that followed is recorded
+  below. Do not spend on another extraction to fix routing.
 
   The licensed Of Conks package remains local-only and must not be committed.
   Its `specimens/02-prepared.md` matches its local manifest; the local
@@ -237,11 +241,26 @@ that their foundations are absent. Historical slices retain their IDs.
   not the manifest's `1b350f...` pin. Resolve that input pin before claiming a
   fully reproducible final rehearsal. The new demo DBs and source root are
   disposable local rehearsal state, not production authority.
-- **DEMO-J1 selected-context repair:** ACTIVE handoff
+- **DEMO-J1 selected-context repair:** integrated, not full J1 acceptance.
+  Buddy #775 accepted head `ad26172c099f1dd3f8aa983d5f950aa407bd610e`,
+  merged at `029004be50057fa7f31d50e0b071633ed36f52f9` after two
+  formal review cycles. Historical handoff:
   [`HANDOFF-DEMO-selected-world-context-v1.md`](../Plans/HANDOFF-DEMO-selected-world-context-v1.md).
-  One serial Buddy PR may prove that the imported managed World selection binds
-  Plan, Build, Graph Review, Ask and World requests without C2/Eldyrwild
-  fallback. This records dispatch authority, not implementation acceptance.
+  The original Of Conks run remains cataloged, but its file-backed components
+  and World/source registry are unavailable; it was not replayed or confirmed.
+  Under PRIME's pinned evidence amendment, a new explicitly synthetic World
+  proved ordinary Build source → Plan create/save/reload, honest missing-head
+  behavior, then a user-approved one-node reviewed initialization and exact
+  Plan Ask request routing captured without forwarding to a model. This is
+  selected-context evidence, not licensed adventure retrieval or DEMO-J1 PASS.
+- **DEMO-J1 ordinary World selection:** ACTIVE handoff
+  [`HANDOFF-DEMO-world-selection-primitive-v1.md`](../Plans/HANDOFF-DEMO-world-selection-primitive-v1.md),
+  adopted from PRIME's pinned OverMind design `936c7c9` after #775 merge.
+  One serial implementation PR may make named World choice scope ordinary
+  Build/Plan/Ingest/Play navigation, inventories and exact admission while
+  both DB URLs stay fixed. The live proof must use two synthetic Worlds in one
+  deployment and DB pair. Plan→Build's stale Plan `documentId` is included.
+  No implementation or merge result is pre-claimed here.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
