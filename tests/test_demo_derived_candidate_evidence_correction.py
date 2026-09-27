@@ -89,6 +89,8 @@ def _fixture(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, *, two_invalid: bo
             run_id=kwargs["run_id"], status=kwargs["status"], revision=1,
             lineage=kwargs["lineage"], components=kwargs["components"],
             source_artifact_id=kwargs["source_artifact_id"],
+            source_domain=kwargs["source_domain"], profile_id=kwargs["profile_id"],
+            campaign_id=kwargs["campaign_id"], session_id=kwargs["session_id"],
         )
         child_store[run.run_id] = run
         return run
@@ -220,3 +222,20 @@ def test_interrupted_draft_is_not_reviewable_and_same_request_resumes(monkeypatc
     monkeypatch.setattr(correction, "update_extraction_run_status", original_update)
     response = correction.correct_exact_run_evidence(_request(sha, span_id))
     assert children[response.run_id].status == ExtractionRunStatus.REVIEWABLE
+
+
+@pytest.mark.parametrize("field,value", [
+    ("source_domain", "recap"),
+    ("profile_id", "other@1"),
+    ("campaign_id", "other-campaign"),
+    ("session_id", "session-1"),
+])
+def test_colliding_child_identity_fails_before_seal(monkeypatch, tmp_path, field, value):
+    _, _, sha, span_id, children = _fixture(monkeypatch, tmp_path)
+    response = correction.correct_exact_run_evidence(_request(sha, span_id))
+    child = children[response.run_id]
+    child.status = ExtractionRunStatus.DRAFT
+    setattr(child, field, value)
+    with pytest.raises(correction.ExtractPromoteError, match="identity conflicts"):
+        correction.correct_exact_run_evidence(_request(sha, span_id))
+    assert child.status == ExtractionRunStatus.DRAFT

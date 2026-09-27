@@ -247,7 +247,15 @@ def correct_exact_run_evidence(
         except GraphRunRegistryError:
             # An identical concurrent request may have won the create race.
             child = get_extraction_run(repo, child_id)
-    if child.lineage != lineage or child.components != components or child.source_artifact_id != parent.source_artifact_id:
+    if (
+        child.lineage != lineage
+        or child.components != components
+        or child.source_artifact_id != parent.source_artifact_id
+        or child.source_domain != parent.source_domain
+        or child.profile_id != parent.profile_id
+        or child.campaign_id != parent.campaign_id
+        or child.session_id != parent.session_id
+    ):
         raise _reject("derived run identity conflicts with existing run", status_code=409)
     _write_child_candidate(child_path, child_bytes, repo=repo)
     for _ in range(8):
