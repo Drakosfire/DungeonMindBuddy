@@ -4,7 +4,7 @@
 **Owner:** INTERACTION MAP, Buddy implementation steward
 **Coordination / merge owner:** PRIME task `01a0def6-8fb5-7520-80ff-ef6e67916115`
 **Concurrent product owner:** DEMO task `01a0885e-375c-7501-9f6e-a58528b39894`
-**Base:** Buddy `main` / `origin/main` at `bf67c16fceba09026cef7a6e833a58666fa5855a`
+**Base:** Buddy `main` / `origin/main` at `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`
 **PR topology:** `parallel-independent` of DEMO-J1 Plan world-scope read repair and the open Buddy PRs listed in §5; no behavioral dependency.
 **Assigned PR:** one PR titled `INTERACTION MAP: prove shared Build projection action`; PRIME owns merge. Do not merge this slice.
 
@@ -38,7 +38,7 @@ No other paths are in scope. The handoff is committed and pushed before implemen
 
 ## §5 Re-anchored concurrent work
 
-Buddy `main` was re-anchored at `bf67c16fceba09026cef7a6e833a58666fa5855a` before implementation. It later advanced to `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`; that commit only rebriefed the active DEMO-J1 handoff and did not change this slice’s base code.
+Buddy `main` was first re-anchored at `bf67c16fceba09026cef7a6e833a58666fa5855a` before implementation, then advanced to `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`. After checking its non-overlapping DEMO-J1 handoff update, the implementation branch was rebased onto `d5f0ada` before PR creation.
 
 - Buddy main advanced after the initial re-anchor: `10a7b42` recorded accepted DEMO-J3 PLAY-2 authority, `bf67c16` rebriefed DEMO-J1, and `d5f0ada` added selected-object World-scope reads to the DEMO-J1 lease. The latest handoff explicitly permits this experiment in parallel and confines its code ownership to the two new `agentInteraction/semanticActionProjection*` files; its added Plan/graph-reference paths do not overlap this slice. Fixture runtime remains disjoint.
 - DEMO-J1 still has no accepted Plan-read witness. Its rebrief records the blank-campaign Surface Information and selected-object scope gaps; those repairs remain DEMO-owned. The experiment does not depend on them.
