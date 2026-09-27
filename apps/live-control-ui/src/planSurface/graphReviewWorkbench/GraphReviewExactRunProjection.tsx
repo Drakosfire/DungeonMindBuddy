@@ -27,6 +27,12 @@ export function GraphReviewExactRunProjection({ review }: GraphReviewExactRunPro
       className="graph-review-exact-run-projection"
       data-testid="graph-review-exact-run-projection"
     >
+      {review.inspectionStatus === "invalid_evidence" ? (
+        <p className="graph-review-error" data-testid="graph-review-invalid-evidence-block">
+          {review.invalidEvidenceCount ?? "Some"} nonliteral evidence quote(s) in this exact
+          candidate. Inspect the affected assertions below; publication is blocked.
+        </p>
+      ) : null}
       <section
         className="graph-review-exact-run-source"
         data-testid="graph-review-exact-run-source"
@@ -69,6 +75,8 @@ export function GraphReviewExactRunProjection({ review }: GraphReviewExactRunPro
                 onClick={() => setSelectedAssertionId(assertion.assertionId)}
               >
                 <strong>{assertion.label}</strong>
+                {assertion.evidence.some((item) => (item.invalidAnchorQuotes?.length ?? 0) > 0)
+                  ? <span>Invalid evidence</span> : null}
                 <span>
                   {assertion.kind}
                   {assertion.summary ? ` · ${assertion.summary}` : ""}
@@ -131,6 +139,11 @@ function ExactRunAssertionEvidence({
               {item.anchorQuotes.length > 0 ? (
                 <p data-testid="graph-review-exact-run-evidence-quote">
                   Quote: “{item.anchorQuotes.join(" · ")}”
+                </p>
+              ) : null}
+              {(item.invalidAnchorQuotes?.length ?? 0) > 0 ? (
+                <p className="graph-review-error" data-testid="graph-review-invalid-evidence-quote">
+                  Not found in this exact source paragraph: “{item.invalidAnchorQuotes?.join(" · ")}”
                 </p>
               ) : null}
               <blockquote data-testid="graph-review-exact-run-evidence-paragraph">

@@ -607,10 +607,13 @@ export function GraphReviewWorkbenchModule({
     void loadCompare();
   }, [loadCompare, catalogSettled]);
 
-  const exactRunFirstWorldEligible = exactReview?.firstWorldPublishEligible === true;
+  const invalidExactEvidence = exactReview?.inspectionStatus === "invalid_evidence";
+  const exactRunFirstWorldEligible = exactReview?.firstWorldPublishEligible === true
+    && !invalidExactEvidence;
   const exactRunReviewable = exactRun?.status === "reviewable";
   const exactRunPromotable =
     exactRunReviewable
+    && !invalidExactEvidence
     && exactReview?.promotable !== false
     && (exactRun?.source_domain ?? "").trim() !== "worldbuilding";
   const exactRunNonPromotableReason =
@@ -627,6 +630,7 @@ export function GraphReviewWorkbenchModule({
   const loadedWorldbuilding = (loadedRun?.source_domain ?? "").trim() === "worldbuilding";
   const loadedPromotable =
     loadedReviewable
+    && !invalidExactEvidence
     && exactReview?.promotable !== false
     && !loadedWorldbuilding;
   const loadedReadOnly =

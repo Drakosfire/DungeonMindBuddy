@@ -3513,6 +3513,7 @@ export interface ExactRunReviewEvidence {
   sourceSpanRefId: string;
   paragraphText: string;
   anchorQuotes: string[];
+  invalidAnchorQuotes?: string[];
   startLine?: number | null;
   endLine?: number | null;
 }
@@ -3541,6 +3542,8 @@ export interface ExactRunReviewPackage {
   sessionId?: string | null;
   sourceProse: string;
   assertions: ExactRunReviewAssertion[];
+  inspectionStatus?: "ready" | "blocked" | "invalid_evidence";
+  invalidEvidenceCount?: number;
   diagnostics: string[];
   /** False for worldbuilding_draft inspect-only runs (BLD-07 narrowed). */
   promotable?: boolean;

@@ -544,6 +544,7 @@ def _assert_and_project_candidate_evidence(
     source_prose: str,
     source_artifact_id: str,
     span_index: Any,
+    inspect_false_anchor_quotes: bool = False,
 ) -> list[ExactRunReviewAssertion]:
     """Fail closed when candidate evidence is not bound to frozen span content.
 
@@ -662,9 +663,12 @@ def _assert_and_project_candidate_evidence(
                         _diagnostic("missing_anchor_quotes", span_id),
                     ],
                 )
-            verified_quotes: list[str] = []
+            invalid_quotes: list[str] = []
             for quote in raw_quotes:
                 if not find_anchor_quote_matches(paragraph, [quote]):
+                    if inspect_false_anchor_quotes:
+                        invalid_quotes.append(quote)
+                        continue
                     raise ExtractPromoteError(
                         f"assertion {assertion_id!r} evidence[{index}] anchor quote "
                         "does not occur in the canonical span paragraph",
@@ -675,13 +679,13 @@ def _assert_and_project_candidate_evidence(
                             _diagnostic("span_ref", span_id),
                         ],
                     )
-                verified_quotes.append(quote)
             projected.append(
                 ExactRunReviewEvidence(
                     source_artifact_id=artifact_id,
                     source_span_ref_id=span_id,
                     paragraph_text=paragraph,
-                    anchor_quotes=verified_quotes,
+                    anchor_quotes=raw_quotes,
+                    invalid_anchor_quotes=invalid_quotes,
                     start_line=int(span.start_line),
                     end_line=int(span.end_line),
                 )
@@ -795,6 +799,13 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             source_prose=source_prose,
             source_artifact_id=resolved.source_artifact_id,
             span_index=span_index,
+            inspect_false_anchor_quotes=True,
+        )
+
+        invalid_evidence_count = sum(
+            len(evidence.invalid_anchor_quotes)
+            for assertion in assertions
+            for evidence in assertion.evidence
         )
 
 
@@ -815,15 +826,22 @@ def get_exact_run_review_package(run_id: str) -> ExactRunReviewPackage:
             session_id=resolved.session_id or None,
             source_prose=source_prose,
             assertions=assertions,
+            inspection_status="invalid_evidence" if invalid_evidence_count else "ready",
+            invalid_evidence_count=invalid_evidence_count,
             diagnostics=list(resolved.diagnostics),
-            promotable=not inspect_only,
-            promotable_reason=_WORLDBUILDING_INSPECT_ONLY_REASON
-            if inspect_only
-            else None,
+            promotable=not inspect_only and invalid_evidence_count == 0,
+            promotable_reason=(
+                "Candidate evidence contains nonliteral anchor quotes; publication is blocked."
+                if invalid_evidence_count
+                else _WORLDBUILDING_INSPECT_ONLY_REASON if inspect_only else None
+            ),
             world_id=capability.world_id,
             world_state=capability.world_state,
-            first_world_publish_eligible=capability.eligible,
-            first_world_publish_reason=capability.reason,
+            first_world_publish_eligible=capability.eligible and invalid_evidence_count == 0,
+            first_world_publish_reason=(
+                "Candidate evidence contains nonliteral anchor quotes; publication is blocked."
+                if invalid_evidence_count else capability.reason
+            ),
         )
     except ExtractPromoteError as exc:
         raise _with_review_package_inspection_context(
