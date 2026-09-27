@@ -77,6 +77,14 @@ function mockSnapshot(
   };
 }
 
+async function waitForWorldDocumentUrl(worldId: string, documentId: string) {
+  await waitFor(() => {
+    const params = new URLSearchParams(window.location.search);
+    expect(params.get("world")).toBe(worldId);
+    expect(params.get("documentId")).toBe(documentId);
+  });
+}
+
 describe("useBuildWorkspaceDocumentController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1398,9 +1406,8 @@ describe("useBuildWorkspaceDocumentController", () => {
       });
     });
 
-    await waitFor(() => {
-      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
-    });
+    await waitForWorldDocumentUrl(GLASS_ORCHARD_WORLD.world_id, DOC_B);
+    expect(result.current.activeRecord).toBeNull();
     expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(1);
     expect(liveApi.createWorldContainer).toHaveBeenCalledWith({ name: "The Glass Orchard" });
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
@@ -1469,9 +1476,8 @@ describe("useBuildWorkspaceDocumentController", () => {
       });
     });
 
-    await waitFor(() => {
-      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
-    });
+    await waitForWorldDocumentUrl(GLASS_ORCHARD_WORLD.world_id, DOC_B);
+    expect(result.current.activeRecord).toBeNull();
     expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(1);
     expect(liveApi.createWorldContainer).toHaveBeenCalledWith({ name: "The Glass Orchard" });
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(
@@ -1487,6 +1493,60 @@ describe("useBuildWorkspaceDocumentController", () => {
         write_mode: "source_import",
       }),
     );
+  });
+
+  it("imports to an alternate existing World without resolving its source through the old Build scope", async () => {
+    const imported = buildRecord(DOC_B, {
+      title: "Alternate Import",
+      campaign_id: GLASS_ORCHARD_WORLD.world_id,
+      world_id: GLASS_ORCHARD_WORLD.world_id,
+    });
+    vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
+    vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "confirm-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitTiptapMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v1",
+      document_id: DOC_B,
+      title: imported.title,
+      target_relpath: imported.target_relpath ?? "",
+      target_display_path: imported.target_relpath ?? "",
+      registry_revision: 2,
+      committed_revision: 2,
+      committed_record: { ...imported, content_status: "committed", revision: 2 },
+      normalized_content_sha256: "sha",
+      writer_ok: true,
+      diagnostics: [],
+    });
+    const { result } = renderHook(() => useBuildWorkspaceDocumentController());
+    await waitFor(() => expect(result.current.listStatus).toBe("ready"));
+
+    await act(async () => {
+      result.current.importSourceDocument({
+        title: imported.title,
+        destination: { kind: "world", worldId: GLASS_ORCHARD_WORLD.world_id },
+        markdown: "# Alternate Import\n",
+      });
+    });
+
+    await waitForWorldDocumentUrl(GLASS_ORCHARD_WORLD.world_id, DOC_B);
+    expect(result.current.activeRecord).toBeNull();
+    expect(liveApi.createWorkspaceDocument).toHaveBeenCalledWith(expect.objectContaining({
+      campaign_id: GLASS_ORCHARD_WORLD.world_id,
+      world_id: GLASS_ORCHARD_WORLD.world_id,
+    }));
+    expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+    expect(liveApi.createWorldContainer).not.toHaveBeenCalled();
   });
 
   it("retries source create after new world was created without minting a second distinct world", async () => {
@@ -1530,9 +1590,8 @@ describe("useBuildWorkspaceDocumentController", () => {
       });
     });
 
-    await waitFor(() => {
-      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
-    });
+    await waitForWorldDocumentUrl(GLASS_ORCHARD_WORLD.world_id, DOC_B);
+    expect(result.current.activeRecord).toBeNull();
     expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(2);
     expect(liveApi.createWorkspaceDocument).toHaveBeenCalledTimes(2);
     for (const [request] of vi.mocked(liveApi.createWorkspaceDocument).mock.calls) {
@@ -1570,9 +1629,8 @@ describe("useBuildWorkspaceDocumentController", () => {
       });
     });
 
-    await waitFor(() => {
-      expect(result.current.activeRecord?.document_id).toBe(DOC_B);
-    });
+    await waitForWorldDocumentUrl(GLASS_ORCHARD_WORLD.world_id, DOC_B);
+    expect(result.current.activeRecord).toBeNull();
     expect(liveApi.createWorldContainer).toHaveBeenCalledTimes(2);
     expect(liveApi.createWorldContainer).toHaveBeenNthCalledWith(1, {
       name: "The Glass Orchard",

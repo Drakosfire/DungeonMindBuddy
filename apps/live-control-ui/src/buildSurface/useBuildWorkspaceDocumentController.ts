@@ -14,7 +14,10 @@ import type {
   WorkspaceDocumentRecord,
   WorkspaceDocumentSnapshot,
 } from "../api/types";
-import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
+import {
+  announceSelectedWorldLocationChange,
+  useSelectedWorld,
+} from "../selectedWorld/SelectedWorldContext";
 import {
   classifyBuildDocumentScope,
   getWorldIdForCampaign,
@@ -466,7 +469,11 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
     };
     sync();
     window.addEventListener("popstate", sync);
-    return () => window.removeEventListener("popstate", sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      documentLoadGenerationRef.current += 1;
+      selectorListGenerationRef.current += 1;
+    };
   }, [loadBuildDocument]);
 
   const selectDocument = useCallback(
@@ -517,7 +524,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           params.delete("world");
         }
         window.history.pushState({}, "", `${window.location.pathname}?${params.toString()}`);
-        window.dispatchEvent(new PopStateEvent("popstate"));
+        // The old Build controller owns the previous World. Announce the
+        // selection change to App without asking that controller to resolve
+        // the new World's document through its obsolete scope.
+        announceSelectedWorldLocationChange();
         return true;
       }
       const createState = createControllerRef.current.getState();

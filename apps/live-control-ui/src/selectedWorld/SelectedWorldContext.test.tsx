@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getWorkspaceDocument, listWorldContainers } from "../api/liveApi";
+import { getExtractionRun, getPlayRun, getWorkspaceDocument, listWorldContainers } from "../api/liveApi";
 import type { WorkspaceDocumentRecord, WorldContainerRecord } from "../api/types";
 import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 import {
@@ -13,6 +13,8 @@ import {
 } from "./SelectedWorldContext";
 
 vi.mock("../api/liveApi", () => ({
+  getExtractionRun: vi.fn(),
+  getPlayRun: vi.fn(),
   getWorkspaceDocument: vi.fn(),
   listWorldContainers: vi.fn(),
 }));
@@ -94,6 +96,101 @@ describe("selected managed World", () => {
     await waitFor(() => expect(screen.getByText(`managed:${world.world_id}`)).toBeTruthy());
     expect(getWorkspaceDocument).toHaveBeenCalledWith(document.document_id);
     view.unmount();
+  });
+
+  it("derives a managed World from a bare exact Play Run before Play mounts", async () => {
+    const runId = "07a33f99-7520-4c59-bee2-b38514cb61b8";
+    vi.mocked(getPlayRun).mockResolvedValue({
+      run_id: runId,
+      campaign_id: world.world_id,
+    } as Awaited<ReturnType<typeof getPlayRun>>);
+    vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [world] });
+    expect(requestedWorldSelection(`/play?run=${runId}`).runId).toBe(runId);
+    window.history.replaceState({}, "", `/play?run=${runId}`);
+    render(
+      <SelectedWorldProvider locationSnapshot={`/play?run=${runId}`}>
+        <Probe />
+      </SelectedWorldProvider>,
+    );
+    expect(screen.getByText("loading:none")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(`managed:${world.world_id}`)).toBeInTheDocument());
+    expect(getPlayRun).toHaveBeenCalledExactlyOnceWith(runId);
+    expect(new URLSearchParams(window.location.search).get("world")).toBe(world.world_id);
+    expect(new URLSearchParams(window.location.search).get("run")).toBe(runId);
+  });
+
+  it("keeps a bare exact C2 Play Run on the legacy route", async () => {
+    const runId = "07a33f99-7520-4c59-bee2-b38514cb61b8";
+    vi.mocked(getPlayRun).mockResolvedValue({
+      run_id: runId,
+      campaign_id: "longmont-c2",
+    } as Awaited<ReturnType<typeof getPlayRun>>);
+    render(
+      <SelectedWorldProvider locationSnapshot={`/play?run=${runId}`}>
+        <Probe />
+      </SelectedWorldProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("legacy:none")).toBeInTheDocument());
+    expect(listWorldContainers).not.toHaveBeenCalled();
+  });
+
+  it("does not fall back to legacy when an exact Run cannot be verified", async () => {
+    vi.mocked(getPlayRun).mockRejectedValue(new Error("Run not found"));
+    render(
+      <SelectedWorldProvider locationSnapshot="/play?run=unknown">
+        <Probe />
+      </SelectedWorldProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("error:none")).toBeInTheDocument());
+    expect(listWorldContainers).not.toHaveBeenCalled();
+  });
+
+  it("derives a managed World from an exact Ingest extraction Run without a document query", async () => {
+    const extractionRunId = "extraction-run-b";
+    vi.mocked(getExtractionRun).mockResolvedValue({
+      run_id: extractionRunId,
+      campaign_id: world.world_id,
+    } as Awaited<ReturnType<typeof getExtractionRun>>);
+    vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [world] });
+    expect(requestedWorldSelection(`/ingest?extractionRunId=${extractionRunId}`).extractionRunId).toBe(extractionRunId);
+    window.history.replaceState({}, "", `/ingest?extractionRunId=${extractionRunId}`);
+    render(
+      <SelectedWorldProvider locationSnapshot={`/ingest?extractionRunId=${extractionRunId}`}>
+        <Probe />
+      </SelectedWorldProvider>,
+    );
+    await waitFor(() => expect(screen.getByText(`managed:${world.world_id}`)).toBeInTheDocument());
+    expect(getExtractionRun).toHaveBeenCalledExactlyOnceWith(extractionRunId);
+    expect(new URLSearchParams(window.location.search).get("world")).toBe(world.world_id);
+    expect(new URLSearchParams(window.location.search).get("extractionRunId")).toBe(extractionRunId);
+  });
+
+  it("keeps exact C1/C2 extraction Run links on the legacy review route", async () => {
+    vi.mocked(getExtractionRun).mockResolvedValue({
+      run_id: "legacy-run",
+      campaign_id: "longmont-c1",
+    } as Awaited<ReturnType<typeof getExtractionRun>>);
+    render(
+      <SelectedWorldProvider locationSnapshot="/ingest?extractionRunId=legacy-run">
+        <Probe />
+      </SelectedWorldProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("legacy:none")).toBeInTheDocument());
+    expect(listWorldContainers).not.toHaveBeenCalled();
+  });
+
+  it("does not treat an unbound extraction Run as legacy or a managed World", async () => {
+    vi.mocked(getExtractionRun).mockResolvedValue({
+      run_id: "unbound-run",
+      campaign_id: null,
+    } as Awaited<ReturnType<typeof getExtractionRun>>);
+    render(
+      <SelectedWorldProvider locationSnapshot="/ingest?extractionRunId=unbound-run">
+        <Probe />
+      </SelectedWorldProvider>,
+    );
+    await waitFor(() => expect(screen.getByText("error:none")).toBeInTheDocument());
+    expect(listWorldContainers).not.toHaveBeenCalled();
   });
 
   it("retries a registry failure without accepting stale content", async () => {
