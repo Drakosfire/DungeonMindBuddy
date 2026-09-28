@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ReadStatblockCandidateResponseV1, ThreatDraftV1, ThreatDraftV2 } from "../../api/types";
+import type { TerminalGenerationDispositionV1 } from "../../api/types";
 import {
-  assertCandidateDraft, assertDraftScope, persistGenerationAttempt, readGenerationAttempt,
-  settleGenerationAttempt, statblockScopeKey, type StatblockDraftScope, type StoredGenerationAttempt,
+  assertCandidateDraft, assertDraftScope, isUnresolvedGenerationAttempt,
+  persistGenerationAttempt, readGenerationAttempt, readSettledGenerationHistory,
+  settleGenerationAttempt, settleTerminalGenerationAttempt, statblockScopeKey,
+  type StatblockDraftScope, type StoredGenerationAttempt,
 } from "./statblockDraftScope";
 
 const a: StatblockDraftScope = { mode: "world", worldId: "of-conks-a", campaignId: null };
@@ -10,6 +13,11 @@ const b: StatblockDraftScope = { mode: "world", worldId: "of-conks-b", campaignI
 const attempt: StoredGenerationAttempt = {
   schema: "dmb_sbw_generation_attempt_v1", draft_id: "draft-a",
   expected_draft_version: 1, client_request_id: "one-exact-request", candidate_id: null,
+};
+const terminal: TerminalGenerationDispositionV1 = {
+  status: "terminal_failure", draft_id: "draft-a", source_draft_version: 1,
+  request_id: "one-exact-request", request_digest: `sha256:${"a".repeat(64)}`,
+  scope_mode: "world", world_id: a.worldId, campaign_id: null,
 };
 
 afterEach(() => { vi.restoreAllMocks(); localStorage.clear(); });
@@ -65,6 +73,62 @@ describe("World draft scope and generation replay identity", () => {
     expect(readGenerationAttempt(a)?.candidate_id).toBe("cand-a");
     persistGenerationAttempt(a, { ...attempt, expected_draft_version: 4, client_request_id: "deliberate-next" });
     expect(readGenerationAttempt(a)?.client_request_id).toBe("deliberate-next");
+  });
+
+  it("settles exact terminal proof, retains history, and permits only an explicit distinct attempt", () => {
+    persistGenerationAttempt(a, attempt);
+    expect(isUnresolvedGenerationAttempt(readGenerationAttempt(a))).toBe(true);
+    expect(settleTerminalGenerationAttempt(a, attempt, terminal)).toBe(true);
+    const settled = readGenerationAttempt(a);
+    expect(isUnresolvedGenerationAttempt(settled)).toBe(false);
+    expect(settled?.terminal_disposition).toEqual(terminal);
+    expect(readSettledGenerationHistory(a)).toEqual([{
+      schema: "dmb_sbw_generation_history_entry_v1",
+      draft_id: attempt.draft_id,
+      expected_draft_version: attempt.expected_draft_version,
+      client_request_id: attempt.client_request_id,
+      terminal_disposition: terminal,
+    }]);
+
+    const next = { ...attempt, draft_id: "draft-b", client_request_id: "deliberate-B" };
+    persistGenerationAttempt(a, next);
+    expect(readGenerationAttempt(a)).toEqual(next);
+    expect(readSettledGenerationHistory(a)).toHaveLength(1);
+  });
+
+  it.each([
+    { request_id: "wrong-request" },
+    { source_draft_version: 2 },
+    { world_id: b.worldId },
+    { request_digest: "not-a-digest" },
+  ])("rejects terminal proof with mismatched identity/scope: %j", (change) => {
+    persistGenerationAttempt(a, attempt);
+    expect(() => settleTerminalGenerationAttempt(a, attempt, { ...terminal, ...change })).toThrow(/exact request/);
+    expect(readGenerationAttempt(a)).toEqual(attempt);
+    expect(readSettledGenerationHistory(a)).toEqual([]);
+  });
+
+  it("archives a delayed terminal A without replacing or unlocking newer B", () => {
+    persistGenerationAttempt(a, attempt);
+    expect(settleTerminalGenerationAttempt(a, attempt, terminal)).toBe(true);
+    const next = { ...attempt, draft_id: "draft-b", client_request_id: "request-B" };
+    persistGenerationAttempt(a, next);
+    expect(settleTerminalGenerationAttempt(a, attempt, terminal)).toBe(false);
+    expect(readGenerationAttempt(a)).toEqual(next);
+    expect(isUnresolvedGenerationAttempt(readGenerationAttempt(a))).toBe(true);
+    expect(readSettledGenerationHistory(a)).toHaveLength(1);
+  });
+
+  it("keeps the attempt unresolved if terminal history cannot be durably retained", () => {
+    persistGenerationAttempt(a, attempt);
+    const originalSetItem = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (key, value) {
+      if (key.includes("generationHistory")) throw new Error("quota");
+      return originalSetItem.call(this, key, value);
+    });
+    expect(() => settleTerminalGenerationAttempt(a, attempt, terminal)).toThrow(/quota/);
+    expect(isUnresolvedGenerationAttempt(readGenerationAttempt(a))).toBe(true);
+    expect(readSettledGenerationHistory(a)).toEqual([]);
   });
 
   it.each([

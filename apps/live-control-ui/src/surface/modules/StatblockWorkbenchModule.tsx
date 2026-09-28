@@ -79,9 +79,11 @@ import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
 import { useOptionalAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
 import { getWorldIdForCampaign } from "../../worldGraph/worldGraphSurfaceContext";
 import {
-  assertCandidateDraft, assertDraftScope, persistGenerationAttempt, readGenerationAttempt,
-  scopedWorkbenchJoinKey, settleGenerationAttempt, statblockScopeKey,
-  type StatblockDraftScope, type StoredGenerationAttempt,
+  assertCandidateDraft, assertDraftScope, isUnresolvedGenerationAttempt,
+  persistGenerationAttempt, readGenerationAttempt, readSettledGenerationHistory,
+  scopedWorkbenchJoinKey, settleGenerationAttempt, settleTerminalGenerationAttempt,
+  statblockScopeKey, type SettledGenerationHistoryEntry, type StatblockDraftScope,
+  type StoredGenerationAttempt,
 } from "./statblockDraftScope";
 
 type LoadState =
@@ -1988,11 +1990,12 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
   const clearStoredWorkbenchJoin = () => clearWorkbenchJoin(joinKey);
   const [initialJoin] = useState(() => readInitialWorkbenchJoinState(readStoredWorkbenchJoin()));
   const [initialGeneration] = useState(() => {
-    try { return { attempt: readGenerationAttempt(scope), error: null }; }
-    catch (error) { return { attempt: null, error: error instanceof Error ? error.message : String(error) }; }
+    try { return { attempt: readGenerationAttempt(scope), history: readSettledGenerationHistory(scope), error: null }; }
+    catch (error) { return { attempt: null, history: [], error: error instanceof Error ? error.message : String(error) }; }
   });
   const [generationAttempt, setGenerationAttempt] = useState<StoredGenerationAttempt | null>(initialGeneration.attempt);
   const [generationRecoveryError, setGenerationRecoveryError] = useState<string | null>(initialGeneration.error);
+  const [settledGenerationHistory, setSettledGenerationHistory] = useState<SettledGenerationHistoryEntry[]>(initialGeneration.history);
   const [candidateIdInput, setCandidateIdInput] = useState(readCandidateIdFromLocation);
   const [draftIdInput, setDraftIdInput] = useState(initialJoin.draftIdInput);
   const [draftVersionInput, setDraftVersionInput] = useState(initialJoin.draftVersionInput);
@@ -2313,7 +2316,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
             ...identity, candidate_id: loadedCandidateId, working_copy: nextEditor.workingCopy,
           });
           const pending = readGenerationAttempt(scope);
-          if (pending?.candidate_id === null && pending.draft_id === verifiedDraft.draft_id
+          if (isUnresolvedGenerationAttempt(pending) && pending.draft_id === verifiedDraft.draft_id
             && verifiedDraft.candidate_refs.some((ref) => ref.candidate_id === trimmed && ref.request_id === pending.client_request_id)) {
             if (settleGenerationAttempt(scope, pending, verifiedDraft, trimmed)) {
               setGenerationAttempt({ ...pending, candidate_id: trimmed });
@@ -2380,7 +2383,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           if (!identity) throw new Error("Restored draft identity unavailable.");
           applyCreatedDraftIdentity(identity);
           const attempt = initialGeneration.attempt;
-          const completed = attempt?.candidate_id === null ? draft.candidate_refs.find((ref) => (
+          const completed = isUnresolvedGenerationAttempt(attempt) ? draft.candidate_refs.find((ref) => (
             ref.request_id === attempt.client_request_id
             && ref.generated_from_draft_version === attempt.expected_draft_version
             && ref.status === "active"
@@ -2789,14 +2792,14 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       if (verified.draft_id !== draftId) throw new Error("Generation draft identity mismatch.");
       assertDraftScope(verified, scope);
       const previous = readGenerationAttempt(scope);
-      const attempt: StoredGenerationAttempt = previous?.candidate_id === null
+      const attempt: StoredGenerationAttempt = isUnresolvedGenerationAttempt(previous)
         ? previous
         : {
             schema: "dmb_sbw_generation_attempt_v1", draft_id: draftId,
             expected_draft_version: expectedVersion, client_request_id: crypto.randomUUID(), candidate_id: null,
           };
       if (attempt.draft_id !== draftId) throw new Error("Unresolved generation belongs to another draft; resume it first.");
-      if (previous?.candidate_id !== null && verified.version !== expectedVersion) {
+      if (!isUnresolvedGenerationAttempt(previous) && verified.version !== expectedVersion) {
         throw new Error("Draft version changed; refresh before starting a new generation attempt.");
       }
       // Reuse an unresolved attempt's original version, even after candidate attachment.
@@ -2828,6 +2831,32 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           setGenerateMessage(null);
           setCreateMessage(null);
         }
+        return;
+      }
+      if (response.terminal_disposition) {
+        const disposition = response.terminal_disposition;
+        if (response.outcome !== "failure"
+            || response.candidate != null
+            || response.candidate_ref != null
+            || response.draft_id !== draftId
+            || response.request_id !== attempt.client_request_id
+            || response.generated_from_draft_version !== attempt.expected_draft_version
+            || disposition.draft_id !== draftId
+            || disposition.request_id !== attempt.client_request_id
+            || disposition.source_draft_version !== attempt.expected_draft_version) {
+          throw new Error("Terminal response does not match the preserved generation request identity.");
+        }
+        // Archive exact A before checking the mounted operation token. If A is
+        // late while B is current, the history append is safe but the helper
+        // refuses to mutate B's active recovery pointer.
+        settleTerminalGenerationAttempt(scope, attempt, disposition);
+        const history = readSettledGenerationHistory(scope);
+        if (!isCurrentCandidateOp(opId)) return;
+        setSettledGenerationHistory(history);
+        setGenerationAttempt(readGenerationAttempt(scope));
+        setCreateMessage(null);
+        setGenerateMessage(null);
+        setGenerateError(`The original generation ended (${disposition.status}). Its request and outcome are retained; you can explicitly start another threat.`);
         return;
       }
       if (!isCurrentCandidateOp(opId)) return;
@@ -2875,7 +2904,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
       return;
     }
     try {
-      if (readGenerationAttempt(scope)?.candidate_id === null) {
+      if (isUnresolvedGenerationAttempt(readGenerationAttempt(scope))) {
         setGenerateError("Unresolved generation retained — resume the original request before creating another threat.");
         return;
       }
@@ -3280,7 +3309,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
               type="submit"
               disabled={
                 pendingGenerate ||
-                generationRecoveryError != null || generationAttempt?.candidate_id === null ||
+                generationRecoveryError != null || isUnresolvedGenerationAttempt(generationAttempt) ||
                 createPhase === "creating" ||
                 createPhase === "generating"
               }
@@ -3308,7 +3337,7 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           </div>
         </form>
         {generationRecoveryError ? <p role="alert" data-testid="generation-recovery-error">{generationRecoveryError}</p> : null}
-        {generationAttempt?.candidate_id === null ? (
+        {isUnresolvedGenerationAttempt(generationAttempt) ? (
           <div data-testid="unresolved-generation">
             <p role="status">Generation outcome unresolved. The original request and source version are retained.</p>
             <button type="button" data-testid="resume-generation" disabled={pendingGenerate}
@@ -3316,6 +3345,24 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
               Resume same generation
             </button>
           </div>
+        ) : null}
+        {generationAttempt?.terminal_disposition ? (
+          <div data-testid="terminal-generation-settled">
+            <p role="status">Generation ended with a durable {generationAttempt.terminal_disposition.status} outcome.</p>
+            <p>Request {generationAttempt.client_request_id} · draft {generationAttempt.draft_id} · source version {generationAttempt.expected_draft_version}</p>
+          </div>
+        ) : null}
+        {settledGenerationHistory.length > 0 ? (
+          <details data-testid="settled-generation-history">
+            <summary>Prior generation outcomes ({settledGenerationHistory.length})</summary>
+            <ul>
+              {settledGenerationHistory.map((entry) => (
+                <li key={`${entry.draft_id}:${entry.expected_draft_version}:${entry.client_request_id}`}>
+                  {entry.terminal_disposition.status} · {entry.draft_id} · v{entry.expected_draft_version} · {entry.client_request_id}
+                </li>
+              ))}
+            </ul>
+          </details>
         ) : null}
         {createMessage ? (
           <p className="statblock-command-status" role="status" data-testid="create-threat-status">

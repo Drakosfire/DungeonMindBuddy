@@ -9,7 +9,9 @@ pr_body_template: |
   ## Review contract
   A GM can create, generate and reopen a ThreatDraft owned by the selected
   managed World, without inventing a campaign or crossing World ownership.
-  World-only drafts do not enter campaign-only graph publication.
+  World-only drafts do not enter campaign-only graph publication. A Buddy-local
+  journal-proven terminal outcome settles only its exact attempt; uncertain
+  failures remain unresolved, and a deliberate new attempt preserves history.
 ---
 
 # HANDOFF — DEMO: World-scoped statblock drafts
@@ -93,6 +95,11 @@ Pre-dispatch critique:
   were stale: governed recap #742 and PR011A3 #366 are already merged ancestors.
   Their historical handoff headers were released in this guarded activation,
   without changing their preserved implementation contracts. No open PR overlaps.
+- On 2026-09-28 PRIME authorized a bounded amendment in this same serial PR:
+  project exact Buddy-local terminal generation authority and safely settle the
+  matching client attempt. The response model/helper/tests were added to §4's
+  lease before implementation; no SERVER status API, retry of unknown work,
+  abandonment policy, successor PR, or runtime effect is authorized.
 - Allocate the named isolated checkout only after this activation is on main.
   Record that activation commit as the implementation's exact dispatch base.
   No synthetic stack or new task is authorized.
@@ -126,6 +133,10 @@ Pre-dispatch critique:
    fail before draft/provider admission. No legacy/C2 fallback.
 8. World-only draft → begin campaign publication: typed rejection before any
    operation admission, graph read or write. Existing campaign publication passes.
+9. A terminally failed A → explicitly start distinct B; a delayed/stale A
+   response may preserve A's durable terminal history but cannot settle, replace,
+   or unlock B. Generic transport uncertainty and unproven local state keep A
+   unresolved.
 
 ## §4 Files in scope — ACTIVE write lease
 
@@ -134,7 +145,8 @@ Pre-dispatch critique:
 | Modify | `apps/live_control_server/models/threat_draft.py` | Explicit V2 world-only draft/request/summary; V1 preserved |
 | Modify | `apps/live_control_server/services/threat_draft_store.py` | Version-safe immutable scope and every update/journal round-trip |
 | Modify | `apps/live_control_server/routes/threat_drafts.py` | World registry admission and typed response union |
-| Modify | `apps/live_control_server/services/statblock_candidate_generation.py` | Consume versioned drafts without changing SERVER body |
+| Modify | `apps/live_control_server/services/statblock_candidate_generation.py` | Consume versioned drafts without changing SERVER body; project exact journal-proven terminal disposition |
+| Modify | `apps/live_control_server/models/statblock_candidate_workflow.py` | Optional typed terminal-outcome proof on the existing generation response; preserve generic failure compatibility |
 | Modify | `apps/live_control_server/services/threat_publication_operations.py` | Owning-boundary World-only publication rejection |
 | Modify | `apps/live-control-ui/src/api/types.ts` | Exact draft/request/summary wire union |
 | Modify | `apps/live-control-ui/src/api/liveApi.ts` | Typed calls; no new global context store |
@@ -236,6 +248,33 @@ that promises recovery, or visibly retain an unresolved/non-auto-retry state.
 Use the existing durable generation journal; no generic job store or SERVER
 contract change is permitted.
 
+### Bounded terminal-outcome projection amendment (2026-09-28)
+
+The existing public generation response may carry an optional typed
+`terminal_disposition` only when Buddy has loaded and validated the exact durable
+local generation journal entry/tombstone for the response's request ID, stored
+request-body digest, draft ID and original source-draft version, and has loaded
+that same draft to establish its immutable selected World/campaign scope. The
+disposition echoes those identities and exact scope; it does not expose provider
+internals or imply a SERVER status lookup. Existing generic failure fields
+remain unchanged for compatibility.
+
+Do not emit the disposition when the journal is missing, corrupt, mismatched,
+or cannot be persisted, or when only an HTTP/transport failure suggests that the
+request may have ended. Those cases remain unresolved and reuse the same request
+identity. No POST replay is used as a status probe for an unknown SERVER
+operation; this amendment only projects already durable Buddy-local terminal
+authority such as A's existing record.
+
+The client settles only the exact current unresolved local attempt matching the
+returned draft ID, client request ID, original source version and admitted
+scope. It retains A's request identity and terminal proof in scope-local history
+before offering the existing explicit “Start another threat” action. Starting
+B creates a distinct request ID; delayed A completion may append/update only
+A's history and may never settle, replace, or unlock B. A terminally proven
+failure is settlement, not abandonment. No policy for abandoning an unknown or
+unresolved attempt is added.
+
 Consume `useSelectedWorld()` and existing admitted legacy campaign context.
 Unknown/loading/error context cannot submit, restore foreign work, or fall back.
 Scope the workbench convenience join by admitted World/campaign. Old joins are
@@ -259,7 +298,11 @@ recording a World revision does not claim the model retrieved that graph.
   Reload/disconnect while provider pending retains exact attempt key/source
   version; later same-key recovery after draft version advancement, Clear/New
   attempt interleavings and persistence failure cannot launch a second logical
-  provider generation or silently discard an unresolved key.
+  provider generation or silently discard an unresolved key. In addition,
+  exact journal-proven terminal replay (zero external calls) settles only the
+  matching attempt; absent/mismatched/unpersisted terminal proof remains
+  unresolved, terminal history survives reload/remount, and A→B plus late-A
+  interleavings preserve B's identity.
 - Mounted Workbench: defer head/create/generate/load callbacks at each §3
   interleaving, inspect dispatched requests and localStorage writes, verify A→B→A
   restore including dirty copy. Helper-only guards are insufficient.
@@ -465,6 +508,30 @@ runtime's shared Python environment or its old dependency. WorldKeeper remains
 `49a8620f066ce7ef8972a699020c012f50af9158`; #780 does not prove J3/native
 admission or the asset live witness. No paid calls, live acceptance or merge
 of this slice is claimed.
+
+Implementation checkpoint 8 (PRIME-authorized terminal-outcome repair; not
+independently reviewed): the existing generation response now includes an
+optional typed terminal disposition only after exact Buddy journal reread,
+request-body digest verification, and same-draft immutable-scope validation.
+Unknown transport/generic HTTP failure and failed journal persistence remain
+unresolved. The mounted client archives exact terminal proof before settling
+only the matching local attempt; explicit B receives a distinct key, and late A
+can add its history but cannot alter B. No provider call, SERVER API change,
+database mutation or runtime restart was made.
+
+- Backend store + candidate-generation + publication guard cohort: **104 passed**.
+- Candidate-route response serialization witness: **1 passed**, asserting the
+  new typed proof crosses the existing route unchanged.
+- Full owning UI cohort: **177 passed / zero failed / zero excluded** (137
+  mounted Workbench, 17 scope/history helpers, 23 revision-attempt cases).
+- Scoped Ruff and `git diff --check` pass. Typecheck still reports only the
+  unchanged inherited `ThreatPublicationPanel.tsx:553` JSX namespace error.
+- The remaining TestClient-backed draft/candidate route cohorts reproduce the
+  known local harness hang on their first request; they were stopped, not
+  reported green. The new route-serialization test is direct and bounded; an
+  independent exact-head backend verifier should rerun the canonical route
+  cohort in its accepted host harness. PRIME review of this new head remains
+  required; this checkpoint is not merge approval.
 
 - [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.

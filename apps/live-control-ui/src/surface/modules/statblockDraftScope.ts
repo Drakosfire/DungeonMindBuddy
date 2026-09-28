@@ -1,4 +1,8 @@
-import type { ReadStatblockCandidateResponseV1, ThreatDraft } from "../../api/types";
+import type {
+  ReadStatblockCandidateResponseV1,
+  TerminalGenerationDispositionV1,
+  ThreatDraft,
+} from "../../api/types";
 
 /** A launch scope is taken from existing admitted context, never from asset names or IDs. */
 export type StatblockDraftScope =
@@ -44,11 +48,48 @@ export interface StoredGenerationAttempt {
   client_request_id: string;
   /** Null means unresolved, including transport loss. Clear cannot discard it. */
   candidate_id: string | null;
+  /** Present only after exact Buddy-local terminal journal proof is validated. */
+  terminal_disposition?: TerminalGenerationDispositionV1;
+}
+
+export interface SettledGenerationHistoryEntry {
+  schema: "dmb_sbw_generation_history_entry_v1";
+  draft_id: string;
+  expected_draft_version: number;
+  client_request_id: string;
+  terminal_disposition: TerminalGenerationDispositionV1;
 }
 
 function generationAttemptKey(scope: StatblockDraftScope): string {
   // One unresolved attempt per scope: Clear cannot permit a replacement draft to bypass it.
   return `dmb.sbw.generationAttempt:${statblockScopeKey(scope)}`;
+}
+
+function generationHistoryKey(scope: StatblockDraftScope): string {
+  return `dmb.sbw.generationHistory:${statblockScopeKey(scope)}`;
+}
+
+export function isUnresolvedGenerationAttempt(
+  attempt: StoredGenerationAttempt | null | undefined,
+): attempt is StoredGenerationAttempt {
+  return attempt?.candidate_id === null && attempt.terminal_disposition === undefined;
+}
+
+function assertTerminalDisposition(
+  scope: StatblockDraftScope,
+  attempt: StoredGenerationAttempt,
+  disposition: TerminalGenerationDispositionV1,
+): void {
+  if (
+    (disposition.status !== "terminal_failure" && disposition.status !== "terminal_expired")
+    || disposition.draft_id !== attempt.draft_id
+    || disposition.source_draft_version !== attempt.expected_draft_version
+    || disposition.request_id !== attempt.client_request_id
+    || !/^sha256:[0-9a-f]{64}$/.test(disposition.request_digest)
+    || disposition.world_id !== scope.worldId
+    || disposition.scope_mode !== scope.mode
+    || disposition.campaign_id !== scope.campaignId
+  ) throw new Error("Terminal generation proof does not match the exact request, source version and scope.");
 }
 
 export function readGenerationAttempt(scope: StatblockDraftScope): StoredGenerationAttempt | null {
@@ -62,6 +103,9 @@ export function readGenerationAttempt(scope: StatblockDraftScope): StoredGenerat
     || typeof attempt.client_request_id !== "string" || !attempt.client_request_id.trim()
     || (attempt.candidate_id !== null && (typeof attempt.candidate_id !== "string" || !attempt.candidate_id.trim()))
   ) throw new Error("Stored generation attempt is invalid; generation is blocked rather than replaced.");
+  if (attempt.terminal_disposition !== undefined) {
+    assertTerminalDisposition(scope, attempt, attempt.terminal_disposition);
+  }
   return attempt;
 }
 
@@ -70,7 +114,7 @@ export function persistGenerationAttempt(
   attempt: StoredGenerationAttempt,
 ): void {
   const existing = readGenerationAttempt(scope);
-  if (existing?.candidate_id === null && (
+  if (isUnresolvedGenerationAttempt(existing) && (
     existing.draft_id !== attempt.draft_id
     || existing.client_request_id !== attempt.client_request_id
     || existing.expected_draft_version !== attempt.expected_draft_version
@@ -81,6 +125,70 @@ export function persistGenerationAttempt(
   if (localStorage.getItem(key) !== serialized) {
     throw new Error("Cannot preserve generation identity; no request may be dispatched.");
   }
+}
+
+export function readSettledGenerationHistory(
+  scope: StatblockDraftScope,
+): SettledGenerationHistoryEntry[] {
+  const raw = localStorage.getItem(generationHistoryKey(scope));
+  if (raw === null) return [];
+  const entries = JSON.parse(raw) as SettledGenerationHistoryEntry[];
+  if (!Array.isArray(entries)) throw new Error("Stored generation history is invalid; generation is blocked.");
+  for (const entry of entries) {
+    if (
+      entry?.schema !== "dmb_sbw_generation_history_entry_v1"
+      || typeof entry.draft_id !== "string" || !entry.draft_id.trim()
+      || !Number.isInteger(entry.expected_draft_version) || entry.expected_draft_version < 1
+      || typeof entry.client_request_id !== "string" || !entry.client_request_id.trim()
+    ) throw new Error("Stored generation history is invalid; generation is blocked.");
+    assertTerminalDisposition(scope, {
+      schema: "dmb_sbw_generation_attempt_v1",
+      draft_id: entry.draft_id,
+      expected_draft_version: entry.expected_draft_version,
+      client_request_id: entry.client_request_id,
+      candidate_id: null,
+      terminal_disposition: entry.terminal_disposition,
+    }, entry.terminal_disposition);
+  }
+  return entries;
+}
+
+export function settleTerminalGenerationAttempt(
+  scope: StatblockDraftScope,
+  attempt: StoredGenerationAttempt,
+  disposition: TerminalGenerationDispositionV1,
+): boolean {
+  assertTerminalDisposition(scope, attempt, disposition);
+  const entry: SettledGenerationHistoryEntry = {
+    schema: "dmb_sbw_generation_history_entry_v1",
+    draft_id: attempt.draft_id,
+    expected_draft_version: attempt.expected_draft_version,
+    client_request_id: attempt.client_request_id,
+    terminal_disposition: disposition,
+  };
+  const history = readSettledGenerationHistory(scope);
+  const matchingEntry = history.find((item) => item.draft_id === entry.draft_id
+    && item.expected_draft_version === entry.expected_draft_version
+    && item.client_request_id === entry.client_request_id);
+  if (matchingEntry && JSON.stringify(matchingEntry.terminal_disposition) !== JSON.stringify(disposition)) {
+    throw new Error("Terminal generation history conflicts with the exact durable request proof.");
+  }
+  if (!matchingEntry) {
+    const serializedHistory = JSON.stringify([...history, entry]);
+    const historyKey = generationHistoryKey(scope);
+    localStorage.setItem(historyKey, serializedHistory);
+    if (localStorage.getItem(historyKey) !== serializedHistory) {
+      throw new Error("Cannot preserve terminal generation history; the attempt remains unresolved.");
+    }
+  }
+
+  const current = readGenerationAttempt(scope);
+  if (!current || current.draft_id !== attempt.draft_id
+    || current.client_request_id !== attempt.client_request_id
+    || current.expected_draft_version !== attempt.expected_draft_version
+    || !isUnresolvedGenerationAttempt(current)) return false;
+  persistGenerationAttempt(scope, { ...current, terminal_disposition: disposition });
+  return true;
 }
 
 export function settleGenerationAttempt(

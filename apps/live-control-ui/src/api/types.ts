@@ -4001,6 +4001,17 @@ export interface GenerateThreatDraftCandidateRequestV1 {
   client_request_id?: string | null;
 }
 
+export interface TerminalGenerationDispositionV1 {
+  status: "terminal_failure" | "terminal_expired";
+  draft_id: string;
+  source_draft_version: number;
+  request_id: string;
+  request_digest: string;
+  scope_mode: "world" | "campaign";
+  world_id: string;
+  campaign_id: string | null;
+}
+
 export interface GenerateThreatDraftCandidateResponseV1 {
   schema: "dmb_generate_threat_draft_candidate_response_v1";
   draft_id: string;
@@ -4011,6 +4022,7 @@ export interface GenerateThreatDraftCandidateResponseV1 {
   candidate?: GeneratedStatblockCandidateV1 | null;
   failure_category?: string | null;
   failure_message?: string | null;
+  terminal_disposition?: TerminalGenerationDispositionV1 | null;
   cache_status?:
     | "stored"
     | "missing"

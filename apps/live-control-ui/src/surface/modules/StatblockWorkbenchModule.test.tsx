@@ -396,6 +396,9 @@ describe("World-scoped mounted Workbench", () => {
     await waitFor(() => expect(screen.getByTestId("resume-generation")).not.toBeDisabled());
     const [id, request] = h.generate.mock.calls[0];
     expect(readGenerationAttempt(a)).toMatchObject({ draft_id: id, client_request_id: request.client_request_id, candidate_id: null });
+    expect(screen.queryByTestId("terminal-generation-settled")).toBeNull();
+    expect(screen.queryByTestId("settled-generation-history")).toBeNull();
+    expect(readGenerationAttempt(a)?.terminal_disposition).toBeUndefined();
     await user.click(screen.getByTestId("start-another-threat"));
     expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
     view.unmount();
@@ -404,6 +407,85 @@ describe("World-scoped mounted Workbench", () => {
     await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
     expect(h.generate.mock.calls[1]).toEqual([id, request]);
     expect(h.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps A's late terminal replay in history without settling a newer B attempt", async () => {
+    const h = harness();
+    const attemptA = {
+      schema: "dmb_sbw_generation_attempt_v1" as const,
+      draft_id: "draft-a", expected_draft_version: 1,
+      client_request_id: "request-A", candidate_id: null,
+    };
+    persistGenerationAttempt(a, attemptA);
+    const oldReplay = deferred<GenerateThreatDraftCandidateResponseV1>();
+    h.generate.mockImplementationOnce(async () => oldReplay.promise);
+
+    const oldUser = userEvent.setup();
+    const newUser = userEvent.setup();
+    const oldView = render(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(within(oldView.container).getByTestId("resume-generation")).toBeTruthy());
+    await oldUser.click(within(oldView.container).getByTestId("resume-generation"));
+    await waitFor(() => expect(h.generate).toHaveBeenCalledTimes(1));
+
+    const currentView = render(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(within(currentView.container).getByTestId("resume-generation")).toBeTruthy());
+    h.generate.mockImplementationOnce(async (id, request) => ({
+      schema: "dmb_generate_threat_draft_candidate_response_v1",
+      draft_id: id,
+      generated_from_draft_version: request.expected_draft_version,
+      request_id: request.client_request_id!,
+      outcome: "failure",
+      failure_category: "downstream_unavailable",
+      failure_message: "Provider ended this exact request.",
+      terminal_disposition: {
+        status: "terminal_failure", draft_id: id,
+        source_draft_version: request.expected_draft_version,
+        request_id: request.client_request_id!,
+        request_digest: `sha256:${"a".repeat(64)}`,
+        scope_mode: "world", world_id: a.worldId, campaign_id: null,
+      },
+    }));
+    await newUser.click(within(currentView.container).getByTestId("resume-generation"));
+    await waitFor(() => expect(within(currentView.container).getByTestId("terminal-generation-settled")).toBeTruthy());
+    expect(readGenerationAttempt(a)?.terminal_disposition?.request_id).toBe("request-A");
+    currentView.unmount();
+    const resumedView = render(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(within(resumedView.container).getByTestId("terminal-generation-settled")).toBeTruthy());
+    expect(within(resumedView.container).getByTestId("settled-generation-history")).toBeTruthy();
+
+    h.create.mockImplementationOnce(async () => {
+      const next = draft(a, "draft-b");
+      h.drafts.set(next.draft_id, next);
+      return structuredClone(next);
+    });
+    const generateB = deferred<GenerateThreatDraftCandidateResponseV1>();
+    h.generate.mockImplementationOnce(async () => generateB.promise);
+    await newUser.click(within(resumedView.container).getByTestId("start-another-threat"));
+    await newUser.type(within(resumedView.container).getByTestId("create-threat-description"), "Gate Watcher B\nA deliberately distinct second threat.");
+    await newUser.click(within(resumedView.container).getByTestId("create-and-generate-submit"));
+    await waitFor(() => expect(h.generate).toHaveBeenCalledTimes(3));
+    const [, requestB] = h.generate.mock.calls[2];
+    expect(requestB.client_request_id).not.toBe("request-A");
+    expect(readGenerationAttempt(a)).toMatchObject({ draft_id: "draft-b", candidate_id: null });
+
+    await act(async () => oldReplay.resolve({
+      schema: "dmb_generate_threat_draft_candidate_response_v1",
+      draft_id: "draft-a", generated_from_draft_version: 1,
+      request_id: "request-A", outcome: "failure",
+      terminal_disposition: {
+        status: "terminal_failure", draft_id: "draft-a", source_draft_version: 1,
+        request_id: "request-A", request_digest: `sha256:${"a".repeat(64)}`,
+        scope_mode: "world", world_id: a.worldId, campaign_id: null,
+      },
+    }));
+    expect(readGenerationAttempt(a)).toMatchObject({
+      draft_id: "draft-b", client_request_id: requestB.client_request_id, candidate_id: null,
+    });
+    expect(within(resumedView.container).getByTestId("create-and-generate-submit")).toBeDisabled();
+    expect(JSON.parse(localStorage.getItem(`dmb.sbw.generationHistory:${JSON.stringify([a.mode, a.worldId, a.campaignId])}`) ?? "[]"))
+      .toHaveLength(1);
+    oldView.unmount();
+    resumedView.unmount();
   });
 
   it("recovers an already-attached candidate after transport loss by reading the server, with no generation replay", async () => {
