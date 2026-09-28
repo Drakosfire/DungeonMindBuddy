@@ -9,7 +9,7 @@ pr_body_template: |
   ## Review contract
   The existing Build import creates a managed World and commits one exact
   `worldbuilding_source` document. Buddy bootstraps that World’s native
-  DungeonMind space, admits the committed APP-STATE revision as immutable source
+  DungeonMind space, admits the committed workspace-document-registry revision as immutable source
   plus whole-document context evidence, and can read/replay that exact admission
   after repository/process recreation. No extraction, assertions, retrieval,
   Plan changes, or claim that the source is already accepted canon.
@@ -35,7 +35,7 @@ pr_body_template: |
 
 Use the **existing ordinary Build import** for one managed-World `worldbuilding_source`, then connect its exact committed source revision to the same managed World’s native DungeonMind authority.
 
-**Invariant:** after a successful ordinary import, Buddy can truthfully report whether the exact APP-STATE document revision has been admitted into the World’s native space; its saved bytes, hash, source classification, visibility, origin link and evidence span are verified by MIND; a retry or fresh-process read returns the same receipt/source/evidence without a duplicate child or head rewind. An interrupted two-step lifecycle remains visible as a saved source with native admission pending—not falsely rolled back or called complete.
+**Invariant:** after a successful ordinary import, Buddy can truthfully report whether the exact workspace-document-registry revision has been admitted into the World’s native space; its saved bytes, hash, source classification, visibility, origin link and evidence span are verified by MIND; a retry or fresh-process read returns the same receipt/source/evidence without a duplicate child or head rewind. An interrupted two-step lifecycle remains visible as a saved source with native admission pending—not falsely rolled back or called complete.
 
 This proves source authority and provenance only. A source artifact/evidence span is **not** an extracted entity, accepted fact, relationship, retrieval result, or canon decision.
 
@@ -49,7 +49,7 @@ MIND owns the native persistence contract; Buddy composes its accepted primitive
 - `get_head`, `get_revision`, `get_native_source_admission_receipt`, `open_native_text_source_access_context`, and `open_admitted_native_text` provide the bounded read/replay proof.
 - Use `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL` and the existing Postgres authority; never infer vNext state from legacy `world_heads` or route through the classic graph authority adapter.
 
-The user-facing origin is Build’s current managed World → `worldbuilding_source` import/commit path (`BuildSurfacePage`, `useBuildWorkspaceDocumentController`, workspace-document registry/routes). The server must take one coherent `get_workspace_document_snapshot` after commit: record, exact APP-STATE Markdown, committed revision and digest. Do not use browser-posted Markdown for admission or treat the legacy Buddy SourceArtifact digest as native-body bytes; its registry path normalizes trailing newlines. The workspace snapshot is the source authority.
+The user-facing origin is Build’s current managed World → `worldbuilding_source` import/commit path (`BuildSurfacePage`, `useBuildWorkspaceDocumentController`, workspace-document registry/routes). The server must take one coherent `get_workspace_document_snapshot` after commit: record, canonical committed Build Markdown, `loaded_revision`, and matching content digest. For `worldbuilding_source`, this is the existing workspace-document registry/file-backed authority, not APP-STATE Content. Treat the snapshot’s returned Markdown string as the exact product text to encode as UTF-8; its digest is computed over that representation. Do not claim original on-disk newline bytes when the registry has normalized them. Do not use browser-posted Markdown for admission or treat the legacy Buddy SourceArtifact digest as native-body bytes; its registry path normalizes trailing newlines. The workspace snapshot is the source authority.
 
 Buddy makes one explicit new-world policy: server-allocated immutable `world_id` is also vNext `space_id`; no derived or client-supplied space mapping. Use the accepted domain/profile constructors and exact digests above. The existing Build source record may carry a compatibility `campaign_id == world_id`; do not propagate that sentinel as a campaign scope or fabricate a campaign/session in native source metadata.
 
@@ -58,25 +58,25 @@ Source mapping for this bounded importer:
 - `source_classification = dungeonbuddy.source:worldbuilding` (already represented in Buddy’s V2 preservation fixture);
 - `authority = primary` means the imported GM-provided document is the original source, not that any in-world assertion is accepted;
 - GM-private visibility from the accepted `dungeonbuddy.visibility:gm` label; no public visibility;
-- origin binds the Buddy APP-STATE workspace-document ID and exact committed revision ID in a stable Buddy namespace;
+- origin binds the Buddy workspace-document ID and exact registry revision token (for example, `registry-revision:<loaded_revision>`) in a stable Buddy namespace. The integer loaded revision is an opaque Buddy origin locator, not a native MIND revision; the native immutable source record carries the exact snapshot body/digest;
 - no campaign/session domain metadata, since this source is World-global;
 - one deterministic whole-body UTF-8 half-open span `[0, byte_length)`, exact slice SHA, role `context`, and stable caller-local span ref. This is intentionally coarse source evidence; it must not be presented as paragraph-level highlighting or fact extraction.
 
-Use stable Buddy-derived initialization/admission identities. Initialization time comes from the immutable managed-World creation record. The source admission identity derives from World + APP-STATE document + committed revision. On retry, consult the native admission receipt and verify its origin, source revision/body digest, descriptor refs and exact read-back before returning success. New committed document revisions get new admission identities. MIND’s expected-parent check governs a new append; on stale-parent races, re-read and retry only the exact same snapshot/command when no receipt exists. Conflicting bytes or metadata fail closed.
+Use stable Buddy-derived initialization/admission identities. Initialization time comes from the immutable managed-World creation record. The source admission identity derives from World + workspace-document ID + `loaded_revision` + canonical snapshot digest. On retry, consult the native admission receipt and verify its origin, source revision/body digest, descriptor refs and exact read-back before returning success. New committed document revisions get new admission identities. MIND’s expected-parent check governs a new append; on stale-parent races, re-read and retry only the exact same snapshot/command when no receipt exists. Conflicting bytes or metadata fail closed.
 
 PR #763 is open but draft/paused by PRIME’s durable body settlement; it no longer owns the two dependency files. Its changed `main.py` path is deliberately avoided by adding the new product endpoint to the already-mounted `workspace_documents` router. No other PR/lease may be assumed clear without a fresh changed-path census.
 
 ## §3 User-visible path and failure truth
 
 1. Create a **fresh** managed World through the existing Build control (server allocates ID); no manual IDs or synthetic graph rows.
-2. Import the pinned, human-normalized Of Conks Markdown through the ordinary Build source control as a `worldbuilding_source`; commit via existing APP-STATE write path.
+2. Import the pinned, human-normalized Of Conks Markdown through the ordinary Build source control as a `worldbuilding_source`; commit via the existing workspace-document source commit path.
 3. After commit, ordinary Build flow calls Buddy’s native-source status/admit API using document ID and expected revision only. Server resolves the managed World and exact committed snapshot.
 4. Show a clear `admitted` result with World identity and a safe source/evidence summary, or `saved; native admission pending` with an exact retry path. Retry must reuse the same document/revision and never create a duplicate source document.
 5. Reselect/reload the source after API/repository object recreation; status resolves from MIND receipt/read authority. Open the admitted source and verify exact body/span hashes.
 
 Failure contract:
 - If World genesis succeeds but admission fails, retain the empty root and report admission pending; exact retry continues from it.
-- If APP-STATE commit succeeds but MIND outcome is uncertain, read the deterministic MIND receipt and verify it; never blindly republish under a new ID.
+- If workspace-document source commit succeeds but MIND outcome is uncertain, read the deterministic MIND receipt and verify it; never blindly republish under a new ID.
 - If the workspace revision changes between UI selection and server snapshot, require refresh/reselection; never admit stale browser text.
 - Unsupported source kind/domain, missing/inactive/foreign World, wrong descriptors, digest/span mismatch, native space conflict or unavailable Postgres fail closed with a typed status and no alternate classic/campaign fallback.
 - A changed document revision is a distinct immutable source admission; old native bytes remain. No update/delete/archive lifecycle or freshness claim is added here.
@@ -121,7 +121,7 @@ The prior `HANDOFF-DEMO-world-owned-blank-plan-v1.md` remains a separate BLOCKED
 
 ## §7 Required proof
 
-- API/service tests prove server-derived `world_id == space_id`, exact accepted descriptor hashes, exact APP-STATE snapshot bytes/digest, source mapping and whole-body byte span; reject browser body, mismatch, stale revision, unsupported source, foreign World, missing DB and descriptor drift.
+- API/service tests prove server-derived `world_id == space_id`, exact accepted descriptor hashes, exact committed Build snapshot text/digest, source mapping and whole-body byte span; reject browser body, mismatch, stale revision, unsupported source, foreign World, missing DB and descriptor drift.
 - Initialization and native source admission are separate durable writes. Inject failure between them and prove a truthful empty-root/pending result followed by exact recovery.
 - Native receipt lookup/replay verifies same source origin and IDs; exact replay creates no extra child/event and never rewinds a later head.
 - Persistent Postgres integration: new World + committed source through the owning route/service; exact native head/revision/receipt/read-back; recreate repository/service/connection; retrieve exact source body/span through MIND access APIs; replay; same receipt and no duplicate child. Inspect only public repository/read APIs in production code; no direct SQL repair.
