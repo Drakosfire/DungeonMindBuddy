@@ -4,30 +4,32 @@ pr_body_template: |
   - Workstream: DEMO / J1 — World-owned blank Plan
   - Direction: STEWARD → CODE → PRIME
   - Handoff: Docs/Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md
-  - Topology: serial; no implementation branch or PR while BLOCKED
+  - Topology: serial; this is the single authorized implementation PR
 
   ## Verification pointer
-  - Exact dispatch base/head: record after activation
+  - Exact dispatch base: `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`
   - Review contract: ACTIVE handoff, cumulative diff, §7 evidence
 ---
 
 # HANDOFF — start a World-owned Plan before importing anything
 
 **Created:** 2026-09-27  
-**Status:** BLOCKED — PRIME contract review and prospective lease
-**Handoff locator:** this canonical path on accepted Buddy main; steward supplies exact commit after landing  
+**Status:** ACTIVE — PRIME accepted scope and authorized this implementation lane
+**Handoff locator:** canonical handoff on accepted Buddy main; PRIME-authorized exception activates it in this implementation PR.
 **Workstream / owner:** DEMO / J1; Buddy Content/Plan ownership, not DungeonMind  
 **Direction:** STEWARD → CODE → PRIME  
 **Design authority base:** `fa740c73f66192a44926712661d9489ff12e54a8`  
-**Activation gate:** #785's exact-head live witness, PRIME acceptance, merge, predecessor state sync, and fresh re-anchor are complete. PRIME must still accept this World-Plan contract and prospective lease before activation. None is inferred from a completed task.
-**Dispatch base rule:** fresh `origin/main` after those gates; record exact base and checked-in ACTIVE handoff before dispatch.  
+**Activation record (2026-09-28):** PRIME accepted the World-Plan contract and explicitly activated this bounded implementation in the same PR. #787 is merged to `main`; exact dispatch base is `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`. #787's native source-authority witness admitted the actual 48,777-byte source variant (the pinned 48,778-byte source differs only by its final LF); this proves source authority only, not extracted facts or a semantic graph. The source witness is not a gate for this document-only capability. The previously observed unsaved local Plan is user data and is not acceptance evidence.
+**Dispatch rule:** one isolated implementation checkout from the exact base above. PRIME expressly authorized this implementation PR to activate the already-landed handoff; no separate status/design PR or successor PR is authorized.
 **PR topology:** serial  
-**PR authorization:** while BLOCKED, none. Once ACTIVE, open/update exactly this one assigned implementation PR without another operator prompt; no successor/repair PR.  
+**PR authorization:** open/update exactly this assigned implementation PR; no successor/repair PR.
 **PR title:** `DEMO: start a World-owned Plan before source import`
 
 Repository law is `AGENTS.md`; steward authority is
 `Docs/Plans/STEWARDS-HANDOFF-demo.md`; current state lives only in
-`Docs/Roadmaps/ROADMAP-demo.md`. This BLOCKED design reserves no paths or runtime.
+`Docs/Roadmaps/ROADMAP-demo.md`. This ACTIVE handoff leases only §4 paths.
+Runtime and database ownership remain isolated from the live J1 source witness
+and the user's unsaved Plan.
 
 ## §1 Mission and merge-ready invariant
 
@@ -81,19 +83,36 @@ Authorities: accepted APP-STATE Content architecture, shared Markdown Canvas,
 selected-World primitive (#776), managed Plan reads (#775/#782), blank authoring
 shell (#661), and the DEMO roadmap. Those predecessors do not prove this contract.
 
-- Open implementation PR at design time: #785 only, exact07ec031a. No stack.
-- No branch/worktree/runtime allocated here while BLOCKED.
+- At design time, #785 was the only open DEMO implementation PR. At activation,
+  fresh review of current open PR path leases found no overlap with this serial
+  lane; #786's statblock lease and unrelated paused/documentation lanes remain
+  untouched. No stacked predecessor.
+- #787 source witness: merged at `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`
+  (reviewed head `232a426...`). Ordinary Build import admitted World
+  `of-conks-and-cons`, document
+  `1e00479a-cd51-4ffc-81f7-c980b32fed6a`, revision 2, exact stored span
+  `0..48777`. The admitted 48,777-byte content is the pinned 48,778-byte
+  source with its final LF absent; its exact digest and the byte-variant
+  qualification are recorded in #787's exact-head evidence. The pinned original
+  SHA is `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`.
+  Do not call these byte-identical.
+  This establishes durable native source authority after reload/fresh API
+  process only; it establishes no extracted semantic facts, graph head, or
+  retrieval. Preserve this independent witness and do not migrate or reconfigure
+  its shared database for this slice.
 - Native empty-KnowledgeSpace initialization is separately MIND-owned. MIND #82
   design acceptance is not its runtime implementation and is **not a prerequisite
   to a document-only Plan**. No DungeonMind or WorldKeeper write in this slice.
 - Named successor: first-customer source admission/governed knowledge and later
   Agent retrieval; World-only Run adoption remains its later consumer contract.
-- After activation, use one isolated checkout, named API/UI ports, fixed DB pair
-  and owned output/source root. Serialize APP-STATE migration against that pair;
-  do not upgrade the running frozen #785 rehearsal underneath it.
-- Predecessor sync: #785 handoff and sole roadmap/mirror record only its actual
-  merge, reviewed head, review count and live result when knowable. Do not premark
-  this slice or J1–J6 accepted.
+- Use one isolated checkout, named API/UI ports, a disposable APP-STATE
+  PostgreSQL database pair and owned output/source root. Do not run migrations
+  against or modify the live J1 source-witness database. Do not upgrade the
+  frozen #785 rehearsal underneath its running process.
+- Predecessor sync in this PR: #785 exact merge/head/review evidence, #787 exact
+  merge/head/review and source-witness limitation, both predecessor handoff
+  states, roadmap and identical design-agent mirror. Do not premark this slice
+  or J1–J6 accepted.
 
 ## §3 Observable and adversarial paths
 
@@ -116,21 +135,23 @@ shell (#661), and the DEMO roadmap. Those predecessors do not prove this contrac
   a conflict preserves edits rather than silently replacing them.
 - **Legacy C1/C2 Plan/Runbook:** unchanged campaign identity/target-session paths.
 
-## §4 Prospective write lease — inactive while BLOCKED
+## §4 Write lease — ACTIVE for this implementation PR only
 
 Expected production paths:
 
 - `src/application_state/content/types.py`
 - `src/application_state/content/service.py`
-- `src/application_state/content/repository.py`
-- One new forward-only file under `src/application_state/migrations/versions/`
+- `src/application_state/migrations/versions/20260928_0007_world_owned_plan.py`
 - `apps/live_control_server/services/workspace_document_registry.py`
 - `apps/live_control_server/routes/workspace_documents.py`
 - `apps/live_control_server/routes/live.py` (managed Plan-context branch only)
-- `apps/live_control_server/services/tiptap_markdown_write.py` (scope admission only)
+- `apps/live_control_server/services/tiptap_markdown_write.py` (scope admission,
+  prepare-time no-effects guard, and scope-bound commit confirmation)
 - `apps/live-control-ui/src/api/types.ts`
 - `apps/live-control-ui/src/api/liveApi.ts`
 - `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx`
+- `apps/live-control-ui/src/selectedWorld/SelectedWorldContext.tsx`
+- `apps/live-control-ui/src/selectedWorld/SelectedWorldContext.test.tsx`
 - `apps/live-control-ui/src/selectedWorld/WorldCreateControl.tsx` and paired test
   (name-only existing API consumer; no new registry/navigation system)
 - `apps/live-control-ui/src/workspaceDocument/workspaceDocumentCreation.ts`
@@ -151,8 +172,9 @@ modules; `tests/test_workspace_document_registry.py`,
 `tests/application_state/test_plan_work_object_postgres.py`, and one focused
 World-Plan route/migration regression module under `tests/`.
 
-State/evidence paths: this handoff, completed predecessor
+State/evidence paths: this handoff, completed predecessors
 `Docs/Plans/HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md`,
+`Docs/Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md`,
 `Docs/Roadmaps/ROADMAP-demo.md` and its identical
 `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` mirror.
 
@@ -161,8 +183,9 @@ Bounded discovery: maximum six additional existing frontend paths under
 same UI root), plus their paired tests, only for World-Plan typing, exact editor
 ownership or promotion persistence. Name/reason in handback. Further production
 paths, Agent/Run semantics or another lane's lease require steward re-brief.
-Before activation, enumerate the actual proposed cohort and check active leases;
-this table is not permission to edit while BLOCKED.
+At activation, the exact base and cohort were rechecked against current PR
+leases. This table is the active bounded write lease; new production paths,
+Agent/Run semantics or another lane's lease require steward re-brief.
 
 ## §5 Exclusions and collision boundaries
 
@@ -246,6 +269,26 @@ document scope against the selected context before mounting/committing.
 Scope-neutral existing ID/revision/CAS write receipts need not be versioned
 merely for ceremony; any receipt carrying campaign ownership must be exact.
 
+The save path must close the prepare/commit time-of-check gap:
+
+1. **Prepare:** resolve and verify the stored World-Plan scope against the exact
+   selected `world_id` and document identity before creating/updating a
+   WorkingCopy, staging bytes, allocating a revision, or causing any other
+   persistence effect. A mismatch fails with no partial effect.
+2. **Confirmation binding:** issue a confirmation token bound to the exact
+   document ID, World ID, expected revision/content digest, and prepared write
+   identity. A token prepared for World A/document A cannot authorize a commit
+   submitted under World B/document B, even when either request is stale or
+   reordered.
+3. **Commit:** re-read and verify the persisted owner and exact selected scope
+   immediately before the governed write; require the matching scope-bound
+   confirmation token. Any mismatch, stale token, or changed owner fails before
+   commit effects. No A-prepare/B-commit sequence may write foreign content or
+   leave a partial WorkingCopy/revision.
+
+Tests must exercise the route/service boundary and prove both rejection and
+absence of persistence effects, not only a pure token helper.
+
 ### Ordinary UI and promotion
 
 Give the existing World picker a name-only New World entry. Reuse accepted
@@ -271,6 +314,9 @@ failed load/commit retains that UUID; never clear it simply to retry a fresh POS
 Preserve source-independent local edits across A→B→A. This contract does not
 invent durable create idempotency for an unknown/lost POST outcome: if existing
 recovery cannot safely prove/reconcile that outcome, stop/re-brief, not blind retry.
+The server-side prepare/commit rule above is mandatory alongside these UI
+epochs: client-side generation checks alone cannot prevent a prepared World-A
+write from being committed under World B.
 
 Commit points remain World-container creation, then explicit Content WorkObject
 creation, then existing governed Content save. Partial results stay truthful.
@@ -286,6 +332,10 @@ No one cross-domain transaction or automatic knowledge publication is promised.
    on real disposable PostgreSQL. Re-run migration; no scope rewrite/data loss.
 3. Route: managed World registry checked; create/get/list/snapshot/commit exact
    scope. Cross-World/campaign document and incompatible V1 body fail before save.
+   Prepare rejects A under selected B before any WorkingCopy/revision effects;
+   a confirmation token bound to A/document/revision/content cannot commit as
+   B/document, and commit rechecks stored ownership before governed effects.
+   Assert persistent state is unchanged after each rejected sequence.
 4. Mounted UI: bare graphless World → edit → first Save → reload; partial create
    success plus activation/commit failure recovers same UUID; wrong-scope fixture
    is quarantined; A→B pending-save races do not activate/overwrite B. Same-text
@@ -334,7 +384,9 @@ the complete cumulative invariant; task completion is not approval or a cycle.
 
 ## §9 Acceptance rubric
 
-- [ ] Gate verified; steward-landed ACTIVE handoff consumed at dispatch.
+- [ ] PRIME activation and exact dispatch base recorded; the handoff's ACTIVE
+      status is carried in this authorized implementation PR rather than a
+      separate status-only PR.
 - [ ] Serial topology/one assigned PR and lease honored.
 - [ ] Name-only World creation enters blank Plan before any source/campaign/head.
 - [ ] Content and every exposed ownership boundary prove exact World/null campaign.
