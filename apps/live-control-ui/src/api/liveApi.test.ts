@@ -9,6 +9,8 @@ import {
   commitTiptapMarkdownWrite,
   admitNativeWorldSource,
   createWorldContainer,
+  createWorldOwnedPlan,
+  listWorldOwnedPlans,
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
@@ -1916,6 +1918,45 @@ describe("liveApi world container contracts", () => {
     expect(String(url)).toBe("/api/live/world-containers");
     expect(init?.method).toBe("POST");
     expect(JSON.parse(String(init?.body))).toEqual({ name: "The Glass Orchard" });
+  });
+
+  it("keeps World-owned Plan inventory/create on explicit V2 routes and scopes", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(mockJsonResponse({
+      schema_version: "dmb_workspace_document_registry_v2",
+      scope_mode: "world",
+      world_id: "world-one",
+      records: [],
+    })).mockResolvedValueOnce(mockJsonResponse({
+      schema_version: "dmb_world_owned_plan_record_v2",
+      scope_mode: "world",
+      document_id: "doc-one",
+      title: "Plan",
+      campaign_id: null,
+      world_id: "world-one",
+      target_session: null,
+      kind: "plan",
+      target_relpath: null,
+      status: "active",
+      content_status: "draft",
+      revision: 1,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    }));
+
+    await expect(listWorldOwnedPlans("world one")).resolves.toMatchObject({ world_id: "world-one" });
+    await createWorldOwnedPlan({
+      schema_version: "dmb_workspace_document_create_v2",
+      scope_mode: "world",
+      world_id: "world-one",
+      title: "Plan",
+    });
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/workspace-documents/world-plans?world_id=world%20one");
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toBe("/api/live/workspace-documents/world-plans");
+    expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toMatchObject({
+      schema_version: "dmb_workspace_document_create_v2",
+      scope_mode: "world",
+      world_id: "world-one",
+    });
   });
 });
 

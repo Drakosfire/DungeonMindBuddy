@@ -130,6 +130,18 @@ export interface PlanViewProjection {
   timeline: PlanViewTimelineRow[];
 }
 
+export interface ManagedWorldPlanContextV2 {
+  schema_version: "dmb_managed_world_plan_context_v2";
+  scope_mode: "world";
+  world_id: string;
+  campaign_id: null;
+  session: null;
+  authoritative: false;
+  generated_at: string;
+  derived_from: string[];
+  timeline: [];
+}
+
 export type ArtifactKind = "event" | "roll_table";
 
 export type ArtifactContentType = "application/json" | "text/markdown";
@@ -1510,6 +1522,40 @@ export interface WorkspaceDocumentsListResponse {
   records: WorkspaceDocumentRecord[];
 }
 
+export interface WorldOwnedPlanRecordV2 {
+  schema_version: "dmb_world_owned_plan_record_v2";
+  scope_mode: "world";
+  document_id: string;
+  title: string;
+  campaign_id: null;
+  world_id: string;
+  target_session: null;
+  kind: "plan";
+  target_relpath: string | null;
+  status: WorkspaceDocumentStatus;
+  content_status: WorkspaceDocumentContentStatus;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorldOwnedPlansResponseV2 {
+  schema_version: "dmb_workspace_document_registry_v2";
+  scope_mode: "world";
+  world_id: string;
+  records: WorldOwnedPlanRecordV2[];
+}
+
+export interface WorldOwnedPlanSnapshotV2 {
+  schema_version: "dmb_workspace_document_snapshot_v2";
+  record: WorldOwnedPlanRecordV2;
+  markdown: string;
+  content_sha256: string;
+  file_fingerprint: string;
+  file_exists: boolean;
+  loaded_revision: number;
+}
+
 export interface WorldContainerRecord {
   schema_version: "dmb_world_container_record_v1";
   world_id: string;
@@ -1735,10 +1781,15 @@ export interface TiptapMarkdownWritePrepareRequest {
   markdown: string;
   expected_revision?: number | null;
   write_mode?: "authoring" | "source_import" | null;
+  schema_version?: "dmb_tiptap_markdown_write_prepare_v2";
+  scope_mode?: "world";
+  world_id?: string;
 }
 
 export interface TiptapMarkdownWritePrepareResponse {
-  schema_version: "dmb_tiptap_markdown_write_prepare_v1";
+  schema_version: "dmb_tiptap_markdown_write_prepare_v1" | "dmb_tiptap_markdown_write_prepare_v2";
+  scope_mode?: "world" | null;
+  world_id?: string | null;
   document_id: string;
   title: string;
   target_relpath: string;
@@ -1761,10 +1812,15 @@ export interface TiptapMarkdownWriteCommitRequest {
   writer_confirm_token: string;
   expected_revision?: number | null;
   write_mode?: "authoring" | "source_import" | null;
+  schema_version?: "dmb_tiptap_markdown_write_commit_v2";
+  scope_mode?: "world";
+  world_id?: string;
 }
 
 export interface TiptapMarkdownWriteCommitResponse {
-  schema_version: "dmb_tiptap_markdown_write_commit_v1";
+  schema_version: "dmb_tiptap_markdown_write_commit_v1" | "dmb_tiptap_markdown_write_commit_v2";
+  scope_mode?: "world" | null;
+  world_id?: string | null;
   document_id: string;
   title: string;
   target_relpath: string;
@@ -1779,6 +1835,13 @@ export interface TiptapMarkdownWriteCommitResponse {
   file_fingerprint?: string | null;
   backup_relpath?: string | null;
   diagnostics: string[];
+}
+
+export interface WorldOwnedPlanMarkdownWriteCommitResponseV2 extends Omit<TiptapMarkdownWriteCommitResponse, "schema_version" | "committed_record"> {
+  schema_version: "dmb_tiptap_markdown_write_commit_v2";
+  scope_mode: "world";
+  world_id: string;
+  committed_record: WorldOwnedPlanRecordV2;
 }
 
 export type ExtractionRunLifecycleStatus =
