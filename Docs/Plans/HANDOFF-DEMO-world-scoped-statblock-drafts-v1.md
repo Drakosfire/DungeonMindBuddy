@@ -437,6 +437,26 @@ prepared an isolated accepted runtime at `127.0.0.1:7861`, with lane-specific
 asset collections and its ordinary private configuration. No paid calls,
 required exact-head browser witness, implementation approval or merge yet.
 
+Implementation checkpoint 7 (Cycle 1 repair, not merge-ready): PRIME formally
+held exact head `2e33b57737164ac0393975ab31d42a1c91a43d34` in
+[review 5333492877](https://github.com/Drakosfire/DungeonMindBuddy/pull/785#pullrequestreview-5333492877).
+Its independent complete-cohort evidence is 164/164 UI tests, 140/140 backend
+tests (11 warnings, 28.19 seconds), scoped Ruff/diff pass and the same inherited
+JSX error. Approval was not granted: a delayed old completion could replace a
+newer settled same-World recovery pointer, and the live witness remains false.
+
+The repair compares settlement with the exact currently persisted draft,
+request and source-version identity, even after the newer attempt settles.
+Superseded or missing pointers are not replaced or recreated; current original
+attempts still reconcile after unmount, retry and source-version advancement.
+The Workbench honors the settlement result before installing completion state.
+PRIME's mounted two-generation/unmount/remount/reload regression reproduced
+both old-pointer and old-candidate failures before the fix. The pre-commit full
+UI cohort now passes 169 tests with zero exclusions, including four additional
+helper cases for changed identity/missing pointers. Exact frozen-head evidence
+and the subsequent independent review remain required; the PR evidence record
+identifies that head. No paid calls, live acceptance or merge is claimed.
+
 - [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.
 - [ ] V1 preserved and V2 scope survives every durable lifecycle update.
