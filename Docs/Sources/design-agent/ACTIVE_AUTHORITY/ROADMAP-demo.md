@@ -159,6 +159,24 @@ implementation, source admission, consumer activation or J3 acceptance.
 Keep #785's scope, lease, review/live gates and serial topology intact.
 No J3/image work, #785 merge or full DEMO acceptance is claimed.
 
+Independent J1 preparation probe on the same frozen runtime: managed World B
+had no source document and no graph head, yet its local blank editor accepted
+authored Markdown, ordinary Save and reload preserved the text. Public API
+allocated document `da85ba58-ff9a-4599-8ed5-ea301c076367`, committed revision3.
+Its record is **not World-owned**: `world_id=null`,
+`campaign_id=pr776-second-synthetic-world`, target session1. Content's current
+service/schema requires campaigns; the route explicitly rejects World ID for
+Plan. Do not confuse selected-World chrome or durable text with exact ownership.
+New World creation also remains coupled to Build source creation.
+
+The bounded successor design is
+[World-owned blank Plan](../Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md):
+**BLOCKED** on #785 acceptance/merge, predecessor sync/re-anchor and PRIME
+contract review. It preserves campaign records, uses existing Content authority,
+and requires a new World's ordinary blank Plan before any source/campaign/head.
+No successor branch, implementation PR or lease is active. Native genesis and
+source/WorldKeeper/Agent contracts remain separately owner-gated.
+
 The earlier integrated/rehearsal facts below are preserved evidence, not an
 instruction to preserve the legacy Of Conks head as this rehearsal's destination.
 
