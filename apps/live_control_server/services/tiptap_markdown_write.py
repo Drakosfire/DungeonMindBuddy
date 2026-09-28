@@ -10,13 +10,14 @@ from pathlib import Path
 from typing import Literal
 
 import blake3
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from apps.live_control_server.services.registry_file_lock import (
     workspace_document_mutation_lock,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRecord,
+    WorkspaceDocumentRecordAny,
     WorkspaceDocumentRegistryError,
     get_workspace_document,
     mark_workspace_document_committed_unlocked,
@@ -73,7 +74,9 @@ def markdown_lossy_diagnostics(markdown: str) -> list[str]:
     Blocking vs advisory is kind-scoped in prepare/commit (worldbuilding_source only).
     """
     diagnostics: list[str] = []
-    for line_number, line in enumerate(markdown.replace("\r\n", "\n").split("\n"), start=1):
+    for line_number, line in enumerate(
+        markdown.replace("\r\n", "\n").split("\n"), start=1
+    ):
         if not line.strip():
             continue
         if _LOSSY_MARKDOWN_LINE_RE.match(line):
@@ -171,12 +174,26 @@ class TiptapMarkdownWritePrepareRequest(BaseModel):
     markdown: str = Field(min_length=1)
     expected_revision: int | None = None
     write_mode: WriteMode | None = None
+    schema_version: Literal["dmb_tiptap_markdown_write_prepare_v2"] | None = None
+    scope_mode: Literal["world"] | None = None
+    world_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_scope_contract(self):
+        if self.schema_version is None:
+            if self.scope_mode is not None or self.world_id is not None:
+                raise ValueError("World-scoped writes require the V2 schema")
+        elif (
+            self.scope_mode != "world" or not self.world_id or not self.world_id.strip()
+        ):
+            raise ValueError("V2 Plan writes require scope_mode=world and world_id")
+        return self
 
 
 class TiptapMarkdownWritePrepareResponse(BaseModel):
-    schema_version: Literal["dmb_tiptap_markdown_write_prepare_v1"] = (
-        "dmb_tiptap_markdown_write_prepare_v1"
-    )
+    schema_version: str = "dmb_tiptap_markdown_write_prepare_v1"
+    scope_mode: Literal["world"] | None = None
+    world_id: str | None = None
     document_id: str
     title: str
     target_relpath: str
@@ -199,6 +216,20 @@ class TiptapMarkdownWriteCommitRequest(BaseModel):
     writer_confirm_token: str = Field(min_length=1)
     expected_revision: int | None = None
     write_mode: WriteMode | None = None
+    schema_version: Literal["dmb_tiptap_markdown_write_commit_v2"] | None = None
+    scope_mode: Literal["world"] | None = None
+    world_id: str | None = None
+
+    @model_validator(mode="after")
+    def validate_scope_contract(self):
+        if self.schema_version is None:
+            if self.scope_mode is not None or self.world_id is not None:
+                raise ValueError("World-scoped writes require the V2 schema")
+        elif (
+            self.scope_mode != "world" or not self.world_id or not self.world_id.strip()
+        ):
+            raise ValueError("V2 Plan writes require scope_mode=world and world_id")
+        return self
 
 
 class TiptapMarkdownWriteCommitResponse(BaseModel):
@@ -209,16 +240,16 @@ class TiptapMarkdownWriteCommitResponse(BaseModel):
     durable commit succeeded.
     """
 
-    schema_version: Literal["dmb_tiptap_markdown_write_commit_v1"] = (
-        "dmb_tiptap_markdown_write_commit_v1"
-    )
+    schema_version: str = "dmb_tiptap_markdown_write_commit_v1"
+    scope_mode: Literal["world"] | None = None
+    world_id: str | None = None
     document_id: str
     title: str
     target_relpath: str
     target_display_path: str
     registry_revision: int
     committed_revision: int
-    committed_record: WorkspaceDocumentRecord
+    committed_record: WorkspaceDocumentRecordAny
     normalized_content_sha256: str
     writer_ok: bool
     writer_phase: str | None = None
@@ -281,14 +312,17 @@ def _confirm_token(
     content: str,
     file_state: str,
     write_mode: WriteMode,
+    world_id: str | None = None,
 ) -> str:
     payload = (
-        f"{document_id}\0{registry_revision}\0{relpath}\0{content}\0{file_state}\0{write_mode}"
+        f"{document_id}\0{world_id or ''}\0{registry_revision}\0{relpath}\0{content}\0{file_state}\0{write_mode}"
     ).encode()
     return blake3.blake3(payload).hexdigest()
 
 
-def _map_registry_error(exc: WorkspaceDocumentRegistryError) -> TiptapMarkdownWriteError:
+def _map_registry_error(
+    exc: WorkspaceDocumentRegistryError,
+) -> TiptapMarkdownWriteError:
     if exc.status_code == 409:
         return TiptapMarkdownWriteConflictError(str(exc))
     error = TiptapMarkdownWriteError(str(exc))
@@ -392,6 +426,24 @@ def _content_receipt_locator(obj) -> str:
     return f"{obj.kind}:{obj.work_object_id}"
 
 
+def _require_requested_world_scope(obj, world_id: str | None) -> None:
+    if world_id is None:
+        if obj.world_id is not None:
+            raise TiptapMarkdownWriteConflictError(
+                "World-owned Plans require the World-scoped V2 write contract"
+            )
+        return
+    if (
+        obj.kind != "plan"
+        or obj.world_id != world_id
+        or obj.campaign_id is not None
+        or obj.target_session is not None
+    ):
+        raise TiptapMarkdownWriteConflictError(
+            "Plan scope does not match the selected World"
+        )
+
+
 def _prepare_plan_postgres(
     *,
     root: Path,
@@ -415,10 +467,16 @@ def _prepare_plan_postgres(
         return None
     if obj.kind not in ("plan", "runbook"):
         return None
+    _require_requested_world_scope(obj, request.world_id)
     if write_mode == "source_import":
-        raise TiptapMarkdownWriteError("source_import is only valid for worldbuilding_source documents")
+        raise TiptapMarkdownWriteError(
+            "source_import is only valid for worldbuilding_source documents"
+        )
     content = _content_for_write_mode(request.markdown, write_mode)
-    if request.expected_revision is not None and obj.object_revision != request.expected_revision:
+    if (
+        request.expected_revision is not None
+        and obj.object_revision != request.expected_revision
+    ):
         raise TiptapMarkdownWriteConflictError(
             f"revision mismatch: expected {request.expected_revision}, current {obj.object_revision}"
         )
@@ -435,11 +493,10 @@ def _prepare_plan_postgres(
     lossy = markdown_lossy_diagnostics(request.markdown)
     autosave = autosave_plan if obj.kind == "plan" else autosave_runbook
     try:
-        obj = autosave(
-            request.document_id,
-            content,
-            expected_revision=request.expected_revision,
-        )
+        autosave_kwargs = {"expected_revision": request.expected_revision}
+        if obj.kind == "plan":
+            autosave_kwargs["expected_world_id"] = request.world_id
+        obj = autosave(request.document_id, content, **autosave_kwargs)
     except ApplicationStateError as exc:
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
@@ -461,6 +518,7 @@ def _prepare_plan_postgres(
             content,
             "postgres",
             write_mode,
+            world_id=request.world_id,
         ),
         writer_diff="",
         existing_size_bytes=None,
@@ -477,6 +535,13 @@ def _prepare_plan_postgres(
             "review before commit",
             *lossy,
         ],
+        schema_version=(
+            "dmb_tiptap_markdown_write_prepare_v2"
+            if request.world_id is not None
+            else "dmb_tiptap_markdown_write_prepare_v1"
+        ),
+        scope_mode="world" if request.world_id is not None else None,
+        world_id=request.world_id,
     )
 
 
@@ -485,7 +550,11 @@ def _commit_plan_postgres(
     request: TiptapMarkdownWriteCommitRequest,
     write_mode: WriteMode,
 ) -> TiptapMarkdownWriteCommitResponse | None:
-    from application_state.content.service import commit_plan, commit_runbook, get_content_optional
+    from application_state.content.service import (
+        commit_plan,
+        commit_runbook,
+        get_content_optional,
+    )
     from application_state.errors import ApplicationStateError
 
     try:
@@ -498,8 +567,11 @@ def _commit_plan_postgres(
         return None
     if obj.kind not in ("plan", "runbook"):
         return None
+    _require_requested_world_scope(obj, request.world_id)
     if write_mode == "source_import":
-        raise TiptapMarkdownWriteError("source_import is only valid for worldbuilding_source documents")
+        raise TiptapMarkdownWriteError(
+            "source_import is only valid for worldbuilding_source documents"
+        )
     if obj.target_relpath:
         from apps.live_control_server.services.workspace_document_registry import (
             _record_from_work_object,
@@ -517,23 +589,25 @@ def _commit_plan_postgres(
             content,
             "postgres",
             write_mode,
+            world_id=request.world_id,
         )
 
     expected_revision = obj.object_revision
     if request.writer_confirm_token != _token_for(obj.object_revision):
         prior_revision = obj.object_revision - 1
-        if prior_revision < 1 or request.writer_confirm_token != _token_for(prior_revision):
+        if prior_revision < 1 or request.writer_confirm_token != _token_for(
+            prior_revision
+        ):
             raise TiptapMarkdownWriteConflictError(
                 "stale writer confirm token; prepare file write again"
             )
         expected_revision = prior_revision
     commit = commit_plan if obj.kind == "plan" else commit_runbook
     try:
-        committed, revision = commit(
-            request.document_id,
-            content,
-            expected_revision=expected_revision,
-        )
+        commit_kwargs = {"expected_revision": expected_revision}
+        if obj.kind == "plan":
+            commit_kwargs["expected_world_id"] = request.world_id
+        committed, revision = commit(request.document_id, content, **commit_kwargs)
     except ApplicationStateError as exc:
         raise _map_registry_error(
             WorkspaceDocumentRegistryError(str(exc), status_code=exc.status_code)
@@ -559,6 +633,13 @@ def _commit_plan_postgres(
         file_fingerprint="postgres",
         backup_relpath=None,
         diagnostics=["WorkRevision committed in PostgreSQL"],
+        schema_version=(
+            "dmb_tiptap_markdown_write_commit_v2"
+            if request.world_id is not None
+            else "dmb_tiptap_markdown_write_commit_v1"
+        ),
+        scope_mode="world" if request.world_id is not None else None,
+        world_id=request.world_id,
     )
 
 
@@ -572,7 +653,9 @@ def prepare_tiptap_markdown_write(
 
     file_record = unswitched_workspace_record(root, request.document_id)
     if file_record is None:
-        postgres = _prepare_plan_postgres(root=root, request=request, write_mode=write_mode)
+        postgres = _prepare_plan_postgres(
+            root=root, request=request, write_mode=write_mode
+        )
         if postgres is not None:
             return postgres
         error = TiptapMarkdownWriteError(
@@ -592,7 +675,9 @@ def prepare_tiptap_markdown_write(
     content = _content_for_write_mode(request.markdown, write_mode)
     lossy = markdown_lossy_diagnostics(request.markdown)
     blocking_lossy = (
-        [] if write_mode == "source_import" else _commit_blocking_lossy(record.kind, request.markdown)
+        []
+        if write_mode == "source_import"
+        else _commit_blocking_lossy(record.kind, request.markdown)
     )
     advisory_lossy = lossy if not blocking_lossy and lossy else []
     exists = target.is_file()
@@ -727,7 +812,9 @@ def commit_tiptap_markdown_write(
 
     file_record = unswitched_workspace_record(root, request.document_id)
     if file_record is None:
-        postgres = _commit_plan_postgres(request=request, write_mode=_normalize_write_mode(request.write_mode))
+        postgres = _commit_plan_postgres(
+            request=request, write_mode=_normalize_write_mode(request.write_mode)
+        )
         if postgres is not None:
             return postgres
         error = TiptapMarkdownWriteError(
@@ -766,7 +853,9 @@ def _commit_tiptap_markdown_write_unlocked(
     if write_mode == "source_import":
         _assert_source_import_eligible(record, target)
     blocking_lossy = (
-        [] if write_mode == "source_import" else _commit_blocking_lossy(record.kind, request.markdown)
+        []
+        if write_mode == "source_import"
+        else _commit_blocking_lossy(record.kind, request.markdown)
     )
     if blocking_lossy:
         raise TiptapMarkdownWriteError(

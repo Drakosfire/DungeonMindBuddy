@@ -92,6 +92,39 @@ def test_get_plan_view_endpoint_returns_valid_payload(client: TestClient) -> Non
     assert body["timeline"]
 
 
+def test_managed_world_plan_context_v2_has_no_campaign_or_session_sentinel(
+    client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.routes import live
+    from apps.live_control_server.services.world_container_registry import create_world_container
+
+    world = create_world_container(tmp_path, name="Context Test World")
+    monkeypatch.setattr(live, "repo_root", lambda: tmp_path)
+
+    response = client.get(
+        "/api/live/plan-view",
+        params={"scope_mode": "world", "world_id": world.world_id},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "schema_version": "dmb_managed_world_plan_context_v2",
+        "scope_mode": "world",
+        "world_id": world.world_id,
+        "campaign_id": None,
+        "session": None,
+        "authoritative": False,
+        "generated_at": response.json()["generated_at"],
+        "derived_from": ["managed_world_container"],
+        "timeline": [],
+    }
+
+
+def test_managed_world_plan_context_v2_rejects_missing_world_id(client: TestClient) -> None:
+    response = client.get("/api/live/plan-view", params={"scope_mode": "world"})
+    assert response.status_code == 422
+
+
 def test_builder_uses_planning_beats_when_present(tmp_path: Path) -> None:
     import shutil
 

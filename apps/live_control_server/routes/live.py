@@ -1054,8 +1054,29 @@ def get_live_surface() -> dict[str, Any]:
 
 
 @router.get("/plan-view")
-def get_live_plan_view(world_id: str | None = Query(default=None)) -> dict[str, Any]:
+def get_live_plan_view(
+    world_id: str | None = Query(default=None),
+    scope_mode: Literal["world"] | None = Query(default=None),
+) -> dict[str, Any]:
+    if scope_mode == "world" and world_id is None:
+        raise HTTPException(status_code=422, detail="world_id is required for World Plan context.")
     if world_id is not None:
+        if scope_mode == "world":
+            try:
+                world = get_world_container(repo_root(), world_id)
+            except WorldContainerRegistryError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+            return {
+                "schema_version": "dmb_managed_world_plan_context_v2",
+                "scope_mode": "world",
+                "world_id": world.world_id,
+                "campaign_id": None,
+                "session": None,
+                "authoritative": False,
+                "generated_at": datetime.now(timezone.utc).isoformat(),
+                "derived_from": ["managed_world_container"],
+                "timeline": [],
+            }
         try:
             world = get_world_container(repo_root(), world_id)
         except WorldContainerRegistryError as exc:

@@ -43,7 +43,9 @@ def insert_work_object(conn: psycopg.Connection, obj: WorkObject) -> WorkObject:
     return loaded
 
 
-def get_work_object(conn: psycopg.Connection, work_object_id: UUID) -> WorkObject | None:
+def get_work_object(
+    conn: psycopg.Connection, work_object_id: UUID
+) -> WorkObject | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"SELECT {_WORK_OBJECT_COLUMNS} FROM content.work_object WHERE work_object_id = %s",
@@ -53,7 +55,9 @@ def get_work_object(conn: psycopg.Connection, work_object_id: UUID) -> WorkObjec
     return None if row is None else _work_object_from_row(row)
 
 
-def lock_work_object(conn: psycopg.Connection, work_object_id: UUID) -> WorkObject | None:
+def lock_work_object(
+    conn: psycopg.Connection, work_object_id: UUID
+) -> WorkObject | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
@@ -73,20 +77,31 @@ def list_work_objects(
     *,
     kind: str,
     campaign_id: str | None = None,
+    world_id: str | None = None,
     status: str | None = "active",
 ) -> list[WorkObject]:
+    if campaign_id is not None and world_id is not None:
+        raise ValueError("campaign_id and world_id are mutually exclusive scopes")
     clauses = ["kind = %s"]
     params: list[object] = [kind]
     if status is not None:
         clauses.append("status = %s")
         params.append(status)
+    if world_id is not None:
+        clauses.extend(["world_id = %s", "campaign_id IS NULL"])
+        params.append(world_id)
+    else:
+        # V1 inventories remain campaign-owned, including the unfiltered legacy
+        # inventory. World-owned Plans are visible only through the explicit V2
+        # world filter.
+        clauses.extend(["world_id IS NULL", "campaign_id IS NOT NULL"])
     if campaign_id is not None:
         clauses.append("campaign_id = %s")
         params.append(campaign_id)
     sql = f"""
         SELECT {_WORK_OBJECT_COLUMNS}
         FROM content.work_object
-        WHERE {' AND '.join(clauses)}
+        WHERE {" AND ".join(clauses)}
         ORDER BY updated_at DESC
     """
     with conn.cursor(row_factory=dict_row) as cur:
@@ -126,7 +141,9 @@ def update_work_object(
     return None if row is None else _work_object_from_row(row)
 
 
-def insert_work_revision(conn: psycopg.Connection, revision: WorkRevision) -> WorkRevision:
+def insert_work_revision(
+    conn: psycopg.Connection, revision: WorkRevision
+) -> WorkRevision:
     conn.execute(
         """
         INSERT INTO content.work_revision (
@@ -145,7 +162,9 @@ def insert_work_revision(conn: psycopg.Connection, revision: WorkRevision) -> Wo
     return loaded
 
 
-def get_work_revision(conn: psycopg.Connection, work_revision_id: UUID) -> WorkRevision | None:
+def get_work_revision(
+    conn: psycopg.Connection, work_revision_id: UUID
+) -> WorkRevision | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
@@ -270,7 +289,9 @@ def upsert_working_copy(conn: psycopg.Connection, copy: WorkingCopy) -> WorkingC
     return replace_working_copy(conn, copy)
 
 
-def get_working_copy(conn: psycopg.Connection, work_object_id: UUID) -> WorkingCopy | None:
+def get_working_copy(
+    conn: psycopg.Connection, work_object_id: UUID
+) -> WorkingCopy | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """

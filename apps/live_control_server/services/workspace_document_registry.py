@@ -1,11 +1,12 @@
 """File-backed opaque workspace document registry for /plan authoring."""
+
 from __future__ import annotations
 
 import re
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -45,17 +46,15 @@ def _record_from_work_object(
     obj: object,
     *,
     from_working_copy: bool = False,
-) -> WorkspaceDocumentRecord:
+) -> WorkspaceDocumentRecordAny:
     current_revision_id = getattr(obj, "current_revision_id", None)
     if from_working_copy or current_revision_id is None:
         content_status: Literal["draft", "committed"] = "draft"
     else:
         content_status = "committed"
-    return WorkspaceDocumentRecord(
+    values = dict(
         document_id=str(obj.work_object_id),
         title=obj.title,
-        campaign_id=obj.campaign_id,
-        world_id=getattr(obj, "world_id", None),
         target_session=obj.target_session,
         kind=str(obj.kind),
         target_relpath=obj.target_relpath,
@@ -64,6 +63,15 @@ def _record_from_work_object(
         revision=int(obj.object_revision),
         created_at=_iso_timestamp(obj.created_at),
         updated_at=_iso_timestamp(obj.updated_at),
+    )
+    world_id = getattr(obj, "world_id", None)
+    campaign_id = getattr(obj, "campaign_id", None)
+    if obj.kind == "plan" and world_id is not None and campaign_id is None:
+        return WorldOwnedPlanRecordV2(world_id=world_id, **values)
+    return WorkspaceDocumentRecord(
+        campaign_id=campaign_id,
+        world_id=world_id,
+        **values,
     )
 
 
@@ -153,6 +161,31 @@ class WorkspaceDocumentRecord(BaseModel):
     visibility_state: Literal["internal", "player_safe"] | None = None
 
 
+class WorldOwnedPlanRecordV2(BaseModel):
+    schema_version: Literal["dmb_world_owned_plan_record_v2"] = (
+        "dmb_world_owned_plan_record_v2"
+    )
+    scope_mode: Literal["world"] = "world"
+    document_id: str
+    title: str
+    campaign_id: None = None
+    world_id: str
+    target_session: None = None
+    kind: Literal["plan"] = "plan"
+    target_relpath: str | None = None
+    status: Literal["active", "discarded"] = "active"
+    content_status: Literal["draft", "committed"] = "draft"
+    revision: int = 1
+    created_at: str
+    updated_at: str
+
+
+WorkspaceDocumentRecordAny = Annotated[
+    Union[WorkspaceDocumentRecord, WorldOwnedPlanRecordV2],
+    Field(discriminator="schema_version"),
+]
+
+
 class WorkspaceDocumentRegistryDocument(BaseModel):
     schema_version: Literal["dmb_workspace_document_registry_v1"] = REGISTRY_SCHEMA
     records: list[WorkspaceDocumentRecord] = Field(default_factory=list)
@@ -161,6 +194,15 @@ class WorkspaceDocumentRegistryDocument(BaseModel):
 class WorkspaceDocumentsListResponse(BaseModel):
     schema_version: Literal["dmb_workspace_document_registry_v1"] = REGISTRY_SCHEMA
     records: list[WorkspaceDocumentRecord] = Field(default_factory=list)
+
+
+class WorldOwnedPlansResponseV2(BaseModel):
+    schema_version: Literal["dmb_workspace_document_registry_v2"] = (
+        "dmb_workspace_document_registry_v2"
+    )
+    scope_mode: Literal["world"] = "world"
+    world_id: str
+    records: list[WorldOwnedPlanRecordV2] = Field(default_factory=list)
 
 
 class CreateWorkspaceDocumentRequest(BaseModel):
@@ -174,6 +216,15 @@ class CreateWorkspaceDocumentRequest(BaseModel):
     document_class: str | None = None
     authority_state: Literal["draft", "reviewed", "canonical"] | None = None
     visibility_state: Literal["internal", "player_safe"] | None = None
+
+
+class CreateWorldOwnedPlanRequestV2(BaseModel):
+    schema_version: Literal["dmb_workspace_document_create_v2"] = (
+        "dmb_workspace_document_create_v2"
+    )
+    scope_mode: Literal["world"] = "world"
+    world_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
 
 
 class UpdateWorkspaceDocumentMetadataRequest(BaseModel):
@@ -204,6 +255,24 @@ class WorkspaceDocumentSnapshot(BaseModel):
     loaded_revision: int
 
 
+class WorldOwnedPlanSnapshotV2(BaseModel):
+    schema_version: Literal["dmb_workspace_document_snapshot_v2"] = (
+        "dmb_workspace_document_snapshot_v2"
+    )
+    record: WorldOwnedPlanRecordV2
+    markdown: str
+    content_sha256: str
+    file_fingerprint: str
+    file_exists: bool
+    loaded_revision: int
+
+
+WorkspaceDocumentSnapshotAny = Annotated[
+    Union[WorkspaceDocumentSnapshot, WorldOwnedPlanSnapshotV2],
+    Field(discriminator="schema_version"),
+]
+
+
 class WorkspaceCommittedRevision(BaseModel):
     """Committed WorkRevision for Playable binding. ``revision_n`` is playable_revision."""
 
@@ -213,6 +282,26 @@ class WorkspaceCommittedRevision(BaseModel):
     document_id: str
     kind: Literal["plan", "runbook"]
     campaign_id: str
+    title: str
+    status: Literal["active", "discarded"]
+    object_revision: int
+    work_revision_id: str
+    revision_n: int
+    markdown: str
+    content_sha256: str
+    has_divergent_working_copy: bool = False
+    target_relpath: str | None = None
+
+
+class WorldOwnedCommittedRevisionV2(BaseModel):
+    schema_version: Literal["dmb_workspace_committed_revision_v2"] = (
+        "dmb_workspace_committed_revision_v2"
+    )
+    scope_mode: Literal["world"] = "world"
+    world_id: str
+    document_id: str
+    kind: Literal["plan"] = "plan"
+    campaign_id: None = None
     title: str
     status: Literal["active", "discarded"]
     object_revision: int
@@ -351,7 +440,9 @@ def list_workspace_documents(
     status: Literal["active", "discarded"] | None = "active",
 ) -> list[WorkspaceDocumentRecord]:
     records = [
-        r for r in _load_registry_document(root).records if r.kind not in ("plan", "runbook")
+        r
+        for r in _load_registry_document(root).records
+        if r.kind not in ("plan", "runbook")
     ]
     if kind in (None, "plan", "runbook"):
         from application_state.content.service import list_plans, list_runbooks
@@ -372,7 +463,10 @@ def list_workspace_documents(
                     _record_from_work_object(obj)
                     for obj in list_runbooks(campaign_id=campaign_id, status=status)
                 )
-        except (ApplicationStateUnavailableError, ApplicationStateMigrationError) as exc:
+        except (
+            ApplicationStateUnavailableError,
+            ApplicationStateMigrationError,
+        ) as exc:
             raise _map_application_state_error(exc) from exc
         except ApplicationStateError as exc:
             raise _map_application_state_error(exc) from exc
@@ -442,7 +536,10 @@ def _require_unique_target_relpath(
             existing
             for existing in document.records
             if existing.target_relpath == target_relpath
-            and (exclude_document_id is None or existing.document_id != exclude_document_id)
+            and (
+                exclude_document_id is None
+                or existing.document_id != exclude_document_id
+            )
         ),
         None,
     )
@@ -557,7 +654,12 @@ def create_workspace_document(
                 "world_id is only valid for kind=worldbuilding_source",
                 status_code=422,
             )
-        if source_domain is not None or document_class is not None or authority_state is not None or visibility_state is not None:
+        if (
+            source_domain is not None
+            or document_class is not None
+            or authority_state is not None
+            or visibility_state is not None
+        ):
             raise WorkspaceDocumentRegistryError(
                 "worldbuilding metadata is only valid for kind=worldbuilding_source",
                 status_code=422,
@@ -632,12 +734,92 @@ def create_workspace_document(
     return record
 
 
-def get_workspace_document(root: Path, document_id: str) -> WorkspaceDocumentRecord:
+def create_world_owned_plan_v2(
+    root: Path, *, world_id: str, title: str
+) -> WorldOwnedPlanRecordV2:
+    cleaned_world = _validate_world_id(world_id)
+    cleaned_title = _validate_title(title)
+    from apps.live_control_server.services.world_container_registry import (
+        WorldContainerRegistryError,
+        get_world_container,
+    )
+    from application_state.content.service import create_world_plan
+    from application_state.errors import ApplicationStateError
+
+    try:
+        world = get_world_container(root, cleaned_world)
+        if world.world_id != cleaned_world:
+            raise WorkspaceDocumentRegistryError(
+                "selected World identity does not match the managed World record",
+                status_code=409,
+            )
+        document_id = str(uuid.uuid4())
+        obj = create_world_plan(
+            world_id=cleaned_world,
+            title=cleaned_title,
+            target_relpath=_plan_workspace_target_relpath(document_id),
+            document_id=document_id,
+        )
+    except WorldContainerRegistryError as exc:
+        raise WorkspaceDocumentRegistryError(
+            str(exc), status_code=exc.status_code
+        ) from exc
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    record = _record_from_work_object(obj)
+    if not isinstance(record, WorldOwnedPlanRecordV2):
+        raise WorkspaceDocumentRegistryError(
+            "World-owned Plan creation returned an incompatible Content scope",
+            status_code=500,
+        )
+    return record
+
+
+def list_world_owned_plans_v2(
+    root: Path, *, world_id: str, status: str | None = "active"
+) -> WorldOwnedPlansResponseV2:
+    cleaned_world = _validate_world_id(world_id)
+    from apps.live_control_server.services.world_container_registry import (
+        WorldContainerRegistryError,
+        get_world_container,
+    )
+    from application_state.content.service import list_plans
+    from application_state.errors import ApplicationStateError
+
+    try:
+        world = get_world_container(root, cleaned_world)
+        if world.world_id != cleaned_world:
+            raise WorkspaceDocumentRegistryError(
+                "selected World identity does not match the managed World record",
+                status_code=409,
+            )
+        records = [
+            _record_from_work_object(obj)
+            for obj in list_plans(world_id=cleaned_world, status=status)
+        ]
+    except WorldContainerRegistryError as exc:
+        raise WorkspaceDocumentRegistryError(
+            str(exc), status_code=exc.status_code
+        ) from exc
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    if any(not isinstance(record, WorldOwnedPlanRecordV2) for record in records):
+        raise WorkspaceDocumentRegistryError(
+            "World Plan inventory returned a non-World-owned document",
+            status_code=500,
+        )
+    return WorldOwnedPlansResponseV2(world_id=cleaned_world, records=records)
+
+
+def get_workspace_document(root: Path, document_id: str) -> WorkspaceDocumentRecordAny:
     file_record = unswitched_workspace_record(root, document_id)
     if file_record is not None:
         return file_record
     from application_state.content.service import snapshot_content
-    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+    from application_state.errors import (
+        ApplicationStateError,
+        ApplicationStateNotFoundError,
+    )
 
     try:
         snap = snapshot_content(document_id)
@@ -653,7 +835,9 @@ def get_workspace_document(root: Path, document_id: str) -> WorkspaceDocumentRec
     )
 
 
-def get_workspace_document_snapshot(root: Path, document_id: str) -> WorkspaceDocumentSnapshot:
+def get_workspace_document_snapshot(
+    root: Path, document_id: str
+) -> WorkspaceDocumentSnapshotAny:
     """Load record + target Markdown as one coherent revision snapshot.
 
     Holds ``workspace_document_mutation_lock`` across registry-record read, target
@@ -670,9 +854,12 @@ def get_workspace_document_snapshot(root: Path, document_id: str) -> WorkspaceDo
     return _postgres_plan_snapshot(document_id)
 
 
-def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshot:
+def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshotAny:
     from application_state.content.service import snapshot_content
-    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+    from application_state.errors import (
+        ApplicationStateError,
+        ApplicationStateNotFoundError,
+    )
 
     try:
         snap = snapshot_content(document_id)
@@ -686,7 +873,12 @@ def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshot:
     record = _record_from_work_object(
         snap.work_object, from_working_copy=snap.from_working_copy
     )
-    return WorkspaceDocumentSnapshot(
+    snapshot_model = (
+        WorldOwnedPlanSnapshotV2
+        if isinstance(record, WorldOwnedPlanRecordV2)
+        else WorkspaceDocumentSnapshot
+    )
+    return snapshot_model(
         record=record,
         markdown=snap.markdown,
         content_sha256=snap.content_sha256,
@@ -707,7 +899,10 @@ def get_committed_playable_revision(
         current_committed_revision,
         exact_committed_revision,
     )
-    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+    from application_state.errors import (
+        ApplicationStateError,
+        ApplicationStateNotFoundError,
+    )
 
     canonical_id = _validate_document_id(document_id)
     try:
@@ -859,7 +1054,11 @@ def update_workspace_document_metadata(
                 "target_relpath cannot be changed via metadata update",
                 status_code=422,
             )
-        if document_class is not _UNSET or authority_state is not _UNSET or visibility_state is not _UNSET:
+        if (
+            document_class is not _UNSET
+            or authority_state is not _UNSET
+            or visibility_state is not _UNSET
+        ):
             raise WorkspaceDocumentRegistryError(
                 "worldbuilding metadata is only valid for kind=worldbuilding_source",
                 status_code=422,
@@ -941,7 +1140,10 @@ def _update_workspace_document_metadata_unlocked(
                     "target_relpath must be a string or null",
                     status_code=422,
                 )
-            if existing.kind == "plan" and resolved_update_target != existing.target_relpath:
+            if (
+                existing.kind == "plan"
+                and resolved_update_target != existing.target_relpath
+            ):
                 # Generic PATCH must not act as hidden workspace→canonical promotion.
                 raise WorkspaceDocumentRegistryError(
                     "plan target_relpath cannot be changed via metadata update",

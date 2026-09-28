@@ -1103,7 +1103,7 @@ def test_update_metadata_rejects_target_relpath_owned_by_active_document(root: P
     """Runbook still allows path rebinding; uniqueness must reject a taken path."""
     path_a = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-owner-a.md"
     path_b = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-owner-b.md"
-    owner = create_workspace_document(
+    create_workspace_document(
         root,
         title="Owner",
         campaign_id="longmont-c2",
