@@ -58,6 +58,7 @@ import type {
   WorkspaceDocumentRecord,
   WorkspaceDocumentsListResponse,
   WorkspaceDocumentSnapshot,
+  NativeWorldSourceAdmissionStatus,
   WorkspaceCommittedRevision,
   PlayActiveRunState,
   PlayRunRecord,
@@ -1671,6 +1672,35 @@ export async function getWorkspaceDocument(documentId: string): Promise<Workspac
 export async function getWorkspaceDocumentSnapshot(documentId: string): Promise<WorkspaceDocumentSnapshot> {
   return apiFetch<WorkspaceDocumentSnapshot>(
     `/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot`,
+  );
+}
+
+export async function getNativeWorldSourceAdmissionStatus(
+  documentId: string,
+  expectedRevision?: number,
+): Promise<NativeWorldSourceAdmissionStatus> {
+  const query = expectedRevision == null
+    ? ""
+    : `?expected_revision=${encodeURIComponent(String(expectedRevision))}`;
+  return apiFetch<NativeWorldSourceAdmissionStatus>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/native-world-source${query}`,
+  );
+}
+
+export async function admitNativeWorldSource(
+  documentId: string,
+  expectedRevision: number,
+  expectedBodySha256: string,
+): Promise<NativeWorldSourceAdmissionStatus> {
+  return apiFetch<NativeWorldSourceAdmissionStatus>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/native-world-source`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        expected_revision: expectedRevision,
+        expected_body_sha256: expectedBodySha256,
+      }),
+    },
   );
 }
 

@@ -22,6 +22,7 @@ pr_body_template: |
 **Workstream / owner:** LOCAL DEMO ACCEPTED / DEMO J1, Buddy owns product orchestration  
 **Direction:** STEWARD → CODE → PRIME  
 **Activation base:** Buddy `main@f8b923875f9444a1addfb2472a2b8fab35eceb4c` (merged #785)  
+**Base revision:** `a1a00f5e6569cb10205dbc7d2e15888730280372`
 **Activation gate:** satisfied — #785 merged; MIND #83 empty initialization and #85 native text/evidence admission merged; PRIME accepted the bounded Buddy integration, with explicit new-world identity policy `managed_world_id == space_id`. The policy is Buddy-owned; it is not an old World Container guarantee.  
 **Dependency lease:** PRIME’s 2026-09-28 settlement in open draft PR #763 pauses that stale Rules candidate and exclusively transfers `pyproject.toml` + `uv.lock` to this serial DEMO slice for adoption of MIND #85. #763’s rules code is preserved and must re-anchor after this dependency settles; do not modify #763.  
 **Exact external pins:** DungeonMind #85 merge `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`; WorldKeeper unchanged.  
@@ -30,6 +31,10 @@ pr_body_template: |
 **Implementation lane:** create a clean `codex/demo-j1-native-world-source-authority` branch/worktree from freshly fetched `origin/main` after this handoff commit. Record the exact resulting base before code. Never use the dirty detached checkout.  
 **PR authorization:** after landing this ACTIVE handoff, open/update the single assigned PR without another operator prompt. Return exact-head implementation review and evidence to PRIME; do not merge.  
 **Shared runtime/state:** PRIME owns existing UI/API/Generation processes and persistent demo DB targets. Do not start a duplicate server set, switch/restart its processes, or write to the persistent rehearsal databases from this implementation lane. Use isolated tests and a disposable Postgres target. Exact-head live product use requires coordination with PRIME’s runtime owner.
+
+| Field | Value |
+|---|---|
+| Runtime/state ownership | PRIME owns UI `5198`, API `8817`, Generation `7861` and persistent demo DB targets. This lane may use only an isolated disposable Postgres target for tests; it must not start, switch, or restart shared servers or mutate persistent rehearsal databases. |
 
 ## §1 Mission and merge-ready invariant
 
@@ -66,11 +71,25 @@ Use stable Buddy-derived initialization/admission identities. Initialization tim
 
 PR #763 is open but draft/paused by PRIME’s durable body settlement; it no longer owns the two dependency files. Its changed `main.py` path is deliberately avoided by adding the new product endpoint to the already-mounted `workspace_documents` router. No other PR/lease may be assumed clear without a fresh changed-path census.
 
+PRIME review Cycle 1 `5343404905` clarified the POST precondition: the client
+must carry the exact committed snapshot's `content_sha256` alongside its
+registry revision. This digest is an assertion only; it grants no authority over
+body bytes, World/space identity, descriptors, or admission metadata. A mismatch
+fails closed before initialization/publication. This is a bounded freshness
+guard within J1, not a source-update or freshness lifecycle.
+
+PRIME's 2026-09-28 dispatch ruling transfers the `ROADMAP-demo.md` and its
+byte-identical mirror from the optional lease in the active DEMO-READY design
+handoff to this J1 state-sync lease until this PR is reviewed and merged. The
+design handoff remains active otherwise; its optional roadmap lease is suspended
+through that point and requires re-anchor before restoration. No presentation
+design decision or roadmap authority is changed by this coordination ruling.
+
 ## §3 User-visible path and failure truth
 
 1. Create a **fresh** managed World through the existing Build control (server allocates ID); no manual IDs or synthetic graph rows.
 2. Import the pinned, human-normalized Of Conks Markdown through the ordinary Build source control as a `worldbuilding_source`; commit via the existing workspace-document source commit path.
-3. After commit, ordinary Build flow calls Buddy’s native-source status/admit API using document ID and expected revision only. Server resolves the managed World and exact committed snapshot.
+3. After commit, ordinary Build flow calls Buddy’s native-source status API and, for automatic admission, its POST endpoint. The POST carries the document ID, exact expected registry revision, and `content_sha256` read from that exact committed server snapshot. The body digest is only a stale-source precondition: the server resolves and hashes its own snapshot, compares the asserted digest before any native World mutation, and never accepts browser-posted Markdown as source authority.
 4. Show a clear `admitted` result with World identity and a safe source/evidence summary, or `saved; native admission pending` with an exact retry path. Retry must reuse the same document/revision and never create a duplicate source document.
 5. Reselect/reload the source after API/repository object recreation; status resolves from MIND receipt/read authority. Open the admitted source and verify exact body/span hashes.
 
@@ -83,26 +102,45 @@ Failure contract:
 
 ## §4 ACTIVE write lease
 
-Expected implementation files; no code edits before this checked-in ACTIVE handoff:
+The §4 table is the exclusive expected write lease for this serial implementation PR. The only edit to this handoff is the PRIME-authorized machine-readable format repair: preserve the same mission, runtime boundaries, and implementation paths while making the existing lease parseable. Do not mark this in-flight slice complete or invent its future PR/head/review count.
 
-- `pyproject.toml`, `uv.lock` — adopt exact accepted MIND #85 pin; preserve unrelated pins and resolve reproducibly.
-- `apps/live_control_server/integrations/dungeonmind/native_world_source_admission.py` — Buddy adapter/service composition around accepted MIND initialization/admission/read/replay APIs.
-- `apps/live_control_server/routes/workspace_documents.py` — add typed GET status / POST retry-or-admit endpoint on the existing router; do not edit `main.py`.
-- `apps/live_control_server/services/workspace_document_registry.py` — only if needed to expose the existing coherent snapshot contract without a second read path.
-- `apps/live_control_server/config.py` — only if the existing authority URL/repository factory cannot be reused; no new DB URL by default.
-- `apps/live-control-ui/src/api/types.ts`, `apps/live-control-ui/src/api/liveApi.ts` — typed request/results; browser sends no body text, space ID, or descriptor authority.
-- `apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.ts` and its paired test — wire status, post-commit admission and exact retry; keep the saved document ID on partial failure.
-- `apps/live-control-ui/src/buildSurface/useBuildNativeWorldSourceEvidence.ts` and paired test — load native source-admission status by selected document ID and expose exact retry state; no source body/authority is sent from the browser.
-- `apps/live-control-ui/src/buildSurface/BuildIngestToolbar.tsx` and paired test — show pending/admitted status and retry for the selected imported source after reload, alongside the existing extraction controls.
-- `tests/test_demo_j1_native_world_source_admission.py` — focused service/route and failure/replay tests.
-- `tests/integration/test_demo_j1_native_world_source_admission_postgres.py` — disposable-Postgres persistent receipt/head/revision/body/span/reopen witness; zero skips for the required invocation.
-- `apps/live-control-ui/src/api/liveApi.test.ts`, `apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.test.ts`, and `apps/live-control-ui/src/buildSurface/useBuildNativeWorldSourceEvidence.test.ts`, and `apps/live-control-ui/src/buildSurface/BuildIngestToolbar.test.tsx` — route serialization and owning UI boundary.
-- State-authority predecessor sync, in this same implementation PR: `Docs/Roadmaps/ROADMAP-demo.md`, byte-identical `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md`, `Docs/Plans/HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md` (#785 completed state), and `Docs/Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md` (remove satisfied #785 blocker only; retain its independent PRIME contract gate and BLOCKED status).
-- This handoff may receive activation/evidence pointers only; do not mark this in-flight slice complete or invent its future PR/head/review count.
+| Action | Path | Purpose |
+|---|---|---|
+| Modify | `Docs/Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md` | PRIME-authorized format repair plus the narrow Cycle 1 `5343404905` snapshot-digest precondition clarification in §3/§7/§9; no source-body authority, freshness lifecycle, or capability expansion. |
+| Modify | `Docs/Plans/HANDOFF-DEMO-READY-basic-presentation-design-pass-v1.md` | PRIME-authorized removal/suspension of its optional roadmap write lease through J1 review/merge; no design scope change. |
+| Modify | `pyproject.toml` | Adopt exact accepted MIND #85 pin; preserve unrelated pins. |
+| Modify | `uv.lock` | Resolve the exact MIND pin reproducibly. |
+| Create | `apps/live_control_server/integrations/dungeonmind/native_world_source_admission.py` | Compose accepted MIND initialization/admission/read/replay APIs. |
+| Modify | `apps/live_control_server/routes/workspace_documents.py` | Typed GET status / POST retry-or-admit endpoint on the existing router; do not edit `main.py`. |
+| Modify | `apps/live-control-ui/src/api/types.ts` | Type admission request/results. |
+| Modify | `apps/live-control-ui/src/api/liveApi.ts` | Send only document ID and expected revision; no body text, space ID, or descriptor authority. |
+| Modify | `apps/live-control-ui/src/api/liveApi.test.ts` | Prove endpoint serialization and browser authority limits. |
+| Modify | `apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.ts` | Wire post-commit admission and exact retry; preserve saved document ID after partial failure. |
+| Modify | `apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.test.ts` | Prove post-commit admission and recovery behavior. |
+| Create | `apps/live-control-ui/src/buildSurface/useBuildNativeWorldSourceEvidence.ts` | Load selected-document status and exact retry state after reselection/reload. |
+| Create | `apps/live-control-ui/src/buildSurface/useBuildNativeWorldSourceEvidence.test.ts` | Prove selection, stale-response and exact-retry behavior. |
+| Modify | `apps/live-control-ui/src/buildSurface/BuildIngestToolbar.tsx` | Show pending/admitted status and retry beside existing extraction controls. |
+| Modify | `apps/live-control-ui/src/buildSurface/BuildIngestToolbar.test.tsx` | Prove truthful status and retry affordance. |
+| Create | `tests/test_demo_j1_native_world_source_admission.py` | Focused service/route failure, replay, and mapping tests. |
+| Create | `tests/integration/test_demo_j1_native_world_source_admission_postgres.py` | Disposable-Postgres persistent receipt/head/revision/body/span/reopen witness; zero skips for required invocation. |
+| Modify | `Docs/Roadmaps/ROADMAP-demo.md` | Sync completed #785 / current J1 state and keep full-demo acceptance false. |
+| Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` | Keep byte-identical to the roadmap authority. |
+| Modify | `Docs/Plans/HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md` | Record completed #785 predecessor state only. |
+| Modify | `Docs/Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md` | Remove satisfied #785 blocker only; retain independent PRIME contract gate and BLOCKED status. |
 
 Bounded discovery: at most three additional existing files under `apps/live_control_server/` and paired focused tests, only when a concrete direct route/service seam requires them. Name the exact paths/reason in handback before expanding. Any need for `main.py`, a new APP-STATE schema/migration, generic source lifecycle, WorldKeeper freshness, another repo, or MIND API changes is a stop-and-return-to-PRIME condition.
 
 ## §5 Exclusions and collision boundaries
+
+| Path | Why this slice must not touch or claim it |
+|---|---|
+| `apps/live_control_server/main.py` | The existing router mount suffices; avoid central server-composition changes. |
+| `apps/live-control-ui/src/planSurface/**` | World-owned Plan persistence is a separate BLOCKED capability. |
+| `apps/live-control-ui/src/agent/**` | Source admission does not prove retrieval or citation. |
+| `apps/live_control_server/**/migrations/**` | MIND #85 owns native schema; Buddy adds no migration. |
+| `corpus/**` | Do not seed or rewrite campaign data. |
+| `graph_data/**` | Do not seed or repair graph authority data. |
+| `out/**` | Do not produce persistent rehearsal artifacts from this isolated lane. |
 
 No model/API generation calls; extraction; entities/assertions/facts/relationships; candidate graph publication; Agent retrieval/citations; Plan creation/editing/projection; world-object lens; classic graph read/write; source update/delete/archive lifecycle; migrations; provider or Generation services; user-created semantic aliases; new DungeonMind/WorldKeeper endpoints; new generic registry; campaign/session invention; or data repair.
 
@@ -122,7 +160,7 @@ The prior `HANDOFF-DEMO-world-owned-blank-plan-v1.md` remains a separate BLOCKED
 
 ## §7 Required proof
 
-- API/service tests prove server-derived `world_id == space_id`, exact accepted descriptor hashes, exact committed Build snapshot text/digest, source mapping and whole-body byte span; reject browser body, mismatch, stale revision, unsupported source, foreign World, missing DB and descriptor drift.
+- API/service tests prove server-derived `world_id == space_id`, exact accepted descriptor hashes, exact committed Build snapshot text/digest, source mapping and whole-body byte span; reject browser body, mismatched expected snapshot digest, stale revision, unsupported source, foreign World, missing DB and descriptor drift. CRLF input is checked at the registry snapshot boundary: the asserted digest and admitted span cover the canonical returned Markdown string, not original on-disk newline bytes.
 - Initialization and native source admission are separate durable writes. Inject failure between them and prove a truthful empty-root/pending result followed by exact recovery.
 - Native receipt lookup/replay verifies same source origin and IDs; exact replay creates no extra child/event and never rewinds a later head.
 - Persistent Postgres integration: new World + committed source through the owning route/service; exact native head/revision/receipt/read-back; recreate repository/service/connection; retrieve exact source body/span through MIND access APIs; replay; same receipt and no duplicate child. Inspect only public repository/read APIs in production code; no direct SQL repair.
@@ -130,3 +168,32 @@ The prior `HANDOFF-DEMO-world-owned-blank-plan-v1.md` remains a separate BLOCKED
 - Exact browser/PR witness uses the pinned Of Conks Markdown at `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`, expected UTF-8 byte length 48,778 and SHA-256 `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`, imported via ordinary Build controls (no direct DB/API call). This is the human-normalized parsed Markdown input; it does not prove production PDF parsing. If the pin differs, stop and re-anchor rather than silently substituting.
 - Record exact one-set runtime state and isolated DB identity, with no process/server/DB switch performed by the implementation lane.
 - Focused cohorts, Ruff, frontend build/typecheck, `git diff --check`, and changed-path/lease audit must be reported honestly. No model cost is expected or claimed.
+
+Exact verification commands (the integration command requires
+`DMB_DEMO_J1_DISPOSABLE_DATABASE_URL` to point at a loopback-only disposable
+Postgres target; it must complete with zero skips):
+
+```bash
+./.venv/bin/python -m pytest -q tests/test_demo_j1_native_world_source_admission.py
+DMB_DEMO_J1_DISPOSABLE_DATABASE_URL="${DMB_DEMO_J1_DISPOSABLE_DATABASE_URL:?set to isolated loopback disposable Postgres}" ./.venv/bin/python -m pytest -q tests/integration/test_demo_j1_native_world_source_admission_postgres.py
+npm --prefix apps/live-control-ui test -- --run src/api/liveApi.test.ts src/buildSurface/useBuildNativeWorldSourceEvidence.test.ts src/buildSurface/BuildIngestToolbar.test.tsx src/buildSurface/useBuildWorkspaceDocumentController.test.ts
+./.venv/bin/ruff check apps/live_control_server/integrations/dungeonmind/native_world_source_admission.py apps/live_control_server/routes/workspace_documents.py tests/test_demo_j1_native_world_source_admission.py tests/integration/test_demo_j1_native_world_source_admission_postgres.py
+npm --prefix apps/live-control-ui run build
+git diff --check
+git diff --name-only a1a00f5e6569cb10205dbc7d2e15888730280372...HEAD
+```
+
+`npm --prefix apps/live-control-ui run build` currently reports only the
+inherited `src/statblocks/publication/ThreatPublicationPanel.tsx` JSX namespace
+error at line 553; its source is unchanged by this slice. Report it as baseline
+failure, not as a passing build.
+
+## §9 Acceptance rubric
+
+- [ ] Ordinary Build import admits only the server-resolved exact committed snapshot; the browser supplies only document ID, expected registry revision, and that snapshot's body digest as a fail-closed assertion—never Markdown, World/space identity, or descriptor authority.
+- [ ] Native status truthfully distinguishes admitted from saved-but-pending and supports exact-revision retry after partial failure or repository/process recreation.
+- [ ] Native receipt, immutable source, and whole-document span read back with matching identities and hashes; replay creates no duplicate child and never rewinds a later head.
+- [ ] Persistent PostgreSQL proof uses only the disposable target and public MIND read/repository APIs, recreates the repository/service, and passes with zero skips.
+- [ ] Focused UI/backend tests and Ruff pass; the inherited frontend build failure is reported honestly.
+- [ ] Changed paths remain inside §4; roadmap mirrors stay byte-identical; PRIME-owned servers and persistent demo databases remain untouched; no model call occurs.
+- [ ] The exact PR/head and evidence are returned to PRIME for review; no merge, J3, or full LOCAL DEMO acceptance is claimed.

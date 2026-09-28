@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
-import type { WorkspaceDocumentRecord } from "../api/types";
+import type { NativeWorldSourceAdmissionStatus, WorkspaceDocumentRecord } from "../api/types";
 import { writeBuildLastCampaignId } from "./buildBareEntryCampaign";
 import { useBuildWorkspaceDocumentController } from "./useBuildWorkspaceDocumentController";
 
@@ -11,6 +11,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     getWorkspaceDocumentSnapshot: vi.fn(),
+    admitNativeWorldSource: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
     listWorldContainers: vi.fn(),
     createWorldContainer: vi.fn(),
@@ -70,10 +71,10 @@ function mockSnapshot(
     schema_version: "dmb_workspace_document_snapshot_v1" as const,
     record,
     markdown: snapshotOverrides.markdown ?? "",
-    content_sha256: `sha-${documentId}`,
+    content_sha256: "a".repeat(64),
     file_fingerprint: "absent" as const,
     file_exists: snapshotOverrides.file_exists ?? false,
-    loaded_revision: 1,
+    loaded_revision: record.revision,
   };
 }
 
@@ -88,6 +89,9 @@ async function waitForWorldDocumentUrl(worldId: string, documentId: string) {
 describe("useBuildWorkspaceDocumentController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(liveApi.admitNativeWorldSource).mockResolvedValue(
+      {} as NativeWorldSourceAdmissionStatus,
+    );
     localStorage.clear();
     sessionStorage.clear();
     window.history.pushState({}, "", "/build");
@@ -546,6 +550,9 @@ describe("useBuildWorkspaceDocumentController", () => {
         world_id: "eldyrwild",
         content_status: "committed",
         revision: 2,
+      }, {
+        markdown: "# Hesta\n\n| a | b |\n",
+        file_exists: true,
       }),
     );
 
@@ -576,6 +583,11 @@ describe("useBuildWorkspaceDocumentController", () => {
         write_mode: "source_import",
       }),
     );
+    expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(
+      DOC_B,
+      2,
+      "a".repeat(64),
+    );
   });
 
   it("failed import retains created record and retry does not POST again", async () => {
@@ -586,6 +598,9 @@ describe("useBuildWorkspaceDocumentController", () => {
     });
     vi.mocked(liveApi.createWorkspaceDocument).mockResolvedValue(imported);
     vi.mocked(liveApi.prepareTiptapMarkdownWrite).mockRejectedValue(new Error("prepare failed"));
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
+      mockSnapshot(id, { content_status: "draft" }),
+    );
     window.history.pushState({}, "", `/build?documentId=${DOC_A}`);
 
     const { result } = renderHook(() => useBuildWorkspaceDocumentController());
@@ -632,7 +647,10 @@ describe("useBuildWorkspaceDocumentController", () => {
       diagnostics: [],
     });
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) =>
-      mockSnapshot(id, { content_status: "committed", revision: 2 }),
+      mockSnapshot(id, { content_status: "committed", revision: 2 }, {
+        markdown: "# Retry\n",
+        file_exists: true,
+      }),
     );
 
     await act(async () => {
@@ -683,7 +701,7 @@ describe("useBuildWorkspaceDocumentController", () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockImplementation(async (id) => {
       if (id === DOC_B) {
         activationAttempts += 1;
-        if (activationAttempts === 1) {
+        if (activationAttempts === 2) {
           throw new Error("activation failed");
         }
         return mockSnapshot(
@@ -1528,6 +1546,17 @@ describe("useBuildWorkspaceDocumentController", () => {
       writer_ok: true,
       diagnostics: [],
     });
+    vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
+      mockSnapshot(DOC_B, {
+        campaign_id: GLASS_ORCHARD_WORLD.world_id,
+        world_id: GLASS_ORCHARD_WORLD.world_id,
+        content_status: "committed",
+        revision: 2,
+      }, {
+        markdown: "# Alternate Import\n",
+        file_exists: true,
+      }),
+    );
     const { result } = renderHook(() => useBuildWorkspaceDocumentController());
     await waitFor(() => expect(result.current.listStatus).toBe("ready"));
 
@@ -1547,7 +1576,12 @@ describe("useBuildWorkspaceDocumentController", () => {
       campaign_id: GLASS_ORCHARD_WORLD.world_id,
       world_id: GLASS_ORCHARD_WORLD.world_id,
     }));
-    expect(liveApi.getWorkspaceDocumentSnapshot).not.toHaveBeenCalled();
+    expect(liveApi.getWorkspaceDocumentSnapshot).toHaveBeenCalledWith(DOC_B);
+    expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(
+      DOC_B,
+      2,
+      "a".repeat(64),
+    );
     expect(liveApi.createWorldContainer).not.toHaveBeenCalled();
   });
 

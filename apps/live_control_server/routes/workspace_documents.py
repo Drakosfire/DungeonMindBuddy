@@ -5,8 +5,15 @@ from __future__ import annotations
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, ConfigDict, Field
 
 from apps.live_control_server.config import repo_root
+from apps.live_control_server.integrations.dungeonmind.native_world_source_admission import (
+    NativeWorldSourceAdmissionError,
+    NativeWorldSourceAdmissionStatus,
+    admit_native_world_source,
+    get_native_world_source_status as read_native_world_source_status,
+)
 from apps.live_control_server.services.workspace_document_registry import (
     CreateWorkspaceDocumentRequest,
     UpdateWorkspaceDocumentMetadataRequest,
@@ -28,6 +35,13 @@ from apps.live_control_server.services.workspace_document_registry import (
 )
 
 router = APIRouter(prefix="/api/live", tags=["workspace-documents"])
+
+
+class NativeWorldSourceAdmissionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_revision: int = Field(ge=1)
+    expected_body_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 def _record_response(record: WorkspaceDocumentRecord) -> dict[str, Any]:
@@ -214,3 +228,44 @@ def post_workspace_document_source_artifact(
     except SourceArtifactRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return artifact.model_dump(mode="json")
+
+
+@router.get(
+    "/workspace-documents/{document_id}/native-world-source",
+    response_model=NativeWorldSourceAdmissionStatus,
+)
+def get_native_world_source_status(
+    document_id: str,
+    expected_revision: Annotated[int | None, Query(ge=1)] = None,
+) -> dict[str, Any]:
+    try:
+        return read_native_world_source_status(
+            repo_root(), document_id, expected_revision=expected_revision
+        ).model_dump(mode="json")
+    except NativeWorldSourceAdmissionError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+
+
+@router.post(
+    "/workspace-documents/{document_id}/native-world-source",
+    response_model=NativeWorldSourceAdmissionStatus,
+)
+def post_native_world_source_admission(
+    document_id: str,
+    body: NativeWorldSourceAdmissionRequest,
+) -> dict[str, Any]:
+    try:
+        return admit_native_world_source(
+            repo_root(),
+            document_id,
+            expected_revision=body.expected_revision,
+            expected_body_sha256=body.expected_body_sha256,
+        ).model_dump(mode="json")
+    except NativeWorldSourceAdmissionError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc

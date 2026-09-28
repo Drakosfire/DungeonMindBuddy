@@ -17,7 +17,7 @@ pr_body_template: |
 # HANDOFF — DEMO: World-scoped statblock drafts
 
 **Created:** 2026-09-27
-**Status:** ACTIVE — independent scope/versioning design accepted; serial isolated implementation authorized
+**Status:** COMPLETE / HISTORICAL — #785 merged after three distinct review-head cycles; no active implementation lease
 **Handoff locator:** this checked-in path, pinned by the steward before activation
 **Conversation/workstream:** LOCAL DEMO ACCEPTED / DEMO-J4
 **Flow / owner:** DEMO / Buddy asset authoring and selected-context interaction
@@ -30,6 +30,15 @@ pr_body_template: |
 **PR topology:** serial within DEMO
 **PR authorization:** after ACTIVE, open/update exactly one assigned implementation PR without another operator prompt; no successor PR
 **PR title:** `DEMO: scope statblock drafts to the selected World`
+
+**Completion / historical state sync (2026-09-28):** this handoff's assigned
+implementation PR #785 completed and merged to Buddy `main` as
+`f8b923875f9444a1addfb2472a2b8fab35eceb4c`. The exact reviewed code head was
+`471a967d11e315b24fd5cfe5541f447753fb81f4`; there were three distinct review-
+head cycles and four formal review submissions (`5333492877`, `5333610809`,
+`5341223774`, `5341878346`). This records J4 completion only; it does not claim
+the connected LOCAL DEMO, J1–J6, or the remaining asset/publication/retrieval
+successors are accepted.
 
 ## §1 Mission and merge-ready invariant
 
