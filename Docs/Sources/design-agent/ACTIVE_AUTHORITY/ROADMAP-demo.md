@@ -76,22 +76,41 @@ bounded return contract from **MIND** before J3 is designed/activated. PRIME
 is routing that prerequisite; no bridge migration, broad framework rewrite,
 fake campaign or J3 implementation is authorized by this direction.
 
-**Active implementation remains J4 / draft #785**, exact head
-`2e33b57737164ac0393975ab31d42a1c91a43d34`: author exact-head evidence is
-164 UI tests (zero excluded), 140 backend tests, scoped Ruff and diff check.
-PRIME independently reran the same head in `/tmp/buddy-pr785-review` through
-the canonical review verifier: 164/164 UI tests (zero excluded), 140/140 backend
-tests (11 warnings, 28.19 seconds), scoped Ruff and diff check pass. Typecheck
-retains only the independently hashed inherited JSX error. This is independent
-test evidence, **not implementation approval**: PRIME explicitly reported no
-completed code-inspection verdict or formal GitHub review, and has been asked
-to finish that inspection without repeating the already verified tests. The required
-real generation/navigation/reload witness is still false; necessary bounded
-API calls are authorized, but the discovered persistent demo targets
-`54330`/`54331` are not the `54329` pair in that handoff's activation snapshot.
-The exact-target runtime question remains separate. Keep that PR's current
-scope, write lease, review/live gates and serial topology intact; no J3 work,
-image work, merge or full DEMO acceptance is claimed.
+**Active implementation remains J4 / draft #785**, frozen repair head
+`07ec031ab5b62b8dbcd34f51ed4b6eaf0fa25262`, incorporating accepted main
+`11d7b5801b51f664e7a6eeafcb2aa2b0f5922b71`. Author exact-head evidence:
+169/169 UI tests (zero exclusions), 140/140 backend tests (11 warnings,
+23.31 seconds), scoped Ruff and cumulative/local diff checks pass. Typecheck
+retains only the independently hashed inherited JSX error. Backend verification
+uses the new private lane environment and accepted DungeonMind pin, not the
+operator runtime's preserved Python environment. A minimal control reproduced
+a sandbox-only TestClient stall; incomplete sandbox jobs are not green evidence.
+
+PRIME's formal **Cycle 1 HOLD** on prior head
+`2e33b57737164ac0393975ab31d42a1c91a43d34` is
+[review 5333492877](https://github.com/Drakosfire/DungeonMindBuddy/pull/785#pullrequestreview-5333492877).
+Independent evidence on that earlier head was 164 UI / 140 backend tests.
+The blocker was a delayed old completion overwriting a newer settled same-World
+recovery pointer, so reload opened the old candidate. The repair and mounted
+two-generation/unmount/remount/reload regression are committed; both reviewer
+failures reproduced before the fix. Settlement now requires the exact current
+draft/request/source-version attempt, including after settlement. Cycle 2 is
+requested, not passed; a fix commit is not another review cycle.
+
+PRIME merged Buddy #780 after independent Cycle 2 PASS (review 5333525840;
+98 tests, zero skips) as `11d7b5801b51f664e7a6eeafcb2aa2b0f5922b71`.
+Buddy now pins accepted DungeonMind `b83baf82c381b1929c2c7989326d667200ff544c`;
+WorldKeeper remains `49a8620f066ce7ef8972a699020c012f50af9158`. This inherited
+source-anchor preservation proof does not prove source-body opening, native
+admission or J3, and does not expand the asset slice.
+
+The required real generation/navigation/reload witness is still false.
+Necessary bounded API calls are authorized; the persistent demo targets
+`54330`/`54331` still have their separate exact-target gate. Read-only inspection
+of the handoff's development PostgreSQL at `54329` found that its two named
+demo databases do not yet exist; no alternative database was created or used.
+Keep this PR's scope, lease, review/live gates and serial topology intact.
+No J3/image work, #785 merge or full DEMO acceptance is claimed.
 
 The earlier integrated/rehearsal facts below are preserved evidence, not an
 instruction to preserve the legacy Of Conks head as this rehearsal's destination.
