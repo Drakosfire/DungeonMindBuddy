@@ -142,6 +142,25 @@ not two ingestion runs. The original error body was not retained; the diagnostic
 is not claimed to be that original body. The owner observed configured
 `temperature=0.7` and routed the GE control incompatibility to ARCHITECTURE.
 
+The producer repair is now **draft SERVER #34 / awaiting PRIME acceptance**:
+[`STATBLOCK: omit provider temperature through GenerationEngine`](https://github.com/Drakosfire/DungeonMindServer/pull/34),
+exact head `0828fbbecfacd5cd1ed594f2bea17bf29946a25d`, base
+`eb3125455454716d32c6daf53ad005cdc1ec968c`. It pins accepted GE #7 merge
+`80288d7b467ac3c3586f4e3c964385cefe69f931` and explicitly supplies
+`temperature=None`. The owner reports five provider-free adapter/integrated
+tests, including public SERVER → real GE → actual OpenAI adapter → recording
+fake SDK with initial and structural-repair key omission; 37 API/auth/lease/
+idempotency tests and the terminal-failure replay regression pass. The broad
+cohort reports 290 passes plus two Python 3.13/Pydantic installation-harness
+failures; direct shared-consumer witnesses remain declared review holds.
+GitHub's `redteam-hardening` run `36376677914` is **SUCCESS**, superseding the
+PR body's earlier local incomplete-run wording, not the other review holds.
+No live provider/Firestore call or rehearsal runtime update was made by this
+repair. PRIME has the exact handback; no review acceptance or merge is inferred.
+After acceptance/merge, SERVER must coordinate the exact-ref `7861` runtime
+update with the same isolated collections before DEMO submits the genuinely new
+Ferry Keeper intent through ordinary UI. This does not waive #785's live proof.
+
 The product's body request key `d41f849e-334d-4248-814d-8e9ccebf9148` is
 distinct from the producer log request ID. SERVER verified it is terminal
 `failed`, attempt count 1, with no candidate. Same-body/same-key requests replay
