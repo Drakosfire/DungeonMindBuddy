@@ -71,10 +71,12 @@ previous World; the server, not the operator or a script, allocates its identity
 Document creation/editing/save and knowledge prepare/confirm retain their
 separate accepted contracts. Import must not become the gate for making a Plan
 usable, and document edits must not silently publish knowledge. Native genesis,
-authentic source/evidence admission and ordinary read-after-write require a
-bounded return contract from **MIND** before J3 is designed/activated. PRIME
-is routing that prerequisite; no bridge migration, broad framework rewrite,
-fake campaign or J3 implementation is authorized by this direction.
+authentic source/evidence admission and ordinary read-after-write require an
+accepted implementation/runtime contract from **MIND** before J3 is activated.
+PRIME has approved the source/evidence-admission design, but its commit is not
+yet on MIND main or in a PR; it is design evidence, not a landed Buddy capability.
+No bridge migration, broad framework rewrite, fake campaign or J3 implementation
+is authorized by this direction.
 
 **Active implementation remains J4 / draft #785**, frozen repair head
 `07ec031ab5b62b8dbcd34f51ed4b6eaf0fa25262`, incorporating accepted main
@@ -186,7 +188,8 @@ KnowledgeSpace initialization only: explicit descriptors and identity, one
 atomic root/head/event/receipt, exact replay and no synthetic source/evidence.
 Buddy's pinned runtime has **not** adopted this merge. Authentic source/evidence
 admission, ordinary WorldKeeper/Agent native routing, World-owned Plan and the
-connected J3 product witness remain separate, unaccepted gates.
+connected J3 product witness remain separate, unaccepted gates. MIND reports a
+PRIME-approved source/evidence-admission design at `86e8f22d007df99de577cb412301c5a6d4e2d597`; repository verification found it two commits ahead of MIND main and with no associated PR. Record this as a partial design return only: it is not merged implementation, a production entrypoint, or authority to activate Buddy J3.
 Buddy PR #779 is now **MERGED** at accepted reviewed head
 `2d5ab6ade1d89ec608c941093819ea36404fd18e`, merge
 `2ccc96ff2a7d76328578609d5289fd3babcf6442`
@@ -341,10 +344,14 @@ Reopen after restart.
 
 **Current route / activation gate:** first-customer native initialization and
 source admission in a fresh Of Conks World, not migration of the previous demo
-head. MIND must return accepted versions/public entry points, the exact empty
-World/genesis and source/evidence/parent semantics, governing profile/scope
-policy, and the ordinary read/citation authority for the same published child.
-DEMO then verifies the return, re-anchors and designs one bounded Buddy handoff.
+head. MIND has returned a PRIME-approved source/evidence-admission design at
+`86e8f22d007df99de577cb412301c5a6d4e2d597`, but that ref is two commits ahead of
+MIND main and has no associated PR. It is not yet accepted repository/runtime
+authority. Before activation, MIND must land the design and return accepted
+versions/public entry points, exact empty-World/genesis and source/evidence/parent
+semantics, governing profile/scope policy, and ordinary read/citation authority
+for the same published child. DEMO then verifies the return, re-anchors and
+designs one bounded Buddy handoff.
 Do not activate J3 or create a second implementation PR while the serial #785
 lane remains open. If a new topology is needed, it must be explicitly designed.
 
@@ -673,11 +680,19 @@ fixture seeding or a parallel authority as an implementation shortcut.
 
 ### First-customer native return gate — MIND
 
-- **State:** BLOCKED / external contract return; no active Buddy J3 lease.
+- **State:** BLOCKED / partial MIND design return, not yet landed; no active Buddy J3 lease.
 - **Accepted partial return:** MIND #83 supplies empty native initialization at
   `031b6650d0a506cf40f0189fc5cfac055ac37308` (Cycle 2 PASS). This settles the
   library genesis prerequisite, not authentic source admission, consumer
   routing or ordinary product proof. No Buddy dependency repin/lease is active.
+- **Design review return, not yet repository authority:** PRIME approved MIND's
+  native text/source-evidence admission design at
+  `86e8f22d007df99de577cb412301c5a6d4e2d597`. At verification this was two
+  commits ahead of MIND main with no associated PR. It covers a proposed atomic
+  byte/span admission boundary, exact evidence membership and context-bound
+  admitted-source preview; it does not activate Keeper freshness/source
+  lifecycle/J3 or establish a merged runtime entrypoint. Re-anchor this gate
+  after MIND lands the design and implementation contract.
 - **Owner:** existing MIND task `01a0a299-d6ee-7772-83c0-a3a79550479d`;
   PRIME is sending the bounded prerequisite request. Do not create a duplicate
   owner task or silently take over kernel/source policy.
