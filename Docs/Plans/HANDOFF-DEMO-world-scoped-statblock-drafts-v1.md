@@ -413,6 +413,30 @@ available, but connecting to the discovered persistent demo database pair is
 separately pending exact-target approval. No model calls or DB writes have run
 for this live witness, and independent implementation review remains outstanding.
 
+Implementation checkpoint 6 (code/test evidence complete; live acceptance still
+false): exact code head `2e931b31643ca00ec7f322d63618ee4d7aeab285` passes the
+entire §7 UI cohort: **164 passed / zero failures / zero excluded** (135 mounted
+Workbench cases and 29 scope/revision helper cases). The owning backend rerun
+passes **140 tests**, 11 inherited warnings, in **29.86 seconds**. Scoped Ruff
+and diff checks pass. Typecheck has only the independently verified unchanged
+`ThreatPublicationPanel.tsx:553` JSX namespace failure.
+
+Re-anchor `33b21c8687724c266dbc58af2161c2d06d5e8817` incorporates current main
+`671cc18deafd4a39dd822931eebaa90f014e6d27`; its only additions to the tested code
+head are the already-landed roadmap and mirror checkpoint. All executable and
+test files are byte-identical. A final exact review-head verification remains
+part of independent review; prior scoped/filter runs are no longer substituted
+for the full owning cohort.
+
+The discovered Of Conks authority is the persistent named demo pair on
+`54330`/`54331`, not the disposable `54329` recorded in §2. Auto-review rejected
+connecting the isolated API to those persistent targets without exact-target
+approval; the action was not retried or bypassed. The separate operator question
+is pending. Existing operator runtime and C1/C2 remain untouched. SERVER's owner
+prepared an isolated accepted runtime at `127.0.0.1:7861`, with lane-specific
+asset collections and its ordinary private configuration. No paid calls,
+required exact-head browser witness, implementation approval or merge yet.
+
 - [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.
 - [ ] V1 preserved and V2 scope survives every durable lifecycle update.
