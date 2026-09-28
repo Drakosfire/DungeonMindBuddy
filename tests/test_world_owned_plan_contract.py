@@ -44,4 +44,3 @@ def test_world_context_requires_exact_world_id() -> None:
     with pytest.raises(HTTPException) as error:
         live.get_live_plan_view(world_id=None, scope_mode="world")
     assert error.value.status_code == 422
-
