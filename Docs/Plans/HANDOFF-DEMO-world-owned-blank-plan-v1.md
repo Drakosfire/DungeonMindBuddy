@@ -141,6 +141,7 @@ Expected production paths:
 
 - `src/application_state/content/types.py`
 - `src/application_state/content/service.py`
+- `src/application_state/content/repository.py`
 - `src/application_state/migrations/versions/20260928_0007_world_owned_plan.py`
 - `apps/live_control_server/services/workspace_document_registry.py`
 - `apps/live_control_server/routes/workspace_documents.py`
