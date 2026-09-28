@@ -7,6 +7,7 @@ pr_body_template: |
   - PR topology: independent of DEMO #785/#787; source/tests/docs only, no shared runtime
   ## Review contract
   Buddy recursively omits `None` from create requests, locally rejects every non-null `RuleElement.explains` before HTTP, preserves original journal bodies, and labels unsupported-field digests Buddy-local only.
+---
 
 # HANDOFF — STATBLOCK: reconcile explains with accepted Server contract
 
