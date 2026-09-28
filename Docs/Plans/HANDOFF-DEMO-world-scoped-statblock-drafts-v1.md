@@ -392,6 +392,27 @@ PRIME was asked for the intended persistent demo-admin configuration source.
 No credential values are requested in the handback, no model call ran, and the
 required real generation/reload witness and implementation review remain false.
 
+Implementation checkpoint 5 (not merge-ready): the remaining legacy generation,
+acceptance and create/restore fixtures now prove admitted source ownership rather
+than promoting Advanced IDs into authority. Acceptance/recovery passes all **35
+mounted cases**; the create/restore cohort passes all **22 cases**; generation
+interleavings pass all **4 cases**, and the previously repaired editor
+interleavings pass all **4 cases**. These are targeted reruns, not substitutes for
+the complete §7 run. Candidate switches in recovery tests use ordinary candidate
+loads with explicit server-owned lineage. Null-head creation requires explicit
+freestanding opt-in, failed native projections do not inherit old bootstrap
+semantics, and successful generation fixtures bind the persisted request key.
+
+The preceding full migration probe reported **153 passed / 11 failed / zero
+excluded** before the last create/restore corrections. The final full cohort
+must now rerun against a committed head. Scoped Ruff and diff checks pass;
+typecheck still reports only the hashed, unchanged JSX namespace failure.
+The operator reaffirmed standing authorization for necessary bounded OpenAI
+calls; no per-call prompt is required. The prepared isolated SERVER runtime is
+available, but connecting to the discovered persistent demo database pair is
+separately pending exact-target approval. No model calls or DB writes have run
+for this live witness, and independent implementation review remains outstanding.
+
 - [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.
 - [ ] V1 preserved and V2 scope survives every durable lifecycle update.

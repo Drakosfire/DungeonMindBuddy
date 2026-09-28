@@ -53,8 +53,10 @@ function legacyDraftFixture(overrides: Partial<ThreatDraftV1> = {}): ThreatDraft
     },
     encounter_context: { party_level: 5, party_size: 4, terrain_notes: [] },
     graph_context_snapshot: { graph_revision_id: "rev:abc", selected_node_ids: [], admitted_source_anchor_ids: [] },
-    candidate_refs: [{ candidate_id: candidate.candidate_id, generated_from_draft_version: 1,
-      request_id: "gen-req-1", created_at: "2026-01-01T00:00:00Z", status: "active", lineage: null }],
+    candidate_refs: [candidate.candidate_id, "cand_fixture2"].map((candidateId, index) => ({
+      candidate_id: candidateId, generated_from_draft_version: 1,
+      request_id: `gen-req-${index + 1}`, created_at: "2026-01-01T00:00:00Z", status: "active" as const, lineage: null,
+    })),
     accepted_mechanics_ref: null, workflow_state: "candidate_ready", created_by: "gm",
     created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", ...overrides,
   };
@@ -522,7 +524,20 @@ describe("World-scoped mounted Workbench", () => {
   });
 });
 
-async function loadId(id: string) {
+function admitLegacyCandidate(id: string, draftId: string) {
+  vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue({
+    ...activeResponse, candidate_id: id, candidate: { ...candidate, candidate_id: id },
+    source_draft_id: draftId, source_draft_version: 1,
+  });
+  vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(legacyDraftFixture({
+    draft_id: draftId, version: 1,
+    candidate_refs: [{ candidate_id: id, generated_from_draft_version: 1,
+      request_id: `request:${id}`, created_at: "2026-01-01T00:00:00Z", status: "active", lineage: null }],
+  }));
+}
+
+async function loadId(id: string, draftId?: string) {
+  if (draftId) admitLegacyCandidate(id, draftId);
   const user = userEvent.setup();
   render(<StatblockWorkbenchModule />);
   await user.type(screen.getByPlaceholderText("cand_…"), id);
@@ -679,6 +694,13 @@ describe("StatblockWorkbenchModule", () => {
 
   it("generates from a ThreatDraft then loads the returned candidate", async () => {
     const user = userEvent.setup();
+    admitLegacyCandidate("cand_fixture1", "td_test");
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("req_1");
+    vi.mocked(liveApi.getThreatDraft).mockResolvedValue(legacyDraftFixture({
+      draft_id: "td_test", version: 1,
+      candidate_refs: [{ candidate_id: "cand_fixture1", generated_from_draft_version: 1,
+        request_id: "req_1", created_at: "now", status: "active", lineage: null }],
+    }));
     vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
       schema: "dmb_generate_threat_draft_candidate_response_v1",
       draft_id: "td_test",
@@ -689,8 +711,6 @@ describe("StatblockWorkbenchModule", () => {
       cache_status: "stored",
       persistence_failures: [],
     });
-    vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
-
     render(<StatblockWorkbenchModule />);
     await user.type(screen.getByPlaceholderText("td_…"), "td_test");
     await user.click(screen.getByRole("button", { name: "Generate candidate" }));
@@ -700,11 +720,20 @@ describe("StatblockWorkbenchModule", () => {
     });
     expect(liveApi.generateThreatDraftCandidate).toHaveBeenCalledWith("td_test", {
       expected_draft_version: 1,
+      client_request_id: "req_1",
     });
     expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture1");
   });
 
   it("ignores late generation success after a newer manual load", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("req_stale");
+    vi.mocked(liveApi.getThreatDraft).mockImplementation(async (id) => legacyDraftFixture({
+      draft_id: id, version: 1,
+      candidate_refs: ["cand_fixture1", "cand_fixture2"].map((candidateId) => ({
+        candidate_id: candidateId, generated_from_draft_version: 1,
+        request_id: "req_stale", created_at: "now", status: "active" as const, lineage: null,
+      })),
+    }));
     const candidateB: GeneratedStatblockCandidateV1 = {
       ...candidate,
       candidate_id: "cand_fixture2",
@@ -721,6 +750,8 @@ describe("StatblockWorkbenchModule", () => {
       candidate_id: candidateB.candidate_id,
       status: "active",
       candidate: candidateB,
+      source_draft_id: "td_fixture",
+      source_draft_version: 1,
     };
 
     let resolveGenerate: (value: GenerateThreatDraftCandidateResponseV1) => void = () => {};
@@ -771,6 +802,7 @@ describe("StatblockWorkbenchModule", () => {
   });
 
   it("ignores late generation failure after a newer manual load", async () => {
+    vi.mocked(liveApi.getThreatDraft).mockImplementation(async (id) => legacyDraftFixture({ draft_id: id, version: 1 }));
     const candidateB: GeneratedStatblockCandidateV1 = {
       ...candidate,
       candidate_id: "cand_fixture2",
@@ -787,6 +819,8 @@ describe("StatblockWorkbenchModule", () => {
       candidate_id: candidateB.candidate_id,
       status: "active",
       candidate: candidateB,
+      source_draft_id: "td_fixture",
+      source_draft_version: 1,
     };
 
     let rejectGenerate: (reason?: unknown) => void = () => {};
@@ -822,6 +856,14 @@ describe("StatblockWorkbenchModule", () => {
   });
 
   it("lets a newer generation win over a late prior manual load", async () => {
+    vi.spyOn(crypto, "randomUUID").mockReturnValue("req_win");
+    vi.mocked(liveApi.getThreatDraft).mockImplementation(async (id) => legacyDraftFixture({
+      draft_id: id, version: 1,
+      candidate_refs: ["cand_fixture1", "cand_fixture2"].map((candidateId) => ({
+        candidate_id: candidateId, generated_from_draft_version: 1,
+        request_id: "req_win", created_at: "now", status: "active" as const, lineage: null,
+      })),
+    }));
     const candidateB: GeneratedStatblockCandidateV1 = {
       ...candidate,
       candidate_id: "cand_fixture2",
@@ -838,6 +880,8 @@ describe("StatblockWorkbenchModule", () => {
       candidate_id: candidateB.candidate_id,
       status: "active",
       candidate: candidateB,
+      source_draft_id: "td_win",
+      source_draft_version: 1,
     };
 
     let resolveLoadA: (value: ReadStatblockCandidateResponseV1) => void = () => {};
@@ -1176,6 +1220,8 @@ describe("StatblockWorkbenchModule", () => {
       candidate_id: candidateB.candidate_id,
       status: "active",
       candidate: candidateB,
+      source_draft_id: "td_fixture",
+      source_draft_version: 1,
     };
 
     vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id: string) => {
@@ -1239,6 +1285,8 @@ describe("StatblockWorkbenchModule", () => {
       candidate_id: candidateB.candidate_id,
       status: "active",
       candidate: candidateB,
+      source_draft_id: "td_fixture",
+      source_draft_version: 1,
     };
 
     const loadResolvers = new Map<string, (value: ReadStatblockCandidateResponseV1) => void>();
@@ -1294,6 +1342,8 @@ describe("StatblockWorkbenchModule", () => {
       candidate_id: candidateB.candidate_id,
       status: "active",
       candidate: candidateB,
+      source_draft_id: "td_fixture",
+      source_draft_version: 1,
     };
 
     const loadResolvers = new Map<
@@ -1355,6 +1405,8 @@ describe("StatblockWorkbenchModule", () => {
       candidate_id: candidateB.candidate_id,
       status: "active",
       candidate: candidateB,
+      source_draft_id: "td_fixture",
+      source_draft_version: 1,
     };
 
     const loadResolvers = new Map<string, (value: ReadStatblockCandidateResponseV1) => void>();
@@ -1578,11 +1630,10 @@ describe("StatblockWorkbenchModule", () => {
       );
       vi.spyOn(crypto, "randomUUID").mockReturnValue("11111111-2222-4333-8444-555555555555");
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_accept1");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await user.type(screen.getByPlaceholderText("td_…"), "td_accept1");
       await validateWorkingCopy(user);
 
       const acceptButton = screen.getByRole("button", { name: "Accept/Save mechanics" });
@@ -1649,11 +1700,10 @@ describe("StatblockWorkbenchModule", () => {
         },
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_saved");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await user.type(screen.getByPlaceholderText("td_…"), "td_saved");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
 
@@ -1691,11 +1741,10 @@ describe("StatblockWorkbenchModule", () => {
       });
       vi.spyOn(crypto, "randomUUID").mockReturnValue("op_pending");
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_pending");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await user.type(screen.getByPlaceholderText("td_…"), "td_pending");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
 
@@ -1727,11 +1776,10 @@ describe("StatblockWorkbenchModule", () => {
       });
       vi.spyOn(crypto, "randomUUID").mockReturnValue("op_conflict");
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_conflict");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await user.type(screen.getByPlaceholderText("td_…"), "td_conflict");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
 
@@ -1781,11 +1829,10 @@ describe("StatblockWorkbenchModule", () => {
         },
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_reload_unknown");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await user.type(screen.getByPlaceholderText("td_…"), "td_reload_unknown");
 
       await waitFor(() => {
         expect(getOpSpy).toHaveBeenCalledWith("td_reload_unknown", "op_reload_unknown");
@@ -1853,11 +1900,10 @@ describe("StatblockWorkbenchModule", () => {
         },
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_reload_pending");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await user.type(screen.getByPlaceholderText("td_…"), "td_reload_pending");
 
       await waitFor(() => {
         expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
@@ -1909,11 +1955,10 @@ describe("StatblockWorkbenchModule", () => {
       const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics");
       const uuidSpy = vi.spyOn(crypto, "randomUUID");
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_reload_saved");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await user.type(screen.getByPlaceholderText("td_…"), "td_reload_saved");
 
       await waitFor(() => {
         expect(screen.getByText(/Mechanics saved; not published/i)).toBeTruthy();
@@ -1928,15 +1973,18 @@ describe("StatblockWorkbenchModule", () => {
       expect(acceptSpy).not.toHaveBeenCalled();
     });
 
-    async function setDraftId(
+    // Switch by a server-owned candidate, not by an Advanced-field ownership hint.
+    async function loadDraftCandidate(
       user: ReturnType<typeof userEvent.setup>,
       draftId: string,
     ) {
-      const input = screen.getByPlaceholderText("td_…");
+      const id = `cand_for_${draftId}`;
+      admitLegacyCandidate(id, draftId);
+      const input = screen.getByPlaceholderText("cand_…");
       await user.clear(input);
-      if (draftId) {
-        await user.type(input, draftId);
-      }
+      await user.type(input, id);
+      await user.click(screen.getByRole("button", { name: "Load candidate" }));
+      await waitFor(() => expect(screen.getByPlaceholderText("td_…")).toHaveValue(draftId));
     }
 
     function pendingOperation(
@@ -2014,16 +2062,15 @@ describe("StatblockWorkbenchModule", () => {
       });
       const reconcileSpy = vi.spyOn(liveApi, "reconcileAcceptanceOperation");
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_draft_a");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_draft_a");
       await waitFor(() => {
         expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
       });
 
-      await setDraftId(user, "td_draft_b");
+      await loadDraftCandidate(user, "td_draft_b");
       await waitFor(() => {
         expect(screen.queryByTestId("accept-mechanics-reconcile")).toBeNull();
         expect(screen.queryByText(/ThreatDraft attachment is still pending/i)).toBeNull();
@@ -2064,16 +2111,15 @@ describe("StatblockWorkbenchModule", () => {
         },
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_draft_a");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_draft_a");
       await waitFor(() => {
         expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
       });
 
-      await setDraftId(user, "td_draft_b");
+      await loadDraftCandidate(user, "td_draft_b");
       await waitFor(() => {
         expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
       });
@@ -2107,15 +2153,14 @@ describe("StatblockWorkbenchModule", () => {
         };
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_stale_a");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_stale_a");
       await waitFor(() => {
         expect(screen.getByTestId("accept-mechanics-restoring")).toBeTruthy();
       });
-      await setDraftId(user, "td_stale_b");
+      await loadDraftCandidate(user, "td_stale_b");
       await waitFor(() => {
         expect(screen.queryByTestId("accept-mechanics-restoring")).toBeNull();
       });
@@ -2139,15 +2184,14 @@ describe("StatblockWorkbenchModule", () => {
       vi.spyOn(crypto, "randomUUID").mockReturnValue("op_accept_race");
       vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockImplementation(async () => acceptPromise);
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_accept_race");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_accept_race");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
 
-      await setDraftId(user, "td_accept_other");
+      await loadDraftCandidate(user, "td_accept_other");
       resolveAccept({
         schema: "dmb_accept_threat_draft_mechanics_response_v1",
         draft_id: "td_accept_race",
@@ -2180,16 +2224,15 @@ describe("StatblockWorkbenchModule", () => {
         async () => reconcilePromise,
       );
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_rec_a");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_rec_a");
       await waitFor(() => {
         expect(screen.getByTestId("accept-mechanics-retry")).toBeTruthy();
       });
       await user.click(screen.getByTestId("accept-mechanics-retry"));
-      await setDraftId(user, "td_rec_b");
+      await loadDraftCandidate(user, "td_rec_b");
       resolveReconcile({
         schema: "dmb_accept_threat_draft_mechanics_response_v1",
         draft_id: "td_rec_a",
@@ -2272,11 +2315,10 @@ describe("StatblockWorkbenchModule", () => {
           },
         });
 
-        const user = await loadId("cand_fixture1");
+        const user = await loadId("cand_fixture1", "td_label");
         await waitFor(() => {
           expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
         });
-        await setDraftId(user, "td_label");
         await validateWorkingCopy(user);
         await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
 
@@ -2358,11 +2400,10 @@ describe("StatblockWorkbenchModule", () => {
       });
       const uuidSpy = vi.spyOn(crypto, "randomUUID");
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_race_claim");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_race_claim");
 
       await waitFor(() => {
         expect(screen.getByTestId("accept-mechanics-retry")).toBeTruthy();
@@ -2388,11 +2429,10 @@ describe("StatblockWorkbenchModule", () => {
       });
       const uuidSpy = vi.spyOn(crypto, "randomUUID");
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_miss");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_miss");
 
       await waitFor(() => {
         expect(screen.getByTestId("accept-existence-unresolved")).toBeTruthy();
@@ -2426,11 +2466,10 @@ describe("StatblockWorkbenchModule", () => {
         message: "expected draft version mismatch",
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_fresh_blocked");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_fresh_blocked");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
 
@@ -2463,11 +2502,10 @@ describe("StatblockWorkbenchModule", () => {
         result_label: null,
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_replay_valid_fail");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_replay_valid_fail");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
       await waitFor(() => {
@@ -2522,11 +2560,10 @@ describe("StatblockWorkbenchModule", () => {
         );
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_no_local_abandon");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_no_local_abandon");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
       await waitFor(() => {
@@ -2577,11 +2614,10 @@ describe("StatblockWorkbenchModule", () => {
         result_label: null,
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_replay_version");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_replay_version");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
       await waitFor(() => {
@@ -2629,11 +2665,10 @@ describe("StatblockWorkbenchModule", () => {
         return pendingOperation("td_inflight_claim", "op_inflight_claim", "dispatched_unknown");
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_inflight_claim");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_inflight_claim");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
       await waitFor(() => {
@@ -2679,11 +2714,10 @@ describe("StatblockWorkbenchModule", () => {
         pendingOperation("td_replay_present", "op_replay_present", "dispatched_unknown"),
       );
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_replay_present");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_replay_present");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
       await waitFor(() => {
@@ -2718,11 +2752,10 @@ describe("StatblockWorkbenchModule", () => {
         new Error("journal storage unavailable"),
       );
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_replay_uncertain");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_replay_uncertain");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
       await waitFor(() => {
@@ -2755,11 +2788,10 @@ describe("StatblockWorkbenchModule", () => {
       });
       const uuidSpy = vi.spyOn(crypto, "randomUUID");
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_rec_blocked");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_rec_blocked");
       await waitFor(() => {
         expect(screen.getByTestId("accept-mechanics-retry")).toBeTruthy();
       });
@@ -2787,11 +2819,10 @@ describe("StatblockWorkbenchModule", () => {
       );
       const uuidSpy = vi.spyOn(crypto, "randomUUID");
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_rec_transport");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_rec_transport");
       await waitFor(() => {
         expect(screen.getByTestId("accept-mechanics-reconcile")).toBeTruthy();
       });
@@ -2843,11 +2874,10 @@ describe("StatblockWorkbenchModule", () => {
         message: "acceptance operation not found",
       });
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_transport_miss");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_transport_miss");
       await validateWorkingCopy(user);
       await user.click(screen.getByRole("button", { name: "Accept/Save mechanics" }));
 
@@ -2896,11 +2926,10 @@ describe("StatblockWorkbenchModule", () => {
           }),
       );
 
-      const user = await loadId("cand_fixture1");
+      const user = await loadId("cand_fixture1", "td_dup_guard");
       await waitFor(() => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
-      await setDraftId(user, "td_dup_guard");
       await validateWorkingCopy(user);
       const acceptButton = screen.getByRole("button", { name: "Accept/Save mechanics" });
       await user.click(acceptButton);
@@ -2938,14 +2967,16 @@ describe("StatblockWorkbenchModule", () => {
     const THREAT_DESCRIPTION =
       "Mireward Latchling\nA reed-choked latching scavenger from the Mireward verge.";
     const GRAPH_HEAD = "rev:5cadc9798562862cdde22350d8a3b56c";
+    const GENERATION_REQUEST = "req_create_fixture";
+    const ownedResponse = { ...activeResponse, source_draft_id: DRAFT_ID };
+    const joinKey = scopedWorkbenchJoinKey({ mode: "campaign", worldId: "eldyrwild", campaignId: "longmont-c2" });
 
     async function fillRequiredCreateFields(user: ReturnType<typeof userEvent.setup>) {
       await user.type(screen.getByTestId("create-threat-description"), THREAT_DESCRIPTION);
     }
 
     function mockCreatedDraft(overrides?: Partial<{ draft_id: string; version: number; name: string }>) {
-      return {
-        schema: "dmb_threat_draft_v1" as const,
+      return legacyDraftFixture({
         draft_id: overrides?.draft_id ?? DRAFT_ID,
         version: overrides?.version ?? 1,
         world_id: "eldyrwild",
@@ -2957,7 +2988,7 @@ describe("StatblockWorkbenchModule", () => {
         created_by: "gm",
         created_at: "2026-07-26T00:00:00Z",
         updated_at: "2026-07-26T00:00:00Z",
-      };
+      });
     }
 
     function mockBootstrapHead(head: string | null = GRAPH_HEAD) {
@@ -2968,22 +2999,22 @@ describe("StatblockWorkbenchModule", () => {
       state: "invalid_bundle" | "inconsistent_lineage" | "blocked_existing_world" | "error",
       options?: { bundleValid?: boolean; diagnostics?: Array<{ code: string; message: string }> },
     ) {
-      return vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
-        schema: "dmb_world_graph_bootstrap_status_v1",
-        state,
-        bundleValid: options?.bundleValid ?? false,
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        currentHeadRevisionId: null,
-        initialHeadRevisionId: null,
-        diagnostics: options?.diagnostics ?? [
-          { code: state, message: `Bootstrap reported ${state}.` },
-        ],
-      });
+      return vi.spyOn(liveApi, "postWorldGraphProjection").mockRejectedValue(
+        new Error(options?.diagnostics?.map((item) => item.message).join("; ") ?? state),
+      );
     }
 
     beforeEach(() => {
       mockBootstrapHead();
+      vi.spyOn(crypto, "randomUUID").mockReturnValue(GENERATION_REQUEST);
+      vi.mocked(liveApi.getThreatDraft).mockResolvedValue(legacyDraftFixture({
+        draft_id: DRAFT_ID, version: 1,
+        name: "Mireward Latchling",
+        candidate_refs: ["cand_fixture1", "cand_fixture2"].map((id) => ({
+          candidate_id: id, generated_from_draft_version: 1, request_id: GENERATION_REQUEST,
+          created_at: "now", status: "active" as const, lineage: null,
+        })),
+      }));
     });
 
     it("creates a draft then generates and loads using the returned identity", async () => {
@@ -2993,13 +3024,13 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_create_gen",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
 
       render(<StatblockWorkbenchModule />);
       expect(screen.getByTestId("create-threat-context-binding").textContent).toMatch(
@@ -3035,14 +3066,16 @@ describe("StatblockWorkbenchModule", () => {
       expect(JSON.stringify(createBody)).not.toMatch(
         /rev_live_control_eldyrwild|rev_workbench_quick_create|demo|latest|"current"/i,
       );
-      expect(generateSpy).toHaveBeenCalledWith(DRAFT_ID, { expected_draft_version: 1 });
+      expect(generateSpy).toHaveBeenCalledWith(DRAFT_ID, {
+        expected_draft_version: 1, client_request_id: GENERATION_REQUEST,
+      });
       expect(liveApi.getStatblockCandidate).toHaveBeenCalledWith("cand_fixture1");
       expect(screen.queryByTestId("created-draft-identity")).toBeNull();
       expect(screen.queryByTestId("create-threat-status")).toBeNull();
       expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", DRAFT_ID);
     });
 
-    it("creates freestanding when bootstrap is ready with a valid bundle and no head", async () => {
+    it("creates freestanding from a null native head only after explicit opt-in", async () => {
       mockBootstrapHead(null);
       const user = userEvent.setup();
       const createSpy = vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
@@ -3050,16 +3083,17 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_freestanding",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
 
       render(<StatblockWorkbenchModule />);
       await fillRequiredCreateFields(user);
+      await user.click(screen.getByTestId("create-threat-allow-freestanding"));
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
         expect(createSpy).toHaveBeenCalledTimes(1);
@@ -3072,7 +3106,7 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.queryByText(/No authoritative World Graph head/i)).toBeNull();
     });
 
-    it("stops on invalid_bundle bootstrap status unless freestanding is explicitly allowed", async () => {
+    it("stops on failed native projection unless freestanding is explicitly allowed", async () => {
       mockBootstrapFailureState("invalid_bundle", {
         diagnostics: [{ code: "invalid_bundle", message: "Locked bundle failed acceptance." }],
       });
@@ -3084,10 +3118,10 @@ describe("StatblockWorkbenchModule", () => {
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
         expect(screen.getByTestId("create-threat-error").textContent).toMatch(
-          /not ready for automatic provenance/i,
+          /graph authority is unknown/i,
         );
       });
-      expect(screen.getByTestId("create-threat-error").textContent).toMatch(/invalid_bundle/);
+      expect(screen.getByTestId("create-threat-error").textContent).toMatch(/Locked bundle failed acceptance/);
       expect(createSpy).not.toHaveBeenCalled();
 
       await user.click(screen.getByTestId("create-threat-allow-freestanding"));
@@ -3095,13 +3129,13 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_invalid_bundle_opt_in",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
       createSpy.mockResolvedValue(mockCreatedDraft());
 
       await user.click(screen.getByTestId("create-and-generate-submit"));
@@ -3111,16 +3145,8 @@ describe("StatblockWorkbenchModule", () => {
       expect(createSpy.mock.calls[0][0].graph_context_snapshot.graph_revision_id).toBeNull();
     });
 
-    it("stops on active bootstrap with null head unless freestanding is explicitly allowed", async () => {
-      vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
-        schema: "dmb_world_graph_bootstrap_status_v1",
-        state: "active",
-        bundleValid: true,
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        currentHeadRevisionId: null,
-        initialHeadRevisionId: null,
-      });
+    it("stops on a null native head without freestanding permission", async () => {
+      mockBootstrapHead(null);
       const user = userEvent.setup();
       const createSpy = vi.spyOn(liveApi, "createThreatDraft");
 
@@ -3129,15 +3155,15 @@ describe("StatblockWorkbenchModule", () => {
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
         expect(screen.getByTestId("create-threat-error").textContent).toMatch(
-          /contradictory/i,
+          /no head revision.*authority is incomplete/i,
         );
       });
       expect(createSpy).not.toHaveBeenCalled();
     });
 
-    it("stops when bootstrap lookup fails unless freestanding is explicitly allowed", async () => {
-      vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockRejectedValue(
-        new Error("bootstrap unreachable"),
+    it("stops when native projection fails unless freestanding is explicitly allowed", async () => {
+      vi.spyOn(liveApi, "postWorldGraphProjection").mockRejectedValue(
+        new Error("native projection unreachable"),
       );
       const user = userEvent.setup();
       const createSpy = vi.spyOn(liveApi, "createThreatDraft");
@@ -3157,13 +3183,13 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_opt_in_freestanding",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
       createSpy.mockResolvedValue(mockCreatedDraft());
 
       await user.click(screen.getByTestId("create-and-generate-submit"));
@@ -3182,13 +3208,13 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_override_rev",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
 
       render(<StatblockWorkbenchModule />);
       await fillRequiredCreateFields(user);
@@ -3208,13 +3234,13 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_create_accept",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
       const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
         schema: "dmb_accept_threat_draft_mechanics_response_v1",
@@ -3266,13 +3292,13 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_prose_name",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
 
       render(<StatblockWorkbenchModule />);
       await user.type(
@@ -3338,13 +3364,13 @@ describe("StatblockWorkbenchModule", () => {
           schema: "dmb_generate_threat_draft_candidate_response_v1",
           draft_id: DRAFT_ID,
           generated_from_draft_version: 1,
-          request_id: "req_retry",
+          request_id: GENERATION_REQUEST,
           outcome: "success",
           candidate,
           cache_status: "stored",
           persistence_failures: [],
         });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
 
       render(<StatblockWorkbenchModule />);
       await fillRequiredCreateFields(user);
@@ -3362,7 +3388,10 @@ describe("StatblockWorkbenchModule", () => {
       });
       expect(createSpy).toHaveBeenCalledTimes(1);
       expect(generateSpy).toHaveBeenCalledTimes(2);
-      expect(generateSpy).toHaveBeenNthCalledWith(2, DRAFT_ID, { expected_draft_version: 1 });
+      expect(generateSpy).toHaveBeenNthCalledWith(2, DRAFT_ID, {
+        expected_draft_version: 1, client_request_id: GENERATION_REQUEST,
+      });
+      expect(generateSpy.mock.calls[1][1]).toEqual(generateSpy.mock.calls[0][1]);
     });
 
     it("guards duplicate submit so at most one create runs", async () => {
@@ -3378,13 +3407,13 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_dup",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
 
       render(<StatblockWorkbenchModule />);
       await fillRequiredCreateFields(user);
@@ -3424,6 +3453,8 @@ describe("StatblockWorkbenchModule", () => {
         candidate_id: candidateB.candidate_id,
         status: "active",
         candidate: candidateB,
+        source_draft_id: DRAFT_ID,
+        source_draft_version: 1,
       });
 
       render(<StatblockWorkbenchModule />);
@@ -3470,6 +3501,8 @@ describe("StatblockWorkbenchModule", () => {
         candidate_id: candidateB.candidate_id,
         status: "active",
         candidate: candidateB,
+        source_draft_id: DRAFT_ID,
+        source_draft_version: 1,
       });
 
       render(<StatblockWorkbenchModule />);
@@ -3490,7 +3523,7 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_stale_gen",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
@@ -3530,20 +3563,20 @@ describe("StatblockWorkbenchModule", () => {
       expect(screen.getByTestId("create-threat-description")).toHaveProperty("value", THREAT_DESCRIPTION);
     });
 
-    it("stores the draft/candidate join in sessionStorage and restores it on remount", async () => {
+    it("stores the admitted draft/candidate join in scoped localStorage and restores it on remount", async () => {
       const user = userEvent.setup();
       vi.spyOn(liveApi, "createThreatDraft").mockResolvedValue(mockCreatedDraft());
       vi.spyOn(liveApi, "generateThreatDraftCandidate").mockResolvedValue({
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_join_persist",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      const getSpy = vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      const getSpy = vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
       const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
         schema: "dmb_accept_threat_draft_mechanics_response_v1",
@@ -3567,7 +3600,7 @@ describe("StatblockWorkbenchModule", () => {
         expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy();
       });
 
-      const stored = JSON.parse(sessionStorage.getItem("dmb.sbw.workbenchJoin") ?? "null") as {
+      const stored = JSON.parse(localStorage.getItem(joinKey) ?? "null") as {
         draft_id?: string;
         candidate_id?: string;
         version?: number;
@@ -3614,7 +3647,7 @@ describe("StatblockWorkbenchModule", () => {
           candidate_id: "cand_fixture1",
         }),
       );
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
       vi.spyOn(liveApi, "validateStatblockDefinition").mockResolvedValue(successValidate("valid"));
       const acceptSpy = vi.spyOn(liveApi, "acceptThreatDraftMechanics").mockResolvedValue({
         schema: "dmb_accept_threat_draft_mechanics_response_v1",
@@ -3691,7 +3724,8 @@ describe("StatblockWorkbenchModule", () => {
           selected_node_ids: [],
           admitted_source_anchor_ids: [],
         },
-        candidate_refs: [],
+        candidate_refs: [{ candidate_id: "cand_fixture1", generated_from_draft_version: 1,
+          request_id: GENERATION_REQUEST, created_at: "now", status: "active", lineage: null }],
         accepted_mechanics_ref: null,
         workflow_state: "candidate_ready",
         created_by: "gm",
@@ -3723,7 +3757,7 @@ describe("StatblockWorkbenchModule", () => {
         expect(screen.queryByTestId("draft-snapshot-unavailable")).toBeNull();
       });
       expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", DRAFT_ID);
-      const stored = JSON.parse(sessionStorage.getItem("dmb.sbw.workbenchJoin") ?? "null");
+      const stored = JSON.parse(localStorage.getItem(joinKey) ?? "null");
       expect(stored).toMatchObject({
         draft_id: DRAFT_ID,
         version: 1,
@@ -3743,7 +3777,7 @@ describe("StatblockWorkbenchModule", () => {
       });
     });
 
-    it("clears stale draft A when loading candidate B without matching join or source_draft", async () => {
+    it("quarantines draft A actions when candidate B has no source ownership without overwriting A's join", async () => {
       sessionStorage.setItem(
         "dmb.sbw.workbenchJoin",
         JSON.stringify({
@@ -3763,7 +3797,7 @@ describe("StatblockWorkbenchModule", () => {
             candidate: candidateB,
           };
         }
-        return activeResponse;
+        return ownedResponse;
       });
 
       const user = userEvent.setup();
@@ -3779,15 +3813,16 @@ describe("StatblockWorkbenchModule", () => {
       await user.type(candInput, "cand_fixture2");
       await user.click(screen.getByRole("button", { name: "Load candidate" }));
       await waitFor(() => {
-        expect(screen.getByText(/Candidate cand_fixture2/i)).toBeTruthy();
+        expect(screen.getByText(/ownership cannot be proved/i)).toBeTruthy();
       });
-      expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", "");
-      const stored = JSON.parse(sessionStorage.getItem("dmb.sbw.workbenchJoin") ?? "null") as {
+      expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
+      expect(screen.queryByTestId("revise-with-ai-panel")).toBeNull();
+      const stored = JSON.parse(localStorage.getItem(joinKey) ?? "null") as {
         draft_id?: string | null;
         candidate_id?: string | null;
       };
-      expect(stored.candidate_id).toBe("cand_fixture2");
-      expect(stored.draft_id).toBeNull();
+      expect(stored.candidate_id).toBe("cand_fixture1");
+      expect(stored.draft_id).toBe(DRAFT_ID);
     });
 
     it("clears the stored join when starting another threat", async () => {
@@ -3797,28 +3832,28 @@ describe("StatblockWorkbenchModule", () => {
         schema: "dmb_generate_threat_draft_candidate_response_v1",
         draft_id: DRAFT_ID,
         generated_from_draft_version: 1,
-        request_id: "req_join_clear",
+        request_id: GENERATION_REQUEST,
         outcome: "success",
         candidate,
         cache_status: "stored",
         persistence_failures: [],
       });
-      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+      vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
 
       render(<StatblockWorkbenchModule />);
       await fillRequiredCreateFields(user);
       await user.click(screen.getByTestId("create-and-generate-submit"));
       await waitFor(() => {
-        expect(sessionStorage.getItem("dmb.sbw.workbenchJoin")).toBeTruthy();
+        expect(localStorage.getItem(joinKey)).toBeTruthy();
       });
 
       await user.click(screen.getByTestId("start-another-threat"));
-      expect(sessionStorage.getItem("dmb.sbw.workbenchJoin")).toBeNull();
+      expect(localStorage.getItem(joinKey)).toBeNull();
       expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
     });
 
-    it("restores edited rule-element rules_text across remount from sessionStorage", async () => {
-      const getSpy = vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
+    it("restores edited rule-element rules_text across remount from scoped localStorage", async () => {
+      const getSpy = vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(ownedResponse);
       const user = userEvent.setup();
       const first = render(<StatblockWorkbenchModule />);
       await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
@@ -3832,7 +3867,7 @@ describe("StatblockWorkbenchModule", () => {
       await user.type(rulesInput, "Edited siege latch rules for dogfood.");
 
       await waitFor(() => {
-        const stored = JSON.parse(sessionStorage.getItem("dmb.sbw.workbenchJoin") ?? "null") as {
+        const stored = JSON.parse(localStorage.getItem(joinKey) ?? "null") as {
           candidate_id?: string;
           working_copy?: { rule_elements?: Array<{ key: string; rules_text?: string }> };
         };
