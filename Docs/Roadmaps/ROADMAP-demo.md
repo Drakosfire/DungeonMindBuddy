@@ -428,6 +428,16 @@ that their foundations are absent. Historical slices retain their IDs.
   It proposes one capability: create, generate and reopen a selected-World draft,
   preserving campaign V1 records and rejecting World-only graph publication.
   J3 integration, images and Plan placement remain separate.
+  Implementation is now open as **draft Buddy #785**, checkpoint head
+  `d0afb5c36a34350345a6213d9f7085580cfe6198`, from exact activation/dispatch
+  base `d3e0797d64572ef981b9d0f5d03c67ae5261e348`. Its first nano-commit
+  implements V2/store lifecycle, unchanged provider-body consumption and the
+  owning World-only publication guard; 129 focused backend/authority-port
+  regressions, scoped Ruff and diff check pass. Three historical identity-route
+  fixtures fail identically on base/head because they reference retired
+  `pub_svc.kernel`; not reported green. No new model call ran. API admission,
+  mounted UI/attempt recovery, live generation and formal implementation review
+  remain outstanding. #785 is not merge-ready and does not close J4.
 - **DEMO-J1 input-pin recheck:** the local purchased
   `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
   is still 48,778 bytes / 565 lines, SHA-256
