@@ -28,11 +28,12 @@ dependencies = [
     "httpx>=0.27.0",
     "uvicorn>=0.30.0",
     "hermes-agent @ git+https://github.com/NousResearch/hermes-agent.git@861d69c7bba8d2ea6a1cd170e989c901c74d32d1",
-    # Exact runtime pin: DungeonMind V6.K1 authorized-alias runtime plus semantic-profile V3.
+    # Exact runtime pin: DungeonMind PR #81 source-anchor visibility binding,
+    # including V6.K1 authorized aliases and semantic-profile V3.
     # Frozen V0 contract provenance remains independently pinned to PR #56.
     # The postgres extra carries the in-process PostgreSQL adapter
     # dependencies used by the DungeonMind-backed World Graph authority.
-    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@0f709d76fdc53bac9c9258d1751463ae2c76ca71",
+    "dungeonmind[postgres] @ git+https://github.com/Drakosfire/DungeonMind.git@b83baf82c381b1929c2c7989326d667200ff544c",
     # PLAY-1 consumer seam: reviewed WorldKeeper #8 V3-compatible head.
     "worldkeeper @ git+https://github.com/Drakosfire/WorldKeeper.git@49a8620f066ce7ef8972a699020c012f50af9158",
     # Exact pin: GenerationEngine PR #10 merge (E5L deterministic client cleanup).
