@@ -455,7 +455,16 @@ both old-pointer and old-candidate failures before the fix. The pre-commit full
 UI cohort now passes 169 tests with zero exclusions, including four additional
 helper cases for changed identity/missing pointers. Exact frozen-head evidence
 and the subsequent independent review remain required; the PR evidence record
-identifies that head. No paid calls, live acceptance or merge is claimed.
+identifies that head. PRIME subsequently merged Buddy #780 at
+`11d7b5801b51f664e7a6eeafcb2aa2b0f5922b71`, pinning accepted DungeonMind
+`b83baf82c381b1929c2c7989326d667200ff544c` after its independent Cycle 2
+PASS (review 5333525840; 98 tests, zero skips). The repair incorporates that
+integration state without changing dependency policy. Final backend evidence
+must use that accepted pin in a private lane environment, not the prior
+runtime's shared Python environment or its old dependency. WorldKeeper remains
+`49a8620f066ce7ef8972a699020c012f50af9158`; #780 does not prove J3/native
+admission or the asset live witness. No paid calls, live acceptance or merge
+of this slice is claimed.
 
 - [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.
