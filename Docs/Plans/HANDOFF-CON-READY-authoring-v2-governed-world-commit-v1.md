@@ -1,7 +1,7 @@
 # HANDOFF — CON-READY: Authoring v2 governed World commit
 
 **Created:** 2026-09-20  
-**Status:** ACTIVE — one governed published-recap write capability  
+**Status:** COMPLETE / HISTORICAL — merged #742 at `c6730c94cbdce97ce1b6bd7999fc4685d61f9c69`; implementation lease released
 **Canonical handoff path:** `Docs/Plans/HANDOFF-CON-READY-authoring-v2-governed-world-commit-v1.md`  
 **Conversation/workstream:** `CON-READY / DOGFOOD-CONTINUITY / campaign memory authoring`  
 **Flow / owner:** `CON-READY`  

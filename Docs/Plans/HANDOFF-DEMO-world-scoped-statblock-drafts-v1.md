@@ -15,13 +15,14 @@ pr_body_template: |
 # HANDOFF — DEMO: World-scoped statblock drafts
 
 **Created:** 2026-09-27
-**Status:** BLOCKED — independent review of the explicit durable scope/versioning decision below
+**Status:** ACTIVE — independent scope/versioning design accepted; serial isolated implementation authorized
 **Handoff locator:** this checked-in path, pinned by the steward before activation
 **Conversation/workstream:** LOCAL DEMO ACCEPTED / DEMO-J4
 **Flow / owner:** DEMO / Buddy asset authoring and selected-context interaction
 **Direction:** STEWARD → CODE → PRIME
 **Design authority base:** Buddy `main@faad16e319c1543f0a7743f66d0378785dda5201`
-**Activation gate:** PRIME accepts §6's versioned World-only draft contract; steward re-anchors and checks source/runtime collisions. No implementation while BLOCKED.
+**Activation gate:** satisfied — PRIME independently ACCEPTED §6 at `de08711183e94065b12b3a4d24765b333a760a1e`; fresh open-PR/lease/runtime re-anchor completed 2026-09-27.
+**Base revision:** `de08711183e94065b12b3a4d24765b333a760a1e`
 **Dispatch base rule:** current remote main after acceptance and guarded activation; record exact branch base before code
 **PR topology:** serial within DEMO
 **PR authorization:** after ACTIVE, open/update exactly one assigned implementation PR without another operator prompt; no successor PR
@@ -82,11 +83,24 @@ Pre-dispatch critique:
 - Named successors: governed World-only Threat publication/lookup; Agent brief
   transfer; image generation/selection and Plan placement. J3 remains a separate
   source/read/write authority transition, not a prerequisite for inert drafts.
-- Open DEMO implementation PRs at design: none. #780 evidence preservation,
+- Open DEMO implementation PRs at activation: none. #780 evidence preservation,
   #781 interaction-map proof and Rules #763–#765 own their existing disjoint
   paths. Recheck before activation; do not touch their dependency files.
-- Branch/worktree: none while BLOCKED. Allocate isolated `codex/` lane only
-  after acceptance/activation. No synthetic stack or new task is authorized.
+- PRIME's second activation-design judgment ACCEPTED exact handoff pin
+  `de08711183e94065b12b3a4d24765b333a760a1e`. This is not implementation
+  approval or a PR review cycle. The preflight's two overlapping ACTIVE headers
+  were stale: governed recap #742 and PR011A3 #366 are already merged ancestors.
+  Their historical handoff headers were released in this guarded activation,
+  without changing their preserved implementation contracts. No open PR overlaps.
+- Allocate the named isolated checkout only after this activation is on main.
+  Record that activation commit as the implementation's exact dispatch base.
+  No synthetic stack or new task is authorized.
+
+| Lane fact | Value |
+| --- | --- |
+| Branch / isolated checkout | `codex/demo-world-scoped-statblock-drafts` / `/tmp/dmb-world-statblocks-fp0eww` |
+| Runtime/state ownership | New API `8817`, UI `5198`, checkout-owned `out/`; serialize changes to the designated isolated PostgreSQL pair at `54329` (`dungeonmind_demo_ofconks_v1`, `dungeonbuddy_application_state_demo_ofconks_v1`). Existing API `8816` / UI `5197` and operator `5196` remain untouched. Tests use disposable roots. Copy only verified demo registry/runtime inputs when needed, not a shared writable output symlink; no C1/C2 mutation or DB authority migration. |
+
 - Runtime: serialize demo environment changes; use Of Conks and one existing
   synthetic managed World on the same isolated DB pair, never C1/C2 data.
   A lane-owned output root must preserve the existing candidate/journal store
@@ -112,7 +126,7 @@ Pre-dispatch critique:
 8. World-only draft → begin campaign publication: typed rejection before any
    operation admission, graph read or write. Existing campaign publication passes.
 
-## §4 Files in scope — prospective lease while BLOCKED
+## §4 Files in scope — ACTIVE write lease
 
 | Action | Path | Purpose |
 | --- | --- | --- |
@@ -283,7 +297,7 @@ reason to fabricate a candidate or treat a fixture as live acceptance.
 
 ## §8 Handback and §9 acceptance
 
-- [ ] Design decision independently accepted and handoff ACTIVE before code.
+- [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.
 - [ ] V1 preserved and V2 scope survives every durable lifecycle update.
 - [ ] Managed World exact admission and foreign identity failures proved.

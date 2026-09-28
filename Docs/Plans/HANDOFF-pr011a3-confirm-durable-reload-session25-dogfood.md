@@ -1,7 +1,7 @@
 # HANDOFF — PR011A3 Confirm Prepared Graph Review Proposal into Durable Campaign Memory
 
 **Created:** 2026-07-17, America/Denver
-**Status:** ACTIVE — dispatch exactly one implementation capability after the pre-dispatch re-anchor is checked in.
+**Status:** COMPLETE / HISTORICAL — merged #366 at `37c0a79ddf323ec073e18a345d902162c330be61`; implementation lease released.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-pr011a3-confirm-durable-reload-session25-dogfood.md`
 **Pre-dispatch anchor:** `cec9834f8667d2af31447540b5acb9dade0373aa` — merge of GitHub PR #365 / PR011A2
 **Implementation base:** `e2787c601910f4d8c63d821b35a5a429301861f8` — docs re-anchor that checks in this handoff and the tracker/roadmap changes below.

@@ -417,7 +417,14 @@ that their foundations are absent. Historical slices retain their IDs.
   but found no accepted World-only ThreatDraft contract. The steward's explicit
   versioned scope decision is now durable in
   [`HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md`](../Plans/HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md):
-  **BLOCKED on independent design acceptance; no implementation lease or PR**.
+  **ACTIVE after independent design ACCEPT at `de08711183e94065b12b3a4d24765b333a760a1e`**.
+  Serial implementation lane: `codex/demo-world-scoped-statblock-drafts`,
+  isolated `/tmp/dmb-world-statblocks-fp0eww`, API `8817` / UI `5198`;
+  no implementation PR yet at activation. The old #742/#366 handoff ACTIVE
+  headers were reconciled to their already-merged historical status to release
+  stale preflight overlaps. The 101-test existing draft/generation baseline passes
+  outside the sandbox; the sandbox-only in-process route harness stalled and
+  was stopped, not reported as passing.
   It proposes one capability: create, generate and reopen a selected-World draft,
   preserving campaign V1 records and rejecting World-only graph publication.
   J3 integration, images and Plan placement remain separate.
