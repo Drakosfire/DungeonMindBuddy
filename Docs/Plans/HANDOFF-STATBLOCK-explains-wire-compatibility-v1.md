@@ -4,7 +4,7 @@ pr_body_template: |
   - Workstream: STATBLOCK / wire-and-digest compatibility
   - Direction: STEWARD → CODE → PRIME
   - Handoff: Docs/Plans/HANDOFF-STATBLOCK-explains-wire-compatibility-v1.md
-  - PR topology: independent of DEMO #785/#787; source/tests/docs only, no shared runtime
+  - State: COMPLETE / HISTORICAL — #786 merged; no active write lease
   ## Review contract
   Buddy recursively omits `None` from create requests, locally rejects every non-null `RuleElement.explains` before HTTP, preserves original journal bodies, and labels unsupported-field digests Buddy-local only.
 ---
@@ -12,17 +12,26 @@ pr_body_template: |
 # HANDOFF — STATBLOCK: reconcile explains with accepted Server contract
 
 **Created:** 2026-09-28
-**Status:** ACTIVE — bounded Buddy PR #786 repair authorized; PRIME owns review and merge
+**Status:** COMPLETE / HISTORICAL — Buddy PR #786 merged; no active implementation lease
 **Workstream / owner:** STATBLOCK / DungeonMindBuddy consumer integration
 **Direction:** STEWARD → CODE → PRIME
 **Original design base:** Buddy main `132cb80bea50ef2814074a52832ab763286a1900`
-**Current PR base:** Buddy main `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`
-**Current code head when this amendment was authorized:** `a823b45e3eb1d9e9586b97ca0376de38af6134c0`
+**PR base at dispatch:** Buddy main `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`
+**Code head when this amendment was authorized:** `a823b45e3eb1d9e9586b97ca0376de38af6134c0`
 **Server authority:** remote Server main `a5d41b2747106e862d179d4718b45ffd73577643`, a docs-only descendant of accepted runtime `1e8a6185ed16f4cb4cd3596aec7e9e22a3f74ad1`
-**Owner review:** PRIME HOLD `5345032728`; PRIME authorized this exact fifth-path handoff amendment in the same PR.
-**PR topology:** source/tests/docs only, independent of DEMO #785/#787; no API, UI, database, provider, or shared runtime.
-**PR authorization:** update only the existing Buddy PR #786. Keep it draft and unmerged for PRIME review. No follow-on Server PR or product rehearsal is authorized.
+**Historical owner review:** PRIME HOLD `5345032728`; PRIME then authorized this exact fifth-path handoff amendment in the same PR.
+**PR topology:** historical; #786 was independent of DEMO #785/#787 and used no API, UI, database, provider, or shared runtime.
+**PR disposition:** #786 is merged; this handoff authorizes no follow-on PR or product rehearsal.
 **Title:** `STATBLOCK: preserve explains wire and digest semantics`
+
+**Completion record (2026-09-28):** Buddy PR #786 merged at
+`9f358bb9ecf4d28338ae4b6b0ef5e2c316700d59`, reviewed head
+`51ee5e975d8d419430a2bd943cbc4622d10ac67f` (two distinct review-head cycles;
+the final exact-head review accepted the narrowed consumer contract and tests).
+Buddy omits absent `explains` values and rejects every non-null value before
+HTTP, preserving original journal/authored intent. No product, database,
+provider, or runtime operation was performed. The handoff's future Server
+support remains unactivated.
 
 ## §1 Accepted contract and invariant
 
@@ -92,8 +101,14 @@ Acceptance requires PRIME to confirm:
 
 The code portion at head `a823b45e3eb1d9e9586b97ca0376de38af6134c0` has 65 focused tests passing and a clean `git diff --check`; PRIME is running independent Ruff verification. Do not rerun the 65 tests for this documentation-only amendment unless code changes.
 
-After PRIME review, PRIME may merge the same PR. No merge authority is granted here. Any future Server `explains` support or product rehearsal requires a separate activation and owner authorization.
+At completion, PRIME merged the same bounded PR after exact-head review. Any
+future Server `explains` support or product rehearsal requires a separate
+activation and owner authorization.
 
 ## §5 Stop conditions
 
-Stop and return to PRIME for any non-null `explains` transport enablement, Server schema/contract change, generated-contract change, reference-policy expansion, historical resealing/migration, graph binding change, path outside this five-file lease, or any runtime/database/product/provider operation. This handoff grants no merge authority; PRIME owns review and merge.
+Any future non-null `explains` transport enablement, Server schema/contract
+change, generated-contract change, reference-policy expansion, historical
+resealing/migration, graph binding change, or runtime/database/product/provider
+operation requires a separate activation. This historical handoff grants no
+ongoing lease or merge authority.

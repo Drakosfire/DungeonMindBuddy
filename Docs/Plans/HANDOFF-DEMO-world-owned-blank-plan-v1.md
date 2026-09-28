@@ -7,7 +7,7 @@ pr_body_template: |
   - Topology: serial; this is the single authorized implementation PR
 
   ## Verification pointer
-  - Exact dispatch base: `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`
+  - Exact dispatch base: `9f358bb9ecf4d28338ae4b6b0ef5e2c316700d59`
   - Review contract: ACTIVE handoff, cumulative diff, §7 evidence
 ---
 
@@ -19,7 +19,7 @@ pr_body_template: |
 **Workstream / owner:** DEMO / J1; Buddy Content/Plan ownership, not DungeonMind  
 **Direction:** STEWARD → CODE → PRIME  
 **Design authority base:** `fa740c73f66192a44926712661d9489ff12e54a8`  
-**Activation record (2026-09-28):** PRIME accepted the World-Plan contract and explicitly activated this bounded implementation in the same PR. #787 is merged to `main`; exact dispatch base is `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`. #787's native source-authority witness admitted the actual 48,777-byte source variant (the pinned 48,778-byte source differs only by its final LF); this proves source authority only, not extracted facts or a semantic graph. The source witness is not a gate for this document-only capability. The previously observed unsaved local Plan is user data and is not acceptance evidence.
+**Activation record (2026-09-28):** PRIME accepted the World-Plan contract and explicitly activated this bounded implementation in the same PR. After #786 merged, this lane re-anchored to fresh `main` at exact dispatch base `9f358bb9ecf4d28338ae4b6b0ef5e2c316700d59`. #787's native source-authority witness admitted the actual 48,777-byte source variant (SHA-256 `4aeb773a02c41cfffb79abcb2ca44da72d5a2eb8ad331cc6f9a417a5c2919186`), while the pinned 48,778-byte source has SHA-256 `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`; the admitted variant is the original with its final LF absent. This proves source authority only, not extracted facts or a semantic graph. The source witness is not a gate for this document-only capability. The previously observed unsaved local Plan is user data and is not acceptance evidence.
 **Dispatch rule:** one isolated implementation checkout from the exact base above. PRIME expressly authorized this implementation PR to activate the already-landed handoff; no separate status/design PR or successor PR is authorized.
 **PR topology:** serial  
 **PR authorization:** open/update exactly this assigned implementation PR; no successor/repair PR.
@@ -85,16 +85,17 @@ shell (#661), and the DEMO roadmap. Those predecessors do not prove this contrac
 
 - At design time, #785 was the only open DEMO implementation PR. At activation,
   fresh review of current open PR path leases found no overlap with this serial
-  lane; #786's statblock lease and unrelated paused/documentation lanes remain
-  untouched. No stacked predecessor.
+  lane. #786's independent four-code-path statblock lease was disjoint and then
+  merged at this base; it remains untouched. No stacked predecessor.
 - #787 source witness: merged at `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`
-  (reviewed head `232a426...`). Ordinary Build import admitted World
+  (reviewed head `232a42614b1453a815df2dd12f172c0be3c7a155`). Ordinary Build import admitted World
   `of-conks-and-cons`, document
   `1e00479a-cd51-4ffc-81f7-c980b32fed6a`, revision 2, exact stored span
-  `0..48777`. The admitted 48,777-byte content is the pinned 48,778-byte
-  source with its final LF absent; its exact digest and the byte-variant
-  qualification are recorded in #787's exact-head evidence. The pinned original
-  SHA is `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`.
+  `0..48777`. The admitted 48,777-byte content SHA is
+  `4aeb773a02c41cfffb79abcb2ca44da72d5a2eb8ad331cc6f9a417a5c2919186`; the
+  pinned original is 48,778 bytes with SHA
+  `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`.
+  The admitted variant is the pinned source with its final LF absent.
   Do not call these byte-identical.
   This establishes durable native source authority after reload/fresh API
   process only; it establishes no extracted semantic facts, graph head, or
@@ -109,6 +110,7 @@ shell (#661), and the DEMO roadmap. Those predecessors do not prove this contrac
   PostgreSQL database pair and owned output/source root. Do not run migrations
   against or modify the live J1 source-witness database. Do not upgrade the
   frozen #785 rehearsal underneath its running process.
+| Runtime/state ownership | This lane owns only API 8821, UI 5201, a disposable PostgreSQL pair on 55441, and its isolated World/output roots; it does not own shared 8817/5198 services or the live J1 database. |
 - Predecessor sync in this PR: #785 exact merge/head/review evidence, #787 exact
   merge/head/review and source-witness limitation, both predecessor handoff
   states, roadmap and identical design-agent mirror. Do not premark this slice
@@ -137,47 +139,38 @@ shell (#661), and the DEMO roadmap. Those predecessors do not prove this contrac
 
 ## §4 Write lease — ACTIVE for this implementation PR only
 
-Expected production paths:
-
-- `src/application_state/content/types.py`
-- `src/application_state/content/service.py`
-- `src/application_state/content/repository.py`
-- `src/application_state/migrations/versions/20260928_0007_world_owned_plan.py`
-- `apps/live_control_server/services/workspace_document_registry.py`
-- `apps/live_control_server/routes/workspace_documents.py`
-- `apps/live_control_server/routes/live.py` (managed Plan-context branch only)
-- `apps/live_control_server/services/tiptap_markdown_write.py` (scope admission,
-  prepare-time no-effects guard, and scope-bound commit confirmation)
-- `apps/live-control-ui/src/api/types.ts`
-- `apps/live-control-ui/src/api/liveApi.ts`
-- `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx`
-- `apps/live-control-ui/src/selectedWorld/SelectedWorldContext.tsx`
-- `apps/live-control-ui/src/selectedWorld/SelectedWorldContext.test.tsx`
-- `apps/live-control-ui/src/selectedWorld/WorldCreateControl.tsx` and paired test
-  (name-only existing API consumer; no new registry/navigation system)
-- `apps/live-control-ui/src/workspaceDocument/workspaceDocumentCreation.ts`
-- `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx`
-- `apps/live-control-ui/src/planSurface/PlanSurfaceShell.tsx`
-- `apps/live-control-ui/src/planSurface/types.ts`
-- `apps/live-control-ui/src/planSurface/planBlankAuthoringState.ts`
-- `apps/live-control-ui/src/planSurface/usePlanBlankAuthoring.ts`
-- `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts`
-- `apps/live-control-ui/src/planSurface/config/planSurfaceConfig.ts`
-- `apps/live-control-ui/src/planSurface/components/PlanDocumentCreateControl.tsx`
-- `apps/live-control-ui/src/planSurface/components/PlanDocumentSelector.tsx`
-
-Evidence paths: corresponding existing/new focused tests beside those frontend
-modules; `tests/test_workspace_document_registry.py`,
-`tests/test_selected_world_plan_context.py`, `tests/test_live_plan_view_projection.py`,
-`tests/test_tiptap_markdown_write.py`, `tests/test_live_tiptap_markdown_write.py`,
-`tests/application_state/test_plan_work_object_postgres.py`, and one focused
-World-Plan route/migration regression module under `tests/`.
-
-State/evidence paths: this handoff, completed predecessors
-`Docs/Plans/HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md`,
-`Docs/Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md`,
-`Docs/Roadmaps/ROADMAP-demo.md` and its identical
-`Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` mirror.
+| Path | Bounded role |
+| --- | --- |
+| `src/application_state/content/types.py` | World-only Plan content shape |
+| `src/application_state/content/service.py` | World Plan service boundary |
+| `src/application_state/content/repository.py` | PostgreSQL persistence |
+| `src/application_state/migrations/versions/20260928_0007_world_owned_plan.py` | Additive migration and safe downgrade |
+| `apps/live_control_server/services/workspace_document_registry.py` | World Plan registry/read contract |
+| `apps/live_control_server/routes/workspace_documents.py` | World Plan routes |
+| `apps/live_control_server/routes/live.py` | Managed Plan-context branch only |
+| `apps/live_control_server/services/tiptap_markdown_write.py` | Scope admission and confirmation binding |
+| `apps/live-control-ui/src/api/types.ts` | Explicit V2 wire unions |
+| `apps/live-control-ui/src/api/liveApi.ts` | Exact V2 API clients |
+| `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx` | Name-only World create UI |
+| `apps/live-control-ui/src/selectedWorld/SelectedWorldContext.tsx` | Exact selected-World admission |
+| `apps/live-control-ui/src/selectedWorld/SelectedWorldContext.test.tsx` | Selected-World regressions |
+| `apps/live-control-ui/src/selectedWorld/WorldSelector.test.tsx` | World-create UI regression |
+| `apps/live-control-ui/src/selectedWorld/WorldSelector.test.tsx` | World-create UI regression |
+| `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx` | World-owned Plan surface and local recovery |
+| `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx` | World Plan V2 and recovery regression |
+| `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` | Existing managed-document consumer fixtures |
+| `apps/live-control-ui/src/api/liveApi.test.ts` | Exact V2 route payloads |
+| `tests/test_world_owned_plan_contract.py` | World context/legacy compatibility contract |
+| `tests/test_workspace_document_registry.py` | Content/registry invariants |
+| `tests/test_live_plan_view_projection.py` | Managed context route evidence |
+| `tests/test_tiptap_markdown_write.py` | Prepare/commit semantics |
+| `tests/test_live_tiptap_markdown_write.py` | PostgreSQL no-effects and confirmation binding |
+| `Docs/Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md` | Activation facts and implementation authority |
+| `Docs/Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md` | Completed predecessor state |
+| `Docs/Plans/HANDOFF-STATBLOCK-explains-wire-compatibility-v1.md` | Completed predecessor state |
+| `Docs/Plans/HANDOFF-BUILD-dogfood-polish-plan-session-affinity-workspace-drafts.md` | PRIME-authorized stale-lease reconciliation: record merged #546 completion and release its historical write lease; preserve its shipped behavior/evidence |
+| `Docs/Roadmaps/ROADMAP-demo.md` | Current DEMO sequencing and predecessor sync |
+| `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` | Byte-identical roadmap mirror |
 
 Bounded discovery: maximum six additional existing frontend paths under
 `apps/live-control-ui/src/planSurface/` or `src/workspaceDocument/` (beneath the
