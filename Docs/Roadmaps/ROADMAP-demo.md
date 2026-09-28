@@ -7,9 +7,12 @@
 
 ## Product contract
 
-A GM imports parsed adventure/session Markdown, prepares with an agent authoring
-onto the document, inspects and authors knowledge, develops a statblock and image,
-then runs and resumes the session using readable, quickly reachable components.
+A new GM creates/selects a World through the existing fixed-URL World primitive,
+opens a usable blank World-scoped Plan, and authors or imports material. Neither
+a campaign, recap, corpus import nor a published graph head is a prerequisite
+for that blank document. The GM then prepares and explicitly confirms knowledge,
+retrieves and cites it through the ordinary Agent path, develops a statblock and
+image, and runs/resumes the session using readable, quickly reachable components.
 
 The developer can design a representative component in the existing lightweight
 workshop and mount it through Buddy's accepted surface/controller contracts.
@@ -37,6 +40,51 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
+
+**Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
+entry point is the first-customer path:
+
+```text
+New World (no campaign or recap)
+→ blank, usable World-scoped Plan
+→ author/import material
+→ prepare + explicit confirmation of knowledge
+→ ordinary Agent retrieval/citation of the accepted knowledge
+→ restart and reopen
+```
+
+Use a **new native Of Conks World identity**, allocated through the existing
+World primitive in designated isolated state. The original small one-shot
+corpus/files are available, so retaining previous DEMO graph IDs or history is
+not a prerequisite. Existing demo state is disposable in product intent, not
+authorization to delete it, mutate an immutable revision, bypass source
+admission or seed a synthetic graph. Leave old Worlds/artifacts available as
+historical evidence. Keep the DB URLs fixed; do not allocate a database per World.
+Use a new rehearsal display name so normal name-idempotency does not select the
+previous World; the server, not the operator or a script, allocates its identity.
+
+Document creation/editing/save and knowledge prepare/confirm retain their
+separate accepted contracts. Import must not become the gate for making a Plan
+usable, and document edits must not silently publish knowledge. Native genesis,
+authentic source/evidence admission and ordinary read-after-write require a
+bounded return contract from **MIND** before J3 is designed/activated. PRIME
+is routing that prerequisite; no bridge migration, broad framework rewrite,
+fake campaign or J3 implementation is authorized by this direction.
+
+**Active implementation remains J4 / draft #785**, exact head
+`2e33b57737164ac0393975ab31d42a1c91a43d34`: author exact-head evidence is
+164 UI tests (zero excluded), 140 backend tests, scoped Ruff and diff check.
+Typecheck retains only the independently hashed inherited JSX error. No
+independent implementation verdict is available at this re-anchor. The required
+real generation/navigation/reload witness is still false; necessary bounded
+API calls are authorized, but the discovered persistent demo targets
+`54330`/`54331` are not the `54329` pair in that handoff's activation snapshot.
+The exact-target runtime question remains separate. Keep that PR's current
+scope, write lease, review/live gates and serial topology intact; no J3 work,
+image work, merge or full DEMO acceptance is claimed.
+
+The earlier integrated/rehearsal facts below are preserved evidence, not an
+instruction to preserve the legacy Of Conks head as this rehearsal's destination.
 
 **Latest re-anchor (2026-09-27):** #775–#778 are integrated. #776
 proves ordinary named-World switching across Build, Plan, Ingest and Play on
@@ -108,11 +156,16 @@ Initial actions at roadmap adoption (historical sequence):
    must re-anchor/review against that main before its own merge; E5Q remains
    blocked behind #763. Route minimal external gaps to their existing owners.
 
-## DEMO-J1 — import and prepare
+## DEMO-J1 — start a World and prepare
 
-**Acceptance:** Import the bounded parsed Markdown through ordinary product
-controls into a fresh demo workspace. Open a coherent editable Plan; inspect
-ingested objects and source relationships. No special Of Conks import path.
+**Acceptance:** Create/select a new World and open a coherent editable blank
+World-scoped Plan through ordinary controls before importing a corpus. Author
+material or import the bounded parsed Markdown using the normal source/document
+flow; preserve exact document/source identity and round-trip. No campaign,
+recap, initialized graph or special Of Conks import path is a prerequisite for
+the blank Plan. Inspect accepted objects/source relationships when knowledge
+has been explicitly confirmed under J3; an editable document alone is not
+published knowledge.
 
 **Inherited evidence:** CON-READY CR-U1–U5/U11; source ingress and durable
 application-state foundations. Their presence is not proof that arbitrary
@@ -124,6 +177,8 @@ adventure Markdown becomes usable preparation without intervention.
 source identity; supported ingestion authority; required source admission and
 new-space initialization. If the chosen vNext demo cannot admit this corpus,
 delegate the missing contract rather than borrowing an incompatible legacy read path.
+The World-container create contract allocates identity/source root, not a graph
+head; no source-admission or native-initialization capability is inferred from it.
 
 ## DEMO-J2 — collaborate on the surface
 
@@ -149,6 +204,15 @@ accepted preparation/confirmation path, inspect their exact durable identities,
 then ask the agent a factual question requiring the new node. Normal retrieval
 must find it under the same scope/authority; a creation-payload echo is insufficient.
 Reopen after restart.
+
+**Current route / activation gate:** first-customer native initialization and
+source admission in a fresh Of Conks World, not migration of the previous demo
+head. MIND must return accepted versions/public entry points, the exact empty
+World/genesis and source/evidence/parent semantics, governing profile/scope
+policy, and the ordinary read/citation authority for the same published child.
+DEMO then verifies the return, re-anchors and designs one bounded Buddy handoff.
+Do not activate J3 or create a second implementation PR while the serial #785
+lane remains open. If a new topology is needed, it must be explicitly designed.
 
 **Inherited evidence:** PLAY-1 #773 and accepted isolated persistent PLAY-2
 #779; PLAY-3 is not dispatched; V6.2 adapter; WorldKeeper #7/#8; CR-U4–U7.
@@ -394,7 +458,9 @@ that their foundations are absent. Historical slices retain their IDs.
   and ordinary-read authority selection. A fresh isolated native World would
   still need a real product initialization/source-admission path, not fixture
   seeding. That minimum prerequisite is routed to existing MIND for an owner
-  ruling/design; no bridge, external merge or fresh genesis is authorized here.
+  ruling/design; at that checkpoint no bridge, external merge or fresh genesis
+  was authorized. The first-customer direction above now selects fresh native
+  rehearsal, while its initialization/source-admission contract remains gated.
   Separately, WORLDKEEPER confirms Buddy's mandatory-campaign mapper is a
   consumer restriction: a bounded extension can use World-global `scope=()`
   without a fake campaign, but that does not solve parent/evidence/read authority.
@@ -428,7 +494,7 @@ that their foundations are absent. Historical slices retain their IDs.
   It proposes one capability: create, generate and reopen a selected-World draft,
   preserving campaign V1 records and rejecting World-only graph publication.
   J3 integration, images and Plan placement remain separate.
-  Implementation is now open as **draft Buddy #785**, checkpoint head
+  The first implementation checkpoint (historical) opened **draft Buddy #785** at
   `d0afb5c36a34350345a6213d9f7085580cfe6198`, from exact activation/dispatch
   base `d3e0797d64572ef981b9d0f5d03c67ae5261e348`. Its first nano-commit
   implements V2/store lifecycle, unchanged provider-body consumption and the
@@ -437,7 +503,9 @@ that their foundations are absent. Historical slices retain their IDs.
   fixtures fail identically on base/head because they reference retired
   `pub_svc.kernel`; not reported green. No new model call ran. API admission,
   mounted UI/attempt recovery, live generation and formal implementation review
-  remain outstanding. #785 is not merge-ready and does not close J4.
+  remained outstanding at that checkpoint. The current exact-head code/test
+  evidence and unpassed live/review gates are recorded above; #785 is not
+  merge-ready and does not close J4.
 - **DEMO-J1 input-pin recheck:** the local purchased
   `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
   is still 48,778 bytes / 565 lines, SHA-256
@@ -463,13 +531,44 @@ coordination even where acceptance paths are independent.
 
 Do not wait for all of vNext, all provider parity, full hosting, or Canvas F5/F6 by
 default. Equally, do not bypass an actually missing contract. A proposed isolated
-demo must prove coherent read/write authority and source admission. If only a
-separately governed migration enables that, record it as a real dependency.
+demo must prove coherent read/write authority and source admission. The current
+operator choice removes legacy bridge migration as a DEMO prerequisite, not
+native genesis/source authority. If the fresh-native route requires an absent
+contract, return that precise gap to MIND rather than reintroducing migration,
+fixture seeding or a parallel authority as an implementation shortcut.
+
+### First-customer native return gate — MIND
+
+- **State:** BLOCKED / external contract return; no active Buddy J3 lease.
+- **Owner:** existing MIND task `01a0a299-d6ee-7772-83c0-a3a79550479d`;
+  PRIME is sending the bounded prerequisite request. Do not create a duplicate
+  owner task or silently take over kernel/source policy.
+- **Return required:** exact accepted pins and production entry points; how a
+  new World with no campaign/recap obtains its native initial parent; how exact
+  imported or authored document revisions become admitted source/evidence;
+  whether initialization/admission/confirmation are separate durable steps and
+  their retry/no-partial-publication behavior; exact profile/World-global scope
+  binding; and how normal Buddy reads, Agent retrieval and citations resolve
+  the accepted child on that same authority.
+- **Owning evidence required:** real persistent empty/new-World plus authentic
+  source admission and governed publication/read-back, including replay,
+  rejection and restart. A fixture-only initialization proof cannot stand in
+  for the normal source path; no future merge/version is invented.
+- **DEMO witness after return:** ordinary New World → blank editable Plan before
+  import → author/import bounded Of Conks material → inspect inert preparation
+  → explicit confirm → later ordinary Agent retrieval/citation → restart.
+  No console/SQL/manual-ID repair, forced campaign or synthetic source/graph.
+- **Exclusions:** deleting previous demo state, importing legacy graph IDs,
+  bridge migration, new DB per World, production C1/C2 changes, and expanding
+  #785. The environment/identity/source pins must be recorded before execution.
 
 ## Final acceptance
 
 Perform J1→J6 twice from a resettable environment without console/SQL/manual-ID
 repair, including real generation, graph read-after-write and restart/resume.
+Each journey begins with the first-customer World/blank-Plan path above; fresh
+World identities may provide isolated rehearsal state under the existing fixed
+DB URLs, without deleting old Worlds or requiring a corpus before Plan is usable.
 Use production code and declared exact dependency versions. Record meaningful
 limitations and failures. The operator then accepts legibility, coherence and
 usefulness; technical test success does not self-award that judgment.
