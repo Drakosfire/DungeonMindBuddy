@@ -21,10 +21,11 @@ from apps.live_control_server.models.statblock_candidate_workflow import (
     GenerateThreatDraftCandidateResponseV1,
     PersistenceFailureV1,
     ReadStatblockCandidateResponseV1,
+    TerminalGenerationDispositionV1,
 )
 from apps.live_control_server.models.threat_draft import (
+    ThreatDraft,
     ThreatDraftCandidateRefV1,
-    ThreatDraftV1,
 )
 from apps.live_control_server.services.statblock_candidate_cache import (
     CandidateCacheError,
@@ -40,7 +41,6 @@ from apps.live_control_server.services.statblock_generation_reconciliation impor
     _read_entry_unlocked,
     _reconciliation_lock,
     claim_generation_request,
-    finalize_generation_request,
     load_received_candidate,
     read_reconciliation,
     record_generation_received,
@@ -72,7 +72,7 @@ def _admit_and_claim_new_generation(
     expected_draft_version: int,
     request_id: str,
 ) -> tuple[
-    ThreatDraftV1,
+    ThreatDraft,
     dict[str, Any],
     str,
     ClaimOutcome,
@@ -183,7 +183,7 @@ def _iso_z(value: datetime) -> str:
 
 
 def map_draft_to_generate_request(
-    draft: ThreatDraftV1,
+    draft: ThreatDraft,
     *,
     request_id: str,
 ) -> dict[str, Any]:
@@ -267,6 +267,7 @@ def _failure(
     category: str,
     message: str,
     persistence_failures: list[PersistenceFailureV1] | None = None,
+    terminal_disposition: TerminalGenerationDispositionV1 | None = None,
     cache_status: Literal[
         "stored",
         "missing",
@@ -286,6 +287,7 @@ def _failure(
         outcome="failure",
         failure_category=category,
         failure_message=message,
+        terminal_disposition=terminal_disposition,
         cache_status=cache_status,
         persistence_failures=failures,
     )
@@ -657,6 +659,32 @@ def _call_server_generate(
                     )
                 raise ThreatDraftStoreError(message, status_code=409) from None
 
+            if journal_failure is None and terminal_outcome is not None:
+                # Re-read the exact key after persistence. Only the validated
+                # Buddy-local terminal record, not the HTTP response itself,
+                # may produce a terminal disposition for the caller.
+                try:
+                    terminal_entry = read_reconciliation(
+                        root,
+                        draft_id=draft_id,
+                        draft_version=draft_version,
+                        request_id=request_id,
+                        ref_candidate_ids=set(),
+                    )
+                except GenerationReconciliationError:
+                    terminal_entry = None
+                if terminal_entry is not None:
+                    try:
+                        return _terminal_response(
+                            root=root,
+                            entry=terminal_entry,
+                            request_digest=request_digest,
+                        )
+                    except ThreatDraftStoreError:
+                        # Preserve ordinary failure semantics on any identity
+                        # conflict; never convert it into local settlement.
+                        pass
+
         failures = [journal_failure] if journal_failure is not None else None
         return _failure(
             draft_id=draft_id,
@@ -739,7 +767,7 @@ def _recover_uncertain_with_stored_body(
         "tombstone_terminal_failure",
         "tombstone_terminal_expired",
     }:
-        return _terminal_response(entry=claim, request_digest=request_digest)
+        return _terminal_response(root=root, entry=claim, request_digest=request_digest)
 
     body = (
         claim.request_body
@@ -770,6 +798,7 @@ def _recover_uncertain_with_stored_body(
 
 def _terminal_response(
     *,
+    root: Path,
     entry: GenerationOperationV2 | GenerationTombstoneV1,
     request_digest: str,
 ) -> GenerateThreatDraftCandidateResponseV1:
@@ -800,12 +829,52 @@ def _terminal_response(
     detail = f"{code}: {message}"
     if http_status == 409:
         raise ThreatDraftStoreError(detail, status_code=409)
+    terminal_status = (
+        entry.outcome if isinstance(entry, GenerationTombstoneV1) else entry.status
+    )
+    terminal_disposition: TerminalGenerationDispositionV1 | None = None
+    if terminal_status in {"terminal_failure", "terminal_expired"}:
+        try:
+            if isinstance(entry, GenerationOperationV2) and entry.request_body is not None:
+                if request_digest_for_body(entry.request_body) != entry.request_digest:
+                    raise GenerationReconciliationError(
+                        "generation request body digest mismatch", status_code=500
+                    )
+            draft = get_threat_draft(root, entry.draft_id)
+            if (
+                draft.draft_id == entry.draft_id
+                and draft.version >= entry.draft_version
+            ):
+                if draft.schema_name == "dmb_threat_draft_v2":
+                    scope_mode: Literal["world", "campaign"] = "world"
+                    campaign_id = None
+                    scope_is_exact = draft.scope_mode == "world" and draft.campaign_id is None
+                else:
+                    scope_mode = "campaign"
+                    campaign_id = draft.campaign_id
+                    scope_is_exact = bool(campaign_id)
+                if scope_is_exact:
+                    terminal_disposition = TerminalGenerationDispositionV1(
+                        status=terminal_status,
+                        draft_id=entry.draft_id,
+                        source_draft_version=entry.draft_version,
+                        request_id=entry.request_id,
+                        request_digest=entry.request_digest,
+                        scope_mode=scope_mode,
+                        world_id=draft.world_id,
+                        campaign_id=campaign_id,
+                    )
+        except (GenerationReconciliationError, ThreatDraftStoreError, ValueError):
+            # The generic failure remains visible, but without exact local
+            # journal + immutable draft-scope proof it cannot settle the UI key.
+            terminal_disposition = None
     return _failure(
         draft_id=entry.draft_id,
         draft_version=entry.draft_version,
         request_id=entry.request_id,
         category=category,
         message=detail,
+        terminal_disposition=terminal_disposition,
     )
 
 
@@ -925,7 +994,7 @@ def _replay_from_authority(
         )
     if isinstance(entry, GenerationTombstoneV1):
         if entry.outcome in {"terminal_failure", "terminal_expired"}:
-            return _terminal_response(entry=entry, request_digest=request_digest)
+            return _terminal_response(root=root, entry=entry, request_digest=request_digest)
         candidate_or_failure, cache_status, failures = _candidate_from_tombstone(
             root, tombstone=entry, client=client
         )
@@ -954,7 +1023,7 @@ def _replay_from_authority(
         )
 
     if entry.status in {"terminal_failure", "terminal_expired"}:
-        return _terminal_response(entry=entry, request_digest=request_digest)
+        return _terminal_response(root=root, entry=entry, request_digest=request_digest)
 
     candidate_or_failure = _candidate_from_record_or_client(
         root, record=entry, client=client
@@ -1109,7 +1178,7 @@ def generate_candidate_from_draft(
         "terminal_expired",
     }:
         return _terminal_response(
-            entry=existing, request_digest=existing.request_digest
+            root=root, entry=existing, request_digest=existing.request_digest
         )
 
     if existing is not None and existing.status == "dispatched_unknown":
@@ -1161,7 +1230,7 @@ def generate_candidate_from_draft(
         "tombstone_terminal_failure",
         "tombstone_terminal_expired",
     }:
-        return _terminal_response(entry=claim, request_digest=request_digest)
+        return _terminal_response(root=root, entry=claim, request_digest=request_digest)
 
     # claimed / dispatched_retry: call Server only after admission locks released.
     candidate_or_failure = _call_server_generate(

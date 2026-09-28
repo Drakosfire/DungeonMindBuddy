@@ -9,6 +9,11 @@ from apps.live_control_server.integrations.dungeonmind_statblocks.models import 
     GeneratedStatblockCandidateV1,
 )
 from apps.live_control_server.main import create_app
+from apps.live_control_server.models.statblock_candidate_workflow import (
+    GenerateThreatDraftCandidateRequestV1,
+    GenerateThreatDraftCandidateResponseV1,
+    TerminalGenerationDispositionV1,
+)
 import apps.live_control_server.routes.statblock_candidates as candidate_routes
 import apps.live_control_server.routes.threat_drafts as threat_drafts_routes
 from apps.live_control_server.services import statblock_candidate_generation as generation
@@ -18,6 +23,42 @@ FIXTURE_RAW = json.loads(
         encoding="utf-8"
     )
 )
+
+
+def test_generate_route_serializes_buddy_terminal_disposition(monkeypatch, tmp_path: Path) -> None:
+    disposition = TerminalGenerationDispositionV1(
+        status="terminal_failure",
+        draft_id="draft-terminal",
+        source_draft_version=2,
+        request_id="request-terminal",
+        request_digest=f"sha256:{'a' * 64}",
+        scope_mode="world",
+        world_id="world-terminal",
+        campaign_id=None,
+    )
+    response = GenerateThreatDraftCandidateResponseV1(
+        draft_id="draft-terminal",
+        generated_from_draft_version=2,
+        request_id="request-terminal",
+        outcome="failure",
+        failure_category="downstream_unavailable",
+        terminal_disposition=disposition,
+    )
+    monkeypatch.setattr(candidate_routes, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(
+        candidate_routes, "generate_candidate_from_draft", lambda *_args, **_kwargs: response
+    )
+
+    body = candidate_routes.post_generate_candidate(
+        "draft-terminal",
+        GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=2, client_request_id="request-terminal"
+        ),
+    )
+
+    assert body["outcome"] == "failure"
+    assert body["failure_category"] == "downstream_unavailable"
+    assert body["terminal_disposition"] == disposition.model_dump(mode="json")
 
 
 def _draft_payload() -> dict:

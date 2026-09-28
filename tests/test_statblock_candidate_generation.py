@@ -19,6 +19,7 @@ from apps.live_control_server.models.statblock_candidate_workflow import (
 )
 from apps.live_control_server.models.threat_draft import (
     CreateThreatDraftRequest,
+    CreateWorldThreatDraftRequest,
     GenerationIntentV1,
     GraphContextSnapshotV1,
     RulesetRefV1,
@@ -201,6 +202,64 @@ def test_success_stores_ref_and_cache(tmp_path: Path) -> None:
     assert read.status == "active"
     assert read.candidate is not None
     assert read.candidate.candidate_id == "cand_fixture1"
+
+
+def test_world_draft_generation_preserves_scope_and_replays_original_version(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        downstream_unavailable,
+    )
+
+    legacy = _create_draft(tmp_path)
+    payload = legacy.model_dump(mode="json", exclude={
+        "schema_name", "draft_id", "version", "candidate_refs", "accepted_mechanics_ref",
+        "workflow_state", "created_at", "updated_at",
+    })
+    payload.update({"scope_mode": "world", "world_id": "world_other", "campaign_id": None})
+    draft = create_threat_draft(tmp_path, CreateWorldThreatDraftRequest.model_validate(payload))
+    assert map_draft_to_generate_request(draft, request_id="req-world") == (
+        map_draft_to_generate_request(legacy, request_id="req-world")
+    )
+    client = FakeClient(payload=_candidate_payload(request_id="req-world", candidate_id="cand_world"))
+    request = GenerateThreatDraftCandidateRequestV1(
+        expected_draft_version=1, client_request_id="req-world",
+    )
+    first = generate_candidate_from_draft(
+        tmp_path, draft_id=draft.draft_id, request=request, client=client,
+    )
+    assert first.outcome == "success"
+    _advance_draft(tmp_path, get_threat_draft(tmp_path, draft.draft_id))
+    replay = generate_candidate_from_draft(
+        tmp_path, draft_id=draft.draft_id, request=request, client=client,
+    )
+    assert replay.outcome == "success"
+    world_after_replay = get_threat_draft(tmp_path, draft.draft_id)
+    terminal = generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=world_after_replay.version,
+            client_request_id="req-world-terminal",
+        ),
+        client=FakeClient(
+            error=downstream_unavailable(
+                "provider unavailable", status_code=503, error_code="provider_unavailable"
+            )
+        ),  # type: ignore[arg-type]
+    )
+    assert terminal.terminal_disposition is not None
+    assert terminal.terminal_disposition.scope_mode == "world"
+    assert terminal.terminal_disposition.world_id == "world_other"
+    assert terminal.terminal_disposition.campaign_id is None
+    assert replay.request_id == "req-world"
+    assert len(client.calls) == 1
+    loaded = get_threat_draft(tmp_path, draft.draft_id)
+    assert loaded.schema_name == "dmb_threat_draft_v2"
+    assert loaded.scope_mode == "world"
+    assert loaded.world_id == "world_other" and loaded.campaign_id is None
+    assert loaded.version == 2 and len(loaded.candidate_refs) == 1
+    read = read_candidate(tmp_path, candidate_id="cand_world")
+    assert read.source_draft_id == draft.draft_id
+    assert read.source_draft_version == 1
 
 
 def test_replay_same_request_id_does_not_regenerate(tmp_path: Path) -> None:
@@ -928,7 +987,7 @@ def test_unresolved_operations_are_never_deleted_for_new_requests(
     # Fill operation capacity with reconciled records that have draft refs.
     for index in range(rec.MAX_OPERATION_RECORDS_PER_DRAFT - 1):
         request_id = f"req-active-{index}"
-        candidate_id = f"cand_shared"
+        candidate_id = "cand_shared"
         body = {"request_id": request_id, "marker": index}
         path = rec._record_path(
             tmp_path,
@@ -1895,6 +1954,41 @@ def test_durable_provider_failure_terminalizes_and_replays(tmp_path: Path) -> No
     )
     assert first.outcome == "failure"
     assert first.failure_category == "downstream_unavailable"
+    assert first.terminal_disposition is not None
+    assert first.terminal_disposition.status == "terminal_failure"
+    assert first.terminal_disposition.request_id == "req-prov-timeout"
+    assert first.terminal_disposition.draft_id == draft.draft_id
+    assert first.terminal_disposition.source_draft_version == 1
+    assert first.terminal_disposition.world_id == draft.world_id
+    assert first.terminal_disposition.campaign_id == draft.campaign_id
+    assert first.terminal_disposition.request_digest.startswith("sha256:")
+    journal_entry = rec.read_reconciliation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="req-prov-timeout",
+    )
+    assert journal_entry is not None
+    assert rec.read_reconciliation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=1,
+        request_id="wrong-request",
+    ) is None
+    assert rec.read_reconciliation(
+        tmp_path,
+        draft_id=draft.draft_id,
+        draft_version=2,
+        request_id="req-prov-timeout",
+    ) is None
+    with pytest.raises(ThreatDraftStoreError, match="request replay conflict"):
+        from apps.live_control_server.services import statblock_candidate_generation as generation
+
+        generation._terminal_response(
+            root=tmp_path,
+            entry=journal_entry,
+            request_digest=f"sha256:{'0' * 64}",
+        )
     stored = json.loads(
         rec._record_path(
             tmp_path,
@@ -1923,6 +2017,7 @@ def test_durable_provider_failure_terminalizes_and_replays(tmp_path: Path) -> No
     )
     assert replay.outcome == "failure"
     assert replay.failure_category == "downstream_unavailable"
+    assert replay.terminal_disposition == first.terminal_disposition
     assert len(replay_client.calls) == 0
 
     rate_client = FakeClient(
@@ -1943,6 +2038,7 @@ def test_durable_provider_failure_terminalizes_and_replays(tmp_path: Path) -> No
     )
     assert rate.outcome == "failure"
     assert rate.failure_category == "downstream_rate_limited"
+    assert rate.terminal_disposition is not None
     rate_stored = json.loads(
         rec._record_path(
             tmp_path, draft_id=draft.draft_id, draft_version=1, request_id="req-rate"
@@ -2029,6 +2125,7 @@ def test_pre_route_validation_without_operation_code_stays_unknown(
     )
     assert result.outcome == "failure"
     assert result.failure_category == "downstream_validation_failed"
+    assert result.terminal_disposition is None
     stored = json.loads(
         rec._record_path(
             tmp_path,
@@ -2039,6 +2136,44 @@ def test_pre_route_validation_without_operation_code_stays_unknown(
     )
     assert stored["schema"] == rec.OPERATION_SCHEMA
     assert stored["status"] == "dispatched_unknown"
+
+
+def test_terminal_journal_persistence_failure_does_not_project_terminal_proof(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.errors import (
+        downstream_unavailable,
+    )
+    from apps.live_control_server.models.statblock_candidate_workflow import PersistenceFailureV1
+    from apps.live_control_server.services import statblock_candidate_generation as generation
+
+    draft = _create_draft(tmp_path)
+    monkeypatch.setattr(
+        generation,
+        "_record_terminal_from_server",
+        lambda *_args, **_kwargs: PersistenceFailureV1(
+            component="reconciliation",
+            category="storage_unavailable",
+            message="terminal journal write failed",
+        ),
+    )
+    client = FakeClient(
+        error=downstream_unavailable(
+            "provider unavailable", status_code=503, error_code="provider_unavailable"
+        )
+    )
+    result = generation.generate_candidate_from_draft(
+        tmp_path,
+        draft_id=draft.draft_id,
+        request=GenerateThreatDraftCandidateRequestV1(
+            expected_draft_version=1, client_request_id="req-terminal-no-persist"
+        ),
+        client=client,  # type: ignore[arg-type]
+    )
+
+    assert result.outcome == "failure"
+    assert result.terminal_disposition is None
+    assert result.persistence_failures[0].component == "reconciliation"
 
 
 def test_idempotency_conflict_tombstone_replays_as_http_409(tmp_path: Path) -> None:

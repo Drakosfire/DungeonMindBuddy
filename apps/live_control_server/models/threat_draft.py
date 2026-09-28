@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import re
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, field_validator, model_validator
 
 from apps.live_control_server.models.statblock_mechanics_acceptance import (
     AcceptedMechanicsRefV1,
@@ -317,6 +317,73 @@ class ThreatDraftV1(StrictModel):
         return self
 
 
+class ThreatDraftV2(StrictModel):
+    """Explicit World-owned draft; never a null-campaign interpretation of V1."""
+
+    schema_name: Literal["dmb_threat_draft_v2"] = Field(
+        default="dmb_threat_draft_v2", alias="schema"
+    )
+    scope_mode: Literal["world"]
+    draft_id: str
+    version: int = Field(ge=1)
+    world_id: str
+    campaign_id: None
+    focus: FocusV1 | None = None
+    name: str = Field(min_length=1, max_length=_MAX_NAME)
+    slug_hint: str | None = Field(default=None, max_length=_MAX_NAME)
+    description: str = Field(min_length=1, max_length=_MAX_TEXT)
+    threat_kind: str = Field(min_length=1, max_length=_MAX_SHORT)
+    intended_roles: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
+    tags: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
+    generation_intent: GenerationIntentV1
+    encounter_context: EncounterContextV1 = Field(default_factory=EncounterContextV1)
+    graph_context_snapshot: GraphContextSnapshotV1
+    candidate_refs: list[ThreatDraftCandidateRefV1] = Field(
+        default_factory=list, max_length=_MAX_LIST
+    )
+    accepted_mechanics_ref: AcceptedMechanicsRefV1 | None = None
+    workflow_state: Literal["drafting", "candidate_ready", "mechanics_saved"] = "drafting"
+    created_by: str = Field(min_length=1, max_length=_MAX_NAME)
+    created_at: str
+    updated_at: str
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    @field_validator("draft_id")
+    @classmethod
+    def _draft_id(cls, value: str) -> str:
+        return require_draft_id(value)
+
+    @field_validator("world_id")
+    @classmethod
+    def _world_id(cls, value: str) -> str:
+        return _require_id(value, label="world id")
+
+    @field_validator("intended_roles", "tags")
+    @classmethod
+    def _role_tag_items(cls, values: list[str]) -> list[str]:
+        return _bounded_string_list(values, label="role or tag")
+
+    @model_validator(mode="after")
+    def _accepted_mechanics_workflow_invariant(self) -> ThreatDraftV2:
+        if (self.accepted_mechanics_ref is not None) != (
+            self.workflow_state == "mechanics_saved"
+        ):
+            raise ValueError("accepted_mechanics_ref requires workflow_state=mechanics_saved")
+        return self
+
+
+ThreatDraft = ThreatDraftV1 | ThreatDraftV2
+_DRAFT_ADAPTER = TypeAdapter(
+    Annotated[ThreatDraft, Field(discriminator="schema_name")]
+)
+
+
+def parse_threat_draft(payload: object) -> ThreatDraft:
+    """Require an explicit known version; preserve that version on every write."""
+    return _DRAFT_ADAPTER.validate_python(payload)
+
+
 class ThreatDraftSummaryV1(StrictModel):
     schema_name: Literal["dmb_threat_draft_summary_v1"] = Field(
         default=SUMMARY_SCHEMA, alias="schema"
@@ -331,6 +398,26 @@ class ThreatDraftSummaryV1(StrictModel):
     updated_at: str
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+class ThreatDraftSummaryV2(StrictModel):
+    schema_name: Literal["dmb_threat_draft_summary_v2"] = Field(
+        default="dmb_threat_draft_summary_v2", alias="schema"
+    )
+    scope_mode: Literal["world"] = "world"
+    draft_id: str
+    version: int
+    world_id: str
+    campaign_id: None
+    name: str
+    threat_kind: str
+    workflow_state: str
+    updated_at: str
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+
+ThreatDraftSummary = ThreatDraftSummaryV1 | ThreatDraftSummaryV2
 
 
 class ThreatDraftIndexV1(StrictModel):
@@ -378,6 +465,33 @@ class CreateThreatDraftRequest(StrictModel):
         return _bounded_string_list(values, label="role or tag")
 
 
+class CreateWorldThreatDraftRequest(StrictModel):
+    scope_mode: Literal["world"]
+    world_id: str
+    campaign_id: None
+    focus: FocusV1 | None = None
+    name: str = Field(min_length=1, max_length=_MAX_NAME)
+    slug_hint: str | None = Field(default=None, max_length=_MAX_NAME)
+    description: str = Field(min_length=1, max_length=_MAX_TEXT)
+    threat_kind: str = Field(min_length=1, max_length=_MAX_SHORT)
+    intended_roles: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
+    tags: list[str] = Field(default_factory=list, max_length=_MAX_LIST)
+    generation_intent: GenerationIntentV1
+    encounter_context: EncounterContextV1 = Field(default_factory=EncounterContextV1)
+    graph_context_snapshot: GraphContextSnapshotV1
+    created_by: str = Field(min_length=1, max_length=_MAX_NAME)
+
+    @field_validator("world_id")
+    @classmethod
+    def _world_id(cls, value: str) -> str:
+        return _require_id(value, label="world id")
+
+    @field_validator("intended_roles", "tags")
+    @classmethod
+    def _role_tag_items(cls, values: list[str]) -> list[str]:
+        return _bounded_string_list(values, label="role or tag")
+
+
 class UpdateThreatDraftRequest(StrictModel):
     expected_version: int = Field(ge=1)
     focus: FocusV1 | None = None
@@ -403,7 +517,7 @@ class ThreatDraftListResponse(StrictModel):
     schema_name: Literal["dmb_threat_draft_list_v1"] = Field(
         default=LIST_SCHEMA, alias="schema"
     )
-    drafts: list[ThreatDraftSummaryV1] = Field(default_factory=list, max_length=MAX_LIST_LIMIT)
+    drafts: list[ThreatDraftSummary] = Field(default_factory=list, max_length=MAX_LIST_LIMIT)
     limit: int = Field(ge=1, le=MAX_LIST_LIMIT)
     offset: int = Field(ge=0)
     total: int = Field(ge=0)

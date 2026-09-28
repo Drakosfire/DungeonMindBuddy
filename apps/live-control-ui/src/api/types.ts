@@ -3924,6 +3924,22 @@ export interface ThreatDraftV1 {
   updated_at: string;
 }
 
+/** Explicit managed-World branch; legacy campaign records are never upgraded. */
+export interface ThreatDraftV2 extends Omit<ThreatDraftV1, "schema" | "campaign_id"> {
+  schema: "dmb_threat_draft_v2";
+  scope_mode: "world";
+  campaign_id: null;
+}
+
+export type ThreatDraft = ThreatDraftV1 | ThreatDraftV2;
+
+export interface CreateWorldThreatDraftRequest extends Omit<CreateThreatDraftRequestV1, "campaign_id"> {
+  scope_mode: "world";
+  campaign_id: null;
+}
+
+export type CreateThreatDraftRequest = CreateThreatDraftRequestV1 | CreateWorldThreatDraftRequest;
+
 export type ReviseOperationStatus =
   | "claimed"
   | "dispatched_unknown"
@@ -3985,6 +4001,17 @@ export interface GenerateThreatDraftCandidateRequestV1 {
   client_request_id?: string | null;
 }
 
+export interface TerminalGenerationDispositionV1 {
+  status: "terminal_failure" | "terminal_expired";
+  draft_id: string;
+  source_draft_version: number;
+  request_id: string;
+  request_digest: string;
+  scope_mode: "world" | "campaign";
+  world_id: string;
+  campaign_id: string | null;
+}
+
 export interface GenerateThreatDraftCandidateResponseV1 {
   schema: "dmb_generate_threat_draft_candidate_response_v1";
   draft_id: string;
@@ -3995,6 +4022,7 @@ export interface GenerateThreatDraftCandidateResponseV1 {
   candidate?: GeneratedStatblockCandidateV1 | null;
   failure_category?: string | null;
   failure_message?: string | null;
+  terminal_disposition?: TerminalGenerationDispositionV1 | null;
   cache_status?:
     | "stored"
     | "missing"

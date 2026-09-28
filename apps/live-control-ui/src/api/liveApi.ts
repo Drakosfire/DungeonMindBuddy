@@ -114,10 +114,10 @@ import type {
   PartyRegistrySessionRosterWriteCommitResponse,
   PartyRegistrySessionRosterWritePrepareRequest,
   PartyRegistrySessionRosterWritePrepareResponse,
-  CreateThreatDraftRequestV1,
+  CreateThreatDraftRequest,
   GenerateThreatDraftCandidateRequestV1,
   GenerateThreatDraftCandidateResponseV1,
-  ThreatDraftV1,
+  ThreatDraft,
   ReviseCandidateFromEditedDefinitionRequestV1,
   ReviseCandidateFromEditedDefinitionResponseV1,
   WorldGraphBootstrapStatusV1,
@@ -1312,9 +1312,9 @@ export async function getWorldGraphBootstrapStatus(): Promise<WorldGraphBootstra
 }
 
 export async function createThreatDraft(
-  request: CreateThreatDraftRequestV1,
-): Promise<ThreatDraftV1> {
-  return apiFetch<ThreatDraftV1>("/api/live/threat-drafts", {
+  request: CreateThreatDraftRequest,
+): Promise<ThreatDraft> {
+  return apiFetch<ThreatDraft>("/api/live/threat-drafts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(request),
@@ -1335,8 +1335,8 @@ export async function generateThreatDraftCandidate(
   );
 }
 
-export async function getThreatDraft(draftId: string): Promise<ThreatDraftV1> {
-  return apiFetch<ThreatDraftV1>(`/api/live/threat-drafts/${encodeURIComponent(draftId)}`);
+export async function getThreatDraft(draftId: string): Promise<ThreatDraft> {
+  return apiFetch<ThreatDraft>(`/api/live/threat-drafts/${encodeURIComponent(draftId)}`);
 }
 
 export async function postThreatQueryHydration(
