@@ -94,8 +94,11 @@ The blocker was a delayed old completion overwriting a newer settled same-World
 recovery pointer, so reload opened the old candidate. The repair and mounted
 two-generation/unmount/remount/reload regression are committed; both reviewer
 failures reproduced before the fix. Settlement now requires the exact current
-draft/request/source-version attempt, including after settlement. Cycle 2 is
-requested, not passed; a fix commit is not another review cycle.
+draft/request/source-version attempt, including after settlement. PRIME's formal
+**Cycle 2 IMPLEMENTATION PASS / MERGE HOLD** on `07ec031a…` is
+[review 5333610809](https://github.com/Drakosfire/DungeonMindBuddy/pull/785#pullrequestreview-5333610809).
+The independent reviewer reran 169 UI and 140 backend tests, scoped Ruff and
+diff checks. Code acceptance does not waive the live generation witness.
 
 PRIME merged Buddy #780 after independent Cycle 2 PASS (review 5333525840;
 98 tests, zero skips) as `11d7b5801b51f664e7a6eeafcb2aa2b0f5922b71`.
@@ -104,12 +107,56 @@ WorldKeeper remains `49a8620f066ce7ef8972a699020c012f50af9158`. This inherited
 source-anchor preservation proof does not prove source-body opening, native
 admission or J3, and does not expand the asset slice.
 
-The required real generation/navigation/reload witness is still false.
-Necessary bounded API calls are authorized; the persistent demo targets
-`54330`/`54331` still have their separate exact-target gate. Read-only inspection
-of the handoff's development PostgreSQL at `54329` found that its two named
-demo databases do not yet exist; no alternative database was created or used.
-Keep this PR's scope, lease, review/live gates and serial topology intact.
+The required successful real generation/navigation/reload witness is still false.
+The operator reiterated that necessary project OpenAI calls are standing-authorized;
+do not ask again for each bounded call. The persistent demo targets `54330`/`54331`
+remain untouched. After verifying the handoff's exact two named databases were
+absent on its development PostgreSQL at `54329`, the lane created those empty
+disposable targets and applied accepted DungeonMind/APP-STATE migrations. No
+existing database was overwritten, fixture graph seeded or alternative port used.
+
+On frozen `07ec031a…`, API `8817` and UI `5198`, ordinary Build source creation
+allocated World `of-conks-j4-isolated-statblocks`; ordinary Plan creation/save
+produced document `ee7ce7b9-e770-4293-ba4c-65428c5308b0`. This prepared checkpoint
+does not prove blank Plan creation before source entry or native knowledge genesis.
+With explicit freestanding generation (no graph head), the GM flow created draft
+`c3d37a51-2dff-4aec-95b1-ee6dd7ea44bb`, source version 1, and dispatched once.
+Switching to World B during generation showed an empty workbench. Returning to A
+and reloading retained the same original draft/version and unresolved request,
+with no candidate or automatic redispatch; no manual-ID repair was used.
+
+Accepted SERVER `eb312545…` / GE `0d01547e…` at `7861` recorded one OpenAI
+Responses POST returning HTTP 400. Producer request
+`7c7ed81c906c4cc8a3290aa4ea0f78a2` returned `503 / provider_unavailable`,
+latency **6,175 ms**. Duplicate log handlers are not two dispatches. Requested
+model was `openai/gpt-5.6-luna`; actual successful model, usage, cost and model
+processing time are unavailable, not zero. SERVER owns the producer repair;
+no blind retry or Buddy provider patch.
+
+SERVER's separate minimal generic diagnostic made one additional provider call:
+HTTP 400, `invalid_request_error`, parameter `temperature`, message
+`Unsupported parameter: 'temperature' is not supported with this model.`
+Request `req_fad6d94dd9c14cdf8a3b21e715548a99`, **1,824 ms**, no response model
+or usage. Thus current evidence is **one product dispatch plus one diagnostic**,
+not two ingestion runs. The original error body was not retained; the diagnostic
+is not claimed to be that original body. The owner observed configured
+`temperature=0.7` and routed the GE control incompatibility to ARCHITECTURE.
+
+The product's body request key `d41f849e-334d-4248-814d-8e9ccebf9148` is
+distinct from the producer log request ID. SERVER verified it is terminal
+`failed`, attempt count 1, with no candidate. Same-body/same-key requests replay
+that saved failure without provider dispatch; a runtime repair cannot turn it
+into success. Buddy currently conservatively shows unresolved recovery. Preserve
+that failed identity; do not replace its key, rewrite its journal, or count this
+as successful-generation acceptance. After the accepted owner fix, use an
+explicit genuinely new threat intent through ordinary controls for the remaining
+live witness, retaining the failed attempt and this UX limitation as evidence.
+
+MIND #82 is accepted at `107483f1c4593df8e5599b033fdf2b72a46f3f51`
+([Cycle 2 PASS](https://github.com/Drakosfire/DungeonMind/pull/82#pullrequestreview-5333657469)):
+empty-native-KnowledgeSpace design/control-plane settlement only, not runtime
+implementation, source admission, consumer activation or J3 acceptance.
+Keep #785's scope, lease, review/live gates and serial topology intact.
 No J3/image work, #785 merge or full DEMO acceptance is claimed.
 
 The earlier integrated/rehearsal facts below are preserved evidence, not an
