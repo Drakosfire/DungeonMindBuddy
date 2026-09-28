@@ -2333,6 +2333,11 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         return false;
       } catch (error) {
         if (!isCurrentCandidateOp(opId)) return false;
+        // Failed ownership/load proof cannot retain the previous draft's action authority.
+        // Its verified dirty copy/journal remain durable for a later ordinary reload.
+        clearThreatDraftAuthority();
+        createdDraftRef.current = null;
+        setCreatedDraft(null);
         setLoadState({
           kind: "error",
           candidateId: trimmed,

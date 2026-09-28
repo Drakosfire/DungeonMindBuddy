@@ -363,6 +363,35 @@ request to the existing Of Conks runtime confirms its World projection identity
 fields match the client checks. This is not the required exact-head live witness.
 No paid calls, independent implementation review, merge or J4 acceptance yet.
 
+Implementation checkpoint 4 (not merge-ready): legacy owning fixtures now admit
+an actual campaign context and source-draft identity. The mature revision and
+publication cohorts use exact generated-source versions and native projection
+reads rather than the retired bootstrap mock. All **29 mounted revision/
+publication cases** pass. An ownership-failing load also now quarantines the
+previous draft's action authority without deleting its scoped dirty copy or
+journal; two new mounted foreign/orphan cases exercise that transition.
+
+The explicitly filtered combined cohort passes **82 tests / zero failures**
+(24 mounted World/campaign cases, 29 scope/revision helper cases, and the 29
+legacy mounted revision/publication cases). **82 other UI cases remain excluded
+by this checkpoint filter**; the full §7 cohort is not green. A full intermediate
+fixture-migration probe reported 77 passed / 85 failed before the revision/
+publication repairs; this is author diagnostic evidence, not acceptance or a
+claim that all those failures are inherited. Generation, acceptance/reload and
+remaining interleaving fixtures still require owning-boundary migration.
+The backend cohort independently reran on checkpoint 3: 140 passed, 11 warnings,
+28.62 seconds. Typecheck still reports only the unchanged inherited JSX error.
+
+Exact-head local runtime preparation exposed missing disposable-admin DSN
+configuration and an offline configured SERVER endpoint. Normal configuration
+was used; process-environment credential copying was rejected and not retried.
+The new API was stopped after the authentication/readiness failures; operator
+5196 and existing 8816/5197 were untouched. SERVER's existing owner supplied the
+accepted runtime/configuration boundary and is preparing an isolated service;
+PRIME was asked for the intended persistent demo-admin configuration source.
+No credential values are requested in the handback, no model call ran, and the
+required real generation/reload witness and implementation review remain false.
+
 - [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.
 - [ ] V1 preserved and V2 scope survives every durable lifecycle update.

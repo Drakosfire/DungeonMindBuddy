@@ -11,6 +11,7 @@ import type {
   GenerateThreatDraftCandidateResponseV1,
   ValidateDefinitionBuddyResponseV1,
   ThreatDraft,
+  ThreatDraftV1,
   ThreatDraftV2,
   WorldGraphProjection,
   GenerateThreatDraftCandidateRequestV1,
@@ -35,7 +36,43 @@ const activeResponse: ReadStatblockCandidateResponseV1 = {
   candidate_id: candidate.candidate_id,
   status: "active",
   candidate,
+  source_draft_id: "td_fixture",
+  source_draft_version: 1,
 };
+
+/** Legacy fixtures still prove scope and lineage through the owning draft read. */
+function legacyDraftFixture(overrides: Partial<ThreatDraftV1> = {}): ThreatDraftV1 {
+  return {
+    schema: "dmb_threat_draft_v1", draft_id: "td_fixture", version: 2,
+    world_id: "eldyrwild", campaign_id: "longmont-c2", focus: null,
+    name: "Ironhide Brute", description: "A brute.", threat_kind: "creature",
+    intended_roles: [], tags: [],
+    generation_intent: {
+      ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null },
+      target_cr: "3", complexity: null, must_include: [], must_avoid: [],
+    },
+    encounter_context: { party_level: 5, party_size: 4, terrain_notes: [] },
+    graph_context_snapshot: { graph_revision_id: "rev:abc", selected_node_ids: [], admitted_source_anchor_ids: [] },
+    candidate_refs: [{ candidate_id: candidate.candidate_id, generated_from_draft_version: 1,
+      request_id: "gen-req-1", created_at: "2026-01-01T00:00:00Z", status: "active", lineage: null }],
+    accepted_mechanics_ref: null, workflow_state: "candidate_ready", created_by: "gm",
+    created_at: "2026-01-01T00:00:00Z", updated_at: "2026-01-01T00:00:00Z", ...overrides,
+  };
+}
+
+function legacyProjectionFixture(head: string | null): WorldGraphProjection {
+  return {
+    schema: "dmb_world_graph_projection_v1",
+    snapshot: {
+      worldId: "eldyrwild", campaignId: "longmont-c2", scopeMode: "campaign",
+      revisionId: head ?? "", headRevisionId: head, isHead: true,
+      focus: { kind: "none", sessionId: null }, admissibility: "gm",
+    },
+    summary: { nodeCount: 0, relationshipCount: 0, attributeCount: 0, evidenceCount: 0,
+      sourceArtifactCount: 0, projectionTruncated: false },
+    nodes: [], relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [],
+  };
+}
 
 const PREVIEW_DIGEST = `sha256:${"a".repeat(64)}`;
 
@@ -349,6 +386,30 @@ describe("World-scoped mounted Workbench", () => {
     expect(begin).not.toHaveBeenCalled();
   });
 
+  it.each(["foreign", "orphan"])("quarantines previously admitted actions when a %s candidate fails ownership", async (kind) => {
+    const h = harness();
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+    const originalJoin = localStorage.getItem(scopedWorkbenchJoinKey(a));
+    h.candidates.set("cand_other", {
+      ...activeResponse, candidate_id: "cand_other", candidate: { ...candidate, candidate_id: "cand_other" },
+      source_draft_id: kind === "foreign" ? "draft-b" : null, source_draft_version: 1,
+    });
+    await user.clear(screen.getByPlaceholderText("cand_…"));
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_other");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => expect(screen.getByText(kind === "foreign"
+      ? /does not belong to the selected scope/i : /ownership cannot be proved/i)).toBeTruthy());
+    expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
+    expect(screen.queryByTestId("proposal-history-panel")).toBeNull();
+    expect(screen.queryByTestId("revise-with-ai-panel")).toBeNull();
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toBe(originalJoin);
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(b))).toBeNull();
+    expect(h.generate).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects contradictory projection even with freestanding opt-in", async () => {
     const h = harness();
     h.project.mockResolvedValue(projection(b));
@@ -490,6 +551,18 @@ describe("presentCandidateStatus", () => {
 });
 
 describe("StatblockWorkbenchModule", () => {
+  beforeEach(() => {
+    vi.spyOn(selectedWorld, "useSelectedWorld").mockReturnValue({ kind: "legacy" });
+    vi.spyOn(interaction, "useOptionalAgentInteraction").mockReturnValue({
+      surfaceInteractionPublication: {
+        surfaceId: "plan", label: "Plan", identity: { surfaceId: "plan", instanceKey: "legacy-c2" },
+        canvas: null, tools: [], editCommands: [], projections: [], projectionBindings: [],
+        agentContext: { campaignId: "longmont-c2", documentId: "legacy-plan", sessionNumber: null, label: "Plan", ambientSummary: null, pointers: [] },
+      },
+    } as NonNullable<ReturnType<typeof interaction.useOptionalAgentInteraction>>);
+    vi.spyOn(liveApi, "getThreatDraft").mockResolvedValue(legacyDraftFixture());
+  });
+
   it("loads an exact candidate and hosts the editor in edit mode by default", async () => {
     vi.spyOn(liveApi, "getStatblockCandidate").mockResolvedValue(activeResponse);
 
@@ -2888,16 +2961,7 @@ describe("StatblockWorkbenchModule", () => {
     }
 
     function mockBootstrapHead(head: string | null = GRAPH_HEAD) {
-      return vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
-        schema: "dmb_world_graph_bootstrap_status_v1",
-        // Null head is only auto-freestanding for ready + valid bundle (uninitialized world).
-        state: head ? "active" : "ready",
-        bundleValid: true,
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        currentHeadRevisionId: head,
-        initialHeadRevisionId: head,
-      });
+      return vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(legacyProjectionFixture(head));
     }
 
     function mockBootstrapFailureState(
@@ -3845,7 +3909,7 @@ describe("StatblockWorkbenchModule", () => {
       return {
         ...activeResponse,
         source_draft_id: DRAFT_ID,
-        source_draft_version: 2,
+        source_draft_version: 1,
         source_draft_name: "Ironhide Brute",
       };
     }
@@ -4354,7 +4418,9 @@ describe("StatblockWorkbenchModule", () => {
         });
       vi.spyOn(liveApi, "getThreatDraft").mockImplementation(async () =>
         threatDraftFixture({
+          version: 3,
           candidate_refs: [
+            ...threatDraftFixture().candidate_refs,
             {
               candidate_id: "cand_retry_refresh",
               generated_from_draft_version: 2,
@@ -4393,6 +4459,7 @@ describe("StatblockWorkbenchModule", () => {
             ...activeWithDraft(),
             candidate_id: id,
             candidate: { ...candidate, candidate_id: id },
+            source_draft_version: 2,
           };
         }
         return activeWithDraft();
@@ -4669,7 +4736,8 @@ describe("StatblockWorkbenchModule", () => {
       await user.clear(screen.getByPlaceholderText("cand_…"));
       await user.type(screen.getByPlaceholderText("cand_…"), "cand_orphan");
       await user.click(screen.getByRole("button", { name: "Load candidate" }));
-      await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+      await waitFor(() => expect(screen.getByText(/ownership cannot be proved/i)).toBeTruthy());
+      expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
       expect(screen.queryByTestId("proposal-history-panel")).toBeNull();
       expect(screen.queryByTestId("revise-with-ai-panel")).toBeNull();
     });
@@ -4765,22 +4833,14 @@ describe("StatblockWorkbenchModule", () => {
     }
 
     function mockBootstrapHead(head: string | null = GRAPH_HEAD) {
-      return vi.spyOn(liveApi, "getWorldGraphBootstrapStatus").mockResolvedValue({
-        schema: "dmb_world_graph_bootstrap_status_v1",
-        state: head ? "active" : "ready",
-        bundleValid: true,
-        worldId: "eldyrwild",
-        campaignId: "longmont-c2",
-        currentHeadRevisionId: head,
-        initialHeadRevisionId: head,
-      });
+      return vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(legacyProjectionFixture(head));
     }
 
     function activeWithDraft(draftId = DRAFT_ID): ReadStatblockCandidateResponseV1 {
       return {
         ...activeResponse,
         source_draft_id: draftId,
-        source_draft_version: 2,
+        source_draft_version: 1,
         source_draft_name: "Ironhide Brute",
       };
     }
