@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -102,6 +103,40 @@ def test_plan_workspace_prepare_commit_round_trip(tmp_path: Path) -> None:
     assert not target.exists()
     loaded = get_workspace_document(tmp_path, record.document_id)
     assert loaded.content_status == "committed"
+
+
+def test_world_scope_requires_versioned_prepare_and_commit_contracts() -> None:
+    with pytest.raises(ValidationError, match="World-scoped writes require the V2 schema"):
+        TiptapMarkdownWritePrepareRequest(
+            document_id="doc-a",
+            markdown="# Plan\n",
+            scope_mode="world",
+            world_id="world-a",
+        )
+    with pytest.raises(ValidationError, match="V2 Plan writes require scope_mode=world"):
+        TiptapMarkdownWritePrepareRequest(
+            document_id="doc-a",
+            markdown="# Plan\n",
+            schema_version="dmb_tiptap_markdown_write_prepare_v2",
+            scope_mode="world",
+        )
+
+    with pytest.raises(ValidationError, match="World-scoped writes require the V2 schema"):
+        TiptapMarkdownWriteCommitRequest(
+            document_id="doc-a",
+            markdown="# Plan\n",
+            writer_confirm_token="confirmation",
+            scope_mode="world",
+            world_id="world-a",
+        )
+    with pytest.raises(ValidationError, match="V2 Plan writes require scope_mode=world"):
+        TiptapMarkdownWriteCommitRequest(
+            document_id="doc-a",
+            markdown="# Plan\n",
+            writer_confirm_token="confirmation",
+            schema_version="dmb_tiptap_markdown_write_commit_v2",
+            scope_mode="world",
+        )
 
 
 def test_lossy_markdown_diagnostics_block_tables_and_html() -> None:
