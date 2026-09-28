@@ -142,37 +142,21 @@ not two ingestion runs. The original error body was not retained; the diagnostic
 is not claimed to be that original body. The owner observed configured
 `temperature=0.7` and routed the GE control incompatibility to ARCHITECTURE.
 
-The producer repair is now **draft SERVER #34 / awaiting PRIME acceptance**:
-[`STATBLOCK: omit provider temperature through GenerationEngine`](https://github.com/Drakosfire/DungeonMindServer/pull/34),
-Cycle 1 head `0828fbbecfacd5cd1ed594f2bea17bf29946a25d`, base
-`eb3125455454716d32c6daf53ad005cdc1ec968c`. It pins accepted GE #7 merge
-`80288d7b467ac3c3586f4e3c964385cefe69f931` and explicitly supplies
-`temperature=None`. The owner reports five provider-free adapter/integrated
-tests, including public SERVER → real GE → actual OpenAI adapter → recording
-fake SDK with initial and structural-repair key omission; 37 API/auth/lease/
-idempotency tests and the terminal-failure replay regression pass. The broad
-cohort reports 290 passes plus two Python 3.13/Pydantic installation-harness
-failures; direct shared-consumer witnesses remain declared review holds.
-GitHub's `redteam-hardening` run `36376677914` is **SUCCESS**, superseding the
-PR body's earlier local incomplete-run wording, not the other review holds.
-No live provider/Firestore call or rehearsal runtime update was made by this
-repair. PRIME's formal **Cycle 1 HOLD** on that exact head is
-[review 5333928957](https://github.com/Drakosfire/DungeonMindServer/pull/34#pullrequestreview-5333928957):
-no blocking implementation defect, but the handoff's shared-consumer compatibility
-proof is mandatory. Independent evidence passed five actual-adapter tests,
-290 isolated statblock tests (two unchanged nested-install harness checks
-explicitly deselected), and 19 shared policy/boundary/packaging/map-image cases.
-SERVER is repairing the same PR with provider-free actual card, player-character
-and map generation/result-interpretation witnesses using the exact installed GE;
-PRIME authorized one extra test path plus the existing handoff/report only.
-No runtime/dependency/original-failure change or live gate release is authorized.
-The test-only repair has returned at frozen head
-`0ddedbde9836bd05c9812e182c715b9a42199dca`, awaiting PRIME **Cycle 2**.
-Author evidence is 11 actual shared-consumer tests / 16 combined with the
-statblock adapter seam, both zero skips, covering card/PCG/map/image consumers
-through the exact GE and fake providers. Exact-head hosted red-team run
-`36378550004` is SUCCESS. Runtime remains unchanged; no review acceptance or
-merge is inferred, and the prior HOLD remains binding until formal re-review.
+SERVER PR #34, [`STATBLOCK: omit provider temperature through GenerationEngine`](https://github.com/Drakosfire/DungeonMindServer/pull/34),
+has PRIME Cycle 2 **PASS** on frozen head
+`0ddedbde9836bd05c9812e182c715b9a42199dca`, base
+`eb3125455454716d32c6daf53ad005cdc1ec968c`
+([review 5334080400](https://github.com/Drakosfire/DungeonMindServer/pull/34#pullrequestreview-5334080400)).
+GitHub currently reports OPEN, draft, mergeable, with no merge commit. The
+implementation pins accepted GE #7 `80288d7b467ac3c3586f4e3c964385cefe69f931`
+and sets `temperature=None`; 11 real-consumer tests and 16 combined seam tests
+pass with zero skips, and exact-head red-team CI `36378550004` is SUCCESS.
+Tests cover card, PCG, map and image consumers with the actual pinned GE and
+fake external generation. No live provider call or runtime change was made.
+PRIME owns the pending merge disposition. On merge, SERVER must coordinate the
+`7861` runtime update against this exact ref and same isolated collections;
+the new Ferry Keeper intent still must pass through ordinary UI. #785 remains
+on its live gate until that succeeds.
 After acceptance/merge, SERVER must coordinate the exact-ref `7861` runtime
 update with the same isolated collections before DEMO submits the genuinely new
 Ferry Keeper intent through ordinary UI. This does not waive #785's live proof.
@@ -203,6 +187,15 @@ atomic root/head/event/receipt, exact replay and no synthetic source/evidence.
 Buddy's pinned runtime has **not** adopted this merge. Authentic source/evidence
 admission, ordinary WorldKeeper/Agent native routing, World-owned Plan and the
 connected J3 product witness remain separate, unaccepted gates.
+Buddy PR #779 is now **MERGED** at accepted reviewed head
+`2d5ab6ade1d89ec608c941093819ea36404fd18e`, merge
+`2ccc96ff2a7d76328578609d5289fd3babcf6442`
+([Cycle 2 PASS](https://github.com/Drakosfire/DungeonMindBuddy/pull/779)).
+It proves isolated persistent Buddy → WorldKeeper → DungeonMind publication
+composition: four PostgreSQL cases with zero skips plus 54 PLAY-1/V6.2 tests.
+Its review explicitly leaves browser/Agent retrieval, source admission and
+human DEMO acceptance unproven. It does not clear the fresh native Of Conks
+source-to-retrieval gate or #785's live generation witness.
 Keep #785's scope, lease, review/live gates and serial topology intact.
 No J3/image work, #785 merge or full DEMO acceptance is claimed.
 
