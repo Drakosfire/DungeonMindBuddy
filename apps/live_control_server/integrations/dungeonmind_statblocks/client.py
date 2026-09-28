@@ -318,13 +318,28 @@ class DungeonMindStatblockV1Client:
         Idempotency key travels in the Server request body (``idempotency_key``).
         This method never assigns AcceptanceOperationV1 authority states.
         """
-        json_body: dict[str, Any]
-        if isinstance(body, CreateStatblockRequestV1):
-            json_body = body.model_dump(mode="json", by_alias=True, exclude_none=True)
-        else:
-            # Dict path (acceptance journal replay): strip nulls so DMS does not
-            # 422 on accepted_through/asset_bindings typed as object/array only.
-            json_body = {k: v for k, v in body.items() if v is not None}
+        # Acceptance journals intentionally retain nulls so their digest and
+        # same-body replay remain stable. Normalize both typed calls and replay
+        # dicts through the same contract serializer at the transport boundary;
+        # top-level-only filtering leaves nested definition fields such as
+        # rule_elements[*].explains=null in the request and strict Server rejects
+        # them as extra fields.
+        request = (
+            body
+            if isinstance(body, CreateStatblockRequestV1)
+            else CreateStatblockRequestV1.model_validate(body)
+        )
+        if any(
+            element.explains is not None
+            for element in request.definition.rule_elements
+        ):
+            raise downstream_invalid_request(
+                "RuleElement.explains is not supported by the accepted "
+                "DungeonMind Server contract",
+                error_code="unsupported_rule_element_explains",
+                details={"field_path": "definition.rule_elements[*].explains"},
+            )
+        json_body = request.model_dump(mode="json", by_alias=True, exclude_none=True)
         idempotency_key = json_body.get("idempotency_key")
         if not isinstance(idempotency_key, str) or not idempotency_key.strip():
             raise downstream_invalid_request("create request missing idempotency_key")

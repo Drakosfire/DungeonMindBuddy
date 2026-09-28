@@ -44,6 +44,16 @@ def _fixture(name: str) -> dict:
     return json.loads((FIXTURE_DIR / name).read_text(encoding="utf-8"))
 
 
+def _create_wire_body(body: dict[str, Any]) -> dict[str, Any]:
+    """Apply the current typed create transport contract to transcript bodies."""
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        CreateStatblockRequestV1,
+    )
+
+    request = CreateStatblockRequestV1.model_validate(body)
+    return request.model_dump(mode="json", by_alias=True, exclude_none=True)
+
+
 def _reseal_revision_payload(revision_payload: dict[str, Any]) -> dict[str, Any]:
     """Copy a revision payload and re-bind canonical text and digests to mechanics."""
     sealed = copy.deepcopy(revision_payload)
@@ -734,25 +744,79 @@ def test_create_statblock_serializes_request_and_idempotency_key() -> None:
     assert result.locator.definition_digest.startswith("sha256:")
 
 
-def test_create_statblock_dict_path_strips_null_optional_fields() -> None:
-    """Journal replay bodies may still carry nulls; DMS 422s on those fields."""
-    captured: dict[str, object] = {}
+def test_create_statblock_dict_path_strips_nested_nulls_and_omits_explains_null() -> None:
+    """Journal replay omits nulls recursively without mutating its source body."""
+    captured: list[dict[str, object]] = []
 
     def handler(request_http: httpx.Request) -> httpx.Response:
-        captured["body"] = json.loads(request_http.content.decode("utf-8"))
+        captured.append(json.loads(request_http.content.decode("utf-8")))
         return httpx.Response(200, json=_fixture("create-response.json"))
 
     body = dict(_fixture("create-request.json"))
     body["accepted_through"] = None
     body["asset_bindings"] = None
     body["actor"] = None
+    body["definition"]["rule_elements"][0]["explains"] = None
     _client(httpx.MockTransport(handler)).create_statblock(body)
-    sent = captured["body"]
+    sent = captured[0]
     assert isinstance(sent, dict)
     assert "accepted_through" not in sent
     assert "asset_bindings" not in sent
     assert "actor" not in sent
+    assert "explains" not in sent["definition"]["rule_elements"][0]
     assert sent["idempotency_key"] == body["idempotency_key"]
+    # Transport normalization must not rewrite the durable journal body.
+    assert body["definition"]["rule_elements"][0]["explains"] is None
+
+
+@pytest.mark.parametrize("as_model", [False, True], ids=["journal-dict", "typed-request"])
+@pytest.mark.parametrize(
+    "explains",
+    [
+        pytest.param([], id="explicit-empty"),
+        pytest.param(
+            [{"element_key": "greatclub", "note": "Explains the strike."}],
+            id="populated",
+        ),
+    ],
+)
+def test_create_rejects_nonnull_explains_before_http_without_mutating_journal(
+    as_model: bool, explains: list[dict[str, str]]
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        CreateStatblockRequestV1,
+    )
+
+    body = _fixture("create-request.json")
+    body["definition"]["rule_elements"][0]["explains"] = copy.deepcopy(explains)
+    original_body = copy.deepcopy(body)
+    request: dict[str, Any] | CreateStatblockRequestV1 = (
+        CreateStatblockRequestV1.model_validate(body) if as_model else body
+    )
+    original_model = (
+        copy.deepcopy(request.model_dump(mode="json", exclude_none=False))
+        if isinstance(request, CreateStatblockRequestV1)
+        else None
+    )
+    http_calls = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal http_calls
+        http_calls += 1
+        pytest.fail("unsupported explains must be rejected before HTTP")
+
+    with pytest.raises(StatblockIntegrationError) as raised:
+        _client(httpx.MockTransport(handler)).create_statblock(request)
+
+    assert raised.value.category == "downstream_invalid_request"
+    assert raised.value.error_code == "unsupported_rule_element_explains"
+    assert raised.value.details == {
+        "field_path": "definition.rule_elements[*].explains"
+    }
+    assert http_calls == 0
+    assert body == original_body
+    if original_model is not None:
+        assert request.model_dump(mode="json", exclude_none=False) == original_model
 
 
 def test_create_statblock_parses_six_field_locator() -> None:
@@ -816,7 +880,7 @@ def test_create_same_key_same_body_replay_returns_identical_locator() -> None:
     )
 
     transcript = _fixture("server_transcripts/same_key_same_body_replay.json")
-    request_body = transcript["request"]["json"]
+    request_body = _create_wire_body(transcript["request"]["json"])
     recorded = [
         transcript["first_response"],
         transcript["second_response"],
@@ -866,8 +930,8 @@ def test_create_changed_body_conflict_is_not_terminal() -> None:
     )
 
     transcript = _fixture("server_transcripts/same_key_changed_body_conflict.json")
-    original_req = transcript["original_request"]["json"]
-    changed_req = transcript["changed_request"]["json"]
+    original_req = _create_wire_body(transcript["original_request"]["json"])
+    changed_req = _create_wire_body(transcript["changed_request"]["json"])
     assert original_req["idempotency_key"] == changed_req["idempotency_key"]
     assert original_req["change_summary"] != changed_req["change_summary"]
     assert transcript["conflict_response"]["status"] == 409
