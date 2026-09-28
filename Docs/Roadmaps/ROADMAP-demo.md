@@ -32,9 +32,14 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
   cannot enter until the C1/C2 demo gate passes.
 - DEMO owns Buddy demo-facing sequencing listed in the reconciliation. External
   domain ownership and active implementation leases remain intact.
-- The steward may merge bounded in-scope DEMO PRs after independent exact-head
-  review, required checks and integration evidence. Cross-owner PRs remain with
-  their owners.
+- The adoption-time in-scope DEMO merge rule is superseded by the operator's
+  2026-09-27 merge-control assignment, relayed by PRIME: **PRIME owns ecosystem
+  merge coordination**. DEMO retains roadmap, product design, implementation
+  and rehearsal ownership, and sends merge-ready PRs with the exact reviewed
+  head, checks/live evidence, blockers and merge order to PRIME. DEMO does not
+  merge autonomously or request another operator "Merge" for ordinary work.
+  Existing review, live-witness and owner/lease holds remain prerequisites;
+  this assignment does not approve #785 or any other pending PR.
 
 ## Current execution checkpoint
 
