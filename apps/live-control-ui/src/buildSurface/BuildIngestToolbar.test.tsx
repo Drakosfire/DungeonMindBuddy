@@ -37,7 +37,7 @@ function nativeSourceStatus(state: "pending" | "admitted" = "pending") {
     world_id: "eldyrwild",
     document_id: DOC_ID,
     loaded_revision: 2,
-    body_sha256: "body-sha",
+    body_sha256: "b".repeat(64),
     admission_id: "admission-id",
     space_id: "eldyrwild",
     published_revision_id: state === "admitted" ? "rev:2" : null,
@@ -120,7 +120,11 @@ describe("BuildIngestToolbar", () => {
     );
     await user.click(screen.getByTestId("build-native-source-retry"));
     await waitFor(() => {
-      expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(DOC_ID, 2);
+      expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(
+        DOC_ID,
+        2,
+        "b".repeat(64),
+      );
       expect(screen.getByTestId("build-native-source-status")).toHaveTextContent("admitted");
     });
   });

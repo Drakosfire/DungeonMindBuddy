@@ -1930,13 +1930,15 @@ describe("liveApi workspace worldbuilding contracts", () => {
     );
     expect(fetchSpy.mock.calls[0]?.[1]?.body).toBeUndefined();
 
-    await admitNativeWorldSource("doc / one", 4);
+    const bodySha256 = "a".repeat(64);
+    await admitNativeWorldSource("doc / one", 4, bodySha256);
     expect(String(fetchSpy.mock.calls[1]?.[0])).toBe(
       "/api/live/workspace-documents/doc%20%2F%20one/native-world-source",
     );
     expect(fetchSpy.mock.calls[1]?.[1]?.method).toBe("POST");
     expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toEqual({
       expected_revision: 4,
+      expected_body_sha256: bodySha256,
     });
   });
 

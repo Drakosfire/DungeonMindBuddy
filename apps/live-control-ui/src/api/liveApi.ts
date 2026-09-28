@@ -1690,12 +1690,16 @@ export async function getNativeWorldSourceAdmissionStatus(
 export async function admitNativeWorldSource(
   documentId: string,
   expectedRevision: number,
+  expectedBodySha256: string,
 ): Promise<NativeWorldSourceAdmissionStatus> {
   return apiFetch<NativeWorldSourceAdmissionStatus>(
     `/api/live/workspace-documents/${encodeURIComponent(documentId)}/native-world-source`,
     {
       method: "POST",
-      body: JSON.stringify({ expected_revision: expectedRevision }),
+      body: JSON.stringify({
+        expected_revision: expectedRevision,
+        expected_body_sha256: expectedBodySha256,
+      }),
     },
   );
 }

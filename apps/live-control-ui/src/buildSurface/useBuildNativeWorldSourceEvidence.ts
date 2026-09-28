@@ -27,6 +27,7 @@ export function useBuildNativeWorldSourceEvidence(
   const reload = useCallback(async () => {
     const current = ++generation.current;
     setLoading(true);
+    setRetrying(false);
     setError(null);
     try {
       const result = await getNativeWorldSourceAdmissionStatus(documentId);
@@ -46,16 +47,24 @@ export function useBuildNativeWorldSourceEvidence(
       await reload();
       return;
     }
+    const current = ++generation.current;
+    const isCurrent = () => generation.current === current;
     setRetrying(true);
     setError(null);
     try {
-      const result = await admitNativeWorldSource(documentId, status.loaded_revision);
-      setStatus(result);
+      const result = await admitNativeWorldSource(
+        documentId,
+        status.loaded_revision,
+        status.body_sha256,
+      );
+      if (isCurrent()) setStatus(result);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Native source admission is still pending");
-      await reload();
+      if (isCurrent()) {
+        setError(caught instanceof Error ? caught.message : "Native source admission is still pending");
+        await reload();
+      }
     } finally {
-      setRetrying(false);
+      if (isCurrent()) setRetrying(false);
     }
   }, [documentId, reload, status]);
 

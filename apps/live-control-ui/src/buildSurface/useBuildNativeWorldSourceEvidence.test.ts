@@ -25,7 +25,7 @@ function status(documentId: string, state: "pending" | "admitted" = "pending") {
     world_id: "eldyrwild",
     document_id: documentId,
     loaded_revision: 7,
-    body_sha256: "body-sha256",
+    body_sha256: "a".repeat(64),
     admission_id: "admission-id",
     space_id: "eldyrwild",
     published_revision_id: state === "admitted" ? "rev:admitted" : null,
@@ -51,7 +51,7 @@ describe("useBuildNativeWorldSourceEvidence", () => {
     await act(async () => result.current.retry());
 
     expect(liveApi.getNativeWorldSourceAdmissionStatus).toHaveBeenCalledWith(DOC_A);
-    expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(DOC_A, 7);
+    expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(DOC_A, 7, "a".repeat(64));
     expect(result.current.status?.state).toBe("admitted");
   });
 
@@ -69,5 +69,64 @@ describe("useBuildNativeWorldSourceEvidence", () => {
 
     await waitFor(() => expect(result.current.status?.document_id).toBe(DOC_B));
     expect(result.current.status?.state).toBe("admitted");
+  });
+
+  it("ignores a late successful retry after selection changes", async () => {
+    let resolveRetry!: (value: ReturnType<typeof status>) => void;
+    vi.mocked(liveApi.admitNativeWorldSource).mockImplementation(
+      () => new Promise((resolve) => { resolveRetry = resolve; }),
+    );
+    vi.mocked(liveApi.getNativeWorldSourceAdmissionStatus)
+      .mockResolvedValueOnce(status(DOC_A))
+      .mockResolvedValueOnce(status(DOC_B, "admitted"));
+    const { result, rerender } = renderHook(
+      ({ documentId }: { documentId: string }) => useBuildNativeWorldSourceEvidence(documentId),
+      { initialProps: { documentId: DOC_A } },
+    );
+    await waitFor(() => expect(result.current.status?.document_id).toBe(DOC_A));
+
+    let retryPromise!: Promise<void>;
+    act(() => { retryPromise = result.current.retry(); });
+    rerender({ documentId: DOC_B });
+    await waitFor(() => expect(result.current.status?.document_id).toBe(DOC_B));
+    await act(async () => {
+      resolveRetry(status(DOC_A, "admitted"));
+      await retryPromise;
+    });
+
+    expect(result.current.status?.document_id).toBe(DOC_B);
+    expect(result.current.status?.state).toBe("admitted");
+    expect(result.current.error).toBeNull();
+    expect(result.current.retrying).toBe(false);
+    expect(liveApi.getNativeWorldSourceAdmissionStatus).toHaveBeenCalledTimes(2);
+  });
+
+  it("ignores a late failed retry after selection changes without reloading the old document", async () => {
+    let rejectRetry!: (reason: Error) => void;
+    vi.mocked(liveApi.admitNativeWorldSource).mockImplementation(
+      () => new Promise((_resolve, reject) => { rejectRetry = reject; }),
+    );
+    vi.mocked(liveApi.getNativeWorldSourceAdmissionStatus)
+      .mockResolvedValueOnce(status(DOC_A))
+      .mockResolvedValueOnce(status(DOC_B, "admitted"));
+    const { result, rerender } = renderHook(
+      ({ documentId }: { documentId: string }) => useBuildNativeWorldSourceEvidence(documentId),
+      { initialProps: { documentId: DOC_A } },
+    );
+    await waitFor(() => expect(result.current.status?.document_id).toBe(DOC_A));
+
+    let retryPromise!: Promise<void>;
+    act(() => { retryPromise = result.current.retry(); });
+    rerender({ documentId: DOC_B });
+    await waitFor(() => expect(result.current.status?.document_id).toBe(DOC_B));
+    await act(async () => {
+      rejectRetry(new Error("old selection failed"));
+      await retryPromise;
+    });
+
+    expect(result.current.status?.document_id).toBe(DOC_B);
+    expect(result.current.error).toBeNull();
+    expect(result.current.retrying).toBe(false);
+    expect(liveApi.getNativeWorldSourceAdmissionStatus).toHaveBeenCalledTimes(2);
   });
 });

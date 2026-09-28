@@ -220,6 +220,33 @@ function isSnapshotImportCommitted(
   );
 }
 
+function nativeWorldSourceAdmissionPin(
+  snapshot: WorkspaceDocumentSnapshot,
+  expectedRevision: number,
+  expectedMarkdown?: string,
+): { revision: number; bodySha256: string } {
+  if (
+    snapshot.record.kind !== "worldbuilding_source" ||
+    snapshot.record.content_status !== "committed" ||
+    !snapshot.file_exists
+  ) {
+    throw new Error("Imported source is not committed and ready for native admission");
+  }
+  if (
+    snapshot.record.revision !== expectedRevision ||
+    snapshot.loaded_revision !== expectedRevision
+  ) {
+    throw new Error("Imported source changed; refresh or reselect it before native admission");
+  }
+  if (expectedMarkdown !== undefined && snapshot.markdown !== expectedMarkdown) {
+    throw new Error("Imported content does not match pasted Markdown");
+  }
+  if (!/^[0-9a-f]{64}$/.test(snapshot.content_sha256)) {
+    throw new Error("Imported source snapshot did not provide a valid content digest");
+  }
+  return { revision: snapshot.loaded_revision, bodySha256: snapshot.content_sha256 };
+}
+
 function isSnapshotActivationReady(snapshot: WorkspaceDocumentSnapshot): boolean {
   return snapshot.record.content_status === "committed" && snapshot.file_exists;
 }
@@ -833,9 +860,16 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           // Admission is a separate durable step. A failure must not roll back
           // or hide the already-saved source; the toolbar exposes exact retry.
           try {
+            const snapshot = await getWorkspaceDocumentSnapshot(committedRecord.document_id);
+            const pin = nativeWorldSourceAdmissionPin(
+              snapshot,
+              committedRecord.revision,
+              markdown,
+            );
             await admitNativeWorldSource(
               committedRecord.document_id,
-              committedRecord.revision,
+              pin.revision,
+              pin.bodySha256,
             );
           } catch {
             // Status is reloaded from native authority when the selected source mounts.
@@ -904,14 +938,23 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       try {
         const record = await resolveImportRecordForRetry(markdown);
         if (importCommittedRef.current) {
-          await admitNativeWorldSource(record.document_id, record.revision).catch(() => undefined);
+          const snapshot = await getWorkspaceDocumentSnapshot(record.document_id);
+          const pin = nativeWorldSourceAdmissionPin(snapshot, record.revision, markdown);
+          await admitNativeWorldSource(record.document_id, pin.revision, pin.bodySha256).catch(() => undefined);
           await activateCreatedRecord(record);
           return;
         }
         const committedRecord = await commitSourceImport(record, markdown);
+        const snapshot = await getWorkspaceDocumentSnapshot(committedRecord.document_id);
+        const pin = nativeWorldSourceAdmissionPin(
+          snapshot,
+          committedRecord.revision,
+          markdown,
+        );
         await admitNativeWorldSource(
           committedRecord.document_id,
-          committedRecord.revision,
+          pin.revision,
+          pin.bodySha256,
         ).catch(() => undefined);
         try {
           await activateCreatedRecord(committedRecord);
@@ -937,10 +980,17 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
         if (isSnapshotActivationReady(snapshot)) {
           importCommittedRef.current = true;
-          await admitNativeWorldSource(
-            snapshot.record.document_id,
-            snapshot.record.revision,
-          ).catch(() => undefined);
+          if (snapshot.record.kind === "worldbuilding_source") {
+            const pin = nativeWorldSourceAdmissionPin(
+              snapshot,
+              snapshot.record.revision,
+            );
+            await admitNativeWorldSource(
+              snapshot.record.document_id,
+              pin.revision,
+              pin.bodySha256,
+            ).catch(() => undefined);
+          }
         }
       }
       if (importCommittedRef.current && pendingId) {
