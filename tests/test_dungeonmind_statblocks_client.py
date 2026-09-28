@@ -744,8 +744,8 @@ def test_create_statblock_serializes_request_and_idempotency_key() -> None:
     assert result.locator.definition_digest.startswith("sha256:")
 
 
-def test_create_statblock_dict_path_strips_nested_nulls_and_preserves_explains() -> None:
-    """Journal replay omits nulls recursively but preserves populated arrays."""
+def test_create_statblock_dict_path_strips_nested_nulls_and_omits_explains_null() -> None:
+    """Journal replay omits nulls recursively without mutating its source body."""
     captured: list[dict[str, object]] = []
 
     def handler(request_http: httpx.Request) -> httpx.Response:
@@ -768,15 +768,55 @@ def test_create_statblock_dict_path_strips_nested_nulls_and_preserves_explains()
     # Transport normalization must not rewrite the durable journal body.
     assert body["definition"]["rule_elements"][0]["explains"] is None
 
-    populated = json.loads(json.dumps(body))
-    populated["definition"]["rule_elements"][0]["explains"] = [
-        {"element_key": "greatclub", "note": None}
-    ]
-    _client(httpx.MockTransport(handler)).create_statblock(populated)
-    sent_populated = captured[1]
-    assert sent_populated["definition"]["rule_elements"][0]["explains"] == [
-        {"element_key": "greatclub"}
-    ]
+
+@pytest.mark.parametrize("as_model", [False, True], ids=["journal-dict", "typed-request"])
+@pytest.mark.parametrize(
+    "explains",
+    [
+        pytest.param([], id="explicit-empty"),
+        pytest.param(
+            [{"element_key": "greatclub", "note": "Explains the strike."}],
+            id="populated",
+        ),
+    ],
+)
+def test_create_rejects_nonnull_explains_before_http_without_mutating_journal(
+    as_model: bool, explains: list[dict[str, str]]
+) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.generated import (
+        CreateStatblockRequestV1,
+    )
+
+    body = _fixture("create-request.json")
+    body["definition"]["rule_elements"][0]["explains"] = copy.deepcopy(explains)
+    original_body = copy.deepcopy(body)
+    request: dict[str, Any] | CreateStatblockRequestV1 = (
+        CreateStatblockRequestV1.model_validate(body) if as_model else body
+    )
+    original_model = (
+        copy.deepcopy(request.model_dump(mode="json", exclude_none=False))
+        if isinstance(request, CreateStatblockRequestV1)
+        else None
+    )
+    http_calls = 0
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal http_calls
+        http_calls += 1
+        pytest.fail("unsupported explains must be rejected before HTTP")
+
+    with pytest.raises(StatblockIntegrationError) as raised:
+        _client(httpx.MockTransport(handler)).create_statblock(request)
+
+    assert raised.value.category == "downstream_invalid_request"
+    assert raised.value.error_code == "unsupported_rule_element_explains"
+    assert raised.value.details == {
+        "field_path": "definition.rule_elements[*].explains"
+    }
+    assert http_calls == 0
+    assert body == original_body
+    if original_model is not None:
+        assert request.model_dump(mode="json", exclude_none=False) == original_model
 
 
 def test_create_statblock_parses_six_field_locator() -> None:

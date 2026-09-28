@@ -329,6 +329,16 @@ class DungeonMindStatblockV1Client:
             if isinstance(body, CreateStatblockRequestV1)
             else CreateStatblockRequestV1.model_validate(body)
         )
+        if any(
+            element.explains is not None
+            for element in request.definition.rule_elements
+        ):
+            raise downstream_invalid_request(
+                "RuleElement.explains is not supported by the accepted "
+                "DungeonMind Server contract",
+                error_code="unsupported_rule_element_explains",
+                details={"field_path": "definition.rule_elements[*].explains"},
+            )
         json_body = request.model_dump(mode="json", by_alias=True, exclude_none=True)
         idempotency_key = json_body.get("idempotency_key")
         if not isinstance(idempotency_key, str) or not idempotency_key.strip():
