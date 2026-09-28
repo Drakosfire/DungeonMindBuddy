@@ -74,8 +74,13 @@ fake campaign or J3 implementation is authorized by this direction.
 **Active implementation remains J4 / draft #785**, exact head
 `2e33b57737164ac0393975ab31d42a1c91a43d34`: author exact-head evidence is
 164 UI tests (zero excluded), 140 backend tests, scoped Ruff and diff check.
-Typecheck retains only the independently hashed inherited JSX error. No
-independent implementation verdict is available at this re-anchor. The required
+PRIME independently reran the same head in `/tmp/buddy-pr785-review` through
+the canonical review verifier: 164/164 UI tests (zero excluded), 140/140 backend
+tests (11 warnings, 28.19 seconds), scoped Ruff and diff check pass. Typecheck
+retains only the independently hashed inherited JSX error. This is independent
+test evidence, **not implementation approval**: PRIME explicitly reported no
+completed code-inspection verdict or formal GitHub review, and has been asked
+to finish that inspection without repeating the already verified tests. The required
 real generation/navigation/reload witness is still false; necessary bounded
 API calls are authorized, but the discovered persistent demo targets
 `54330`/`54331` are not the `54329` pair in that handoff's activation snapshot.
