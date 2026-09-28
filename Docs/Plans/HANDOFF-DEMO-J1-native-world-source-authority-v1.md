@@ -71,6 +71,13 @@ Use stable Buddy-derived initialization/admission identities. Initialization tim
 
 PR #763 is open but draft/paused by PRIME’s durable body settlement; it no longer owns the two dependency files. Its changed `main.py` path is deliberately avoided by adding the new product endpoint to the already-mounted `workspace_documents` router. No other PR/lease may be assumed clear without a fresh changed-path census.
 
+PRIME review Cycle 1 `5343404905` clarified the POST precondition: the client
+must carry the exact committed snapshot's `content_sha256` alongside its
+registry revision. This digest is an assertion only; it grants no authority over
+body bytes, World/space identity, descriptors, or admission metadata. A mismatch
+fails closed before initialization/publication. This is a bounded freshness
+guard within J1, not a source-update or freshness lifecycle.
+
 PRIME's 2026-09-28 dispatch ruling transfers the `ROADMAP-demo.md` and its
 byte-identical mirror from the optional lease in the active DEMO-READY design
 handoff to this J1 state-sync lease until this PR is reviewed and merged. The
@@ -82,7 +89,7 @@ design decision or roadmap authority is changed by this coordination ruling.
 
 1. Create a **fresh** managed World through the existing Build control (server allocates ID); no manual IDs or synthetic graph rows.
 2. Import the pinned, human-normalized Of Conks Markdown through the ordinary Build source control as a `worldbuilding_source`; commit via the existing workspace-document source commit path.
-3. After commit, ordinary Build flow calls Buddy’s native-source status/admit API using document ID and expected revision only. Server resolves the managed World and exact committed snapshot.
+3. After commit, ordinary Build flow calls Buddy’s native-source status API and, for automatic admission, its POST endpoint. The POST carries the document ID, exact expected registry revision, and `content_sha256` read from that exact committed server snapshot. The body digest is only a stale-source precondition: the server resolves and hashes its own snapshot, compares the asserted digest before any native World mutation, and never accepts browser-posted Markdown as source authority.
 4. Show a clear `admitted` result with World identity and a safe source/evidence summary, or `saved; native admission pending` with an exact retry path. Retry must reuse the same document/revision and never create a duplicate source document.
 5. Reselect/reload the source after API/repository object recreation; status resolves from MIND receipt/read authority. Open the admitted source and verify exact body/span hashes.
 
@@ -99,7 +106,7 @@ The §4 table is the exclusive expected write lease for this serial implementati
 
 | Action | Path | Purpose |
 |---|---|---|
-| Modify | `Docs/Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md` | PRIME-authorized format-only repair of the already-ACTIVE handoff’s machine-readable lease/runtime fields; no mission or capability change. |
+| Modify | `Docs/Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md` | PRIME-authorized format repair plus the narrow Cycle 1 `5343404905` snapshot-digest precondition clarification in §3/§7/§9; no source-body authority, freshness lifecycle, or capability expansion. |
 | Modify | `Docs/Plans/HANDOFF-DEMO-READY-basic-presentation-design-pass-v1.md` | PRIME-authorized removal/suspension of its optional roadmap write lease through J1 review/merge; no design scope change. |
 | Modify | `pyproject.toml` | Adopt exact accepted MIND #85 pin; preserve unrelated pins. |
 | Modify | `uv.lock` | Resolve the exact MIND pin reproducibly. |
@@ -153,7 +160,7 @@ The prior `HANDOFF-DEMO-world-owned-blank-plan-v1.md` remains a separate BLOCKED
 
 ## §7 Required proof
 
-- API/service tests prove server-derived `world_id == space_id`, exact accepted descriptor hashes, exact committed Build snapshot text/digest, source mapping and whole-body byte span; reject browser body, mismatch, stale revision, unsupported source, foreign World, missing DB and descriptor drift.
+- API/service tests prove server-derived `world_id == space_id`, exact accepted descriptor hashes, exact committed Build snapshot text/digest, source mapping and whole-body byte span; reject browser body, mismatched expected snapshot digest, stale revision, unsupported source, foreign World, missing DB and descriptor drift. CRLF input is checked at the registry snapshot boundary: the asserted digest and admitted span cover the canonical returned Markdown string, not original on-disk newline bytes.
 - Initialization and native source admission are separate durable writes. Inject failure between them and prove a truthful empty-root/pending result followed by exact recovery.
 - Native receipt lookup/replay verifies same source origin and IDs; exact replay creates no extra child/event and never rewinds a later head.
 - Persistent Postgres integration: new World + committed source through the owning route/service; exact native head/revision/receipt/read-back; recreate repository/service/connection; retrieve exact source body/span through MIND access APIs; replay; same receipt and no duplicate child. Inspect only public repository/read APIs in production code; no direct SQL repair.
@@ -183,7 +190,7 @@ failure, not as a passing build.
 
 ## §9 Acceptance rubric
 
-- [ ] Ordinary Build import admits only the server-resolved exact committed snapshot; the browser supplies no Markdown, World/space identity, or descriptor authority.
+- [ ] Ordinary Build import admits only the server-resolved exact committed snapshot; the browser supplies only document ID, expected registry revision, and that snapshot's body digest as a fail-closed assertion—never Markdown, World/space identity, or descriptor authority.
 - [ ] Native status truthfully distinguishes admitted from saved-but-pending and supports exact-revision retry after partial failure or repository/process recreation.
 - [ ] Native receipt, immutable source, and whole-document span read back with matching identities and hashes; replay creates no duplicate child and never rewinds a later head.
 - [ ] Persistent PostgreSQL proof uses only the disposable target and public MIND read/repository APIs, recreates the repository/service, and passes with zero skips.

@@ -153,6 +153,7 @@ def _load_exact_snapshot(
     root,
     document_id: str,
     expected_revision: int | None,
+    expected_body_sha256: str | None = None,
 ) -> tuple[WorkspaceDocumentSnapshot, bytes, str, str]:
     try:
         snapshot = get_workspace_document_snapshot(root, document_id)
@@ -194,6 +195,11 @@ def _load_exact_snapshot(
     if not body_bytes or actual_digest != snapshot.content_sha256:
         raise NativeWorldSourceAdmissionError(
             "source_digest_mismatch", "The committed source snapshot failed its digest check"
+        )
+    if expected_body_sha256 is not None and actual_digest != expected_body_sha256:
+        raise NativeWorldSourceAdmissionError(
+            "source_body_changed",
+            "The committed source bytes changed; refresh or reselect it before admission",
         )
     try:
         get_world_container(root, record.world_id)
@@ -366,10 +372,10 @@ def get_native_world_source_status(
 
 
 def admit_native_world_source(
-    root, document_id: str, *, expected_revision: int
+    root, document_id: str, *, expected_revision: int, expected_body_sha256: str
 ) -> NativeWorldSourceAdmissionStatus:
     snapshot, body_bytes, body_sha256, admission_id = _load_exact_snapshot(
-        root, document_id, expected_revision
+        root, document_id, expected_revision, expected_body_sha256
     )
     record = snapshot.record
     world_id = record.world_id
@@ -478,7 +484,7 @@ def admit_native_world_source(
                     status_code=mapped.status_code,
                 ) from exc
             latest, _latest_bytes, latest_digest, _latest_admission_id = _load_exact_snapshot(
-                root, document_id, expected_revision
+                root, document_id, expected_revision, expected_body_sha256
             )
             if (
                 latest.loaded_revision != snapshot.loaded_revision

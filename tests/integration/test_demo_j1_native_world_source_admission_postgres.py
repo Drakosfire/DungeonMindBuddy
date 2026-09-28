@@ -80,8 +80,12 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
         ),
     ).committed_record
 
+    snapshot = get_workspace_document_snapshot(tmp_path, committed.document_id)
     first = native.admit_native_world_source(
-        tmp_path, committed.document_id, expected_revision=committed.revision
+        tmp_path,
+        committed.document_id,
+        expected_revision=snapshot.loaded_revision,
+        expected_body_sha256=snapshot.content_sha256,
     )
     first_repository = PostgresNativeSourceEvidenceRepository(
         PostgresDatabase(disposable_database_url)
@@ -95,7 +99,10 @@ def test_native_source_admission_persists_and_replays_after_repository_recreatio
 
     # Recreate service/repository objects as after a process restart.
     replay = native.admit_native_world_source(
-        tmp_path, committed.document_id, expected_revision=committed.revision
+        tmp_path,
+        committed.document_id,
+        expected_revision=snapshot.loaded_revision,
+        expected_body_sha256=snapshot.content_sha256,
     )
     fresh_repository = PostgresNativeSourceEvidenceRepository(
         PostgresDatabase(disposable_database_url)

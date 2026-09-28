@@ -41,6 +41,7 @@ class NativeWorldSourceAdmissionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     expected_revision: int = Field(ge=1)
+    expected_body_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
 def _record_response(record: WorkspaceDocumentRecord) -> dict[str, Any]:
@@ -258,7 +259,10 @@ def post_native_world_source_admission(
 ) -> dict[str, Any]:
     try:
         return admit_native_world_source(
-            repo_root(), document_id, expected_revision=body.expected_revision
+            repo_root(),
+            document_id,
+            expected_revision=body.expected_revision,
+            expected_body_sha256=body.expected_body_sha256,
         ).model_dump(mode="json")
     except NativeWorldSourceAdmissionError as exc:
         raise HTTPException(
