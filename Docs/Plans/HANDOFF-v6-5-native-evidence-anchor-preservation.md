@@ -5,12 +5,12 @@
 **Owner/repository:** DungeonMindBuddy; MIND receives the V6 exit evidence, DEMO coordinates Buddy leases
 **Design base:** Buddy `2ccc96ff2a7d76328578609d5289fd3babcf6442`
 **Activation base:** Buddy `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`
-**DungeonMind main:** `0ab1ae0133ca9038a1d82eb488ed805f09e49feb`
+**DungeonMind main:** `b83baf82c381b1929c2c7989326d667200ff544c`
 **WorldKeeper main:** `662a028fb1882719c4c3e192134a1a6b7a58026c`
-**Installed DungeonMind pin:** `0f709d76fdc53bac9c9258d1751463ae2c76ca71`
+**Installed DungeonMind pin:** `b83baf82c381b1929c2c7989326d667200ff544c`
 **Installed WorldKeeper pin:** `49a8620f066ce7ef8972a699020c012f50af9158`
 **PR topology:** parallel-independent; one assigned hermetic V6 preservation proof PR
-**Implementation base:** Buddy `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`
+**Implementation base:** Buddy `934245abadf4d10d55e74f63b77895de2674ec53`
 **Suggested branch/title:** `codex/v6-5-evidence-anchor-preservation` / `VNEXT: prove Buddy evidence and anchor preservation`
 
 This ACTIVE handoff authorizes exactly one hermetic proof lane under the two-path
@@ -130,12 +130,19 @@ custom-predicate profile; no profile transition is implied.
 ```text
 tests/test_v6_5_evidence_anchor_preservation.py                  # new
 Docs/Reports/REPORT-v6-preservation-acceptance.md                # new
+pyproject.toml                                                    # exact repair repin
+uv.lock                                                           # exact repair repin
+tests/test_v6_0_1_dungeonbuddy_evidence_metadata_contract.py      # pin seal only
 ```
 
-No production edits, new API, migration, fixture rewrite, package pin, lockfile,
-database, source-body reader or frontend change is expected. If needed to expose
-a defect, keep the failing witness within this test file and return it to the
-owning steward instead of expanding the proof into a repair PR.
+No Buddy production edit, new API, migration, fixture rewrite, database,
+source-body reader or frontend change is expected. PRIME Cycle 1 exposed a real
+Kernel anchor-identity defect. DungeonMind PR #81 repaired it at reviewed head
+`6a0a51f49a1f72bc336444908cff824c26516325`, PRIME PASS review `5331842204`,
+merge `b83baf82c381b1929c2c7989326d667200ff544c`. This bounded rebrief adds only
+`pyproject.toml`, `uv.lock`, and the existing V6.0.1 current-pin sealing constant
+so the preserved failing witness executes against that exact accepted repair.
+No other dependency or historical acceptance change is authorized.
 
 Predecessor state sync belongs to the stewards before dispatch:
 
@@ -168,6 +175,10 @@ A clean `uv sync --locked` at activation installed DungeonMind
 `0f709d76fdc53bac9c9258d1751463ae2c76ca71`, WorldKeeper
 `49a8620f066ce7ef8972a699020c012f50af9158`, and GenerationEngine
 `9122257f5a8842e4771990a3316130bc1bf7e332`.
+
+After PRIME Cycle 1 HOLD `5331744992`, the lane re-anchored to Buddy
+`934245abadf4d10d55e74f63b77895de2674ec53` and repinned only DungeonMind to
+accepted PR #81 merge `b83baf82c381b1929c2c7989326d667200ff544c`.
 
 Open PRs #763/#764/#765 are the stacked Rules sequence; #760/#761 are stacked UI
 design work. None leases the two §4 paths or shares runtime state with this

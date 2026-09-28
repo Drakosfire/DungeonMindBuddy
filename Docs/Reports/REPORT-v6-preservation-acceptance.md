@@ -1,9 +1,9 @@
 # V6 preservation acceptance report
 
-**Disposition:** `V6_5_HOLD_KERNEL_VISIBILITY_ANCHOR_IDENTITY`
+**Disposition:** `V6_5_IMPLEMENTED_AWAITING_PRIME_CYCLE_2`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Design ref:** `1c43888fc29c4d2e8e9354f103f1cdcb6b1b10d3`
-**Activation base:** `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`
+**Activation base:** `934245abadf4d10d55e74f63b77895de2674ec53`
 **Implementation branch:** `codex/v6-5-activate`
 **Reviewed head / PR / review:** pending
 **Inherited PLAY-2 acceptance:** PR #779, head
@@ -14,17 +14,18 @@
 
 This proof consumes the accepted V6.1 Buddy request/context mapper, V6.2
 complete-object adapter, and DungeonMind's native V4.2 `EvidenceReadService`.
-It adds no runtime API, repository, migration, package pin, fixture mutation,
+It adds no runtime API, repository, migration, fixture mutation,
 source-body reader, frontend behavior, WorldKeeper behavior, or production
 cutover. PLAY-2's PostgreSQL durability evidence is inherited rather than
 repeated by this hermetic in-memory proof.
 
-The executable implementation uses exactly:
+The executable proof uses exactly:
 
 - `tests/test_v6_5_evidence_anchor_preservation.py`
 - `Docs/Reports/REPORT-v6-preservation-acceptance.md`
 
-The cumulative PR also contains
+The cumulative PR also contains the exact DungeonMind repair repin in
+`pyproject.toml` and `uv.lock`, the affected V6.0.1 current-pin seal, plus
 `Docs/Plans/HANDOFF-v6-5-native-evidence-anchor-preservation.md`. The ACTIVE
 handoff travels in this PR under the user's standing ruling that a
 Steward need not pre-land it separately. It is authority metadata, not an
@@ -32,9 +33,11 @@ expansion of the executable lease.
 
 ## Exact identities
 
-- Buddy activation base: `d5f0ada66ddbebf2ec1dca55ea493ff21da476c3`
-- DungeonMind main checkpoint: `0ab1ae0133ca9038a1d82eb488ed805f09e49feb`
-- Installed DungeonMind pin: `0f709d76fdc53bac9c9258d1751463ae2c76ca71`
+- Buddy implementation base: `934245abadf4d10d55e74f63b77895de2674ec53`
+- DungeonMind main/PR #81 merge: `b83baf82c381b1929c2c7989326d667200ff544c`
+- DungeonMind reviewed head: `6a0a51f49a1f72bc336444908cff824c26516325`
+- DungeonMind PRIME PASS review: `5331842204`
+- Installed DungeonMind pin: `b83baf82c381b1929c2c7989326d667200ff544c`
 - Installed WorldKeeper pin: `49a8620f066ce7ef8972a699020c012f50af9158`
 - Installed GenerationEngine pin: `9122257f5a8842e4771990a3316130bc1bf7e332`
 - Preservation fixture canonical digest:
@@ -120,7 +123,7 @@ Focused proof:
 
 ```text
 uv run pytest -q tests/test_v6_5_evidence_anchor_preservation.py
-13 passed
+15 passed
 ```
 
 ```text
@@ -138,13 +141,15 @@ git diff --check
 PASS
 ```
 
-PRIME Cycle 1 reviewed exact head
+Buddy PRIME Cycle 1 reviewed exact head
 `fd5228e0be15b93fdc9e61c55e5a8bd35d748e65` and issued HOLD in review
 `5331744992`. The new visibility-drift witness intentionally fails on the
-installed DungeonMind pin because native `EntityReadSourceArtifact` and
-`source_anchors.visible_source_payload` omit source visibility from anchor
-identity. DungeonMind owns that production repair. All other required witnesses
-run with zero skips; updated final counts follow the repair and exact repin.
+then-installed DungeonMind pin because native anchor identity omitted source
+visibility. DungeonMind PR #81 repaired the owning boundary without changing the
+public source DTO, passed PRIME Cycle 2 review `5331842204`, and merged as
+`b83baf82c381b1929c2c7989326d667200ff544c`. The exact Buddy repin makes the
+preserved visibility-drift witness pass. All required witnesses run with zero
+skips; Buddy Cycle 2 remains the final acceptance gate.
 
 ## Limitations and proposed exit judgment
 
@@ -153,8 +158,7 @@ anchor revalidation. It deliberately does not open source bodies, render
 highlights, wire a browser, switch product routes, migrate legacy Worlds, or
 repeat PostgreSQL durability. Those remain later consumer/cutover obligations.
 
-Subject to the owner-correct Kernel repair, green required regressions and
-independent PRIME acceptance, this
+Subject to independent Buddy PRIME Cycle 2 acceptance, this
 report proposes `V6_DUNGEONBUDDY_PRESERVATION_ACCEPTED`. V7 remains
 undispatched until MIND records the accepted V6 exit and designs its first
 bounded bridge-genesis slice.
