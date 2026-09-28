@@ -3,7 +3,7 @@ import type {
   ReviseCandidateFromEditedDefinitionRequestV1,
   ReviseResultLabel,
   ThreatDraftCandidateRefV1,
-  ThreatDraftV1,
+  ThreatDraft,
 } from "../../api/types";
 import type {
   RulesetRef,
@@ -107,7 +107,7 @@ export function normalizeRevisionInstructionsFromTextarea(raw: string): Normaliz
 
 export function buildReviseRequestFromWorkingCopy(args: {
   requestId: string;
-  draft: ThreatDraftV1;
+  draft: ThreatDraft;
   editorState: StatblockEditorState;
   revisionInstructions: string[];
   preserveElementKeys: boolean;
@@ -374,7 +374,7 @@ export function lineageSummary(lineage: CandidateLineageV1 | null | undefined): 
 }
 
 export function proveReconciledRefOnDraft(
-  draft: ThreatDraftV1,
+  draft: ThreatDraft,
   candidateId: string,
   requestId: string,
 ): ThreatDraftCandidateRefV1 | null {

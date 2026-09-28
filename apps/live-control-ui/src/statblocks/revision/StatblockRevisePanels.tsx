@@ -1,4 +1,4 @@
-import type { ThreatDraftCandidateRefV1, ThreatDraftV1 } from "../../api/types";
+import type { ThreatDraftCandidateRefV1, ThreatDraft } from "../../api/types";
 import { lineageSummary } from "./statblockRevisionAttempt";
 
 export function ProposalHistoryPanel({
@@ -8,7 +8,7 @@ export function ProposalHistoryPanel({
   onRefresh,
   refreshPending,
 }: {
-  draft: ThreatDraftV1;
+  draft: ThreatDraft;
   activeCandidateId: string | null;
   onSelectCandidate: (candidateId: string) => void;
   onRefresh: () => void;

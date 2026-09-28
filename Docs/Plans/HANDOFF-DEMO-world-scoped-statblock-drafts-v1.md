@@ -310,6 +310,32 @@ and this implementation; it is not reported green or repaired outside the lease.
 Registry/revision route admission, frontend union/async/attempt recovery,
 exact-head live generation and independent implementation review remain false.
 
+Implementation checkpoint 2 (not merge-ready): the CRUD route now admits managed
+World ownership from the existing registry and verifies exact revision ownership
+through the existing read port before create/update. Explicit freestanding
+snapshots do not read the graph. Unknown/mixed scopes, foreign/missing revisions,
+unavailable authority, V2 update/restart and legacy/scoped lists have owning-route
+regressions. The complete backend cohort passes **140 tests** (11 inherited
+warnings). Frontend draft/request unions and both revision/history consumers
+preserve V1/V2 explicitly; World-only mechanics never mount campaign publication.
+The new pure scope/generation-attempt helper plus revision tests pass **29 tests**.
+The helper is preparation, not mounted recovery evidence: scoped cache admission,
+selected-context submission, async navigation guards and same-attempt browser
+recovery remain to be wired and proved. No paid calls have run.
+
+The larger Workbench/revision cohort currently reports **114 passed / 20 failed**.
+Do not report that cohort green: create/publication fixtures still mock the old
+bootstrap endpoint while the current component reads native projection. A fresh
+comparison at `671cc18deafd4a39dd822931eebaa90f014e6d27` (the tested production
+files are unchanged from dispatch base) reports **113 passed / the same 20 failed**.
+These are inherited fixture failures, not accepted proof; the mounted-scope work
+must update the stale owning fixtures and prove the new behavior. Typecheck
+reports only `ThreatPublicationPanel.tsx:553` (`TS2503`, JSX namespace); the file's
+SHA-256 is identical on dispatch base and head
+(`c7b2257adbffd1b3bd7e7de04cb33b3d779df4a9e4a8e50830c2f3e3d05c0fd8`).
+Scoped Ruff and diff check pass. Real exact-head generation/recovery and independent
+PRIME implementation review remain outstanding; no merge or full DEMO acceptance.
+
 - [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.
 - [ ] V1 preserved and V2 scope survives every durable lifecycle update.

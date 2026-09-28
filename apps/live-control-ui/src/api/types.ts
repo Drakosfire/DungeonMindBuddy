@@ -3924,6 +3924,22 @@ export interface ThreatDraftV1 {
   updated_at: string;
 }
 
+/** Explicit managed-World branch; legacy campaign records are never upgraded. */
+export interface ThreatDraftV2 extends Omit<ThreatDraftV1, "schema" | "campaign_id"> {
+  schema: "dmb_threat_draft_v2";
+  scope_mode: "world";
+  campaign_id: null;
+}
+
+export type ThreatDraft = ThreatDraftV1 | ThreatDraftV2;
+
+export interface CreateWorldThreatDraftRequest extends Omit<CreateThreatDraftRequestV1, "campaign_id"> {
+  scope_mode: "world";
+  campaign_id: null;
+}
+
+export type CreateThreatDraftRequest = CreateThreatDraftRequestV1 | CreateWorldThreatDraftRequest;
+
 export type ReviseOperationStatus =
   | "claimed"
   | "dispatched_unknown"

@@ -23,7 +23,7 @@ import type {
   ReadAcceptanceOperationResponseV1,
   ReadStatblockCandidateResponseV1,
   ReviseCandidateFromEditedDefinitionResponseV1,
-  ThreatDraftV1,
+  ThreatDraft,
   ValidateDefinitionBuddyResponseV1,
 } from "../../api/types";
 import type {
@@ -2003,7 +2003,7 @@ export function StatblockWorkbenchModule() {
   const [pendingValidation, setPendingValidation] = useState<PendingValidation | null>(null);
   const [validationFailure, setValidationFailure] = useState<ValidationFailure | null>(null);
   const [editorEpoch, setEditorEpoch] = useState(0);
-  const [threatDraft, setThreatDraft] = useState<ThreatDraftV1 | null>(null);
+  const [threatDraft, setThreatDraft] = useState<ThreatDraft | null>(null);
   const [draftSnapshotPending, setDraftSnapshotPending] = useState(false);
   const [draftSnapshotError, setDraftSnapshotError] = useState<string | null>(null);
   const [draftSnapshotUnavailable, setDraftSnapshotUnavailable] = useState(false);
@@ -2033,7 +2033,7 @@ export function StatblockWorkbenchModule() {
   const reviseInFlightRef = useRef(false);
   const ownedDraftSnapshotIdRef = useRef<string>("");
   /** Mirrors threatDraft for load/clear paths that must not close over stale React state. */
-  const threatDraftRef = useRef<ThreatDraftV1 | null>(null);
+  const threatDraftRef = useRef<ThreatDraft | null>(null);
   /** Synchronous duplicate-submit guard for create-and-generate. */
   const createAndGenerateInFlightRef = useRef(false);
   const editorStateRef = useRef<StatblockEditorState | null>(null);
@@ -2406,7 +2406,7 @@ export function StatblockWorkbenchModule() {
   useEffect(() => {
     const draftId = threatDraft?.draft_id ?? null;
     const mechanicsSaved = threatDraft?.workflow_state === "mechanics_saved";
-    if (!draftId || !mechanicsSaved) {
+    if (!draftId || !mechanicsSaved || threatDraft?.schema !== "dmb_threat_draft_v1") {
       setPublicationHeadResolution({ draftId: null, head: null, error: null, loading: false });
       return;
     }
@@ -3513,7 +3513,12 @@ export function StatblockWorkbenchModule() {
             />
           ) : null}
 
-          {mechanicsSavedDraft && threatDraft ? (
+          {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v2" ? (
+            <p role="status" data-testid="world-publication-unavailable">
+              World-only drafts can save mechanics. Campaign graph publication is unavailable for this scope.
+            </p>
+          ) : null}
+          {mechanicsSavedDraft && threatDraft?.schema === "dmb_threat_draft_v1" ? (
             <section
               className="statblock-section"
               aria-label="Publish to World Graph"

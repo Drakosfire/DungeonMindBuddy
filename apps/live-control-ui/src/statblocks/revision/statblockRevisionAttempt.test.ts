@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { ThreatDraftV1 } from "../../api/types";
+import type { ThreatDraftV1, ThreatDraftV2 } from "../../api/types";
 import type {
   GeneratedStatblockCandidateV1,
   StatblockDefinitionV1_Input,
@@ -70,6 +70,24 @@ afterEach(() => {
 });
 
 describe("statblockRevisionAttempt", () => {
+  it("uses the same revision contract for an explicit World draft without rewriting scope", () => {
+    const legacy = minimalDraft();
+    const world: ThreatDraftV2 = {
+      ...legacy, schema: "dmb_threat_draft_v2", scope_mode: "world",
+      world_id: "of-conks", campaign_id: null,
+    };
+    const original = structuredClone(world);
+    const args = {
+      requestId: "world-revise", editorState: createEditorStateFromOutput(candidate.definition),
+      revisionInstructions: ["Add a reaction"], preserveElementKeys: true,
+    };
+    expect(buildReviseRequestFromWorkingCopy({ ...args, draft: world })).toEqual(
+      buildReviseRequestFromWorkingCopy({ ...args, draft: legacy }),
+    );
+    expect(world).toEqual(original);
+    expect(proveReconciledRefOnDraft(world, "missing", "world-revise")).toBeNull();
+  });
+
   it("normalizes instructions: trim, drop empty, preserve internal whitespace", () => {
     const result = normalizeRevisionInstructionsFromTextarea("  Increase AC \n\n  Add  reaction  ");
     expect(result.ok).toBe(true);
