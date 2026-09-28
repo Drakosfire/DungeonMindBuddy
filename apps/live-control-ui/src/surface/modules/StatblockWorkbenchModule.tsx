@@ -2315,8 +2315,9 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
           const pending = readGenerationAttempt(scope);
           if (pending?.candidate_id === null && pending.draft_id === verifiedDraft.draft_id
             && verifiedDraft.candidate_refs.some((ref) => ref.candidate_id === trimmed && ref.request_id === pending.client_request_id)) {
-            settleGenerationAttempt(scope, pending, verifiedDraft, trimmed);
-            setGenerationAttempt({ ...pending, candidate_id: trimmed });
+            if (settleGenerationAttempt(scope, pending, verifiedDraft, trimmed)) {
+              setGenerationAttempt({ ...pending, candidate_id: trimmed });
+            }
           }
           const storedRevision = readStoredReviseAttempt(identity.draft_id);
           setReviseAttempt(storedRevision);
@@ -2814,8 +2815,9 @@ function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraf
         }
         const candidateId = response.candidate.candidate_id;
         const completedDraft = await getThreatDraft(draftId);
-        // A dispatched completion remains recoverable in its original scope even after unmount.
-        settleGenerationAttempt(scope, attempt, completedDraft, candidateId);
+        // A dispatched completion can reconcile its original attempt after
+        // unmount, but cannot replace a newer same-scope recovery target.
+        if (!settleGenerationAttempt(scope, attempt, completedDraft, candidateId)) return;
         if (!isCurrentCandidateOp(opId)) return;
         setGenerationAttempt({ ...attempt, candidate_id: candidateId });
         setCandidateIdInput(candidateId);

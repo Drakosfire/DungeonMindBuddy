@@ -201,6 +201,58 @@ describe("World-scoped mounted Workbench", () => {
     await user.click(screen.getByTestId("create-and-generate-submit"));
   }
 
+  it("preserves the newer same-World generation when an old completion arrives before reload", async () => {
+    // PRIME Cycle 1 witness: the superseded instance must not replace B's
+    // recovery pointer after remount has already reconciled and settled A.
+    const h = harness();
+    const lateSnapshot = deferred<ThreatDraft>();
+    let oldSnapshot!: ThreatDraft;
+    h.generate.mockImplementationOnce(async (id, request) => {
+      const result = h.complete(id, request);
+      oldSnapshot = structuredClone(h.drafts.get(id)!);
+      h.getDraft.mockImplementationOnce(() => lateSnapshot.promise);
+      return result;
+    });
+    const user = userEvent.setup();
+    const first = render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(h.getDraft).toHaveBeenCalledTimes(2));
+    first.unmount();
+
+    const second = render(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+    expect(readGenerationAttempt(a)?.candidate_id).toBe("cand_fixture1");
+    await user.click(screen.getByTestId("start-another-threat"));
+    h.create.mockImplementationOnce(async () => {
+      const next = draft(a, "draft-next");
+      h.drafts.set(next.draft_id, next);
+      return structuredClone(next);
+    });
+    h.generate.mockImplementationOnce(async (id, request) => {
+      const nextCandidate = { ...candidate, candidate_id: "cand_next" };
+      const nextDraft = { ...h.drafts.get(id)!, version: 2, workflow_state: "candidate_ready" as const,
+        candidate_refs: [{ candidate_id: "cand_next", generated_from_draft_version: request.expected_draft_version,
+          request_id: request.client_request_id!, created_at: "now", status: "active" as const }] };
+      h.drafts.set(id, nextDraft);
+      h.candidates.set("cand_next", { ...activeResponse, candidate_id: "cand_next", candidate: nextCandidate,
+        source_draft_id: id, source_draft_version: request.expected_draft_version });
+      return { schema: "dmb_generate_threat_draft_candidate_response_v1", draft_id: id,
+        request_id: request.client_request_id!, generated_from_draft_version: request.expected_draft_version,
+        outcome: "success", candidate: nextCandidate, cache_status: "stored", persistence_failures: [] };
+    });
+    await create(user);
+    await waitFor(() => expect(readGenerationAttempt(a)?.candidate_id).toBe("cand_next"));
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toContain("cand_next");
+
+    await act(async () => lateSnapshot.resolve(oldSnapshot));
+    expect.soft(readGenerationAttempt(a)?.candidate_id).toBe("cand_next");
+    second.unmount();
+    render(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+    expect.soft(h.getCandidate).toHaveBeenLastCalledWith("cand_next");
+    expect(h.generate).toHaveBeenCalledTimes(2);
+  });
+
   it("creates an explicit World request, persists before generation, verifies lineage and restores dirty work A→B→A", async () => {
     const h = harness();
     const user = userEvent.setup();

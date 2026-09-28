@@ -88,11 +88,19 @@ export function settleGenerationAttempt(
   attempt: StoredGenerationAttempt,
   draft: ThreatDraft,
   candidateId: string,
-): void {
+): boolean {
   assertDraftScope(draft, scope);
   if (draft.draft_id !== attempt.draft_id || !draft.candidate_refs.some((ref) => (
     ref.candidate_id === candidateId && ref.request_id === attempt.client_request_id
     && ref.generated_from_draft_version === attempt.expected_draft_version
   ))) throw new Error("Completed candidate does not prove the original generation attempt.");
+  const current = readGenerationAttempt(scope);
+  // Completion can outlive its mounted instance. It may reconcile its exact
+  // stored attempt, but cannot recreate or replace a newer recovery pointer,
+  // including when that newer attempt has already settled.
+  if (!current || current.draft_id !== attempt.draft_id
+    || current.client_request_id !== attempt.client_request_id
+    || current.expected_draft_version !== attempt.expected_draft_version) return false;
   persistGenerationAttempt(scope, { ...attempt, candidate_id: candidateId });
+  return true;
 }

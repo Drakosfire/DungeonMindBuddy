@@ -60,10 +60,47 @@ describe("World draft scope and generation replay identity", () => {
       candidate_refs: [{ candidate_id: "cand-a", request_id: attempt.client_request_id, generated_from_draft_version: 1 }],
     } as ThreatDraftV2;
     expect(() => settleGenerationAttempt(a, attempt, { ...draft, candidate_refs: [] }, "cand-a")).toThrow(/original/);
-    settleGenerationAttempt(a, attempt, draft, "cand-a");
+    expect(settleGenerationAttempt(a, attempt, draft, "cand-a")).toBe(true);
+    expect(settleGenerationAttempt(a, attempt, draft, "cand-a")).toBe(true);
     expect(readGenerationAttempt(a)?.candidate_id).toBe("cand-a");
     persistGenerationAttempt(a, { ...attempt, expected_draft_version: 4, client_request_id: "deliberate-next" });
     expect(readGenerationAttempt(a)?.client_request_id).toBe("deliberate-next");
+  });
+
+  it.each([
+    { draft_id: "next-draft" },
+    { client_request_id: "next-request" },
+    { expected_draft_version: 4 },
+  ])("does not let old completion replace a newer unresolved or settled attempt: %j", (identity) => {
+    const oldDraft = {
+      schema: "dmb_threat_draft_v2", scope_mode: "world", world_id: a.worldId,
+      campaign_id: null, draft_id: attempt.draft_id, version: 4,
+      candidate_refs: [{ candidate_id: "cand-a", request_id: attempt.client_request_id, generated_from_draft_version: 1 }],
+    } as ThreatDraftV2;
+    persistGenerationAttempt(a, attempt);
+    expect(settleGenerationAttempt(a, attempt, oldDraft, "cand-a")).toBe(true);
+    const next = { ...attempt, ...identity };
+    persistGenerationAttempt(a, next);
+    expect(settleGenerationAttempt(a, attempt, oldDraft, "cand-a")).toBe(false);
+    expect(readGenerationAttempt(a)).toEqual(next);
+    const nextDraft = {
+      ...oldDraft, draft_id: next.draft_id,
+      candidate_refs: [{ candidate_id: "cand-next", request_id: next.client_request_id,
+        generated_from_draft_version: next.expected_draft_version }],
+    };
+    expect(settleGenerationAttempt(a, next, nextDraft, "cand-next")).toBe(true);
+    expect(settleGenerationAttempt(a, attempt, oldDraft, "cand-a")).toBe(false);
+    expect(readGenerationAttempt(a)).toEqual({ ...next, candidate_id: "cand-next" });
+  });
+
+  it("does not recreate a missing recovery pointer from an old completed response", () => {
+    const draft = {
+      schema: "dmb_threat_draft_v2", scope_mode: "world", world_id: a.worldId,
+      campaign_id: null, draft_id: attempt.draft_id,
+      candidate_refs: [{ candidate_id: "cand-a", request_id: attempt.client_request_id, generated_from_draft_version: 1 }],
+    } as ThreatDraftV2;
+    expect(settleGenerationAttempt(a, attempt, draft, "cand-a")).toBe(false);
+    expect(readGenerationAttempt(a)).toBeNull();
   });
 
   it("fails closed if browser persistence is unavailable or does not retain the write", () => {
