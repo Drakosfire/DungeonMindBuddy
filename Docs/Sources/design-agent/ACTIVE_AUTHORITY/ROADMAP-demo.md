@@ -175,6 +175,18 @@ MIND #82 is accepted at `107483f1c4593df8e5599b033fdf2b72a46f3f51`
 ([Cycle 2 PASS](https://github.com/Drakosfire/DungeonMind/pull/82#pullrequestreview-5333657469)):
 empty-native-KnowledgeSpace design/control-plane settlement only, not runtime
 implementation, source admission, consumer activation or J3 acceptance.
+MIND #83 now implements the public empty native initializer and is **MERGED**
+at `031b6650d0a506cf40f0189fc5cfac055ac37308`, accepted head
+`decf694fc7304c30e82eae77a30247066c0f954a`
+([Cycle 2 PASS](https://github.com/Drakosfire/DungeonMind/pull/83#pullrequestreview-5333897671)).
+PRIME independently reports 104 required unit cases plus ten boundary probes,
+36 PostgreSQL cases with zero skips, Ruff/Pyright/diff checks and exact-head
+core/integration/benchmark CI passing. This accepts public empty native
+KnowledgeSpace initialization only: explicit descriptors and identity, one
+atomic root/head/event/receipt, exact replay and no synthetic source/evidence.
+Buddy's pinned runtime has **not** adopted this merge. Authentic source/evidence
+admission, ordinary WorldKeeper/Agent native routing, World-owned Plan and the
+connected J3 product witness remain separate, unaccepted gates.
 Keep #785's scope, lease, review/live gates and serial topology intact.
 No J3/image work, #785 merge or full DEMO acceptance is claimed.
 
@@ -653,6 +665,10 @@ fixture seeding or a parallel authority as an implementation shortcut.
 ### First-customer native return gate — MIND
 
 - **State:** BLOCKED / external contract return; no active Buddy J3 lease.
+- **Accepted partial return:** MIND #83 supplies empty native initialization at
+  `031b6650d0a506cf40f0189fc5cfac055ac37308` (Cycle 2 PASS). This settles the
+  library genesis prerequisite, not authentic source admission, consumer
+  routing or ordinary product proof. No Buddy dependency repin/lease is active.
 - **Owner:** existing MIND task `01a0a299-d6ee-7772-83c0-a3a79550479d`;
   PRIME is sending the bounded prerequisite request. Do not create a duplicate
   owner task or silently take over kernel/source policy.
