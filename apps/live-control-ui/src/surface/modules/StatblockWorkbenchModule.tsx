@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import {
@@ -18,7 +18,7 @@ import type {
   AcceptanceResultLabel,
   AcceptThreatDraftMechanicsRequestV1,
   AcceptThreatDraftMechanicsResponseV1,
-  CreateThreatDraftRequestV1,
+  CreateThreatDraftRequest,
   GenerateThreatDraftCandidateResponseV1,
   ReadAcceptanceOperationResponseV1,
   ReadStatblockCandidateResponseV1,
@@ -75,6 +75,14 @@ import {
   writeStoredReviseAttempt,
   type StoredReviseAttemptV1,
 } from "../../statblocks/revision/statblockRevisionAttempt";
+import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
+import { useOptionalAgentInteraction } from "../../agentInteraction/AgentInteractionProvider";
+import { getWorldIdForCampaign } from "../../worldGraph/worldGraphSurfaceContext";
+import {
+  assertCandidateDraft, assertDraftScope, persistGenerationAttempt, readGenerationAttempt,
+  scopedWorkbenchJoinKey, settleGenerationAttempt, statblockScopeKey,
+  type StatblockDraftScope, type StoredGenerationAttempt,
+} from "./statblockDraftScope";
 
 type LoadState =
   | { kind: "idle" }
@@ -172,12 +180,9 @@ type CreatedDraftIdentity = {
 };
 
 /**
- * Live Control scope defaults for dogfood create. Graph revision is NOT invented
- * here — it is resolved from native World Graph projection head (or an exact Advanced override).
+ * Generation defaults are not scope authority. World/campaign come from admitted context.
  */
 const LIVE_CONTROL_CREATE_CONTEXT = {
-  world_id: "eldyrwild",
-  campaign_id: "longmont-c2",
   threat_kind: "creature",
   created_by: "gm",
   ruleset: {
@@ -228,9 +233,7 @@ const DEFAULT_CREATE_FORM: CreateFormFields = {
   allowFreestandingWithoutBootstrap: false,
 };
 
-type ResolvedCreateScope = {
-  world_id: string;
-  campaign_id: string;
+type ResolvedCreateScope = StatblockDraftScope & {
   /** Null when freestanding — generation does not write to or require the World Graph. */
   graph_revision_id: string | null;
 };
@@ -274,7 +277,7 @@ function shortThreatDisplayName(name: string): string {
 function buildCreateThreatDraftRequest(
   fields: CreateFormFields,
   scope: ResolvedCreateScope,
-): { ok: true; request: CreateThreatDraftRequestV1 } | { ok: false; message: string } {
+): { ok: true; request: CreateThreatDraftRequest } | { ok: false; message: string } {
   const description = fields.description.trim();
   if (!description) return { ok: false, message: "Provide a threat description." };
 
@@ -315,8 +318,10 @@ function buildCreateThreatDraftRequest(
   return {
     ok: true,
     request: {
-      world_id: scope.world_id,
-      campaign_id: scope.campaign_id,
+      world_id: scope.worldId,
+      ...(scope.mode === "world"
+        ? { scope_mode: "world" as const, campaign_id: null }
+        : { campaign_id: scope.campaignId }),
       focus,
       name,
       slug_hint: slugHint,
@@ -354,92 +359,82 @@ const FREESTANDING_OPT_IN_HINT =
   "Enter an exact graph revision (rev:…) under Optional & advanced, or check " +
   '"Continue freestanding without a graph head" to create without provenance.';
 
-function freestandingScope(worldId: string, campaignId: string): ResolvedCreateScope {
-  return {
-    world_id: worldId,
-    campaign_id: campaignId,
-    graph_revision_id: null,
-  };
-}
-
 function requireFreestandingOptIn(
   fields: CreateFormFields,
-  worldId: string,
-  campaignId: string,
+  scope: StatblockDraftScope,
   reason: string,
 ): { ok: true; scope: ResolvedCreateScope } | { ok: false; message: string } {
   if (fields.allowFreestandingWithoutBootstrap) {
-    return { ok: true, scope: freestandingScope(worldId, campaignId) };
+    return { ok: true, scope: { ...scope, graph_revision_id: null } };
   }
   return { ok: false, message: `${reason} ${FREESTANDING_OPT_IN_HINT}` };
 }
 
 
-async function resolveNativeWorldGraphHead(): Promise<{
-  worldId: string;
-  campaignId: string;
+class ProjectionScopeMismatch extends Error {}
+
+async function resolveNativeWorldGraphHead(scope: StatblockDraftScope): Promise<{
   head: string | null;
 }> {
-  const worldId = LIVE_CONTROL_CREATE_CONTEXT.world_id;
-  const campaignId = LIVE_CONTROL_CREATE_CONTEXT.campaign_id;
   const projection = await postWorldGraphProjection({
     schema: "dmb_world_graph_projection_request_v1",
-    worldId,
-    campaignId,
+    worldId: scope.worldId,
+    campaignId: scope.campaignId ?? "",
     focus: { kind: "none", sessionId: null },
     admissibility: "gm",
-    scopeMode: "campaign",
+    scopeMode: scope.mode,
   });
+  if (projection.snapshot.worldId !== scope.worldId
+      || projection.snapshot.campaignId !== (scope.campaignId ?? "")
+      || projection.snapshot.scopeMode !== scope.mode) {
+    throw new ProjectionScopeMismatch("Projection identity does not match the selected scope.");
+  }
   const head =
     projection.snapshot.headRevisionId?.trim()
     || projection.snapshot.revisionId?.trim()
     || null;
   return {
-    worldId: projection.snapshot.worldId || worldId,
-    campaignId: projection.snapshot.campaignId || campaignId,
     head,
   };
 }
 
 async function resolveCreateScope(
   fields: CreateFormFields,
+  scope: StatblockDraftScope,
 ): Promise<{ ok: true; scope: ResolvedCreateScope } | { ok: false; message: string }> {
   const override = fields.graphRevisionId.trim();
   if (override) {
     return {
       ok: true,
       scope: {
-        world_id: LIVE_CONTROL_CREATE_CONTEXT.world_id,
-        campaign_id: LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
+        ...scope,
         graph_revision_id: override,
       },
     };
   }
 
   try {
-    const { worldId, campaignId, head } = await resolveNativeWorldGraphHead();
+    const { head } = await resolveNativeWorldGraphHead(scope);
     if (head) {
       return {
         ok: true,
         scope: {
-          world_id: worldId,
-          campaign_id: campaignId,
+          ...scope,
           graph_revision_id: head,
         },
       };
     }
     return requireFreestandingOptIn(
       fields,
-      worldId,
-      campaignId,
+      scope,
       "Native World Graph projection returned no head revision — graph authority is incomplete.",
     );
   } catch (error) {
+    if (error instanceof ProjectionScopeMismatch) return { ok: false, message: error.message };
     const detail = error instanceof Error ? error.message : String(error);
     return requireFreestandingOptIn(
       fields,
-      LIVE_CONTROL_CREATE_CONTEXT.world_id,
-      LIVE_CONTROL_CREATE_CONTEXT.campaign_id,
+      scope,
       `Unable to retrieve native World Graph head — graph authority is unknown (${detail}).`,
     );
   }
@@ -753,9 +748,10 @@ function readStoredWorkingCopy(value: unknown): StatblockDefinitionV1_Input | nu
   return value as StatblockDefinitionV1_Input;
 }
 
-function readStoredWorkbenchJoin(): StoredWorkbenchJoin | null {
+function readWorkbenchJoin(storageKey: string, allowLegacyHint = false): StoredWorkbenchJoin | null {
   try {
-    const raw = sessionStorage.getItem(WORKBENCH_JOIN_STORAGE_KEY);
+    const raw = localStorage.getItem(storageKey)
+      ?? (allowLegacyHint ? sessionStorage.getItem(WORKBENCH_JOIN_STORAGE_KEY) : null);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as StoredWorkbenchJoin;
     if (!parsed || typeof parsed !== "object") return null;
@@ -778,39 +774,12 @@ function readStoredWorkbenchJoin(): StoredWorkbenchJoin | null {
   }
 }
 
-function writeStoredWorkbenchJoin(join: StoredWorkbenchJoin): void {
+function writeWorkbenchJoin(storageKey: string, join: StoredWorkbenchJoin): void {
   try {
-    sessionStorage.setItem(WORKBENCH_JOIN_STORAGE_KEY, JSON.stringify(join));
+    localStorage.setItem(storageKey, JSON.stringify(join));
   } catch {
     /* private mode / quota — in-memory state still covers the session */
   }
-}
-
-/**
- * Candidate-bound create/restore identity and refreshed ThreatDraft take precedence.
- * Advanced draft fields are fallback input only when no candidate-bound identity exists.
- */
-function resolveAcceptDraftIdentity(
-  createdDraft: CreatedDraftIdentity | null,
-  draftIdInput: string,
-  draftVersionInput: string,
-): { draft_id: string; version: number } | null {
-  if (createdDraft?.draft_id && createdDraft.version >= 1) {
-    return { draft_id: createdDraft.draft_id, version: createdDraft.version };
-  }
-  const draftId = draftIdInput.trim();
-  const version = Number(draftVersionInput);
-  if (draftId && Number.isInteger(version) && version >= 1) {
-    return { draft_id: draftId, version };
-  }
-  const stored = readStoredWorkbenchJoin();
-  if (stored?.draft_id) {
-    const storedVersion = stored.version ?? 1;
-    if (Number.isInteger(storedVersion) && storedVersion >= 1) {
-      return { draft_id: stored.draft_id, version: storedVersion };
-    }
-  }
-  return null;
 }
 
 /** Keep workflow failures readable in the fixed dock without dumping transport essays. */
@@ -825,8 +794,8 @@ function formatWorkbenchDockError(message: string, kind: "accept" | "validate"):
   return `${prefix}: ${raw.slice(0, 157).trimEnd()}…`;
 }
 
-function patchStoredWorkbenchJoin(patch: Partial<StoredWorkbenchJoin>): void {
-  const prev = readStoredWorkbenchJoin() ?? {};
+function patchWorkbenchJoin(storageKey: string, patch: Partial<StoredWorkbenchJoin>): void {
+  const prev = readWorkbenchJoin(storageKey) ?? {};
   const pick = (
     next: string | number | null | undefined,
     current: string | number | null | undefined,
@@ -847,7 +816,7 @@ function patchStoredWorkbenchJoin(patch: Partial<StoredWorkbenchJoin>): void {
     if (next === undefined) return current ?? null;
     return next;
   };
-  writeStoredWorkbenchJoin({
+  writeWorkbenchJoin(storageKey, {
     draft_id: pick(patch.draft_id, prev.draft_id) as string | null,
     version: pick(patch.version, prev.version) as number | null,
     name: pick(patch.name, prev.name) as string | null,
@@ -889,9 +858,9 @@ function editorStateWithRestoredWorkingCopy(
   return updateWorkingCopy(base, () => stored.working_copy as StatblockDefinitionV1_Input);
 }
 
-function clearStoredWorkbenchJoin(): void {
+function clearWorkbenchJoin(storageKey: string): void {
   try {
-    sessionStorage.removeItem(WORKBENCH_JOIN_STORAGE_KEY);
+    localStorage.removeItem(storageKey);
   } catch {
     /* ignore */
   }
@@ -911,13 +880,13 @@ function createdDraftFromStoredJoin(
 }
 
 /** Synchronous session restore so Accept never mounts before draft identity exists. */
-function readInitialWorkbenchJoinState(): {
+function readInitialWorkbenchJoinState(stored: StoredWorkbenchJoin | null): {
   createdDraft: CreatedDraftIdentity | null;
   draftIdInput: string;
   draftVersionInput: string;
   createPhase: "idle" | "draft_created";
 } {
-  const createdDraft = createdDraftFromStoredJoin(readStoredWorkbenchJoin());
+  const createdDraft = createdDraftFromStoredJoin(stored);
   if (!createdDraft) {
     return {
       createdDraft: null,
@@ -927,10 +896,10 @@ function readInitialWorkbenchJoinState(): {
     };
   }
   return {
-    createdDraft,
+    createdDraft: null, // Convenience join is a hint; only the server can admit it.
     draftIdInput: createdDraft.draft_id,
     draftVersionInput: String(createdDraft.version),
-    createPhase: "draft_created",
+    createPhase: "idle",
   };
 }
 
@@ -1980,7 +1949,50 @@ function AcceptMechanicsFlow({
 
 
 export function StatblockWorkbenchModule() {
-  const [initialJoin] = useState(readInitialWorkbenchJoinState);
+  const selected = useSelectedWorld();
+  const interaction = useOptionalAgentInteraction();
+  const publication = interaction?.surfaceInteractionPublication;
+  const campaignId = publication?.agentContext?.campaignId ?? null;
+  const legacyWorldId = campaignId && /^longmont-c[12]$/.test(campaignId)
+    ? getWorldIdForCampaign(campaignId) : null;
+  const scope: StatblockDraftScope | null = selected.kind === "managed"
+    ? { mode: "world", worldId: selected.worldId, campaignId: null }
+    : selected.kind === "legacy" && campaignId && legacyWorldId
+      ? { mode: "campaign", worldId: legacyWorldId, campaignId } : null;
+  if (!scope) {
+    return <p role="status" data-testid="statblock-scope-unavailable">
+      {selected.kind === "error" ? selected.message : "Select a verified World or campaign before opening the Statblock Workbench."}
+    </p>;
+  }
+  const activation = JSON.stringify([
+    statblockScopeKey(scope), selected.kind === "managed" ? selected.documentId : publication?.agentContext?.documentId,
+    publication?.identity.instanceKey ?? null,
+  ]);
+  return <ScopedStatblockWorkbench key={activation} scope={scope} />;
+}
+
+function ScopedStatblockWorkbench({ scope: launchScope }: { scope: StatblockDraftScope }) {
+  // This component's key is the exact launch activation, including Plan identity.
+  // Assets/cache remain scope-owned; changing Plan never rebinds an asset.
+  const [scope] = useState(launchScope);
+  const joinKey = scopedWorkbenchJoinKey(scope);
+  const readStoredWorkbenchJoin = useCallback(
+    () => readWorkbenchJoin(joinKey, scope.mode === "campaign"), [joinKey, scope.mode],
+  );
+  const writeStoredWorkbenchJoin = useCallback(
+    (join: StoredWorkbenchJoin) => writeWorkbenchJoin(joinKey, join), [joinKey],
+  );
+  const patchStoredWorkbenchJoin = useCallback(
+    (patch: Partial<StoredWorkbenchJoin>) => patchWorkbenchJoin(joinKey, patch), [joinKey],
+  );
+  const clearStoredWorkbenchJoin = () => clearWorkbenchJoin(joinKey);
+  const [initialJoin] = useState(() => readInitialWorkbenchJoinState(readStoredWorkbenchJoin()));
+  const [initialGeneration] = useState(() => {
+    try { return { attempt: readGenerationAttempt(scope), error: null }; }
+    catch (error) { return { attempt: null, error: error instanceof Error ? error.message : String(error) }; }
+  });
+  const [generationAttempt, setGenerationAttempt] = useState<StoredGenerationAttempt | null>(initialGeneration.attempt);
+  const [generationRecoveryError, setGenerationRecoveryError] = useState<string | null>(initialGeneration.error);
   const [candidateIdInput, setCandidateIdInput] = useState(readCandidateIdFromLocation);
   const [draftIdInput, setDraftIdInput] = useState(initialJoin.draftIdInput);
   const [draftVersionInput, setDraftVersionInput] = useState(initialJoin.draftVersionInput);
@@ -2027,6 +2039,8 @@ export function StatblockWorkbenchModule() {
   const editorEpochRef = useRef(0);
   /** Shared monotonic identity for manual load, retry, and draft generation. */
   const candidateOpIdRef = useRef(0);
+  const mountedRef = useRef(true);
+  const generationInFlightRef = useRef(false);
   /** Monotonic guard for revise POST outcomes vs newer candidate/draft selection. */
   const reviseOpGenerationRef = useRef(0);
   const draftSnapshotGenerationRef = useRef(0);
@@ -2044,6 +2058,17 @@ export function StatblockWorkbenchModule() {
   editorEpochRef.current = editorEpoch;
   createdDraftRef.current = createdDraft;
   threatDraftRef.current = threatDraft;
+
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      candidateOpIdRef.current += 1;
+      draftSnapshotGenerationRef.current += 1;
+      reviseOpGenerationRef.current += 1;
+      validateRequestIdRef.current += 1;
+    };
+  }, []);
 
   /**
    * Quarantine ThreatDraft/revise authority so late draft/revise responses and
@@ -2112,6 +2137,9 @@ export function StatblockWorkbenchModule() {
       ) {
         return;
       }
+      if (draft.draft_id !== trimmed) throw new Error("ThreatDraft response identity does not match the requested draft.");
+      assertDraftScope(draft, scope);
+      threatDraftRef.current = draft;
       setThreatDraft(draft);
       setDraftSnapshotUnavailable(false);
       patchStoredWorkbenchJoin({
@@ -2139,11 +2167,11 @@ export function StatblockWorkbenchModule() {
         setDraftSnapshotPending(false);
       }
     }
-  }, []);
+  }, [patchStoredWorkbenchJoin, scope]);
 
   const persistActiveCandidateWorkingCopy = useCallback(() => {
     const candidateId = activeCandidateIdRef.current;
-    const draftId = createdDraftRef.current?.draft_id ?? draftIdInput.trim();
+    const draftId = threatDraftRef.current?.draft_id;
     const editor = editorStateRef.current;
     if (!candidateId || !draftId || !editor) return;
     writeCandidateWorkingCopy(draftId, candidateId, editor.workingCopy);
@@ -2162,7 +2190,7 @@ export function StatblockWorkbenchModule() {
   }, []);
 
   const isCurrentCandidateOp = useCallback((opId: number): boolean => {
-    return opId === candidateOpIdRef.current;
+    return mountedRef.current && opId === candidateOpIdRef.current;
   }, []);
 
   /** Claim the next candidate operation; orphans every prior load/generate outcome. */
@@ -2180,7 +2208,7 @@ export function StatblockWorkbenchModule() {
 
   const isCurrentValidateOwnership = useCallback(
     (requestId: number, epoch: number, requestedRevision: number): boolean => {
-      if (requestId !== validateRequestIdRef.current) return false;
+      if (!mountedRef.current || requestId !== validateRequestIdRef.current) return false;
       if (epoch !== editorEpochRef.current) return false;
       const latest = editorStateRef.current;
       return latest != null && latest.stateRevision === requestedRevision;
@@ -2201,7 +2229,7 @@ export function StatblockWorkbenchModule() {
       }
       const candidateId = activeCandidateIdRef.current;
       if (candidateId) {
-        const draftId = createdDraftRef.current?.draft_id ?? draftIdInput.trim();
+        const draftId = threatDraftRef.current?.draft_id;
         if (draftId) {
           writeCandidateWorkingCopy(draftId, candidateId, next.workingCopy);
         }
@@ -2251,42 +2279,28 @@ export function StatblockWorkbenchModule() {
         if (!isCurrentCandidateOp(opId)) return false;
 
         if (response.status === "active" && response.candidate) {
-          const loadedCandidateId = response.candidate.candidate_id || trimmed;
-          const stored = readStoredWorkbenchJoin();
-          let draftIdentityEarly: CreatedDraftIdentity | null = null;
-          const fromResponseEarly =
-            typeof response.source_draft_id === "string" &&
-            response.source_draft_id.trim() &&
-            typeof response.source_draft_version === "number" &&
-            Number.isInteger(response.source_draft_version) &&
-            response.source_draft_version >= 1
-              ? {
-                  draft_id: response.source_draft_id.trim(),
-                  version: response.source_draft_version,
-                  name:
-                    typeof response.source_draft_name === "string" &&
-                    response.source_draft_name.trim()
-                      ? response.source_draft_name.trim()
-                      : response.source_draft_id.trim(),
-                }
-              : null;
-          if (fromResponseEarly) {
-            draftIdentityEarly = fromResponseEarly;
-          } else if (stored?.candidate_id === loadedCandidateId) {
-            draftIdentityEarly = createdDraftFromStoredJoin(stored);
-          } else if (
-            createdDraftRef.current &&
-            stored?.draft_id === createdDraftRef.current.draft_id &&
-            (stored?.candidate_id == null || stored.candidate_id === loadedCandidateId)
-          ) {
-            draftIdentityEarly = createdDraftRef.current;
+          if (!response.source_draft_id?.trim()) {
+            throw new Error("Candidate has no source ThreatDraft; ownership cannot be proved.");
           }
+          const verifiedDraft = await getThreatDraft(response.source_draft_id);
+          if (!isCurrentCandidateOp(opId)) return false;
+          assertDraftScope(verifiedDraft, scope);
+          assertCandidateDraft(response, verifiedDraft, trimmed);
+          const loadedCandidateId = trimmed;
+          const identity = createdDraftFromResponse(verifiedDraft);
+          if (!identity) throw new Error("Verified draft identity is incomplete.");
+          applyCreatedDraftIdentity(identity);
+          threatDraftRef.current = verifiedDraft;
+          setThreatDraft(verifiedDraft);
+          setDraftSnapshotUnavailable(false);
+          const stored = readStoredWorkbenchJoin();
+          const admittedStored = stored?.draft_id === identity.draft_id ? stored : null;
           let nextEditor = createEditorStateFromOutput(response.candidate.definition);
           nextEditor = restoreWorkingCopyForCandidate(
             nextEditor,
-            draftIdentityEarly?.draft_id ?? null,
+            identity.draft_id,
             loadedCandidateId,
-            stored,
+            admittedStored,
           );
           editorStateRef.current = nextEditor;
           activeCandidateIdRef.current = loadedCandidateId;
@@ -2295,70 +2309,18 @@ export function StatblockWorkbenchModule() {
           setViewMode("edit");
           setCandidateIdInput(loadedCandidateId);
 
-          const fromResponse =
-            typeof response.source_draft_id === "string" &&
-            response.source_draft_id.trim() &&
-            typeof response.source_draft_version === "number" &&
-            Number.isInteger(response.source_draft_version) &&
-            response.source_draft_version >= 1
-              ? {
-                  draft_id: response.source_draft_id.trim(),
-                  version: response.source_draft_version,
-                  name:
-                    typeof response.source_draft_name === "string" &&
-                    response.source_draft_name.trim()
-                      ? response.source_draft_name.trim()
-                      : response.source_draft_id.trim(),
-                }
-              : null;
-          // Candidate-scoped identity: response wins; stored join only when bound to
-          // this candidate; same-session create may still have candidate_id=null.
-          let draftIdentity: CreatedDraftIdentity | null = null;
-          if (fromResponse) {
-            draftIdentity = fromResponse;
-          } else if (stored?.candidate_id === loadedCandidateId) {
-            draftIdentity = createdDraftFromStoredJoin(stored);
-          } else if (
-            createdDraftRef.current &&
-            stored?.draft_id === createdDraftRef.current.draft_id &&
-            (stored?.candidate_id == null || stored.candidate_id === loadedCandidateId)
-          ) {
-            draftIdentity = createdDraftRef.current;
+          writeStoredWorkbenchJoin({
+            ...identity, candidate_id: loadedCandidateId, working_copy: nextEditor.workingCopy,
+          });
+          const pending = readGenerationAttempt(scope);
+          if (pending?.candidate_id === null && pending.draft_id === verifiedDraft.draft_id
+            && verifiedDraft.candidate_refs.some((ref) => ref.candidate_id === trimmed && ref.request_id === pending.client_request_id)) {
+            settleGenerationAttempt(scope, pending, verifiedDraft, trimmed);
+            setGenerationAttempt({ ...pending, candidate_id: trimmed });
           }
-          const preservedWorkingCopy =
-            stored?.candidate_id === loadedCandidateId ? stored.working_copy ?? null : null;
-          if (draftIdentity) {
-            if (
-              !createdDraftRef.current ||
-              createdDraftRef.current.draft_id !== draftIdentity.draft_id
-            ) {
-              applyCreatedDraftIdentity(draftIdentity);
-            }
-            writeStoredWorkbenchJoin({
-              draft_id: draftIdentity.draft_id,
-              version: draftIdentity.version,
-              name: draftIdentity.name,
-              candidate_id: loadedCandidateId,
-              working_copy: preservedWorkingCopy,
-            });
-            if (fromResponse && isCurrentCandidateOp(opId)) {
-              void refreshThreatDraftSnapshot(draftIdentity.draft_id);
-            }
-          } else {
-            // Unknown-draft candidate: quarantine any prior ThreatDraft/revise authority.
-            clearThreatDraftAuthority();
-            createdDraftRef.current = null;
-            setCreatedDraft(null);
-            setDraftIdInput("");
-            setDraftVersionInput("1");
-            writeStoredWorkbenchJoin({
-              draft_id: null,
-              version: null,
-              name: null,
-              candidate_id: loadedCandidateId,
-              working_copy: preservedWorkingCopy,
-            });
-          }
+          const storedRevision = readStoredReviseAttempt(identity.draft_id);
+          setReviseAttempt(storedRevision);
+          setReviseInstructionsRaw(storedRevision?.raw_instructions ?? "");
           return true;
         }
         setLoadState({
@@ -2387,18 +2349,45 @@ export function StatblockWorkbenchModule() {
   useEffect(() => {
     const fromUrl = readCandidateIdFromLocation();
     const stored = readStoredWorkbenchJoin();
-    const restored = createdDraftFromStoredJoin(stored);
-    if (restored) {
-      applyCreatedDraftIdentity(restored);
-    }
     if (fromUrl) {
       setCandidateIdInput(fromUrl);
       void loadCandidate(fromUrl);
       return;
     }
-    if (stored?.candidate_id) {
-      setCandidateIdInput(stored.candidate_id);
-      void loadCandidate(stored.candidate_id);
+    const restoreCandidate = initialGeneration.attempt?.candidate_id ?? stored?.candidate_id;
+    if (restoreCandidate) {
+      setCandidateIdInput(restoreCandidate);
+      void loadCandidate(restoreCandidate);
+      return;
+    }
+    // A hint is not authority. Load/admit the durable draft before exposing its actions.
+    const draftId = initialGeneration.attempt?.draft_id ?? stored?.draft_id;
+    if (draftId) {
+      void (async () => {
+        const opId = beginCandidateOp();
+        try {
+          const draft = await getThreatDraft(draftId);
+          if (!isCurrentCandidateOp(opId)) return;
+          assertDraftScope(draft, scope);
+          if (draft.draft_id !== draftId) throw new Error("Restored draft identity mismatch.");
+          const identity = createdDraftFromResponse(draft);
+          if (!identity) throw new Error("Restored draft identity unavailable.");
+          applyCreatedDraftIdentity(identity);
+          const attempt = initialGeneration.attempt;
+          const completed = attempt?.candidate_id === null ? draft.candidate_refs.find((ref) => (
+            ref.request_id === attempt.client_request_id
+            && ref.generated_from_draft_version === attempt.expected_draft_version
+            && ref.status === "active"
+          )) : null;
+          if (completed) {
+            await loadCandidate(completed.candidate_id, { opId });
+            return;
+          }
+          await refreshThreatDraftSnapshot(draftId);
+        } catch (error) {
+          if (isCurrentCandidateOp(opId)) setGenerationRecoveryError(error instanceof Error ? error.message : String(error));
+        }
+      })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only session restore
   }, []);
@@ -2416,7 +2405,7 @@ export function StatblockWorkbenchModule() {
 
     void (async () => {
       try {
-        const native = await resolveNativeWorldGraphHead();
+        const native = await resolveNativeWorldGraphHead(scope);
         if (cancelled) return;
         // Exact Advanced override remains an explicit pin when native head is unavailable.
         const overrideHead = createForm.graphRevisionId.trim() || null;
@@ -2486,6 +2475,7 @@ export function StatblockWorkbenchModule() {
       try {
         const refreshed = await getThreatDraft(draftId);
         if (generation !== reviseOpGenerationRef.current) return false;
+        assertDraftScope(refreshed, scope);
         const proof = proveReconciledRefOnDraft(refreshed, candidateId, attempt.request_id);
         if (!proof) {
           setReviseError(
@@ -2596,6 +2586,13 @@ export function StatblockWorkbenchModule() {
     async (attempt: StoredReviseAttemptV1, mode: "create" | "resume") => {
       if (reviseInFlightRef.current || revisePending) return;
       if (draftSnapshotUnavailable) return;
+      const verified = threatDraftRef.current;
+      if (!verified || verified.draft_id !== attempt.draft_id
+          || !verified.candidate_refs.some((ref) => ref.candidate_id === attempt.source_candidate_id)) {
+        setReviseError("Stored revision source does not belong to the verified ThreatDraft.");
+        return;
+      }
+      assertDraftScope(verified, scope);
       // Prove exact replay authority is durable before any Buddy POST.
       if (!writeStoredReviseAttempt(attempt)) {
         setReviseError(
@@ -2771,21 +2768,51 @@ export function StatblockWorkbenchModule() {
     expectedVersion: number,
     options?: { opId?: number },
   ) => {
+    if (generationInFlightRef.current) return;
     const opId = options?.opId ?? beginCandidateOp();
+    if (!isCurrentCandidateOp(opId)) return;
+    generationInFlightRef.current = true;
     // Newer generation orphans prior load outcomes and prior generate UI.
     setPendingGenerate(true);
     setGenerateError(null);
     setGenerateMessage(null);
     setLoadState((prev) => (prev.kind === "loading" ? { kind: "idle" } : prev));
     try {
+      const verified = await getThreatDraft(draftId);
+      if (!isCurrentCandidateOp(opId)) return;
+      if (verified.draft_id !== draftId) throw new Error("Generation draft identity mismatch.");
+      assertDraftScope(verified, scope);
+      const previous = readGenerationAttempt(scope);
+      const attempt: StoredGenerationAttempt = previous?.candidate_id === null
+        ? previous
+        : {
+            schema: "dmb_sbw_generation_attempt_v1", draft_id: draftId,
+            expected_draft_version: expectedVersion, client_request_id: crypto.randomUUID(), candidate_id: null,
+          };
+      if (attempt.draft_id !== draftId) throw new Error("Unresolved generation belongs to another draft; resume it first.");
+      if (previous?.candidate_id !== null && verified.version !== expectedVersion) {
+        throw new Error("Draft version changed; refresh before starting a new generation attempt.");
+      }
+      // Reuse an unresolved attempt's original version, even after candidate attachment.
+      // Persistence is mandatory and checked before provider dispatch, including retry.
+      persistGenerationAttempt(scope, attempt);
+      setGenerationAttempt(attempt);
+      setGenerationRecoveryError(null);
       const response: GenerateThreatDraftCandidateResponseV1 = await generateThreatDraftCandidate(
         draftId,
-        { expected_draft_version: expectedVersion },
+        { expected_draft_version: attempt.expected_draft_version, client_request_id: attempt.client_request_id },
       );
-      if (!isCurrentCandidateOp(opId)) return;
-
       if (response.outcome === "success" && response.candidate?.candidate_id) {
+        if (response.draft_id !== draftId || response.request_id !== attempt.client_request_id
+            || response.generated_from_draft_version !== attempt.expected_draft_version) {
+          throw new Error("Generation response does not match the preserved request identity.");
+        }
         const candidateId = response.candidate.candidate_id;
+        const completedDraft = await getThreatDraft(draftId);
+        // A dispatched completion remains recoverable in its original scope even after unmount.
+        settleGenerationAttempt(scope, attempt, completedDraft, candidateId);
+        if (!isCurrentCandidateOp(opId)) return;
+        setGenerationAttempt({ ...attempt, candidate_id: candidateId });
         setCandidateIdInput(candidateId);
         setGenerateMessage("Loading candidate…");
         setCreateMessage(null);
@@ -2796,6 +2823,7 @@ export function StatblockWorkbenchModule() {
         }
         return;
       }
+      if (!isCurrentCandidateOp(opId)) return;
       setCreateMessage(null);
       setGenerateError(
         response.failure_message ??
@@ -2807,6 +2835,7 @@ export function StatblockWorkbenchModule() {
       setCreateMessage(null);
       setGenerateError(error instanceof Error ? error.message : String(error));
     } finally {
+      generationInFlightRef.current = false;
       if (isCurrentCandidateOp(opId)) {
         setPendingGenerate(false);
         setCreatePhase((prev) => (prev === "generating" ? "draft_created" : prev));
@@ -2838,6 +2867,15 @@ export function StatblockWorkbenchModule() {
     if (createAndGenerateInFlightRef.current || pendingGenerate || createPhase === "creating") {
       return;
     }
+    try {
+      if (readGenerationAttempt(scope)?.candidate_id === null) {
+        setGenerateError("Unresolved generation retained — resume the original request before creating another threat.");
+        return;
+      }
+    } catch (error) {
+      setGenerationRecoveryError(error instanceof Error ? error.message : String(error));
+      return;
+    }
 
     createAndGenerateInFlightRef.current = true;
     const opId = beginCandidateOp();
@@ -2850,7 +2888,7 @@ export function StatblockWorkbenchModule() {
     setLoadState((prev) => (prev.kind === "loading" ? { kind: "idle" } : prev));
 
     try {
-      const resolved = await resolveCreateScope(createForm);
+      const resolved = await resolveCreateScope(createForm, scope);
       if (!isCurrentCandidateOp(opId)) return;
       if (!resolved.ok) {
         setCreatePhase("create_failed");
@@ -2872,7 +2910,7 @@ export function StatblockWorkbenchModule() {
       let created: CreatedDraftIdentity | null = null;
       try {
         const response = await createThreatDraft(built.request);
-        if (!isCurrentCandidateOp(opId)) return;
+        assertDraftScope(response, scope);
         created = createdDraftFromResponse(response);
         if (!created) {
           setCreatePhase("create_failed");
@@ -2880,6 +2918,11 @@ export function StatblockWorkbenchModule() {
             "Create response lacked an exact draft_id/version; generation was not started.",
           );
           setCreateMessage(null);
+          return;
+        }
+        if (!isCurrentCandidateOp(opId)) {
+          // Preserve an origin-scoped hint without overwriting existing dirty work.
+          if (!readStoredWorkbenchJoin()?.draft_id) writeStoredWorkbenchJoin({ ...created, candidate_id: null, working_copy: null });
           return;
         }
         setCreatedDraft(created);
@@ -2919,6 +2962,7 @@ export function StatblockWorkbenchModule() {
   };
 
   const onStartAnotherThreat = () => {
+    persistActiveCandidateWorkingCopy();
     beginCandidateOp();
     createAndGenerateInFlightRef.current = false;
     clearStoredWorkbenchJoin();
@@ -3043,18 +3087,9 @@ export function StatblockWorkbenchModule() {
     pendingValidation.editorEpoch === editorEpoch &&
     pendingValidation.stateRevision === editorState.stateRevision;
 
-  const boundAcceptIdentity = resolveAcceptDraftIdentity(
-    createdDraft,
-    draftIdInput,
-    draftVersionInput,
-  );
-  // Refreshed ThreatDraft version wins only when it matches the candidate-bound draft identity.
-  const acceptDraftIdentity =
-    threatDraft != null &&
-    boundAcceptIdentity != null &&
-    threatDraft.draft_id === boundAcceptIdentity.draft_id
-      ? { draft_id: threatDraft.draft_id, version: threatDraft.version }
-      : boundAcceptIdentity;
+  // Advanced fields and convenience joins never authorize acceptance.
+  const acceptDraftIdentity = threatDraft && !draftSnapshotUnavailable
+    ? { draft_id: threatDraft.draft_id, version: threatDraft.version } : null;
   const acceptDraftVersion = acceptDraftIdentity?.version ?? null;
   const mechanicsSavedDraft = threatDraft?.workflow_state === "mechanics_saved";
   const reviseDraftId = threatDraft?.draft_id ?? acceptDraftIdentity?.draft_id ?? null;
@@ -3098,8 +3133,8 @@ export function StatblockWorkbenchModule() {
             <summary>Optional &amp; advanced</summary>
             <div className="statblock-create-optional">
               <p className="statblock-create-context" data-testid="create-threat-context-binding">
-                Defaults: {LIVE_CONTROL_CREATE_CONTEXT.world_id} ·{" "}
-                {LIVE_CONTROL_CREATE_CONTEXT.campaign_id} ·{" "}
+                Selected scope: {scope.worldId} ·{" "}
+                {scope.campaignId ?? "World-only"} ·{" "}
                 {LIVE_CONTROL_CREATE_CONTEXT.ruleset.system}{" "}
                 {LIVE_CONTROL_CREATE_CONTEXT.ruleset.edition} ·{" "}
                 {LIVE_CONTROL_CREATE_CONTEXT.threat_kind} · {LIVE_CONTROL_CREATE_CONTEXT.created_by} ·
@@ -3187,8 +3222,7 @@ export function StatblockWorkbenchModule() {
                     data-testid="create-threat-allow-freestanding"
                   />
                   <span className="statblock-create-field-label">
-                    Continue freestanding without a graph head (when bootstrap is unknown, not ready,
-                    or contradictory)
+                    Continue freestanding without a graph head (when unavailable; never when scope is contradictory)
                   </span>
                 </label>
               </div>
@@ -3239,6 +3273,7 @@ export function StatblockWorkbenchModule() {
               type="submit"
               disabled={
                 pendingGenerate ||
+                generationRecoveryError != null || generationAttempt?.candidate_id === null ||
                 createPhase === "creating" ||
                 createPhase === "generating"
               }
@@ -3265,6 +3300,16 @@ export function StatblockWorkbenchModule() {
             ) : null}
           </div>
         </form>
+        {generationRecoveryError ? <p role="alert" data-testid="generation-recovery-error">{generationRecoveryError}</p> : null}
+        {generationAttempt?.candidate_id === null ? (
+          <div data-testid="unresolved-generation">
+            <p role="status">Generation outcome unresolved. The original request and source version are retained.</p>
+            <button type="button" data-testid="resume-generation" disabled={pendingGenerate}
+              onClick={() => void runGenerateFromDraft(generationAttempt.draft_id, generationAttempt.expected_draft_version)}>
+              Resume same generation
+            </button>
+          </div>
+        ) : null}
         {createMessage ? (
           <p className="statblock-command-status" role="status" data-testid="create-threat-status">
             {createMessage}
@@ -3544,7 +3589,7 @@ export function StatblockWorkbenchModule() {
                   expectedParentRevisionId={publicationHeadResolution.head}
                   onDockModelChange={setPublicationDock}
                   resolveExpectedParentRevisionId={async () => {
-                    const native = await resolveNativeWorldGraphHead();
+                    const native = await resolveNativeWorldGraphHead(scope);
                     const head = native.head || createForm.graphRevisionId.trim() || null;
                     if (!head) {
                       throw new Error(

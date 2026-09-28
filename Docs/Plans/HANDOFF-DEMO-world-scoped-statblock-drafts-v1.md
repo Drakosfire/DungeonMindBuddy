@@ -336,6 +336,33 @@ SHA-256 is identical on dispatch base and head
 Scoped Ruff and diff check pass. Real exact-head generation/recovery and independent
 PRIME implementation review remain outstanding; no merge or full DEMO acceptance.
 
+Implementation checkpoint 3 (not merge-ready): Workbench now consumes admitted
+selected-World/legacy-campaign context; no scope is fabricated. Create/head/load
+callbacks are activation-guarded, restored candidates require server-owned draft
+scope and exact candidate-ref membership, and Advanced/cache hints cannot grant
+edit/revise/accept authority. Convenience joins and dirty copies are scoped;
+generation request identity and original source version are persisted before
+dispatch and retained through navigation, Clear, transport loss and reload.
+Successful background completion remains in its launch scope; already-attached
+candidate recovery uses reads rather than a second generation. World-only
+publication shows its limitation without mounting campaign publication.
+
+The explicitly filtered checkpoint cohort passes **51 tests**: **22 mounted
+Workbench interleavings/ownership cases** and the **29 scope/revision tests**.
+The remaining **111 legacy Workbench tests were excluded by this checkpoint
+filter**, not passed or waived; their fixtures must be migrated to admitted
+context and server-owned candidate lineage before the full §7 cohort is proof.
+Mounted cases include both legacy campaigns, delayed candidate/draft reads,
+Plan-document changes, A→B→A dirty restore, lost response after attachment,
+same-key recovery after version advancement, and pre-dispatch persistence failure.
+Structured failure retains the unresolved key: the current response does not
+reliably prove terminal journal status, so no terminal-failure abandonment policy
+or new provider contract is inferred. Scoped Ruff and diff checks pass;
+typecheck still has only the previously hashed inherited JSX error. A read-only
+request to the existing Of Conks runtime confirms its World projection identity
+fields match the client checks. This is not the required exact-head live witness.
+No paid calls, independent implementation review, merge or J4 acceptance yet.
+
 - [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.
 - [ ] V1 preserved and V2 scope survives every durable lifecycle update.

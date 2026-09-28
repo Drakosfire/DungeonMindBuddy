@@ -1,14 +1,21 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
+import * as selectedWorld from "../../selectedWorld/SelectedWorldContext";
+import * as interaction from "../../agentInteraction/AgentInteractionProvider";
 import type {
   AcceptThreatDraftMechanicsResponseV1,
   ReadStatblockCandidateResponseV1,
   GenerateThreatDraftCandidateResponseV1,
   ValidateDefinitionBuddyResponseV1,
+  ThreatDraft,
+  ThreatDraftV2,
+  WorldGraphProjection,
+  GenerateThreatDraftCandidateRequestV1,
 } from "../../api/types";
+import { persistGenerationAttempt, readGenerationAttempt, scopedWorkbenchJoinKey, type StatblockDraftScope } from "./statblockDraftScope";
 import type {
   GeneratedStatblockCandidateV1,
   ValidationReceiptV1,
@@ -62,8 +69,396 @@ function successValidate(
 afterEach(() => {
   vi.restoreAllMocks();
   sessionStorage.clear();
+  localStorage.clear();
   ACCEPT_RESTORE_LOOKUP.delayMs = 40;
   ACCEPT_RESTORE_LOOKUP.maxAttempts = 3;
+});
+
+describe("World-scoped mounted Workbench", () => {
+  const a: StatblockDraftScope = { mode: "world", worldId: "of-conks-a", campaignId: null };
+  const b: StatblockDraftScope = { mode: "world", worldId: "of-conks-b", campaignId: null };
+
+  function projection(scope: StatblockDraftScope = a): WorldGraphProjection {
+    return {
+      schema: "dmb_world_graph_projection_v1",
+      snapshot: {
+        worldId: scope.worldId, campaignId: scope.campaignId ?? "", scopeMode: scope.mode,
+        revisionId: "rev:owned", headRevisionId: "rev:owned", isHead: true,
+        focus: { kind: "none", sessionId: null }, admissibility: "gm",
+      },
+      summary: { nodeCount: 0, relationshipCount: 0, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false },
+      nodes: [], relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [],
+    };
+  }
+
+  function draft(scope: StatblockDraftScope = a, id = "draft-a"): ThreatDraftV2 {
+    return {
+      schema: "dmb_threat_draft_v2", scope_mode: "world", world_id: scope.worldId, campaign_id: null,
+      draft_id: id, version: 1, name: "Gate Watcher", description: "A small marsh lookout.", threat_kind: "creature",
+      intended_roles: [], tags: [], generation_intent: { ruleset: { system: "dnd5e", edition: "2024", house_ruleset_id: null }, target_cr: "1", complexity: null, must_include: [], must_avoid: [] },
+      encounter_context: { terrain_notes: [] },
+      graph_context_snapshot: { graph_revision_id: "rev:owned", selected_node_ids: [], admitted_source_anchor_ids: [] },
+      workflow_state: "drafting", candidate_refs: [], created_by: "gm", created_at: "now", updated_at: "now",
+    };
+  }
+
+  function deferred<T>() {
+    let resolve!: (value: T) => void;
+    let reject!: (reason: Error) => void;
+    const promise = new Promise<T>((res, rej) => { resolve = res; reject = rej; });
+    return { promise, resolve, reject };
+  }
+
+  function harness() {
+    const selection = vi.spyOn(selectedWorld, "useSelectedWorld").mockReturnValue({ kind: "managed", worldId: a.worldId, name: "World A", documentId: "plan-a" });
+    vi.spyOn(interaction, "useOptionalAgentInteraction").mockReturnValue(null);
+    const drafts = new Map<string, ThreatDraft>([["draft-a", draft()], ["draft-b", draft(b, "draft-b")]]);
+    const candidates = new Map<string, ReadStatblockCandidateResponseV1>();
+    const getDraft = vi.spyOn(liveApi, "getThreatDraft").mockImplementation(async (id) => {
+      const value = drafts.get(id);
+      if (!value) throw new Error("Unknown draft");
+      return structuredClone(value);
+    });
+    const getCandidate = vi.spyOn(liveApi, "getStatblockCandidate").mockImplementation(async (id) => {
+      const value = candidates.get(id);
+      if (!value) throw new Error("Unknown candidate");
+      return structuredClone(value);
+    });
+    const project = vi.spyOn(liveApi, "postWorldGraphProjection").mockImplementation(async (request) => projection(
+      request.scopeMode === "world" ? { mode: "world", worldId: request.worldId, campaignId: null }
+        : { mode: "campaign", worldId: request.worldId, campaignId: request.campaignId },
+    ));
+    const create = vi.spyOn(liveApi, "createThreatDraft").mockImplementation(async (request) => {
+      const scope = request.campaign_id === null ? { mode: "world" as const, worldId: request.world_id, campaignId: null }
+        : { mode: "campaign" as const, worldId: request.world_id, campaignId: request.campaign_id };
+      const { scope_mode: _mode, ...common } = draft(a);
+      const value: ThreatDraft = scope.mode === "world" ? draft(scope)
+        : { ...common, schema: "dmb_threat_draft_v1", world_id: scope.worldId, campaign_id: scope.campaignId };
+      drafts.set(value.draft_id, value);
+      return structuredClone(value);
+    });
+    function complete(id: string, request: GenerateThreatDraftCandidateRequestV1) {
+      const value = drafts.get(id)!;
+      const next = { ...value, version: value.version + 1, workflow_state: "candidate_ready" as const,
+        candidate_refs: [{ candidate_id: "cand_fixture1", generated_from_draft_version: request.expected_draft_version, request_id: request.client_request_id!, created_at: "now", status: "active" as const }],
+      };
+      drafts.set(id, next);
+      const response: ReadStatblockCandidateResponseV1 = {
+        ...activeResponse, source_draft_id: id, source_draft_version: request.expected_draft_version,
+      };
+      candidates.set("cand_fixture1", response);
+      return {
+        schema: "dmb_generate_threat_draft_candidate_response_v1" as const, draft_id: id,
+        request_id: request.client_request_id!, generated_from_draft_version: request.expected_draft_version,
+        outcome: "success" as const, candidate, cache_status: "stored" as const, persistence_failures: [],
+      };
+    }
+    const generate = vi.spyOn(liveApi, "generateThreatDraftCandidate").mockImplementation(async (id, request) => complete(id, request));
+    return { selection, drafts, candidates, getDraft, getCandidate, project, create, generate, complete };
+  }
+
+  async function create(user: ReturnType<typeof userEvent.setup>) {
+    await user.type(screen.getByTestId("create-threat-description"), "Gate Watcher\nA small marsh lookout.");
+    await user.click(screen.getByTestId("create-and-generate-submit"));
+  }
+
+  it("creates an explicit World request, persists before generation, verifies lineage and restores dirty work A→B→A", async () => {
+    const h = harness();
+    const user = userEvent.setup();
+    const view = render(<StatblockWorkbenchModule />);
+    h.generate.mockImplementation(async (id, request) => {
+      expect(readGenerationAttempt(a)).toMatchObject({ draft_id: id, client_request_id: request.client_request_id, expected_draft_version: 1 });
+      return h.complete(id, request);
+    });
+    await create(user);
+    await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+    expect(h.project.mock.calls[0][0]).toMatchObject({ worldId: a.worldId, campaignId: "", scopeMode: "world" });
+    expect(h.create.mock.calls[0][0]).toMatchObject({ world_id: a.worldId, campaign_id: null, scope_mode: "world" });
+    const name = screen.getByDisplayValue("Ironhide Brute");
+    await user.clear(name);
+    await user.type(name, "Unsaved local Watcher");
+    const storedA = localStorage.getItem(scopedWorkbenchJoinKey(a));
+    expect(storedA).toContain("Unsaved local Watcher");
+    h.selection.mockReturnValue({ kind: "managed", worldId: b.worldId, name: "World B", documentId: "plan-b" });
+    view.rerender(<StatblockWorkbenchModule />);
+    expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(b))).toBeNull();
+    h.selection.mockReturnValue({ kind: "managed", worldId: a.worldId, name: "World A", documentId: "plan-a" });
+    view.rerender(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(screen.getByDisplayValue("Unsaved local Watcher")).toBeTruthy());
+    expect(h.generate).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toContain("Unsaved local Watcher");
+  });
+
+  it("does not create after an A head response arrives in B", async () => {
+    const h = harness();
+    const pending = deferred<WorldGraphProjection>();
+    h.project.mockReturnValue(pending.promise);
+    const user = userEvent.setup();
+    const view = render(<StatblockWorkbenchModule />);
+    await create(user);
+    h.selection.mockReturnValue({ kind: "managed", worldId: b.worldId, name: "World B", documentId: "plan-b" });
+    view.rerender(<StatblockWorkbenchModule />);
+    await act(async () => pending.resolve(projection()));
+    expect(h.create).not.toHaveBeenCalled();
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(b))).toBeNull();
+  });
+
+  it("retains a late A create only in A, never auto-generates, and reopens it through a durable read", async () => {
+    const h = harness();
+    const pending = deferred<ThreatDraft>();
+    h.create.mockReturnValue(pending.promise);
+    const user = userEvent.setup();
+    const view = render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(h.create).toHaveBeenCalledTimes(1));
+    h.selection.mockReturnValue({ kind: "managed", worldId: b.worldId, name: "World B", documentId: "plan-b" });
+    view.rerender(<StatblockWorkbenchModule />);
+    await act(async () => pending.resolve(draft()));
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toContain("draft-a");
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(b))).toBeNull();
+    h.selection.mockReturnValue({ kind: "managed", worldId: a.worldId, name: "World A", documentId: "plan-a" });
+    view.rerender(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(screen.getByPlaceholderText("td_…")).toHaveProperty("value", "draft-a"));
+    expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a Plan-change create callback within the same World", async () => {
+    const h = harness();
+    const pending = deferred<ThreatDraft>();
+    h.create.mockReturnValue(pending.promise);
+    const user = userEvent.setup();
+    const view = render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(h.create).toHaveBeenCalled());
+    h.selection.mockReturnValue({ kind: "managed", worldId: a.worldId, name: "World A", documentId: "other-plan" });
+    view.rerender(<StatblockWorkbenchModule />);
+    await act(async () => pending.resolve(draft()));
+    expect(h.generate).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
+  });
+
+  it("keeps dispatched generation bound to A and restores its result after navigation without a second POST", async () => {
+    const h = harness();
+    const pending = deferred<GenerateThreatDraftCandidateResponseV1>();
+    h.generate.mockReturnValue(pending.promise);
+    const user = userEvent.setup();
+    const view = render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(h.generate).toHaveBeenCalled());
+    const [id, request] = h.generate.mock.calls[0];
+    h.selection.mockReturnValue({ kind: "managed", worldId: b.worldId, name: "World B", documentId: "plan-b" });
+    view.rerender(<StatblockWorkbenchModule />);
+    await act(async () => pending.resolve(h.complete(id, request)));
+    expect(readGenerationAttempt(a)?.candidate_id).toBe("cand_fixture1");
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(b))).toBeNull();
+    h.selection.mockReturnValue({ kind: "managed", worldId: a.worldId, name: "World A", documentId: "plan-a" });
+    view.rerender(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+    expect(h.generate).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains the exact attempt across Clear, remount and version advancement; retries with the same key", async () => {
+    const h = harness();
+    h.generate.mockRejectedValueOnce(new Error("connection lost"));
+    const user = userEvent.setup();
+    const view = render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(screen.getByTestId("resume-generation")).not.toBeDisabled());
+    const [id, request] = h.generate.mock.calls[0];
+    await user.click(screen.getByTestId("start-another-threat"));
+    expect(readGenerationAttempt(a)?.client_request_id).toBe(request.client_request_id);
+    expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
+    view.unmount();
+    h.drafts.set(id, { ...h.drafts.get(id)!, version: 4 });
+    render(<StatblockWorkbenchModule />);
+    await user.click(screen.getByTestId("resume-generation"));
+    await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+    expect(h.generate.mock.calls[1]).toEqual([id, request]);
+    expect(readGenerationAttempt(a)?.candidate_id).toBe("cand_fixture1");
+    expect(h.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not dispatch generation if request identity cannot be persisted", async () => {
+    const h = harness();
+    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => { throw new Error("quota exceeded"); });
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(screen.getAllByText(/quota exceeded/i).length).toBeGreaterThan(0));
+    expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it("retains an unresolved attempt after a structured failure instead of minting a new request", async () => {
+    const h = harness();
+    h.generate.mockImplementationOnce(async (id, request) => ({
+      schema: "dmb_generate_threat_draft_candidate_response_v1", draft_id: id,
+      request_id: request.client_request_id!, generated_from_draft_version: request.expected_draft_version,
+      outcome: "failure", failure_category: "downstream_unavailable", failure_message: "Outcome not yet known",
+      cache_status: "missing", persistence_failures: [],
+    }));
+    const user = userEvent.setup();
+    const view = render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(screen.getByTestId("resume-generation")).not.toBeDisabled());
+    const [id, request] = h.generate.mock.calls[0];
+    expect(readGenerationAttempt(a)).toMatchObject({ draft_id: id, client_request_id: request.client_request_id, candidate_id: null });
+    await user.click(screen.getByTestId("start-another-threat"));
+    expect(screen.getByTestId("create-and-generate-submit")).toBeDisabled();
+    view.unmount();
+    render(<StatblockWorkbenchModule />);
+    await user.click(screen.getByTestId("resume-generation"));
+    await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+    expect(h.generate.mock.calls[1]).toEqual([id, request]);
+    expect(h.create).toHaveBeenCalledTimes(1);
+  });
+
+  it("recovers an already-attached candidate after transport loss by reading the server, with no generation replay", async () => {
+    const h = harness();
+    h.generate.mockImplementationOnce(async (id, request) => {
+      h.complete(id, request);
+      throw new Error("response lost after candidate attachment");
+    });
+    const user = userEvent.setup();
+    const view = render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(screen.getByTestId("resume-generation")).not.toBeDisabled());
+    view.unmount();
+    render(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+    expect(h.generate).toHaveBeenCalledTimes(1);
+    expect(readGenerationAttempt(a)?.candidate_id).toBe("cand_fixture1");
+    expect(screen.queryByTestId("unresolved-generation")).toBeNull();
+  });
+
+  it("shows the World-only publication limitation without graph or publication admission", async () => {
+    const h = harness();
+    const request = { expected_draft_version: 1, client_request_id: "fixture-only" };
+    h.complete("draft-a", request);
+    h.drafts.set("draft-a", { ...h.drafts.get("draft-a")!, workflow_state: "mechanics_saved" });
+    const begin = vi.spyOn(liveApi, "beginThreatPublicationOperation");
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => expect(screen.getByTestId("world-publication-unavailable")).toBeTruthy());
+    expect(screen.queryByTestId("threat-publication-panel")).toBeNull();
+    expect(h.project).not.toHaveBeenCalled();
+    expect(begin).not.toHaveBeenCalled();
+  });
+
+  it("rejects contradictory projection even with freestanding opt-in", async () => {
+    const h = harness();
+    h.project.mockResolvedValue(projection(b));
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.click(screen.getByTestId("create-threat-allow-freestanding"));
+    await create(user);
+    await waitFor(() => expect(screen.getByTestId("create-threat-error").textContent).toMatch(/does not match/));
+    expect(h.create).not.toHaveBeenCalled();
+    expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it.each(["loading", "error"] as const)("blocks %s selected context without C2 fallback", (kind) => {
+    const h = harness();
+    h.selection.mockReturnValue(kind === "loading" ? { kind, requestedWorldId: "unknown" } : { kind, message: "Unknown World" });
+    render(<StatblockWorkbenchModule />);
+    expect(screen.getByTestId("statblock-scope-unavailable")).toBeTruthy();
+    expect(screen.queryByTestId("create-and-generate-submit")).toBeNull();
+    expect(h.project).not.toHaveBeenCalled();
+  });
+
+  it("rejects foreign exact draft/candidate IDs before generation, editing or cache installation", async () => {
+    const h = harness();
+    h.candidates.set("cand_fixture1", { ...activeResponse, source_draft_id: "draft-b", source_draft_version: 1 });
+    h.drafts.set("draft-b", { ...draft(b, "draft-b"), candidate_refs: [{ candidate_id: "cand_fixture1", generated_from_draft_version: 1, request_id: "b", created_at: "now", status: "active" }] });
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("td_…"), "draft-b");
+    await user.click(screen.getByRole("button", { name: "Generate candidate" }));
+    await waitFor(() => expect(screen.getByText(/does not belong to the selected scope/)).toBeTruthy());
+    expect(h.generate).not.toHaveBeenCalled();
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => expect(screen.getAllByText(/does not belong to the selected scope/).length).toBeGreaterThan(0));
+    expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toBeNull();
+  });
+
+  it("does not restore a foreign scoped hint or an old global World join", async () => {
+    const h = harness();
+    sessionStorage.setItem("dmb.sbw.workbenchJoin", JSON.stringify({ draft_id: "draft-b", candidate_id: "cand_fixture1" }));
+    const view = render(<StatblockWorkbenchModule />);
+    expect(h.getDraft).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
+    view.unmount();
+    localStorage.setItem(scopedWorkbenchJoinKey(a), JSON.stringify({ draft_id: "draft-b" }));
+    render(<StatblockWorkbenchModule />);
+    await waitFor(() => expect(screen.getByTestId("generation-recovery-error").textContent).toMatch(/selected scope/));
+    expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it.each(["candidate", "draft"] as const)("ignores a delayed %s ownership read after selecting B", async (boundary) => {
+    const h = harness();
+    h.complete("draft-a", { expected_draft_version: 1, client_request_id: "fixture-only" });
+    const candidateRead = deferred<ReadStatblockCandidateResponseV1>();
+    const draftRead = deferred<ThreatDraft>();
+    if (boundary === "candidate") h.getCandidate.mockReturnValue(candidateRead.promise);
+    else h.getDraft.mockReturnValue(draftRead.promise);
+    const user = userEvent.setup();
+    const view = render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => expect(boundary === "candidate" ? h.getCandidate : h.getDraft).toHaveBeenCalled());
+    h.selection.mockReturnValue({ kind: "managed", worldId: b.worldId, name: "World B", documentId: "plan-b" });
+    view.rerender(<StatblockWorkbenchModule />);
+    await act(async () => {
+      if (boundary === "candidate") candidateRead.resolve(h.candidates.get("cand_fixture1")!);
+      else draftRead.resolve(h.drafts.get("draft-a")!);
+    });
+    expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(b))).toBeNull();
+    expect(h.generate).not.toHaveBeenCalled();
+  });
+
+  it.each(["missing_ref", "wrong_id", "wrong_version"] as const)("rejects same-World candidate with %s at the mounted boundary", async (mismatch) => {
+    const h = harness();
+    h.complete("draft-a", { expected_draft_version: 1, client_request_id: "fixture-only" });
+    if (mismatch === "missing_ref") h.drafts.set("draft-a", { ...h.drafts.get("draft-a")!, candidate_refs: [] });
+    else if (mismatch === "wrong_version") h.candidates.set("cand_fixture1", { ...h.candidates.get("cand_fixture1")!, source_draft_version: 99 });
+    else h.candidates.set("cand_fixture1", { ...h.candidates.get("cand_fixture1")!, candidate_id: "foreign-id" });
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await user.type(screen.getByPlaceholderText("cand_…"), "cand_fixture1");
+    await user.click(screen.getByRole("button", { name: "Load candidate" }));
+    await waitFor(() => expect(screen.getByText(/membership.*could not be proved/i)).toBeTruthy());
+    expect(screen.queryByTestId("statblock-definition-editor")).toBeNull();
+    expect(localStorage.getItem(scopedWorkbenchJoinKey(a))).toBeNull();
+  });
+
+  it.each(["longmont-c1", "longmont-c2"])("preserves admitted legacy %s creation with no fake scope/version upgrade", async (campaignId) => {
+    const h = harness();
+    h.selection.mockReturnValue({ kind: "legacy" });
+    vi.spyOn(interaction, "useOptionalAgentInteraction").mockReturnValue({
+      surfaceInteractionPublication: {
+        surfaceId: "plan", label: "Plan", identity: { surfaceId: "plan", instanceKey: campaignId },
+        canvas: null, tools: [], editCommands: [], projections: [], projectionBindings: [],
+        agentContext: { campaignId, documentId: "legacy-plan", sessionNumber: null, label: "Plan", ambientSummary: null, pointers: [] },
+      },
+    } as NonNullable<ReturnType<typeof interaction.useOptionalAgentInteraction>>);
+    const user = userEvent.setup();
+    render(<StatblockWorkbenchModule />);
+    await create(user);
+    await waitFor(() => expect(screen.getByTestId("statblock-definition-editor")).toBeTruthy());
+    const body = h.create.mock.calls[0][0];
+    expect(body).toMatchObject({ world_id: "eldyrwild", campaign_id: campaignId });
+    expect(body).not.toHaveProperty("scope_mode");
+    expect(h.drafts.get("draft-a")?.schema).toBe("dmb_threat_draft_v1");
+    expect(h.generate).toHaveBeenCalledTimes(1);
+    expect(localStorage.getItem(scopedWorkbenchJoinKey({ mode: "campaign", worldId: "eldyrwild", campaignId }))).toContain("draft-a");
+  });
 });
 
 async function loadId(id: string) {
