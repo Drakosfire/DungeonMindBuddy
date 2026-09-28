@@ -92,10 +92,11 @@ Expected implementation files; no code edits before this checked-in ACTIVE hando
 - `apps/live_control_server/config.py` — only if the existing authority URL/repository factory cannot be reused; no new DB URL by default.
 - `apps/live-control-ui/src/api/types.ts`, `apps/live-control-ui/src/api/liveApi.ts` — typed request/results; browser sends no body text, space ID, or descriptor authority.
 - `apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.ts` and its paired test — wire status, post-commit admission and exact retry; keep the saved document ID on partial failure.
-- `apps/live-control-ui/src/buildSurface/BuildSurfaceShell.tsx` and its paired test — make pending/admitted status and retry visible for a selected source after reload.
+- `apps/live-control-ui/src/buildSurface/useBuildNativeWorldSourceEvidence.ts` and paired test — load native source-admission status by selected document ID and expose exact retry state; no source body/authority is sent from the browser.
+- `apps/live-control-ui/src/buildSurface/BuildIngestToolbar.tsx` and paired test — show pending/admitted status and retry for the selected imported source after reload, alongside the existing extraction controls.
 - `tests/test_demo_j1_native_world_source_admission.py` — focused service/route and failure/replay tests.
 - `tests/integration/test_demo_j1_native_world_source_admission_postgres.py` — disposable-Postgres persistent receipt/head/revision/body/span/reopen witness; zero skips for the required invocation.
-- `apps/live-control-ui/src/api/liveApi.test.ts`, `apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.test.ts`, and `apps/live-control-ui/src/buildSurface/BuildSurfaceShell.test.tsx` — route serialization and owning UI boundary.
+- `apps/live-control-ui/src/api/liveApi.test.ts`, `apps/live-control-ui/src/buildSurface/useBuildWorkspaceDocumentController.test.ts`, and `apps/live-control-ui/src/buildSurface/useBuildNativeWorldSourceEvidence.test.ts`, and `apps/live-control-ui/src/buildSurface/BuildIngestToolbar.test.tsx` — route serialization and owning UI boundary.
 - State-authority predecessor sync, in this same implementation PR: `Docs/Roadmaps/ROADMAP-demo.md`, byte-identical `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md`, `Docs/Plans/HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md` (#785 completed state), and `Docs/Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md` (remove satisfied #785 blocker only; retain its independent PRIME contract gate and BLOCKED status).
 - This handoff may receive activation/evidence pointers only; do not mark this in-flight slice complete or invent its future PR/head/review count.
 
