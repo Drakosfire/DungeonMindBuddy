@@ -156,7 +156,17 @@ failures; direct shared-consumer witnesses remain declared review holds.
 GitHub's `redteam-hardening` run `36376677914` is **SUCCESS**, superseding the
 PR body's earlier local incomplete-run wording, not the other review holds.
 No live provider/Firestore call or rehearsal runtime update was made by this
-repair. PRIME has the exact handback; no review acceptance or merge is inferred.
+repair. PRIME's formal **Cycle 1 HOLD** on that exact head is
+[review 5333928957](https://github.com/Drakosfire/DungeonMindServer/pull/34#pullrequestreview-5333928957):
+no blocking implementation defect, but the handoff's shared-consumer compatibility
+proof is mandatory. Independent evidence passed five actual-adapter tests,
+290 isolated statblock tests (two unchanged nested-install harness checks
+explicitly deselected), and 19 shared policy/boundary/packaging/map-image cases.
+SERVER is repairing the same PR with provider-free actual card, player-character
+and map generation/result-interpretation witnesses using the exact installed GE;
+PRIME authorized one extra test path plus the existing handoff/report only.
+No runtime/dependency/original-failure change or live gate release is authorized.
+The repair operation is live; no review acceptance or merge is inferred.
 After acceptance/merge, SERVER must coordinate the exact-ref `7861` runtime
 update with the same isolated collections before DEMO submits the genuinely new
 Ferry Keeper intent through ordinary UI. This does not waive #785's live proof.
