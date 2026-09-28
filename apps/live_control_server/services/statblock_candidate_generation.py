@@ -23,8 +23,8 @@ from apps.live_control_server.models.statblock_candidate_workflow import (
     ReadStatblockCandidateResponseV1,
 )
 from apps.live_control_server.models.threat_draft import (
+    ThreatDraft,
     ThreatDraftCandidateRefV1,
-    ThreatDraftV1,
 )
 from apps.live_control_server.services.statblock_candidate_cache import (
     CandidateCacheError,
@@ -40,7 +40,6 @@ from apps.live_control_server.services.statblock_generation_reconciliation impor
     _read_entry_unlocked,
     _reconciliation_lock,
     claim_generation_request,
-    finalize_generation_request,
     load_received_candidate,
     read_reconciliation,
     record_generation_received,
@@ -72,7 +71,7 @@ def _admit_and_claim_new_generation(
     expected_draft_version: int,
     request_id: str,
 ) -> tuple[
-    ThreatDraftV1,
+    ThreatDraft,
     dict[str, Any],
     str,
     ClaimOutcome,
@@ -183,7 +182,7 @@ def _iso_z(value: datetime) -> str:
 
 
 def map_draft_to_generate_request(
-    draft: ThreatDraftV1,
+    draft: ThreatDraft,
     *,
     request_id: str,
 ) -> dict[str, Any]:

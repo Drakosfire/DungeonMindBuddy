@@ -24,6 +24,7 @@ pr_body_template: |
 **Activation gate:** satisfied — PRIME independently ACCEPTED §6 at `de08711183e94065b12b3a4d24765b333a760a1e`; fresh open-PR/lease/runtime re-anchor completed 2026-09-27.
 **Base revision:** `de08711183e94065b12b3a4d24765b333a760a1e`
 **Dispatch base rule:** current remote main after acceptance and guarded activation; record exact branch base before code
+**Implementation dispatch base:** `d3e0797d64572ef981b9d0f5d03c67ae5261e348`
 **PR topology:** serial within DEMO
 **PR authorization:** after ACTIVE, open/update exactly one assigned implementation PR without another operator prompt; no successor PR
 **PR title:** `DEMO: scope statblock drafts to the selected World`
@@ -268,7 +269,7 @@ recording a World revision does not claim the model retrieved that graph.
 Exact scoped commands (run from implementation root/UI as indicated):
 
 ```bash
-.venv/bin/pytest -q tests/test_threat_draft_store.py tests/test_threat_draft_routes.py tests/test_statblock_candidate_generation.py tests/test_statblock_candidate_routes.py tests/test_world_scoped_threat_publication_guard.py
+.venv/bin/pytest -q tests/test_threat_draft_store.py tests/test_threat_draft_routes.py tests/test_statblock_candidate_generation.py tests/test_statblock_candidate_routes.py tests/test_world_scoped_threat_publication_guard.py tests/test_cutover_threat_authority_port.py
 .venv/bin/ruff check apps/live_control_server/models/threat_draft.py apps/live_control_server/services/threat_draft_store.py apps/live_control_server/routes/threat_drafts.py apps/live_control_server/services/statblock_candidate_generation.py apps/live_control_server/services/threat_publication_operations.py
 cd apps/live-control-ui
 npx vitest run src/surface/modules/StatblockWorkbenchModule.test.tsx src/surface/modules/statblockDraftScope.test.ts src/statblocks/revision/statblockRevisionAttempt.test.ts --maxWorkers=1
@@ -296,6 +297,18 @@ prompt. Missing provider/runtime access is an owner-routed dependency, not a
 reason to fabricate a candidate or treat a fixture as live acceptance.
 
 ## §8 Handback and §9 acceptance
+
+Implementation checkpoint 1 (not merge-ready): explicit V2 models and
+version-preserving store updates; mixed-version list summaries; existing
+generation body consumes the union unchanged; World-only publication rejects
+with the existing typed `publication_source_mismatch` response and a truthful
+scope limitation before graph/ledger effects. The owning backend cohort above
+passes **129 tests**, scoped Ruff and diff check pass, and no model calls ran.
+The separately inspected historical `test_threat_publication_identity_routes.py`
+has three stale `pub_svc.kernel` fixture failures on both exact dispatch base
+and this implementation; it is not reported green or repaired outside the lease.
+Registry/revision route admission, frontend union/async/attempt recovery,
+exact-head live generation and independent implementation review remain false.
 
 - [x] Design decision independently accepted and handoff ACTIVE before code.
 - [ ] Exact dispatch base, branch, head, nano-commit story and serial topology recorded.

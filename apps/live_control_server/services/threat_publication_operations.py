@@ -309,6 +309,15 @@ def _eligible_draft_or_response(
     except ThreatDraftStoreError as exc:
         return None, _draft_outcome_from_store_error(draft_id, exc)
 
+    if draft.schema_name == "dmb_threat_draft_v2":
+        return None, PublicationOperationOutcome(
+            _response(
+                draft_id,
+                "publication_source_mismatch",
+                message="World-only drafts are not eligible for campaign publication",
+            ),
+            created=False,
+        )
 
     if draft.version != expected_draft_version:
         return None, PublicationOperationOutcome(

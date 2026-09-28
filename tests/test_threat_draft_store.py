@@ -9,10 +9,14 @@ from pydantic import ValidationError
 
 from apps.live_control_server.models.threat_draft import (
     CreateThreatDraftRequest,
+    CreateWorldThreatDraftRequest,
     GenerationIntentV1,
     GraphContextSnapshotV1,
     RulesetRefV1,
+    ThreatDraftListResponse,
+    ThreatDraftV2,
     UpdateThreatDraftRequest,
+    parse_threat_draft,
 )
 from apps.live_control_server.services.threat_draft_store import (
     ThreatDraftStoreError,
@@ -24,6 +28,123 @@ from apps.live_control_server.services.threat_draft_store import (
     update_threat_draft,
 )
 from src.live_play.live_store import write_json
+
+
+def _world_create_request(**overrides: object) -> CreateWorldThreatDraftRequest:
+    payload = _create_request().model_dump(mode="json")
+    payload.update({"scope_mode": "world", "campaign_id": None})
+    payload.update(overrides)
+    return CreateWorldThreatDraftRequest.model_validate(payload)
+
+
+def test_world_draft_version_and_scope_survive_store_lifecycle(tmp_path: Path) -> None:
+    from apps.live_control_server.integrations.dungeonmind_statblocks.mechanics_locator import (
+        MechanicsLocatorV1,
+        PROVIDER_DUNGEONMIND,
+    )
+    from apps.live_control_server.models.statblock_mechanics_acceptance import AcceptedMechanicsRefV1
+    from apps.live_control_server.models.threat_draft import ThreatDraftCandidateRefV1
+    from apps.live_control_server.services.threat_draft_store import (
+        append_candidate_ref,
+        attach_accepted_mechanics_ref,
+        reconcile_revise_candidate_ref,
+    )
+
+    created = create_threat_draft(tmp_path, _world_create_request())
+    assert isinstance(created, ThreatDraftV2)
+    edited = update_threat_draft(
+        tmp_path, created.draft_id,
+        _update_request(created, description="A changed authored brief."),
+    )
+    attached = append_candidate_ref(
+        tmp_path, draft_id=created.draft_id, expected_version=1,
+        candidate_ref=ThreatDraftCandidateRefV1(
+            candidate_id="cand_world01", generated_from_draft_version=1,
+            request_id="req-world01", created_at="2026-09-27T00:00:00Z",
+        ),
+    )
+    assert attached.version == edited.version == 2
+    revised = reconcile_revise_candidate_ref(
+        tmp_path, draft_id=created.draft_id, expected_version=2,
+        candidate_ref=_revise_candidate_ref(
+            draft_id=created.draft_id, generated_from_draft_version=2,
+        ),
+    )
+    locator = MechanicsLocatorV1(
+        provider=PROVIDER_DUNGEONMIND, statblock_id="sb_world",
+        revision_id="rev_world", contract="dungeonmind.dungeonbuddy-statblocks",
+        contract_version="1.0.0", definition_digest="sha256:" + "a" * 64,
+    )
+    saved = attach_accepted_mechanics_ref(
+        tmp_path, draft_id=created.draft_id, expected_version=revised.version,
+        locator=AcceptedMechanicsRefV1.from_locator(
+            locator, accepted_from_draft_version=revised.version,
+            accepted_at="2026-09-27T00:00:00Z", accepted_from_candidate_id=None,
+        ),
+    )
+    loaded = get_threat_draft(tmp_path, created.draft_id)
+    assert loaded == saved
+    assert loaded.schema_name == "dmb_threat_draft_v2"
+    assert loaded.scope_mode == "world"
+    assert loaded.world_id == "world_1"
+    assert loaded.campaign_id is None
+    assert loaded.workflow_state == "mechanics_saved"
+    assert loaded.description == "A changed authored brief."
+    assert len(loaded.candidate_refs) == 2
+
+
+def test_mixed_draft_lists_keep_versions_and_filter_scope(tmp_path: Path) -> None:
+    legacy = create_threat_draft(tmp_path, _create_request())
+    legacy_bytes = _draft_path(tmp_path, legacy.draft_id).read_bytes()
+    a = create_threat_draft(tmp_path, _world_create_request())
+    b = create_threat_draft(tmp_path, _world_create_request(world_id="world_2"))
+    assert get_threat_draft(tmp_path, legacy.draft_id) == legacy
+    assert _draft_path(tmp_path, legacy.draft_id).read_bytes() == legacy_bytes
+    assert "scope_mode" not in legacy.model_dump(mode="json", by_alias=True)
+    summaries, total = list_threat_drafts(tmp_path, world_id="world_1")
+    assert total == 2
+    assert {s.draft_id for s in summaries} == {legacy.draft_id, a.draft_id}
+    response = ThreatDraftListResponse(drafts=summaries, limit=50, offset=0, total=2)
+    wire = {item["draft_id"]: item for item in response.model_dump(by_alias=True)["drafts"]}
+    assert "scope_mode" not in wire[legacy.draft_id]
+    assert wire[a.draft_id]["schema"] == "dmb_threat_draft_summary_v2"
+    assert wire[a.draft_id]["campaign_id"] is None
+    campaign, total = list_threat_drafts(tmp_path, campaign_id="campaign_1")
+    assert total == 1 and campaign[0].draft_id == legacy.draft_id
+    other, total = list_threat_drafts(tmp_path, world_id="world_2")
+    assert total == 1 and other[0].draft_id == b.draft_id
+
+
+@pytest.mark.parametrize("changes", [
+    {"schema": "unknown"}, {"scope_mode": "campaign"},
+    {"campaign_id": "campaign_1"}, {"world_id": ""},
+])
+def test_world_draft_unknown_or_mixed_scope_fails_closed(tmp_path: Path, changes) -> None:
+    created = create_threat_draft(tmp_path, _world_create_request())
+    payload = created.model_dump(mode="json", by_alias=True)
+    payload.update(changes)
+    with pytest.raises(ValidationError):
+        parse_threat_draft(payload)
+    write_json(_draft_path(tmp_path, created.draft_id), payload)
+    with pytest.raises(ThreatDraftStoreError, match="corrupt threat draft record"):
+        get_threat_draft(tmp_path, created.draft_id)
+
+
+def test_world_draft_requires_explicit_scope_and_cannot_rebind(tmp_path: Path) -> None:
+    created = create_threat_draft(tmp_path, _world_create_request())
+    payload = created.model_dump(mode="json", by_alias=True)
+    payload.pop("scope_mode")
+    with pytest.raises(ValidationError):
+        parse_threat_draft(payload)
+    legacy = _create_request().model_dump()
+    legacy["campaign_id"] = None
+    with pytest.raises(ValidationError):
+        CreateThreatDraftRequest.model_validate(legacy)
+    update = _update_request(created, description="still A").model_dump()
+    for field, value in (("world_id", "world_2"), ("campaign_id", "campaign_2"), ("scope_mode", "campaign")):
+        with pytest.raises(ValidationError):
+            UpdateThreatDraftRequest.model_validate({**update, field: value})
+    assert get_threat_draft(tmp_path, created.draft_id) == created
 
 
 def _create_request(**overrides: object) -> CreateThreatDraftRequest:
@@ -1406,4 +1527,3 @@ def test_reconcile_active_to_rejected_and_terminal_cannot_transition(
             ),
         )
     assert exc_info.value.status_code == 409
-

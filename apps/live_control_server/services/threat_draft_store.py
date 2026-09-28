@@ -16,13 +16,19 @@ from apps.live_control_server.models.threat_draft import (
     MAX_CANDIDATE_REFS,
     MAX_LIST_LIMIT,
     CreateThreatDraftRequest,
+    CreateWorldThreatDraftRequest,
     RequestedSourceStatusTransitionV1,
     ThreatDraftCandidateRefV1,
     ThreatDraftIndexV1,
+    ThreatDraft,
+    ThreatDraftSummary,
     ThreatDraftSummaryV1,
+    ThreatDraftSummaryV2,
     ThreatDraftV1,
+    ThreatDraftV2,
     UpdateThreatDraftRequest,
     require_draft_id,
+    parse_threat_draft,
 )
 from src.live_play.live_store import load_json, write_json
 
@@ -154,7 +160,7 @@ def _require_committed_draft_id(root: Path, draft_id: str) -> str:
     return cleaned
 
 
-def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
+def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraft:
     """Load one draft file and require embedded identity to match the requested ID."""
     cleaned = _validated_draft_id(draft_id)
     path = _draft_path(root, cleaned)
@@ -174,7 +180,7 @@ def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
             status_code=500,
         ) from None
     try:
-        draft = ThreatDraftV1.model_validate(payload)
+        draft = parse_threat_draft(payload)
     except ThreatDraftStoreError:
         raise
     except Exception:
@@ -190,7 +196,7 @@ def _load_draft_unlocked(root: Path, draft_id: str) -> ThreatDraftV1:
     return draft
 
 
-def _save_draft_unlocked(root: Path, draft: ThreatDraftV1, *, as_draft_id: str) -> None:
+def _save_draft_unlocked(root: Path, draft: ThreatDraft, *, as_draft_id: str) -> None:
     """Persist a draft only under the requested/committed ID path."""
     cleaned = _validated_draft_id(as_draft_id)
     if draft.draft_id != cleaned:
@@ -214,9 +220,14 @@ def _remove_draft_file(root: Path, draft_id: str) -> None:
         raise _storage_unavailable() from None
 
 
-def create_threat_draft(root: Path, request: CreateThreatDraftRequest) -> ThreatDraftV1:
+def create_threat_draft(
+    root: Path, request: CreateThreatDraftRequest | CreateWorldThreatDraftRequest
+) -> ThreatDraft:
     now = _utc_now_iso()
-    draft = ThreatDraftV1(
+    world_owned = isinstance(request, CreateWorldThreatDraftRequest)
+    draft_model = ThreatDraftV2 if world_owned else ThreatDraftV1
+    draft = draft_model(
+        **({"scope_mode": "world"} if world_owned else {}),
         draft_id=str(uuid.uuid4()),
         version=1,
         world_id=request.world_id,
@@ -261,7 +272,7 @@ def create_threat_draft(root: Path, request: CreateThreatDraftRequest) -> Threat
     return draft
 
 
-def get_threat_draft(root: Path, draft_id: str) -> ThreatDraftV1:
+def get_threat_draft(root: Path, draft_id: str) -> ThreatDraft:
     with _store_lock(root):
         committed_id = _require_committed_draft_id(root, draft_id)
         return _load_draft_unlocked(root, committed_id)
@@ -270,7 +281,7 @@ def get_threat_draft(root: Path, draft_id: str) -> ThreatDraftV1:
 def find_threat_draft_for_candidate(
     root: Path,
     candidate_id: str,
-) -> tuple[ThreatDraftV1, ThreatDraftCandidateRefV1] | None:
+) -> tuple[ThreatDraft, ThreatDraftCandidateRefV1] | None:
     """Reverse-lookup the ThreatDraft that lists this candidate in candidate_refs."""
     cleaned = (candidate_id or "").strip()
     if not cleaned:
@@ -307,7 +318,7 @@ def list_threat_drafts(
     world_id: str | None = None,
     limit: int = DEFAULT_LIST_LIMIT,
     offset: int = 0,
-) -> tuple[list[ThreatDraftSummaryV1], int]:
+) -> tuple[list[ThreatDraftSummary], int]:
     if limit < 1 or limit > MAX_LIST_LIMIT:
         raise ThreatDraftStoreError(
             f"limit must be between 1 and {MAX_LIST_LIMIT}",
@@ -318,7 +329,7 @@ def list_threat_drafts(
 
     with _store_lock(root):
         index = _load_index(root)
-        summaries: list[ThreatDraftSummaryV1] = []
+        summaries: list[ThreatDraftSummary] = []
         for draft_id in index.draft_ids:
             try:
                 draft = _load_draft_unlocked(root, draft_id)
@@ -333,8 +344,12 @@ def list_threat_drafts(
                 continue
             if world_id and draft.world_id != world_id:
                 continue
+            summary_model = (
+                ThreatDraftSummaryV2 if isinstance(draft, ThreatDraftV2)
+                else ThreatDraftSummaryV1
+            )
             summaries.append(
-                ThreatDraftSummaryV1(
+                summary_model(
                     draft_id=draft.draft_id,
                     version=draft.version,
                     world_id=draft.world_id,
@@ -355,7 +370,7 @@ def update_threat_draft(
     root: Path,
     draft_id: str,
     request: UpdateThreatDraftRequest,
-) -> ThreatDraftV1:
+) -> ThreatDraft:
     with _store_lock(root):
         committed_id = _require_committed_draft_id(root, draft_id)
         current = _load_draft_unlocked(root, committed_id)
@@ -391,7 +406,7 @@ def append_candidate_ref(
     expected_version: int,
     candidate_ref: ThreatDraftCandidateRefV1,
     workflow_state: Literal["drafting", "candidate_ready"] | None = "candidate_ready",
-) -> ThreatDraftV1:
+) -> ThreatDraft:
     """Append candidate workflow evidence for a committed draft version.
 
     Authored concept fields and draft version are unchanged; only candidate_refs,
@@ -455,7 +470,7 @@ def append_candidate_ref(
             updates["workflow_state"] = workflow_state
         # Validate the full record before write so an over-limit or invalid
         # payload cannot be persisted and fail on reload.
-        updated = ThreatDraftV1.model_validate(
+        updated = parse_threat_draft(
             current.model_copy(update=updates).model_dump(mode="json", by_alias=True)
         )
         _save_draft_unlocked(root, updated, as_draft_id=committed_id)
@@ -472,7 +487,7 @@ def _ref_json(ref: ThreatDraftCandidateRefV1) -> dict:
 
 
 def _validate_lineage_for_target_draft(
-    draft: ThreatDraftV1,
+    draft: ThreatDraft,
     candidate_ref: ThreatDraftCandidateRefV1,
 ) -> None:
     """Bind origin-specific lineage to the committed draft and ref fields.
@@ -528,7 +543,7 @@ def _parse_expires_at_utc(value: str) -> datetime:
 
 
 def _validate_source_status_transition(
-    draft: ThreatDraftV1,
+    draft: ThreatDraft,
     refs: list[ThreatDraftCandidateRefV1],
     transition: RequestedSourceStatusTransitionV1,
 ) -> None:
@@ -628,7 +643,7 @@ def reconcile_revise_candidate_ref(
     expected_version: int,
     candidate_ref: ThreatDraftCandidateRefV1,
     requested_source_transition: RequestedSourceStatusTransitionV1 | None = None,
-) -> ThreatDraftV1:
+) -> ThreatDraft:
     """Atomic revise ref attach with required lineage and optional source transition."""
     if candidate_ref.lineage is None:
         raise ThreatDraftStoreError(
@@ -713,7 +728,7 @@ def reconcile_revise_candidate_ref(
                 "version": current.version + 1,
                 "updated_at": _utc_now_iso(),
             }
-            updated = ThreatDraftV1.model_validate(
+            updated = parse_threat_draft(
                 current.model_copy(update=updates).model_dump(mode="json", by_alias=True)
             )
             _save_draft_unlocked(root, updated, as_draft_id=committed_id)
@@ -742,7 +757,7 @@ def reconcile_revise_candidate_ref(
         elif current.workflow_state == "drafting":
             updates["workflow_state"] = "candidate_ready"
 
-        updated = ThreatDraftV1.model_validate(
+        updated = parse_threat_draft(
             current.model_copy(update=updates).model_dump(mode="json", by_alias=True)
         )
         _save_draft_unlocked(root, updated, as_draft_id=committed_id)
@@ -765,7 +780,7 @@ def attach_accepted_mechanics_ref(
     draft_id: str,
     expected_version: int,
     locator: AcceptedMechanicsRefV1,
-) -> ThreatDraftV1:
+) -> ThreatDraft:
     """Phase 1 ThreatDraft attach under store lock + version CAS.
 
     Does not mutate the acceptance journal.
