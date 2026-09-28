@@ -22,9 +22,10 @@ number of examples before dropping a requested capability.
 
 ## Activation and inheritance
 
-The operator accepted the local-first Of Conks rehearsal, consolidated Buddy
-demo sequencing, and a standing merge rule for reviewed in-scope DEMO work.
-The roadmap records that decision once. Existing authorized work continues under
+The operator accepted the local-first Of Conks rehearsal and consolidated Buddy
+demo sequencing. The adoption-time in-scope merge rule was superseded on
+2026-09-27 by the operator's ecosystem merge-control assignment to PRIME.
+The roadmap records the current decision. Existing authorized work continues under
 its current handoffs until explicitly transferred; adoption does not revoke it.
 
 The receiving task is `01a0885e-375c-7501-9f6e-a58528b39894` on host `local`.
@@ -46,9 +47,12 @@ The adopted mandate permits the steward to:
 - simplify or reorder unstarted DEMO work in response to actual rehearsal evidence;
 - perform ordinary reversible setup/reset in the explicitly designated demo
   environment and use configured generation capabilities for bounded demo work;
-- merge bounded in-scope DEMO PRs after independent exact-head review passes,
-  required checks pass, and active lease/compatibility concerns are settled.
-  Cross-owner PRs retain their owner's merge authority.
+- deliver merge-ready PRs to PRIME with the exact independently reviewed head,
+  required checks and live evidence, remaining blockers and prescribed merge
+  order. PRIME owns ecosystem merge coordination; DEMO does not merge
+  autonomously or ask the operator for another ordinary "Merge". Independent
+  review, live-witness and active lease/compatibility holds remain mandatory;
+  this mandate change does not approve an unfinished implementation.
 
 Do not stop after each ordinary in-scope repair to ask whether to continue. Do not
 use autonomy to broaden another repository's contract or rewrite a live corpus.
@@ -124,6 +128,9 @@ request, not a vague instruction to make the demo work.
 - **SERVER** — `01a0dbd8-4d8d-7372-a9bc-ea25c2d59a19`: platform/server producer,
   assets/auth/deployment dependencies; coordinate with its ongoing Rules/GE work
   rather than displacing that work silently.
+- **PRIME** — `01a0def6-8fb5-7520-80ff-ef6e67916115`: ecosystem merge control
+  and cross-owner integration ordering. Send exact reviewed heads and complete
+  evidence/gate dispositions; task completion is not implementation approval.
 
 Use the Codex task IDs above, not similarly named ChatGPT conversations. If an
 owner is unavailable or its mandate differs, record the routing gap and ask for
@@ -164,7 +171,8 @@ do not fix the shared database manually to make a witness pass.
 
 At adoption, explicitly settle #773 versus Rules #763 and E5Q dependency-file
 ownership. Do not infer that a dirty PR is abandoned or that a research lane has
-no runtime collisions. Retain external owners' merge authority.
+no runtime collisions. Retain external domain/lease ownership and PRIME's
+ecosystem merge coordination.
 
 ## Human and technical gates
 
