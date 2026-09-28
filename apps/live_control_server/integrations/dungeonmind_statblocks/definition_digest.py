@@ -7,8 +7,11 @@ Server hashes after parse + contract-shape restore.
 
 OpenAPI-generated ``StatblockDefinitionV1Input`` treats many list fields as
 nullable with default ``None``. Server domain models use
-``Field(default_factory=list)`` for those fields. Before hashing we restore
-those Server list defaults so omitted / null lists digest as ``[]``.
+``Field(default_factory=list)`` for most of those fields. Before hashing we
+restore those Server list defaults so omitted / null lists digest as ``[]``.
+``RuleElement.explains`` is intentionally different: omission must remain
+omission for historical canonical bytes, while an explicit empty list remains
+an explicit empty list.
 """
 from __future__ import annotations
 
@@ -51,7 +54,6 @@ _SERVER_DEFAULT_EMPTY_LIST_FIELDS = frozenset(
         "disabled_element_keys",
         "effects",
         "enabled_element_keys",
-        "explains",
         "failure_effects",
         "hit_effects",
         "languages",
@@ -101,6 +103,24 @@ def _normalize_value(value: Any, field_name: str | None = None) -> Any:
     return value
 
 
+def _canonical_payload(definition: StatblockDefinitionV1Input) -> dict[str, Any]:
+    """Build Server-shaped JSON while preserving ``explains`` presence."""
+    payload = definition.model_dump(mode="json", exclude_none=False)
+    rule_elements = payload.get("rule_elements")
+    if isinstance(rule_elements, list):
+        for rule_model, rule_payload in zip(
+            definition.rule_elements, rule_elements, strict=True
+        ):
+            # ``explains`` is an optional, non-null list. A generated DTO may
+            # accept explicit null for compatibility, but the wire contract
+            # omits null and canonicalization treats it like absence. Explicit
+            # [] remains present, preserving the distinction from old payloads
+            # that predate the field.
+            if rule_model.explains is None and isinstance(rule_payload, dict):
+                rule_payload.pop("explains", None)
+    return _restore_server_list_defaults(payload)
+
+
 def canonicalize_definition_dict(source_definition: dict[str, Any]) -> str:
     """Canonical JSON text for a wire definition dict (Server-shaped defaults)."""
     if not isinstance(source_definition, dict):
@@ -108,9 +128,7 @@ def canonicalize_definition_dict(source_definition: dict[str, Any]) -> str:
     # Validate against the transport DTO, then restore Server domain list defaults
     # before hashing so omitted subtypes/languages/etc. match Server [].
     parsed = StatblockDefinitionV1Input.model_validate(source_definition)
-    payload = _restore_server_list_defaults(
-        parsed.model_dump(mode="json", exclude_none=False)
-    )
+    payload = _canonical_payload(parsed)
     normalized = _normalize_value(payload)
     return json.dumps(
         normalized,
@@ -123,9 +141,7 @@ def canonicalize_definition_dict(source_definition: dict[str, Any]) -> str:
 
 def canonicalize_definition_payload(definition: StatblockDefinitionV1Input) -> str:
     """Return version-1 canonical JSON text for a parsed definition."""
-    payload = _restore_server_list_defaults(
-        definition.model_dump(mode="json", exclude_none=False)
-    )
+    payload = _canonical_payload(definition)
     normalized = _normalize_value(payload)
     return json.dumps(
         normalized,
