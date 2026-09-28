@@ -144,7 +144,7 @@ is not claimed to be that original body. The owner observed configured
 
 The producer repair is now **draft SERVER #34 / awaiting PRIME acceptance**:
 [`STATBLOCK: omit provider temperature through GenerationEngine`](https://github.com/Drakosfire/DungeonMindServer/pull/34),
-exact head `0828fbbecfacd5cd1ed594f2bea17bf29946a25d`, base
+Cycle 1 head `0828fbbecfacd5cd1ed594f2bea17bf29946a25d`, base
 `eb3125455454716d32c6daf53ad005cdc1ec968c`. It pins accepted GE #7 merge
 `80288d7b467ac3c3586f4e3c964385cefe69f931` and explicitly supplies
 `temperature=None`. The owner reports five provider-free adapter/integrated
@@ -166,7 +166,13 @@ SERVER is repairing the same PR with provider-free actual card, player-character
 and map generation/result-interpretation witnesses using the exact installed GE;
 PRIME authorized one extra test path plus the existing handoff/report only.
 No runtime/dependency/original-failure change or live gate release is authorized.
-The repair operation is live; no review acceptance or merge is inferred.
+The test-only repair has returned at frozen head
+`0ddedbde9836bd05c9812e182c715b9a42199dca`, awaiting PRIME **Cycle 2**.
+Author evidence is 11 actual shared-consumer tests / 16 combined with the
+statblock adapter seam, both zero skips, covering card/PCG/map/image consumers
+through the exact GE and fake providers. Exact-head hosted red-team run
+`36378550004` is SUCCESS. Runtime remains unchanged; no review acceptance or
+merge is inferred, and the prior HOLD remains binding until formal re-review.
 After acceptance/merge, SERVER must coordinate the exact-ref `7861` runtime
 update with the same isolated collections before DEMO submits the genuinely new
 Ferry Keeper intent through ordinary UI. This does not waive #785's live proof.
