@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
-import type { WorkspaceDocumentRecord } from "../api/types";
+import type { NativeWorldSourceAdmissionStatus, WorkspaceDocumentRecord } from "../api/types";
 import { writeBuildLastCampaignId } from "./buildBareEntryCampaign";
 import { useBuildWorkspaceDocumentController } from "./useBuildWorkspaceDocumentController";
 
@@ -11,6 +11,7 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     getWorkspaceDocumentSnapshot: vi.fn(),
+    admitNativeWorldSource: vi.fn(),
     listWorkspaceDocuments: vi.fn(),
     listWorldContainers: vi.fn(),
     createWorldContainer: vi.fn(),
@@ -88,6 +89,9 @@ async function waitForWorldDocumentUrl(worldId: string, documentId: string) {
 describe("useBuildWorkspaceDocumentController", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(liveApi.admitNativeWorldSource).mockResolvedValue(
+      {} as NativeWorldSourceAdmissionStatus,
+    );
     localStorage.clear();
     sessionStorage.clear();
     window.history.pushState({}, "", "/build");
@@ -576,6 +580,7 @@ describe("useBuildWorkspaceDocumentController", () => {
         write_mode: "source_import",
       }),
     );
+    expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(DOC_B, 2);
   });
 
   it("failed import retains created record and retry does not POST again", async () => {

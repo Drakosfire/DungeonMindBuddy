@@ -7,6 +7,7 @@ import {
   advanceCombatTurn,
   applyCombatHpDelta,
   commitTiptapMarkdownWrite,
+  admitNativeWorldSource,
   createWorldContainer,
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
@@ -15,6 +16,7 @@ import {
   getBuildSourceNavigation,
   getCapabilities,
   getGraphIngestRuns,
+  getNativeWorldSourceAdmissionStatus,
   getGoldGraphProjection,
   getLatestGraphIngestRun,
   getUnionSupergraphProjection,
@@ -1918,6 +1920,26 @@ describe("liveApi world container contracts", () => {
 });
 
 describe("liveApi workspace worldbuilding contracts", () => {
+  it("keeps native source identity and authority server-owned", async () => {
+    const status = { schema_version: "dmb_native_world_source_admission_status_v1", state: "pending" };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(status));
+
+    await expect(getNativeWorldSourceAdmissionStatus("doc / one", 4)).resolves.toEqual(status);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      "/api/live/workspace-documents/doc%20%2F%20one/native-world-source?expected_revision=4",
+    );
+    expect(fetchSpy.mock.calls[0]?.[1]?.body).toBeUndefined();
+
+    await admitNativeWorldSource("doc / one", 4);
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toBe(
+      "/api/live/workspace-documents/doc%20%2F%20one/native-world-source",
+    );
+    expect(fetchSpy.mock.calls[1]?.[1]?.method).toBe("POST");
+    expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toEqual({
+      expected_revision: 4,
+    });
+  });
+
   it("posts worldbuilding create payloads and returns registry-owned targets", async () => {
     const record = worldbuildingRecord();
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(record));

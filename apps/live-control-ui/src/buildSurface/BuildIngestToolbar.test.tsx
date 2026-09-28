@@ -15,6 +15,8 @@ vi.mock("../api/liveApi", async (importOriginal) => {
   return {
     ...actual,
     getWorkspaceDocumentSnapshot: vi.fn(),
+    getNativeWorldSourceAdmissionStatus: vi.fn(),
+    admitNativeWorldSource: vi.fn(),
     launchExtractionRun: vi.fn(),
     getExtractionRunStatus: vi.fn(),
   };
@@ -25,6 +27,27 @@ const DOC_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const RUN_ID = "99999999-9999-4999-8999-999999999999";
 const RUN_B = "88888888-8888-4888-8888-888888888888";
 const ARTIFACT = "artifact:worldbuilding:x";
+
+function nativeSourceStatus(state: "pending" | "admitted" = "pending") {
+  return {
+    schema_version: "dmb_native_world_source_admission_status_v1" as const,
+    state,
+    code: state === "pending" ? "native_admission_pending" : null,
+    message: state === "pending" ? "Saved source is pending" : null,
+    world_id: "eldyrwild",
+    document_id: DOC_ID,
+    loaded_revision: 2,
+    body_sha256: "body-sha",
+    admission_id: "admission-id",
+    space_id: "eldyrwild",
+    published_revision_id: state === "admitted" ? "rev:2" : null,
+    source_artifact_id: state === "admitted" ? "source:1" : null,
+    source_revision_id: state === "admitted" ? "source-rev:1" : null,
+    evidence_ref_id: state === "admitted" ? "evidence:1" : null,
+    span_start_byte: state === "admitted" ? 0 : null,
+    span_end_byte: state === "admitted" ? 10 : null,
+  };
+}
 
 function seedCleanLocal(documentId: string, revision: number, sha: string) {
   writeWorkspaceDocumentLocalState(window.localStorage, {
@@ -81,6 +104,25 @@ describe("BuildIngestToolbar", () => {
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
       snapshot(DOC_ID, 2, "sha-2"),
     );
+    vi.mocked(liveApi.getNativeWorldSourceAdmissionStatus).mockResolvedValue(
+      nativeSourceStatus(),
+    );
+    vi.mocked(liveApi.admitNativeWorldSource).mockResolvedValue(
+      nativeSourceStatus("admitted"),
+    );
+  });
+
+  it("shows saved-but-pending native admission and retries the exact selected revision", async () => {
+    const user = userEvent.setup();
+    render(<BuildCanvasTestProvider documentId={DOC_ID}><BuildIngestToolbar documentId={DOC_ID} /></BuildCanvasTestProvider>);
+    expect(await screen.findByTestId("build-native-source-status")).toHaveTextContent(
+      "Source saved; native World admission pending",
+    );
+    await user.click(screen.getByTestId("build-native-source-retry"));
+    await waitFor(() => {
+      expect(liveApi.admitNativeWorldSource).toHaveBeenCalledWith(DOC_ID, 2);
+      expect(screen.getByTestId("build-native-source-status")).toHaveTextContent("admitted");
+    });
   });
 
   it("disables extract until a committed clean source is available", async () => {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  admitNativeWorldSource,
   commitTiptapMarkdownWrite,
   createWorldContainer,
   getWorkspaceDocumentSnapshot,
@@ -825,6 +826,22 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
           committedRecord = snapshot.record;
         }
 
+        if (
+          committedRecord.kind === "worldbuilding_source" &&
+          committedRecord.content_status === "committed"
+        ) {
+          // Admission is a separate durable step. A failure must not roll back
+          // or hide the already-saved source; the toolbar exposes exact retry.
+          try {
+            await admitNativeWorldSource(
+              committedRecord.document_id,
+              committedRecord.revision,
+            );
+          } catch {
+            // Status is reloaded from native authority when the selected source mounts.
+          }
+        }
+
         try {
           await activateCreatedRecord(committedRecord);
         } catch (error) {
@@ -887,10 +904,15 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
       try {
         const record = await resolveImportRecordForRetry(markdown);
         if (importCommittedRef.current) {
+          await admitNativeWorldSource(record.document_id, record.revision).catch(() => undefined);
           await activateCreatedRecord(record);
           return;
         }
         const committedRecord = await commitSourceImport(record, markdown);
+        await admitNativeWorldSource(
+          committedRecord.document_id,
+          committedRecord.revision,
+        ).catch(() => undefined);
         try {
           await activateCreatedRecord(committedRecord);
         } catch (error) {
@@ -915,6 +937,10 @@ export function useBuildWorkspaceDocumentController(): BuildWorkspaceDocumentCon
         const snapshot = await getWorkspaceDocumentSnapshot(pendingId);
         if (isSnapshotActivationReady(snapshot)) {
           importCommittedRef.current = true;
+          await admitNativeWorldSource(
+            snapshot.record.document_id,
+            snapshot.record.revision,
+          ).catch(() => undefined);
         }
       }
       if (importCommittedRef.current && pendingId) {

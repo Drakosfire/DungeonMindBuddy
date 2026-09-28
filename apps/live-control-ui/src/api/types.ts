@@ -1564,6 +1564,25 @@ export interface WorkspaceDocumentSnapshot {
   loaded_revision: number;
 }
 
+export interface NativeWorldSourceAdmissionStatus {
+  schema_version: "dmb_native_world_source_admission_status_v1";
+  state: "pending" | "admitted";
+  code: string | null;
+  message: string | null;
+  world_id: string;
+  document_id: string;
+  loaded_revision: number;
+  body_sha256: string;
+  admission_id: string;
+  space_id: string;
+  published_revision_id: string | null;
+  source_artifact_id: string | null;
+  source_revision_id: string | null;
+  evidence_ref_id: string | null;
+  span_start_byte: number | null;
+  span_end_byte: number | null;
+}
+
 export interface WorkspaceCommittedRevision {
   schema_version: "dmb_workspace_committed_revision_v1";
   document_id: string;

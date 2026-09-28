@@ -1,10 +1,12 @@
 import { useBuildExtraction } from "./useBuildExtraction";
+import { useBuildNativeWorldSourceEvidence } from "./useBuildNativeWorldSourceEvidence";
 
 interface BuildIngestToolbarProps {
   documentId: string;
 }
 
 export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
+  const nativeSource = useBuildNativeWorldSourceEvidence(documentId);
   const {
     statusLabel,
     error,
@@ -20,6 +22,45 @@ export function BuildIngestToolbar({ documentId }: BuildIngestToolbarProps) {
 
   return (
     <section className="build-ingest-toolbar" data-testid="build-ingest-toolbar" aria-label="Build extraction">
+      <div className="build-ingest-toolbar-row">
+        <p data-testid="build-native-source-status" aria-live="polite">
+          {nativeSource.loading
+            ? "Native World source: checking…"
+            : nativeSource.status?.state === "admitted"
+              ? "Native World source: admitted"
+              : nativeSource.status?.state === "pending"
+                ? "Source saved; native World admission pending"
+                : "Native World source status unavailable"}
+        </p>
+        <div className="build-ingest-toolbar-actions">
+          {nativeSource.status?.state === "pending" ? (
+            <button
+              type="button"
+              data-testid="build-native-source-retry"
+              onClick={() => void nativeSource.retry()}
+              disabled={nativeSource.retrying || nativeSource.loading}
+            >
+              {nativeSource.retrying ? "Admitting…" : "Retry World admission"}
+            </button>
+          ) : null}
+          <button
+            type="button"
+            data-testid="build-native-source-refresh"
+            onClick={() => void nativeSource.reload()}
+            disabled={nativeSource.loading || nativeSource.retrying}
+          >
+            Refresh World status
+          </button>
+        </div>
+      </div>
+      {nativeSource.status?.state === "admitted" ? (
+        <p data-testid="build-native-source-evidence">
+          World <code>{nativeSource.status.world_id}</code> · exact source revision {nativeSource.status.loaded_revision} · whole-document evidence
+        </p>
+      ) : null}
+      {nativeSource.error ? (
+        <p role="alert" data-testid="build-native-source-error">{nativeSource.error}</p>
+      ) : null}
       <div className="build-ingest-toolbar-row">
         <p data-testid="build-extraction-status">{statusLabel}</p>
         <div className="build-ingest-toolbar-actions">

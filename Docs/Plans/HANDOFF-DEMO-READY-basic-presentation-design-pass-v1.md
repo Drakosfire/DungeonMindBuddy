@@ -254,10 +254,16 @@ This handoff authorizes design evidence and optional prototype-only UI-lab work 
 |---|---|---|
 | Create | `Docs/Reports/REPORT-DEMO-READY-basic-presentation-design-pass-v1.md` | Dogfood evidence, defect ledger, candidate comparison, product-owner outcome |
 | Modify | `Docs/Plans/PLAN-ui-presentation-substrate-sidequest-v1.md` | Optional pointer/status sync only if this pass changes active UI posture |
-| Modify | `Docs/Roadmaps/ROADMAP-demo.md` | Optional presentation STOP result sync after product-owner decision |
 | Create/Modify | `apps/live-control-ui/src/ui/**/*.stories.tsx` | Prototype-only stories when an existing story cannot express a retained candidate |
 | Create/Modify | `apps/live-control-ui/src/ui/**/*.css` | Prototype-only presentation styling |
 | Create | `Docs/Plans/HANDOFF-DEMO-READY-<accepted-successor>.md` | Optional; exactly one successor after product-owner ACCEPT_ONE |
+
+**Temporary lease settlement (PRIME, 2026-09-28):** this handoff's optional
+`Docs/Roadmaps/ROADMAP-demo.md` write is suspended while the ACTIVE DEMO J1
+native World source-authority PR owns the required predecessor and current-lane
+state sync. This design handoff remains active for its independent dogfood/design
+work. Re-anchor after the J1 PR is reviewed and merged before restoring or
+re-requesting any roadmap write lease; no design outcome is implied here.
 
 **Bounded discovery exception:**
 

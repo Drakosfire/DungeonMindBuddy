@@ -14,12 +14,12 @@ pr_body_template: |
 # HANDOFF — start a World-owned Plan before importing anything
 
 **Created:** 2026-09-27  
-**Status:** BLOCKED — #785 acceptance/merge and PRIME contract review  
+**Status:** BLOCKED — PRIME contract review and prospective lease
 **Handoff locator:** this canonical path on accepted Buddy main; steward supplies exact commit after landing  
 **Workstream / owner:** DEMO / J1; Buddy Content/Plan ownership, not DungeonMind  
 **Direction:** STEWARD → CODE → PRIME  
 **Design authority base:** `fa740c73f66192a44926712661d9489ff12e54a8`  
-**Activation gate:** #785 has its successful exact-head live witness, PRIME acceptance and merge; predecessor state sync and fresh re-anchor; PRIME accepts this World-Plan contract and prospective lease. None is inferred from a completed task.  
+**Activation gate:** #785's exact-head live witness, PRIME acceptance, merge, predecessor state sync, and fresh re-anchor are complete. PRIME must still accept this World-Plan contract and prospective lease before activation. None is inferred from a completed task.
 **Dispatch base rule:** fresh `origin/main` after those gates; record exact base and checked-in ACTIVE handoff before dispatch.  
 **PR topology:** serial  
 **PR authorization:** while BLOCKED, none. Once ACTIVE, open/update exactly this one assigned implementation PR without another operator prompt; no successor/repair PR.  

@@ -46,6 +46,21 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
 
+**Current DEMO lane (2026-09-28):** #785 / J4 is complete and merged to Buddy
+`main` at `f8b923875f9444a1addfb2472a2b8fab35eceb4c` (reviewed code head
+`471a967d11e315b24fd5cfe5541f447753fb81f4`; three distinct review-head cycles,
+four formal submissions: `5333492877`, `5333610809`, `5341223774`,
+`5341878346`). MIND #85 supplies the accepted native source/evidence admission
+surface at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`; #83 native initialization
+is also landed. The active serial Buddy implementation is now **DEMO J1 native
+World source authority**, handoff
+[`HANDOFF-DEMO-J1-native-world-source-authority-v1`](../Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md),
+based on `a1a00f5e6569cb10205dbc7d2e15888730280372`. It connects the ordinary
+Build-imported committed source to native World source authority only. It does
+not prove extracted or accepted knowledge, retrieval, World-owned Plan, J3, or
+the connected demo. PRIME still owns the required exact-head architecture/live
+review; no merge or acceptance is claimed here.
+
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:
 
@@ -78,7 +93,7 @@ yet on MIND main or in a PR; it is design evidence, not a landed Buddy capabilit
 No bridge migration, broad framework rewrite, fake campaign or J3 implementation
 is authorized by this direction.
 
-**Active implementation remains J4 / draft #785**, frozen repair head
+**Historical implementation: J4 / #785**, frozen repair head
 `07ec031ab5b62b8dbcd34f51ed4b6eaf0fa25262`, incorporating accepted main
 `11d7b5801b51f664e7a6eeafcb2aa2b0f5922b71`. Author exact-head evidence:
 169/169 UI tests (zero exclusions), 140/140 backend tests (11 warnings,
@@ -214,8 +229,9 @@ New World creation also remains coupled to Build source creation.
 
 The bounded successor design is
 [World-owned blank Plan](../Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md):
-**BLOCKED** on #785 acceptance/merge, predecessor sync/re-anchor and PRIME
-contract review. It preserves campaign records, uses existing Content authority,
+**BLOCKED** only on its independent PRIME contract review and prospective
+lease, plus re-anchor after the predecessor sync. The #785 acceptance/merge
+condition is satisfied. It preserves campaign records, uses existing Content authority,
 and requires a new World's ordinary blank Plan before any source/campaign/head.
 No successor branch, implementation PR or lease is active. Native genesis and
 source/WorldKeeper/Agent contracts remain separately owner-gated.
@@ -342,18 +358,14 @@ then ask the agent a factual question requiring the new node. Normal retrieval
 must find it under the same scope/authority; a creation-payload echo is insufficient.
 Reopen after restart.
 
-**Current route / activation gate:** first-customer native initialization and
-source admission in a fresh Of Conks World, not migration of the previous demo
-head. MIND has returned a PRIME-approved source/evidence-admission design at
-`86e8f22d007df99de577cb412301c5a6d4e2d597`, but that ref is two commits ahead of
-MIND main and has no associated PR. It is not yet accepted repository/runtime
-authority. Before activation, MIND must land the design and return accepted
-versions/public entry points, exact empty-World/genesis and source/evidence/parent
-semantics, governing profile/scope policy, and ordinary read/citation authority
-for the same published child. DEMO then verifies the return, re-anchors and
-designs one bounded Buddy handoff.
-Do not activate J3 or create a second implementation PR while the serial #785
-lane remains open. If a new topology is needed, it must be explicitly designed.
+**Current route / activation gate:** source authority is being implemented in
+the active J1 handoff above. MIND #83 and #85 are accepted dependencies, but the
+Buddy source-admission implementation and subsequent ordinary read/citation
+path are not yet accepted. After J1 is reviewed and merged, re-anchor and define
+the next bounded Buddy capability for preparing/confirming assertions and
+ordinary read-after-write. Do not treat source admission as extraction,
+publication of assertions, retrieval, or J3 completion. The old #785 serial-lane
+blocker is historical and no longer active.
 
 **Inherited evidence:** PLAY-1 #773 and accepted isolated persistent PLAY-2
 #779; PLAY-3 is not dispatched; V6.2 adapter; WorldKeeper #7/#8; CR-U4–U7.
