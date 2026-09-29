@@ -84,18 +84,26 @@ J2 composition code is integrated, but J2 and operator acceptance remain open;
 the existence of border declarations or theme tokens is not product acceptance.
 The bounded successor design was accepted in PR #792, merged at
 `4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`. Its handoff is re-anchored and
-ACTIVE for one serial implementation PR. That slice is changing the World Plan
-from a transparent editor shell around a faintly edged blank slab into one
-visibly bounded work surface: editing tools sit inside the canvas frame, the
-paper has a stronger distinct edge, and its empty-state height is reduced.
-Browser inspection is still partial: the named #789 witness is absent from the
-currently reachable API database, so the visual preview used an existing
-synthetic Plan route whose legacy document scope leaves editing controls
-disabled. No content was edited or saved. This is implementation evidence, not
+ACTIVE for one serial implementation PR. The current visual iteration gives
+the World Plan a warm framed work surface, a distinct parchment page, and a
+shorter blank editor. The latest observed exact-head preview was the disposable
+`of-conks-demo-plan-canvas` World on UI 5202/API 8821, with an editable blank
+draft; this supersedes the earlier 5202 synthetic route whose legacy scope left
+controls disabled. The historical #789 World Plan itself was absent from that
+API database. The preview servers are currently stopped, and graph projection
+returned 503 because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL` was not
+configured. No Plan content was saved and no model or graph write occurred
+during styling inspection. The 2px warm boundary was visible when unfocused,
+but the editor and enclosing canvas both received equally prominent focus
+rings; the latest repair removes the redundant container ring while retaining
+keyboard focus on actionable controls. The inline editing toolbar still does
+not use the established toolbar/surface-navigation homes the operator expects,
+so current composition is not accepted. This is implementation evidence, not
 the required six-case dogfood or operator acceptance. J2 and visual acceptance
-remain open until the correct isolated witness is reachable, blank/short/long
-views are inspected at desktop and 390×844, and the operator accepts the actual
-route. #789 stays historical; its visual result is not accepted.
+remain open until blank/short/long views are inspected at desktop and 390×844
+on the valid isolated route, toolbar placement is resolved through existing
+shell seams, and the operator accepts the actual product. #789 stays
+historical; its visual result is not accepted.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest

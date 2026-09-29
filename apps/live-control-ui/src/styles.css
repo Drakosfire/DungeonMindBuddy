@@ -108,8 +108,7 @@ code {
 .world-owned-plan input:focus-visible,
 .world-owned-plan button:focus-visible,
 .world-owned-plan__toolbar summary:focus-visible,
-.world-owned-plan .ProseMirror:focus-visible,
-.world-owned-plan__canvas:focus-within {
+.world-owned-plan .ProseMirror:focus-visible {
   outline: 3px solid var(--ui-accent-action);
   outline-offset: 3px;
 }
