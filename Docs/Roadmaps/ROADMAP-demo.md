@@ -89,14 +89,16 @@ the World Plan a warm framed work surface, a distinct parchment page, and a
 shorter blank editor. The latest observed exact-head preview was the disposable
 `of-conks-demo-plan-canvas` World on UI 5202/API 8821, with an editable blank
 draft; this supersedes the earlier 5202 synthetic route whose legacy scope left
-controls disabled. The historical #789 World Plan itself was absent from that
-API database. The preview servers are currently stopped, and graph projection
-returned 503 because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL` was not
-configured. No Plan content was saved and no model or graph write occurred
-during styling inspection. The 2px warm boundary was visible when unfocused,
-but the editor and enclosing canvas both received equally prominent focus
-rings; the latest repair removes the redundant container ring while retaining
-keyboard focus on actionable controls. The inline editing toolbar still does
+controls disabled. The historical #789 World Plan itself is absent from that
+API database. After the review pause, the preview was restarted on 5202/8821:
+World-list, Plan-view, and World-Plan-list GETs returned 200, while graph
+projection remains 503 because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL`
+is not configured. A visible editor focus check showed the action outline on
+the editor without an equally bright enclosing-canvas ring; the warm 2px
+boundary remains visible when unfocused. The browser control did not provide a
+reliable exact viewport/console reading, so this is not a six-case or mobile
+witness. No Plan was saved and no model or graph write occurred during this
+check. The inline editing toolbar still does
 not use the established toolbar/surface-navigation homes the operator expects,
 so current composition is not accepted. This is implementation evidence, not
 the required six-case dogfood or operator acceptance. J2 and visual acceptance
