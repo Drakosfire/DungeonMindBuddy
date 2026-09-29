@@ -605,8 +605,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           pending_write: null,
         });
         if (committed && !preserveLatest) {
-          uncertainCreateDraftRef.current = null;
-          setUncertainCreateDraft(null);
+          const currentRecovery = readWorldPlanLocalDraft(worldId)?.uncertain_create_draft
+            ?? uncertainCreateDraftRef.current;
+          const recoveryWasSubmitted = currentRecovery?.bound_document_id === exactId
+            && currentRecovery.edit_generation <= previousPending.edit_generation
+            && currentRecovery.markdown === previousPending.markdown;
+          const remainingRecovery = recoveryWasSubmitted ? null : currentRecovery;
+          uncertainCreateDraftRef.current = remainingRecovery;
+          if (isCurrent()) setUncertainCreateDraft(remainingRecovery);
           persistWorldPlanLocalDraft(worldId, {
             document_id: exactId,
             title: submittedTitle,
@@ -614,7 +620,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             revision: currentRevision,
             edit_generation: submittedGeneration,
             create_uncertain: false,
-            uncertain_create_draft: null,
+            uncertain_create_draft: remainingRecovery,
             pending_write: null,
           });
           if (isCurrent()) {
@@ -707,6 +713,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       const finalTitle = preserveLatest ? latest.title : committed.title;
       const finalMarkdown = preserveLatest ? latest.markdown : submittedMarkdown;
       const finalGeneration = preserveLatest ? latest.edit_generation ?? submittedGeneration : submittedGeneration;
+      const currentRecovery = readWorldPlanLocalDraft(worldId)?.uncertain_create_draft
+        ?? uncertainCreateDraftRef.current;
+      const recoveryWasSubmitted = currentRecovery?.bound_document_id === exactId
+        && currentRecovery.edit_generation <= submittedGeneration
+        && currentRecovery.markdown === submittedMarkdown;
+      const remainingRecovery = recoveryWasSubmitted ? null : currentRecovery;
       persistWorldPlanLocalDraft(worldId, {
         document_id: exactId,
         title: finalTitle,
@@ -714,12 +726,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         revision: currentRevision,
         edit_generation: finalGeneration,
         create_uncertain: false,
-        uncertain_create_draft: null,
+        uncertain_create_draft: remainingRecovery,
         pending_write: null,
       });
-      uncertainCreateDraftRef.current = null;
+      uncertainCreateDraftRef.current = remainingRecovery;
       if (isCurrent()) {
-        setUncertainCreateDraft(null);
+        setUncertainCreateDraft(remainingRecovery);
         if (!preserveLatest) {
           titleRef.current = committed.title;
           markdownRef.current = submittedMarkdown;
@@ -846,7 +858,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     const saved = readWorldPlanLocalDraft(worldId);
     const existingRecovery = saved?.uncertain_create_draft ?? uncertainCreateDraftRef.current;
     const isPendingCreate = createUncertain || saved?.create_uncertain === true;
-    const recoveryIsBoundHere = existingRecovery?.bound_document_id === documentIdRef.current;
+    const recoveryIsBoundHere = Boolean(documentIdRef.current)
+      && existingRecovery?.bound_document_id === documentIdRef.current;
     const nextRecovery = isPendingCreate || recoveryIsBoundHere
       ? {
         title: nextTitle,
