@@ -84,7 +84,7 @@ code {
   color: var(--ui-text-secondary);
 }
 
-.world-owned-plan__heading label {
+.app-edit-toolbox .world-owned-plan__title-control {
   display: grid;
   width: min(100%, 38rem);
   gap: 0.4rem;
@@ -93,7 +93,8 @@ code {
   font-weight: 650;
 }
 
-.world-owned-plan input {
+.world-owned-plan input,
+.app-edit-toolbox .world-owned-plan__title-control input {
   width: 100%;
   min-height: 2.9rem;
   padding: 0.55rem 0.75rem;
@@ -106,8 +107,8 @@ code {
 }
 
 .world-owned-plan input:focus-visible,
+.app-edit-toolbox .world-owned-plan__title-control input:focus-visible,
 .world-owned-plan button:focus-visible,
-.world-owned-plan__toolbar summary:focus-visible,
 .world-owned-plan .ProseMirror:focus-visible {
   outline: 3px solid var(--ui-accent-action);
   outline-offset: 3px;
@@ -158,98 +159,6 @@ code {
   font-weight: 750;
   letter-spacing: 0.09em;
   text-transform: uppercase;
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.7rem 1rem;
-  width: 100%;
-  margin: 0 auto 0.9rem;
-  padding: 0 0 0.8rem;
-  border: 0;
-  border-bottom: 1px solid #51442e;
-  background: transparent;
-  box-shadow: none;
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__section {
-  min-width: 0;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__section summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.1rem;
-  border-radius: 0;
-  background: transparent;
-  color: #d2bd91;
-  font-size: 0.74rem;
-  font-weight: 800;
-  letter-spacing: 0.09em;
-  text-transform: uppercase;
-  cursor: pointer;
-  list-style: none;
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__section summary::-webkit-details-marker {
-  display: none;
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__section summary::after {
-  content: "⌄";
-  color: #a38a5f;
-  font-size: 0.95rem;
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__section[open] summary {
-  color: #f1dfbd;
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__section[open] summary::after {
-  content: "⌃";
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__section + .markdown-editor-toolbar__section {
-  padding-left: 0.85rem;
-  border-left: 1px solid #3d3529;
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  margin-top: 0.45rem;
-  padding: 0;
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__actions button {
-  min-height: 2.2rem;
-  padding: 0.38rem 0.72rem;
-  border: 1px solid #66543a;
-  border-radius: 0.45rem;
-  background: linear-gradient(180deg, #322c22, #252119);
-  color: #e8dcc4;
-  font-size: 0.82rem;
-  font-weight: 600;
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%);
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__actions button:hover:not(:disabled) {
-  border-color: #c2a46b;
-  background: linear-gradient(180deg, #453821, #342a1c);
-}
-
-.world-owned-plan__toolbar .markdown-editor-toolbar__actions button:disabled {
-  border-color: #514735;
-  background: #26231e;
-  color: #a89d89;
-  opacity: 0.78;
 }
 
 .world-owned-plan__canvas .tiptap-spike-editor.md-theme-world-plan {
@@ -323,10 +232,6 @@ code {
 
   .world-owned-plan__canvas {
     padding: 0.6rem;
-  }
-
-  .world-owned-plan__toolbar .markdown-editor-toolbar__section {
-    flex: 0 1 auto;
   }
 
   .world-owned-plan__canvas .ProseMirror {

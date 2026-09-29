@@ -51,12 +51,13 @@ are now proven; J1–J6 have not passed as a connected journey.
 retired archived outgoing task `01a0885e-375c-7501-9f6e-a58528b39894` from
 implementation/design/runtime mutation. It was not restarted and did not
 acknowledge handback. Current `main` is
-`cd44a3a99d1d43ebf8becfa22b56a3b98de4cbf4`; #794 merged at
+`ebfc22ad8c5797d033029c4e0ee2ca098595632c`; #794 merged at
 `374d69d78ef58a062116de73e095b57f4a92ca15`, #795 policy cleanup at
-`83f25b1f9bfe70555a82b08ef4f5ca5af26a691d`, and #796 at current `main`.
-PR #793 is based on that current `main`; its last reviewed implementation-code
-head before this authority sync was `43fdab22798a18804d27b5e6c3396dcaaac07aa1`.
-The PR body records the exact head after this sync. It is the sole serial
+`83f25b1f9bfe70555a82b08ef4f5ca5af26a691d`, #796 preceded the current `main`,
+and #797 merged at current `main` (`ebfc22ad`). PR #793 is re-anchored on that
+current `main`; its reviewed head before this authority sync was
+`51da734df050ab062613941f8d700c83a25abffe`. The PR body records the exact head
+after this sync. It is the sole serial
 implementation lane for active World Plan shell adoption;
 PRIME owns its review, predecessor disposition and merge. The visual-only lease
 is retired. Its six-case witness is historical evidence for the earlier canvas
@@ -105,7 +106,7 @@ The prior bounded visual-only design was accepted in PR #792, merged at
 `4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`. PRIME retired the visual-only
 lease and amended the existing #793 implementation to adopt Buddy's established
 World Plan shell. At re-anchored code head
-`43fdab22798a18804d27b5e6c3396dcaaac07aa1` (before this documentation sync),
+`51da734df050ab062613941f8d700c83a25abffe` (before this documentation sync),
 the selected World Plan publishes
 its saved-document or unique local-draft identity through the canvas,
 `WorldPlanSurfaceContext`, and one matching AppChrome/EditHost inventory.
@@ -120,24 +121,26 @@ Plan “The First Bell at the Tollhouse” was saved as document
 `bb116c42-8862-4c28-b379-831871b48dc0` and reloaded with title/body intact.
 Desktop showed global nav, World Plan selector, EditHost and paper canvas; the
 saved canvas fits at 390×844 without horizontal overflow. A physical tap on
-Edit after closing the mobile drawer did not reopen it: the hidden shared
-backdrop intercepts the launcher. INTERACTION MAP owns this shared shell defect
-in separate open PR #797 at `301a64fe1a5c1c19300b01002c147d642634de8a`;
-PRIME retains merge control. The PR #793 mounted EditHost regression retains the
-real “Read aloud” command across saved-document replacement, local→saved
-promotion, saved-document→blank, World replacement, and unmount. Each stale
-command is inert: it neither mutates editor markup nor steals focus from the
-current editor or external focus target. The focused Plan/editor-host suite now
-passes 22/22 tests in serial execution. The mobile reopen defect remains outside
-this lease and awaits #797.
+Edit after closing the mobile drawer did not reopen it because the hidden shared
+backdrop intercepted the launcher. Interaction Map fixed this shared shell
+defect in #797, merged at current `main` `ebfc22ad8c5797d033029c4e0ee2ca098595632c`.
+PR #793's mounted EditHost regression retains the real “Read aloud” command
+across saved-document replacement, local→saved promotion, saved-document→blank,
+World replacement, and unmount. Each stale command is inert: it neither mutates
+editor markup nor steals focus from the current editor or external focus target.
+The moved Plan title label/input/focus styles now target their EditHost location;
+obsolete inline-toolbar selectors were removed. The focused four-file
+Plan/editor-host suite passes 122/122 in serial execution. A new post-#797
+desktop and 390×844 pointer witness remains pending exact runtime database
+identity verification.
 
 Automatic Graph projection remained unavailable (503; Graph URL unset), and the
 World badge reported attention. Automatic `longmont-c2` source-bundle reads do
 not prove Of Conks retrieval. No knowledge was prepared/confirmed and no Graph
 or model write occurred. This witness does not establish Agent turns, graph
 read-after-write, source admission, statblock/image preparation, Run persistence,
-restart/resume, or operator acceptance. After #797 lands, repeat the exact mobile
-EditHost transition, then resume at the first connected authority/knowledge
+restart/resume, or operator acceptance. After runtime target identity is
+confirmed, repeat the exact mobile EditHost transition, then resume at the first connected authority/knowledge
 boundary. J2 acceptance and the full two-run J1–J6 journey remain open.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
