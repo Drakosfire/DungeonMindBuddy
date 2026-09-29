@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
+import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import type { WorldOwnedPlanRecordV2 } from "../api/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
@@ -12,15 +14,35 @@ vi.mock("../chrome/AppChrome", async () => {
   return {
     AppChrome: ({ children, editorTools }: {
       children: ReactNode;
-      editorTools?: { tools?: { sections?: Array<{ id: string; actions: Array<{ id: string; label: string; onClick: () => void }> }> } } | null;
+      editorTools?: {
+        target: { kind: string; id: string };
+        tools?: {
+          pinnedActions?: Array<{ id: string; label: string; onClick: () => void; disabled?: boolean }>;
+          sections?: Array<{
+            id: string;
+            actions: Array<{ id: string; label: string; onClick: () => void; disabled?: boolean }>;
+            panel?: ReactNode;
+          }>;
+        };
+      } | null;
     }) => (
       <SurfaceContextProvider>
         <div>
           <SurfaceContextHost />
-          {editorTools?.tools?.sections?.flatMap((section) => section.actions.map((action) => (
-            <button key={`${section.id}:${action.id}`} type="button" onClick={action.onClick}>{action.label}</button>
-          )))}
-          {children}
+          <aside data-testid="app-chrome-edit-host" data-target={editorTools ? `${editorTools.target.kind}:${editorTools.target.id}` : "none"}>
+            {editorTools?.tools?.pinnedActions?.map((action) => (
+              <button key={action.id} type="button" disabled={action.disabled} onClick={action.onClick}>{action.label}</button>
+            ))}
+            {editorTools?.tools?.sections?.map((section) => (
+              <section key={section.id}>
+                {section.actions.map((action) => (
+                  <button key={`${section.id}:${action.id}`} type="button" disabled={action.disabled} onClick={action.onClick}>{action.label}</button>
+                ))}
+                {section.panel}
+              </section>
+            ))}
+          </aside>
+          <div data-testid="app-chrome-center">{children}</div>
         </div>
       </SurfaceContextProvider>
     ),
@@ -69,7 +91,9 @@ function managedContext(owner: string) {
 
 function VerifiedPlanPage() {
   const selected = useSelectedWorld();
-  return selected.kind === "managed" ? <PlanSurfacePage /> : <span>{selected.kind}</span>;
+  return selected.kind === "managed"
+    ? <AgentInteractionProvider><PlanSurfacePage /></AgentInteractionProvider>
+    : <span>{selected.kind}</span>;
 }
 
 afterEach(() => {
@@ -178,12 +202,15 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
     </SelectedWorldProvider>,
   );
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
-  expect(screen.getByTestId("world-plan-surface-context")).toBeInTheDocument();
+  expect(await screen.findByTestId("world-plan-surface-context")).toBeInTheDocument();
   await waitFor(() => expect(screen.getByRole("button", { name: "Bold" })).toBeEnabled());
   expect(screen.getByRole("button", { name: "Read aloud" })).toBeEnabled();
   const planCanvas = screen.getByTestId("world-owned-plan-editor");
   expect(planCanvas).toHaveClass("plan-surface-canvas");
-  expect(planCanvas.querySelector(".world-owned-plan__toolbar")).toBeInTheDocument();
+  expect(planCanvas.querySelector(".world-owned-plan__toolbar")).not.toBeInTheDocument();
+  expect(screen.getByTestId("app-chrome-edit-host")).toContainElement(screen.getByLabelText("Plan title"));
+  expect(screen.getByTestId("app-chrome-edit-host")).toContainElement(screen.getByRole("button", { name: "Bold" }));
+  expect(screen.getByTestId("app-chrome-edit-host")).toContainElement(screen.getByRole("button", { name: "Save Plan" }));
   const markdownSurface = planCanvas.querySelector(".tiptap-spike-editor");
   expect(markdownSurface).toHaveClass("md-theme-world-plan");
   expect(markdownSurface).toHaveAttribute("data-md-theme", "world-plan");
@@ -861,4 +888,58 @@ it("does not bind an unbound recovery to the empty-ID blank Plan while editing i
     },
   });
   expect(screen.getByRole("button", { name: "Save Plan" })).toBeDisabled();
+});
+
+it("migrates a legacy local draft identity without losing recovery data and reuses it after reload", async () => {
+  const opaqueWorldId = "server-world:opaque/a";
+  const key = `dmb:world-plan-local-draft:v2:${opaqueWorldId}`;
+  const legacy = {
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: opaqueWorldId,
+    document_id: null,
+    title: "Recovered title",
+    markdown: "# Recovered Plan\n",
+    revision: null,
+    edit_generation: 9,
+    create_uncertain: true,
+    uncertain_create_draft: { title: "Orphan", markdown: "# Orphan\n", edit_generation: 8, bound_document_id: null },
+    pending_write: {
+      phase: "prepare",
+      base_revision: 2,
+      prepared_revision: null,
+      base_markdown: "# Base\n",
+      markdown: "# Pending\n",
+      edit_generation: 7,
+    },
+  };
+  localStorage.setItem(key, JSON.stringify(legacy));
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(opaqueWorldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{ schema_version: "dmb_world_container_record_v1", world_id: opaqueWorldId, name: "Opaque World", source_root_relpath: "corpus/of-conks", created_at: "2026-01-01T00:00:00Z" }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: opaqueWorldId,
+    records: [],
+  });
+  const renderPage = () => render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${encodeURIComponent(opaqueWorldId)}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  const first = renderPage();
+  await screen.findByTestId("world-owned-plan");
+  const migrated = JSON.parse(localStorage.getItem(key) ?? "null");
+  expect(migrated.local_draft_id).toEqual(expect.any(String));
+  expect(migrated).toMatchObject(legacy);
+  const firstTarget = screen.getByTestId("app-chrome-edit-host").getAttribute("data-target");
+  first.unmount();
+  const second = renderPage();
+  await screen.findByTestId("world-owned-plan");
+  expect(screen.getByTestId("app-chrome-edit-host").getAttribute("data-target")).toBe(firstTarget);
+  expect(JSON.parse(localStorage.getItem(key) ?? "null").local_draft_id).toBe(migrated.local_draft_id);
+  second.unmount();
 });

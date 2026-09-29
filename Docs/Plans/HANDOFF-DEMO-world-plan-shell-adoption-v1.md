@@ -17,9 +17,9 @@ pr_body_template: |
 # HANDOFF — World Plan adopts Buddy's established editing shell
 
 **Created:** 2026-09-29
-**Status:** BLOCKED — PRIME must review the amended contract, settle #793's predecessor disposition, and explicitly activate the one serial implementation lane.
+**Status:** ACTIVE — PRIME DESIGN PASS on exact head `5a44f42041415dea783e3082e504a185f2e241c7`; #793 amendment is the sole serial implementation lane.
 **Workstream / owner:** DEMO / World Plan composition
-**Design base:** Buddy `origin/main@374d69d78ef58a062116de73e095b57f4a92ca15` (after #794 and #795 merged); the #793 implementation source head is `cba5dddcf2c482ec729e714cf75e6acd665b42e9`; this lane merged that exact main and preserves its current `AGENTS.md` and full #794 mandate.
+**Design base:** Buddy `origin/main@374d69d78ef58a062116de73e095b57f4a92ca15` (after #794 and #795 merged); design PASS `5a44f42041415dea783e3082e504a185f2e241c7`; implementation starts from adopted visual source `cba5dddcf2c482ec729e714cf75e6acd665b42e9` plus current main merge `a9a3fb9cefe91b89c606e6eb259022b4da9039d3`.
 **Topology:** serial amendment of #793 only. No successor PR.
 **PR title:** `DEMO: adopt the World Plan editing shell`
 **PRIME:** owns review, predecessor disposition, activation and merge.
@@ -55,7 +55,7 @@ Treat World IDs as opaque server-issued strings; never assume UUID format or val
 
 The canvas work object, `WorldPlanSurfaceContext` instance identity and `AppChromeToolsGeneration.target` must encode the same tuple. Its selected Plan context carries literal World/document identity; no campaign/session aliases. Keep revision, edit generation, selection epoch, editor generation and local token as separate lifetimes. Save promotion changes the shared work-object identity atomically after the exact server document id exists. Invalidation follows World/document/local-draft/host ownership replacement, not ordinary caret or text selection movement; formatting resolves TipTap’s current caret selection when clicked against the current editor.
 
-## §4 Proposed write lease — inactive while BLOCKED
+## §4 ACTIVE implementation write lease
 
 | Action | Path | Purpose |
 |---|---|---|
@@ -106,6 +106,13 @@ git diff --check origin/main...HEAD
 ```
 
 Then obtain one real amended-product witness at desktop and 390×844 on blank and authored content, after runtime owner approval: exact opaque World/Plan identity, boundary and control placement visible, recovery visible, no horizontal overflow/console errors, no model or graph writes. Prior six visual cases are historical only. Report unavailable checks and inherited build failures exactly. Request PRIME review of the exact cumulative amended head. This slice does not prove multi-turn Agent, full journey or operator acceptance.
+
+### Implementation candidate evidence (2026-09-29)
+
+- The exact §7 focused command completed with **111 passed** across `PlanSurfacePage.test.tsx`, the new mounted `PlanSurfacePage.editHost.test.tsx`, and `PlanSurfaceShell.test.tsx`.
+- The real AppChrome/EditHost tests verify opaque World identity, legacy local-draft migration/reload, actionable visible recovery, one matching edit inventory, and local-token → exact server-document promotion across publication identity and commands.
+- `git diff --check` passes. `npm run typecheck` and `npm run build` both stop at the existing out-of-lease error `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503: Cannot find namespace 'JSX'`; no files in the statblock domain were changed.
+- No live product/viewport witness was attempted: the §5 PRIME runtime-owner authorization remains required and this isolated shell lane has no server or graph-write ownership.
 
 ## §8 Pre-dispatch critique, state sync and handback
 

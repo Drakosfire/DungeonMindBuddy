@@ -17,12 +17,15 @@ import type { PlanViewProjection, WorldOwnedPlanRecordV2 } from "../api/types";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
+import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
+import { buildSurfaceInteractionIdentity } from "../surfaceInteraction/surfaceIdentity";
+import type { SurfaceInteractionPublication, SurfaceInteractionWorkObjectIdentity } from "../surfaceInteraction/types";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
 import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { WorldPlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
-import { MarkdownEditorToolbar, type MarkdownEditorToolbarModel } from "../tiptap/MarkdownEditorToolbar";
+import { toAppChromeToolsGeneration, type MarkdownEditorToolbarModel } from "../tiptap/MarkdownEditorToolbar";
 import { CALLOUT_KINDS, defaultCalloutLabel } from "../tiptap/markdown/calloutMarkdown";
 import { SemanticMarkdownPaste } from "../tiptap/extensions/SemanticMarkdownPaste";
 import "../tiptap/prepMarkdownThemes.css";
@@ -113,6 +116,8 @@ interface WorldPlanLocalDraftV2 {
   title: string;
   markdown: string;
   revision: number | null;
+  /** Browser-local identity only; never persisted to the server Plan record. */
+  local_draft_id?: string | null;
   edit_generation?: number;
   create_uncertain?: boolean;
   uncertain_create_draft?: {
@@ -135,6 +140,10 @@ function worldPlanLocalDraftKey(worldId: string): string {
   return `dmb:world-plan-local-draft:v2:${worldId}`;
 }
 
+function createWorldPlanLocalDraftId(): string {
+  return globalThis.crypto.randomUUID();
+}
+
 function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null {
   try {
     const raw = localStorage.getItem(worldPlanLocalDraftKey(worldId));
@@ -142,11 +151,17 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
     const value = JSON.parse(raw) as Partial<WorldPlanLocalDraftV2>;
     if (value.schema_version !== "dmb_plan_promotion_recovery_v2" || value.scope_mode !== "world"
       || value.world_id !== worldId || typeof value.title !== "string" || typeof value.markdown !== "string") return null;
-    return {
+    const localDraftId = typeof value.local_draft_id === "string" && value.local_draft_id.trim() !== ""
+      ? value.local_draft_id
+      : value.document_id == null
+        ? createWorldPlanLocalDraftId()
+        : null;
+    const normalized: WorldPlanLocalDraftV2 = {
       schema_version: "dmb_plan_promotion_recovery_v2",
       scope_mode: "world",
       world_id: worldId,
       document_id: typeof value.document_id === "string" ? value.document_id : null,
+      local_draft_id: localDraftId,
       title: value.title,
       markdown: value.markdown,
       revision: typeof value.revision === "number" ? value.revision : null,
@@ -184,6 +199,15 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
         }
         : null,
     };
+    if (value.local_draft_id !== localDraftId && normalized.document_id === null) {
+      // Additive in-place migration: retain every v2 content and recovery field.
+      try {
+        localStorage.setItem(worldPlanLocalDraftKey(worldId), JSON.stringify({ ...value, local_draft_id: localDraftId }));
+      } catch {
+        // Keep the readable legacy draft in memory if local storage is unavailable.
+      }
+    }
+    return normalized;
   } catch {
     return null;
   }
@@ -192,7 +216,7 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
 function persistWorldPlanLocalDraft(
   worldId: string,
   draft: Pick<WorldPlanLocalDraftV2, "document_id" | "title" | "markdown" | "revision">
-    & Partial<Pick<WorldPlanLocalDraftV2, "edit_generation" | "create_uncertain" | "uncertain_create_draft" | "pending_write">>,
+    & Partial<Pick<WorldPlanLocalDraftV2, "local_draft_id" | "edit_generation" | "create_uncertain" | "uncertain_create_draft" | "pending_write">>,
 ): void {
   try {
     const previous = readWorldPlanLocalDraft(worldId);
@@ -203,6 +227,11 @@ function persistWorldPlanLocalDraft(
       schema_version: "dmb_plan_promotion_recovery_v2",
       scope_mode: "world",
       world_id: worldId,
+      local_draft_id: Object.hasOwn(draft, "local_draft_id")
+        ? draft.local_draft_id
+        : draft.document_id === null
+          ? previous?.local_draft_id ?? createWorldPlanLocalDraftId()
+          : null,
       edit_generation: 0,
       create_uncertain: false,
       pending_write: null,
@@ -216,6 +245,9 @@ function persistWorldPlanLocalDraft(
 
 function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName: string }) {
   const [localDraft] = useState(() => readWorldPlanLocalDraft(worldId));
+  const [localDraftId, setLocalDraftId] = useState<string | null>(() =>
+    localDraft?.document_id === null ? localDraft.local_draft_id ?? createWorldPlanLocalDraftId() : null,
+  );
   const [initialDocumentId] = useState(() =>
     new URLSearchParams(window.location.search).get("documentId")?.trim() || localDraft?.document_id || null,
   );
@@ -235,6 +267,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(false);
+  const statusRef = useRef(status);
+  statusRef.current = status;
   const selectionEpochRef = useRef(0);
   const documentIdRef = useRef(initialDocumentId);
   const revisionRef = useRef<number | null>(localDraft?.revision ?? null);
@@ -257,9 +291,55 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     && selectionEpochRef.current === epoch
     && documentIdRef.current === expectedDocumentId;
 
-  const editorIdentity = `${worldId}:${documentId ?? "blank"}:${editorGeneration}`;
+  const workObject = useMemo<SurfaceInteractionWorkObjectIdentity>(() => documentId
+    ? {
+      kind: "world-plan-document",
+      id: JSON.stringify(["world-plan-document", worldId, documentId]),
+    }
+    : {
+      kind: "world-plan-local-draft",
+      id: JSON.stringify(["world-plan-local-draft", worldId, localDraftId ?? "pending-local-draft"]),
+    }, [documentId, localDraftId, worldId]);
+  const workObjectKey = JSON.stringify([workObject.kind, workObject.id]);
+  const workObjectRef = useRef(workObjectKey);
+  workObjectRef.current = workObjectKey;
+  const editorIdentity = `${workObjectKey}:${editorGeneration}`;
+  const selectionEpoch = selectionEpochRef.current;
   const editorIdentityRef = useRef(editorIdentity);
   editorIdentityRef.current = editorIdentity;
+  const surfaceIdentity = useMemo(() => buildSurfaceInteractionIdentity({
+    surfaceId: "plan",
+    instanceParts: ["world-plan", workObject.kind, workObject.id],
+  }), [workObject.id, workObject.kind]);
+  const surfacePublication = useMemo<SurfaceInteractionPublication>(() => ({
+    surfaceId: "plan",
+    label: "Plan",
+    identity: surfaceIdentity,
+    canvas: { canvasId: "world-plan-document", workObject },
+    agentContext: {
+      label: `${worldName} · ${documentId ? title || "Untitled Plan" : "Unsaved Plan draft"}`,
+      campaignId: null,
+      documentId,
+      sessionNumber: null,
+      ambientSummary: `World Plan · ${worldName}`,
+      pointers: [{ kind: "world", value: worldId }],
+    },
+    tools: [],
+    editCommands: [],
+    projections: [],
+    projectionBindings: [],
+  }), [documentId, surfaceIdentity, title, workObject, worldId, worldName]);
+  usePublishSurfaceInteraction(surfacePublication);
+  const saveDisabledReason = status !== "ready"
+    ? status === "loading" ? "Plan is still loading." : "Plan is unavailable until the load error is resolved."
+    : saving ? "Plan is already saving."
+      : createUncertain ? "Refresh Saved Plans and resolve the uncertain creation first."
+        : recoveryConflict ? "Resolve the saved Plan conflict before saving."
+          : uncertainCreateDraft && !documentId ? "Restore or discard the separately recovered draft first."
+            : !markdown.trim() ? "Add Plan content before saving."
+              : null;
+  const saveDisabledReasonRef = useRef<string | null>(saveDisabledReason);
+  saveDisabledReasonRef.current = saveDisabledReason;
   const setCurrentEditor = (next: Editor | null) => {
     editorRef.current = next;
     setEditor(next);
@@ -271,13 +351,54 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       label,
       onClick: () => {
         const active = editorRef.current;
-        if (!active || editorIdentityRef.current !== editorIdentity || status !== "ready" || saving || disabled) return;
+        if (!mountedRef.current || workObjectRef.current !== workObjectKey
+          || selectionEpochRef.current !== selectionEpoch
+          || !active || editorIdentityRef.current !== editorIdentity || statusRef.current !== "ready"
+          || savingRef.current || disabled) return;
         invoke(active);
       },
       disabled: !editor || status !== "ready" || saving || disabled,
     });
     return {
+      pinnedActions: [{
+        id: "world-plan-save",
+        label: saving ? "Saving…" : "Save Plan",
+        disabled: saveDisabledReason !== null,
+        disabledReason: saveDisabledReason ?? undefined,
+        onClick: () => {
+          if (!mountedRef.current || workObjectRef.current !== workObjectKey
+            || selectionEpochRef.current !== selectionEpoch
+            || editorIdentityRef.current !== editorIdentity || statusRef.current !== "ready"
+            || savingRef.current || saveDisabledReasonRef.current) return;
+          void save();
+        },
+      }],
       sections: [
+        {
+          id: "world-plan-document",
+          title: "Plan document",
+          defaultOpen: true,
+          actions: [],
+          panel: (
+            <label className="world-owned-plan__title-control">
+              Plan title
+              <input
+                value={title}
+                disabled={status !== "ready"}
+                onChange={(event) => {
+                  if (!mountedRef.current || workObjectRef.current !== workObjectKey
+                    || selectionEpochRef.current !== selectionEpoch
+                    || editorIdentityRef.current !== editorIdentity || statusRef.current !== "ready") return;
+                  const next = event.target.value;
+                  titleRef.current = next;
+                  const generation = ++editGenerationRef.current;
+                  setTitle(next);
+                  persistEditorDraft(next, markdownRef.current, generation);
+                }}
+              />
+            </label>
+          ),
+        },
         {
           id: "world-plan-format",
           title: "Text",
@@ -300,7 +421,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         },
       ],
     };
-  }, [createUncertain, documentId, editor, editorIdentity, markdown, recoveryConflict, saving, status, uncertainCreateDraft]);
+  }, [createUncertain, documentId, editor, editorIdentity, markdown, recoveryConflict, saveDisabledReason, saving, status, title, uncertainCreateDraft, workObjectKey]);
+
+  const appChromeTools = useMemo(
+    () => toAppChromeToolsGeneration(toolbarModel, workObject),
+    [toolbarModel, workObject],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -400,6 +526,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       url.searchParams.set("documentId", nextDocumentId);
       window.history.pushState({}, "", `${url.pathname}${url.search}`);
       documentIdRef.current = nextDocumentId;
+      setLocalDraftId(null);
       revisionRef.current = snapshot.loaded_revision;
       titleRef.current = snapshot.record.title;
       markdownRef.current = snapshot.markdown;
@@ -435,6 +562,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const resetBlankPlan = () => {
     if (savingRef.current) return;
     ++selectionEpochRef.current;
+    const nextLocalDraftId = createWorldPlanLocalDraftId();
     editorIdentityRef.current = `${worldId}:blank:${editorGeneration + 1}`;
     editorRef.current = null;
     setEditor(null);
@@ -451,11 +579,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     url.searchParams.delete("documentId");
     window.history.pushState({}, "", `${url.pathname}${url.search}`);
     setDocumentId(null);
+    setLocalDraftId(nextLocalDraftId);
     setTitle("Plan");
     setMarkdown("");
     setEditorGeneration((value) => value + 1);
     persistWorldPlanLocalDraft(worldId, {
       document_id: null,
+      local_draft_id: nextLocalDraftId,
       title: "Plan",
       markdown: "",
       revision: null,
@@ -579,6 +709,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         if (isCurrent() && documentIdRef.current === null) {
           uiDocumentId = exactId;
           documentIdRef.current = exactId;
+          setLocalDraftId(null);
           revisionRef.current = currentRevision;
           titleRef.current = submittedTitle;
           markdownRef.current = submittedMarkdown;
@@ -711,6 +842,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       const beforePrepare = readWorldPlanLocalDraft(worldId);
       persistWorldPlanLocalDraft(worldId, {
         document_id: exactId,
+        local_draft_id: null,
         title: beforePrepare?.title ?? submittedTitle,
         markdown: beforePrepare?.markdown ?? submittedMarkdown,
         revision: baseRevision,
@@ -846,6 +978,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setError(null);
     persistWorldPlanLocalDraft(worldId, {
       document_id: documentIdRef.current,
+      local_draft_id: documentIdRef.current ? null : localDraftId,
       title: serverDraft.title,
       markdown: serverDraft.markdown,
       revision: serverDraft.revision,
@@ -939,15 +1072,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       create_uncertain: isPendingCreate,
       uncertain_create_draft: nextRecovery ?? null,
       pending_write: saved?.pending_write ?? pendingWriteRef.current,
+      local_draft_id: documentIdRef.current ? null : localDraftId,
     });
   };
 
   return (
-    <AppChrome activeRoute="plan">
+    <AppChrome activeRoute="plan" editorTools={appChromeTools} editToolboxLayout="dock">
       <WorldPlanSurfaceContext
         worldId={worldId}
         worldName={worldName}
         documentId={documentId}
+        workObject={workObject}
         records={records}
         disabled={saving || status === "loading"}
         onSelect={(nextId) => { void openPlan(nextId); }}
@@ -960,13 +1095,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <h1>{documentId ? title || "Untitled Plan" : "New Plan"}</h1>
             <p className="world-owned-plan__intro">A working space for this World. Your draft is local until you save it.</p>
           </div>
-          <label>Plan title<input value={title} onChange={(event) => {
-            const next = event.target.value;
-            titleRef.current = next;
-            const generation = ++editGenerationRef.current;
-            setTitle(next);
-            persistEditorDraft(next, markdownRef.current, generation);
-          }} /></label>
         </header>
         {createUncertain ? (
           <section role="alert">
@@ -993,11 +1121,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           testId="world-owned-plan-editor"
           identityLabel={documentId ? `Editing Plan · ${title || "Untitled"}` : "Unsaved Plan draft"}
           themeId="world-plan"
-          beforeEditor={(
-            <div className="world-owned-plan__toolbar">
-              <MarkdownEditorToolbar model={toolbarModel} aria-label="Plan editing tools" />
-            </div>
-          )}
         >
           <MarkdownEditorCore
             content={editorContent}
@@ -1019,9 +1142,6 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             {(editor) => <EditorContent editor={editor} aria-label="Markdown plan" />}
           </MarkdownEditorCore>
         </PlanSurfaceCanvasFrame>
-        <button type="button" onClick={() => void save()} disabled={status !== "ready" || saving || createUncertain || recoveryConflict || Boolean(uncertainCreateDraft && !documentId) || !markdown.trim()}>
-          {saving ? "Saving…" : "Save Plan"}
-        </button>
         {status === "loading" ? <p role="status">Loading World Plan…</p> : null}
         {message ? <p role="status">{message}</p> : null}
         {error ? <p role="alert">{error}</p> : null}

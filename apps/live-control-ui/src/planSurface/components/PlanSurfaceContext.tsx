@@ -13,6 +13,7 @@ import {
   useSurfaceContextContribution,
 } from "../../surfaceInteraction/contextHost";
 import type { PlanDocumentDescriptor } from "../types";
+import type { SurfaceInteractionWorkObjectIdentity } from "../../surfaceInteraction/types";
 import {
   PlanDocumentCreateControl,
   type PlanDocumentCreateControlProps,
@@ -43,6 +44,7 @@ export interface WorldPlanSurfaceContextProps {
   worldId: string;
   worldName: string;
   documentId: string | null;
+  workObject?: SurfaceInteractionWorkObjectIdentity;
   records: WorldOwnedPlanRecordV2[];
   disabled?: boolean;
   onSelect: (documentId: string) => void;
@@ -53,6 +55,7 @@ export function WorldPlanSurfaceContext({
   worldId,
   worldName,
   documentId,
+  workObject,
   records,
   disabled = false,
   onSelect,
@@ -60,8 +63,10 @@ export function WorldPlanSurfaceContext({
 }: WorldPlanSurfaceContextProps) {
   const surfaceIdentity = useMemo(() => buildSurfaceInteractionIdentity({
     surfaceId: "plan",
-    instanceParts: ["world-plan", worldId, documentId],
-  }), [documentId, worldId]);
+    instanceParts: workObject
+      ? ["world-plan", workObject.kind, workObject.id]
+      : ["world-plan", worldId, documentId],
+  }), [documentId, workObject?.id, workObject?.kind, worldId]);
 
   const content = useMemo(() => (
     <SurfaceContextModule label="PLAN" className="plan-surface-context">
