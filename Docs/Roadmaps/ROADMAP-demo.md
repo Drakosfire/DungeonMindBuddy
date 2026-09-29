@@ -123,11 +123,13 @@ saved canvas fits at 390×844 without horizontal overflow. A physical tap on
 Edit after closing the mobile drawer did not reopen it: the hidden shared
 backdrop intercepts the launcher. INTERACTION MAP owns this shared shell defect
 in separate open PR #797 at `301a64fe1a5c1c19300b01002c147d642634de8a`;
-PRIME retains merge control. The PR #793 mounted promotion test now retains the
-real “Read aloud” EditHost command through local→saved identity replacement and
-proves that replay neither mutates nor focuses the replacement editor. The focused
-three-file Plan suite passes 112/112 in serial execution; one parallel-run timeout
-was cleared by isolated and serial reruns.
+PRIME retains merge control. The PR #793 mounted EditHost regression retains the
+real “Read aloud” command across saved-document replacement, local→saved
+promotion, saved-document→blank, World replacement, and unmount. Each stale
+command is inert: it neither mutates editor markup nor steals focus from the
+current editor or external focus target. The focused Plan/editor-host suite now
+passes 22/22 tests in serial execution. The mobile reopen defect remains outside
+this lease and awaits #797.
 
 Automatic Graph projection remained unavailable (503; Graph URL unset), and the
 World badge reported attention. Automatic `longmont-c2` source-bundle reads do

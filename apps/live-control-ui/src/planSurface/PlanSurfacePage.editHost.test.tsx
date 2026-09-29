@@ -14,6 +14,9 @@ import { PlanSurfacePage } from "./PlanSurfacePage";
 const worldId = "world/server-issued:opaque/a";
 const documentId = "world-plan-doc/server-issued:opaque/1";
 const storageKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+const secondWorldId = "world/server-issued:opaque/b";
+const firstSavedDocumentId = "world-plan-doc/server-issued:opaque/a";
+const secondSavedDocumentId = "world-plan-doc/server-issued:opaque/b";
 
 function record(): WorldOwnedPlanRecordV2 {
   return {
@@ -34,12 +37,43 @@ function record(): WorldOwnedPlanRecordV2 {
   };
 }
 
+function recordFor(world: string, document: string, title: string): WorldOwnedPlanRecordV2 {
+  return {
+    ...record(),
+    document_id: document,
+    title,
+    world_id: world,
+    target_relpath: `out/workspace/plan/${document}.md`,
+  };
+}
+
 function PublicationProbe({ capture }: { capture?: (publication: SurfaceInteractionPublication | null) => void }) {
   const { surfaceInteractionPublication } = useAgentInteraction();
   useEffect(() => {
     capture?.(surfaceInteractionPublication);
   }, [capture, surfaceInteractionPublication]);
   return <output data-testid="surface-publication">{JSON.stringify(surfaceInteractionPublication)}</output>;
+}
+
+function MountedPlanHarness({
+  locationSnapshot,
+  capture,
+}: {
+  locationSnapshot: string;
+  capture: (publication: SurfaceInteractionPublication | null) => void;
+}) {
+  return (
+    <SurfaceContextProvider>
+      <PeekRegionProvider>
+        <AgentInteractionProvider>
+          <SelectedWorldProvider locationSnapshot={locationSnapshot}>
+            <PublicationProbe capture={capture} />
+            <PlanSurfacePage />
+          </SelectedWorldProvider>
+        </AgentInteractionProvider>
+      </PeekRegionProvider>
+    </SurfaceContextProvider>
+  );
 }
 
 afterEach(() => {
@@ -256,6 +290,159 @@ it("promotes the mounted EditHost inventory from its local token to the exact sa
   expect(replacementEditor!.innerHTML).toBe(replacementMarkup);
   expect(document.activeElement).toBe(focusAnchor);
   expect(JSON.parse(localStorage.getItem(storageKey) ?? "null").local_draft_id).toBeNull();
+});
+
+it("fences held EditHost commands across document, blank, World, and unmount transitions", async () => {
+  const capturedPublication: { current: SurfaceInteractionPublication | null } = { current: null };
+  const capturePublication = (publication: SurfaceInteractionPublication | null) => {
+    capturedPublication.current = publication;
+  };
+  const firstRecord = recordFor(worldId, firstSavedDocumentId, "First saved Plan");
+  const secondRecord = recordFor(worldId, secondSavedDocumentId, "Second saved Plan");
+  const secondWorldRecord = recordFor(secondWorldId, "world-plan-doc/server-issued:b1", "Other World Plan");
+  const recordsById = new Map([
+    [firstRecord.document_id, firstRecord],
+    [secondRecord.document_id, secondRecord],
+    [secondWorldRecord.document_id, secondWorldRecord],
+  ]);
+  const worlds = [
+    { schema_version: "dmb_world_container_record_v1" as const, world_id: worldId, name: "Of Conks", source_root_relpath: "corpus/of-conks", created_at: "2026-01-01T00:00:00Z" },
+    { schema_version: "dmb_world_container_record_v1" as const, world_id: secondWorldId, name: "Second World", source_root_relpath: "worlds/second", created_at: "2026-01-01T00:00:00Z" },
+  ];
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockImplementation(async (requestedWorldId) => ({
+    schema_version: "dmb_managed_world_plan_context_v2",
+    scope_mode: "world",
+    world_id: requestedWorldId,
+    campaign_id: null,
+    session: null,
+    authoritative: false,
+    generated_at: "2026-01-01T00:00:00Z",
+    derived_from: ["managed_world_container"],
+    timeline: [],
+  }));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: worlds,
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockImplementation(async (requestedWorldId) => ({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: requestedWorldId,
+    records: requestedWorldId === worldId ? [firstRecord, secondRecord] : [secondWorldRecord],
+  }));
+  vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockImplementation(async (requestedDocumentId) => {
+    const requestedRecord = recordsById.get(requestedDocumentId);
+    if (!requestedRecord) throw new Error(`Unknown test Plan ${requestedDocumentId}`);
+    return {
+      schema_version: "dmb_workspace_document_snapshot_v2",
+      record: requestedRecord,
+      markdown: `# ${requestedRecord.title}\n\nSaved body for ${requestedRecord.title}.\n`,
+      content_sha256: "b".repeat(64),
+      file_fingerprint: "postgres",
+      file_exists: true,
+      loaded_revision: requestedRecord.revision,
+    };
+  });
+
+  const locationFor = (world: string) => `/plan?world=${encodeURIComponent(world)}`;
+  const firstLocation = locationFor(worldId);
+  window.history.replaceState({}, "", firstLocation);
+  const view = render(
+    <MountedPlanHarness locationSnapshot={firstLocation} capture={capturePublication} />,
+  );
+  await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(capturedPublication.current?.editCommands.some((command) => command.label === "Read aloud")).toBe(true));
+
+  const activeEditor = () => {
+    const editor = screen.getByTestId("world-owned-plan-markdown-editor").querySelector<HTMLElement>('[contenteditable="true"]');
+    expect(editor).not.toBeNull();
+    return editor!;
+  };
+  const retainedCommand = () => {
+    const publication = capturedPublication.current;
+    const command = publication?.editCommands.find((candidate) => candidate.label === "Read aloud");
+    expect(command).toBeDefined();
+    return command!;
+  };
+  const assertHeldCommandIsInert = async (
+    command: SurfaceInteractionEditCommandContribution,
+    editor: HTMLElement,
+  ) => {
+    const focusAnchor = screen.getByRole("combobox", { name: "Plan document" });
+    focusAnchor.focus();
+    const markup = editor.innerHTML;
+    await act(async () => {
+      await command.invoke();
+    });
+    expect(editor.innerHTML).toBe(markup);
+    expect(document.activeElement).toBe(focusAnchor);
+  };
+
+  const localCommand = retainedCommand();
+  const planSelector = screen.getByRole("combobox", { name: "Plan document" });
+  fireEvent.change(planSelector, { target: { value: firstSavedDocumentId } });
+  await waitFor(() => expect(new URL(window.location.href).searchParams.get("documentId")).toBe(firstSavedDocumentId));
+  await screen.findByText("Saved body for First saved Plan.");
+  await waitFor(() => expect(capturedPublication.current?.canvas.workObject).toMatchObject({
+    kind: "world-plan-document",
+    id: JSON.stringify(["world-plan-document", worldId, firstSavedDocumentId]),
+  }));
+  const firstSavedEditor = activeEditor();
+  expect(firstSavedEditor).not.toBeNull();
+  await assertHeldCommandIsInert(localCommand, firstSavedEditor);
+
+  const firstDocumentCommand = retainedCommand();
+  fireEvent.change(screen.getByRole("combobox", { name: "Plan document" }), {
+    target: { value: secondSavedDocumentId },
+  });
+  await waitFor(() => expect(new URL(window.location.href).searchParams.get("documentId")).toBe(secondSavedDocumentId));
+  await screen.findByText("Saved body for Second saved Plan.");
+  await waitFor(() => expect(capturedPublication.current?.canvas.workObject).toMatchObject({
+    kind: "world-plan-document",
+    id: JSON.stringify(["world-plan-document", worldId, secondSavedDocumentId]),
+  }));
+  const secondSavedEditor = activeEditor();
+  expect(secondSavedEditor).not.toBe(firstSavedEditor);
+  await assertHeldCommandIsInert(firstDocumentCommand, secondSavedEditor);
+
+  const secondDocumentCommand = retainedCommand();
+  fireEvent.click(screen.getByRole("button", { name: "New blank Plan" }));
+  await waitFor(() => expect(capturedPublication.current?.canvas.workObject.kind).toBe("world-plan-local-draft"));
+  const newBlankEditor = activeEditor();
+  expect(newBlankEditor).not.toBe(secondSavedEditor);
+  await assertHeldCommandIsInert(secondDocumentCommand, newBlankEditor);
+
+  const blankCommand = retainedCommand();
+  const secondLocation = locationFor(secondWorldId);
+  window.history.replaceState({}, "", secondLocation);
+  view.rerender(<MountedPlanHarness locationSnapshot={secondLocation} capture={capturePublication} />);
+  await screen.findByTestId("world-owned-plan-markdown-editor");
+  await screen.findByRole("option", { name: "Other World Plan" });
+  fireEvent.change(screen.getByRole("combobox", { name: "Plan document" }), {
+    target: { value: secondWorldRecord.document_id },
+  });
+  await waitFor(() => expect(new URL(window.location.href).searchParams.get("documentId")).toBe(secondWorldRecord.document_id));
+  await screen.findByText("Saved body for Other World Plan.");
+  await waitFor(() => expect(capturedPublication.current?.canvas.workObject).toMatchObject({
+    kind: "world-plan-document",
+    id: JSON.stringify(["world-plan-document", secondWorldId, secondWorldRecord.document_id]),
+  }));
+  const secondWorldEditor = activeEditor();
+  expect(secondWorldEditor).not.toBe(newBlankEditor);
+  await assertHeldCommandIsInert(blankCommand, secondWorldEditor);
+
+  const unmountedCommand = retainedCommand();
+  const finalEditor = secondWorldEditor;
+  const externalFocusAnchor = document.createElement("button");
+  document.body.append(externalFocusAnchor);
+  externalFocusAnchor.focus();
+  view.unmount();
+  expect(finalEditor.isConnected).toBe(false);
+  await act(async () => {
+    await unmountedCommand.invoke();
+  });
+  expect(document.activeElement).toBe(externalFocusAnchor);
+  externalFocusAnchor.remove();
 });
 
 it("assigns a fresh blank World a stable local identity on its first edit and reload", async () => {
