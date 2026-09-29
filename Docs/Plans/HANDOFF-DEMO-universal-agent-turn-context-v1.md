@@ -9,9 +9,10 @@ pr_body_template: |
 
   ## Review contract
   One Buddy-owned turn contract resolves the current surface, owner scope,
-  primary work object, and optional graph lens independently. Exact World or
-  campaign authority is server-resolved; absent context is explicit; supplied
-  invalid/foreign identity fails closed. `/api/live/query` remains packet-bound.
+  primary work object, graph lens, and temporal graph focus independently.
+  Exact World/campaign authority and focus are server-resolved; absent context
+  is explicit; supplied invalid/foreign identity fails closed. Generic no-scope
+  turns do not load a session packet. `/api/live/query` remains packet-bound.
   The six-surface matrix and owning-boundary acceptance evidence govern.
 
 # HANDOFF — DEMO: one truthful Agent turn across Buddy surfaces
@@ -149,7 +150,12 @@ child route under the already-registered `/api/live` router. This avoids a new
   "owner_scope": {"kind": "world", "world_id": "world-locator"},
   "primary_work": {"kind": "plan", "object_id": "document-locator", "expected_revision": 3},
   "client_work_state": "saved_dirty",
-  "graph_request": {"mode": "world", "world_id": "world-locator", "revision_pin": null},
+  "graph_request": {
+    "mode": "world",
+    "world_id": "world-locator",
+    "revision_pin": null,
+    "focus": {"kind": "session", "session_id": "session-23", "campaign_id": "longmont-c2"}
+  },
   "graph_selection": {"node_id": "node:hempholm"},
   "message": "What have we established about this place?"
 }
@@ -159,18 +165,35 @@ child route under the already-registered `/api/live` router. This avoids a new
 `{kind:"campaign", campaign_id}`. These values are untrusted locators; the
 server resolves the selected World or campaign through its existing owner
 authority. `graph_request` is a required discriminated choice: `{mode:"none"}`
-means no graph retrieval is requested, while `{mode:"world",world_id,
-revision_pin}` or `{mode:"campaign",campaign_id,revision_pin}` explicitly
-requests one graph lens. A null revision pin means resolve the current readable
-revision; a non-null pin requests that exact revision. The server resolves a
-campaign to its owning World. A graph lens may equal or narrow the verified
+means no graph retrieval is requested and carries no selected node, while
+`{mode:"world",world_id,revision_pin,focus}` or
+`{mode:"campaign",campaign_id,revision_pin,focus}` explicitly requests one
+graph lens. `focus` is a required client locator for requested graph lenses
+and is either
+`{kind:"none",session_id:null,campaign_id:null}` or
+`{kind:"session",session_id,campaign_id}` with an exact nonblank session ID
+and exact focus campaign ID when one applies (otherwise null). It is a temporal
+retrieval focus, not an alternate graph scope or authorization. The server
+must corroborate it against the resolved surface/work snapshot and reject any
+disagreement. The current surface/work resolver supplies the accepted value;
+it is never guessed from a URL, session number, World ID, or campaign
+surrogate. A managed World Plan with no target
+session uses `kind:"none"`. A campaign Plan preserves its exact resolved
+session and focus campaign. A World lens on a session-focused surface preserves
+that same session focus and exact campaign when applicable. A null revision pin
+means resolve the current readable revision; a non-null pin requests that exact
+revision. The server resolves a campaign to its owning World. A graph lens may
+equal or narrow the verified
 owner scope, never widen it: World owner + same World lens is valid; World owner
 + a campaign lens is valid only when that campaign resolves inside the same
 World; campaign owner permits only that same campaign lens; a campaign owner
 cannot request the broader World lens. With no work owner, a graph lens is
 allowed only when the current surface resolver independently proves the exact
 selected World/campaign; otherwise reject it. World selection with
-`graph_request.mode="none"` remains ordinary no-retrieval conversation.
+`graph_request.mode="none"` remains ordinary no-retrieval conversation. A
+non-null `graph_selection` or session focus paired with `mode:"none"` is
+contradictory and fails validation; the server must not ignore it or silently
+upgrade the request to retrieval.
 
 `primary_work` is null only when no durable work object is selected, or a
 bounded `{kind, object_id, expected_revision}` locator for a saved object.
@@ -179,8 +202,12 @@ bounded `{kind, object_id, expected_revision}` locator for a saved object.
 authority. Thus null work + `none` means no selected work, while null work +
 `new_unsaved` means the client reports a local unsaved draft. The response
 echoes that distinction as `client_work_state_reported` (never `resolved`) and
-never claims to have read draft content. A dirty saved draft resolves only its exact
-committed base revision; no local editor prose or unsubmitted diff is sent.
+never claims to have read draft content. `saved_dirty` is only a browser hint:
+the server resolves the exact saved object locator against its current
+committed authority, uses the actual latest committed revision, and reports
+`changed_since_expected` with expected-versus-used revision values when that
+revision differs from `expected_revision`. No local editor prose or unsubmitted
+diff is sent or treated as context.
 Contradictory selection/hint pairs fail validation rather than being guessed.
 
 The request carries bounded identity and the typed UI-state hint only; no
@@ -218,8 +245,9 @@ scope: absent | resolved | rejected | unavailable; kind + canonical owner ID
 primary_work: absent | resolved | changed_since_expected | foreign | removed | unavailable
 client_work_state_reported: none | saved_clean | saved_dirty | new_unsaved
 graph: not_requested | ready | empty | unavailable | rejected; requested lens,
-       canonical World/campaign, requested pin, actual revision, observed head,
-       is_head, selection_found: null | false | true, optional exact selected node
+       canonical World/campaign, requested pin, requested/resolved temporal
+       focus, actual revision, observed head, is_head,
+       selection_found: null | false | true, optional exact selected node
 conversation: client thread ID + turn ID + provider-continuity outcome
 answer: text/status/warnings; no implied graph grounding when graph not used
 ```
@@ -266,8 +294,11 @@ stale late responses; it is not server authorization.
 - `HermesSessionPointerStore` in
   `apps/live_control_server/services/hermes_session_store.py` persists only
   provider continuation bindings to `hermes_thread_pointers.json` under the
-  existing live-session base. It is not Buddy message history. The generic
-  route reuses this same file/store but adds a versioned structured binding
+  configured `session_dir()` base from `apps/live_control_server/config.py`.
+  For the generic no-scope route this directory is only the pointer-storage
+  location: do not call `load_session()` or read a packet/session as a
+  prerequisite. It is not Buddy message history. The generic route reuses this
+  same file/store but adds a versioned structured binding
   namespace over canonical owner scope, primary work identity (or none), and
   client thread ID. Reuse is allowed only for an exact structured-key and
   stored-identity match; a changed scope/work key starts fresh provider
@@ -380,13 +411,21 @@ The future implementation's focused contract suite must prove:
 1. Request parsing rejects unknown fields, malformed identities, unknown
    `client_work_state` values and oversized messages; `null` is explicit and
    distinguishable from malformed. `graph_request.mode="none"` is an explicit
-   no-retrieval request, not a missing or malformed lens.
+   no-retrieval request, not a missing or malformed lens; non-null selection
+   or session focus paired with it is rejected, never ignored/upgraded.
 2. Exact Index turn with no scope returns a normal no-graph conversation result
-   and does not invoke a graph tool or claim graph grounding.
+   and does not invoke a graph tool or claim graph grounding. It succeeds with
+   packet loading unavailable: the configured `session_dir()` is used only for
+   structured provider-pointer persistence, and no session packet is loaded.
 3. Exact managed World Plan with null product campaign and no target session
    resolves the World graph at an observed revision; Plan document ID/revision
    is resolved independently. A browser-reported `new_unsaved` Plan remains a
    client hint only: no draft body or synthetic document ID reaches the server.
+   Its graph focus is `kind:"none"`, not a guessed session. Campaign Plan
+   preserves the exact resolved session ID and focus campaign. World-mode
+   retrieval from a session-focused surface preserves that same exact focus
+   when applicable; tests reject guessed session numbers and campaign
+   surrogates.
 4. World lens maps to explicit `scope_mode=world`, null campaign, and exact
    World. Campaign lens maps to exact nonblank campaign. There is no fallback
    or `surface_id`-derived campaign.
