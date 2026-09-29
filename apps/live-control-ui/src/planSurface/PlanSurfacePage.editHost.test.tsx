@@ -1,4 +1,5 @@
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
@@ -7,6 +8,7 @@ import { AgentInteractionProvider, useAgentInteraction } from "../agentInteracti
 import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
+import type { SurfaceInteractionEditCommandContribution, SurfaceInteractionPublication } from "../surfaceInteraction/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
 
 const worldId = "world/server-issued:opaque/a";
@@ -32,8 +34,11 @@ function record(): WorldOwnedPlanRecordV2 {
   };
 }
 
-function PublicationProbe() {
+function PublicationProbe({ capture }: { capture?: (publication: SurfaceInteractionPublication | null) => void }) {
   const { surfaceInteractionPublication } = useAgentInteraction();
+  useEffect(() => {
+    capture?.(surfaceInteractionPublication);
+  }, [capture, surfaceInteractionPublication]);
   return <output data-testid="surface-publication">{JSON.stringify(surfaceInteractionPublication)}</output>;
 }
 
@@ -126,6 +131,11 @@ it("publishes one matching World Plan inventory through the real AppChrome and E
 });
 
 it("promotes the mounted EditHost inventory from its local token to the exact saved document", async () => {
+  const capturedPublication: { current: SurfaceInteractionPublication | null } = { current: null };
+  const capturePublication = (publication: SurfaceInteractionPublication | null) => {
+    capturedPublication.current = publication;
+  };
+  let retainedReadAloud: SurfaceInteractionEditCommandContribution | undefined;
   localStorage.setItem(storageKey, JSON.stringify({
     schema_version: "dmb_plan_promotion_recovery_v2",
     scope_mode: "world",
@@ -195,7 +205,7 @@ it("promotes the mounted EditHost inventory from its local token to the exact sa
       <PeekRegionProvider>
         <AgentInteractionProvider>
           <SelectedWorldProvider locationSnapshot={`/plan?world=${encodeURIComponent(worldId)}`}>
-            <PublicationProbe />
+            <PublicationProbe capture={capturePublication} />
             <PlanSurfacePage />
           </SelectedWorldProvider>
         </AgentInteractionProvider>
@@ -205,6 +215,12 @@ it("promotes the mounted EditHost inventory from its local token to the exact sa
 
   const save = await screen.findByRole("button", { name: "Save Plan" });
   await waitFor(() => expect(save).toBeEnabled());
+  const originalEditor = screen.getByTestId("world-owned-plan-markdown-editor").querySelector('[contenteditable="true"]');
+  expect(originalEditor).not.toBeNull();
+  await waitFor(() => {
+    retainedReadAloud = capturedPublication.current?.editCommands.find((command) => command.label === "Read aloud");
+    expect(retainedReadAloud).toBeDefined();
+  });
   expect(screen.getByText("A working space for this World. Your draft is local until you save it.")).toBeInTheDocument();
   const localPublication = JSON.parse(screen.getByTestId("surface-publication").textContent ?? "null");
   expect(localPublication.canvas.workObject).toEqual({
@@ -228,6 +244,17 @@ it("promotes the mounted EditHost inventory from its local token to the exact sa
       command.target.kind === "world-plan-document"
       && command.target.id === JSON.stringify(["world-plan-document", worldId, documentId]))).toBe(true);
   });
+  const replacementEditor = screen.getByTestId("world-owned-plan-markdown-editor").querySelector('[contenteditable="true"]');
+  expect(replacementEditor).not.toBeNull();
+  expect(replacementEditor).not.toBe(originalEditor);
+  const focusAnchor = screen.getByRole("button", { name: "Save Plan" });
+  focusAnchor.focus();
+  const replacementMarkup = replacementEditor!.innerHTML;
+  await act(async () => {
+    await retainedReadAloud!.invoke();
+  });
+  expect(replacementEditor!.innerHTML).toBe(replacementMarkup);
+  expect(document.activeElement).toBe(focusAnchor);
   expect(JSON.parse(localStorage.getItem(storageKey) ?? "null").local_draft_id).toBeNull();
 });
 

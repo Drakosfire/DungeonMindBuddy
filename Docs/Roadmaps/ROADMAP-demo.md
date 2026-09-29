@@ -113,22 +113,30 @@ Title, Save, formatting and insertion controls live in EditHost, leaving the
 central canvas for the document; actionable recovery remains visible and
 developer identity details remain secondary.
 
-The recorded live witness on the authorized isolated UI 5202/API 8821 pair
-created native World `of-conks`, authored “The Hollow Toll”, and saved/reloaded
-Plan `a4e60bb6-e149-4d5d-a484-fa81a4cd620b` at revision 1. Desktop showed the
-global navbar, Plan subnav, EditHost and paper canvas. The pre-#796 narrow
-viewport witness found EditHost descendants overflowing at 390×844 and a React
-`flushSync` lifecycle console error. PR #796's responsive EditHost changes are
-now in `main`, but this exact shell-adoption route has not been re-rendered
-after that merge. The earlier visual-only six-case witness is not evidence for
-the current shell composition. The recorded graph projection returned 503
-because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL` was unset; the World
-status reported attention. The last successful read-only admission check also
-left the native Of Conks source pending with `authority_unavailable`, before
-knowledge confirmation or ordinary retrieval. This checkout could not recheck
-the API, so no current listener or database state is claimed. No graph/model
-write, knowledge confirmation, retrieval, Agent turn, or operator acceptance
-is claimed. J2 human acceptance and the connected J1–J6 journey remain open.
+The post-#796 exact-head witness on PR #793 `a9426d244af3d60b9b630a6e382f6b31c4c28b4e`
+used the authorized isolated UI 5202/API 8821 pair and disposable APP-STATE
+database. Product UI created fresh World `of-conks-plan-shell-witness-2026-09-29`;
+Plan “The First Bell at the Tollhouse” was saved as document
+`bb116c42-8862-4c28-b379-831871b48dc0` and reloaded with title/body intact.
+Desktop showed global nav, World Plan selector, EditHost and paper canvas; the
+saved canvas fits at 390×844 without horizontal overflow. A physical tap on
+Edit after closing the mobile drawer did not reopen it: the hidden shared
+backdrop intercepts the launcher. INTERACTION MAP owns this shared shell defect
+in separate open PR #797 at `301a64fe1a5c1c19300b01002c147d642634de8a`;
+PRIME retains merge control. The PR #793 mounted promotion test now retains the
+real “Read aloud” EditHost command through local→saved identity replacement and
+proves that replay neither mutates nor focuses the replacement editor. The focused
+three-file Plan suite passes 112/112 in serial execution; one parallel-run timeout
+was cleared by isolated and serial reruns.
+
+Automatic Graph projection remained unavailable (503; Graph URL unset), and the
+World badge reported attention. Automatic `longmont-c2` source-bundle reads do
+not prove Of Conks retrieval. No knowledge was prepared/confirmed and no Graph
+or model write occurred. This witness does not establish Agent turns, graph
+read-after-write, source admission, statblock/image preparation, Run persistence,
+restart/resume, or operator acceptance. After #797 lands, repeat the exact mobile
+EditHost transition, then resume at the first connected authority/knowledge
+boundary. J2 acceptance and the full two-run J1–J6 journey remain open.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
