@@ -226,6 +226,9 @@ code {
   }
 
   .app-wrap:has(.world-owned-plan) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
     overflow-x: clip;
   }
 

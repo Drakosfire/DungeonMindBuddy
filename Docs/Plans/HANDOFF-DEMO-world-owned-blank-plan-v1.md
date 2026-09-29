@@ -83,6 +83,13 @@ Authorities: accepted APP-STATE Content architecture, shared Markdown Canvas,
 selected-World primitive (#776), managed Plan reads (#775/#782), blank authoring
 shell (#661), and the DEMO roadmap. Those predecessors do not prove this contract.
 
+PRIME authorized a same-PR presentation amendment in #788 comment
+`5881740591`: World-owned Plan scoped styles in `styles.css` and this handoff's
+evidence only. It does not authorize shell redesign, shared theme changes,
+domain/API/recovery work, or another PR. The follow-up specifically makes the
+paper edge legible, removes the native select-arrow treatment, and contains the
+existing shell's intrinsic-width overflow only while this Plan is mounted.
+
 - At design time, #785 was the only open DEMO implementation PR. At activation,
   fresh review of current open PR path leases found no overlap with this serial
   lane. #786's independent four-code-path statblock lease was disjoint and then
@@ -348,7 +355,12 @@ No one cross-domain transaction or automatic knowledge publication is promised.
    ownership; no SQL/console/ID repair. Graph-dependent tools may be unavailable.
    For the PRIME-authorized visual amendment, capture blank and saved Read Aloud
    states at desktop and narrow viewport; verify the canvas boundary, usable
-   reading width, focused controls, and responsive layout.
+   reading width, focused controls, and responsive layout. During refinement,
+   narrow inspection exposed an intrinsic-width `.app-wrap` at 416px. A scoped
+   Plan-only width constraint corrected it; the saved Read Aloud Plan at 390×844
+   then measured document `clientWidth=375` and `scrollWidth=375` (no horizontal
+   overflow), a 326px Plan frame, and a 292px framed editor. Recheck blank and
+   saved states at desktop and narrow size after any further CSS change.
 6. Focused full cohorts, scoped Ruff, frontend build/typecheck, cumulative/local
    `git diff --check` and actual changed paths versus §4. Inherited JSX failure
    requires exact unchanged base/head hash; no broader waiver or filtered-green
