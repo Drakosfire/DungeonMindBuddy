@@ -1093,7 +1093,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <div>
             <p className="plan-surface-kicker">WORLD PLAN</p>
             <h1>{documentId ? title || "Untitled Plan" : "New Plan"}</h1>
-            <p className="world-owned-plan__intro">A working space for this World. Your draft is local until you save it.</p>
+            <p className="world-owned-plan__intro">{documentId
+              ? "A saved Plan for this World. Any new edits stay local until you save them."
+              : "A working space for this World. Your draft is local until you save it."}</p>
           </div>
         </header>
         {createUncertain ? (

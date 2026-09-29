@@ -205,6 +205,7 @@ it("promotes the mounted EditHost inventory from its local token to the exact sa
 
   const save = await screen.findByRole("button", { name: "Save Plan" });
   await waitFor(() => expect(save).toBeEnabled());
+  expect(screen.getByText("A working space for this World. Your draft is local until you save it.")).toBeInTheDocument();
   const localPublication = JSON.parse(screen.getByTestId("surface-publication").textContent ?? "null");
   expect(localPublication.canvas.workObject).toEqual({
     kind: "world-plan-local-draft",
@@ -213,6 +214,7 @@ it("promotes the mounted EditHost inventory from its local token to the exact sa
 
   fireEvent.click(save);
   await screen.findByText("Saved to this World.");
+  expect(screen.getByText("A saved Plan for this World. Any new edits stay local until you save them.")).toBeInTheDocument();
   await waitFor(() => {
     const publication = JSON.parse(screen.getByTestId("surface-publication").textContent ?? "null");
     expect(publication.canvas.workObject).toEqual({
