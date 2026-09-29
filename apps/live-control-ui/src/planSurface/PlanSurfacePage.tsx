@@ -884,10 +884,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
 
   return (
     <AppChrome activeRoute="plan">
-      <main className="app-status" data-testid="world-owned-plan">
+      <main className="app-status world-owned-plan" data-testid="world-owned-plan">
         <h1>Plan</h1>
-        <p>{worldName}</p>
-        <p>Planning belongs to this World. It is not attached to a campaign or session.</p>
+        <p className="world-owned-plan__world">{worldName}</p>
+        <p className="world-owned-plan__intro">Draft scenes, notes, and ideas for this World. Save the Plan when you want to keep them.</p>
         {records.length || createUncertain ? (
           <label>Saved Plans
             <select value={documentId ?? ""} disabled={saving || status === "loading"} onChange={(event) => event.target.value ? void openPlan(event.target.value) : resetBlankPlan()}>

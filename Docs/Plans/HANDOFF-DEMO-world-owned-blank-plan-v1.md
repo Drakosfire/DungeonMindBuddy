@@ -158,6 +158,7 @@ shell (#661), and the DEMO roadmap. Those predecessors do not prove this contrac
 | `apps/live-control-ui/src/selectedWorld/WorldSelector.test.tsx` | World-create UI regression |
 | `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx` | World-owned Plan surface and local recovery |
 | `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx` | World Plan V2 and recovery regression |
+| `apps/live-control-ui/src/styles.css` | PRIME-authorized World-owned Plan canvas, editor, control, focus, and Read Aloud presentation only; reuse existing Buddy UI tokens |
 | `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` | Existing managed-document consumer fixtures |
 | `apps/live-control-ui/src/api/liveApi.test.ts` | Exact V2 route payloads |
 | `tests/test_world_owned_plan_contract.py` | World context/legacy compatibility contract |
@@ -188,8 +189,13 @@ needed for this capability. No graph/source admission, extraction, evidence
 policy, native genesis, source-body reader or campaign registry. No source DTO
 redesign, World deletion/rename, existing document migration/adoption, Runbook
 scope migration, Agent/retrieval behavior, statblock/image/Run/Combat work, theme
-or shell redesign. No fake campaign, default session1, synthetic graph, manual
-ID binding, database-per-World, mutable graph repair or legacy-document inference.
+or shell redesign. PRIME's 2026-09-28 lease amendment permits only World-owned
+Plan-scoped styling in `apps/live-control-ui/src/styles.css`: visible canvas
+boundary, readable writing width/padding, themed controls/focus, narrow-screen
+stacking, and semantic Read Aloud presentation using existing tokens. It does
+not authorize a new theme or changes to other surfaces. No fake campaign, default
+session1, synthetic graph, manual ID binding, database-per-World, mutable graph
+repair or legacy-document inference.
 
 Existing campaign-compatible artifacts whose campaign slug happens to equal a
 World ID remain unchanged historical artifacts, not proof of World ownership.
@@ -340,6 +346,9 @@ No one cross-domain transaction or automatic knowledge publication is promised.
    Repeat selection with World B and show isolated inventory. Public reads prove
    zero source/campaign/head prerequisite, actual World/null-campaign Content
    ownership; no SQL/console/ID repair. Graph-dependent tools may be unavailable.
+   For the PRIME-authorized visual amendment, capture blank and saved Read Aloud
+   states at desktop and narrow viewport; verify the canvas boundary, usable
+   reading width, focused controls, and responsive layout.
 6. Focused full cohorts, scoped Ruff, frontend build/typecheck, cumulative/local
    `git diff --check` and actual changed paths versus §4. Inherited JSX failure
    requires exact unchanged base/head hash; no broader waiver or filtered-green
