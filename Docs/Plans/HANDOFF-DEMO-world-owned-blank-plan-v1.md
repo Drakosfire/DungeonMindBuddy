@@ -360,7 +360,15 @@ No one cross-domain transaction or automatic knowledge publication is promised.
    Plan-only width constraint corrected it; the saved Read Aloud Plan at 390×844
    then measured document `clientWidth=375` and `scrollWidth=375` (no horizontal
    overflow), a 326px Plan frame, and a 292px framed editor. Recheck blank and
-   saved states at desktop and narrow size after any further CSS change.
+   saved states at desktop and narrow size after any further CSS change. On
+   visual code head `567e9a1c`, the browser showed blank World B and saved
+   Read-Aloud World A at desktop and 390×844; the paper frame remained distinct,
+   the plan title focus ring was visible, and the Read Aloud block retained its
+   semantic treatment. On that same code head, ordinary Save returned
+   “Saved to this World.” and reload restored World A's saved title, prose,
+   Read-Aloud content and exact document URL. This CSS-only follow-up used the
+   already-running isolated API8821/UI5201/disposable-Postgres55441 lane; it
+   performed no API restart, shared-DB operation, or provider call.
 6. Focused full cohorts, scoped Ruff, frontend build/typecheck, cumulative/local
    `git diff --check` and actual changed paths versus §4. Inherited JSX failure
    requires exact unchanged base/head hash; no broader waiver or filtered-green
