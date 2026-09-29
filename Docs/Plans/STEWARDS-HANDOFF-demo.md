@@ -3,6 +3,7 @@
 **Status:** ACTIVE — operator adopted the DEMO stewardship mandate on 2026-09-26  
 **Owner:** existing Codex task DEMO (`01a0885e-375c-7501-9f6e-a58528b39894`)  
 **Repository:** `Drakosfire/DungeonMindBuddy`  
+**Mandate amended:** 2026-09-29 — established Surface composition, universal Agent baseline and product-first sequencing
 **Execution state:** [ROADMAP-demo.md](../Roadmaps/ROADMAP-demo.md) only  
 **Transfer evidence:** [reconciliation report](../Reports/REPORT-DEMO-roadmap-reconciliation-2026-09-26.md)
 
@@ -20,6 +21,74 @@ The steward is accountable for the connected experience, not for reporting that
 its pieces exist. Preserve the full requested journey. Reduce corpus size and
 number of examples before dropping a requested capability.
 
+## Required Surface experience
+
+The Surface architecture already gives navigation, tools, editing and the Agent
+established homes. Inspect and adopt those capabilities before inventing new UI.
+Every navigable surface uses the global navbar and composable/configurable
+surface-specific subnav. World/document context belongs in that context area;
+node search stays in its existing toolbar. Formatting and component insertion
+belong in the existing edit host; tools belong in the existing tool host. Preserve
+the central space as a clean content canvas. Place advanced developer/agent
+metadata in collapsed details. Keep actionable errors and recovery decisions
+visible where the user can resolve them.
+
+A surface-aware conversational Agent on Index, Plan, Play, Build, Ingest and
+Combat is a minimum. Each turn must truthfully identify the current World,
+surface, work object/document and selection when present, with honest absence
+when unavailable. Prove actual multi-turn conversation through the accepted
+backend; publishing a surface interaction context alone does not establish Agent
+turn integration. Advanced Agent authoring, generation and mutations follow this
+baseline and remain part of the full mission where required above.
+
+Navigation must preserve the same authoritative identities and project the same
+underlying data through each relevant surface. Presentation consumes existing
+controllers/contracts; it must not create competing stores of graph truth.
+Document drafts, accepted graph knowledge and mutable Run state retain their
+actual ownership. A fresh blank World must be usable before campaign, corpus or
+published graph-head existence.
+
+## Immediate delivery order and sequencing
+
+1. Make World-owned blank Plan a proper customer of the established shell.
+   Reuse the existing global navigation and WorldPlanSurfaceContext. Map title,
+   Save, document selection, recovery, formatting and insertion to existing
+   appropriate hosts; remove duplicate inline tooling from the content canvas.
+2. Adopt the shared conversational Agent UI and truthful per-turn context across
+   all six surfaces, then prove mounted UI-to-backend behavior. Decompose this
+   separately from edit-host publication when it delivers another capability.
+3. Resume the connected fresh-World rehearsal: author/import, prepare/confirm,
+   ordinary retrieval, statblock/image preparation, Run tools and restart/resume.
+   Fix the first broken product transition and verify its immediate successor.
+
+These are priorities, not new implementation leases. Pin a bounded handoff and
+resolve actual path/runtime collisions before dispatch. For World Plan shell
+adoption, publish an exact canvas work-object identity through the existing
+surface-publication seam and one matching edit inventory into AppChrome/EditHost.
+Do not merely relocate buttons. Keep saved document identity, unique World-scoped
+local-draft identity, revision and editor generation distinct; deliberately retire
+old commands on World/document/draft replacement, save promotion and unmount.
+Preserve current-at-click targeting and existing save/conflict/recovery behavior.
+Verify commands through the mounted World Plan → AppChrome → EditHost boundary.
+Shared publication/lease/host contracts remain read-only unless a required change
+is evidenced, owner-reviewed and explicitly leased.
+
+PRIME owns disposition of an unresolved visual predecessor: retain, amend or
+supersede its work based on current code and operator feedback. Human acceptance
+of an interim control placement must not become a circular prerequisite for
+implementing the placement correction. Resolve the overlapping write lease and
+merge order explicitly; do not silently stack conflicting implementations or
+waive required visual acceptance. A completed layout witness is evidence for its
+bounded presentation checks, not acceptance of shell composition or the journey.
+
+Prefer product progress over repeated process updates. Request another review
+when code, material evidence or authority has changed enough to affect judgment;
+do not generate status-only commits to repeat an unchanged HOLD. Update the
+roadmap when material execution facts change and keep historical review details
+out of the immediate action path. Runtime starts/stops require the designated
+host owner/PRIME coordination; never infer host listeners are absent from an
+isolated process namespace or launch another server pair to make a check pass.
+
 ## Activation and inheritance
 
 The operator accepted the local-first Of Conks rehearsal and consolidated Buddy
@@ -30,6 +99,13 @@ its current handoffs until explicitly transferred; adoption does not revoke it.
 
 The receiving task is `01a0885e-375c-7501-9f6e-a58528b39894` on host `local`.
 It was renamed from PLAY to DEMO. Retain its history and active work.
+A replacement steward is not activated by this amendment. If the operator
+requests a fresh task, PRIME first captures the outgoing goal state, exact refs,
+PRs, draft/uncommitted work, remaining gates and runtime ownership. Explicitly
+retire or transfer the old steward's write authority before dispatching the new
+one; preserve accepted evidence and update this owner field. The new task
+re-anchors and follows this same full mission rather than inheriting process
+loops or silently shrinking the goal.
 In particular, inherit PLAY-1 / Buddy #773 on its existing branch with its current
 limited consumer-proof contract. Check its current state before any action;
 do not reopen it if it has since merged. Reconcile successors PLAY-2/3 with the
@@ -166,8 +242,9 @@ Visual alternatives may be explored independently against the same contract.
 
 Every lane names its branch/base, handoff, write set, ports, database/schema,
 output directories and consumed contracts. Serialize shared host/registry/schema/
-lockfile changes. The steward alone updates the shared demo environment. Workers
-do not fix the shared database manually to make a witness pass.
+lockfile changes. The steward coordinates shared demo environment changes with its designated
+runtime owner/PRIME; workers do not independently start/stop servers or fix the
+shared database manually to make a witness pass.
 
 At adoption, explicitly settle #773 versus Rules #763 and E5Q dependency-file
 ownership. Do not infer that a dirty PR is abandoned or that a research lane has
