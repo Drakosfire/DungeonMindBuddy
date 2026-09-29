@@ -176,30 +176,49 @@ PR #790 remains open and design-only. This implementation PR is authorized from 
 | Full route composition | Full application | Exactly one `POST /api/live/agent/turn`; exactly one unchanged `/api/live/query`; no `main.py` change. | Duplicate/missing route or registration in excluded file. |
 | Lease and authority sync | Cumulative PR diff | Only §4 paths; root/mirror byte-identical; #789 recorded truthful; no visual PASS claimed. | Unleased path or stale/overclaimed state. |
 
-Exact focused commands must be added in the implementation PR after inspecting repository conventions. At minimum run the four named Python test modules, scoped Ruff for changed Python files, relevant full application route tests, and `git diff --check`; report inherited base failures by same-command base/head comparison.
+The focused cohort below uses the pinned reviewer environment at `/tmp/pr791-prime-review/.venv`; the repository-root `.venv` was not used because its installed DungeonMind package was stale. `httpx.ASGITransport` exercises the complete `create_app()` HTTP routing stack without starting the Hermes worker lifespan; every test injects a deterministic fake runtime and makes no model/provider call.
 
 ### Implementation verification record
 
-The bounded request/service/adapter suite passed on the implementation branch:
+The exact candidate source passed the bounded request/service/adapter and legacy-route cohorts:
 
 ```bash
-PYTHONPATH=src:. /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/.venv/bin/pytest -q \
+PYTHONPATH=src:. /tmp/pr791-prime-review/.venv/bin/pytest -q \
   tests/test_agent_turn_route.py \
   tests/test_agent_turn_service.py \
   tests/test_agent_context_assembler.py \
   tests/test_hermes_agent_runtime.py \
-  tests/test_hermes_session_store.py
-# 29 passed
+  tests/test_hermes_session_store.py \
+  tests/test_hermes_graph_agent.py \
+  tests/test_hermes_graph_agent_host.py \
+  tests/test_pydantic_ai_agent_runtime.py
+# 167 passed
 
-PYTHONPATH=src:. /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/.venv/bin/pytest -q \
-  tests/test_hermes_graph_agent.py::test_explicit_conversation_only_worker_turn_has_no_graph_or_tools \
-  tests/test_hermes_graph_agent.py::test_no_scope_request_without_explicit_conversation_policy_fails_closed \
-  tests/test_hermes_graph_agent_host.py::test_conversation_only_request_round_trips_without_graph_authority \
-  tests/test_pydantic_ai_agent_runtime.py::test_no_scope_turn_uses_real_adapter_without_graph_tools_or_grounding_claims
-# 4 passed
+PYTHONPATH=src:. /tmp/pr791-prime-review/.venv/bin/pytest -q \
+  tests/test_live_query_hermes_graph.py
+# 65 passed
+
+/tmp/pr791-prime-review/.venv/bin/ruff check \
+  apps/live_control_server/routes/agent.py \
+  apps/live_control_server/services/agent_runtime.py \
+  apps/live_control_server/services/agent_surface_context.py \
+  apps/live_control_server/services/agent_turn_service.py \
+  apps/live_control_server/services/hermes_agent_runtime.py \
+  apps/live_control_server/services/hermes_graph_agent.py \
+  apps/live_control_server/services/hermes_session_store.py \
+  apps/live_control_server/services/pydantic_ai_agent_runtime.py \
+  tests/test_agent_turn_route.py \
+  tests/test_agent_turn_service.py \
+  tests/test_hermes_session_store.py \
+  tests/test_hermes_graph_agent.py \
+  tests/test_pydantic_ai_agent_runtime.py
+# All checks passed!
+
+git diff --check
+# clean
 ```
 
-Scoped Ruff, `git diff --check`, and the byte-identical roadmap mirror comparison passed. The route test mounts the `/api/live` router and asserts exactly one new Agent turn route plus exactly one legacy query route. The requested full `create_app()` route-table test cannot currently collect: importing the unchanged app fails because this environment's installed DungeonMind package lacks `dungeonmind.application.vnext`. The same import failure was reproduced at the exact dispatch base, before this implementation; `main.py` is unchanged. Thus full-application route composition remains an inherited environment limitation, not a claimed PASS. No provider call, live database write, persistent state mutation, or UI edit was used for these checks.
+The two full-application route tests assert exactly one `POST /api/live/agent/turn` and one legacy `POST /api/live/query`; one sends a no-graph request through the complete HTTP route, and the other publishes an in-memory DungeonMind revision and verifies the returned World projection reaches the injected runtime. The prior TestClient attempt stalled because AnyIO's sync worker threads cannot run in the restricted sandbox (a minimal FastAPI route reproduced the same issue); the ASGITransport HTTP proof passed outside that sandbox. The exact candidate also passes the unchanged 65-test legacy route suite. No provider call, live database write, persistent state mutation, or UI edit was used.
 
 No paid/live smoke: deterministic fake runtime and isolated temp files are sufficient for this backend baseline. No model calls, live DB writes, or browser UI changes.
 
