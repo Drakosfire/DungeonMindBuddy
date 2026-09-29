@@ -108,6 +108,12 @@ interface WorldPlanLocalDraftV2 {
   revision: number | null;
   edit_generation?: number;
   create_uncertain?: boolean;
+  uncertain_create_draft?: {
+    title: string;
+    markdown: string;
+    edit_generation: number;
+    bound_document_id?: string | null;
+  } | null;
   pending_write?: {
     phase: "prepare" | "commit";
     base_revision: number;
@@ -139,6 +145,20 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
       revision: typeof value.revision === "number" ? value.revision : null,
       edit_generation: typeof value.edit_generation === "number" ? value.edit_generation : 0,
       create_uncertain: value.create_uncertain === true,
+      uncertain_create_draft: value.uncertain_create_draft
+        && typeof value.uncertain_create_draft === "object"
+        && typeof value.uncertain_create_draft.title === "string"
+        && typeof value.uncertain_create_draft.markdown === "string"
+        && typeof value.uncertain_create_draft.edit_generation === "number"
+        ? {
+          title: value.uncertain_create_draft.title,
+          markdown: value.uncertain_create_draft.markdown,
+          edit_generation: value.uncertain_create_draft.edit_generation,
+          bound_document_id: typeof value.uncertain_create_draft.bound_document_id === "string"
+            ? value.uncertain_create_draft.bound_document_id
+            : null,
+        }
+        : null,
       pending_write: value.pending_write && typeof value.pending_write === "object"
         && (value.pending_write.phase === "prepare" || value.pending_write.phase === "commit")
         && typeof value.pending_write.base_revision === "number"
@@ -165,9 +185,13 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
 function persistWorldPlanLocalDraft(
   worldId: string,
   draft: Pick<WorldPlanLocalDraftV2, "document_id" | "title" | "markdown" | "revision">
-    & Partial<Pick<WorldPlanLocalDraftV2, "edit_generation" | "create_uncertain" | "pending_write">>,
+    & Partial<Pick<WorldPlanLocalDraftV2, "edit_generation" | "create_uncertain" | "uncertain_create_draft" | "pending_write">>,
 ): void {
   try {
+    const previous = readWorldPlanLocalDraft(worldId);
+    const uncertainCreateDraft = Object.hasOwn(draft, "uncertain_create_draft")
+      ? draft.uncertain_create_draft ?? null
+      : previous?.uncertain_create_draft ?? null;
     localStorage.setItem(worldPlanLocalDraftKey(worldId), JSON.stringify({
       schema_version: "dmb_plan_promotion_recovery_v2",
       scope_mode: "world",
@@ -175,6 +199,7 @@ function persistWorldPlanLocalDraft(
       edit_generation: 0,
       create_uncertain: false,
       pending_write: null,
+      uncertain_create_draft: uncertainCreateDraft,
       ...draft,
     } satisfies WorldPlanLocalDraftV2));
   } catch {
@@ -192,6 +217,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [title, setTitle] = useState(localDraft?.title ?? "Plan");
   const [markdown, setMarkdown] = useState(localDraft?.markdown ?? "");
   const [createUncertain, setCreateUncertain] = useState(localDraft?.create_uncertain ?? false);
+  const [uncertainCreateDraft, setUncertainCreateDraft] = useState(localDraft?.uncertain_create_draft ?? null);
   const [recoveryConflict, setRecoveryConflict] = useState(false);
   const [serverDraft, setServerDraft] = useState<{ title: string; markdown: string; revision: number } | null>(null);
   const [editorGeneration, setEditorGeneration] = useState(0);
@@ -208,6 +234,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const markdownRef = useRef(localDraft?.markdown ?? "");
   const editGenerationRef = useRef(localDraft?.edit_generation ?? 0);
   const pendingWriteRef = useRef(localDraft?.pending_write ?? null);
+  const uncertainCreateDraftRef = useRef(localDraft?.uncertain_create_draft ?? null);
   const savingRef = useRef(false);
   const serverMarkdownRef = useRef("");
 
@@ -309,6 +336,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         throw new Error("This Plan does not belong to the selected World.");
       }
       if (!selectedViewIsCurrent(epoch, priorDocumentId)) return;
+      const preservedUncertainDraft = readWorldPlanLocalDraft(worldId)?.uncertain_create_draft
+        ?? uncertainCreateDraftRef.current;
       const url = new URL(window.location.href);
       url.searchParams.set("world", worldId);
       url.searchParams.set("documentId", nextDocumentId);
@@ -319,6 +348,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       markdownRef.current = snapshot.markdown;
       serverMarkdownRef.current = snapshot.markdown;
       pendingWriteRef.current = null;
+      uncertainCreateDraftRef.current = preservedUncertainDraft;
+      setUncertainCreateDraft(preservedUncertainDraft);
       setDocumentId(nextDocumentId);
       setTitle(snapshot.record.title);
       setMarkdown(snapshot.markdown);
@@ -378,7 +409,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   };
 
   const save = async () => {
-    if (savingRef.current || createUncertain || recoveryConflict || !markdownRef.current.trim()) return;
+    if (savingRef.current || createUncertain || recoveryConflict
+      || (uncertainCreateDraftRef.current && !documentIdRef.current)
+      || !markdownRef.current.trim()) return;
     const epoch = selectionEpochRef.current;
     const initialId = documentIdRef.current;
     let uiDocumentId = initialId;
@@ -398,6 +431,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         submittedTitle = blankDraft?.title ?? submittedTitle;
         submittedMarkdown = blankDraft?.markdown ?? submittedMarkdown;
         submittedGeneration = blankDraft?.edit_generation ?? submittedGeneration;
+        const quarantinedDraft = {
+          title: submittedTitle,
+          markdown: submittedMarkdown,
+          edit_generation: submittedGeneration,
+          bound_document_id: null,
+        };
+        uncertainCreateDraftRef.current = quarantinedDraft;
+        if (isCurrent()) setUncertainCreateDraft(quarantinedDraft);
         persistWorldPlanLocalDraft(worldId, {
           document_id: null,
           title: submittedTitle,
@@ -405,6 +446,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           revision: null,
           edit_generation: submittedGeneration,
           create_uncertain: true,
+          uncertain_create_draft: quarantinedDraft,
           pending_write: null,
         });
         if (isCurrent()) setCreateUncertain(true);
@@ -425,6 +467,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             revision: null,
             edit_generation: latest?.edit_generation ?? submittedGeneration,
             create_uncertain: true,
+            uncertain_create_draft: {
+              title: latest?.title ?? submittedTitle,
+              markdown: latest?.markdown ?? submittedMarkdown,
+              edit_generation: latest?.edit_generation ?? submittedGeneration,
+              bound_document_id: null,
+            },
             pending_write: null,
           });
           if (isCurrent()) {
@@ -441,6 +489,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             revision: null,
             edit_generation: latest?.edit_generation ?? submittedGeneration,
             create_uncertain: true,
+            uncertain_create_draft: {
+              title: latest?.title ?? submittedTitle,
+              markdown: latest?.markdown ?? submittedMarkdown,
+              edit_generation: latest?.edit_generation ?? submittedGeneration,
+              bound_document_id: null,
+            },
             pending_write: null,
           });
           throw new Error("Server returned a Plan outside the selected World; creation outcome is quarantined.");
@@ -458,8 +512,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           revision: currentRevision,
           edit_generation: submittedGeneration,
           create_uncertain: false,
+          uncertain_create_draft: null,
           pending_write: null,
         });
+        uncertainCreateDraftRef.current = null;
         if (isCurrent() && documentIdRef.current === null) {
           uiDocumentId = exactId;
           documentIdRef.current = exactId;
@@ -468,6 +524,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           markdownRef.current = submittedMarkdown;
           serverMarkdownRef.current = "";
           setCreateUncertain(false);
+          setUncertainCreateDraft(null);
           setDocumentId(exactId);
           setRecords((current) => [created, ...current]);
           const url = new URL(window.location.href);
@@ -548,6 +605,18 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           pending_write: null,
         });
         if (committed && !preserveLatest) {
+          uncertainCreateDraftRef.current = null;
+          setUncertainCreateDraft(null);
+          persistWorldPlanLocalDraft(worldId, {
+            document_id: exactId,
+            title: submittedTitle,
+            markdown: submittedMarkdown,
+            revision: currentRevision,
+            edit_generation: submittedGeneration,
+            create_uncertain: false,
+            uncertain_create_draft: null,
+            pending_write: null,
+          });
           if (isCurrent()) {
             setMessage("Saved to this World.");
             setSaving(false);
@@ -645,9 +714,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         revision: currentRevision,
         edit_generation: finalGeneration,
         create_uncertain: false,
+        uncertain_create_draft: null,
         pending_write: null,
       });
+      uncertainCreateDraftRef.current = null;
       if (isCurrent()) {
+        setUncertainCreateDraft(null);
         if (!preserveLatest) {
           titleRef.current = committed.title;
           markdownRef.current = submittedMarkdown;
@@ -678,7 +750,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       const inventory = await listWorldOwnedPlans(worldId);
       if (!selectedViewIsCurrent(epoch, selectedId) || inventory.world_id !== worldId) return;
       setRecords(inventory.records);
-      setMessage("Saved Plans refreshed. Select an exact saved Plan if the earlier create succeeded.");
+      setMessage("Saved Plans refreshed. Opening a candidate will not bind the recovered draft; you can choose that explicitly afterward.");
       setError(null);
     } catch (reason) {
       if (selectedViewIsCurrent(epoch, selectedId)) {
@@ -711,6 +783,92 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     });
   };
 
+  const restoreUncertainDraftIntoSelectedPlan = () => {
+    const recovery = uncertainCreateDraftRef.current;
+    const selectedId = documentIdRef.current;
+    if (!recovery || !selectedId || savingRef.current) return;
+    const generation = Math.max(editGenerationRef.current, recovery.edit_generation) + 1;
+    const boundRecovery = { ...recovery, edit_generation: generation, bound_document_id: selectedId };
+    uncertainCreateDraftRef.current = boundRecovery;
+    editGenerationRef.current = generation;
+    titleRef.current = recovery.title;
+    markdownRef.current = recovery.markdown;
+    setUncertainCreateDraft(boundRecovery);
+    setTitle(recovery.title);
+    setMarkdown(recovery.markdown);
+    setEditorGeneration((value) => value + 1);
+    persistWorldPlanLocalDraft(worldId, {
+      document_id: selectedId,
+      title: recovery.title,
+      markdown: recovery.markdown,
+      revision: revisionRef.current,
+      edit_generation: generation,
+      create_uncertain: false,
+      uncertain_create_draft: boundRecovery,
+      pending_write: null,
+    });
+    setMessage("Recovered draft is now explicitly associated with this Plan. Save to write it to the World.");
+    setError(null);
+  };
+
+  const discardUncertainDraft = () => {
+    if (!uncertainCreateDraftRef.current || savingRef.current) return;
+    uncertainCreateDraftRef.current = null;
+    setUncertainCreateDraft(null);
+    setCreateUncertain(false);
+    const current = readWorldPlanLocalDraft(worldId);
+    const discardActiveDraft = documentIdRef.current === null;
+    const nextTitle = discardActiveDraft ? "Plan" : titleRef.current;
+    const nextMarkdown = discardActiveDraft ? "" : markdownRef.current;
+    const nextGeneration = discardActiveDraft ? ++editGenerationRef.current : editGenerationRef.current;
+    if (discardActiveDraft) {
+      titleRef.current = nextTitle;
+      markdownRef.current = nextMarkdown;
+      setTitle(nextTitle);
+      setMarkdown(nextMarkdown);
+      setEditorGeneration((value) => value + 1);
+    }
+    persistWorldPlanLocalDraft(worldId, {
+      document_id: documentIdRef.current,
+      title: nextTitle,
+      markdown: nextMarkdown,
+      revision: discardActiveDraft ? null : revisionRef.current,
+      edit_generation: nextGeneration,
+      create_uncertain: false,
+      uncertain_create_draft: null,
+      pending_write: current?.pending_write ?? pendingWriteRef.current,
+    });
+    setMessage("Recovered draft discarded.");
+    setError(null);
+  };
+
+  const persistEditorDraft = (nextTitle: string, nextMarkdown: string, generation: number) => {
+    const saved = readWorldPlanLocalDraft(worldId);
+    const existingRecovery = saved?.uncertain_create_draft ?? uncertainCreateDraftRef.current;
+    const isPendingCreate = createUncertain || saved?.create_uncertain === true;
+    const recoveryIsBoundHere = existingRecovery?.bound_document_id === documentIdRef.current;
+    const nextRecovery = isPendingCreate || recoveryIsBoundHere
+      ? {
+        title: nextTitle,
+        markdown: nextMarkdown,
+        edit_generation: generation,
+        bound_document_id: existingRecovery?.bound_document_id ?? null,
+      }
+      : existingRecovery;
+    uncertainCreateDraftRef.current = nextRecovery ?? null;
+    setUncertainCreateDraft(nextRecovery ?? null);
+    persistWorldPlanLocalDraft(worldId, {
+      document_id: documentIdRef.current,
+      title: nextTitle,
+      markdown: nextMarkdown,
+      revision: revisionRef.current,
+      edit_generation: generation,
+      create_uncertain: isPendingCreate,
+      uncertain_create_draft: nextRecovery ?? null,
+      pending_write: saved?.pending_write ?? pendingWriteRef.current,
+    });
+  };
+
   return (
     <AppChrome activeRoute="plan">
       <main className="app-status" data-testid="world-owned-plan">
@@ -727,8 +885,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         ) : null}
         {createUncertain ? (
           <section role="alert">
-            <p>Plan creation may have succeeded, but its response was lost. Refresh Saved Plans and select the exact Plan if it appears. Automatic creation retry is blocked to avoid duplicates.</p>
+            <p>Plan creation may have succeeded, but its response was lost. Refresh Saved Plans and open a candidate if one appears. Its identity is not assumed; the recovered text stays separate until you explicitly restore it into a Plan or discard it. Automatic creation retry is blocked to avoid duplicates.</p>
             <button type="button" onClick={() => void refreshSavedPlans()} disabled={saving}>Refresh Saved Plans</button>
+            <button type="button" onClick={discardUncertainDraft} disabled={saving}>Discard recovered draft</button>
+          </section>
+        ) : null}
+        {uncertainCreateDraft && !createUncertain ? (
+          <section role="status" aria-label="Recovered Plan draft">
+            <p>An unsaved draft from an uncertain Plan creation is preserved separately. It has not been assumed to belong to the selected Plan.</p>
+            {documentId ? <button type="button" onClick={restoreUncertainDraftIntoSelectedPlan} disabled={saving}>Restore recovered draft into this Plan</button> : null}
+            <button type="button" onClick={discardUncertainDraft} disabled={saving}>Discard recovered draft</button>
           </section>
         ) : null}
         {documentId ? <button type="button" onClick={resetBlankPlan} disabled={saving}>New blank Plan</button> : null}
@@ -743,16 +909,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           titleRef.current = next;
           const generation = ++editGenerationRef.current;
           setTitle(next);
-          const saved = readWorldPlanLocalDraft(worldId);
-          persistWorldPlanLocalDraft(worldId, {
-            document_id: documentIdRef.current,
-            title: next,
-            markdown: markdownRef.current,
-            revision: revisionRef.current,
-            edit_generation: generation,
-            create_uncertain: createUncertain,
-            pending_write: saved?.pending_write ?? pendingWriteRef.current,
-          });
+          persistEditorDraft(next, markdownRef.current, generation);
         }} /></label>
         <div className="world-owned-plan__editor" data-testid="world-owned-plan-editor">
           <MarkdownEditorCore
@@ -766,23 +923,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
                 markdownRef.current = next;
                 const generation = ++editGenerationRef.current;
                 setMarkdown(next);
-                const saved = readWorldPlanLocalDraft(worldId);
-                persistWorldPlanLocalDraft(worldId, {
-                  document_id: documentIdRef.current,
-                  title: titleRef.current,
-                  markdown: next,
-                  revision: revisionRef.current,
-                  edit_generation: generation,
-                  create_uncertain: createUncertain,
-                  pending_write: saved?.pending_write ?? pendingWriteRef.current,
-                });
+                persistEditorDraft(titleRef.current, next, generation);
               }
             }}
           >
             {(editor) => <EditorContent editor={editor} aria-label="Markdown plan" />}
           </MarkdownEditorCore>
         </div>
-        <button type="button" onClick={() => void save()} disabled={status !== "ready" || saving || createUncertain || recoveryConflict || !markdown.trim()}>
+        <button type="button" onClick={() => void save()} disabled={status !== "ready" || saving || createUncertain || recoveryConflict || Boolean(uncertainCreateDraft && !documentId) || !markdown.trim()}>
           {saving ? "Saving…" : "Save Plan"}
         </button>
         {status === "loading" ? <p role="status">Loading World Plan…</p> : null}

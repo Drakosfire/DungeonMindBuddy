@@ -435,3 +435,177 @@ it("blocks a duplicate create after an unknown create outcome until recovery ref
   await waitFor(() => expect(inventory).toHaveBeenCalledTimes(2));
   expect(create).toHaveBeenCalledTimes(1);
 });
+
+it("quarantines lost-create text until explicit Plan binding, then saves and reopens without another create", async () => {
+  const documentId = "created-but-unacknowledged";
+  const record = worldPlanRecord(documentId, worldId, 1);
+  const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+  localStorage.setItem(key, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: null,
+    title: "Plan",
+    markdown: "# Plan\n",
+    revision: null,
+  }));
+  const create = vi.spyOn(liveApi, "createWorldOwnedPlan").mockRejectedValue(new Error("response lost after server create"));
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{
+      schema_version: "dmb_world_container_record_v1",
+      world_id: worldId,
+      name: "Of Conks",
+      source_root_relpath: "corpus/of-conks-cons-demo-markdown",
+      created_at: "2026-01-01T00:00:00Z",
+    }],
+  });
+  const inventory = vi.spyOn(liveApi, "listWorldOwnedPlans")
+    .mockResolvedValueOnce({ schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world", world_id: worldId, records: [] })
+    .mockResolvedValue({ schema_version: "dmb_workspace_document_registry_v2", scope_mode: "world", world_id: worldId, records: [record] });
+  let snapshotCalls = 0;
+  vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockImplementation(async () => {
+    snapshotCalls += 1;
+    const committed = snapshotCalls > 1;
+    return {
+      schema_version: "dmb_workspace_document_snapshot_v2",
+      record: { ...record, revision: committed ? 3 : 1 },
+      markdown: committed ? "# Plan\n" : "",
+      content_sha256: "a".repeat(64),
+      file_fingerprint: "postgres",
+      file_exists: committed,
+      loaded_revision: committed ? 3 : 1,
+    };
+  });
+  vi.spyOn(liveApi, "getWorkspaceDocumentAny").mockResolvedValue(record);
+  vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    title: "Plan",
+    target_relpath: record.target_relpath!,
+    target_display_path: record.target_relpath!,
+    registry_revision: 2,
+    file_exists: false,
+    writer_ok: true,
+    writer_confirm_token: "recovered-draft-token",
+    warnings: [],
+    diagnostics: [],
+  });
+  vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockResolvedValue({
+    schema_version: "dmb_tiptap_markdown_write_commit_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    title: "Plan",
+    target_relpath: record.target_relpath!,
+    target_display_path: record.target_relpath!,
+    registry_revision: 3,
+    committed_revision: 1,
+    committed_record: { ...record, revision: 3, content_status: "committed" },
+    normalized_content_sha256: "a".repeat(64),
+    writer_ok: true,
+    writer_phase: "commit",
+    diagnostics: [],
+  });
+  window.history.replaceState({}, "", `/plan?world=${worldId}`);
+  const page = render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await screen.findByText(/creation response was uncertain/);
+  expect(JSON.parse(localStorage.getItem(key) ?? "null").uncertain_create_draft.markdown).toBe("# Plan\n");
+
+  fireEvent.click(screen.getByRole("button", { name: "Refresh Saved Plans" }));
+  await screen.findByRole("option", { name: "Plan" });
+  fireEvent.change(screen.getByLabelText("Saved Plans"), { target: { value: documentId } });
+  const restoreButton = await screen.findByRole("button", { name: "Restore recovered draft into this Plan" });
+  expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
+    document_id: documentId,
+    markdown: "",
+    uncertain_create_draft: { markdown: "# Plan\n", bound_document_id: null },
+  });
+  fireEvent.click(restoreButton);
+  expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
+    document_id: documentId,
+    markdown: "# Plan\n",
+    uncertain_create_draft: { markdown: "# Plan\n", bound_document_id: documentId },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await screen.findByText("Saved to this World.");
+  expect(create).toHaveBeenCalledTimes(1);
+  expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
+    document_id: documentId,
+    markdown: "# Plan\n",
+    uncertain_create_draft: null,
+  });
+
+  page.unmount();
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${documentId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(screen.getByTestId("world-owned-plan-editor").textContent).toContain("Plan"));
+  expect(create).toHaveBeenCalledTimes(1);
+});
+
+it("preserves a quarantined draft when opening an unrelated existing Plan", async () => {
+  const unrelatedId = "unrelated-saved-plan";
+  const unrelated = worldPlanRecord(unrelatedId, worldId, 4);
+  const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+  localStorage.setItem(key, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: null,
+    title: "Recovered draft",
+    markdown: "# Keep these notes\n",
+    revision: null,
+  }));
+  vi.spyOn(liveApi, "createWorldOwnedPlan").mockRejectedValue(new Error("response lost"));
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{ schema_version: "dmb_world_container_record_v1", world_id: worldId, name: "Of Conks", source_root_relpath: "corpus/of-conks-cons-demo-markdown", created_at: "2026-01-01T00:00:00Z" }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [unrelated],
+  });
+  vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockResolvedValue({
+    schema_version: "dmb_workspace_document_snapshot_v2",
+    record: unrelated,
+    markdown: "# Other Plan\n",
+    content_sha256: "b".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: 4,
+  });
+  window.history.replaceState({}, "", `/plan?world=${worldId}`);
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await screen.findByText(/creation response was uncertain/);
+  fireEvent.change(screen.getByLabelText("Saved Plans"), { target: { value: unrelatedId } });
+  await screen.findByRole("button", { name: "Restore recovered draft into this Plan" });
+  expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
+    document_id: unrelatedId,
+    markdown: "# Other Plan\n",
+    uncertain_create_draft: { markdown: "# Keep these notes\n", bound_document_id: null },
+  });
+});
