@@ -2442,6 +2442,20 @@ button:disabled {
     box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
   }
 
+  /* The narrow layout overlays EditHost, so desktop dock reservation and
+     stacking must not squeeze the center or block taps. Match open-state
+     selector specificity so these mobile values win. */
+  .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-shell-layout {
+    padding-left: 0;
+  }
+
+  .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
+    .app-edit-toolbox--docked
+    .app-edit-toolbox-drawer {
+    width: min(440px, 94vw);
+    z-index: 860;
+  }
+
   .app-shell--edit-dock:has(.plan-agent-shell.open) .app-edit-toolbox--docked .app-edit-toolbox-drawer {
     bottom: var(--app-chrome-bottom);
     max-height: none;
