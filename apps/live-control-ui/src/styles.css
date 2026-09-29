@@ -107,13 +107,27 @@ code {
 .world-owned-plan select,
 .world-owned-plan input {
   width: 100%;
-  min-height: 2.75rem;
+  min-height: 2.9rem;
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--ui-border-strong);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-background-ops);
   color: var(--plan-ink);
   font: inherit;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 22%);
+}
+
+.world-owned-plan select {
+  appearance: none;
+  padding-right: 2.5rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--plan-muted) 50%),
+    linear-gradient(135deg, var(--plan-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1rem) 50%,
+    calc(100% - 0.72rem) 50%;
+  background-repeat: no-repeat;
+  background-size: 0.32rem 0.32rem;
 }
 
 .world-owned-plan select:focus-visible,
@@ -147,12 +161,17 @@ code {
 }
 
 .world-owned-plan__editor {
+  position: relative;
   min-width: 0;
   overflow: hidden;
-  border: 1px solid var(--ui-border-paper);
-  border-radius: var(--ui-radius-sm);
+  border: 2px solid color-mix(in srgb, var(--ui-text-on-paper) 55%, var(--ui-border-paper));
+  border-radius: 0.65rem;
   background: var(--plan-paper);
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 45%);
+  outline: 1px solid rgb(247 235 215 / 20%);
+  outline-offset: 3px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 55%),
+    0 0.8rem 1.8rem rgb(0 0 0 / 20%);
 }
 
 .world-owned-plan__editor .ProseMirror {
