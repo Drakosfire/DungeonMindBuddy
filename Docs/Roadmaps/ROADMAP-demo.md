@@ -60,7 +60,11 @@ retired. Its six-case viewport/layout witness is historical evidence for that
 prior code, not shell adoption or operator acceptance. The incoming owner is recorded in the steward handoff. The replacement BLOCKED
 handoff is [HANDOFF-DEMO-world-plan-shell-adoption-v1.md](../Plans/HANDOFF-DEMO-world-plan-shell-adoption-v1.md);
 no implementation lease is active until PRIME reviews it and explicitly
-activates the serial lane. Incoming steward is preparing that design on isolated
+activates the serial lane. The isolated amendment lane merged current
+`origin/main@374d69d78ef58a062116de73e095b57f4a92ca15`, preserving #794 mandate
+and current `AGENTS.md`; exact focused commands, opaque World identity, click-time
+selection semantics and backward-compatible local-token recovery are in the
+revised handoff for PRIME review. Incoming steward is preparing that design on isolated
 `codex/demo-world-plan-shell-adoption`. Runtime changes require separate PRIME /
 designated-host-owner authorization. Preserve the full J1–J6 Of Conks mission.
 

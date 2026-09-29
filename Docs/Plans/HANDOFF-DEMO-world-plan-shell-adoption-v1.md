@@ -19,7 +19,7 @@ pr_body_template: |
 **Created:** 2026-09-29
 **Status:** BLOCKED — PRIME must review the amended contract, settle #793's predecessor disposition, and explicitly activate the one serial implementation lane.
 **Workstream / owner:** DEMO / World Plan composition
-**Design base:** Buddy `origin/main@374d69d78ef58a062116de73e095b57f4a92ca15` (after #794 and #795 merged); the #793 implementation source head is `cba5dddcf2c482ec729e714cf75e6acd665b42e9`.
+**Design base:** Buddy `origin/main@374d69d78ef58a062116de73e095b57f4a92ca15` (after #794 and #795 merged); the #793 implementation source head is `cba5dddcf2c482ec729e714cf75e6acd665b42e9`; this lane merged that exact main and preserves its current `AGENTS.md` and full #794 mandate.
 **Topology:** serial amendment of #793 only. No successor PR.
 **PR title:** `DEMO: adopt the World Plan editing shell`
 **PRIME:** owns review, predecessor disposition, activation and merge.
@@ -45,15 +45,15 @@ One invariant covers blank, saved, switching, recovery and async-completion path
 | Path | Required result | Owner |
 |---|---|---|
 | Blank Plan | Existing global navbar and `WorldPlanSurfaceContext` remain; a unique World-scoped local draft identity is published to canvas, context and EditHost. | World Plan |
-| Saved Plan | Publish literal selected World UUID and exact saved document UUID/revision; matching editor inventory uses the same work-object target. | World Plan |
+| Saved Plan | Publish literal verified server-issued World ID (opaque string, not necessarily UUID-shaped) and exact saved document ID/revision; matching editor inventory uses the same work-object target. | World Plan |
 | New blank / World or document switch | New target cannot alias another World/document; prior callbacks are invalid immediately. | Plan page/context |
-| Save promotion | On returned document UUID, transition canvas/context/inventory together from local token to saved identity; invalidate held local callbacks. | Plan save controller |
+| Save promotion | On returned document ID, transition canvas/context/inventory together from local token to saved identity; invalidate held local callbacks. | Plan save controller |
 | Loading, failure or recovery | Honest disabled reason; visible recovery actions remain bound to the selected recovery state; existing save/conflict/CAS behavior remains. | Existing controller |
 | Late completion / unmount | Existing selection-epoch fences prevent a displaced async write from mutating replacement UI. | Plan page |
 
-Use saved work kind `world-plan-document`, target id structured as JSON tuple `("world-plan-document", worldId, documentId)`. Use local kind `world-plan-local-draft`, id tuple `("world-plan-local-draft", worldId, localDraftToken)`. The collision-resistant local token is generated once per draft, stored through edits/reload recovery, and replaced on deliberate New blank. Never derive identity from title/content. World is part of all target tuples.
+Treat World IDs as opaque server-issued strings; never assume UUID format or validate by shape. Use the literal verified World ID and exact server-issued document ID. Use saved work kind `world-plan-document`, target id structured as JSON tuple `("world-plan-document", worldId, documentId)`. Use local kind `world-plan-local-draft`, id tuple `("world-plan-local-draft", worldId, localDraftToken)`. Add an optional `local_draft_id` field only to the existing browser-local `dmb_plan_promotion_recovery_v2` record; do not change server persistence or CAS. Mint and persist a collision-resistant token once per World draft, retain it through edits/reload and backward-compatible recovery, and replace it on deliberate New blank. Existing records without the field are migrated in place by materializing a token while preserving title, Markdown, World/document identity, revision, edit generation, pending write and uncertain/orphan recovery fields. Never derive identity from title/content. World is part of all target tuples.
 
-The canvas work object, `WorldPlanSurfaceContext` instance identity and `AppChromeToolsGeneration.target` must encode the same tuple. Its selected Plan context carries literal World/document identity; no campaign/session aliases. Keep revision, edit generation, selection epoch, editor generation and local token as separate lifetimes. Save promotion changes the shared work-object identity atomically after the exact server document id exists.
+The canvas work object, `WorldPlanSurfaceContext` instance identity and `AppChromeToolsGeneration.target` must encode the same tuple. Its selected Plan context carries literal World/document identity; no campaign/session aliases. Keep revision, edit generation, selection epoch, editor generation and local token as separate lifetimes. Save promotion changes the shared work-object identity atomically after the exact server document id exists. Invalidation follows World/document/local-draft/host ownership replacement, not ordinary caret or text selection movement; formatting resolves TipTap’s current caret selection when clicked against the current editor.
 
 ## §4 Proposed write lease — inactive while BLOCKED
 
@@ -88,12 +88,24 @@ No conversational Agent turn/UI changes here. Agent UI integration across Index,
 
 The new mounted test exercises real provider → Plan publication → AppChrome → EditHost. Prove:
 
-1. Exact World/saved-document identity and exactly one matching inventory; unique persisted local token per World/draft; local→saved promotion; New blank creates a fresh identity.
+1. Exact opaque World/saved-document identity and exactly one matching inventory; unique persisted local token per World/draft; local→saved promotion; New blank creates a fresh identity. Migrate an old v2 local record without `local_draft_id` while retaining all content/pending/recovery fields, then reload and confirm the same token.
 2. Global navbar and existing `WorldPlanSurfaceContext` selector/New remain usable. Title, Save, formatting and insertion are in EditHost once and absent from central canvas. Recovery stays visible/actionable.
-3. Loading, error, no editor, saving, uncertain create, recovered orphan and conflict states have truthful availability, with existing persistence tests still proving save/reload/CAS/recovery.
+3. Loading, error, no editor, saving, uncertain create, recovered orphan and conflict states have truthful availability, with existing persistence tests still proving save/reload/CAS/recovery and local-identity migration/recovery reload.
 4. Held callbacks after document switch, World switch, New blank, promotion and unmount do not mutate/focus a replacement editor. Current actions operate on the current editor only. Delayed save completion remains fenced.
 
-Then obtain one real amended-product witness at desktop and 390×844 on blank and authored content, after runtime owner approval: exact World/Plan identity, boundary and control placement visible, recovery visible, no horizontal overflow/console errors, no model or graph writes. Prior six visual cases are historical only. Run focused owning tests, relevant Campaign Plan compatibility and scoped UI checks; report inherited build failures exactly. Request PRIME review of the exact cumulative amended head. This slice does not prove multi-turn Agent, full journey or operator acceptance.
+
+Run these exact commands from repository root after implementation activation (the new mounted test is created first under this handoff’s lease):
+
+```bash
+cd apps/live-control-ui
+npm test -- src/planSurface/PlanSurfacePage.test.tsx src/planSurface/PlanSurfacePage.editHost.test.tsx src/planSurface/PlanSurfaceShell.test.tsx
+npm run typecheck
+npm run build
+cd ../..
+git diff --check origin/main...HEAD
+```
+
+Then obtain one real amended-product witness at desktop and 390×844 on blank and authored content, after runtime owner approval: exact opaque World/Plan identity, boundary and control placement visible, recovery visible, no horizontal overflow/console errors, no model or graph writes. Prior six visual cases are historical only. Report unavailable checks and inherited build failures exactly. Request PRIME review of the exact cumulative amended head. This slice does not prove multi-turn Agent, full journey or operator acceptance.
 
 ## §8 Pre-dispatch critique, state sync and handback
 
