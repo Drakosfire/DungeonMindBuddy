@@ -119,9 +119,10 @@ class HermesCapabilityPolicy:
 
     enabled_toolsets: tuple[str, ...]
     enabled_tool_names: tuple[str, ...]
-    graph_scope: HermesGraphScope
+    graph_scope: HermesGraphScope | None
     tool_rules: tuple[HermesToolCapabilityRule, ...]
     plugin_activations: tuple[HermesPluginActivation, ...]
+    mode: Literal["graph", "conversation_only"] = "graph"
 
     @property
     def enabled_plugin_ids(self) -> tuple[str, ...]:
@@ -200,6 +201,18 @@ def default_graph_only_capability_policy(
     )
 
 
+def default_conversation_only_capability_policy() -> HermesCapabilityPolicy:
+    """No World authority and no tools: a plain conversational model turn."""
+    return HermesCapabilityPolicy(
+        enabled_toolsets=(),
+        enabled_tool_names=(),
+        graph_scope=None,
+        tool_rules=(),
+        plugin_activations=(),
+        mode="conversation_only",
+    )
+
+
 def set_active_retrieval_session_id(session_id: str | None) -> Any:
     return _active_retrieval_session_id.set(session_id)
 
@@ -219,6 +232,20 @@ def validate_capability_policy_structure(
 
     Returns an error code string, or ``None`` when the policy is well-formed.
     """
+    if policy.mode == "conversation_only":
+        if (
+            policy.graph_scope is not None
+            or policy.plugin_activations
+            or policy.enabled_toolsets
+            or policy.enabled_tool_names
+            or policy.tool_rules
+        ):
+            return "hermes_conversation_policy_has_capabilities"
+        return None
+    if policy.mode != "graph":
+        return "hermes_capability_policy_mode_invalid"
+    if policy.graph_scope is None:
+        return "hermes_capability_policy_graph_scope_required"
     if not policy.plugin_activations:
         return "hermes_capability_policy_empty_plugin_activations"
     if not policy.enabled_toolsets:
@@ -428,6 +455,7 @@ __all__ = [
     "HermesToolCapabilityRule",
     "ToolEffect",
     "apply_capability_policy_to_arguments",
+    "default_conversation_only_capability_policy",
     "default_graph_only_capability_policy",
     "get_active_capability_policy",
     "get_active_retrieval_session_id",

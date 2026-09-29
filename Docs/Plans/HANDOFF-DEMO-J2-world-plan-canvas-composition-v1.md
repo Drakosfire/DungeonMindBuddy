@@ -14,7 +14,7 @@ pr_body_template: |
 # HANDOFF — restore the World-owned Plan canvas and editing chrome
 
 **Created:** 2026-09-29
-**Status:** ACTIVE — PRIME accepted the revised composition boundary; implementation is authorized on this existing lease. Universal Agent baseline remains a separately reviewed successor.
+**Status:** COMPLETE / HISTORICAL — Buddy #789 merged at `ed1bf1ba0531bf9018f2397863825fa20c781bfe` from reviewed code head `7e4fb73d5a553b58bd1350c9c0ded653ef97b2e0`; implementation lease released. Technical composition acceptance does not supersede the operator's explicit visual rejection.
 **Workstream / owner:** LOCAL DEMO ACCEPTED / DEMO J2; Buddy Plan composition
 **Direction:** STEWARD → CODE → PRIME
 **Activation base:** Buddy `main@eac67508ea34115b102c7c4af8a55e17843a16d9` (PR #788 merge)
@@ -255,13 +255,15 @@ unaccepted because the World-owned route omits the shared canvas/tools/context;
 this PR addresses that composition gap. Neither PR alone closes J1/J2 or LOCAL
 DEMO ACCEPTED.
 
-Before any Agent implementation, hand back one reusable surface-aware Agent
-contract proposal for every navigable DEMO surface, explicitly including Index,
-Plan, Play, Build, Ingest, and Combat unless the product owner later narrows that
-minimum. It must identify actual context owners, freshness/identity behavior,
-conversation and thread isolation, backend validation, campaign compatibility,
-and owning-boundary proofs; PRIME and ARCHITECTURE review it before a separate
-bounded Agent implementation lease is authorized.
+**Later authority sync (2026-09-29):** the required all-surface contract was
+designed in PR #790 at accepted exact head
+`3fcc60de6159add04fe9455f5aee0a58816bfece` (PRIME Cycle 4 DESIGN PASS;
+ARCHITECTURE exact-head focused PASS). PRIME explicitly activated the bounded
+backend baseline from current main `ed1bf1ba0531bf9018f2397863825fa20c781bfe`
+under `HANDOFF-DEMO-universal-agent-turn-backend-v1.md`. That successor remains
+backend-only; shared UI/adoption for Index, Plan, Play, Build, Ingest, and
+Combat and human Plan visual acceptance remain open. This retrospective update
+does not claim those successor outcomes are complete.
 
 ## §8 Handback
 

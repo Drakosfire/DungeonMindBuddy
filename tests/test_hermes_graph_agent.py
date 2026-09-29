@@ -42,6 +42,7 @@ from graph_memory.hermes_graph_plugin import (
     HermesPluginActivation,
     HermesToolCapabilityRule,
     apply_capability_policy_to_arguments,
+    default_conversation_only_capability_policy,
     default_graph_only_capability_policy,
     reset_active_capability_policy,
     reset_active_retrieval_session_id,
@@ -444,6 +445,60 @@ def test_ephemeral_system_prompt_prefixes_neutral_graph_policy(tmp_path: Path) -
     assert prompt.startswith(GRAPH_SYSTEM_POLICY)
     assert "Turn capability policy" in prompt
     assert "enabledPluginIds" in prompt
+
+
+def test_explicit_conversation_only_worker_turn_has_no_graph_or_tools(tmp_path: Path) -> None:
+    class ConversationAgent:
+        init: dict[str, Any] = {}
+
+        def __init__(self, **kwargs: Any) -> None:
+            type(self).init = dict(kwargs)
+            self.session_id = kwargs.get("session_id")
+
+        def run_conversation(self, user_message: str, **_kwargs: Any) -> dict[str, Any]:
+            return {
+                "final_response": f"Received: {user_message}",
+                "messages": [],
+                "session_id": self.session_id,
+            }
+
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="Help me think this through.",
+            world_id=None,
+            campaign_id=None,
+            scope_mode=None,
+            capability_policy=default_conversation_only_capability_policy(),
+            session_id="conversation-only-session",
+            root=tmp_path,
+        ),
+        agent_factory=ConversationAgent,
+    )
+    assert result.status == "ok"
+    assert result.final_response == "Received: Help me think this through."
+    assert result.answer_scope is None
+    assert result.tool_events == []
+    assert ConversationAgent.init.get("enabled_toolsets") == []
+    prompt = str(ConversationAgent.init.get("ephemeral_system_prompt") or "")
+    assert "No graph retrieval is performed on this turn" in prompt
+    assert "historical graph-derived statements" in prompt
+    assert "explicit graph-retrieval turn" in prompt
+    assert "no graph tools" in prompt
+    assert "Turn capability policy" not in prompt
+
+
+def test_no_scope_request_without_explicit_conversation_policy_fails_closed() -> None:
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="Hello.",
+            world_id=None,
+            campaign_id=None,
+            scope_mode=None,
+        ),
+        agent_factory=_FakeAgent,
+    )
+    assert result.status == "error"
+    assert result.error_code == "invalid_request"
 
 
 def test_missing_openai_key_fails_closed_for_production_factory(
@@ -1013,6 +1068,22 @@ def test_policy_structure_requires_one_rule_per_enabled_tool() -> None:
     )
     assert validate_capability_policy_structure(bad) == (
         "hermes_capability_policy_rule_name_mismatch"
+    )
+
+
+def test_conversation_only_policy_is_toolless_and_graph_policy_still_requires_scope() -> None:
+    from dataclasses import replace
+
+    from graph_memory.hermes_graph_plugin import validate_capability_policy_structure
+
+    conversation = default_conversation_only_capability_policy()
+    assert validate_capability_policy_structure(conversation) is None
+    assert validate_capability_policy_structure(
+        replace(conversation, enabled_tool_names=("expand_graph_retrieval",))
+    ) == "hermes_conversation_policy_has_capabilities"
+    graph = default_graph_only_capability_policy(_default_scope())
+    assert validate_capability_policy_structure(replace(graph, graph_scope=None)) == (
+        "hermes_capability_policy_graph_scope_required"
     )
 
 

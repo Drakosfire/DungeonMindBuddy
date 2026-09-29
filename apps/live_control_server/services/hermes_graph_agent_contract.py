@@ -77,6 +77,7 @@ _REQUEST_FORBIDDEN_KEYS = frozenset(
 )
 _POLICY_ALLOWED_KEYS = frozenset(
     {
+        "mode",
         "enabledToolsets",
         "enabledToolNames",
         "graphScope",
@@ -241,9 +242,9 @@ class HermesGraphAgentTurnResult:
 @dataclass(frozen=True, slots=True)
 class HermesGraphAgentTurnRequest:
     question: str
-    world_id: str
-    campaign_id: str
-    scope_mode: Literal["campaign", "world"] = "campaign"
+    world_id: str | None
+    campaign_id: str | None
+    scope_mode: Literal["campaign", "world"] | None = "campaign"
     focus: Mapping[str, Any] | None = None
     admissibility: str | None = None
     revision_pin: str | None = None
@@ -445,9 +446,6 @@ def decode_json_wire(raw: bytes | bytearray | memoryview | str) -> dict[str, Any
 
 def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any]:
     """Serialize a capability policy to a bounded JSON-compatible dict."""
-    scope_mode = _scope_mode(policy.graph_scope.scope_mode)
-    if scope_mode == "campaign" and not policy.graph_scope.campaign_id.strip():
-        raise ValueError("campaignId is required when scopeMode is campaign")
     toolsets = list(policy.enabled_toolsets)
     tool_names = list(policy.enabled_tool_names)
     if len(toolsets) > MAX_POLICY_TOOLSETS:
@@ -460,6 +458,22 @@ def serialize_capability_policy(policy: HermesCapabilityPolicy) -> dict[str, Any
         raise ValueError(f"pluginActivations exceeds max {MAX_PLUGIN_ACTIVATIONS}")
     if len(rules) > MAX_TOOL_RULES:
         raise ValueError(f"toolRules exceeds max {MAX_TOOL_RULES}")
+    if policy.mode == "conversation_only":
+        if policy.graph_scope is not None or toolsets or tool_names or activations or rules:
+            raise ValueError("conversation-only capability policy must contain no graph scope or tools")
+        return {
+            "mode": "conversation_only",
+            "enabledToolsets": [],
+            "enabledToolNames": [],
+            "graphScope": None,
+            "pluginActivations": [],
+            "toolRules": [],
+        }
+    if policy.mode != "graph" or policy.graph_scope is None:
+        raise ValueError("graph capability policy requires a graph scope")
+    scope_mode = _scope_mode(policy.graph_scope.scope_mode)
+    if scope_mode == "campaign" and not policy.graph_scope.campaign_id.strip():
+        raise ValueError("campaignId is required when scopeMode is campaign")
     return {
         "enabledToolsets": [_require_str(item, label="toolset", max_chars=MAX_ID_CHARS) for item in toolsets],
         "enabledToolNames": [
@@ -543,6 +557,29 @@ def deserialize_capability_policy(payload: Mapping[str, Any]) -> HermesCapabilit
     if not isinstance(payload, Mapping):
         raise ValueError("capability policy payload must be a mapping")
     _reject_unknown_keys(payload, _POLICY_ALLOWED_KEYS, label="capability policy")
+    mode = payload.get("mode", "graph")
+    if mode == "conversation_only":
+        if any(
+            payload.get(key) != expected
+            for key, expected in (
+                ("enabledToolsets", []),
+                ("enabledToolNames", []),
+                ("graphScope", None),
+                ("pluginActivations", []),
+                ("toolRules", []),
+            )
+        ):
+            raise ValueError("conversation-only capability policy cannot carry graph authority or tools")
+        return HermesCapabilityPolicy(
+            enabled_toolsets=(),
+            enabled_tool_names=(),
+            graph_scope=None,
+            tool_rules=(),
+            plugin_activations=(),
+            mode="conversation_only",
+        )
+    if mode != "graph":
+        raise ValueError("capability policy mode must be graph or conversation_only")
     scope_raw = payload.get("graphScope")
     if not isinstance(scope_raw, Mapping):
         raise ValueError("capability policy graphScope must be a mapping")
@@ -656,16 +693,38 @@ def serialize_hermes_graph_agent_turn_request(
 ) -> dict[str, Any]:
     """Serialize a Rung 3 turn request for host IPC (no callables)."""
     question = _require_str(request.question, label="question", max_chars=MAX_QUESTION_CHARS)
-    world_id = _require_str(request.world_id, label="worldId", max_chars=MAX_ID_CHARS)
-    campaign_id = _require_str(request.campaign_id, label="campaignId", max_chars=MAX_ID_CHARS)
-    scope_mode = _scope_mode(request.scope_mode)
-    if scope_mode == "campaign" and not campaign_id.strip():
-        raise ValueError("campaignId is required when scopeMode is campaign")
+    policy = request.capability_policy
+    conversation_only = policy is not None and policy.mode == "conversation_only"
+    if conversation_only:
+        if any(
+            value is not None
+            for value in (
+                request.world_id,
+                request.campaign_id,
+                request.scope_mode,
+                request.focus,
+                request.admissibility,
+                request.revision_pin,
+                request.retrieval_session_id,
+                request.retrieval_session,
+            )
+        ):
+            raise ValueError("conversation-only turn cannot carry graph scope or retrieval")
+        world_id = campaign_id = scope_mode = None
+        focus = None
+    else:
+        if request.world_id is None or request.campaign_id is None or request.scope_mode is None:
+            raise ValueError("graph turn requires worldId, campaignId, and scopeMode")
+        world_id = _require_str(request.world_id, label="worldId", max_chars=MAX_ID_CHARS)
+        campaign_id = _require_str(request.campaign_id, label="campaignId", max_chars=MAX_ID_CHARS)
+        scope_mode = _scope_mode(request.scope_mode)
+        if scope_mode == "campaign" and not campaign_id.strip():
+            raise ValueError("campaignId is required when scopeMode is campaign")
+        focus = None if request.focus is None else _serialize_focus(request.focus)
     root = request.root
     root_str = None if root is None else str(Path(root))
     if root_str is not None:
         _validate_root_path(root_str, on_deserialize=False)
-    focus = None if request.focus is None else _serialize_focus(request.focus)
     policy_payload = (
         None
         if request.capability_policy is None
@@ -735,15 +794,32 @@ def deserialize_hermes_graph_agent_turn_request(
     retrieval_session_raw = payload.get("retrievalSession")
     if retrieval_session_raw is not None and not isinstance(retrieval_session_raw, Mapping):
         raise ValueError("retrievalSession must be a mapping or null")
-    scope_mode = _scope_mode(payload.get("scopeMode"))
-    campaign_id = _require_str(
-        payload.get("campaignId") or "", label="campaignId", max_chars=MAX_ID_CHARS
-    )
-    if scope_mode == "campaign" and not campaign_id.strip():
-        raise ValueError("campaignId is required when scopeMode is campaign")
+    conversation_only = policy is not None and policy.mode == "conversation_only"
+    if conversation_only:
+        graph_keys = (
+                "worldId",
+                "campaignId",
+                "scopeMode",
+                "focus",
+                "admissibility",
+                "revisionPin",
+                "retrievalSessionId",
+                "retrievalSession",
+            )
+        if any(key not in payload or payload[key] is not None for key in graph_keys):
+            raise ValueError("conversation-only turn cannot carry graph scope or retrieval")
+        world_id = campaign_id = scope_mode = None
+    else:
+        scope_mode = _scope_mode(payload.get("scopeMode"))
+        campaign_id = _require_str(
+            payload.get("campaignId") or "", label="campaignId", max_chars=MAX_ID_CHARS
+        )
+        if scope_mode == "campaign" and not campaign_id.strip():
+            raise ValueError("campaignId is required when scopeMode is campaign")
+        world_id = _require_str(payload.get("worldId") or "", label="worldId", max_chars=MAX_ID_CHARS)
     return HermesGraphAgentTurnRequest(
         question=_require_str(payload.get("question") or "", label="question", max_chars=MAX_QUESTION_CHARS),
-        world_id=_require_str(payload.get("worldId") or "", label="worldId", max_chars=MAX_ID_CHARS),
+        world_id=world_id,
         campaign_id=campaign_id,
         scope_mode=scope_mode,
         focus=focus,

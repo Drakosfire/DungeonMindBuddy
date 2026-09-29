@@ -22,6 +22,7 @@ from typing import Any
 
 from apps.live_control_server.config import world_graph_root
 from apps.live_control_server.services.agent_runtime import (
+    CONVERSATION_ONLY_POLICY,
     WORLD_GRAPH_READ_POLICY,
     AgentContextPacket,
     AgentRetrievalSession,
@@ -266,4 +267,54 @@ __all__ = [
     "AgentContextAssembly",
     "AgentContextAssemblyError",
     "assemble_agent_graph_context",
+    "assemble_agent_conversation_context",
 ]
+
+
+def assemble_agent_conversation_context(
+    *,
+    question: str,
+    conversation_history: Sequence[Mapping[str, str]] | None = None,
+    runtime_session_id: str | None = None,
+    thread_id: str | None = None,
+    turn_id: str | None = None,
+    surface_context: AgentSurfaceContext | None = None,
+) -> AgentContextAssembly:
+    """Assemble a no-graph turn without opening graph roots or retrieval packets."""
+    history_copy = (
+        [{"role": item["role"], "content": item["content"]} for item in conversation_history]
+        if conversation_history
+        else None
+    )
+    invocation = AgentRuntimeInvocation(
+        thread_id=thread_id,
+        turn_id=turn_id,
+        message=question,
+        conversation_history=history_copy,
+        context_packet=AgentContextPacket(
+            world_scope=None,
+            retrieval_session=None,
+            surface_context=surface_context,
+        ),
+        capability_policy=CONVERSATION_ONLY_POLICY,
+        run_options=AgentRunOptions(runtime_session_id=runtime_session_id or None),
+    )
+    history = history_copy or []
+    summary: dict[str, str | int | bool | None] = {
+        "context_schema": CONTEXT_SUMMARY_SCHEMA,
+        "world_id": None,
+        "campaign_id": None,
+        "revision_id": None,
+        "focus_kind": "none",
+        "admissibility": None,
+        "history_message_count": len(history),
+        "history_char_count": sum(len(item.get("content") or "") for item in history),
+        "retrieval_session_id": None,
+        "retrieval_candidate_count": 0,
+        "retrieval_claim_count": 0,
+        "latest_recap_change_present": False,
+        "admitted_recap_excerpt_char_count": 0,
+        "runtime_continuity_present": bool(runtime_session_id),
+    }
+    assert set(summary) == CONTEXT_SUMMARY_KEYS
+    return AgentContextAssembly(invocation=invocation, trace_summary=summary)

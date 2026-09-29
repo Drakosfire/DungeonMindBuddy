@@ -61,14 +61,36 @@ merged at `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`, reviewed head
 ordinary Build import/readback/restart witness passed).
 
 #787 admits the saved committed source snapshot to native World source authority;
-it does not prove source-file byte identity, extracted/accepted knowledge,
-retrieval, World-owned Plan, J3, or the connected demo. The active serial Buddy
-implementation is now **DEMO J1 — World-owned blank Plan**, handoff
-[`HANDOFF-DEMO-world-owned-blank-plan-v1`](../Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md),
-re-anchored to `main@9f358bb9ecf4d28338ae4b6b0ef5e2c316700d59`. It must keep the
-source witness and user's unsaved Plan untouched and prove exact World/null-
-campaign ownership through save, reload and restart. J1 and J1–J6 remain
-unaccepted until their own connected product witnesses pass.
+it does not prove extracted/accepted knowledge, retrieval, J3, or the connected
+demo. Buddy #788 then delivered the exact World-owned Plan lifecycle, merged to
+main at `eac67508ea34115b102c7c4af8a55e17843a16d9` from reviewed code head
+`27bb1a76a113ef85f54c6ac09bbd4d18aa121b41` after five distinct review-head
+cycles. Its accepted create/save/reload/recovery and bounded ordinary-browser
+evidence remain valid, but it did not prove full shell composition or J1/J2
+acceptance. Buddy #789 completed the bounded World Plan canvas composition and
+merged to `main` at `ed1bf1ba0531bf9018f2397863825fa20c781bfe` from reviewed
+code head `7e4fb73d5a553b58bd1350c9c0ded653ef97b2e0`. The shared canvas, editing
+tools, and truthful World/document context are now integrated. The operator's
+exact product judgment remains a rejection: the Plan looks generic and
+defaults-heavy. The outer canvas wrapper has a thin border, but the actual
+writing surface has no distinct, perceptible boundary and reads like default
+editor styling. The visual acceptance debt is not waived by composition tests
+or merge and remains open; a successor must establish a clear writing surface,
+not merely add another border around the existing outer card.
+
+The user's DEMO minimum still requires one real, surface-aware conversational
+Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
+and Combat). Its reusable backend contract is designed and reviewed in open,
+unmerged design PR #790 at exact head
+`3fcc60de6159add04fe9455f5aee0a58816bfece` (PRIME Cycle 4 DESIGN PASS and
+ARCHITECTURE focused exact-head PASS). PRIME explicitly activated the bounded
+backend baseline from the current `main` SHA above. The ACTIVE implementation
+lease is
+[`HANDOFF-DEMO-universal-agent-turn-backend-v1`](../Plans/HANDOFF-DEMO-universal-agent-turn-backend-v1.md)
+on `codex/demo-agent-turn-context-backend`. This slice is backend-only; the
+separate shared UI/adoption on all six surfaces and end-to-end owner-to-backend
+witnesses remain required. J1 and J1–J6 remain unaccepted until their connected
+product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:
@@ -97,10 +119,10 @@ separate contracts. Import must not become the gate for making a Plan usable,
 and document edits must not silently publish knowledge. MIND #83/#85 are merged;
 Buddy #787 now admits an exact committed source snapshot to native World source
 authority. The remaining J3 gap is the connected governed assertion write and
-ordinary read/citation path on that same authority. The next capability must be
-re-anchored and separately handed off; source admission alone is not J3. No
-bridge migration, broad framework rewrite, fake campaign or automatic scope
-expansion is authorized.
+ordinary read/citation path on that same authority. The active Agent backend
+baseline does not publish graph knowledge and does not close J3. Source
+admission alone is not J3. No bridge migration, broad framework rewrite, fake
+campaign or automatic scope expansion is authorized.
 
 **Historical implementation: J4 / #785**, frozen repair head
 `07ec031ab5b62b8dbcd34f51ed4b6eaf0fa25262`, incorporating accepted main
@@ -370,11 +392,18 @@ Reopen after restart.
 **Current route / activation gate:** MIND #83/#85 and Buddy #787 are merged.
 Buddy can admit the exact saved source snapshot to native World source authority;
 it does not yet establish extracted assertions, governed assertion publication,
-ordinary Agent read/citation, or J3 completion. The active next lane is the
-World-owned blank Plan handoff above. After it is reviewed and merged, re-anchor
-and define the next bounded capability for governed knowledge creation and
-ordinary read-after-write. The old #785 serial-lane blocker is historical and
-no longer active.
+ordinary Agent read/citation, or J3 completion. World-owned blank Plan and
+shared-canvas composition code are integrated via #788/#789, but Plan visual
+acceptance remains rejected. The active Agent backend baseline is specified
+by the accepted #790 design and the ACTIVE implementation handoff above. Its
+first bounded implementation supports explicit no-graph conversation and
+verified World-scoped reads; it does not write graph knowledge or close J3.
+Campaign-owner/campaign-lens reads remain fail-closed until Buddy accepts a
+campaign→World membership authority; do not infer membership from IDs, artifact
+fallbacks, or UI state. After the backend baseline and separately activated
+six-surface adoption are reviewed, re-anchor and define the next bounded
+capability for governed knowledge creation and ordinary read-after-write. The
+old #785 serial-lane blocker is historical and no longer active.
 
 **Inherited evidence:** PLAY-1 #773 and accepted isolated persistent PLAY-2
 #779; PLAY-3 is not dispatched; V6.2 adapter; WorldKeeper #7/#8; CR-U4–U7.
