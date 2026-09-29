@@ -182,14 +182,14 @@ code {
 .world-owned-plan__toolbar .markdown-editor-toolbar__section summary {
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
-  padding: 0.35rem 0.55rem;
-  border-radius: 999px;
-  background: var(--ui-background-chrome);
-  color: var(--ui-text-secondary);
-  font-size: 0.78rem;
-  font-weight: 750;
-  letter-spacing: 0.055em;
+  gap: 0.4rem;
+  padding: 0.3rem 0.1rem;
+  border-radius: 0;
+  background: transparent;
+  color: #d2bd91;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
   cursor: pointer;
   list-style: none;
@@ -200,17 +200,22 @@ code {
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__section summary::after {
-  content: "+";
-  color: var(--ui-accent-action);
+  content: "⌄";
+  color: #a38a5f;
   font-size: 0.95rem;
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__section[open] summary {
-  color: var(--ui-text-primary);
+  color: #f1dfbd;
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__section[open] summary::after {
-  content: "−";
+  content: "⌃";
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__section + .markdown-editor-toolbar__section {
+  padding-left: 0.85rem;
+  border-left: 1px solid #3d3529;
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__actions {
@@ -222,19 +227,27 @@ code {
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__actions button {
-  min-height: 2.1rem;
-  padding: 0.35rem 0.6rem;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: var(--ui-radius-sm);
-  background: var(--ui-background-chrome);
-  color: var(--ui-text-primary);
-  font-size: 0.84rem;
+  min-height: 2.2rem;
+  padding: 0.38rem 0.72rem;
+  border: 1px solid #66543a;
+  border-radius: 0.45rem;
+  background: linear-gradient(180deg, #322c22, #252119);
+  color: #e8dcc4;
+  font-size: 0.82rem;
   font-weight: 600;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 7%);
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__actions button:hover:not(:disabled) {
-  border-color: var(--ui-accent-action);
-  background: #222936;
+  border-color: #c2a46b;
+  background: linear-gradient(180deg, #453821, #342a1c);
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__actions button:disabled {
+  border-color: #514735;
+  background: #26231e;
+  color: #a89d89;
+  opacity: 0.78;
 }
 
 .world-owned-plan__canvas .tiptap-spike-editor.md-theme-world-plan {
