@@ -50,23 +50,20 @@ are now proven; J1–J6 have not passed as a connected journey.
 `01a0edf2-b1e1-7281-9448-1d5524f8d4f8`; PRIME transferred product stewardship and
 retired archived outgoing task `01a0885e-375c-7501-9f6e-a58528b39894` from
 implementation/design/runtime mutation. It was not restarted and did not
-acknowledge handback. Current `main` is `374d69d78ef58a062116de73e095b57f4a92ca15`; #794 merged
-at that SHA and #795 policy cleanup merged at
-`83f25b1f9bfe70555a82b08ef4f5ca5af26a691d`. #793 remains open at
-`cba5dddcf2c482ec729e714cf75e6acd665b42e9`. PRIME selected a deliberate #793
-amendment for World Plan shell adoption and retains review, predecessor
-disposition, activation and merge. The visual-only implementation lease is
-retired. Its six-case viewport/layout witness is historical evidence for that
-prior code, not shell adoption or operator acceptance. The incoming owner is recorded in the steward handoff. The replacement BLOCKED
-handoff is [HANDOFF-DEMO-world-plan-shell-adoption-v1.md](../Plans/HANDOFF-DEMO-world-plan-shell-adoption-v1.md);
-no implementation lease is active until PRIME reviews it and explicitly
-activates the serial lane. The isolated amendment lane merged current
-`origin/main@374d69d78ef58a062116de73e095b57f4a92ca15`, preserving #794 mandate
-and current `AGENTS.md`; exact focused commands, opaque World identity, click-time
-selection semantics and backward-compatible local-token recovery are in the
-revised handoff for PRIME review. Incoming steward is preparing that design on isolated
-`codex/demo-world-plan-shell-adoption`. Runtime changes require separate PRIME /
-designated-host-owner authorization. Preserve the full J1–J6 Of Conks mission.
+acknowledge handback. Current `main` is
+`cd44a3a99d1d43ebf8becfa22b56a3b98de4cbf4`; #794 merged at
+`374d69d78ef58a062116de73e095b57f4a92ca15`, #795 policy cleanup at
+`83f25b1f9bfe70555a82b08ef4f5ca5af26a691d`, and #796 at current `main`.
+PR #793 is based on that current `main`; its last reviewed implementation-code
+head before this authority sync was `43fdab22798a18804d27b5e6c3396dcaaac07aa1`.
+The PR body records the exact head after this sync. It is the sole serial
+implementation lane for active World Plan shell adoption;
+PRIME owns its review, predecessor disposition and merge. The visual-only lease
+is retired. Its six-case witness is historical evidence for the earlier canvas
+composition, not shell-adoption or operator acceptance. The current shell
+handoff records the bounded write lease and implementation evidence. Runtime
+changes still require PRIME/designated-host-owner coordination. Preserve the
+full J1–J6 Of Conks mission.
 
 **Current DEMO lane (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
@@ -105,34 +102,33 @@ around a large blank slab. The operator re-viewed the actual route on
 J2 composition code is integrated, but J2 and operator acceptance remain open;
 the existence of border declarations or theme tokens is not product acceptance.
 The prior bounded visual-only design was accepted in PR #792, merged at
-`4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`. Its handoff is re-anchored and
-activated visual iteration was carried in #793; PRIME has now retired that visual-only lease and selected its amendment into a shell-adoption slice. The current visual iteration gives
-the World Plan a warm framed work surface, a distinct parchment page, and a
-shorter blank editor. The latest observed exact-head preview was the disposable
-`of-conks-demo-plan-canvas` World on UI 5202/API 8821, with an editable blank
-draft; this supersedes the earlier 5202 synthetic route whose legacy scope left
-controls disabled. The historical #789 World Plan itself is absent from that
-API database. After the review pause, the preview was restarted on 5202/8821:
-World-list, Plan-view, and World-Plan-list GETs returned 200, while graph
-projection remains 503 because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL`
-is not configured. A visible editor focus check showed the action outline on
-the editor without an equally bright enclosing-canvas ring; the warm 2px
-projection remains 503 because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL`
-is not configured. On 2026-09-29 the exact PR preview then completed the six
-blank/short/long visual cases at 1280×720 and 390×844. All six had no
-horizontal overflow (desktop `scrollWidth/clientWidth=1265/1265`; narrow
-`375/375`); browser error/warning logs were empty. Focus remained visible
-without an equally bright canvas-ancestor ring, and the warm boundary remained
-visible unfocused. Screenshots were captured and visually inspected in the
-live browser session, not committed. The route uses disposable
-`of-conks-demo-plan-canvas`; the named #789 Plan is unavailable in this API
-database. No Plan was saved and no model or graph write occurred. Graph
-projection still returns 503 and the status badge reports attention. This
-completes the bounded visual/layout witness, not product acceptance. The inline
-editing toolbar still does not use the established toolbar/surface-navigation
-homes the operator expects, so current composition is not accepted. J2 remains
-open for explicit operator ACCEPT/REJECT and disposition of that toolbar
-placement issue; #789 stays historical and its visual result is not accepted.
+`4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`. PRIME retired the visual-only
+lease and amended the existing #793 implementation to adopt Buddy's established
+World Plan shell. At re-anchored code head
+`43fdab22798a18804d27b5e6c3396dcaaac07aa1` (before this documentation sync),
+the selected World Plan publishes
+its saved-document or unique local-draft identity through the canvas,
+`WorldPlanSurfaceContext`, and one matching AppChrome/EditHost inventory.
+Title, Save, formatting and insertion controls live in EditHost, leaving the
+central canvas for the document; actionable recovery remains visible and
+developer identity details remain secondary.
+
+The recorded live witness on the authorized isolated UI 5202/API 8821 pair
+created native World `of-conks`, authored “The Hollow Toll”, and saved/reloaded
+Plan `a4e60bb6-e149-4d5d-a484-fa81a4cd620b` at revision 1. Desktop showed the
+global navbar, Plan subnav, EditHost and paper canvas. The pre-#796 narrow
+viewport witness found EditHost descendants overflowing at 390×844 and a React
+`flushSync` lifecycle console error. PR #796's responsive EditHost changes are
+now in `main`, but this exact shell-adoption route has not been re-rendered
+after that merge. The earlier visual-only six-case witness is not evidence for
+the current shell composition. The recorded graph projection returned 503
+because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL` was unset; the World
+status reported attention. The last successful read-only admission check also
+left the native Of Conks source pending with `authority_unavailable`, before
+knowledge confirmation or ordinary retrieval. This checkout could not recheck
+the API, so no current listener or database state is claimed. No graph/model
+write, knowledge confirmation, retrieval, Agent turn, or operator acceptance
+is claimed. J2 human acceptance and the connected J1–J6 journey remain open.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest

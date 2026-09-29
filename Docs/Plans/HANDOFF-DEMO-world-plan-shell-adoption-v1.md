@@ -6,11 +6,12 @@ pr_body_template: |
   - Direction: STEWARD → CODE → PRIME
   - Handoff: `Docs/Plans/HANDOFF-DEMO-world-plan-shell-adoption-v1.md`
   - Topology: serial; amend existing #793
-  - Design ref: `codex/demo-world-plan-shell-adoption` (exact revision in PR)
+  - Accepted design head: `5a44f42041415dea783e3082e504a185f2e241c7`
+  - Implementation: PR #793, branch `codex/demo-j2-plan-canvas-visual-impl`
 
   ## Verification pointer
-  - Base: `main@76239846c98797bb1455ffa22b2a273d64591205`; adopted #793 head `cba5dddcf2c482ec729e714cf75e6acd665b42e9`
-  - Design/code seam inspection; mounted integration and live product evidence follow activation.
+  - Base: `main@cd44a3a99d1d43ebf8becfa22b56a3b98de4cbf4`; reviewed implementation-code head before this state sync: `43fdab22798a18804d27b5e6c3396dcaaac07aa1`
+  - Focused suite: 112 passed on byte-identical Plan files; cumulative diff-check passed. Prior live evidence and its limits are recorded below.
 
   Prior #793 visual witness is historical evidence for that exact implementation, not acceptance of shell adoption.
 ---
@@ -19,10 +20,10 @@ pr_body_template: |
 **Created:** 2026-09-29
 **Status:** ACTIVE — PRIME DESIGN PASS on exact head `5a44f42041415dea783e3082e504a185f2e241c7`; #793 amendment is the sole serial implementation lane.
 **Workstream / owner:** DEMO / World Plan composition
-**Design base:** Buddy `origin/main@374d69d78ef58a062116de73e095b57f4a92ca15` (after #794 and #795 merged); design PASS `5a44f42041415dea783e3082e504a185f2e241c7`; implementation starts from adopted visual source `cba5dddcf2c482ec729e714cf75e6acd665b42e9` plus current main merge `a9a3fb9cefe91b89c606e6eb259022b4da9039d3`.
+**Design authority:** accepted design head `5a44f42041415dea783e3082e504a185f2e241c7`, authored against main after #794/#795. Current implementation base is `main@cd44a3a99d1d43ebf8becfa22b56a3b98de4cbf4`; the reviewed implementation-code head before this state sync is `43fdab22798a18804d27b5e6c3396dcaaac07aa1`. The PR body records the exact head after the documentation sync.
 **Topology:** serial amendment of #793 only. No successor PR.
 **PR title:** `DEMO: adopt the World Plan editing shell`
-**PRIME:** owns review, predecessor disposition, activation and merge.
+**PRIME:** owns review, predecessor disposition and merge.
 
 ## §1 Mission and invariant
 
@@ -34,9 +35,9 @@ One invariant covers blank, saved, switching, recovery and async-completion path
 
 ## §2 Re-anchored authority and lane
 
-- `AGENTS.md`, amended DEMO mandate in #794 and `Docs/Roadmaps/ROADMAP-demo.md` govern. Current `origin/main` is `374d69d78ef58a062116de73e095b57f4a92ca15`; #794 merged at that SHA and #795 policy cleanup merged at `83f25b1f9bfe70555a82b08ef4f5ca5af26a691d`. PRIME chose to amend #793; the pushed implementation head is `99ed550d47228c266519b1c39ab907a56e8b77fe`, and PRIME retains predecessor disposition.
+- `AGENTS.md`, amended DEMO mandate in #794 and `Docs/Roadmaps/ROADMAP-demo.md` govern. Current `main` is `cd44a3a99d1d43ebf8becfa22b56a3b98de4cbf4`; #794 merged at `374d69d78ef58a062116de73e095b57f4a92ca15`, #795 policy cleanup at `83f25b1f9bfe70555a82b08ef4f5ca5af26a691d`, and #796 at current `main`. PRIME selected amendment of #793; reviewed code head before this state sync was `43fdab22798a18804d27b5e6c3396dcaaac07aa1` on `codex/demo-j2-plan-canvas-visual-impl`, based on current `main`. The PR body records the exact head after the documentation sync. PRIME owns review, predecessor disposition and merge.
 - Incoming DEMO task: `01a0edf2-b1e1-7281-9448-1d5524f8d4f8`. PRIME retired archived outgoing task `01a0885e-375c-7501-9f6e-a58528b39894` from DEMO implementation/design/runtime mutation. It was not restarted and did not acknowledge handback. `Docs/Plans/STEWARDS-HANDOFF-demo.md` now names the incoming task as owner under PRIME's explicit transfer authorization; its mission is unchanged. Preserve its refs/drafts as read-only evidence; do not claim its tool-backed goal state is known.
-- Adopted source is isolated on `codex/demo-world-plan-shell-adoption`, based on #793's exact head. The detached user checkout stays off `main`. Proposed implementation uses this lane after PRIME activation; no lease is active while this handoff is BLOCKED.
+- The shell-adoption implementation is active in the sole serial #793 lane under the §4 write lease. The detached user checkout stays off `main`; no successor implementation lease is active. Keep shared shell contracts and runtime/DB state outside this lease.
 - PRIME explicitly authorized the incoming owner-field update in `Docs/Plans/STEWARDS-HANDOFF-demo.md` after #794 merged. This assigned PR carries that backward-looking transfer with the roadmap and this handoff; the mission is unchanged.
 - Separate open PRs #781 and Rules #763–#765 have distinct owners; recheck refs and active leases before dispatch.
 
@@ -75,7 +76,7 @@ No neutral publisher/provider/lease, AppChrome/EditHost implementation, global n
 
 ## §5 Runtime and product boundary
 
-Prior host inspection found no 5202/8821 listeners at that time; it found other Vite processes at 5198 (`/tmp/dmb-demo-j1-native-world-source-authority`) and 5201 (`/tmp/dmb-demo-world-plan-composition-work`), plus SERVER 7861. Those processes are outside this lane. Prior 5202/8821 rehearsal used `dmb_world_plan_demo` on `dmb-world-plan-pg-test` at 55441; graph authority was unset and projection returned 503. This is historical configuration, not a current runtime claim. PRIME/designated host owner must authorize one targeted live witness with exact worktree/ref, UI/API pair and disposable DB identity. No duplicate servers, shared DB edits or graph writes in this shell slice.
+The recorded exact-route witness used the authorized isolated UI 5202/API 8821 pair. It created native World `of-conks`, authored “The Hollow Toll”, and saved/reloaded Plan `a4e60bb6-e149-4d5d-a484-fa81a4cd620b` at revision 1. APP-STATE used disposable database `dungeonbuddy_application_state_of_conks_demo`; World Graph was `dmb_world_plan_demo`. Desktop showed global navigation, Plan subnav, EditHost and paper canvas. The 390×844 witness, run before #796 merged, found EditHost descendants overflowing their narrow client widths and a React `flushSync` lifecycle console error. #796's responsive EditHost changes are now in current `main`; a fresh exact-route witness has not been captured after that merge. The prior graph projection returned 503 because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL` was unset, and the World status reported attention. This is recorded historical runtime evidence, not a claim about current listener or DB state. No graph/model write occurred. PRIME/designated host owner must authorize any new targeted live witness with exact worktree/ref, UI/API pair and disposable DB identity. No duplicate servers, shared DB edits or graph writes in this shell slice.
 
 No conversational Agent turn/UI changes here. Agent UI integration across Index, Plan, Play, Build, Ingest and Combat is the separate next capability; surface publication alone proves no conversation. No source admission, graph confirmation/read-after-write, statblock/image, Run, or persistence contract changes. Full Of Conks mission remains active.
 
@@ -87,7 +88,7 @@ No conversational Agent turn/UI changes here. Agent UI integration across Index,
 - Each action checks current-at-click World, encoded work target, mounted selection epoch, editor generation and current editor ref before invoking. A retained callback cannot rely on captured Editor alone. Invalidate old inventory on World/Plan selection, New blank, local→saved promotion and unmount, using the existing publisher bind/update lifecycle.
 - Loading/error, absent editor and saving yield honest disabled actions/reasons. Save preserves all existing guards for uncertain creation, orphan recovery, conflict and nonempty content. Editing preserved local text remains limited to the current ready editor and cannot bypass a Save/recovery guard. Do not alter existing persistence or recovery semantics.
 
-## §7 Required proof after activation
+## §7 Required proof and current evidence
 
 The new mounted test exercises real provider → Plan publication → AppChrome → EditHost. Prove:
 
@@ -97,7 +98,9 @@ The new mounted test exercises real provider → Plan publication → AppChrome 
 4. Held callbacks after document switch, World switch, New blank, promotion and unmount do not mutate/focus a replacement editor. Current actions operate on the current editor only. Delayed save completion remains fenced.
 
 
-Run these exact commands from repository root after implementation activation (the new mounted test is created first under this handoff’s lease):
+These exact focused tests were run before rebase at `fd05e93a`; the Plan page and three test files are byte-identical in current PR #793. The rebase includes the merged #796 stylesheet and visual-contract changes. `git diff --check` passed against current base/head. GitHub reports no workflow runs or commit statuses on the current head.
+
+The following commands remain useful for full local verification after any code change (the mounted test is already present):
 
 ```bash
 npm --prefix apps/live-control-ui test -- src/planSurface/PlanSurfacePage.test.tsx src/planSurface/PlanSurfacePage.editHost.test.tsx src/planSurface/PlanSurfaceShell.test.tsx
@@ -106,14 +109,16 @@ npm --prefix apps/live-control-ui run build
 git diff --check origin/main...HEAD
 ```
 
-Then obtain one real amended-product witness at desktop and 390×844 on blank and authored content, after runtime owner approval: exact opaque World/Plan identity, boundary and control placement visible, recovery visible, no horizontal overflow/console errors, no model or graph writes. Prior six visual cases are historical only. Report unavailable checks and inherited build failures exactly. Request PRIME review of the exact cumulative amended head. This slice does not prove multi-turn Agent, full journey or operator acceptance.
+After runtime owner approval, rerun one exact amended-product witness at desktop and 390×844 on blank and authored content: exact opaque World/Plan identity, boundary and control placement visible, recovery visible, no horizontal overflow/console errors, and no model or graph writes. This is especially required after #796's responsive EditHost changes. Prior six visual cases are historical only. Report unavailable checks and inherited build failures exactly. Request PRIME review of the exact cumulative amended head. This slice does not prove multi-turn Agent, full journey or operator acceptance.
 
-### Implementation candidate evidence (2026-09-29)
+### Current implementation evidence (2026-09-29)
 
-- The exact §7 focused command completed with **112 passed** across `PlanSurfacePage.test.tsx`, the mounted `PlanSurfacePage.editHost.test.tsx`, and `PlanSurfaceShell.test.tsx`.
+- PR #793 is based on `cd44a3a99d1d43ebf8becfa22b56a3b98de4cbf4`; reviewed code head before this state sync was `43fdab22798a18804d27b5e6c3396dcaaac07aa1`. The preserved 23-commit sequence has the same final Git tree as the verified local rebased tree. The PR body records the exact post-sync head.
+- The focused command completed with **112 passed** across `PlanSurfacePage.test.tsx`, the mounted `PlanSurfacePage.editHost.test.tsx`, and `PlanSurfaceShell.test.tsx` at pre-rebase head `fd05e93a`. Those Plan source/test files are byte-identical in the rebased tree; only the stylesheet and visual-contract files differ from #796 now merged into main.
 - The real AppChrome/EditHost tests verify opaque World identity, fresh empty-storage token creation/persistence through first edit and reload, legacy local-draft migration/reload, actionable visible recovery, one matching edit inventory, and local-token → exact server-document promotion across publication identity and commands.
-- `git diff --check` passes. `npm run typecheck` and `npm run build` both stop at the existing out-of-lease error `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503: Cannot find namespace 'JSX'`; no files in the statblock domain were changed.
-- No live product/viewport witness was attempted: the §5 PRIME runtime-owner authorization remains required and this isolated shell lane has no server or graph-write ownership.
+- Cumulative `git diff --check` passes against the current base/head. GitHub reports no workflow runs or commit statuses on the current head. Typecheck/build remain unverified on the rebased tree; prior exact code reached the inherited out-of-lease `ThreatPublicationPanel.tsx(553,77): TS2503` error, and the isolated rebase worktree lacks `tsc`.
+- The prior live witness is recorded in §5. It proves World/Plan author-save-reload and desktop shell visibility, not post-#796 narrow-layout behavior, operator acceptance, Agent turns, graph read-after-write, source admission, statblock/image preparation, Run persistence or restart/resume. The last successful source-admission read left the Of Conks source pending with `authority_unavailable`; the API is not reachable from this checkout for a current-state recheck. Full connected DEMO acceptance remains open.
+- PRIME's exact-head review of `43fdab22798a18804d27b5e6c3396dcaaac07aa1` found no in-lease implementation defect; PRIME did not independently rerun tests or witness runtime. This documentation sync is returned for review on its updated exact head.
 
 ## §8 Pre-dispatch critique, state sync and handback
 
