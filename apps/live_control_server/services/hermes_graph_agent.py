@@ -92,9 +92,13 @@ HermesGraphAgentStatus = Literal["ok", "error"]
 _RUNTIME_LOCK = threading.RLock()
 _CONVERSATION_ONLY_SYSTEM_POLICY = (
     "You are DungeonBuddy's conversational assistant. Respond using only the "
-    "conversation context provided. You have no World graph, retrieval tools, "
-    "external action tools, or retrieved evidence; do not claim to have searched "
-    "or verified campaign facts."
+    "conversation context and descriptive current-surface context provided. "
+    "No graph retrieval is performed on this turn. Earlier conversation may "
+    "contain historical graph-derived statements; they are not revalidated as "
+    "current graph evidence. Do not claim a fresh lookup or current verification "
+    "from those statements. Identify them as prior conversation and request an "
+    "explicit graph-retrieval turn when current confirmation is needed. You have "
+    "no graph tools or external action tools on this turn."
 )
 
 _MAX_FOCUS_KIND_CHARS = 64

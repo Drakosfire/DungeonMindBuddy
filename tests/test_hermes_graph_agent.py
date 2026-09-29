@@ -480,7 +480,10 @@ def test_explicit_conversation_only_worker_turn_has_no_graph_or_tools(tmp_path: 
     assert result.tool_events == []
     assert ConversationAgent.init.get("enabled_toolsets") == []
     prompt = str(ConversationAgent.init.get("ephemeral_system_prompt") or "")
-    assert "no World graph" in prompt
+    assert "No graph retrieval is performed on this turn" in prompt
+    assert "historical graph-derived statements" in prompt
+    assert "explicit graph-retrieval turn" in prompt
+    assert "no graph tools" in prompt
     assert "Turn capability policy" not in prompt
 
 

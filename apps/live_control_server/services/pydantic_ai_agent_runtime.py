@@ -189,8 +189,12 @@ def _scope_capability_packet(invocation: AgentRuntimeInvocation) -> str:
     if scope is None:
         return (
             "Turn capability policy (runtime-enforced).\n"
-            "Mode: conversation_only. No World scope, graph retrieval session, graph tools, "
-            "or authority to claim retrieved grounding is available."
+            "Mode: conversation_only. No graph retrieval is performed on this turn, and "
+            "there is no current graph context or graph tool. Earlier conversation may "
+            "contain historical graph-derived statements; they are not revalidated as "
+            "current graph evidence. Do not claim a fresh lookup or current verification "
+            "from those statements. Identify them as prior conversation and request an "
+            "explicit graph-retrieval turn when current confirmation is needed."
         )
     payload: dict[str, Any] = {
         "worldId": scope.world_id,
@@ -230,9 +234,13 @@ def pydantic_ai_agent_instructions(invocation: AgentRuntimeInvocation) -> str:
     if invocation.context_packet.world_scope is None:
         base = (
             "You are DungeonBuddy's conversational assistant. Respond to the user's "
-            "message using only the conversation context provided. You have no World "
-            "graph, retrieval tools, external action tools, or retrieved evidence; do not "
-            "claim to have searched or verified campaign facts."
+            "message using only the conversation context and descriptive current-surface "
+            "context provided. No graph retrieval is performed on this turn. Earlier "
+            "conversation may contain historical graph-derived statements; they are not "
+            "revalidated as current graph evidence. Do not claim a fresh lookup or current "
+            "verification from those statements. Identify them as prior conversation and "
+            "request an explicit graph-retrieval turn when current confirmation is needed. "
+            "No graph tools or external action tools are available on this turn."
         )
     else:
         base = f"{GRAPH_SYSTEM_POLICY}\n\n{_scope_capability_packet(invocation)}"

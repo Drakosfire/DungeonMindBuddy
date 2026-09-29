@@ -294,7 +294,9 @@ def test_no_scope_turn_uses_real_adapter_without_graph_tools_or_grounding_claims
         run_options=AgentRunOptions(runtime_session_id="provider-only-session"),
     )
     instructions = pydantic_ai_agent_instructions(invocation)
-    assert "no World graph" in instructions
+    assert "No graph retrieval is performed on this turn" in instructions
+    assert "historical graph-derived statements" in instructions
+    assert "explicit graph-retrieval turn" in instructions
     assert GRAPH_SYSTEM_POLICY not in instructions
 
     captured: dict[str, Any] = {}
@@ -324,7 +326,9 @@ def test_no_scope_turn_uses_real_adapter_without_graph_tools_or_grounding_claims
     assert result.tool_events == []
     assert executor.calls == []
     assert captured["tools"] == []
-    assert "no World graph" in captured["instructions"]
+    assert "No graph retrieval is performed on this turn" in captured["instructions"]
+    assert "historical graph-derived statements" in captured["instructions"]
+    assert "explicit graph-retrieval turn" in captured["instructions"]
 
 
 def test_unsupported_policy_fails_closed_before_model_or_tools() -> None:
