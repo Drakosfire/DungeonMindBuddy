@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEventHandler,
+  type ReactNode,
+  type Ref,
+} from "react";
 import type { Content, Editor } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
@@ -57,8 +67,58 @@ import type { PlanDocumentDescriptor, PlanSessionDescriptor, SurfaceThemeConfig 
 import "../../tiptap/prepMarkdownThemes.css";
 import "../../tiptap/tiptapSpike.css";
 import "../../graphReference/graphReference.css";
+import "../planSurface.css";
 
 const TBD_PLAN_PATH = "TBD durable planning path";
+
+/**
+ * Shared visible Plan canvas frame for editors with a different persistence
+ * owner. This keeps the World-owned writer independent without forking the
+ * established canvas boundary and Markdown theme composition.
+ */
+export function PlanSurfaceCanvasFrame({
+  identityLabel,
+  themeId,
+  className,
+  testId,
+  editorRef,
+  onEditorClick,
+  beforeEditor,
+  afterEditor,
+  children,
+}: {
+  identityLabel: string;
+  themeId: string;
+  className?: string;
+  testId?: string;
+  editorRef?: Ref<HTMLDivElement>;
+  onEditorClick?: MouseEventHandler<HTMLDivElement>;
+  beforeEditor?: ReactNode;
+  afterEditor?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section
+      className={`plan-surface-canvas${className ? ` ${className}` : ""}`}
+      aria-label="Plan canvas"
+      data-testid={testId ?? "plan-surface-canvas-frame"}
+    >
+      <p className="plan-surface-kicker" data-testid="plan-authoring-identity">
+        {identityLabel}
+      </p>
+      {beforeEditor}
+      <div
+        ref={editorRef}
+        className={`tiptap-spike-editor md-content md-theme-${themeId}`}
+        data-md-theme={themeId}
+        onClick={onEditorClick}
+      >
+        {children}
+      </div>
+      {afterEditor}
+    </section>
+  );
+}
 
 export function canSavePlanningDocument(document: {
   kind: string;
@@ -539,8 +599,6 @@ function PlanDurableSurfaceCanvas({
     onEditorToolsChange?.(toAppChromeToolsGeneration(toolbarModel, canvasWorkTarget));
   }, [canvasWorkTarget, onEditorToolsChange, toolbarModel]);
 
-  const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
-
   const showSavePanel = Boolean(
     authoring.lastCommitReceipt
     || (authoring.phase === "save_error" && authoring.error)
@@ -599,22 +657,14 @@ function PlanDurableSurfaceCanvas({
   })();
 
   return (
-    <section className="plan-surface-canvas" aria-label="Plan canvas">
-      <p className="plan-surface-kicker" data-testid="plan-authoring-identity">
-        {authoringIdentityLabel(planningDocument)}
-      </p>
-      <div
-        ref={editorShellRef}
-        className={`tiptap-spike-editor md-content ${editorThemeClass}`}
-        data-md-theme={theme.themeId}
-        onClick={(event) => {
-          void handleChipActivate(event.target);
-        }}
-      >
-        {editorBody}
-      </div>
-
-      {showSavePanel && (
+    <PlanSurfaceCanvasFrame
+      identityLabel={authoringIdentityLabel(planningDocument)}
+      themeId={theme.themeId ?? "mireward-runbook"}
+      editorRef={editorShellRef}
+      onEditorClick={(event) => {
+        void handleChipActivate(event.target);
+      }}
+      afterEditor={showSavePanel && (
         <section
           className="plan-markdown-save-panel"
           aria-label="Markdown save status"
@@ -656,7 +706,9 @@ function PlanDurableSurfaceCanvas({
           )}
         </section>
       )}
-    </section>
+    >
+      {editorBody}
+    </PlanSurfaceCanvasFrame>
   );
 }
 
@@ -756,21 +808,24 @@ function PlanLocalBlankSurfaceCanvas({
     onEditorToolsChange?.(editorToolsGeneration);
   }, [editorToolsGeneration, onEditorToolsChange]);
 
-  const editorThemeClass = `md-theme-${theme.themeId ?? "mireward-runbook"}`;
-
   return (
-    <section className="plan-surface-canvas" aria-label="Plan canvas" data-testid="plan-blank-canvas">
-      {inventoryUnavailable ? (
+    <PlanSurfaceCanvasFrame
+      identityLabel={authoringIdentityLabel(sessionDescriptor.planningDocument)}
+      themeId={theme.themeId ?? "mireward-runbook"}
+      testId="plan-blank-canvas"
+      editorRef={editorShellRef}
+      beforeEditor={inventoryUnavailable ? (
         <p className="plan-surface-list-warning" role="alert" data-testid="plan-selector-list-error">
           Active Plan inventory is unavailable; target session cannot be chosen safely.
         </p>
       ) : null}
-      <div
-        ref={editorShellRef}
-        className={`tiptap-spike-editor md-content ${editorThemeClass}`}
-        data-md-theme={theme.themeId}
-      >
-        <MarkdownEditorCore
+      afterEditor={blankAuthoring.promotionError ? (
+        <p className="plan-markdown-save-error" role="alert" data-testid="plan-markdown-save-error">
+          {blankAuthoring.promotionError}
+        </p>
+      ) : null}
+    >
+      <MarkdownEditorCore
           content={blankAuthoring.editorContent as Content}
           documentKey={blankAuthoring.documentKey}
           editable={canEdit && !blankAuthoring.saveBusy}
@@ -780,14 +835,8 @@ function PlanLocalBlankSurfaceCanvas({
           dataTestId="plan-surface-canvas-editor"
         >
           {(ed) => <EditorContent editor={ed} />}
-        </MarkdownEditorCore>
-      </div>
-      {blankAuthoring.promotionError ? (
-        <p className="plan-markdown-save-error" role="alert" data-testid="plan-markdown-save-error">
-          {blankAuthoring.promotionError}
-        </p>
-      ) : null}
-    </section>
+      </MarkdownEditorCore>
+    </PlanSurfaceCanvasFrame>
   );
 }
 

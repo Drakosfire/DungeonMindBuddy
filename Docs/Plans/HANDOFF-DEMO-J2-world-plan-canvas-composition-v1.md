@@ -14,7 +14,7 @@ pr_body_template: |
 # HANDOFF — restore the World-owned Plan canvas and editing chrome
 
 **Created:** 2026-09-29
-**Status:** ACTIVE — implementation dispatch authorized for the existing composition lease; revised product/Agent authority is being sent to PRIME and ARCHITECTURE
+**Status:** ACTIVE — PRIME accepted the revised composition boundary; implementation is authorized on this existing lease. Universal Agent baseline remains a separately reviewed successor.
 **Workstream / owner:** LOCAL DEMO ACCEPTED / DEMO J2; Buddy Plan composition
 **Direction:** STEWARD → CODE → PRIME
 **Activation base:** Buddy `main@eac67508ea34115b102c7c4af8a55e17843a16d9` (PR #788 merge)
@@ -22,7 +22,7 @@ pr_body_template: |
 **PR title:** `DEMO: restore the World Plan canvas and editing chrome`
 **PR authorization:** after PRIME accepts this handoff's boundary, open/update the assigned implementation PR without another operator prompt; do not merge. PRIME owns ecosystem merge coordination.
 **Implementation branch:** `codex/demo-world-plan-composition-impl`
-**Code dispatch gate:** PRIME reviews the exact path lease and the World-owned Plan / Agent identity boundary below before production implementation begins.
+**Activation record:** PRIME reviewed and accepted the exact path lease plus World-owned Plan / Agent identity boundary before production implementation began. This authorizes only the existing composition PR, not Agent/API work.
 
 This handoff is on a clean, isolated branch based on the verified current remote
 `main` SHA above. It does not edit the detached user checkout or the existing
@@ -256,10 +256,11 @@ this PR addresses that composition gap. Neither PR alone closes J1/J2 or LOCAL
 DEMO ACCEPTED.
 
 Before any Agent implementation, hand back one reusable surface-aware Agent
-contract proposal for Plan/Play/Build/Ingest and other in-scope navigation. It
-must identify actual context owners, freshness/identity behavior, conversation
-and thread isolation, backend validation, campaign compatibility, and
-owning-boundary proofs; PRIME and ARCHITECTURE review it before a separate
+contract proposal for every navigable DEMO surface, explicitly including Index,
+Plan, Play, Build, Ingest, and Combat unless the product owner later narrows that
+minimum. It must identify actual context owners, freshness/identity behavior,
+conversation and thread isolation, backend validation, campaign compatibility,
+and owning-boundary proofs; PRIME and ARCHITECTURE review it before a separate
 bounded Agent implementation lease is authorized.
 
 ## §8 Handback
@@ -269,3 +270,40 @@ this lease, automated/browser evidence, runtime identity and process handoff,
 remaining Agent contract owner/status, and concise proof that #788 persistence
 and legacy campaign Plan behavior remain intact. Do not merge. PRIME reviews the
 exact head and controls merge sequencing.
+
+### Current execution evidence (2026-09-28)
+
+- Product code remains based on the accepted #788 integration and is served from
+  the isolated implementation worktree through the single UI listener at
+  `127.0.0.1:5201`; it proxies to the existing isolated API `127.0.0.1:8821`.
+  The exact old 5201 Vite PID was verified under the retired #788 worktree and
+  gracefully replaced; shared ports/databases and API 8821 were not changed.
+- Browser dogfood exercised the exact World A saved-document URL. Its existing
+  `The Lantern Causeway` Plan was preserved. A separate `J2 Canvas Boundary
+  Witness` document was created through the normal World-owned Plan writer,
+  formatted with the mounted Heading tool, given a registered Read-aloud block,
+  saved, and reloaded at exact document UUID
+  `8e02715a-fc5b-48dc-ab7c-ba470a0909a8`. World B remained blank with no
+  inherited A title, content, document or toolbar state. No source, campaign,
+  session, graph head, provider call or Agent behavior was fabricated.
+- The first implementation accidentally rebuilt a lookalike canvas frame in
+  the World route. It has now been factored into `PlanSurfaceCanvasFrame` in
+  `PlanSurfaceCanvas.tsx` and is used by both existing campaign Plan/Runbook
+  views and the World route. This preserves the shared `plan-surface-canvas` /
+  `tiptap-spike-editor` boundary while leaving the World-owned writer
+  authoritative. The dark canvas rim and parchment sheet have separate,
+  high-contrast edges rather than relying on default editor borders.
+- Desktop blank and authored views show the shared framed dark workspace around
+  a centered parchment canvas, visible toolbar, and readable component styling.
+  At 390×844 the layout had `document.scrollWidth=375` (viewport390), canvas
+  width335 and editor width307; the authored Read-aloud block remained readable.
+  The existing no-plugin state suppresses Agent chrome without suppressing Plan
+  tools, context or navigation. Browser console reported no errors/warnings.
+- Exact owning tests: PlanSurfacePage + WorldPlanSurfaceContext + campaign
+  PlanSurfaceShell, 115 passed. `npx vite build` passed (existing chunk-size
+  warning). `npm run build`/typecheck remains blocked only by the inherited
+  `ThreatPublicationPanel.tsx:553` JSX namespace error; the file blob is
+  identical to #788 base `eac67508…` (`f1764cfa…`). `git diff --check` passes.
+- PRIME and ARCHITECTURE have the proposed reusable all-six-surface
+  conversational Agent context contract for review. That proposal is not
+  accepted authority or implementation scope; no Agent/API files were changed.

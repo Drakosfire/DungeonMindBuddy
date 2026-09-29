@@ -14,8 +14,8 @@ pr_body_template: |
 # HANDOFF — start a World-owned Plan before importing anything
 
 **Created:** 2026-09-27  
-**Status:** ACTIVE — PRIME accepted scope and authorized this implementation lane
-**Handoff locator:** canonical handoff on accepted Buddy main; PRIME-authorized exception activates it in this implementation PR.
+**Status:** COMPLETE / HISTORICAL — Buddy #788 merged to main at `eac67508ea34115b102c7c4af8a55e17843a16d9`; exact reviewed code head `27bb1a76a113ef85f54c6ac09bbd4d18aa121b41`; five distinct review-head cycles.
+**Handoff locator:** completed authority for exact World-owned Plan persistence; later full-shell composition feedback is tracked by the separate active J2 handoff.
 **Workstream / owner:** DEMO / J1; Buddy Content/Plan ownership, not DungeonMind  
 **Direction:** STEWARD → CODE → PRIME  
 **Design authority base:** `fa740c73f66192a44926712661d9489ff12e54a8`  
@@ -396,6 +396,24 @@ current migration; no skipped PG test counts as proof. Record exact commands,
 base/head, environment and outputs; no helper-only substitute. Finally run
 `git diff --check` and `git diff --name-only <dispatch-base>...HEAD`.
 MIND native-head success, Agent knowledge retrieval and full DEMO remain unproved.
+
+## Completion record — Buddy #788
+
+Buddy #788 merged at `eac67508ea34115b102c7c4af8a55e17843a16d9` after five
+distinct review-head cycles; exact accepted code head was
+`27bb1a76a113ef85f54c6ac09bbd4d18aa121b41`. The exact World-owned
+World/null-campaign Plan lifecycle, durable create/save/reload/recovery behavior,
+and bounded ordinary-browser evidence are integrated. This does not claim full
+J1, J2, or connected DEMO acceptance.
+
+Later operator dogfood identified a distinct composition gap: the World-owned
+route did not include the established Plan canvas/editor tools and truthful
+World/document context composition. That is not a failure of #788's persistence
+invariant. The repair is owned by
+[`HANDOFF-DEMO-J2-world-plan-canvas-composition-v1.md`](HANDOFF-DEMO-J2-world-plan-canvas-composition-v1.md);
+the J2 composition is independently unaccepted until its own exact-head review
+and product evidence pass. The unresolved conversational Agent requirement
+across every navigable DEMO surface remains a separate mandatory successor.
 
 ## §8 Review handback
 

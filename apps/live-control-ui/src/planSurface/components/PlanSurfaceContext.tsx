@@ -1,11 +1,13 @@
 import { useMemo } from "react";
 
-import type { WorkspaceDocumentRecord } from "../../api/types";
+import type { WorkspaceDocumentRecord, WorldOwnedPlanRecordV2 } from "../../api/types";
 import { buildPlanSurfaceIdentity } from "../../agentInteraction/projectionSurfacePublication";
 import { buildSurfaceInteractionIdentity } from "../../surfaceInteraction/surfaceIdentity";
 import {
   SurfaceContextBadge,
+  SurfaceContextAction,
   SurfaceContextModule,
+  SurfaceContextSelect,
   SurfaceContextStatus,
   SurfaceContextValue,
   useSurfaceContextContribution,
@@ -34,6 +36,69 @@ export interface PlanSurfaceContextProps {
     PlanDocumentCreateControlProps,
     "presentation" | "disabled"
   > & { disabled?: boolean };
+}
+
+/** World-owned Plan context uses its real World/document key, never campaign/session aliases. */
+export interface WorldPlanSurfaceContextProps {
+  worldId: string;
+  worldName: string;
+  documentId: string | null;
+  records: WorldOwnedPlanRecordV2[];
+  disabled?: boolean;
+  onSelect: (documentId: string) => void;
+  onNewPlan: () => void;
+}
+
+export function WorldPlanSurfaceContext({
+  worldId,
+  worldName,
+  documentId,
+  records,
+  disabled = false,
+  onSelect,
+  onNewPlan,
+}: WorldPlanSurfaceContextProps) {
+  const surfaceIdentity = useMemo(() => buildSurfaceInteractionIdentity({
+    surfaceId: "plan",
+    instanceParts: ["world-plan", worldId, documentId],
+  }), [documentId, worldId]);
+
+  const content = useMemo(() => (
+    <SurfaceContextModule label="PLAN" className="plan-surface-context">
+      <div className="plan-surface-context__row" data-testid="world-plan-surface-context">
+        <SurfaceContextBadge>{worldName}</SurfaceContextBadge>
+        <SurfaceContextSelect
+          id="world-plan-document-select"
+          data-testid="world-plan-document-select"
+          aria-label="Plan document"
+          value={documentId ?? ""}
+          disabled={disabled}
+          onChange={(event) => event.target.value ? onSelect(event.target.value) : onNewPlan()}
+        >
+          <option value="">New blank Plan</option>
+          {records.map((record) => (
+            <option key={record.document_id} value={record.document_id}>
+              {record.title || "Untitled Plan"}
+            </option>
+          ))}
+        </SurfaceContextSelect>
+        {documentId ? (
+          <SurfaceContextAction type="button" onClick={onNewPlan} disabled={disabled}>
+            New blank Plan
+          </SurfaceContextAction>
+        ) : null}
+      </div>
+    </SurfaceContextModule>
+  ), [disabled, documentId, onNewPlan, onSelect, records, worldName]);
+
+  useSurfaceContextContribution({
+    id: "plan-world-context",
+    order: 10,
+    surfaceIdentity,
+    content,
+  });
+
+  return null;
 }
 
 export function PlanSurfaceContext({

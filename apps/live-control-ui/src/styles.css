@@ -48,63 +48,51 @@ code {
 
 /* World-owned Plan is a focused writing canvas inside the existing app shell. */
 .world-owned-plan {
-  --plan-ink: var(--ui-text-primary);
-  --plan-muted: var(--ui-text-secondary);
-  --plan-paper: var(--ui-background-paper);
-  --plan-paper-ink: var(--ui-text-on-paper);
   width: min(100%, 76rem);
   max-width: 76rem;
   margin: clamp(1rem, 3vw, 2.5rem) auto;
-  padding: clamp(1rem, 2.5vw, 2rem);
+  padding: 0.5rem 0 3rem;
   display: grid;
-  gap: 1rem;
-  border: 1px solid var(--ui-border-strong);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-background-chrome);
-  color: var(--plan-ink);
+  gap: 1.25rem;
+  color: var(--ui-text-primary);
   line-height: 1.55;
-  box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 22%);
 }
 
-.world-owned-plan h1 {
-  margin: 0;
+.app-wrap:has(.world-owned-plan) {
+  max-width: min(1440px, calc(100% - 2rem));
+}
+
+.world-owned-plan__heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 28rem);
+  align-items: end;
+  gap: 1.5rem;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.world-owned-plan__heading h1 {
+  margin: 0.15rem 0 0.45rem;
   font-size: clamp(1.8rem, 3vw, 2.5rem);
   letter-spacing: -0.025em;
   line-height: 1.12;
-}
-
-.world-owned-plan__world,
-.world-owned-plan__intro {
-  margin: 0;
-}
-
-.world-owned-plan__world {
-  width: fit-content;
-  max-width: 100%;
-  padding: 0.25rem 0.65rem;
-  border: 1px solid var(--ui-border-subtle);
-  border-radius: 999px;
-  color: var(--ui-text-secondary);
-  font-size: 0.9rem;
-  font-weight: 650;
   overflow-wrap: anywhere;
 }
 
 .world-owned-plan__intro {
   max-width: 68ch;
-  color: var(--plan-muted);
+  margin: 0;
+  color: var(--ui-text-secondary);
 }
 
-.world-owned-plan > label {
+.world-owned-plan__heading label {
   display: grid;
   width: min(100%, 38rem);
   gap: 0.4rem;
-  color: var(--plan-muted);
+  color: var(--ui-text-secondary);
   font-size: 0.9rem;
   font-weight: 650;
 }
 
-.world-owned-plan select,
 .world-owned-plan input {
   width: 100%;
   min-height: 2.9rem;
@@ -112,28 +100,15 @@ code {
   border: 1px solid var(--ui-border-strong);
   border-radius: var(--ui-radius-sm);
   background: var(--ui-background-ops);
-  color: var(--plan-ink);
+  color: var(--ui-text-primary);
   font: inherit;
   box-shadow: inset 0 1px 2px rgb(0 0 0 / 22%);
 }
 
-.world-owned-plan select {
-  appearance: none;
-  padding-right: 2.5rem;
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--plan-muted) 50%),
-    linear-gradient(135deg, var(--plan-muted) 50%, transparent 50%);
-  background-position:
-    calc(100% - 1rem) 50%,
-    calc(100% - 0.72rem) 50%;
-  background-repeat: no-repeat;
-  background-size: 0.32rem 0.32rem;
-}
-
-.world-owned-plan select:focus-visible,
 .world-owned-plan input:focus-visible,
 .world-owned-plan button:focus-visible,
-.world-owned-plan .ProseMirror:focus-visible {
+.world-owned-plan .ProseMirror:focus-visible,
+.world-owned-plan__canvas:focus-within {
   outline: 3px solid var(--ui-accent-action);
   outline-offset: 3px;
 }
@@ -160,63 +135,122 @@ code {
   cursor: not-allowed;
 }
 
-.world-owned-plan__editor {
-  position: relative;
+.world-owned-plan__canvas {
   min-width: 0;
-  overflow: hidden;
-  border: 2px solid color-mix(in srgb, var(--ui-text-on-paper) 55%, var(--ui-border-paper));
-  border-radius: 0.65rem;
-  background: var(--plan-paper);
-  outline: 1px solid rgb(247 235 215 / 20%);
-  outline-offset: 3px;
+  padding: clamp(1rem, 2vw, 1.5rem);
+  border: 3px solid #73829a;
+  border-radius: 0.85rem;
+  background: #151b25;
   box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 55%),
-    0 0.8rem 1.8rem rgb(0 0 0 / 20%);
+    inset 0 0 0 1px rgb(255 255 255 / 8%),
+    0 0 0 1px #0a0d12,
+    0 1rem 2.5rem rgb(0 0 0 / 28%);
 }
 
-.world-owned-plan__editor .ProseMirror {
-  min-height: 48vh;
-  max-width: 78ch;
-  margin: 0 auto;
-  padding: clamp(1rem, 3vw, 2.25rem);
-  color: var(--plan-paper-ink);
-  font-size: 1.04rem;
-  line-height: 1.7;
-  overflow-wrap: anywhere;
-}
-
-.world-owned-plan__editor .ProseMirror > :first-child {
-  margin-top: 0;
-}
-
-.world-owned-plan__editor .ProseMirror > :last-child {
-  margin-bottom: 0;
-}
-
-.world-owned-plan__editor .md-callout[data-md-callout="read-aloud"] {
-  margin: 1rem 0;
-  padding: 0.9rem 1rem;
-  border: 1px solid #9aaed0;
-  border-left: 4px solid #536f9d;
-  border-radius: var(--ui-radius-sm);
-  background: #e8eef8;
-  color: #292f3a;
-}
-
-.world-owned-plan__editor .md-callout[data-md-callout="read-aloud"] .md-callout-label {
-  margin-bottom: 0.4rem;
-  color: #3f5d8d;
-  font-size: 0.75rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
+.world-owned-plan__canvas > .plan-surface-kicker {
+  margin: 0;
+  padding: 0 0 0.75rem;
+  border-bottom: 1px solid #414e61;
+  color: #c7d2e2;
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.075em;
   text-transform: uppercase;
 }
 
-.world-owned-plan__editor .md-callout[data-md-callout="read-aloud"] .md-callout-body > :first-child {
+.world-owned-plan__toolbar .markdown-editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  gap: 0.55rem;
+  padding: 0.7rem;
+  border: 1px solid #3b4557;
+  border-radius: var(--ui-radius-md);
+  background: #171d29;
+  box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 18%);
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__section {
+  min-width: 9rem;
+  border: 1px solid #3b4557;
+  border-radius: var(--ui-radius-sm);
+  background: #1c2431;
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__section summary {
+  padding: 0.55rem 0.7rem;
+  color: #c4cddd;
+  font-size: 0.78rem;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0 0.5rem 0.5rem;
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__actions button {
+  min-height: 2.2rem;
+  padding: 0.4rem 0.65rem;
+  border: 1px solid #66758d;
+  border-radius: 0.35rem;
+  background: #252f3f;
+  color: #edf1f8;
+  font-size: 0.88rem;
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__actions button:hover:not(:disabled) {
+  border-color: #a9bddc;
+  background: #303e53;
+}
+
+.world-owned-plan__canvas .tiptap-spike-editor {
+  --fg: #332d25;
+  --fg-mute: #665943;
+  --md-fg: #332d25;
+  --md-heading: #4b3c27;
+  --md-surface: #f0e1c7;
+  --md-border: #d0b98f;
+  --md-accent: #77541f;
+  --md-callout-bg: #f0e1c7;
+  --md-callout-border: #bea578;
+  --bg-input: #f0e1c7;
+  --border: #d0b98f;
+  width: min(100%, 82ch);
+  min-height: 44vh;
+  margin: 1rem auto 0;
+  border: 2px solid #d6c29f;
+  border-radius: 0.4rem;
+  background: #f7ebd7;
+  color: #332d25;
+  box-shadow:
+    inset 0 0 0 1px rgb(255 255 255 / 72%),
+    0 0 0 1px #9b8259,
+    0 0.45rem 1.15rem rgb(0 0 0 / 28%);
+}
+
+.world-owned-plan__canvas .ProseMirror {
+  min-height: max(42vh, 20rem);
+  max-width: none;
+  margin: 0;
+  padding: clamp(1.25rem, 3vw, 2.5rem);
+  color: #332d25;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.06rem;
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+
+.world-owned-plan__canvas .ProseMirror > :first-child {
   margin-top: 0;
 }
 
-.world-owned-plan__editor .md-callout[data-md-callout="read-aloud"] .md-callout-body > :last-child {
+.world-owned-plan__canvas .ProseMirror > :last-child {
   margin-bottom: 0;
 }
 
@@ -248,15 +282,28 @@ code {
   }
 
   .world-owned-plan {
-    width: min(calc(100vw - 4rem), 76rem);
-    margin: 0.75rem 0;
-    padding: 1rem;
-    gap: 0.85rem;
+    width: 100%;
+    margin: 0.75rem auto;
+    padding: 0.5rem 0 2rem;
+    gap: 1rem;
   }
 
-  .world-owned-plan__editor .ProseMirror {
-    min-height: 55vh;
-    padding: 1rem;
+  .world-owned-plan__heading {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+  }
+
+  .world-owned-plan__canvas {
+    padding: 0.75rem;
+  }
+
+  .world-owned-plan__toolbar .markdown-editor-toolbar__section {
+    flex: 1 1 calc(50% - 0.55rem);
+  }
+
+  .world-owned-plan__canvas .ProseMirror {
+    min-height: max(40vh, 16rem);
+    padding: 1.15rem;
   }
 }
 
