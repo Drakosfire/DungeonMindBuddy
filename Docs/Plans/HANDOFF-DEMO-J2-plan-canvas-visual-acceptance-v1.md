@@ -66,7 +66,7 @@ Use the existing Buddy visual language and already-accepted primitives where app
 | `apps/live-control-ui/src/planSurface/planSurface.css` | Plan canvas layout and boundary where shared Plan styling belongs |
 | `apps/live-control-ui/src/tiptap/prepMarkdownThemes.css` | Resolve actual theme styling for the selected Plan theme and registered components |
 | `apps/live-control-ui/src/styles.css` | Remove/replace only the conflicting World-owned presentation rules |
-| `Docs/Plans/HANDOFF-DEMO-J2-world-plan-canvas-visual-acceptance-v1.md` | Backward-looking exact design decision, activation/evidence and final operator disposition |
+| `Docs/Plans/HANDOFF-DEMO-J2-plan-canvas-visual-acceptance-v1.md` | Backward-looking exact design decision, activation/evidence and final operator disposition |
 | `Docs/Plans/HANDOFF-DEMO-J2-world-plan-canvas-composition-v1.md` | Record #789 completion and its still-rejected visual result without rewriting its historical authority |
 | `Docs/Roadmaps/ROADMAP-demo.md` | Keep the Plan visual gate and DEMO next action truthful |
 
