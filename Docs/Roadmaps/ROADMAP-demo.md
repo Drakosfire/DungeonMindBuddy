@@ -115,8 +115,8 @@ central canvas for the document; actionable recovery remains visible and
 developer identity details remain secondary.
 
 The post-#796 exact-head witness on PR #793 `a9426d244af3d60b9b630a6e382f6b31c4c28b4e`
-used the authorized isolated UI 5202/API 8821 pair and disposable APP-STATE
-database. Product UI created fresh World `of-conks-plan-shell-witness-2026-09-29`;
+used the authorized isolated UI/API pair and disposable APP-STATE database.
+Product UI created fresh World `of-conks-plan-shell-witness-2026-09-29`;
 Plan “The First Bell at the Tollhouse” was saved as document
 `bb116c42-8862-4c28-b379-831871b48dc0` and reloaded with title/body intact.
 Desktop showed global nav, World Plan selector, EditHost and paper canvas; the
