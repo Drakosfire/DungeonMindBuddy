@@ -7,9 +7,25 @@ import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/Select
 import type { WorldOwnedPlanRecordV2 } from "../api/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
 
-vi.mock("../chrome/AppChrome", () => ({
-  AppChrome: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-}));
+vi.mock("../chrome/AppChrome", async () => {
+  const { SurfaceContextHost, SurfaceContextProvider } = await import("../surfaceInteraction/contextHost");
+  return {
+    AppChrome: ({ children, editorTools }: {
+      children: ReactNode;
+      editorTools?: { tools?: { sections?: Array<{ id: string; actions: Array<{ id: string; label: string; onClick: () => void }> }> } } | null;
+    }) => (
+      <SurfaceContextProvider>
+        <div>
+          <SurfaceContextHost />
+          {editorTools?.tools?.sections?.flatMap((section) => section.actions.map((action) => (
+            <button key={`${section.id}:${action.id}`} type="button" onClick={action.onClick}>{action.label}</button>
+          )))}
+          {children}
+        </div>
+      </SurfaceContextProvider>
+    ),
+  };
+});
 vi.mock("./PlanSurfaceShell", () => ({
   PlanSurfaceShell: ({ planView }: { planView: { campaign_id: string } }) => (
     <div data-testid="plan-page-campaign">{planView.campaign_id}</div>
@@ -162,6 +178,13 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
     </SelectedWorldProvider>,
   );
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  expect(screen.getByTestId("world-plan-surface-context")).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByRole("button", { name: "Bold" })).toBeEnabled());
+  expect(screen.getByRole("button", { name: "Read aloud" })).toBeEnabled();
+  expect(screen.getByTestId("world-owned-plan-editor")).toHaveClass("plan-surface-canvas");
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Read aloud" }));
+  await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Read aloud"));
   await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
   await waitFor(() => expect(screen.getByText("Saved to this World.")).toBeInTheDocument());
@@ -528,7 +551,7 @@ it("quarantines lost-create text until explicit Plan binding, then saves and reo
 
   fireEvent.click(screen.getByRole("button", { name: "Refresh Saved Plans" }));
   await screen.findByRole("option", { name: "Plan" });
-  fireEvent.change(screen.getByLabelText("Saved Plans"), { target: { value: documentId } });
+  fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: documentId } });
   const restoreButton = await screen.findByRole("button", { name: "Restore recovered draft into this Plan" });
   expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
     document_id: documentId,
@@ -667,7 +690,7 @@ it("preserves a quarantined draft when opening an unrelated existing Plan", asyn
   const pendingRecovery = JSON.parse(localStorage.getItem(key) ?? "null");
   pendingRecovery.uncertain_create_draft.bound_document_id = "recovery-plan-a";
   localStorage.setItem(key, JSON.stringify(pendingRecovery));
-  fireEvent.change(screen.getByLabelText("Saved Plans"), { target: { value: unrelatedId } });
+  fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: unrelatedId } });
   await screen.findByRole("button", { name: "Restore recovered draft into this Plan" });
   expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
     document_id: unrelatedId,

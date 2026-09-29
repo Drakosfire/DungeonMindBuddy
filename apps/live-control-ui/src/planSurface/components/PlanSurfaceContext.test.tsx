@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -10,7 +10,7 @@ import {
   fixturePlanDocumentDescriptor,
   fixtureWorkspaceDocumentRecord,
 } from "../config/planSessionDescriptor";
-import { PlanSurfaceContext } from "./PlanSurfaceContext";
+import { PlanSurfaceContext, WorldPlanSurfaceContext } from "./PlanSurfaceContext";
 
 const DOC_A = "11111111-1111-4111-8111-111111111111";
 
@@ -124,5 +124,87 @@ describe("PlanSurfaceContext", () => {
     const host = screen.getByTestId("surface-context-host");
     await user.selectOptions(within(host).getByTestId("plan-document-select"), DOC_B);
     expect(onSelect).toHaveBeenCalledWith(DOC_B);
+  });
+});
+
+describe("WorldPlanSurfaceContext", () => {
+  it("publishes exact World/document navigation without campaign or session controls", () => {
+    const onSelect = vi.fn();
+    const onNewPlan = vi.fn();
+    const record = {
+      schema_version: "dmb_world_owned_plan_record_v2" as const,
+      scope_mode: "world" as const,
+      document_id: DOC_A,
+      title: "Of Conks Session 28",
+      campaign_id: null,
+      world_id: "world-a",
+      target_session: null,
+      kind: "plan" as const,
+      target_relpath: "out/workspace/plan/session-28.md",
+      status: "active" as const,
+      content_status: "committed" as const,
+      revision: 1,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    render(
+      <SurfaceContextProvider>
+        <WorldPlanSurfaceContext
+          worldId="world-a"
+          worldName="Of Conks"
+          documentId={DOC_A}
+          title="Of Conks Session 28"
+          records={[record]}
+          onSelect={onSelect}
+          onNewPlan={onNewPlan}
+        />
+        <SurfaceContextHost />
+      </SurfaceContextProvider>,
+    );
+
+    const host = screen.getByTestId("surface-context-host");
+    expect(within(host).getByTestId("world-plan-document-select")).toHaveValue(DOC_A);
+    expect(within(host).getByRole("option", { name: "Of Conks Session 28" })).toBeInTheDocument();
+    expect(within(host).queryByText(/S\d+/)).not.toBeInTheDocument();
+    expect(within(host).getByRole("button", { name: "New blank Plan" })).toBeInTheDocument();
+  });
+
+  it("routes blank selection to the existing blank Plan and saved selection to its exact document", () => {
+    const onSelect = vi.fn();
+    const onNewPlan = vi.fn();
+    render(
+      <SurfaceContextProvider>
+        <WorldPlanSurfaceContext
+          worldId="world-a"
+          worldName="Of Conks"
+          documentId={DOC_A}
+          title="Saved Plan"
+          records={[{
+            schema_version: "dmb_world_owned_plan_record_v2",
+            scope_mode: "world",
+            document_id: DOC_A,
+            title: "Saved Plan",
+            campaign_id: null,
+            world_id: "world-a",
+            target_session: null,
+            kind: "plan",
+            target_relpath: null,
+            status: "active",
+            content_status: "committed",
+            revision: 1,
+            created_at: "2026-01-01T00:00:00Z",
+            updated_at: "2026-01-01T00:00:00Z",
+          }]}
+          onSelect={onSelect}
+          onNewPlan={onNewPlan}
+        />
+        <SurfaceContextHost />
+      </SurfaceContextProvider>,
+    );
+    const selector = screen.getByTestId("world-plan-document-select");
+    fireEvent.change(selector, { target: { value: "" } });
+    expect(onNewPlan).toHaveBeenCalledOnce();
+    fireEvent.change(selector, { target: { value: DOC_A } });
+    expect(onSelect).toHaveBeenCalledWith(DOC_A);
   });
 });

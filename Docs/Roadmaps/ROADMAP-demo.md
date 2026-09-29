@@ -61,14 +61,24 @@ merged at `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`, reviewed head
 ordinary Build import/readback/restart witness passed).
 
 #787 admits the saved committed source snapshot to native World source authority;
-it does not prove source-file byte identity, extracted/accepted knowledge,
-retrieval, World-owned Plan, J3, or the connected demo. The active serial Buddy
-implementation is now **DEMO J1 — World-owned blank Plan**, handoff
-[`HANDOFF-DEMO-world-owned-blank-plan-v1`](../Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md),
-re-anchored to `main@9f358bb9ecf4d28338ae4b6b0ef5e2c316700d59`. It must keep the
-source witness and user's unsaved Plan untouched and prove exact World/null-
-campaign ownership through save, reload and restart. J1 and J1–J6 remain
-unaccepted until their own connected product witnesses pass.
+it does not prove extracted/accepted knowledge, retrieval, J3, or the connected
+demo. Buddy #788 then delivered the exact World-owned Plan lifecycle, merged to
+main at `eac67508ea34115b102c7c4af8a55e17843a16d9` from reviewed code head
+`27bb1a76a113ef85f54c6ac09bbd4d18aa121b41` after five distinct review-head
+cycles. Its accepted create/save/reload/recovery and bounded ordinary-browser
+evidence remain valid, but it did not prove full shell composition or J1/J2
+acceptance. Operator dogfood identified a distinct World Plan composition gap:
+the route lacked the shared Plan canvas, editing tools and truthful
+World/document context. The active serial Buddy implementation is now **DEMO J2
+— World Plan canvas composition**, handoff
+[`HANDOFF-DEMO-J2-world-plan-canvas-composition-v1`](../Plans/HANDOFF-DEMO-J2-world-plan-canvas-composition-v1.md),
+on isolated branch `codex/demo-world-plan-composition-impl` from the #788 merge.
+This implementation does not include a conversational Agent backend. The
+user's DEMO minimum still requires a real, surface-aware conversational Agent
+entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest and
+Combat); that reusable contract is a mandatory successor review before any
+Agent implementation. J1 and J1–J6 remain unaccepted until their own connected
+product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:
