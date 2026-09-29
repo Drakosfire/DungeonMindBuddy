@@ -105,4 +105,4 @@ After PRIME accepts and this PR merges:
 
 ## §8 Handoff
 
-Return the implementation PR URL, exact base/head, cumulative changed-path table, review cycles, test/build evidence, four viewport/content witnesses, console/overflow result, and the operator's visual disposition. This slice only addresses Plan canvas presentation; it does not pass the complete DEMO-J2 multi-turn Agent/session journey or LOCAL DEMO ACCEPTED.
+Return the implementation PR URL, exact base/head, cumulative changed-path table, review cycles, test/build evidence, six viewport/content combinations (blank, short, and longer authored Plan at both desktop and 390×844), console/overflow result, and the operator's visual disposition. This slice only addresses Plan canvas presentation; it does not pass the complete DEMO-J2 multi-turn Agent/session journey or LOCAL DEMO ACCEPTED.
