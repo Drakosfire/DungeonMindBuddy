@@ -1,7 +1,7 @@
 # Steward handoff — DEMO, from preparation to a resumable session
 
 **Status:** ACTIVE — operator adopted the DEMO stewardship mandate on 2026-09-26  
-**Owner:** existing Codex task DEMO (`01a0885e-375c-7501-9f6e-a58528b39894`)  
+**Owner:** incoming DEMO steward task `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` (appointed by operator; transfer confirmed by PRIME after #794 merged on 2026-09-29). Archived outgoing task `01a0885e-375c-7501-9f6e-a58528b39894` is retired from DEMO implementation/design/runtime mutation; it was not restarted and did not acknowledge handback.
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Mandate amended:** 2026-09-29 — established Surface composition, universal Agent baseline and product-first sequencing
 **Execution state:** [ROADMAP-demo.md](../Roadmaps/ROADMAP-demo.md) only  

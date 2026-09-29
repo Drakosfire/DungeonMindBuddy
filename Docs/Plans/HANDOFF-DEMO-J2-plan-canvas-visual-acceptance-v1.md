@@ -16,12 +16,12 @@ pr_body_template: |
 # HANDOFF — DEMO: make the Plan canvas feel like a deliberate writing surface
 
 **Created:** 2026-09-29  
-**Status:** ACTIVE — re-anchored and activated after #792 merged on 2026-09-29  
+**Status:** SUPERSEDED — its visual-only ACTIVE lease is retired by PRIME; use [HANDOFF-DEMO-world-plan-shell-adoption-v1.md](HANDOFF-DEMO-world-plan-shell-adoption-v1.md), BLOCKED pending PRIME review/activation. This file preserves the prior visual slice and evidence.
 **Activation base:** Buddy `main@4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9` (merge commit for #792)  
 **Workstream / owner:** LOCAL DEMO ACCEPTED / DEMO J2; Buddy Plan presentation  
 **Direction:** DESIGN → CODE → PRIME  
 **Design base:** Buddy `main@bab345d64b6de1075f7a5fa44dc6af87d30d9afa`  
-**PR topology:** serial; #792 is merged design authority; one implementation PR is now authorized from the activation base  
+**Historical topology:** serial visual-only iteration carried by #793; superseded by the shell-adoption topology in the replacement handoff.
 **PR title:** `DEMO: refine the Plan canvas visual boundary`  
 **Implementation authority:** ACTIVE on `main@4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`; exactly one implementation PR under DEMO is authorized.  
 **Merge authority:** PRIME owns ecosystem coordination; do not merge from DEMO.
@@ -57,7 +57,7 @@ Required visible behavior:
 
 Use the existing Buddy visual language and already-accepted primitives where appropriate. The code worker may prototype at most two bounded visual treatments in the existing backend-free Ladle lab, then choose one for the real product witness. Do not add a UI framework, theme-pack system, global shell redesign, new domain authority, or Canvas dependency. If the required appearance implies a broader design-system or shell change, stop and return for re-decomposition.
 
-## §4 ACTIVE implementation write lease
+## §4 Historical visual implementation write lease (released)
 
 | Path | Bounded role |
 | --- | --- |
@@ -103,7 +103,7 @@ The design/architecture authority merged as PR #792 at `4017a876a1f0fb6aa3fd5d3a
 
 Return the implementation PR URL, exact base/head, cumulative changed-path table, review cycles, test/build evidence, six viewport/content combinations (blank, short, and longer authored Plan at both desktop and 390×844), console/overflow result, and the operator's visual disposition. This slice only addresses Plan canvas presentation; it does not pass the complete DEMO-J2 multi-turn Agent/session journey or LOCAL DEMO ACCEPTED.
 
-### Active implementation evidence (2026-09-29)
+### Historical implementation evidence on prior #793 head (2026-09-29)
 
 - Code is being implemented on the serial branch `codex/demo-j2-plan-canvas-visual-impl`. It contains activation base `4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9` plus activation-authority sync `76239846c98797bb1455ffa22b2a273d64591205`; the implementation PR's actual base is the latter.
 - The current branch still keeps the existing inline editor toolbar inside the Plan canvas frame. Its warm styling/grouping is an interim presentation treatment, not resolution of the operator's established toolbar/surface-navigation placement requirement. The frame has a continuous warm perimeter around a dark work surface; the parchment sheet has a stronger continuous outline and inset keyline; the blank editor minimum height is shorter. World Plan selects the explicitly defined `world-plan` theme; Campaign Plan remains on its existing theme/configuration.

@@ -46,6 +46,24 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
 
+**Current authority (2026-09-29):** incoming DEMO steward task is
+`01a0edf2-b1e1-7281-9448-1d5524f8d4f8`; PRIME transferred product stewardship and
+retired archived outgoing task `01a0885e-375c-7501-9f6e-a58528b39894` from
+implementation/design/runtime mutation. It was not restarted and did not
+acknowledge handback. Current `main` is `374d69d78ef58a062116de73e095b57f4a92ca15`; #794 merged
+at that SHA and #795 policy cleanup merged at
+`83f25b1f9bfe70555a82b08ef4f5ca5af26a691d`. #793 remains open at
+`cba5dddcf2c482ec729e714cf75e6acd665b42e9`. PRIME selected a deliberate #793
+amendment for World Plan shell adoption and retains review, predecessor
+disposition, activation and merge. The visual-only implementation lease is
+retired. Its six-case viewport/layout witness is historical evidence for that
+prior code, not shell adoption or operator acceptance. The incoming owner is recorded in the steward handoff. The replacement BLOCKED
+handoff is [HANDOFF-DEMO-world-plan-shell-adoption-v1.md](../Plans/HANDOFF-DEMO-world-plan-shell-adoption-v1.md);
+no implementation lease is active until PRIME reviews it and explicitly
+activates the serial lane. Incoming steward is preparing that design on isolated
+`codex/demo-world-plan-shell-adoption`. Runtime changes require separate PRIME /
+designated-host-owner authorization. Preserve the full J1–J6 Of Conks mission.
+
 **Current DEMO lane (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
 `f8b923875f9444a1addfb2472a2b8fab35eceb4c`, reviewed code head
@@ -82,9 +100,9 @@ around a large blank slab. The operator re-viewed the actual route on
 2026-09-29 and again rejected it as awful, boundaryless, and default-styled.
 J2 composition code is integrated, but J2 and operator acceptance remain open;
 the existence of border declarations or theme tokens is not product acceptance.
-The bounded successor design was accepted in PR #792, merged at
+The prior bounded visual-only design was accepted in PR #792, merged at
 `4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`. Its handoff is re-anchored and
-ACTIVE for one serial implementation PR. The current visual iteration gives
+activated visual iteration was carried in #793; PRIME has now retired that visual-only lease and selected its amendment into a shell-adoption slice. The current visual iteration gives
 the World Plan a warm framed work surface, a distinct parchment page, and a
 shorter blank editor. The latest observed exact-head preview was the disposable
 `of-conks-demo-plan-canvas` World on UI 5202/API 8821, with an editable blank
