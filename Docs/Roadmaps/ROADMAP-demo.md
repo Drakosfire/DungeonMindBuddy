@@ -67,30 +67,37 @@ main at `eac67508ea34115b102c7c4af8a55e17843a16d9` from reviewed code head
 `27bb1a76a113ef85f54c6ac09bbd4d18aa121b41` after five distinct review-head
 cycles. Its accepted create/save/reload/recovery and bounded ordinary-browser
 evidence remain valid, but it did not prove full shell composition or J1/J2
-acceptance. Buddy #789 completed the bounded World Plan canvas composition and
-merged to `main` at `ed1bf1ba0531bf9018f2397863825fa20c781bfe` from reviewed
-code head `7e4fb73d5a553b58bd1350c9c0ded653ef97b2e0`. The shared canvas, editing
-tools, and truthful World/document context are now integrated. The operator's
-exact product judgment remains a rejection: the Plan looks generic and
-defaults-heavy. The outer canvas wrapper has a thin border, but the actual
-writing surface has no distinct, perceptible boundary and reads like default
-editor styling. The visual acceptance debt is not waived by composition tests
-or merge and remains open; a successor must establish a clear writing surface,
-not merely add another border around the existing outer card.
+acceptance. Operator dogfood identified a distinct World Plan composition gap:
+the route lacked the shared Plan canvas, editing tools and truthful
+World/document context. Buddy #789 completed that composition slice and merged
+at `ed1bf1ba0531bf9018f2397863825fa20c781bfe` from reviewed code head
+`7e4fb73d5a553b58bd1350c9c0ded653ef97b2e0` after one distinct review-head
+cycle; its 115 focused Plan tests passed. **That is not visual acceptance.** On
+the exact blank World Plan witness at
+`http://127.0.0.1:5201/plan?world=pr788-exact-head-witness-b-2026-09-28`, the
+operator rejected the canvas as awful/default with no perceptible boundary.
+Although CSS contains a 3px slate outer frame and 2px parchment editor border,
+the nested generic Tiptap/Markdown presentation still reads as a dark generic
+panel around a large blank slab. J2 composition code is integrated, but J2 and
+operator acceptance remain open. Do not infer product quality from CSS
+selectors, screenshots or tests; a bounded design/implementation authority is
+needed for any visual successor.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
-and Combat). Its reusable backend contract is designed and reviewed in open,
-unmerged design PR #790 at exact head
-`3fcc60de6159add04fe9455f5aee0a58816bfece` (PRIME Cycle 4 DESIGN PASS and
-ARCHITECTURE focused exact-head PASS). PRIME explicitly activated the bounded
-backend baseline from the current `main` SHA above. The ACTIVE implementation
-lease is
-[`HANDOFF-DEMO-universal-agent-turn-backend-v1`](../Plans/HANDOFF-DEMO-universal-agent-turn-backend-v1.md)
-on `codex/demo-agent-turn-context-backend`. This slice is backend-only; the
-separate shared UI/adoption on all six surfaces and end-to-end owner-to-backend
-witnesses remain required. J1 and J1–J6 remain unaccepted until their connected
-product witnesses pass.
+and Combat). Its reusable backend contract is accepted in PR #790 at exact
+design head `3fcc60de6159add04fe9455f5aee0a58816bfece` (PRIME Cycle 4 DESIGN
+PASS and ARCHITECTURE focused exact-head PASS). PR #791 implemented the bounded
+backend baseline and merged at `6501bfa5143592cec8d7a3f521e3f34d929a5a95`
+from reviewed code head `40e7c5f81ab0a6faa53026ea571d2994f77d163c` after two
+distinct review-head cycles (`5349662805`, `5350948969`). It proves the
+verified-World backend and conversation-only route, not universal UI adoption.
+The next bounded implementation must separately adopt shared Agent UI/context
+on Index, Plan, Play, Build, Ingest and Combat, followed by owner-to-backend
+end-to-end witnesses. Campaign-owner/campaign-lens remains fail-closed pending
+a Buddy-owned campaign→World authority. The visual rejection remains open and
+is not waived by this backend work. J1 and J1–J6 remain unaccepted until their
+connected product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:
@@ -313,9 +320,14 @@ or human acceptance. Next: rehearse the repaired Plan transition and J3's
 source-to-governed-knowledge doorway under one read/write authority. J3 is not
 implemented or activated merely because #784 merged. Buddy #779 previously merged at
 `2ccc96ff2a7d76328578609d5289fd3babcf6442`; its isolated PostgreSQL
-proof is accepted and its test/report lease is released. The original basic-presentation
-design STOP resolves to `RESUME_NON_UI` for this observed functional blocker;
-no UI redesign successor is authorized by that decision.
+proof is accepted and its test/report lease is released. The original basic-
+presentation design STOP resolved to `RESUME_NON_UI` for the then-observed
+functional blocker. The later #789 Plan witness is new contrary human
+evidence: the composed canvas is explicitly rejected visually. This reopens
+the presentation acceptance question, but does not itself authorize an
+unbounded redesign or application-code change. Record it for bounded steward
+re-decomposition; no UI styling work is included in the universal Agent
+contract.
 
 Inherited work: PLAY-1 / Buddy #773 merged at
 `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9` after two review cycles;
