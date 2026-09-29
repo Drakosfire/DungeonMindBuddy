@@ -100,11 +100,9 @@ The new mounted test exercises real provider → Plan publication → AppChrome 
 Run these exact commands from repository root after implementation activation (the new mounted test is created first under this handoff’s lease):
 
 ```bash
-cd apps/live-control-ui
-npm test -- src/planSurface/PlanSurfacePage.test.tsx src/planSurface/PlanSurfacePage.editHost.test.tsx src/planSurface/PlanSurfaceShell.test.tsx
-npm run typecheck
-npm run build
-cd ../..
+npm --prefix apps/live-control-ui test -- src/planSurface/PlanSurfacePage.test.tsx src/planSurface/PlanSurfacePage.editHost.test.tsx src/planSurface/PlanSurfaceShell.test.tsx
+npm --prefix apps/live-control-ui run typecheck
+npm --prefix apps/live-control-ui run build
 git diff --check origin/main...HEAD
 ```
 
