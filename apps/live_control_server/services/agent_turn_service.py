@@ -13,6 +13,8 @@ from apps.live_control_server.services.agent_context_assembler import (
 )
 from apps.live_control_server.services.agent_runtime import (
     AgentRuntime,
+    AgentCurrentOwnerContext,
+    AgentSurfaceContext,
     AgentWorldScope,
     descriptor_for_runtime,
 )
@@ -68,6 +70,32 @@ def _selection_found(envelope: Mapping[str, Any], selected_node_id: str | None) 
     return selected_node_id in ids
 
 
+def _surface_context_for_turn(
+    request: AgentTurnRequest,
+    owner: Mapping[str, Any] | None,
+    work: AgentTurnResolvedWork | None,
+) -> AgentSurfaceContext:
+    """Carry the current surface and only server-resolved World identity to every turn."""
+    resolved_owner = None
+    if owner is not None and owner.get("kind") == "world":
+        owner_id = owner.get("id")
+        owner_name = owner.get("name")
+        if isinstance(owner_id, str) and owner_id.strip() and isinstance(owner_name, str) and owner_name.strip():
+            resolved_owner = AgentCurrentOwnerContext(
+                kind="world",
+                owner_id=owner_id.strip(),
+                name=owner_name.strip(),
+            )
+    work_surface = None if work is None else work.surface_context
+    return AgentSurfaceContext(
+        surface_id=request.surface.surface_id,
+        surface_instance_id=request.surface.instance_id,
+        current_owner=resolved_owner,
+        current_work=None if work_surface is None else work_surface.current_work,
+        current_play=None if work_surface is None else work_surface.current_play,
+    )
+
+
 def execute_agent_turn(
     request: AgentTurnRequest,
     *,
@@ -106,6 +134,7 @@ def execute_agent_turn(
     )
     work_kind = None if work is None else work.kind
     work_id = None if work is None else work.object_id
+    surface_context = _surface_context_for_turn(request, owner, work)
     pointer = pointer_store.resolve_structured_for_request(
         owner_kind=owner_kind,
         owner_id=owner_id,
@@ -127,7 +156,7 @@ def execute_agent_turn(
             runtime_session_id=pointer.continuity_session_id,
             thread_id=request.client_thread_id,
             turn_id=request.turn_id,
-            surface_context=None if work is None else work.surface_context,
+            surface_context=surface_context,
         )
         graph_result = {"status": "not_requested", "selection_found": None}
     else:
@@ -155,7 +184,7 @@ def execute_agent_turn(
             thread_id=request.client_thread_id,
             turn_id=request.turn_id,
             runtime_session_id=pointer.continuity_session_id,
-            surface_context=None if work is None else work.surface_context,
+            surface_context=surface_context,
         )
         graph_result = {
             "status": graph_status,

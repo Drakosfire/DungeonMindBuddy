@@ -64,6 +64,13 @@ class AgentCurrentWorkContext:
 
 
 @dataclass(frozen=True, slots=True)
+class AgentCurrentOwnerContext:
+    kind: Literal["world"]
+    owner_id: str
+    name: str
+
+
+@dataclass(frozen=True, slots=True)
 class AgentPlayCurrentElementContext:
     kind: Literal["beat", "scene"]
     element_id: str
@@ -83,6 +90,8 @@ class AgentPlayCurrentMomentContext:
 @dataclass(frozen=True, slots=True)
 class AgentSurfaceContext:
     surface_id: str
+    surface_instance_id: str | None = None
+    current_owner: AgentCurrentOwnerContext | None = None
     current_work: AgentCurrentWorkContext | None = None
     current_play: AgentPlayCurrentMomentContext | None = None
 

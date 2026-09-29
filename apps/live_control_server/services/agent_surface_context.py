@@ -152,18 +152,49 @@ def _resolution(
 
 
 def render_agent_surface_context(context: AgentSurfaceContext | None) -> str | None:
-    """Render one bounded CURRENT WORK or CURRENT PLAY prose block, or None when absent."""
+    """Render bounded server-resolved surface/owner/work context, or None when absent."""
     if context is None:
         return None
-    if context.surface_id == "plan":
-        return _render_plan_surface_context(context)
-    if context.surface_id == "play":
+
+    surface_labels = {
+        "index": "Index",
+        "plan": "Plan",
+        "play": "Play",
+        "build": "Build",
+        "ingest": "Ingest",
+        "combat": "Combat Tracker",
+    }
+    label = surface_labels.get(context.surface_id)
+    if label is None:
+        return None
+
+    if context.surface_id == "play" and context.current_play is not None:
         from apps.live_control_server.services.agent_play_surface_context import (
             render_agent_play_surface_context,
         )
 
-        return render_agent_play_surface_context(context)
-    return None
+        block = render_agent_play_surface_context(context)
+    elif context.surface_id == "plan":
+        block = _render_plan_surface_context(context)
+    else:
+        block = f"{_MODEL_BLOCK_PREFIX}\nThe GM is working in DungeonBuddy {label}."
+
+    if block is None:
+        block = f"{_MODEL_BLOCK_PREFIX}\nThe GM is working in DungeonBuddy {label}."
+    owner = context.current_owner
+    if owner is not None:
+        owner_name = _clip_model_value(owner.name, TITLE_MODEL_MAX_CHARS)
+        block = f'{block}\nCurrent World: {json.dumps(owner_name, ensure_ascii=False)}.'
+    if len(block) > MODEL_BLOCK_MAX_CHARS:
+        block = block[: MODEL_BLOCK_MAX_CHARS - 1] + "…"
+    return block
+
+
+def _clip_model_value(value: str, limit: int) -> str:
+    cleaned = value.strip()
+    if len(cleaned) <= limit:
+        return cleaned
+    return cleaned[: limit - 1] + "…"
 
 
 def _render_plan_surface_context(context: AgentSurfaceContext) -> str | None:
