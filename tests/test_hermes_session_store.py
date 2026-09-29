@@ -6,6 +6,8 @@ import concurrent.futures
 import json
 from pathlib import Path
 
+import pytest
+
 from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
 from src.live_play.live_store import write_json
 
@@ -149,3 +151,57 @@ def test_structured_binding_reuses_exact_key_and_returns_pointer_without_echo(
         hermes_session_id="provider-session-2",
     )
     assert updated.pointer_id == created.pointer_id
+
+
+@pytest.mark.parametrize(
+    ("field", "tampered_value"),
+    [
+        ("schema", "dmb_hermes_structured_session_pointer_binding_v0"),
+        ("agent_thread_id", "thread-other"),
+        ("owner_kind", "campaign"),
+        ("owner_id", "world:other"),
+        ("work_kind", "build"),
+        ("work_id", "plan:other"),
+    ],
+)
+def test_structured_pointer_rejects_stored_schema_or_identity_drift(
+    tmp_path: Path, field: str, tampered_value: str
+) -> None:
+    base = tmp_path / "live-session"
+    store = HermesSessionPointerStore(base)
+    identity = {
+        "owner_kind": "world",
+        "owner_id": "world:one",
+        "work_kind": "plan",
+        "work_id": "plan:one",
+        "agent_thread_id": "thread-one",
+    }
+    original = store.upsert_structured_after_turn(
+        **identity,
+        hermes_session_id="session-original",
+    )
+    path = base / "hermes_thread_pointers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    key = next(iter(payload["structured_bindings"]))
+    payload["structured_bindings"][key][field] = tampered_value
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    recovered = store.resolve_structured_for_request(
+        **identity,
+        pointer_id=original.pointer_id,
+    )
+    assert recovered.continuity_session_id is None
+    assert recovered.pointer_status == "recovered"
+    assert recovered.pointer_id is None
+
+    fresh = store.upsert_structured_after_turn(
+        **identity,
+        hermes_session_id="session-fresh",
+    )
+    assert fresh.pointer_id != original.pointer_id
+    assert fresh.hermes_session_id == "session-fresh"
+    corrected = store.resolve_structured_for_request(
+        **identity,
+        pointer_id=fresh.pointer_id,
+    )
+    assert corrected.continuity_session_id == "session-fresh"

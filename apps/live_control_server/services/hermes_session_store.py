@@ -383,14 +383,27 @@ class HermesSessionPointerStore:
                 )
             raw = bindings.get(key)
             binding = _parse_structured_binding(raw) if isinstance(raw, dict) else None
-            if binding is None or binding.status != "active":
+            if (
+                binding is None
+                or binding.status != "active"
+                or not _structured_binding_matches(
+                    binding,
+                    owner_kind=owner_kind,
+                    owner_id=owner_id,
+                    work_kind=work_kind,
+                    work_id=work_id,
+                    agent_thread_id=agent_thread_id,
+                )
+            ):
                 return HermesStructuredPointerResolution(
                     continuity_session_id=None,
-                    pointer_status="recovered" if normalized_pointer else "absent",
+                    pointer_status=(
+                        "recovered" if normalized_pointer or raw is not None else "absent"
+                    ),
                     pointer_in_request=normalized_pointer is not None,
                     recovery_message=(
                         "Structured Hermes session is unavailable; started a fresh session."
-                        if normalized_pointer
+                        if normalized_pointer or raw is not None
                         else None
                     ),
                 )
@@ -439,6 +452,15 @@ class HermesSessionPointerStore:
                 store["structured_bindings"] = bindings
             raw = bindings.get(key)
             previous = _parse_structured_binding(raw) if isinstance(raw, dict) else None
+            if previous is not None and not _structured_binding_matches(
+                previous,
+                owner_kind=owner_kind,
+                owner_id=owner_id,
+                work_kind=work_kind,
+                work_id=work_id,
+                agent_thread_id=agent_thread_id,
+            ):
+                previous = None
             pointer_id = str(existing_pointer_id or "").strip()
             if previous is not None and previous.status == "active":
                 if pointer_id and pointer_id != previous.pointer_id:
@@ -488,27 +510,74 @@ class HermesSessionPointerError(ValueError):
 
 
 def _parse_structured_binding(raw: dict[str, Any]) -> HermesStructuredSessionPointerBinding | None:
-    pointer_id = str(raw.get("pointer_id") or "").strip()
-    thread_id = str(raw.get("agent_thread_id") or "").strip()
-    session_id = str(raw.get("hermes_session_id") or "").strip()
-    if not pointer_id or not thread_id or not session_id:
+    identity_keys = ("owner_kind", "owner_id", "work_kind", "work_id")
+    if (
+        raw.get("schema") != STRUCTURED_POINTER_BINDING_SCHEMA
+        or any(key not in raw for key in identity_keys)
+    ):
         return None
-    status_raw = str(raw.get("status") or "active")
-    status: BindingStatus = status_raw if status_raw in {"active", "expired", "invalid"} else "invalid"
+    pointer_id = raw.get("pointer_id")
+    thread_id = raw.get("agent_thread_id")
+    session_id = raw.get("hermes_session_id")
+    if not all(
+        isinstance(value, str) and value.strip() == value and value
+        for value in (pointer_id, thread_id, session_id)
+    ):
+        return None
+    status_raw = raw.get("status")
+    if not isinstance(status_raw, str) or status_raw not in {"active", "expired", "invalid"}:
+        return None
+    status: BindingStatus = status_raw
+    identities: dict[str, str | None] = {}
+    for key in identity_keys:
+        value = raw[key]
+        if value is None:
+            identities[key] = None
+        elif isinstance(value, str) and value.strip() == value and value:
+            identities[key] = value
+        else:
+            return None
     last_worker_pid = raw.get("last_worker_pid")
+    created_at = raw.get("created_at")
+    updated_at = raw.get("updated_at")
+    if (
+        not isinstance(created_at, str)
+        or not created_at
+        or not isinstance(updated_at, str)
+        or not updated_at
+    ):
+        return None
     return HermesStructuredSessionPointerBinding(
         schema=STRUCTURED_POINTER_BINDING_SCHEMA,
         pointer_id=pointer_id,
         agent_thread_id=thread_id,
-        owner_kind=_optional_identity(raw.get("owner_kind")),
-        owner_id=_optional_identity(raw.get("owner_id")),
-        work_kind=_optional_identity(raw.get("work_kind")),
-        work_id=_optional_identity(raw.get("work_id")),
+        owner_kind=identities["owner_kind"],
+        owner_id=identities["owner_id"],
+        work_kind=identities["work_kind"],
+        work_id=identities["work_id"],
         hermes_session_id=session_id,
         status=status,
-        created_at=str(raw.get("created_at") or _utc_now_z()),
-        updated_at=str(raw.get("updated_at") or _utc_now_z()),
+        created_at=created_at,
+        updated_at=updated_at,
         last_worker_pid=int(last_worker_pid) if isinstance(last_worker_pid, int) else None,
+    )
+
+
+def _structured_binding_matches(
+    binding: HermesStructuredSessionPointerBinding,
+    *,
+    owner_kind: str | None,
+    owner_id: str | None,
+    work_kind: str | None,
+    work_id: str | None,
+    agent_thread_id: str,
+) -> bool:
+    return (
+        binding.agent_thread_id == agent_thread_id
+        and binding.owner_kind == owner_kind
+        and binding.owner_id == owner_id
+        and binding.work_kind == work_kind
+        and binding.work_id == work_id
     )
 
 
