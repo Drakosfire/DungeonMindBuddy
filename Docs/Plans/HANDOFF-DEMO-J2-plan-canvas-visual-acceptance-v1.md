@@ -16,13 +16,14 @@ pr_body_template: |
 # HANDOFF — DEMO: make the Plan canvas feel like a deliberate writing surface
 
 **Created:** 2026-09-29  
-**Status:** DESIGN READY — implementation blocked until this authority merges, then re-anchor and activate  
+**Status:** ACTIVE — re-anchored and activated after #792 merged on 2026-09-29  
+**Activation base:** Buddy `main@4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9` (merge commit for #792)  
 **Workstream / owner:** LOCAL DEMO ACCEPTED / DEMO J2; Buddy Plan presentation  
 **Direction:** DESIGN → CODE → PRIME  
 **Design base:** Buddy `main@bab345d64b6de1075f7a5fa44dc6af87d30d9afa`  
-**PR topology:** serial; this is a design/authority PR only; one implementation PR after merge/re-anchor  
+**PR topology:** serial; #792 is merged design authority; one implementation PR is now authorized from the activation base  
 **PR title:** `DEMO: refine the Plan canvas visual boundary`  
-**Implementation authority:** none until PRIME accepts this bounded handoff on main and an implementation lane is activated. Do not change app code in this design PR.  
+**Implementation authority:** ACTIVE on `main@4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`; exactly one implementation PR under DEMO is authorized.  
 **Merge authority:** PRIME owns ecosystem coordination; do not merge from DEMO.
 
 ## §1 Mission and invariant
@@ -55,7 +56,7 @@ Required visible behavior:
 
 Use the existing Buddy visual language and already-accepted primitives where appropriate. The code worker may prototype at most two bounded visual treatments in the existing backend-free Ladle lab, then choose one for the real product witness. Do not add a UI framework, theme-pack system, global shell redesign, new domain authority, or Canvas dependency. If the required appearance implies a broader design-system or shell change, stop and return for re-decomposition.
 
-## §4 Proposed implementation write lease (inactive until activation)
+## §4 ACTIVE implementation write lease
 
 | Path | Bounded role |
 | --- | --- |
@@ -70,7 +71,7 @@ Use the existing Buddy visual language and already-accepted primitives where app
 | `Docs/Plans/HANDOFF-DEMO-J2-world-plan-canvas-composition-v1.md` | Record #789 completion and its still-rejected visual result without rewriting its historical authority |
 | `Docs/Roadmaps/ROADMAP-demo.md` | Keep the Plan visual gate and DEMO next action truthful |
 
-No other path is leased. The lease is inactive while this design is pending. At activation, recheck all open PRs and current main; if shared file ownership or required paths differ, stop for a reviewed lease amendment before editing.
+No other path is leased. The lease was activated on `main@4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9` after #792 merged. The activation audit found the then-open PRs #781 (Build-only), #763–#765 (Rules), and #760–#761 (UI substrate); none claims a leased Plan canvas path. Recheck PRs and runtime ownership before opening the implementation PR; if shared file ownership or required paths differ, stop for a reviewed lease amendment.
 
 ## §5 Exclusions and collision boundaries
 
@@ -85,13 +86,7 @@ Use the existing isolated demo app/runtime. Inspect only the named World Plan; d
 
 ## §6 Activation and implementation constraints
 
-This is a rare DEMO design/architecture PR because the existing implementation has merged and been explicitly rejected by its product owner. The PR's design output is this bounded handoff plus a backward pointer in the roadmap.
-
-After PRIME accepts and this PR merges:
-1. Re-anchor to the exact new main.
-2. Record the predecessor decision and current open-PR/runtime ownership.
-3. Change the handoff from blocked to ACTIVE only after those gates are true.
-4. Open exactly one assigned implementation PR under `DEMO`; no stacked successor.
+The design/architecture authority merged as PR #792 at `4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`; PRIME's Cycle 3 DESIGN PASS was issued on exact design head `7f3e3f3ca582db0437d71efa16be05de5432f25d` (review `5351790554`). This handoff is re-anchored and ACTIVE on that exact main commit. Open exactly one assigned implementation PR under `DEMO`; no stacked successor.
 5. Keep all Plan editor, draft, Save, conflict, identity, and focus behavior owned by the current semantic controllers. Presentation components receive view data and emit existing intents only.
 6. Do not count the Ladle prototype as product acceptance.
 
