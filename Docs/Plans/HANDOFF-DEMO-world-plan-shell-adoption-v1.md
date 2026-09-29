@@ -34,7 +34,7 @@ One invariant covers blank, saved, switching, recovery and async-completion path
 
 ## §2 Re-anchored authority and lane
 
-- `AGENTS.md`, amended DEMO mandate in #794 and `Docs/Roadmaps/ROADMAP-demo.md` govern. Current `origin/main` is `374d69d78ef58a062116de73e095b57f4a92ca15`; #794 merged at that SHA and #795 policy cleanup merged at `83f25b1f9bfe70555a82b08ef4f5ca5af26a691d`. #793 remains OPEN at `cba5dddcf2c482ec729e714cf75e6acd665b42e9`. PRIME chose its deliberate amendment and retains predecessor disposition.
+- `AGENTS.md`, amended DEMO mandate in #794 and `Docs/Roadmaps/ROADMAP-demo.md` govern. Current `origin/main` is `374d69d78ef58a062116de73e095b57f4a92ca15`; #794 merged at that SHA and #795 policy cleanup merged at `83f25b1f9bfe70555a82b08ef4f5ca5af26a691d`. PRIME chose to amend #793; the pushed implementation head is `99ed550d47228c266519b1c39ab907a56e8b77fe`, and PRIME retains predecessor disposition.
 - Incoming DEMO task: `01a0edf2-b1e1-7281-9448-1d5524f8d4f8`. PRIME retired archived outgoing task `01a0885e-375c-7501-9f6e-a58528b39894` from DEMO implementation/design/runtime mutation. It was not restarted and did not acknowledge handback. `Docs/Plans/STEWARDS-HANDOFF-demo.md` now names the incoming task as owner under PRIME's explicit transfer authorization; its mission is unchanged. Preserve its refs/drafts as read-only evidence; do not claim its tool-backed goal state is known.
 - Adopted source is isolated on `codex/demo-world-plan-shell-adoption`, based on #793's exact head. The detached user checkout stays off `main`. Proposed implementation uses this lane after PRIME activation; no lease is active while this handoff is BLOCKED.
 - PRIME explicitly authorized the incoming owner-field update in `Docs/Plans/STEWARDS-HANDOFF-demo.md` after #794 merged. This assigned PR carries that backward-looking transfer with the roadmap and this handoff; the mission is unchanged.
@@ -64,6 +64,9 @@ The canvas work object, `WorldPlanSurfaceContext` instance identity and `AppChro
 | Modify | `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx` | Keep persistence, promotion, uncertainty and conflict regression coverage. |
 | Create | `apps/live-control-ui/src/planSurface/PlanSurfacePage.editHost.test.tsx` | Mount real AgentInteractionProvider, selected World, AppChrome and EditHost; prove the §7 mounted boundary. |
 | Modify only if needed | `apps/live-control-ui/src/styles.css` | Remove obsolete inline-control placement rules while retaining #793 canvas/page styles. |
+| Preserve | `Docs/Plans/HANDOFF-DEMO-J2-plan-canvas-visual-acceptance-v1.md` | Existing #793 visual evidence; historical witness only, unchanged in this shell slice. |
+| Preserve | `Docs/Plans/HANDOFF-DEMO-J2-world-plan-canvas-composition-v1.md` | Existing #793 design record; unchanged in this shell slice. |
+| Preserve | `apps/live-control-ui/src/tiptap/prepMarkdownThemes.css` | Existing #793 canvas theme implementation; unchanged in this shell slice. |
 | Modify | `Docs/Plans/HANDOFF-DEMO-world-plan-shell-adoption-v1.md` | Dispatch facts/evidence, without pre-marking completion. |
 | Modify | `Docs/Plans/STEWARDS-HANDOFF-demo.md` | Record the PRIME-authorized incoming owner transfer; preserve mission and scope. |
 | Modify | `Docs/Roadmaps/ROADMAP-demo.md` | Material predecessor sync, owner/next action and connected milestone state. |
