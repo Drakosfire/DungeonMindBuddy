@@ -4,30 +4,32 @@ pr_body_template: |
   - Workstream: DEMO / J1 — World-owned blank Plan
   - Direction: STEWARD → CODE → PRIME
   - Handoff: Docs/Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md
-  - Topology: serial; no implementation branch or PR while BLOCKED
+  - Topology: serial; this is the single authorized implementation PR
 
   ## Verification pointer
-  - Exact dispatch base/head: record after activation
+  - Exact dispatch base: `9f358bb9ecf4d28338ae4b6b0ef5e2c316700d59`
   - Review contract: ACTIVE handoff, cumulative diff, §7 evidence
 ---
 
 # HANDOFF — start a World-owned Plan before importing anything
 
 **Created:** 2026-09-27  
-**Status:** BLOCKED — PRIME contract review and prospective lease
-**Handoff locator:** this canonical path on accepted Buddy main; steward supplies exact commit after landing  
+**Status:** ACTIVE — PRIME accepted scope and authorized this implementation lane
+**Handoff locator:** canonical handoff on accepted Buddy main; PRIME-authorized exception activates it in this implementation PR.
 **Workstream / owner:** DEMO / J1; Buddy Content/Plan ownership, not DungeonMind  
 **Direction:** STEWARD → CODE → PRIME  
 **Design authority base:** `fa740c73f66192a44926712661d9489ff12e54a8`  
-**Activation gate:** #785's exact-head live witness, PRIME acceptance, merge, predecessor state sync, and fresh re-anchor are complete. PRIME must still accept this World-Plan contract and prospective lease before activation. None is inferred from a completed task.
-**Dispatch base rule:** fresh `origin/main` after those gates; record exact base and checked-in ACTIVE handoff before dispatch.  
+**Activation record (2026-09-28):** PRIME accepted the World-Plan contract and explicitly activated this bounded implementation in the same PR. After #786 merged, this lane re-anchored to fresh `main` at exact dispatch base `9f358bb9ecf4d28338ae4b6b0ef5e2c316700d59`. #787's native source-authority witness admitted the actual 48,777-byte source variant (SHA-256 `4aeb773a02c41cfffb79abcb2ca44da72d5a2eb8ad331cc6f9a417a5c2919186`), while the pinned 48,778-byte source has SHA-256 `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`; the admitted variant is the original with its final LF absent. This proves source authority only, not extracted facts or a semantic graph. The source witness is not a gate for this document-only capability. The previously observed unsaved local Plan is user data and is not acceptance evidence.
+**Dispatch rule:** one isolated implementation checkout from the exact base above. PRIME expressly authorized this implementation PR to activate the already-landed handoff; no separate status/design PR or successor PR is authorized.
 **PR topology:** serial  
-**PR authorization:** while BLOCKED, none. Once ACTIVE, open/update exactly this one assigned implementation PR without another operator prompt; no successor/repair PR.  
+**PR authorization:** open/update exactly this assigned implementation PR; no successor/repair PR.
 **PR title:** `DEMO: start a World-owned Plan before source import`
 
 Repository law is `AGENTS.md`; steward authority is
 `Docs/Plans/STEWARDS-HANDOFF-demo.md`; current state lives only in
-`Docs/Roadmaps/ROADMAP-demo.md`. This BLOCKED design reserves no paths or runtime.
+`Docs/Roadmaps/ROADMAP-demo.md`. This ACTIVE handoff leases only §4 paths.
+Runtime and database ownership remain isolated from the live J1 source witness
+and the user's unsaved Plan.
 
 ## §1 Mission and merge-ready invariant
 
@@ -81,19 +83,45 @@ Authorities: accepted APP-STATE Content architecture, shared Markdown Canvas,
 selected-World primitive (#776), managed Plan reads (#775/#782), blank authoring
 shell (#661), and the DEMO roadmap. Those predecessors do not prove this contract.
 
-- Open implementation PR at design time: #785 only, exact07ec031a. No stack.
-- No branch/worktree/runtime allocated here while BLOCKED.
+PRIME authorized a same-PR presentation amendment in #788 comment
+`5881740591`: World-owned Plan scoped styles in `styles.css` and this handoff's
+evidence only. It does not authorize shell redesign, shared theme changes,
+domain/API/recovery work, or another PR. The follow-up specifically makes the
+paper edge legible, removes the native select-arrow treatment, and contains the
+existing shell's intrinsic-width overflow only while this Plan is mounted.
+
+- At design time, #785 was the only open DEMO implementation PR. At activation,
+  fresh review of current open PR path leases found no overlap with this serial
+  lane. #786's independent four-code-path statblock lease was disjoint and then
+  merged at this base; it remains untouched. No stacked predecessor.
+- #787 source witness: merged at `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`
+  (reviewed head `232a42614b1453a815df2dd12f172c0be3c7a155`). Ordinary Build import admitted World
+  `of-conks-and-cons`, document
+  `1e00479a-cd51-4ffc-81f7-c980b32fed6a`, revision 2, exact stored span
+  `0..48777`. The admitted 48,777-byte content SHA is
+  `4aeb773a02c41cfffb79abcb2ca44da72d5a2eb8ad331cc6f9a417a5c2919186`; the
+  pinned original is 48,778 bytes with SHA
+  `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`.
+  The admitted variant is the pinned source with its final LF absent.
+  Do not call these byte-identical.
+  This establishes durable native source authority after reload/fresh API
+  process only; it establishes no extracted semantic facts, graph head, or
+  retrieval. Preserve this independent witness and do not migrate or reconfigure
+  its shared database for this slice.
 - Native empty-KnowledgeSpace initialization is separately MIND-owned. MIND #82
   design acceptance is not its runtime implementation and is **not a prerequisite
   to a document-only Plan**. No DungeonMind or WorldKeeper write in this slice.
 - Named successor: first-customer source admission/governed knowledge and later
   Agent retrieval; World-only Run adoption remains its later consumer contract.
-- After activation, use one isolated checkout, named API/UI ports, fixed DB pair
-  and owned output/source root. Serialize APP-STATE migration against that pair;
-  do not upgrade the running frozen #785 rehearsal underneath it.
-- Predecessor sync: #785 handoff and sole roadmap/mirror record only its actual
-  merge, reviewed head, review count and live result when knowable. Do not premark
-  this slice or J1–J6 accepted.
+- Use one isolated checkout, named API/UI ports, a disposable APP-STATE
+  PostgreSQL database pair and owned output/source root. Do not run migrations
+  against or modify the live J1 source-witness database. Do not upgrade the
+  frozen #785 rehearsal underneath its running process.
+| Runtime/state ownership | This lane owns only API 8821, UI 5201, a disposable PostgreSQL pair on 55441, and its isolated World/output roots; it does not own shared 8817/5198 services or the live J1 database. |
+- Predecessor sync in this PR: #785 exact merge/head/review evidence, #787 exact
+  merge/head/review and source-witness limitation, both predecessor handoff
+  states, roadmap and identical design-agent mirror. Do not premark this slice
+  or J1–J6 accepted.
 
 ## §3 Observable and adversarial paths
 
@@ -116,53 +144,50 @@ shell (#661), and the DEMO roadmap. Those predecessors do not prove this contrac
   a conflict preserves edits rather than silently replacing them.
 - **Legacy C1/C2 Plan/Runbook:** unchanged campaign identity/target-session paths.
 
-## §4 Prospective write lease — inactive while BLOCKED
+## §4 Write lease — ACTIVE for this implementation PR only
 
-Expected production paths:
-
-- `src/application_state/content/types.py`
-- `src/application_state/content/service.py`
-- `src/application_state/content/repository.py`
-- One new forward-only file under `src/application_state/migrations/versions/`
-- `apps/live_control_server/services/workspace_document_registry.py`
-- `apps/live_control_server/routes/workspace_documents.py`
-- `apps/live_control_server/routes/live.py` (managed Plan-context branch only)
-- `apps/live_control_server/services/tiptap_markdown_write.py` (scope admission only)
-- `apps/live-control-ui/src/api/types.ts`
-- `apps/live-control-ui/src/api/liveApi.ts`
-- `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx`
-- `apps/live-control-ui/src/selectedWorld/WorldCreateControl.tsx` and paired test
-  (name-only existing API consumer; no new registry/navigation system)
-- `apps/live-control-ui/src/workspaceDocument/workspaceDocumentCreation.ts`
-- `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx`
-- `apps/live-control-ui/src/planSurface/PlanSurfaceShell.tsx`
-- `apps/live-control-ui/src/planSurface/types.ts`
-- `apps/live-control-ui/src/planSurface/planBlankAuthoringState.ts`
-- `apps/live-control-ui/src/planSurface/usePlanBlankAuthoring.ts`
-- `apps/live-control-ui/src/planSurface/config/planSessionDescriptor.ts`
-- `apps/live-control-ui/src/planSurface/config/planSurfaceConfig.ts`
-- `apps/live-control-ui/src/planSurface/components/PlanDocumentCreateControl.tsx`
-- `apps/live-control-ui/src/planSurface/components/PlanDocumentSelector.tsx`
-
-Evidence paths: corresponding existing/new focused tests beside those frontend
-modules; `tests/test_workspace_document_registry.py`,
-`tests/test_selected_world_plan_context.py`, `tests/test_live_plan_view_projection.py`,
-`tests/test_tiptap_markdown_write.py`, `tests/test_live_tiptap_markdown_write.py`,
-`tests/application_state/test_plan_work_object_postgres.py`, and one focused
-World-Plan route/migration regression module under `tests/`.
-
-State/evidence paths: this handoff, completed predecessor
-`Docs/Plans/HANDOFF-DEMO-world-scoped-statblock-drafts-v1.md`,
-`Docs/Roadmaps/ROADMAP-demo.md` and its identical
-`Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` mirror.
+| Path | Bounded role |
+| --- | --- |
+| `src/application_state/content/types.py` | World-only Plan content shape |
+| `src/application_state/content/service.py` | World Plan service boundary |
+| `src/application_state/content/repository.py` | PostgreSQL persistence |
+| `src/application_state/migrations/versions/20260928_0007_world_owned_plan.py` | Additive migration and safe downgrade |
+| `apps/live_control_server/services/workspace_document_registry.py` | World Plan registry/read contract |
+| `apps/live_control_server/routes/workspace_documents.py` | World Plan routes |
+| `apps/live_control_server/routes/live.py` | Managed Plan-context branch only |
+| `apps/live_control_server/services/tiptap_markdown_write.py` | Scope admission and confirmation binding |
+| `apps/live-control-ui/src/api/types.ts` | Explicit V2 wire unions |
+| `apps/live-control-ui/src/api/liveApi.ts` | Exact V2 API clients |
+| `apps/live-control-ui/src/selectedWorld/WorldSelector.tsx` | Name-only World create UI |
+| `apps/live-control-ui/src/selectedWorld/SelectedWorldContext.tsx` | Exact selected-World admission |
+| `apps/live-control-ui/src/selectedWorld/SelectedWorldContext.test.tsx` | Selected-World regressions |
+| `apps/live-control-ui/src/selectedWorld/WorldSelector.test.tsx` | World-create UI regression |
+| `apps/live-control-ui/src/selectedWorld/WorldSelector.test.tsx` | World-create UI regression |
+| `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx` | World-owned Plan surface and local recovery |
+| `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx` | World Plan V2 and recovery regression |
+| `apps/live-control-ui/src/styles.css` | PRIME-authorized World-owned Plan canvas, editor, control, focus, and Read Aloud presentation only; reuse existing Buddy UI tokens |
+| `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` | Existing managed-document consumer fixtures |
+| `apps/live-control-ui/src/api/liveApi.test.ts` | Exact V2 route payloads |
+| `tests/test_world_owned_plan_contract.py` | World context/legacy compatibility contract |
+| `tests/test_workspace_document_registry.py` | Content/registry invariants |
+| `tests/test_live_plan_view_projection.py` | Managed context route evidence |
+| `tests/test_tiptap_markdown_write.py` | Prepare/commit semantics |
+| `tests/test_live_tiptap_markdown_write.py` | PostgreSQL no-effects and confirmation binding |
+| `Docs/Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md` | Activation facts and implementation authority |
+| `Docs/Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md` | Completed predecessor state |
+| `Docs/Plans/HANDOFF-STATBLOCK-explains-wire-compatibility-v1.md` | Completed predecessor state |
+| `Docs/Plans/HANDOFF-BUILD-dogfood-polish-plan-session-affinity-workspace-drafts.md` | PRIME-authorized stale-lease reconciliation: record merged #546 completion and release its historical write lease; preserve its shipped behavior/evidence |
+| `Docs/Roadmaps/ROADMAP-demo.md` | Current DEMO sequencing and predecessor sync |
+| `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` | Byte-identical roadmap mirror |
 
 Bounded discovery: maximum six additional existing frontend paths under
 `apps/live-control-ui/src/planSurface/` or `src/workspaceDocument/` (beneath the
 same UI root), plus their paired tests, only for World-Plan typing, exact editor
 ownership or promotion persistence. Name/reason in handback. Further production
 paths, Agent/Run semantics or another lane's lease require steward re-brief.
-Before activation, enumerate the actual proposed cohort and check active leases;
-this table is not permission to edit while BLOCKED.
+At activation, the exact base and cohort were rechecked against current PR
+leases. This table is the active bounded write lease; new production paths,
+Agent/Run semantics or another lane's lease require steward re-brief.
 
 ## §5 Exclusions and collision boundaries
 
@@ -171,8 +196,13 @@ needed for this capability. No graph/source admission, extraction, evidence
 policy, native genesis, source-body reader or campaign registry. No source DTO
 redesign, World deletion/rename, existing document migration/adoption, Runbook
 scope migration, Agent/retrieval behavior, statblock/image/Run/Combat work, theme
-or shell redesign. No fake campaign, default session1, synthetic graph, manual
-ID binding, database-per-World, mutable graph repair or legacy-document inference.
+or shell redesign. PRIME's 2026-09-28 lease amendment permits only World-owned
+Plan-scoped styling in `apps/live-control-ui/src/styles.css`: visible canvas
+boundary, readable writing width/padding, themed controls/focus, narrow-screen
+stacking, and semantic Read Aloud presentation using existing tokens. It does
+not authorize a new theme or changes to other surfaces. No fake campaign, default
+session1, synthetic graph, manual ID binding, database-per-World, mutable graph
+repair or legacy-document inference.
 
 Existing campaign-compatible artifacts whose campaign slug happens to equal a
 World ID remain unchanged historical artifacts, not proof of World ownership.
@@ -246,6 +276,26 @@ document scope against the selected context before mounting/committing.
 Scope-neutral existing ID/revision/CAS write receipts need not be versioned
 merely for ceremony; any receipt carrying campaign ownership must be exact.
 
+The save path must close the prepare/commit time-of-check gap:
+
+1. **Prepare:** resolve and verify the stored World-Plan scope against the exact
+   selected `world_id` and document identity before creating/updating a
+   WorkingCopy, staging bytes, allocating a revision, or causing any other
+   persistence effect. A mismatch fails with no partial effect.
+2. **Confirmation binding:** issue a confirmation token bound to the exact
+   document ID, World ID, expected revision/content digest, and prepared write
+   identity. A token prepared for World A/document A cannot authorize a commit
+   submitted under World B/document B, even when either request is stale or
+   reordered.
+3. **Commit:** re-read and verify the persisted owner and exact selected scope
+   immediately before the governed write; require the matching scope-bound
+   confirmation token. Any mismatch, stale token, or changed owner fails before
+   commit effects. No A-prepare/B-commit sequence may write foreign content or
+   leave a partial WorkingCopy/revision.
+
+Tests must exercise the route/service boundary and prove both rejection and
+absence of persistence effects, not only a pure token helper.
+
 ### Ordinary UI and promotion
 
 Give the existing World picker a name-only New World entry. Reuse accepted
@@ -271,6 +321,9 @@ failed load/commit retains that UUID; never clear it simply to retry a fresh POS
 Preserve source-independent local edits across A→B→A. This contract does not
 invent durable create idempotency for an unknown/lost POST outcome: if existing
 recovery cannot safely prove/reconcile that outcome, stop/re-brief, not blind retry.
+The server-side prepare/commit rule above is mandatory alongside these UI
+epochs: client-side generation checks alone cannot prevent a prepared World-A
+write from being committed under World B.
 
 Commit points remain World-container creation, then explicit Content WorkObject
 creation, then existing governed Content save. Partial results stay truthful.
@@ -286,6 +339,10 @@ No one cross-domain transaction or automatic knowledge publication is promised.
    on real disposable PostgreSQL. Re-run migration; no scope rewrite/data loss.
 3. Route: managed World registry checked; create/get/list/snapshot/commit exact
    scope. Cross-World/campaign document and incompatible V1 body fail before save.
+   Prepare rejects A under selected B before any WorkingCopy/revision effects;
+   a confirmation token bound to A/document/revision/content cannot commit as
+   B/document, and commit rechecks stored ownership before governed effects.
+   Assert persistent state is unchanged after each rejected sequence.
 4. Mounted UI: bare graphless World → edit → first Save → reload; partial create
    success plus activation/commit failure recovers same UUID; wrong-scope fixture
    is quarantined; A→B pending-save races do not activate/overwrite B. Same-text
@@ -296,6 +353,22 @@ No one cross-domain transaction or automatic knowledge publication is promised.
    Repeat selection with World B and show isolated inventory. Public reads prove
    zero source/campaign/head prerequisite, actual World/null-campaign Content
    ownership; no SQL/console/ID repair. Graph-dependent tools may be unavailable.
+   For the PRIME-authorized visual amendment, capture blank and saved Read Aloud
+   states at desktop and narrow viewport; verify the canvas boundary, usable
+   reading width, focused controls, and responsive layout. During refinement,
+   narrow inspection exposed an intrinsic-width `.app-wrap` at 416px. A scoped
+   Plan-only width constraint corrected it; the saved Read Aloud Plan at 390×844
+   then measured document `clientWidth=375` and `scrollWidth=375` (no horizontal
+   overflow), a 326px Plan frame, and a 292px framed editor. Recheck blank and
+   saved states at desktop and narrow size after any further CSS change. On
+   visual code head `567e9a1c`, the browser showed blank World B and saved
+   Read-Aloud World A at desktop and 390×844; the paper frame remained distinct,
+   the plan title focus ring was visible, and the Read Aloud block retained its
+   semantic treatment. On that same code head, ordinary Save returned
+   “Saved to this World.” and reload restored World A's saved title, prose,
+   Read-Aloud content and exact document URL. This CSS-only follow-up used the
+   already-running isolated API8821/UI5201/disposable-Postgres55441 lane; it
+   performed no API restart, shared-DB operation, or provider call.
 6. Focused full cohorts, scoped Ruff, frontend build/typecheck, cumulative/local
    `git diff --check` and actual changed paths versus §4. Inherited JSX failure
    requires exact unchanged base/head hash; no broader waiver or filtered-green
@@ -334,7 +407,9 @@ the complete cumulative invariant; task completion is not approval or a cycle.
 
 ## §9 Acceptance rubric
 
-- [ ] Gate verified; steward-landed ACTIVE handoff consumed at dispatch.
+- [ ] PRIME activation and exact dispatch base recorded; the handoff's ACTIVE
+      status is carried in this authorized implementation PR rather than a
+      separate status-only PR.
 - [ ] Serial topology/one assigned PR and lease honored.
 - [ ] Name-only World creation enters blank Plan before any source/campaign/head.
 - [ ] Content and every exposed ownership boundary prove exact World/null campaign.

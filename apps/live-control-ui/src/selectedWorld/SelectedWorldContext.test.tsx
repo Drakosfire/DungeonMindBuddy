@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { getExtractionRun, getPlayRun, getWorkspaceDocument, listWorldContainers } from "../api/liveApi";
-import type { WorkspaceDocumentRecord, WorldContainerRecord } from "../api/types";
+import { getExtractionRun, getPlayRun, getWorkspaceDocument, getWorkspaceDocumentAny, listWorldContainers } from "../api/liveApi";
+import type { WorkspaceDocumentRecord, WorldContainerRecord, WorldOwnedPlanRecordV2 } from "../api/types";
 import { getWorldIdForCampaign } from "../worldGraph/worldGraphSurfaceContext";
 import {
   SelectedWorldProvider,
@@ -16,6 +16,7 @@ vi.mock("../api/liveApi", () => ({
   getExtractionRun: vi.fn(),
   getPlayRun: vi.fn(),
   getWorkspaceDocument: vi.fn(),
+  getWorkspaceDocumentAny: vi.fn(),
   listWorldContainers: vi.fn(),
 }));
 
@@ -73,6 +74,7 @@ describe("selected managed World", () => {
   it("verifies a managed source before Build graph mapping becomes available", async () => {
     vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [world] });
     vi.mocked(getWorkspaceDocument).mockResolvedValue(document);
+    vi.mocked(getWorkspaceDocumentAny).mockResolvedValue(document);
     const view = render(
       <SelectedWorldProvider locationSnapshot={`/build?documentId=${document.document_id}`}>
         <Probe />
@@ -87,6 +89,7 @@ describe("selected managed World", () => {
   it("keeps an exact Graph Review extraction run bound to its source World", async () => {
     vi.mocked(listWorldContainers).mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [world] });
     vi.mocked(getWorkspaceDocument).mockResolvedValue(document);
+    vi.mocked(getWorkspaceDocumentAny).mockResolvedValue(document);
     const runId = "07a33f99-7520-4c59-bee2-b38514cb61b8";
     const view = render(
       <SelectedWorldProvider locationSnapshot={`/ingest?extractionRunId=${runId}&sourceArtifactId=artifact%3Aworldbuilding%3Asource&documentId=${document.document_id}&revision=2`}>
@@ -94,8 +97,29 @@ describe("selected managed World", () => {
       </SelectedWorldProvider>,
     );
     await waitFor(() => expect(screen.getByText(`managed:${world.world_id}`)).toBeTruthy());
-    expect(getWorkspaceDocument).toHaveBeenCalledWith(document.document_id);
+    expect(getWorkspaceDocumentAny).toHaveBeenCalledWith(document.document_id);
     view.unmount();
+  });
+
+  it("accepts a true World-owned Plan only under its exact World identity", () => {
+    const worldPlan: WorldOwnedPlanRecordV2 = {
+      schema_version: "dmb_world_owned_plan_record_v2",
+      scope_mode: "world",
+      document_id: "e514b109-c83a-4630-904f-6fe12fe5a20e",
+      title: "Plan",
+      campaign_id: null,
+      world_id: world.world_id,
+      target_session: null,
+      kind: "plan",
+      target_relpath: "out/workspace/plan/e514b109-c83a-4630-904f-6fe12fe5a20e.md",
+      status: "active",
+      content_status: "draft",
+      revision: 1,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    };
+    expect(verifyManagedWorldSelection({ requestedWorldId: world.world_id, document: worldPlan, worlds: [world] }).kind).toBe("managed");
+    expect(verifyManagedWorldSelection({ requestedWorldId: "other-world", document: worldPlan, worlds: [world] }).kind).toBe("error");
   });
 
   it("derives a managed World from a bare exact Play Run before Play mounts", async () => {
@@ -209,7 +233,7 @@ describe("selected managed World", () => {
   });
 
   it("keeps C1/C2 exact documents legacy even with their Eldyrwild mapping", async () => {
-    vi.mocked(getWorkspaceDocument).mockResolvedValue({
+    vi.mocked(getWorkspaceDocumentAny).mockResolvedValue({
       ...document,
       campaign_id: "longmont-c2",
       world_id: "eldyrwild",

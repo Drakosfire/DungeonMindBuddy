@@ -19,7 +19,7 @@ pr_body_template: |
 # HANDOFF — DOGFOOD-POLISH: decouple Plan session affinity from draft storage
 
 **Created:** 2026-08-10.
-**Status:** ACTIVE — dispatch exactly one implementation capability.
+**Status:** COMPLETED / HISTORICAL — PR #546 merged on 2026-08-10; the implementation write lease is released.
 **Canonical handoff path:** `Docs/Plans/HANDOFF-BUILD-dogfood-polish-plan-session-affinity-workspace-drafts.md`
 **Conversation name:** `Plan multi-prep workspace drafts`
 **Flow / agent:** `BUILD`
@@ -29,6 +29,7 @@ pr_body_template: |
 **PR title:** `DOGFOOD-POLISH: decouple Plan session affinity from draft storage`
 **Suggested branch:** `agent/dogfood-polish-plan-session-affinity-workspace-drafts`
 **Base revision:** `b8e4dd214b1171793051ce507c0b93c6d87efa91` (PR #543 merge on `main`)
+**Completion authority:** PR #546 merged 2026-08-10 at `32a3268366ae3b0e112e2e2e9432c8e32cdc9fde`. Preserve its shipped behavior and regression evidence as historical authority; no implementation lane remains active under this handoff.
 
 > **Dispatch gate:** Dispatch is prohibited until capability decomposition is complete, one independently useful mission remains, the merge-ready invariant and required evidence survive critique, every expected path is known, required contract matrices are resolved, and every acceptance claim has an owning proof.
 >

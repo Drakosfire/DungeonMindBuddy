@@ -320,6 +320,7 @@ describe("PlanSurfaceShell", () => {
       records: [fixtureWorkspaceDocumentRecord()],
     });
     vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
+    vi.spyOn(liveApi, "getWorkspaceDocumentAny").mockResolvedValue(fixtureWorkspaceDocumentRecord());
     vi.spyOn(liveApi, "createWorkspaceDocument").mockResolvedValue(fixtureWorkspaceDocumentRecord());
     vi.spyOn(liveApi, "getWorkspaceDocumentSnapshot").mockResolvedValue(fixtureWorkspaceDocumentSnapshot());
     localStorage.clear();
@@ -365,6 +366,7 @@ describe("PlanSurfaceShell", () => {
       records: [record],
     });
     vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(record);
+    vi.mocked(liveApi.getWorkspaceDocumentAny).mockResolvedValue(record);
     vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(fixtureWorkspaceDocumentSnapshot({
       record,
       markdown: "# Opening\n\nOpening frame",
@@ -3372,6 +3374,7 @@ describe("PlanSurfaceShell", () => {
         records: created ? [managedRecord] : [],
       }));
       vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(managedRecord);
+      vi.mocked(liveApi.getWorkspaceDocumentAny).mockResolvedValue(managedRecord);
       vi.mocked(liveApi.getWorkspaceDocumentSnapshot).mockResolvedValue(
         fixtureWorkspaceDocumentSnapshot({ record: managedRecord }),
       );
@@ -3566,6 +3569,7 @@ describe("PlanSurfaceShell", () => {
         }],
       });
       vi.mocked(liveApi.getWorkspaceDocument).mockResolvedValue(source);
+      vi.mocked(liveApi.getWorkspaceDocumentAny).mockResolvedValue(source);
       window.history.pushState({}, "", `/plan?world=${worldId}&documentId=${sourceId}`);
 
       render(

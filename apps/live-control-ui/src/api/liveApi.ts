@@ -4,6 +4,7 @@ import type {
   LiveEventsResponse,
   LiveJobsResponse,
   PlanViewProjection,
+  ManagedWorldPlanContextV2,
   ProjectionCommand,
   ProjectionWriteResult,
   ProjectionTarget,
@@ -60,6 +61,7 @@ import type {
   WorkspaceDocumentSnapshot,
   NativeWorldSourceAdmissionStatus,
   WorkspaceCommittedRevision,
+  WorldOwnedCommittedRevisionV2,
   PlayActiveRunState,
   PlayRunRecord,
   PlayRunsListResponse,
@@ -72,6 +74,10 @@ import type {
   WorldContainerRecord,
   WorldContainersListResponse,
   CreateWorldContainerRequest,
+  WorldOwnedPlansResponseV2,
+  WorldOwnedPlanRecordV2,
+  WorldOwnedPlanSnapshotV2,
+  WorldOwnedPlanMarkdownWriteCommitResponseV2,
   GraphPreviewSurfaceResponse,
   GraphPreviewRunsResponse,
   GraphIngestLatestRunResponse,
@@ -766,6 +772,11 @@ export async function getPlanView(worldId?: string | null): Promise<PlanViewProj
   return apiFetch<PlanViewProjection>(
     worldId ? `/api/live/plan-view?world_id=${encodeURIComponent(worldId)}` : "/api/live/plan-view",
   );
+}
+
+export async function getManagedWorldPlanContext(worldId: string): Promise<ManagedWorldPlanContextV2> {
+  const query = new URLSearchParams({ scope_mode: "world", world_id: worldId });
+  return apiFetch<ManagedWorldPlanContextV2>(`/api/live/plan-view?${query.toString()}`);
 }
 
 export async function getPartyRegistry(
@@ -1663,8 +1674,40 @@ export async function createWorldContainer(
   });
 }
 
+export async function listWorldOwnedPlans(worldId: string): Promise<WorldOwnedPlansResponseV2> {
+  return apiFetch<WorldOwnedPlansResponseV2>(
+    `/api/live/workspace-documents/world-plans?world_id=${encodeURIComponent(worldId)}`,
+  );
+}
+
+export async function createWorldOwnedPlan(request: {
+  schema_version: "dmb_workspace_document_create_v2";
+  scope_mode: "world";
+  world_id: string;
+  title: string;
+}): Promise<WorldOwnedPlanRecordV2> {
+  return apiFetch<WorldOwnedPlanRecordV2>("/api/live/workspace-documents/world-plans", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function getWorldOwnedPlanSnapshot(documentId: string): Promise<WorldOwnedPlanSnapshotV2> {
+  return apiFetch<WorldOwnedPlanSnapshotV2>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}/snapshot`,
+  );
+}
+
 export async function getWorkspaceDocument(documentId: string): Promise<WorkspaceDocumentRecord> {
   return apiFetch<WorkspaceDocumentRecord>(
+    `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
+  );
+}
+
+export async function getWorkspaceDocumentAny(
+  documentId: string,
+): Promise<WorkspaceDocumentRecord | WorldOwnedPlanRecordV2> {
+  return apiFetch<WorkspaceDocumentRecord | WorldOwnedPlanRecordV2>(
     `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
   );
 }
@@ -1711,6 +1754,17 @@ export async function getCommittedWorkspaceRevision(
   const encodedId = encodeURIComponent(documentId);
   const suffix = revisionN == null ? "" : `/${encodeURIComponent(String(revisionN))}`;
   return apiFetch<WorkspaceCommittedRevision>(
+    `/api/live/workspace-documents/${encodedId}/committed-revision${suffix}`,
+  );
+}
+
+export async function getWorldOwnedPlanCommittedRevision(
+  documentId: string,
+  revisionN?: number,
+): Promise<WorldOwnedCommittedRevisionV2> {
+  const encodedId = encodeURIComponent(documentId);
+  const suffix = revisionN == null ? "" : `/${encodeURIComponent(String(revisionN))}`;
+  return apiFetch<WorldOwnedCommittedRevisionV2>(
     `/api/live/workspace-documents/${encodedId}/committed-revision${suffix}`,
   );
 }
@@ -1767,6 +1821,19 @@ export async function commitTiptapMarkdownWrite(
   request: TiptapMarkdownWriteCommitRequest,
 ): Promise<TiptapMarkdownWriteCommitResponse> {
   return apiFetch<TiptapMarkdownWriteCommitResponse>(
+    "/api/live/tiptap/markdown-write/commit",
+    { method: "POST", body: JSON.stringify(request) },
+  );
+}
+
+export async function commitWorldOwnedPlanMarkdownWrite(
+  request: TiptapMarkdownWriteCommitRequest & {
+    schema_version: "dmb_tiptap_markdown_write_commit_v2";
+    scope_mode: "world";
+    world_id: string;
+  },
+): Promise<WorldOwnedPlanMarkdownWriteCommitResponseV2> {
+  return apiFetch<WorldOwnedPlanMarkdownWriteCommitResponseV2>(
     "/api/live/tiptap/markdown-write/commit",
     { method: "POST", body: JSON.stringify(request) },
   );

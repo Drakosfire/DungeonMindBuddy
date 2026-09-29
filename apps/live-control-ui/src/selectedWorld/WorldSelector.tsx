@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
 
-import { listWorldContainers } from "../api/liveApi";
+import { createWorldContainer, listWorldContainers } from "../api/liveApi";
 import type { WorldContainerRecord } from "../api/types";
 import { useRetrySelectedWorld, useSelectedWorld } from "./SelectedWorldContext";
 import { selectWorldFromLocation, worldScopedSurfaceHref } from "./worldSelectionNavigation";
@@ -12,6 +12,8 @@ export function WorldSelector() {
   const [status, setStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [worlds, setWorlds] = useState<WorldContainerRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [newWorldName, setNewWorldName] = useState("");
+  const [creatingWorld, setCreatingWorld] = useState(false);
 
   const refresh = useCallback(async () => {
     setStatus("loading");
@@ -59,6 +61,30 @@ export function WorldSelector() {
               {world.name}
             </button>
           )) : null}
+          <form onSubmit={(event) => {
+            event.preventDefault();
+            const name = newWorldName.trim();
+            if (!name || creatingWorld) return;
+            setCreatingWorld(true);
+            setError(null);
+            void createWorldContainer({ name }).then((world) => {
+              setWorlds((current) => [world, ...current.filter((item) => item.world_id !== world.world_id)]);
+              setNewWorldName("");
+              setOpen(false);
+              window.history.pushState({}, "", `/plan?world=${encodeURIComponent(world.world_id)}`);
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }).catch((reason) => {
+              setError(reason instanceof Error ? reason.message : "World could not be created.");
+            }).finally(() => setCreatingWorld(false));
+          }}>
+            <label>
+              New World name
+              <input value={newWorldName} onChange={(event) => setNewWorldName(event.target.value)} />
+            </label>
+            <button type="submit" disabled={!newWorldName.trim() || creatingWorld}>
+              {creatingWorld ? "Creating…" : "Create World and Plan"}
+            </button>
+          </form>
           <a href={worldScopedSurfaceHref("/build", selected.kind === "managed" ? selected.worldId : null)}>
             New World in Build
           </a>

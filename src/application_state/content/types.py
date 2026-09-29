@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 AdmittedKind = Literal["plan", "runbook"]
 ObjectStatus = Literal["active", "discarded"]
@@ -24,7 +24,7 @@ def normalize_markdown(markdown: str) -> str:
 class WorkObject(BaseModel):
     work_object_id: UUID
     kind: AdmittedKind
-    campaign_id: str
+    campaign_id: str | None
     world_id: str | None = None
     title: str
     target_session: int | None = None
@@ -34,6 +34,22 @@ class WorkObject(BaseModel):
     object_revision: int
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> "WorkObject":
+        if self.world_id is None:
+            if not self.campaign_id or not self.campaign_id.strip():
+                raise ValueError("campaign-owned work objects require campaign_id")
+            return self
+        if self.kind != "plan":
+            raise ValueError("only Plans can be World-owned")
+        if self.campaign_id is not None:
+            raise ValueError("World-owned Plans cannot also have campaign_id")
+        if not self.world_id.strip():
+            raise ValueError("World-owned Plans require world_id")
+        if self.target_session is not None:
+            raise ValueError("World-owned Plans cannot have target_session")
+        return self
 
 
 class WorkRevision(BaseModel):

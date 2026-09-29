@@ -1,3 +1,5 @@
+@import "./ui/tokens.css";
+
 :root {
   color-scheme: dark;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
@@ -42,6 +44,220 @@ code {
   max-width: 40rem;
   margin: 2rem auto;
   padding: 0 1rem;
+}
+
+/* World-owned Plan is a focused writing canvas inside the existing app shell. */
+.world-owned-plan {
+  --plan-ink: var(--ui-text-primary);
+  --plan-muted: var(--ui-text-secondary);
+  --plan-paper: var(--ui-background-paper);
+  --plan-paper-ink: var(--ui-text-on-paper);
+  width: min(100%, 76rem);
+  max-width: 76rem;
+  margin: clamp(1rem, 3vw, 2.5rem) auto;
+  padding: clamp(1rem, 2.5vw, 2rem);
+  display: grid;
+  gap: 1rem;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-background-chrome);
+  color: var(--plan-ink);
+  line-height: 1.55;
+  box-shadow: 0 1.25rem 3rem rgb(0 0 0 / 22%);
+}
+
+.world-owned-plan h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.5rem);
+  letter-spacing: -0.025em;
+  line-height: 1.12;
+}
+
+.world-owned-plan__world,
+.world-owned-plan__intro {
+  margin: 0;
+}
+
+.world-owned-plan__world {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.25rem 0.65rem;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 999px;
+  color: var(--ui-text-secondary);
+  font-size: 0.9rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+.world-owned-plan__intro {
+  max-width: 68ch;
+  color: var(--plan-muted);
+}
+
+.world-owned-plan > label {
+  display: grid;
+  width: min(100%, 38rem);
+  gap: 0.4rem;
+  color: var(--plan-muted);
+  font-size: 0.9rem;
+  font-weight: 650;
+}
+
+.world-owned-plan select,
+.world-owned-plan input {
+  width: 100%;
+  min-height: 2.9rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-background-ops);
+  color: var(--plan-ink);
+  font: inherit;
+  box-shadow: inset 0 1px 2px rgb(0 0 0 / 22%);
+}
+
+.world-owned-plan select {
+  appearance: none;
+  padding-right: 2.5rem;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--plan-muted) 50%),
+    linear-gradient(135deg, var(--plan-muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 1rem) 50%,
+    calc(100% - 0.72rem) 50%;
+  background-repeat: no-repeat;
+  background-size: 0.32rem 0.32rem;
+}
+
+.world-owned-plan select:focus-visible,
+.world-owned-plan input:focus-visible,
+.world-owned-plan button:focus-visible,
+.world-owned-plan .ProseMirror:focus-visible {
+  outline: 3px solid var(--ui-accent-action);
+  outline-offset: 3px;
+}
+
+.world-owned-plan button {
+  justify-self: start;
+  min-height: 2.6rem;
+  padding: 0.55rem 0.9rem;
+  border: 1px solid var(--ui-accent-action);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-accent-action);
+  color: var(--ui-background-ops);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.world-owned-plan button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.world-owned-plan button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.world-owned-plan__editor {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  border: 2px solid color-mix(in srgb, var(--ui-text-on-paper) 55%, var(--ui-border-paper));
+  border-radius: 0.65rem;
+  background: var(--plan-paper);
+  outline: 1px solid rgb(247 235 215 / 20%);
+  outline-offset: 3px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 55%),
+    0 0.8rem 1.8rem rgb(0 0 0 / 20%);
+}
+
+.world-owned-plan__editor .ProseMirror {
+  min-height: 48vh;
+  max-width: 78ch;
+  margin: 0 auto;
+  padding: clamp(1rem, 3vw, 2.25rem);
+  color: var(--plan-paper-ink);
+  font-size: 1.04rem;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.world-owned-plan__editor .ProseMirror > :first-child {
+  margin-top: 0;
+}
+
+.world-owned-plan__editor .ProseMirror > :last-child {
+  margin-bottom: 0;
+}
+
+.world-owned-plan__editor .md-callout[data-md-callout="read-aloud"] {
+  margin: 1rem 0;
+  padding: 0.9rem 1rem;
+  border: 1px solid #9aaed0;
+  border-left: 4px solid #536f9d;
+  border-radius: var(--ui-radius-sm);
+  background: #e8eef8;
+  color: #292f3a;
+}
+
+.world-owned-plan__editor .md-callout[data-md-callout="read-aloud"] .md-callout-label {
+  margin-bottom: 0.4rem;
+  color: #3f5d8d;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.world-owned-plan__editor .md-callout[data-md-callout="read-aloud"] .md-callout-body > :first-child {
+  margin-top: 0;
+}
+
+.world-owned-plan__editor .md-callout[data-md-callout="read-aloud"] .md-callout-body > :last-child {
+  margin-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  html:has(.world-owned-plan) {
+    overflow-x: clip;
+  }
+
+  .app-wrap:has(.world-owned-plan) {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: clip;
+  }
+
+  .app-wrap:has(.world-owned-plan) .app-world-graph-status {
+    flex: 1 1 100%;
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .app-wrap:has(.world-owned-plan) .app-world-graph-status .surface-context-popover {
+    justify-content: flex-start;
+    min-width: 0;
+  }
+
+  .app-wrap:has(.world-owned-plan) .app-world-graph-status__trigger {
+    max-width: 100%;
+  }
+
+  .world-owned-plan {
+    width: min(calc(100vw - 4rem), 76rem);
+    margin: 0.75rem 0;
+    padding: 1rem;
+    gap: 0.85rem;
+  }
+
+  .world-owned-plan__editor .ProseMirror {
+    min-height: 55vh;
+    padding: 1rem;
+  }
 }
 
 .app-error {

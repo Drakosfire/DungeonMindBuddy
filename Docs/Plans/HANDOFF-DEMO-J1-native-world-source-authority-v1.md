@@ -2,8 +2,8 @@
 pr_body_template: |
   ## Handoff pointer
   - Workstream: DEMO / J1 native World source authority
-  - ACTIVE handoff: `Docs/Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md`
-  - Topology: serial; one DEMO implementation PR, no merge until PRIME review
+  - Handoff: `Docs/Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md`
+  - State: COMPLETE / HISTORICAL — #787 merged; no active write lease
   - PR title: `DEMO: admit imported sources into native World authority`
 
   ## Review contract
@@ -18,7 +18,7 @@ pr_body_template: |
 # HANDOFF — DEMO J1: native World source authority
 
 **Created:** 2026-09-28  
-**Status:** ACTIVE — PRIME architecture compatibility PASS; serial implementation authorized  
+**Status:** COMPLETE / HISTORICAL — #787 merged; no active implementation lease
 **Workstream / owner:** LOCAL DEMO ACCEPTED / DEMO J1, Buddy owns product orchestration  
 **Direction:** STEWARD → CODE → PRIME  
 **Activation base:** Buddy `main@f8b923875f9444a1addfb2472a2b8fab35eceb4c` (merged #785)  
@@ -27,9 +27,10 @@ pr_body_template: |
 **Dependency lease:** PRIME’s 2026-09-28 settlement in open draft PR #763 pauses that stale Rules candidate and exclusively transfers `pyproject.toml` + `uv.lock` to this serial DEMO slice for adoption of MIND #85. #763’s rules code is preserved and must re-anchor after this dependency settles; do not modify #763.  
 **Exact external pins:** DungeonMind #85 merge `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`; WorldKeeper unchanged.  
 **Buddy domain/profile pins:** `dungeonbuddy.world` revision `2`, digest `d12f3a517a37d29a2ba52455d9ae1691bc5e4ff3fd6853b701a9e28e46ec65cd`; `dungeonbuddy.dnd5e` SemanticProfileDescriptorV2 revision `1`, digest `51ea47ff45bc86ea158939c34a5769e7ee56de3911278d473570e3795edb7e14`. Verify against Buddy’s accepted constructors before use; do not copy guessed JSON.  
+**Completion record (2026-09-28):** Buddy PR #787 merged at `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`, reviewed head `232a42614b1453a815df2dd12f172c0be3c7a155`; two distinct review-head cycles, with the final scoped acceptance judgment on that same final head. The ordinary Build import/readback/restart witness passed for World `of-conks-and-cons`, document `1e00479a-cd51-4ffc-81f7-c980b32fed6a`, revision 2. It admits the saved 48,777-byte snapshot SHA `4aeb773a02c41cfffb79abcb2ca44da72d5a2eb8ad331cc6f9a417a5c2919186`; this is the original pinned 48,778-byte source with its final LF absent. Source authority only: no extraction, accepted knowledge, retrieval, J3, or connected DEMO acceptance.
 **PR topology:** serial within DEMO; one assigned implementation PR only.  
-**Implementation lane:** create a clean `codex/demo-j1-native-world-source-authority` branch/worktree from freshly fetched `origin/main` after this handoff commit. Record the exact resulting base before code. Never use the dirty detached checkout.  
-**PR authorization:** after landing this ACTIVE handoff, open/update the single assigned PR without another operator prompt. Return exact-head implementation review and evidence to PRIME; do not merge.  
+**Completed implementation lane:** `codex/demo-j1-native-world-source-authority`; PR #787 dispatched from `a1a00f5e6569cb10205dbc7d2e15888730280372` and merged at `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`. Its lease is released.
+**PR disposition:** #787 is merged and this handoff's implementation lease is released. Subsequent source-admission capabilities require their own accepted handoff.
 **Shared runtime/state:** PRIME owns existing UI/API/Generation processes and persistent demo DB targets. Do not start a duplicate server set, switch/restart its processes, or write to the persistent rehearsal databases from this implementation lane. Use isolated tests and a disposable Postgres target. Exact-head live product use requires coordination with PRIME’s runtime owner.
 
 | Field | Value |
@@ -100,7 +101,7 @@ Failure contract:
 - Unsupported source kind/domain, missing/inactive/foreign World, wrong descriptors, digest/span mismatch, native space conflict or unavailable Postgres fail closed with a typed status and no alternate classic/campaign fallback.
 - A changed document revision is a distinct immutable source admission; old native bytes remain. No update/delete/archive lifecycle or freshness claim is added here.
 
-## §4 ACTIVE write lease
+## §4 Historical write lease — released after #787 merged
 
 The §4 table is the exclusive expected write lease for this serial implementation PR. The only edit to this handoff is the PRIME-authorized machine-readable format repair: preserve the same mission, runtime boundaries, and implementation paths while making the existing lease parseable. Do not mark this in-flight slice complete or invent its future PR/head/review count.
 

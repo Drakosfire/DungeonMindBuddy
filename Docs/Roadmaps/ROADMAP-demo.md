@@ -46,20 +46,29 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
 
-**Current DEMO lane (2026-09-28):** #785 / J4 is complete and merged to Buddy
-`main` at `f8b923875f9444a1addfb2472a2b8fab35eceb4c` (reviewed code head
-`471a967d11e315b24fd5cfe5541f447753fb81f4`; three distinct review-head cycles,
+**Current DEMO lane (2026-09-28):** three bounded predecessors are now merged.
+#785 / J4 World-scoped statblock drafts merged at
+`f8b923875f9444a1addfb2472a2b8fab35eceb4c`, reviewed code head
+`471a967d11e315b24fd5cfe5541f447753fb81f4` (three distinct review-head cycles,
 four formal submissions: `5333492877`, `5333610809`, `5341223774`,
-`5341878346`). MIND #85 supplies the accepted native source/evidence admission
-surface at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`; #83 native initialization
-is also landed. The active serial Buddy implementation is now **DEMO J1 native
-World source authority**, handoff
-[`HANDOFF-DEMO-J1-native-world-source-authority-v1`](../Plans/HANDOFF-DEMO-J1-native-world-source-authority-v1.md),
-based on `a1a00f5e6569cb10205dbc7d2e15888730280372`. It connects the ordinary
-Build-imported committed source to native World source authority only. It does
-not prove extracted or accepted knowledge, retrieval, World-owned Plan, J3, or
-the connected demo. PRIME still owns the required exact-head architecture/live
-review; no merge or acceptance is claimed here.
+`5341878346`; exact-head scoped live acceptance passed). #786 statblock wire and
+digest compatibility merged at `9f358bb9ecf4d28338ae4b6b0ef5e2c316700d59`,
+reviewed head `51ee5e975d8d419430a2bd943cbc4622d10ac67f` (two distinct review
+heads; final scoped consumer contract and focused tests passed; no product,
+database, provider, or runtime operation). #787 native World source authority
+merged at `f7ce9b99b8e9b73129c6f474989cdb30875a31c8`, reviewed head
+`232a42614b1453a815df2dd12f172c0be3c7a155` (two distinct review heads; exact
+ordinary Build import/readback/restart witness passed).
+
+#787 admits the saved committed source snapshot to native World source authority;
+it does not prove source-file byte identity, extracted/accepted knowledge,
+retrieval, World-owned Plan, J3, or the connected demo. The active serial Buddy
+implementation is now **DEMO J1 — World-owned blank Plan**, handoff
+[`HANDOFF-DEMO-world-owned-blank-plan-v1`](../Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md),
+re-anchored to `main@9f358bb9ecf4d28338ae4b6b0ef5e2c316700d59`. It must keep the
+source witness and user's unsaved Plan untouched and prove exact World/null-
+campaign ownership through save, reload and restart. J1 and J1–J6 remain
+unaccepted until their own connected product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:
@@ -84,14 +93,14 @@ Use a new rehearsal display name so normal name-idempotency does not select the
 previous World; the server, not the operator or a script, allocates its identity.
 
 Document creation/editing/save and knowledge prepare/confirm retain their
-separate accepted contracts. Import must not become the gate for making a Plan
-usable, and document edits must not silently publish knowledge. Native genesis,
-authentic source/evidence admission and ordinary read-after-write require an
-accepted implementation/runtime contract from **MIND** before J3 is activated.
-PRIME has approved the source/evidence-admission design, but its commit is not
-yet on MIND main or in a PR; it is design evidence, not a landed Buddy capability.
-No bridge migration, broad framework rewrite, fake campaign or J3 implementation
-is authorized by this direction.
+separate contracts. Import must not become the gate for making a Plan usable,
+and document edits must not silently publish knowledge. MIND #83/#85 are merged;
+Buddy #787 now admits an exact committed source snapshot to native World source
+authority. The remaining J3 gap is the connected governed assertion write and
+ordinary read/citation path on that same authority. The next capability must be
+re-anchored and separately handed off; source admission alone is not J3. No
+bridge migration, broad framework rewrite, fake campaign or automatic scope
+expansion is authorized.
 
 **Historical implementation: J4 / #785**, frozen repair head
 `07ec031ab5b62b8dbcd34f51ed4b6eaf0fa25262`, incorporating accepted main
@@ -214,8 +223,8 @@ composition: four PostgreSQL cases with zero skips plus 54 PLAY-1/V6.2 tests.
 Its review explicitly leaves browser/Agent retrieval, source admission and
 human DEMO acceptance unproven. It does not clear the fresh native Of Conks
 source-to-retrieval gate or #785's live generation witness.
-Keep #785's scope, lease, review/live gates and serial topology intact.
-No J3/image work, #785 merge or full DEMO acceptance is claimed.
+Keep the completed #785 scope historical and its lease released. No J3/image
+work or full DEMO acceptance is claimed by #779.
 
 Independent J1 preparation probe on the same frozen runtime: managed World B
 had no source document and no graph head, yet its local blank editor accepted
@@ -358,14 +367,14 @@ then ask the agent a factual question requiring the new node. Normal retrieval
 must find it under the same scope/authority; a creation-payload echo is insufficient.
 Reopen after restart.
 
-**Current route / activation gate:** source authority is being implemented in
-the active J1 handoff above. MIND #83 and #85 are accepted dependencies, but the
-Buddy source-admission implementation and subsequent ordinary read/citation
-path are not yet accepted. After J1 is reviewed and merged, re-anchor and define
-the next bounded Buddy capability for preparing/confirming assertions and
-ordinary read-after-write. Do not treat source admission as extraction,
-publication of assertions, retrieval, or J3 completion. The old #785 serial-lane
-blocker is historical and no longer active.
+**Current route / activation gate:** MIND #83/#85 and Buddy #787 are merged.
+Buddy can admit the exact saved source snapshot to native World source authority;
+it does not yet establish extracted assertions, governed assertion publication,
+ordinary Agent read/citation, or J3 completion. The active next lane is the
+World-owned blank Plan handoff above. After it is reviewed and merged, re-anchor
+and define the next bounded capability for governed knowledge creation and
+ordinary read-after-write. The old #785 serial-lane blocker is historical and
+no longer active.
 
 **Inherited evidence:** PLAY-1 #773 and accepted isolated persistent PLAY-2
 #779; PLAY-3 is not dispatched; V6.2 adapter; WorldKeeper #7/#8; CR-U4–U7.
@@ -690,42 +699,31 @@ native genesis/source authority. If the fresh-native route requires an absent
 contract, return that precise gap to MIND rather than reintroducing migration,
 fixture seeding or a parallel authority as an implementation shortcut.
 
-### First-customer native return gate — MIND
+### First-customer native source prerequisites — satisfied; J3 remains open
 
-- **State:** BLOCKED / partial MIND design return, not yet landed; no active Buddy J3 lease.
-- **Accepted partial return:** MIND #83 supplies empty native initialization at
-  `031b6650d0a506cf40f0189fc5cfac055ac37308` (Cycle 2 PASS). This settles the
-  library genesis prerequisite, not authentic source admission, consumer
-  routing or ordinary product proof. No Buddy dependency repin/lease is active.
-- **Design review return, not yet repository authority:** PRIME approved MIND's
-  native text/source-evidence admission design at
-  `86e8f22d007df99de577cb412301c5a6d4e2d597`. At verification this was two
-  commits ahead of MIND main with no associated PR. It covers a proposed atomic
-  byte/span admission boundary, exact evidence membership and context-bound
-  admitted-source preview; it does not activate Keeper freshness/source
-  lifecycle/J3 or establish a merged runtime entrypoint. Re-anchor this gate
-  after MIND lands the design and implementation contract.
-- **Owner:** existing MIND task `01a0a299-d6ee-7772-83c0-a3a79550479d`;
-  PRIME is sending the bounded prerequisite request. Do not create a duplicate
-  owner task or silently take over kernel/source policy.
-- **Return required:** exact accepted pins and production entry points; how a
-  new World with no campaign/recap obtains its native initial parent; how exact
-  imported or authored document revisions become admitted source/evidence;
-  whether initialization/admission/confirmation are separate durable steps and
-  their retry/no-partial-publication behavior; exact profile/World-global scope
-  binding; and how normal Buddy reads, Agent retrieval and citations resolve
-  the accepted child on that same authority.
-- **Owning evidence required:** real persistent empty/new-World plus authentic
-  source admission and governed publication/read-back, including replay,
-  rejection and restart. A fixture-only initialization proof cannot stand in
-  for the normal source path; no future merge/version is invented.
-- **DEMO witness after return:** ordinary New World → blank editable Plan before
-  import → author/import bounded Of Conks material → inspect inert preparation
-  → explicit confirm → later ordinary Agent retrieval/citation → restart.
-  No console/SQL/manual-ID repair, forced campaign or synthetic source/graph.
+- **State:** MIND #83/#85 and Buddy #787 are merged; no active MIND prerequisite
+  lease and no J3 implementation lease.
+- **Accepted foundation:** MIND #83 provides public empty native initialization
+  at `031b6650d0a506cf40f0189fc5cfac055ac37308`; MIND #85 provides native source
+  and evidence admission at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`.
+- **Buddy product seam:** #787 merged at
+  `f7ce9b99b8e9b73129c6f474989cdb30875a31c8` and proves ordinary Build import,
+  exact saved-source admission, reload, and fresh-process readback for the
+  48,777-byte admitted snapshot. It is source authority only; it does not prove
+  extraction, accepted assertions, graph publication, retrieval, or J3.
+- **Next J3 definition:** after the World-owned Plan lane, re-anchor and define
+  the source-selection → governed assertion preparation/confirmation → ordinary
+  Agent read/citation path, including exact identity/scope and durable
+  read-after-write. If a concrete MIND/WorldKeeper contract gap appears, route
+  that specific gap to its owner; do not assume an external blocker or create a
+  parallel authority.
+- **Human witness still required:** New World → blank Plan before import →
+  author/import bounded Of Conks material → inspect inert preparation →
+  explicit confirmation → ordinary Agent retrieval/citation → restart. No
+  console/SQL/manual-ID repair, forced campaign or synthetic source/graph.
 - **Exclusions:** deleting previous demo state, importing legacy graph IDs,
   bridge migration, new DB per World, production C1/C2 changes, and expanding
-  #785. The environment/identity/source pins must be recorded before execution.
+  completed #785.
 
 ## Final acceptance
 

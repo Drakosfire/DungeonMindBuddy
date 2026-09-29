@@ -53,13 +53,28 @@ def create_work_object(
     *,
     kind: AdmittedKind,
     title: str,
-    campaign_id: str,
+    campaign_id: str | None,
+    world_id: str | None = None,
     target_session: int | None = None,
     target_relpath: str | None = None,
     document_id: str | None = None,
 ) -> WorkObject:
-    cleaned_campaign = campaign_id.strip()
-    if not cleaned_campaign:
+    cleaned_world = world_id.strip() if world_id is not None else None
+    cleaned_campaign = campaign_id.strip() if campaign_id is not None else None
+    if cleaned_world is not None:
+        if not cleaned_world:
+            raise ApplicationStateValidationError("world_id is required")
+        if kind != "plan":
+            raise ApplicationStateValidationError("only Plans can be World-owned")
+        if cleaned_campaign is not None:
+            raise ApplicationStateValidationError(
+                "World-owned Plans cannot also have campaign_id"
+            )
+        if target_session is not None:
+            raise ApplicationStateValidationError(
+                "World-owned Plans cannot have target_session"
+            )
+    elif not cleaned_campaign:
         raise ApplicationStateValidationError("campaign_id is required")
     work_object_id = _require_uuid(document_id) if document_id else uuid4()
     now = repo.now_utc()
@@ -67,6 +82,7 @@ def create_work_object(
         work_object_id=work_object_id,
         kind=kind,
         campaign_id=cleaned_campaign,
+        world_id=cleaned_world,
         title=_require_title(title),
         target_session=target_session,
         target_relpath=target_relpath,
@@ -85,7 +101,8 @@ def create_work_object(
 def create_plan(
     *,
     title: str,
-    campaign_id: str,
+    campaign_id: str | None = None,
+    world_id: str | None = None,
     target_session: int | None = None,
     target_relpath: str | None = None,
     document_id: str | None = None,
@@ -94,7 +111,25 @@ def create_plan(
         kind="plan",
         title=title,
         campaign_id=campaign_id,
+        world_id=world_id,
         target_session=target_session,
+        target_relpath=target_relpath,
+        document_id=document_id,
+    )
+
+
+def create_world_plan(
+    *,
+    title: str,
+    world_id: str,
+    target_relpath: str | None = None,
+    document_id: str | None = None,
+) -> WorkObject:
+    return create_plan(
+        title=title,
+        campaign_id=None,
+        world_id=world_id,
+        target_session=None,
         target_relpath=target_relpath,
         document_id=document_id,
     )
@@ -129,7 +164,9 @@ def get_content_optional(document_id: str) -> WorkObject | None:
 def get_plan(document_id: str) -> WorkObject:
     found = get_plan_optional(document_id)
     if found is None:
-        raise ApplicationStateNotFoundError(f"workspace document not found: {document_id}")
+        raise ApplicationStateNotFoundError(
+            f"workspace document not found: {document_id}"
+        )
     return found
 
 
@@ -143,7 +180,9 @@ def get_plan_optional(document_id: str) -> WorkObject | None:
 def get_runbook(document_id: str) -> WorkObject:
     found = get_runbook_optional(document_id)
     if found is None:
-        raise ApplicationStateNotFoundError(f"workspace document not found: {document_id}")
+        raise ApplicationStateNotFoundError(
+            f"workspace document not found: {document_id}"
+        )
     return found
 
 
@@ -157,13 +196,18 @@ def get_runbook_optional(document_id: str) -> WorkObject | None:
 def list_plans(
     *,
     campaign_id: str | None = None,
+    world_id: str | None = None,
     status: str | None = "active",
 ) -> list[WorkObject]:
+    if campaign_id is not None and world_id is not None:
+        raise ApplicationStateValidationError(
+            "campaign_id and world_id are mutually exclusive scopes"
+        )
     dsn = load_runtime_dsn()
     assert_at_head(dsn=dsn)
     with unit_of_work(dsn) as conn:
         return repo.list_work_objects(
-            conn, kind="plan", campaign_id=campaign_id, status=status
+            conn, kind="plan", campaign_id=campaign_id, world_id=world_id, status=status
         )
 
 
@@ -246,6 +290,22 @@ def _require_kind_for_mutation(obj: WorkObject, kind: AdmittedKind) -> WorkObjec
     return obj
 
 
+def _require_world_plan_scope(obj: WorkObject, world_id: str | None) -> WorkObject:
+    """Recheck the exact immutable World owner inside a Content transaction."""
+    if world_id is None:
+        return obj
+    if (
+        obj.kind != "plan"
+        or obj.world_id != world_id
+        or obj.campaign_id is not None
+        or obj.target_session is not None
+    ):
+        raise ApplicationStateConflictError(
+            f"workspace document is not owned by selected World {world_id}"
+        )
+    return obj
+
+
 def _update_metadata(
     document_id: str,
     *,
@@ -317,6 +377,7 @@ def _autosave(
     *,
     kind: AdmittedKind,
     expected_revision: int | None = None,
+    expected_world_id: str | None = None,
 ) -> WorkObject:
     work_object_id = _require_uuid(document_id)
     content = normalize_markdown(markdown)
@@ -330,6 +391,7 @@ def _autosave(
                 f"workspace document not found: {document_id}"
             )
         _require_kind_for_mutation(obj, kind)
+        _require_world_plan_scope(obj, expected_world_id)
         if obj.status == "discarded":
             raise ApplicationStateConflictError(
                 f"workspace document is discarded: {document_id}"
@@ -382,9 +444,14 @@ def autosave_plan(
     markdown: str,
     *,
     expected_revision: int | None = None,
+    expected_world_id: str | None = None,
 ) -> WorkObject:
     return _autosave(
-        document_id, markdown, kind="plan", expected_revision=expected_revision
+        document_id,
+        markdown,
+        kind="plan",
+        expected_revision=expected_revision,
+        expected_world_id=expected_world_id,
     )
 
 
@@ -394,6 +461,7 @@ def _commit(
     *,
     kind: AdmittedKind,
     expected_revision: int | None = None,
+    expected_world_id: str | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     work_object_id = _require_uuid(document_id)
     content = normalize_markdown(markdown)
@@ -407,6 +475,7 @@ def _commit(
                 f"workspace document not found: {document_id}"
             )
         _require_kind_for_mutation(obj, kind)
+        _require_world_plan_scope(obj, expected_world_id)
         if obj.status == "discarded":
             raise ApplicationStateConflictError(
                 f"workspace document is discarded: {document_id}"
@@ -479,9 +548,14 @@ def commit_plan(
     markdown: str,
     *,
     expected_revision: int | None = None,
+    expected_world_id: str | None = None,
 ) -> tuple[WorkObject, WorkRevision]:
     return _commit(
-        document_id, markdown, kind="plan", expected_revision=expected_revision
+        document_id,
+        markdown,
+        kind="plan",
+        expected_revision=expected_revision,
+        expected_world_id=expected_world_id,
     )
 
 
@@ -527,7 +601,11 @@ def exact_committed_revision(
     kind: AdmittedKind | None = None,
     expected_sha256: str | None = None,
 ) -> CommittedPlayableRevision:
-    if not isinstance(revision_n, int) or isinstance(revision_n, bool) or revision_n <= 0:
+    if (
+        not isinstance(revision_n, int)
+        or isinstance(revision_n, bool)
+        or revision_n <= 0
+    ):
         raise ApplicationStateValidationError("revision_n must be a positive integer")
     work_object_id = _require_uuid(document_id)
     dsn = load_runtime_dsn()
@@ -545,9 +623,7 @@ def exact_committed_revision(
                 "historical revision bytes were never retained"
             )
         if expected_sha256 is not None and revision.content_sha256 != expected_sha256:
-            raise ApplicationStateConflictError(
-                "playable content SHA mismatch"
-            )
+            raise ApplicationStateConflictError("playable content SHA mismatch")
         working = repo.get_working_copy(conn, work_object_id)
         current = None
         if obj.current_revision_id is not None:
