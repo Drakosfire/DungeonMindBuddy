@@ -48,6 +48,7 @@ from graph_memory.hermes_graph_plugin import (
     HermesPluginActivation,
     HermesToolCapabilityRule,
     TOOLSET_NAME,
+    default_conversation_only_capability_policy,
     default_graph_only_capability_policy,
 )
 from graph_memory.interaction.schema_constants import EXPAND_GRAPH_RETRIEVAL_SCHEMA
@@ -1011,6 +1012,49 @@ def test_managed_world_scope_round_trips_without_campaign() -> None:
     assert restored.capability_policy is not None
     assert restored.capability_policy.graph_scope.scope_mode == "world"
     assert restored.capability_policy.graph_scope.campaign_id == ""
+
+
+def test_conversation_only_request_round_trips_without_graph_authority() -> None:
+    request = HermesGraphAgentTurnRequest(
+        question="Help me think this through.",
+        world_id=None,
+        campaign_id=None,
+        scope_mode=None,
+        capability_policy=default_conversation_only_capability_policy(),
+        session_id="provider-session",
+    )
+    wire = serialize_hermes_graph_agent_turn_request(request)
+    policy = wire["capabilityPolicy"]
+    assert policy["mode"] == "conversation_only"
+    assert policy["graphScope"] is None
+    assert policy["enabledToolsets"] == []
+    assert policy["enabledToolNames"] == []
+    assert wire["worldId"] is None
+    assert wire["campaignId"] is None
+    assert wire["scopeMode"] is None
+    restored = deserialize_hermes_graph_agent_turn_request(wire)
+    assert restored.world_id is None
+    assert restored.campaign_id is None
+    assert restored.scope_mode is None
+    assert restored.capability_policy is not None
+    assert restored.capability_policy.mode == "conversation_only"
+    assert restored.capability_policy.graph_scope is None
+    assert serialize_hermes_graph_agent_turn_request(restored) == wire
+
+    with pytest.raises(ValueError, match="cannot carry graph authority or tools"):
+        deserialize_hermes_graph_agent_turn_request(
+            {
+                **wire,
+                "capabilityPolicy": {
+                    **policy,
+                    "enabledToolNames": ["expand_graph_retrieval"],
+                },
+            }
+        )
+    with pytest.raises(ValueError, match="cannot carry graph scope or retrieval"):
+        deserialize_hermes_graph_agent_turn_request(
+            {key: value for key, value in wire.items() if key != "worldId"}
+        )
 
 
 def test_encode_json_wire_round_trips_and_is_bytes() -> None:

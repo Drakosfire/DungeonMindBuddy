@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Literal, Protocol
 
 WORLD_GRAPH_READ_POLICY_ID = "world_graph_read_v1"
+CONVERSATION_ONLY_POLICY_ID = "conversation_only_v1"
 
 AgentRuntimeStatus = Literal["ok", "error"]
 AgentRuntimeToolEventState = Literal["start", "completion", "error"]
@@ -88,7 +89,7 @@ class AgentSurfaceContext:
 
 @dataclass(frozen=True, slots=True)
 class AgentContextPacket:
-    world_scope: AgentWorldScope
+    world_scope: AgentWorldScope | None
     retrieval_session: AgentRetrievalSession | None = None
     surface_context: AgentSurfaceContext | None = None
 
@@ -222,5 +223,6 @@ def descriptor_for_runtime(runtime: AgentRuntime | None) -> AgentRuntimeDescript
 
 
 WORLD_GRAPH_READ_POLICY = AgentCapabilityPolicy(policy_id=WORLD_GRAPH_READ_POLICY_ID)
+CONVERSATION_ONLY_POLICY = AgentCapabilityPolicy(policy_id=CONVERSATION_ONLY_POLICY_ID)
 
 UNSUPPORTED_CAPABILITY_POLICY = "unsupported_capability_policy"

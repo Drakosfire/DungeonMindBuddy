@@ -31,11 +31,11 @@ pr_body_template: |
 
 ## §1 Mission and merge-ready invariant
 
-**Mission:** A Buddy surface can submit one bounded Agent turn request and receive a truthful answer/retrieval result bound to the independently resolved surface, owner, saved work, graph scope, temporal focus, and revisions.
+**Mission:** Establish the first truthful universal Agent backend baseline for no-graph conversation and graph reads under a verified Buddy World owner, while preserving exact saved-work and temporal-context metadata where the existing authority proves them.
 
-**Merge-ready invariant:** The generic Agent endpoint either resolves each requested authority independently and reports exactly what it used, or returns a typed fail-closed result without silently dropping invalid scope, changing graph focus, loading a session packet for no-scope chat, calling the answer model after required retrieval fails, crossing a structured provider-continuity key, or changing legacy `/api/live/query` behavior.
+**Merge-ready invariant:** The generic Agent endpoint either resolves each supported requested authority independently and reports exactly what it used, or returns a typed fail-closed result without silently dropping invalid scope, changing graph focus, loading a session packet for no-scope chat, calling the answer model after required retrieval fails, crossing a structured provider-continuity key, or changing legacy `/api/live/query` behavior. This implementation's supported graph baseline is a verified World owner/lens plus a sessionless World Plan; no graph scope is represented by the explicit conversation-only policy.
 
-This is the backend baseline only. It does not deliver universal Agent UI, all six surface publishers, user-facing visual acceptance, or end-to-end J2/J3 acceptance.
+This is the backend baseline only. It does not deliver universal Agent UI, all six surface publishers, user-facing visual acceptance, or end-to-end J2/J3 acceptance. **Campaign-owner and campaign-lens graph requests remain typed, fail-closed unavailable** until Buddy has an accepted campaign→World membership authority. They are not counted as implemented behavior or merge evidence for this baseline. This is the bounded activation clarification accepted by PRIME after architecture review; it does not rewrite the broader #790 design contract.
 
 ### Pre-dispatch critique
 
@@ -56,14 +56,20 @@ The pinned design PR is the reviewed contract authority for this slice. The requ
 - A request independently carries surface identity, owner locator, primary saved-work locator plus expected revision, client-reported work state, graph request (`none|world|campaign`), optional exact selected node, and user message.
 - Requested graph scope, optional narrative campaign anchor, and temporal focus are distinct. World reads normalize Buddy's adapter-only empty campaign representation to MIND World scope with `campaign=None`; never invent an authority ID. Exact focus campaign is carried separately and server-corroborated.
 - A managed-World Plan without a target session uses World scope, no campaign anchor, and `focus=none`. A campaign-target Plan under its verified parent World may preserve its exact saved campaign anchor and target-session focus. The server must resolve and corroborate the full World/campaign/Plan/session relation.
+- Canonical session IDs derived from a saved Plan's server-resolved integer `target_session` use Buddy's existing `normalize_session_id(int)` encoding (`session-N`), not caller-string normalization. The generic resolver must require the submitted focus to exactly match that derived value. This encoding is not evidence that graph content exists; a valid projection may still be empty.
 - A graph node or session focus paired with `graph_request.mode="none"` is contradictory and is rejected, not ignored or used to upgrade to retrieval.
 - `saved_dirty` is only a browser hint. Resolve the actual latest committed saved-work revision; if it differs from the expected revision, report expected and used and `changed_since_expected`. Never read local/unsubmitted draft prose.
 - A valid empty result or selected-node not-found is distinct from invalid/foreign scope, unavailable graph service, or unreadable requested pin. Required retrieval failure makes no answer-model call; valid empty/not-found may answer without grounding claims.
+- Generic no-scope turns use an explicit serialized `conversation_only` runtime policy, with no graph scope, graph plugin, graph tools, or graph citations. This is distinct from graph mode with an empty/fake scope. Graph mode continues to require a fully resolved graph scope and retains its existing capability validation.
 - Generic no-scope turns may persist structured Hermes provider-continuity pointers under configured `session_dir()` as storage only. They must not call `load_session()` or require a packet. Buddy transcript remains browser-local and is not a new server transcript store.
 - Generic bindings never read/adopt/rewrite legacy campaign-only pointer records. `/api/live/query` retains exact legacy behavior.
 - Delivery order after this baseline: separately activated shared Agent UI/adapters on Index, Plan, Play, Build, Ingest and Combat; then owner-to-backend end-to-end witnesses. World-reference lens work consumes this authority later.
 
 At dispatch the repository had open #790 (design only), #781 (UI-only), Rules #763 (paused; `main.py`, rules route, dependency files), #764 (Plan/UI only), #765 (Rules route and `main.py`), and UI design #760/#761. No current PR owns `routes/live.py`, the Agent services/models, or their tests. The child-router seam avoids both Rules claims on `main.py`. Refresh the open-PR collision inventory before PR creation; if `routes/live.py` or an exact leased path is newly claimed, stop and coordinate.
+
+**Implementation-discovered authority limit:** current Buddy authorities do not provide a general campaign→parent-World mapping for ordinary campaign-target Plans. `WorldContainerRecord` identifies Worlds but not campaign membership; saved Plan records carry campaign identity or World ownership, not both as a general membership relation. The generic route therefore rejects unproven campaign-owner and campaign-graph requests. It must not treat a campaign ID as a World ID or use the legacy SourceArtifact world fallback as membership authority. This means the campaign→World row in §7 remains **HOLD** pending a separately accepted Buddy-owned membership contract; no campaign graph behavior is claimed complete by this implementation.
+
+The exact session encoding is independently grounded in `src/graph_memory/session_graph_context.py::_session_id_from_number()` and `tests/test_graph_memory_session_graph_context.py` (e.g. integer 99 → `session-99`), plus `apps/live_control_server/services/recap_artifacts.py::normalize_session_id()` and `tests/test_recap_artifacts.py::test_normalize_session_id`. This implementation uses the normalizer only on the integer `target_session` read from the resolved saved Plan record, then requires any submitted session focus to match that exact derived ID and campaign. It does not parse caller-supplied free text or treat the derived ID as proof that graph evidence exists.
 
 Runtime/state ownership: deterministic injected runtime and temporary isolated files only. Do not start/replace the user's API/UI/DB servers, modify persistent databases, issue paid provider calls, or use corpus state. No live dogfood is required for this deterministic backend baseline.
 
@@ -90,7 +96,13 @@ Runtime/state ownership: deterministic injected runtime and temporary isolated f
 | Create | `apps/live_control_server/models/agent_turn.py` | Strict request/result and explicit typed resolution/status objects. |
 | Create | `apps/live_control_server/services/agent_turn_service.py` | Per-turn authority resolution, graph policy, context assembly and runtime dispatch. |
 | Modify | `apps/live_control_server/services/agent_runtime.py` | Optional graph capability/result semantics without fabricating scope. |
+| Modify | `apps/live_control_server/services/hermes_agent_runtime.py` | Map no-scope conversation turns to the existing Hermes runtime without constructing graph authority or graph tools. |
+| Modify | `apps/live_control_server/services/pydantic_ai_agent_runtime.py` | Map no-scope conversation turns to the existing PydanticAI runtime without graph authority, graph tools, or scoped tool arguments. |
+| Modify | `apps/live_control_server/services/hermes_graph_agent.py` | Dispatch the explicit conversation-only worker mode without graph-specific scope, prompt, retrieval, or tool registration. |
+| Modify | `apps/live_control_server/services/hermes_graph_agent_contract.py` | Discriminated worker-wire mode: graph mode has its required scope; conversation-only has none and rejects contradictory graph authority. |
+| Modify | `src/graph_memory/hermes_graph_plugin.py` | Represent conversation-only capability separately from graph-read policy; do not relax graph-policy scope requirements. |
 | Modify | `apps/live_control_server/services/agent_context_assembler.py` | Assemble independent surface, owner, work and graph channels. |
+| Modify | `tests/test_agent_context_assembler.py` | Prove no-graph assembly creates no World scope or retrieval packet and preserves local conversation metadata. |
 | Modify | `apps/live_control_server/services/agent_world_graph_query_context.py` | Preserve mode, campaign anchor, exact focus, pin and resolved graph evidence. |
 | Modify | `apps/live_control_server/services/agent_surface_context.py` | Keep legacy v1 adapter unchanged; add no silent surface rewrite. |
 | Modify | `apps/live_control_server/services/hermes_session_store.py` | Structured provider-continuity namespace alongside untouched legacy pointers. |
@@ -99,6 +111,10 @@ Runtime/state ownership: deterministic injected runtime and temporary isolated f
 | Create | `tests/test_agent_turn_route.py` | Route owning-boundary and failure/no-call behavior. |
 | Modify | `tests/test_live_query_hermes_graph.py` | Prove legacy packet-bound behavior unchanged. |
 | Modify | `tests/test_hermes_session_store.py` | Structured pointer continuity and legacy compatibility. |
+| Modify | `tests/test_hermes_agent_runtime.py` | Exercise the actual Hermes adapter mapping and no-graph tool/capability boundary. |
+| Modify | `tests/test_pydantic_ai_agent_runtime.py` | Exercise the actual PydanticAI adapter mapping and no-graph tool/capability boundary. |
+| Modify | `tests/test_hermes_graph_agent.py` | Exercise worker mode validation, conversation-only dispatch/tool surface, and preserved graph-policy rejection behavior. |
+| Modify | `tests/test_hermes_graph_agent_host.py` | Exercise conversation-only mode through the existing host serialization/worker seam. |
 | Modify | `Docs/Roadmaps/ROADMAP-demo.md` | Backward sync #789; record backend status/evidence, current visual rejection, and mandatory all-six-surface successor. |
 | Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` | Byte-identical roadmap mirror. |
 | Modify | `Docs/Plans/HANDOFF-DEMO-J2-world-plan-canvas-composition-v1.md` | Record #789 complete from accepted review/head/merge while preserving visual judgment as unaccepted. |
@@ -117,6 +133,7 @@ No bounded-discovery exception. Any production path outside this exact lease is 
 | Plan edits, graph writes, extraction, tool/action execution, generation tools | Generic endpoint is conversation/retrieval only. |
 | Plan canvas styling and visual redesign | Explicit product-owner rejection remains open and separate; this implementation does not claim visual acceptance. |
 | Persistent DBs, C1/C2/Of Conks corpus, live providers/API credentials | Not needed; tests use deterministic fakes and disposable temp roots only. |
+| New provider/runtime engine, model selection or fallback, dependency/SDK change, graph writes/actions | Forbidden. Reuse the selected runtime and existing process-isolated Hermes host; conversation-only means no graph tools/authority, not a new capability surface. |
 
 PR #790 remains open and design-only. This implementation PR is authorized from current `main` with the exact reviewed decisions copied into this handoff; it is not a Git-stacked branch on #790. The semantic dependency is explicit and PRIME owns coordination of the two PRs. Do not merge either PR autonomously.
 
@@ -150,7 +167,8 @@ PR #790 remains open and design-only. This implementation PR is authorized from 
 |---|---|---|---|
 | Strict request shape and independent statuses | Pydantic model/service | Unknown/oversized/malformed values rejected; null distinct from malformed. | Silent default or field coercion. |
 | No-scope Index does not load packet | API route + service | Force `load_session()`/packet loader to raise; ordinary fake-runtime answer succeeds and pointer persistence still works under temp `session_dir()`. | Any packet/session dependency. |
-| World Plan and campaign Plan focus | Resolver/service | Managed World Plan focus none/no campaign anchor; verified parent-World campaign Plan preserves exact saved campaign/session; mismatch rejected. | Guessing session, alias or campaign, or broadening owner. |
+| World Plan focus | Resolver/service | Verified World Plan resolves current committed revision, no target session means focus none, and any target session uses the canonical ID derived from the server-resolved integer record and rejects mismatches. | Guessing from caller data or broadening owner. |
+| Campaign-owner and campaign-lens graph requests | Explicit accepted authority dependency | Typed fail-closed unavailable; no answer model call; campaign→World membership is not supplied by this baseline. This row is **deferred/HOLD**, not a PASS. | Treating a campaign ID, legacy SourceArtifact fallback, URL, or client map as its parent World. |
 | Saved work freshness | Service | Current revision differs from expected; actual committed revision returned with `changed_since_expected`; no draft/body access. | Answer mislabeled at older revision. |
 | Graph outcomes and answer-call policy | Runtime/service/route | Valid empty/not-found may call ungrounded; foreign/unavailable/unreadable pin does not call answer model. | Any fallback to another lens/head. |
 | Structured provider pointer isolation | Pointer store/service | Same key reuse; changed owner/work fresh; legacy pointer bytes untouched/no generic read. | Cross-key continuity or legacy auto-adoption. |
@@ -159,6 +177,29 @@ PR #790 remains open and design-only. This implementation PR is authorized from 
 | Lease and authority sync | Cumulative PR diff | Only §4 paths; root/mirror byte-identical; #789 recorded truthful; no visual PASS claimed. | Unleased path or stale/overclaimed state. |
 
 Exact focused commands must be added in the implementation PR after inspecting repository conventions. At minimum run the four named Python test modules, scoped Ruff for changed Python files, relevant full application route tests, and `git diff --check`; report inherited base failures by same-command base/head comparison.
+
+### Implementation verification record
+
+The bounded request/service/adapter suite passed on the implementation branch:
+
+```bash
+PYTHONPATH=src:. /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/.venv/bin/pytest -q \
+  tests/test_agent_turn_route.py \
+  tests/test_agent_turn_service.py \
+  tests/test_agent_context_assembler.py \
+  tests/test_hermes_agent_runtime.py \
+  tests/test_hermes_session_store.py
+# 29 passed
+
+PYTHONPATH=src:. /home/drakosfire/Projects/DungeonOverMind/DungeonMindBuddy/.venv/bin/pytest -q \
+  tests/test_hermes_graph_agent.py::test_explicit_conversation_only_worker_turn_has_no_graph_or_tools \
+  tests/test_hermes_graph_agent.py::test_no_scope_request_without_explicit_conversation_policy_fails_closed \
+  tests/test_hermes_graph_agent_host.py::test_conversation_only_request_round_trips_without_graph_authority \
+  tests/test_pydantic_ai_agent_runtime.py::test_no_scope_turn_uses_real_adapter_without_graph_tools_or_grounding_claims
+# 4 passed
+```
+
+Scoped Ruff, `git diff --check`, and the byte-identical roadmap mirror comparison passed. The route test mounts the `/api/live` router and asserts exactly one new Agent turn route plus exactly one legacy query route. The requested full `create_app()` route-table test cannot currently collect: importing the unchanged app fails because this environment's installed DungeonMind package lacks `dungeonmind.application.vnext`. The same import failure was reproduced at the exact dispatch base, before this implementation; `main.py` is unchanged. Thus full-application route composition remains an inherited environment limitation, not a claimed PASS. No provider call, live database write, persistent state mutation, or UI edit was used for these checks.
 
 No paid/live smoke: deterministic fake runtime and isolated temp files are sufficient for this backend baseline. No model calls, live DB writes, or browser UI changes.
 

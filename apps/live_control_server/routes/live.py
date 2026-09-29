@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, ValidationError
 
+from apps.live_control_server.routes.agent import router as agent_turn_router
 from apps.live_control_server.config import repo_root, session_dir
 from apps.live_control_server.services.world_container_registry import (
     WorldContainerRegistryError,
@@ -176,6 +177,8 @@ from apps.live_control_server.services.statblock_workbench import (
 )
 
 router = APIRouter(prefix="/api/live", tags=["live"])
+router.include_router(agent_turn_router)
+
 INSPECTABLE_TARGET_TYPE = Literal["event", "roll_table"]
 FORBIDDEN_PATH_QUERY_FIELDS = frozenset(
     {"source_path", "file_path", "path", "absolute_path", "relative_path"}

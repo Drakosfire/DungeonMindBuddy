@@ -13,9 +13,13 @@ from apps.live_control_server.services.agent_context_assembler import (
     CONTEXT_SUMMARY_KEYS,
     CONTEXT_SUMMARY_SCHEMA,
     AgentContextAssemblyError,
+    assemble_agent_conversation_context,
     assemble_agent_graph_context,
 )
-from apps.live_control_server.services.agent_runtime import WORLD_GRAPH_READ_POLICY
+from apps.live_control_server.services.agent_runtime import (
+    CONVERSATION_ONLY_POLICY,
+    WORLD_GRAPH_READ_POLICY,
+)
 from apps.live_control_server.services.hermes_graph_query import (
     HermesGraphQueryRequestError,
     build_hermes_graph_turn_request,
@@ -60,6 +64,45 @@ def _assert_summary_privacy(summary: dict[str, Any], *secrets: str) -> None:
     assert summary["context_schema"] == CONTEXT_SUMMARY_SCHEMA
     for value in summary.values():
         assert value is None or isinstance(value, (str, int, bool))
+
+
+def test_conversation_only_assembly_has_no_graph_or_retrieval_authority() -> None:
+    assembly = assemble_agent_conversation_context(
+        question=SECRET_QUESTION,
+        conversation_history=[
+            {"role": "user", "content": SECRET_HISTORY},
+            {"role": "assistant", "content": "prior answer"},
+        ],
+        runtime_session_id="continuity-session-only",
+        thread_id="thread-only",
+        turn_id="turn-only",
+    )
+
+    invocation = assembly.invocation
+    assert invocation.message == SECRET_QUESTION
+    assert invocation.thread_id == "thread-only"
+    assert invocation.turn_id == "turn-only"
+    assert invocation.context_packet.world_scope is None
+    assert invocation.context_packet.retrieval_session is None
+    assert invocation.capability_policy == CONVERSATION_ONLY_POLICY
+    assert invocation.capability_policy.policy_id != WORLD_GRAPH_READ_POLICY.policy_id
+    assert invocation.conversation_history == [
+        {"role": "user", "content": SECRET_HISTORY},
+        {"role": "assistant", "content": "prior answer"},
+    ]
+    assert invocation.run_options.runtime_session_id == "continuity-session-only"
+
+    summary = dict(assembly.trace_summary)
+    assert summary["world_id"] is None
+    assert summary["campaign_id"] is None
+    assert summary["revision_id"] is None
+    assert summary["focus_kind"] == "none"
+    assert summary["retrieval_session_id"] is None
+    assert summary["retrieval_candidate_count"] == 0
+    assert summary["runtime_continuity_present"] is True
+    assert summary["history_message_count"] == 2
+    assert summary["history_char_count"] == len(SECRET_HISTORY) + len("prior answer")
+    _assert_summary_privacy(summary, SECRET_QUESTION, SECRET_HISTORY)
 
 
 def test_world_scope_and_invocation_parity(tmp_path: Path) -> None:

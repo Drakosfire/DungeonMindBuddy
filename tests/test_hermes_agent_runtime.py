@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.services.agent_runtime import (
+    CONVERSATION_ONLY_POLICY,
     HERMES_RUNTIME_DESCRIPTOR,
     UNSUPPORTED_CAPABILITY_POLICY,
     WORLD_GRAPH_READ_POLICY,
@@ -249,6 +250,43 @@ def test_adapter_preserves_managed_world_scope_without_campaign() -> None:
     assert request.capability_policy is not None
     assert request.capability_policy.graph_scope.scope_mode == "world"
     assert request.capability_policy.graph_scope.campaign_id == ""
+
+
+def test_no_scope_invocation_maps_to_explicit_toolless_conversation_turn() -> None:
+    invocation = _invocation(
+        context_packet=AgentContextPacket(world_scope=None, retrieval_session=None),
+        capability_policy=CONVERSATION_ONLY_POLICY,
+        run_options=AgentRunOptions(runtime_session_id="provider-session"),
+    )
+    request = map_invocation_to_hermes_request(invocation)
+    assert request.world_id is None
+    assert request.campaign_id is None
+    assert request.scope_mode is None
+    assert request.focus is None
+    assert request.revision_pin is None
+    assert request.retrieval_session is None
+    assert request.retrieval_session_id is None
+    assert request.session_id == "provider-session"
+    assert request.capability_policy is not None
+    assert request.capability_policy.mode == "conversation_only"
+    assert request.capability_policy.graph_scope is None
+    assert request.capability_policy.enabled_toolsets == ()
+    assert request.capability_policy.enabled_tool_names == ()
+
+    result = HermesGraphAgentTurnResult(
+        status="ok",
+        final_response="Hello.",
+        messages=[],
+        hermes_session_id="provider-session-next",
+        tool_events=[],
+        answer_scope=None,
+    )
+    host = _FakeHost(result)
+    adapted = HermesAgentRuntimeAdapter(host_factory=lambda: host).run(invocation)
+    assert len(host.calls) == 1
+    assert adapted.status == "ok"
+    assert adapted.answer_scope is None
+    assert adapted.tool_events == []
 
 
 def test_error_host_result_keeps_partial_telemetry() -> None:

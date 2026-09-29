@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from apps.live_control_server.services.agent_runtime import (
+    CONVERSATION_ONLY_POLICY_ID,
     HERMES_RUNTIME_DESCRIPTOR,
     UNSUPPORTED_CAPABILITY_POLICY,
     WORLD_GRAPH_READ_POLICY_ID,
@@ -32,6 +33,7 @@ from apps.live_control_server.services.hermes_graph_agent_host import (
 )
 from graph_memory.hermes_graph_plugin import (
     HermesGraphScope,
+    default_conversation_only_capability_policy,
     default_graph_only_capability_policy,
 )
 
@@ -99,15 +101,33 @@ def map_invocation_to_hermes_request(
     invocation: AgentRuntimeInvocation,
 ) -> HermesGraphAgentTurnRequest:
     world_scope = invocation.context_packet.world_scope
-    host_focus = _api_focus_to_host_focus(world_scope.focus)
-    graph_scope = HermesGraphScope(
-        world_id=world_scope.world_id,
-        campaign_id=world_scope.campaign_id,
-        scope_mode=world_scope.scope_mode,
-        focus=host_focus,
-        admissibility=world_scope.admissibility,
-        revision_pin=world_scope.revision_id,
-    )
+    if world_scope is None:
+        if (
+            invocation.capability_policy.policy_id != CONVERSATION_ONLY_POLICY_ID
+            or invocation.context_packet.retrieval_session is not None
+        ):
+            raise ValueError("no-scope turn requires conversation-only policy and no retrieval session")
+        host_focus = None
+        capability_policy = default_conversation_only_capability_policy()
+        world_id = campaign_id = scope_mode = admissibility = revision_pin = None
+    else:
+        if invocation.capability_policy.policy_id != WORLD_GRAPH_READ_POLICY_ID:
+            raise ValueError("graph scope requires the graph-read capability policy")
+        host_focus = _api_focus_to_host_focus(world_scope.focus)
+        graph_scope = HermesGraphScope(
+            world_id=world_scope.world_id,
+            campaign_id=world_scope.campaign_id,
+            scope_mode=world_scope.scope_mode,
+            focus=host_focus,
+            admissibility=world_scope.admissibility,
+            revision_pin=world_scope.revision_id,
+        )
+        capability_policy = default_graph_only_capability_policy(graph_scope)
+        world_id = world_scope.world_id
+        campaign_id = world_scope.campaign_id
+        scope_mode = world_scope.scope_mode
+        admissibility = world_scope.admissibility
+        revision_pin = world_scope.revision_id
     retrieval = invocation.context_packet.retrieval_session
     history = (
         [{"role": item["role"], "content": item["content"]} for item in invocation.conversation_history]
@@ -121,16 +141,16 @@ def map_invocation_to_hermes_request(
     )
     return HermesGraphAgentTurnRequest(
         question=invocation.message,
-        world_id=world_scope.world_id,
-        campaign_id=world_scope.campaign_id,
-        scope_mode=world_scope.scope_mode,
+        world_id=world_id,
+        campaign_id=campaign_id,
+        scope_mode=scope_mode,
         focus=host_focus,
-        admissibility=world_scope.admissibility,
-        revision_pin=world_scope.revision_id,
+        admissibility=admissibility,
+        revision_pin=revision_pin,
         conversation_history=history,
         session_id=invocation.run_options.runtime_session_id,
         root=root,
-        capability_policy=default_graph_only_capability_policy(graph_scope),
+        capability_policy=capability_policy,
         retrieval_session_id=None if retrieval is None else retrieval.session_id,
         retrieval_session=None if retrieval is None else retrieval.packet,
         surface_context_block=surface_context_block,
@@ -179,7 +199,11 @@ class HermesAgentRuntimeAdapter:
 
     def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
         policy_id = invocation.capability_policy.policy_id
-        if policy_id != WORLD_GRAPH_READ_POLICY_ID:
+        world_scope = invocation.context_packet.world_scope
+        expected_policy = (
+            CONVERSATION_ONLY_POLICY_ID if world_scope is None else WORLD_GRAPH_READ_POLICY_ID
+        )
+        if policy_id != expected_policy:
             return _unsupported_policy_result(policy_id)
         request = map_invocation_to_hermes_request(invocation)
         host = self._host_factory()

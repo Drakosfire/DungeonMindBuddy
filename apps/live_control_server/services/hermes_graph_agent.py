@@ -90,6 +90,12 @@ from graph_memory.retrieval.models import (
 HermesGraphAgentStatus = Literal["ok", "error"]
 
 _RUNTIME_LOCK = threading.RLock()
+_CONVERSATION_ONLY_SYSTEM_POLICY = (
+    "You are DungeonBuddy's conversational assistant. Respond using only the "
+    "conversation context provided. You have no World graph, retrieval tools, "
+    "external action tools, or retrieved evidence; do not claim to have searched "
+    "or verified campaign facts."
+)
 
 _MAX_FOCUS_KIND_CHARS = 64
 _MAX_FOCUS_SESSION_ID_CHARS = 128
@@ -189,6 +195,8 @@ def _resolve_capability_policy(
 ) -> HermesCapabilityPolicy:
     if request.capability_policy is not None:
         return request.capability_policy
+    if request.world_id is None or request.campaign_id is None or request.scope_mode is None:
+        raise ValueError("no-scope turns require an explicit conversation-only capability policy")
     focus = (
         dict(request.focus)
         if request.focus is not None
@@ -244,6 +252,8 @@ def _scope_block(
     retrieval_session: Mapping[str, Any] | None = None,
 ) -> str:
     scope = policy.graph_scope
+    if scope is None:
+        raise ValueError("graph capability policy requires graph scope")
     payload: dict[str, Any] = {
         "worldId": scope.world_id,
         "campaignId": scope.campaign_id,
@@ -286,6 +296,11 @@ def _build_ephemeral_system_prompt(
     *,
     retrieval_session_packet: Mapping[str, Any] | None,
 ) -> str:
+    if policy.mode == "conversation_only":
+        parts = [_CONVERSATION_ONLY_SYSTEM_POLICY]
+        if request.surface_context_block:
+            parts.append(request.surface_context_block)
+        return "\n\n".join(parts)
     scope_part = _scope_block(
         policy,
         retrieval_session_id=request.retrieval_session_id,
@@ -614,6 +629,14 @@ class _ToolEventCollector:
 
     def _authoritative_scope_fields(self) -> dict[str, Any]:
         scope = self._scope
+        if scope is None:
+            return {
+                "world_id": None,
+                "campaign_id": None,
+                "focus": None,
+                "admissibility": None,
+                "revision_pin": None,
+            }
         return {
             "world_id": str(scope.world_id),
             "campaign_id": str(scope.campaign_id),
@@ -843,18 +866,41 @@ def run_hermes_graph_agent_turn(
             error_code="invalid_request",
             error_message="Hermes graph-agent turn requires a non-empty question.",
         )
-    if (
-        not str(request.world_id or "").strip()
+    try:
+        policy = _resolve_capability_policy(request)
+    except ValueError:
+        return _error_result(
+            hermes_session_id=session_id,
+            error_code="invalid_request",
+            error_message="Hermes turn requires a valid graph scope or explicit conversation-only policy.",
+        )
+    if policy.mode == "conversation_only":
+        if (
+            request.world_id is not None
+            or request.campaign_id is not None
+            or request.scope_mode is not None
+            or request.focus is not None
+            or request.admissibility is not None
+            or request.revision_pin is not None
+            or request.retrieval_session_id is not None
+            or request.retrieval_session is not None
+        ):
+            return _error_result(
+                hermes_session_id=session_id,
+                error_code="invalid_request",
+                error_message="Conversation-only turns cannot carry graph scope or retrieval.",
+            )
+    elif (
+        policy.mode != "graph"
+        or not str(request.world_id or "").strip()
         or request.scope_mode not in {"campaign", "world"}
         or (request.scope_mode == "campaign" and not str(request.campaign_id or "").strip())
     ):
         return _error_result(
             hermes_session_id=session_id,
             error_code="invalid_request",
-            error_message="Hermes graph-agent turn requires valid worldId, campaignId and scopeMode.",
+            error_message="Graph turns require valid worldId, campaignId and scopeMode.",
         )
-
-    policy = _resolve_capability_policy(request)
     structure_error = validate_capability_policy_structure(policy)
     if structure_error is not None:
         return _error_result(

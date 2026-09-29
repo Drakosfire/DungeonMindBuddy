@@ -8,11 +8,13 @@ import json
 from pathlib import Path
 from typing import Any
 
+import pytest
 from pydantic_ai.messages import ModelResponse, TextPart, ToolCallPart, UserPromptPart
 from pydantic_ai.models.function import FunctionModel
 from pydantic_ai.usage import RequestUsage
 
 from apps.live_control_server.services.agent_runtime import (
+    CONVERSATION_ONLY_POLICY,
     UNSUPPORTED_CAPABILITY_POLICY,
     WORLD_GRAPH_READ_POLICY,
     AgentCapabilityPolicy,
@@ -281,6 +283,48 @@ def test_agent_instructions_reuse_graph_system_policy_and_scope_packet() -> None
     assert expected in blob
     assert GRAPH_SYSTEM_POLICY in blob
     assert '"retrievalSessionId": "retrieval-sess-1"' in blob
+
+
+def test_no_scope_turn_uses_real_adapter_without_graph_tools_or_grounding_claims(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    invocation = _invocation(
+        context_packet=AgentContextPacket(world_scope=None, retrieval_session=None),
+        capability_policy=CONVERSATION_ONLY_POLICY,
+        run_options=AgentRunOptions(runtime_session_id="provider-only-session"),
+    )
+    instructions = pydantic_ai_agent_instructions(invocation)
+    assert "no World graph" in instructions
+    assert GRAPH_SYSTEM_POLICY not in instructions
+
+    captured: dict[str, Any] = {}
+
+    class AgentStub:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+        def run_sync(self, _message: str, *, message_history: Any) -> Any:
+            captured["message_history"] = message_history
+            return type("RunResult", (), {"output": "Hello."})()
+
+    from apps.live_control_server.services import pydantic_ai_agent_runtime as runtime_module
+
+    monkeypatch.setattr(runtime_module, "Agent", AgentStub)
+    model, _model_state = _scripted_model([])
+    executor = _RecordingExecutor()
+    adapter = PydanticAIAgentRuntimeAdapter(
+        model_factory=lambda _model_id: model,
+        tool_executor=executor,
+        resolved_model_id="gpt-5.4-mini",
+    )
+    result = adapter.run(invocation)
+    assert result.status == "ok"
+    assert result.final_text == "Hello."
+    assert result.answer_scope is None
+    assert result.tool_events == []
+    assert executor.calls == []
+    assert captured["tools"] == []
+    assert "no World graph" in captured["instructions"]
 
 
 def test_unsupported_policy_fails_closed_before_model_or_tools() -> None:

@@ -25,6 +25,7 @@ from apps.live_control_server.services.agent_graph_policy import (
     resolve_agent_graph_openai_inference,
 )
 from apps.live_control_server.services.agent_runtime import (
+    CONVERSATION_ONLY_POLICY_ID,
     UNSUPPORTED_CAPABILITY_POLICY,
     WORLD_GRAPH_READ_POLICY_ID,
     AgentRuntimeDescriptor,
@@ -148,6 +149,8 @@ def inject_authoritative_tool_args(
     scope = invocation.context_packet.world_scope
     retrieval = invocation.context_packet.retrieval_session
     if tool_name == QUERY_THREAT_MECHANICS_HYDRATION_TOOL_NAME:
+        if scope is None:
+            raise ValueError("Threat hydration requires an authoritative graph scope")
         args["worldId"] = scope.world_id
         args["campaignId"] = scope.campaign_id
         args["revisionPin"] = scope.revision_id
@@ -183,6 +186,12 @@ def _scope_capability_packet(invocation: AgentRuntimeInvocation) -> str:
     """PydanticAI-truthful scope/capability packet. Not a second behavioral policy."""
     scope = invocation.context_packet.world_scope
     retrieval = invocation.context_packet.retrieval_session
+    if scope is None:
+        return (
+            "Turn capability policy (runtime-enforced).\n"
+            "Mode: conversation_only. No World scope, graph retrieval session, graph tools, "
+            "or authority to claim retrieved grounding is available."
+        )
     payload: dict[str, Any] = {
         "worldId": scope.world_id,
         "campaignId": scope.campaign_id,
@@ -218,7 +227,15 @@ def _scope_capability_packet(invocation: AgentRuntimeInvocation) -> str:
 
 def pydantic_ai_agent_instructions(invocation: AgentRuntimeInvocation) -> str:
     """Accepted DMB graph-Agent policy plus a truthful PydanticAI scope packet."""
-    base = f"{GRAPH_SYSTEM_POLICY}\n\n{_scope_capability_packet(invocation)}"
+    if invocation.context_packet.world_scope is None:
+        base = (
+            "You are DungeonBuddy's conversational assistant. Respond to the user's "
+            "message using only the conversation context provided. You have no World "
+            "graph, retrieval tools, external action tools, or retrieved evidence; do not "
+            "claim to have searched or verified campaign facts."
+        )
+    else:
+        base = f"{GRAPH_SYSTEM_POLICY}\n\n{_scope_capability_packet(invocation)}"
     surface_block = render_agent_surface_context(invocation.context_packet.surface_context)
     if surface_block:
         return f"{base}\n\n{surface_block}"
@@ -252,6 +269,8 @@ class _TurnCollector:
 
     def _scope_attributes(self, args: Mapping[str, Any]) -> dict[str, Any]:
         scope = self.invocation.context_packet.world_scope
+        if scope is None:
+            return {"bounded_ids": _safe_ids_from_args(dict(args))}
         return {
             "world_id": scope.world_id,
             "campaign_id": scope.campaign_id,
@@ -476,7 +495,12 @@ class PydanticAIAgentRuntimeAdapter:
 
     def run(self, invocation: AgentRuntimeInvocation) -> AgentRuntimeResult:
         policy_id = invocation.capability_policy.policy_id
-        if policy_id != WORLD_GRAPH_READ_POLICY_ID:
+        scope = invocation.context_packet.world_scope
+        retrieval = invocation.context_packet.retrieval_session
+        if scope is None:
+            if policy_id != CONVERSATION_ONLY_POLICY_ID or retrieval is not None:
+                return _unsupported_policy_result(policy_id)
+        elif policy_id != WORLD_GRAPH_READ_POLICY_ID:
             return _unsupported_policy_result(policy_id)
 
         if self._model_factory is None:
@@ -497,7 +521,7 @@ class PydanticAIAgentRuntimeAdapter:
         collector = _TurnCollector(invocation)
         observing = ObservingModel(wrapped, collector)
         root = invocation.run_options.execution_root
-        tools = [
+        tools = [] if scope is None else [
             _make_tool(
                 definition=definition,
                 invocation=invocation,

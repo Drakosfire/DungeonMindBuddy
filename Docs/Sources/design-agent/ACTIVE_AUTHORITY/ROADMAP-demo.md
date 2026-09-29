@@ -71,9 +71,12 @@ acceptance. Buddy #789 completed the bounded World Plan canvas composition and
 merged to `main` at `ed1bf1ba0531bf9018f2397863825fa20c781bfe` from reviewed
 code head `7e4fb73d5a553b58bd1350c9c0ded653ef97b2e0`. The shared canvas, editing
 tools, and truthful World/document context are now integrated. The operator's
-exact product judgment remains a rejection: the Plan still looks generic,
-defaults-heavy, and without a perceptible canvas boundary. That visual
-acceptance debt is not waived by composition tests or merge and remains open.
+exact product judgment remains a rejection: the Plan looks generic and
+defaults-heavy. The outer canvas wrapper has a thin border, but the actual
+writing surface has no distinct, perceptible boundary and reads like default
+editor styling. The visual acceptance debt is not waived by composition tests
+or merge and remains open; a successor must establish a clear writing surface,
+not merely add another border around the existing outer card.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
@@ -391,13 +394,16 @@ Buddy can admit the exact saved source snapshot to native World source authority
 it does not yet establish extracted assertions, governed assertion publication,
 ordinary Agent read/citation, or J3 completion. World-owned blank Plan and
 shared-canvas composition code are integrated via #788/#789, but Plan visual
-acceptance remains rejected. The active universal Agent backend baseline is
-specified by the accepted #790 design and the ACTIVE handoff above; that
-read-only conversation/retrieval capability does not write graph knowledge or
-close J3. After the backend baseline and separately activated six-surface
-adoption are reviewed, re-anchor and define the next bounded capability for
-governed knowledge creation and ordinary read-after-write. The old #785
-serial-lane blocker is historical and no longer active.
+acceptance remains rejected. The active Agent backend baseline is specified
+by the accepted #790 design and the ACTIVE implementation handoff above. Its
+first bounded implementation supports explicit no-graph conversation and
+verified World-scoped reads; it does not write graph knowledge or close J3.
+Campaign-owner/campaign-lens reads remain fail-closed until Buddy accepts a
+campaign→World membership authority; do not infer membership from IDs, artifact
+fallbacks, or UI state. After the backend baseline and separately activated
+six-surface adoption are reviewed, re-anchor and define the next bounded
+capability for governed knowledge creation and ordinary read-after-write. The
+old #785 serial-lane blocker is historical and no longer active.
 
 **Inherited evidence:** PLAY-1 #773 and accepted isolated persistent PLAY-2
 #779; PLAY-3 is not dispatched; V6.2 adapter; WorldKeeper #7/#8; CR-U4–U7.
