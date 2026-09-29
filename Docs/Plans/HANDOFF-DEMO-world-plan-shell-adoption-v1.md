@@ -110,8 +110,8 @@ Then obtain one real amended-product witness at desktop and 390×844 on blank an
 
 ### Implementation candidate evidence (2026-09-29)
 
-- The exact §7 focused command completed with **111 passed** across `PlanSurfacePage.test.tsx`, the new mounted `PlanSurfacePage.editHost.test.tsx`, and `PlanSurfaceShell.test.tsx`.
-- The real AppChrome/EditHost tests verify opaque World identity, legacy local-draft migration/reload, actionable visible recovery, one matching edit inventory, and local-token → exact server-document promotion across publication identity and commands.
+- The exact §7 focused command completed with **112 passed** across `PlanSurfacePage.test.tsx`, the mounted `PlanSurfacePage.editHost.test.tsx`, and `PlanSurfaceShell.test.tsx`.
+- The real AppChrome/EditHost tests verify opaque World identity, fresh empty-storage token creation/persistence through first edit and reload, legacy local-draft migration/reload, actionable visible recovery, one matching edit inventory, and local-token → exact server-document promotion across publication identity and commands.
 - `git diff --check` passes. `npm run typecheck` and `npm run build` both stop at the existing out-of-lease error `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503: Cannot find namespace 'JSX'`; no files in the statblock domain were changed.
 - No live product/viewport witness was attempted: the §5 PRIME runtime-owner authorization remains required and this isolated shell lane has no server or graph-write ownership.
 

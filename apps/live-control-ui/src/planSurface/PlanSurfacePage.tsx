@@ -245,11 +245,11 @@ function persistWorldPlanLocalDraft(
 
 function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName: string }) {
   const [localDraft] = useState(() => readWorldPlanLocalDraft(worldId));
-  const [localDraftId, setLocalDraftId] = useState<string | null>(() =>
-    localDraft?.document_id === null ? localDraft.local_draft_id ?? createWorldPlanLocalDraftId() : null,
-  );
   const [initialDocumentId] = useState(() =>
     new URLSearchParams(window.location.search).get("documentId")?.trim() || localDraft?.document_id || null,
+  );
+  const [localDraftId, setLocalDraftId] = useState<string | null>(() =>
+    initialDocumentId === null ? localDraft?.local_draft_id ?? createWorldPlanLocalDraftId() : null,
   );
   const [records, setRecords] = useState<WorldOwnedPlanRecordV2[]>([]);
   const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);

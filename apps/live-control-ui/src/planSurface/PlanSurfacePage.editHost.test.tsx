@@ -228,3 +228,64 @@ it("promotes the mounted EditHost inventory from its local token to the exact sa
   });
   expect(JSON.parse(localStorage.getItem(storageKey) ?? "null").local_draft_id).toBeNull();
 });
+
+it("assigns a fresh blank World a stable local identity on its first edit and reload", async () => {
+  const locationSnapshot = `/plan?world=${encodeURIComponent(worldId)}`;
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue({
+    schema_version: "dmb_managed_world_plan_context_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    campaign_id: null,
+    session: null,
+    authoritative: false,
+    generated_at: "2026-01-01T00:00:00Z",
+    derived_from: ["managed_world_container"],
+    timeline: [],
+  });
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{ schema_version: "dmb_world_container_record_v1", world_id: worldId, name: "Of Conks", source_root_relpath: "corpus/of-conks", created_at: "2026-01-01T00:00:00Z" }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [],
+  });
+  window.history.replaceState({}, "", locationSnapshot);
+  const mount = () => render(
+    <SurfaceContextProvider>
+      <PeekRegionProvider>
+        <AgentInteractionProvider>
+          <SelectedWorldProvider locationSnapshot={locationSnapshot}>
+            <PublicationProbe />
+            <PlanSurfacePage />
+          </SelectedWorldProvider>
+        </AgentInteractionProvider>
+      </PeekRegionProvider>
+    </SurfaceContextProvider>,
+  );
+
+  const first = mount();
+  await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Read aloud" })).toBeEnabled());
+  const publication = () => JSON.parse(screen.getByTestId("surface-publication").textContent ?? "null");
+  await waitFor(() => expect(publication().canvas.workObject.kind).toBe("world-plan-local-draft"));
+  const firstTarget = publication().canvas.workObject;
+  const firstTuple = JSON.parse(firstTarget.id);
+  expect(firstTuple).toEqual(["world-plan-local-draft", worldId, expect.any(String)]);
+  expect(firstTuple[2]).not.toBe("pending-local-draft");
+
+  fireEvent.click(screen.getByRole("button", { name: "Read aloud" }));
+  await waitFor(() => {
+    expect(JSON.parse(localStorage.getItem(storageKey) ?? "null").local_draft_id).toBe(firstTuple[2]);
+  });
+  first.unmount();
+
+  mount();
+  await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => {
+    expect(publication().canvas.workObject).toEqual(firstTarget);
+    expect(JSON.parse(localStorage.getItem(storageKey) ?? "null").local_draft_id).toBe(firstTuple[2]);
+  });
+});
