@@ -61,6 +61,7 @@ import type {
   WorkspaceDocumentSnapshot,
   NativeWorldSourceAdmissionStatus,
   WorkspaceCommittedRevision,
+  WorldOwnedCommittedRevisionV2,
   PlayActiveRunState,
   PlayRunRecord,
   PlayRunsListResponse,
@@ -1753,6 +1754,17 @@ export async function getCommittedWorkspaceRevision(
   const encodedId = encodeURIComponent(documentId);
   const suffix = revisionN == null ? "" : `/${encodeURIComponent(String(revisionN))}`;
   return apiFetch<WorkspaceCommittedRevision>(
+    `/api/live/workspace-documents/${encodedId}/committed-revision${suffix}`,
+  );
+}
+
+export async function getWorldOwnedPlanCommittedRevision(
+  documentId: string,
+  revisionN?: number,
+): Promise<WorldOwnedCommittedRevisionV2> {
+  const encodedId = encodeURIComponent(documentId);
+  const suffix = revisionN == null ? "" : `/${encodeURIComponent(String(revisionN))}`;
+  return apiFetch<WorldOwnedCommittedRevisionV2>(
     `/api/live/workspace-documents/${encodedId}/committed-revision${suffix}`,
   );
 }

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field
 
 from apps.live_control_server.config import repo_root
@@ -25,7 +25,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     CreateWorldOwnedPlanRequestV2,
     WorldOwnedPlanRecordV2,
     WorldOwnedPlansResponseV2,
-    WorkspaceCommittedRevision,
+    WorkspaceCommittedRevisionAny,
     WorkspaceDocumentsListResponse,
     _UNSET,
     create_workspace_document,
@@ -50,7 +50,7 @@ class NativeWorldSourceAdmissionRequest(BaseModel):
     expected_body_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
 
 
-def _record_response(record: WorkspaceDocumentRecord) -> dict[str, Any]:
+def _record_response(record: WorkspaceDocumentRecordAny) -> dict[str, Any]:
     return record.model_dump(mode="json")
 
 
@@ -100,7 +100,14 @@ def post_workspace_document(body: CreateWorkspaceDocumentRequest) -> dict[str, A
 )
 def get_world_owned_plans(
     world_id: Annotated[str, Query(min_length=1)],
+    request: Request,
 ) -> dict[str, Any]:
+    unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
+    if unsupported:
+        raise HTTPException(
+            status_code=422,
+            detail=f"World Plan inventory accepts only world_id; unsupported selectors: {', '.join(unsupported)}",
+        )
     try:
         return list_world_owned_plans_v2(repo_root(), world_id=world_id).model_dump(
             mode="json"
@@ -145,7 +152,7 @@ def get_workspace_document_snapshot_route(document_id: str) -> dict[str, Any]:
 
 @router.get(
     "/workspace-documents/{document_id}/committed-revision",
-    response_model=WorkspaceCommittedRevision,
+    response_model=WorkspaceCommittedRevisionAny,
 )
 def get_workspace_document_current_committed_revision(
     document_id: str,
@@ -159,7 +166,7 @@ def get_workspace_document_current_committed_revision(
 
 @router.get(
     "/workspace-documents/{document_id}/committed-revision/{revision_n}",
-    response_model=WorkspaceCommittedRevision,
+    response_model=WorkspaceCommittedRevisionAny,
 )
 def get_workspace_document_exact_committed_revision(
     document_id: str, revision_n: int
@@ -172,7 +179,7 @@ def get_workspace_document_exact_committed_revision(
 
 
 @router.patch(
-    "/workspace-documents/{document_id}", response_model=WorkspaceDocumentRecord
+    "/workspace-documents/{document_id}", response_model=WorkspaceDocumentRecordAny
 )
 def patch_workspace_document_metadata(
     document_id: str,
@@ -207,7 +214,7 @@ def patch_workspace_document_metadata(
 
 
 @router.post(
-    "/workspace-documents/{document_id}/discard", response_model=WorkspaceDocumentRecord
+    "/workspace-documents/{document_id}/discard", response_model=WorkspaceDocumentRecordAny
 )
 def post_workspace_document_discard(
     document_id: str,
@@ -225,7 +232,7 @@ def post_workspace_document_discard(
 
 
 @router.post(
-    "/workspace-documents/{document_id}/restore", response_model=WorkspaceDocumentRecord
+    "/workspace-documents/{document_id}/restore", response_model=WorkspaceDocumentRecordAny
 )
 def post_workspace_document_restore(
     document_id: str,

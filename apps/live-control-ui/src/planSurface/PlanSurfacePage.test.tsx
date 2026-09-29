@@ -18,12 +18,48 @@ vi.mock("./PlanSurfaceShell", () => ({
 
 const worldId = "of-conks-cons-demo";
 
+function worldPlanRecord(id: string, owner: string, revision = 1): WorldOwnedPlanRecordV2 {
+  return {
+    schema_version: "dmb_world_owned_plan_record_v2",
+    scope_mode: "world",
+    document_id: id,
+    title: "Plan",
+    campaign_id: null,
+    world_id: owner,
+    target_session: null,
+    kind: "plan",
+    target_relpath: `out/workspace/plan/${id}.md`,
+    status: "active",
+    content_status: "committed",
+    revision,
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+  };
+}
+
+function managedContext(owner: string) {
+  return {
+    schema_version: "dmb_managed_world_plan_context_v2" as const,
+    scope_mode: "world" as const,
+    world_id: owner,
+    campaign_id: null,
+    session: null,
+    authoritative: false,
+    generated_at: "2026-01-01T00:00:00Z",
+    derived_from: ["managed_world_container"],
+    timeline: [],
+  };
+}
+
 function VerifiedPlanPage() {
   const selected = useSelectedWorld();
   return selected.kind === "managed" ? <PlanSurfacePage /> : <span>{selected.kind}</span>;
 }
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  localStorage.clear();
+});
 
 it("saves a blank managed World Plan through the exact World-scoped V2 contract", async () => {
   localStorage.setItem(`dmb:world-plan-local-draft:v2:${worldId}`, JSON.stringify({
@@ -148,4 +184,254 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
   expect(getPlanView).not.toHaveBeenCalled();
   expect(liveApi.getManagedWorldPlanContext).toHaveBeenCalledWith(worldId);
   expect(screen.queryByTestId("plan-page-campaign")).not.toBeInTheDocument();
+});
+
+it("keeps a late World A create acknowledgement in A's recovery journal after navigating to World B", async () => {
+  const worldA = "world-a";
+  const worldB = "world-b";
+  const keyA = `dmb:world-plan-local-draft:v2:${worldA}`;
+  const keyB = `dmb:world-plan-local-draft:v2:${worldB}`;
+  localStorage.setItem(keyA, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldA,
+    document_id: null,
+    title: "A plan",
+    markdown: "# World A notes\n",
+    revision: null,
+  }));
+  localStorage.setItem(keyB, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldB,
+    document_id: null,
+    title: "B plan",
+    markdown: "# World B notes\n",
+    revision: null,
+  }));
+  let resolveCreate!: (record: WorldOwnedPlanRecordV2) => void;
+  const create = vi.spyOn(liveApi, "createWorldOwnedPlan").mockImplementation(() => new Promise((resolve) => {
+    resolveCreate = resolve;
+  }));
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("A-scoped continuation stopped"));
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockImplementation(async (id) => managedContext(id));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [worldA, worldB].map((id) => ({
+      schema_version: "dmb_world_container_record_v1" as const,
+      world_id: id,
+      name: id,
+      source_root_relpath: `corpus/${id}`,
+      created_at: "2026-01-01T00:00:00Z",
+    })),
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockImplementation(async (id) => ({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: id,
+    records: [],
+  }));
+  window.history.replaceState({}, "", `/plan?world=${worldA}`);
+  const view = render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldA}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await waitFor(() => expect(create).toHaveBeenCalledWith(expect.objectContaining({ world_id: worldA })));
+
+  window.history.replaceState({}, "", `/plan?world=${worldB}`);
+  view.rerender(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldB}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  await waitFor(() => expect(screen.getByLabelText("Plan title")).toHaveValue("B plan"));
+
+  resolveCreate(worldPlanRecord("created-in-a", worldA, 1));
+  await waitFor(() => {
+    const recoveredA = JSON.parse(localStorage.getItem(keyA) ?? "null");
+    expect(recoveredA.document_id).toBe("created-in-a");
+  });
+  expect(window.location.search).toBe(`?world=${worldB}`);
+  expect(JSON.parse(localStorage.getItem(keyB) ?? "null")).toMatchObject({
+    world_id: worldB,
+    document_id: null,
+    markdown: "# World B notes\n",
+  });
+  await waitFor(() => expect(prepare).toHaveBeenCalledWith(expect.objectContaining({ world_id: worldA })));
+  expect(commit).not.toHaveBeenCalled();
+});
+
+it("persists the prepared revision before commit and retries against that exact revision", async () => {
+  const documentId = "prepared-revision-plan";
+  const record = worldPlanRecord(documentId, worldId, 1);
+  const key = `dmb:world-plan-local-draft:v2:${worldId}`;
+  localStorage.setItem(key, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    title: "Plan",
+    markdown: "# Intended plan\n",
+    revision: 1,
+  }));
+  vi.spyOn(liveApi, "getWorkspaceDocumentAny").mockResolvedValue(record);
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{
+      schema_version: "dmb_world_container_record_v1",
+      world_id: worldId,
+      name: "Of Conks",
+      source_root_relpath: "corpus/of-conks-cons-demo-markdown",
+      created_at: "2026-01-01T00:00:00Z",
+    }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [record],
+  });
+  let snapshotCalls = 0;
+  vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockImplementation(async () => {
+    snapshotCalls += 1;
+    const revision = snapshotCalls === 1 ? 1 : 2;
+    return {
+      schema_version: "dmb_workspace_document_snapshot_v2",
+      record: { ...record, revision },
+      markdown: revision === 2 ? "# Intended plan\n" : "# Original\n",
+      content_sha256: "a".repeat(64),
+      file_fingerprint: "postgres",
+      file_exists: false,
+      loaded_revision: revision,
+    };
+  });
+  vi.spyOn(liveApi, "getWorldOwnedPlanCommittedRevision").mockResolvedValue({
+    schema_version: "dmb_workspace_committed_revision_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    kind: "plan",
+    campaign_id: null,
+    title: "Plan",
+    status: "active",
+    object_revision: 1,
+    work_revision_id: "revision-1",
+    revision_n: 1,
+    markdown: "# Original\n",
+    content_sha256: "a".repeat(64),
+    has_divergent_working_copy: true,
+    target_relpath: record.target_relpath,
+  });
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockImplementation(async (request) => ({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    title: "Plan",
+    target_relpath: record.target_relpath!,
+    target_display_path: record.target_relpath!,
+    registry_revision: request.expected_revision + 1,
+    file_exists: false,
+    writer_ok: true,
+    writer_confirm_token: `token-${request.expected_revision + 1}`,
+    warnings: [],
+    diagnostics: [],
+  }));
+  let resolveCommit!: (value: Awaited<ReturnType<typeof liveApi.commitWorldOwnedPlanMarkdownWrite>>) => void;
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite")
+    .mockRejectedValueOnce(new Error("commit response failed"))
+    .mockImplementationOnce(() => new Promise((resolve) => { resolveCommit = resolve; }));
+  const commitReceipt = {
+      schema_version: "dmb_tiptap_markdown_write_commit_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: documentId,
+      title: "Plan",
+      target_relpath: record.target_relpath!,
+      target_display_path: record.target_relpath!,
+      registry_revision: 4,
+      committed_revision: 3,
+      committed_record: { ...record, revision: 3 },
+      normalized_content_sha256: "b".repeat(64),
+      writer_ok: true,
+      writer_phase: "commit",
+      diagnostics: [],
+  } satisfies Awaited<ReturnType<typeof liveApi.commitWorldOwnedPlanMarkdownWrite>>;
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${documentId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await screen.findByText("commit response failed");
+  expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
+    revision: 2,
+    pending_write: { phase: "commit", base_revision: 1, prepared_revision: 2 },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await waitFor(() => expect(commit).toHaveBeenCalledTimes(2));
+  fireEvent.change(screen.getByLabelText("Plan title"), { target: { value: "Newer title edit" } });
+  const journalWhileCommitPending = JSON.parse(localStorage.getItem(key) ?? "null");
+  expect(journalWhileCommitPending.title).toBe("Newer title edit");
+  resolveCommit(commitReceipt);
+  await screen.findByText("Saved to this World.");
+  expect(JSON.parse(localStorage.getItem(key) ?? "null")).toMatchObject({
+    title: "Newer title edit",
+    pending_write: null,
+  });
+  expect(prepare.mock.calls.map(([request]) => request.expected_revision)).toEqual([1, 2]);
+  expect(commit.mock.calls.map(([request]) => request.expected_revision)).toEqual([2, 3]);
+});
+
+it("blocks a duplicate create after an unknown create outcome until recovery refresh", async () => {
+  localStorage.setItem(`dmb:world-plan-local-draft:v2:${worldId}`, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: null,
+    title: "Plan",
+    markdown: "# Plan\n",
+    revision: null,
+  }));
+  const create = vi.spyOn(liveApi, "createWorldOwnedPlan").mockRejectedValue(new Error("network lost"));
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{
+      schema_version: "dmb_world_container_record_v1",
+      world_id: worldId,
+      name: "Of Conks",
+      source_root_relpath: "corpus/of-conks-cons-demo-markdown",
+      created_at: "2026-01-01T00:00:00Z",
+    }],
+  });
+  const inventory = vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [],
+  });
+  window.history.replaceState({}, "", `/plan?world=${worldId}`);
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await screen.findByText(/creation response was uncertain/);
+  expect(screen.getByRole("button", { name: "Save Plan" })).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Refresh Saved Plans" }));
+  await waitFor(() => expect(inventory).toHaveBeenCalledTimes(2));
+  expect(create).toHaveBeenCalledTimes(1);
 });

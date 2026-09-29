@@ -1645,6 +1645,14 @@ export interface WorkspaceCommittedRevision {
   target_relpath: string | null;
 }
 
+export interface WorldOwnedCommittedRevisionV2 extends Omit<WorkspaceCommittedRevision, "schema_version" | "kind" | "campaign_id"> {
+  schema_version: "dmb_workspace_committed_revision_v2";
+  scope_mode: "world";
+  world_id: string;
+  kind: "plan";
+  campaign_id: null;
+}
+
 export type PlayRunRecordSchema = "dmb_play_run_record_v1";
 export type PlayRunsListSchema = "dmb_play_runs_list_v1";
 export type PlayRunReferenceManifestV1Schema = "dmb_play_run_reference_manifest_v1";

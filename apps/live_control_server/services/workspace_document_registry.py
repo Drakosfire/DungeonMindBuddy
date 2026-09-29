@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from apps.live_control_server.services.registry_file_lock import (
     registry_mutation_lock,
@@ -219,6 +219,8 @@ class CreateWorkspaceDocumentRequest(BaseModel):
 
 
 class CreateWorldOwnedPlanRequestV2(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     schema_version: Literal["dmb_workspace_document_create_v2"] = (
         "dmb_workspace_document_create_v2"
     )
@@ -311,6 +313,12 @@ class WorldOwnedCommittedRevisionV2(BaseModel):
     content_sha256: str
     has_divergent_working_copy: bool = False
     target_relpath: str | None = None
+
+
+WorkspaceCommittedRevisionAny = Annotated[
+    Union[WorkspaceCommittedRevision, WorldOwnedCommittedRevisionV2],
+    Field(discriminator="schema_version"),
+]
 
 
 def _utc_now_iso() -> str:
@@ -894,10 +902,11 @@ def get_committed_playable_revision(
     revision_n: int | None = None,
     expected_sha256: str | None = None,
     kind: Literal["plan", "runbook"] | None = "runbook",
-) -> WorkspaceCommittedRevision:
+) -> WorkspaceCommittedRevision | WorldOwnedCommittedRevisionV2:
     from application_state.content.service import (
         current_committed_revision,
         exact_committed_revision,
+        get_content_optional,
     )
     from application_state.errors import (
         ApplicationStateError,
@@ -906,13 +915,25 @@ def get_committed_playable_revision(
 
     canonical_id = _validate_document_id(document_id)
     try:
+        obj = get_content_optional(canonical_id)
+        if obj is None:
+            raise WorkspaceDocumentRegistryError(
+                f"workspace document not found: {canonical_id}", status_code=404
+            )
+        is_world_plan = obj.world_id is not None
+        if is_world_plan and (obj.kind != "plan" or obj.campaign_id is not None):
+            raise WorkspaceDocumentRegistryError(
+                "World-owned committed revisions are only valid for World Plans",
+                status_code=422,
+            )
+        resolved_kind = "plan" if is_world_plan else kind
         if revision_n is None:
-            committed = current_committed_revision(canonical_id, kind=kind)
+            committed = current_committed_revision(canonical_id, kind=resolved_kind)
         else:
             committed = exact_committed_revision(
                 canonical_id,
                 revision_n,
-                kind=kind,
+                kind=resolved_kind,
                 expected_sha256=expected_sha256,
             )
     except ApplicationStateNotFoundError as exc:
@@ -921,7 +942,7 @@ def get_committed_playable_revision(
         raise _map_application_state_error(exc) from exc
     obj = committed.work_object
     revision = committed.work_revision
-    return WorkspaceCommittedRevision(
+    values = dict(
         document_id=str(obj.work_object_id),
         kind=obj.kind,
         campaign_id=obj.campaign_id,
@@ -935,6 +956,13 @@ def get_committed_playable_revision(
         has_divergent_working_copy=committed.has_divergent_working_copy,
         target_relpath=obj.target_relpath,
     )
+    if obj.world_id is not None:
+        return WorldOwnedCommittedRevisionV2(
+            scope_mode="world",
+            world_id=obj.world_id,
+            **values,
+        )
+    return WorkspaceCommittedRevision(**values)
 
 
 def get_workspace_document_snapshot_unlocked(
@@ -1029,7 +1057,7 @@ def update_workspace_document_metadata(
     authority_state: Literal["draft", "reviewed", "canonical"] | None | object = _UNSET,
     visibility_state: Literal["internal", "player_safe"] | None | object = _UNSET,
     expected_revision: int | None = None,
-) -> WorkspaceDocumentRecord:
+) -> WorkspaceDocumentRecordAny:
     file_record = unswitched_workspace_record(root, document_id)
     if file_record is None:
         from application_state.content.service import get_content_optional
@@ -1048,6 +1076,15 @@ def update_workspace_document_metadata(
             raise WorkspaceDocumentRegistryError(
                 f"workspace document not found: {_validate_document_id(document_id)}",
                 status_code=404,
+            )
+        if (
+            existing.world_id is not None
+            and target_session is not _UNSET
+            and target_session is not None
+        ):
+            raise WorkspaceDocumentRegistryError(
+                "World-owned Plans cannot be assigned a target session",
+                status_code=422,
             )
         if target_relpath is not _UNSET and target_relpath != existing.target_relpath:
             raise WorkspaceDocumentRegistryError(
@@ -1107,7 +1144,7 @@ def _update_workspace_document_metadata_unlocked(
     authority_state: Literal["draft", "reviewed", "canonical"] | None | object = _UNSET,
     visibility_state: Literal["internal", "player_safe"] | None | object = _UNSET,
     expected_revision: int | None = None,
-) -> WorkspaceDocumentRecord:
+) -> WorkspaceDocumentRecordAny:
     path = workspace_documents_path(root)
     with registry_mutation_lock(path):
         document, token = _load_unlocked(root)
