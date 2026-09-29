@@ -77,11 +77,17 @@ the exact blank World Plan witness at
 `http://127.0.0.1:5201/plan?world=pr788-exact-head-witness-b-2026-09-28`, the
 operator rejected the canvas as awful/default with no perceptible boundary.
 Although CSS contains a 3px slate outer frame and 2px parchment editor border,
-the nested generic Tiptap/Markdown presentation still reads as a dark generic
-panel around a large blank slab. J2 composition code is integrated, but J2 and
-operator acceptance remain open. Do not infer product quality from CSS
-selectors, screenshots or tests; a bounded design/implementation authority is
-needed for any visual successor.
+the nested Tiptap/Markdown presentation still reads as a dark generic panel
+around a large blank slab. The operator re-viewed the actual route on
+2026-09-29 and again rejected it as awful, boundaryless, and default-styled.
+J2 composition code is integrated, but J2 and operator acceptance remain open;
+the existence of border declarations or theme tokens is not product acceptance.
+The bounded successor design is now proposed in
+[HANDOFF-DEMO-J2-plan-canvas-visual-acceptance-v1](../Plans/HANDOFF-DEMO-J2-plan-canvas-visual-acceptance-v1.md),
+design branch `codex/demo-plan-canvas-visual-boundary-design`, handoff commit
+`16ee6adc3c7c601ba40d741457d81cd7d82f091a`. It has no production-code
+changes or active implementation lease and remains subject to PRIME review and
+merge. #789 stays historical; its visual result is not accepted.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
