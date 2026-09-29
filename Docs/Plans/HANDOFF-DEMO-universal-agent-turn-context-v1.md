@@ -18,13 +18,13 @@ pr_body_template: |
 # HANDOFF — DEMO: one truthful Agent turn across Buddy surfaces
 
 **Created:** 2026-09-29
-**Status:** DESIGN REVIEW — implementation BLOCKED on PRIME/ARCHITECTURE acceptance and route-registration collision recheck
+**Status:** DESIGN ACCEPTED — backend turn baseline implemented and merged in PR #791; six-surface UI adoption and end-to-end proof remain unimplemented
 **Conversation/workstream:** LOCAL DEMO ACCEPTED / DEMO J2
 **Flow / owner:** DEMO / Buddy Agent interaction
 **Direction:** STEWARD → PRIME + ARCHITECTURE → CODE → PRIME
 **Design authority base:** Buddy `main@ed1bf1ba0531bf9018f2397863825fa20c781bfe` (PR #789 merge)
 **PR topology:** serial within DEMO Agent; this is a design-review PR, no implementation lease is active
-**Implementation PR authorization:** none until this design is accepted, the route-registration collision is cleared, and the handoff is re-anchored on current main. Then open exactly one implementation PR; no UI adoption PR is authorized by this handoff.
+**Implementation PR authorization:** the backend implementation authorized by this design is complete in PR #791. No implementation lease is active. Six-surface UI adoption and end-to-end proof require a separately activated serial handoff; no UI adoption PR is authorized here.
 **PRIME merge coordination:** PRIME owns ecosystem merge coordination; this handoff does not request merge.
 
 Repository operating law is [`AGENTS.md`](../../AGENTS.md). DEMO product state is
@@ -538,10 +538,10 @@ The design-review handback must resolve:
   end-to-end sequence, with World-reference lens work later on this same
   resolved graph authority.
 
-No production implementation begins until PRIME and ARCHITECTURE accept those
-decisions, the route-registration collision is cleared by the bounded seam or
-explicit coordination, and this handoff is re-anchored as ACTIVE on current
-main. The first implementation is the backend turn baseline; universal
-six-surface UI adoption and end-to-end proof follow as separately activated
-serial DEMO work. The World-reference lens is later and must consume this same
-resolved scope/graph authority, not create a second lens.
+PRIME and ARCHITECTURE accepted those decisions, the route-registration
+collision was cleared by the bounded seam and exact route-table/ASGI witnesses,
+and the backend turn baseline was implemented and merged in PR #791. Universal
+six-surface UI adoption and end-to-end proof remain unimplemented and require
+separately activated serial DEMO work. The World-reference lens is later and
+must consume this same resolved scope/graph authority, not create a second
+lens.
