@@ -1,5 +1,10 @@
+import { AppChrome } from "../chrome/AppChrome";
+import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
+import { ROUTE_COMPATIBILITY_PUBLICATIONS } from "../agentInteraction/surfaceInteractionCompat";
+import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
 import { PeekRegionProvider, PeekRegionSlot } from "../surfaceInteraction/peekHost";
 import { ToolHostView, type ToolHostViewGroup } from "../surfaceInteraction/toolHost/ToolHostView";
+import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
 import "../styles.css";
 
 const groups: readonly ToolHostViewGroup[] = [{
@@ -59,4 +64,58 @@ export const ToolHostPeek = () => (
       onActivate={noAction}
     />
   </PeekRegionProvider>
+);
+
+const editDockTarget = { kind: "document", id: "dock-layout-fixture" } as const;
+
+const editDockPublication: SurfaceInteractionPublication = {
+  ...ROUTE_COMPATIBILITY_PUBLICATIONS.index,
+  surfaceId: "plan",
+  label: "Edit dock layout fixture",
+  identity: { surfaceId: "plan", instanceKey: "edit-dock-layout-fixture" },
+  canvas: { canvasId: "edit-dock-layout-fixture", workObject: editDockTarget },
+};
+
+function EditHostDockFixture() {
+  usePublishSurfaceInteraction(editDockPublication);
+  return (
+    <AppChrome
+      activeRoute="plan"
+      editToolboxLayout="dock"
+      editorTools={{
+        target: editDockTarget,
+        tools: {
+          sections: [{
+            id: "fixture",
+            title: "Editing tools",
+            defaultOpen: true,
+            actions: [{ id: "fixture-action", label: "Example edit action", onClick: noAction }],
+            panel: <p>Mounted EditHost responsive layout content.</p>,
+          }],
+        },
+      }}
+    >
+      <main
+        data-testid="dock-responsive-canvas"
+        style={{
+          boxSizing: "border-box",
+          minWidth: 0,
+          minHeight: "24rem",
+          padding: "1rem",
+          width: "100%",
+        }}
+      >
+        <h1>Central canvas</h1>
+        <p>The central work surface retains a usable reading width on a narrow viewport.</p>
+      </main>
+    </AppChrome>
+  );
+}
+
+export const EditHostDockResponsive = () => (
+  <AgentInteractionProvider>
+    <PeekRegionProvider>
+      <EditHostDockFixture />
+    </PeekRegionProvider>
+  </AgentInteractionProvider>
 );
