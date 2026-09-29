@@ -121,7 +121,7 @@ for a missing owner.
 | Surface | Existing owner evidence | Required server-resolved work snapshot | Graph lens and honest absence |
 |---|---|---|---|
 | Index | `IndexSurfacePublisher` publishes Command Board with null campaign/document/session; selected managed World is independently available from selected-World authority. | No primary work object. Current route/surface instance only. | If an exact managed World is selected, a World lens may be requested. Otherwise ordinary conversation with `graph.status=not_requested`; never synthesize a campaign from `surface_id`. |
-| Plan | Campaign Plan uses the exact workspace document and target session; World-owned Plan has exact managed `world_id`, exact Plan `document_id`, and null product campaign/session. | Resolve the active saved Plan record/revision from its owning registry. Unsaved local draft is `unavailable_or_unsaved`, not a made-up durable document ID. | Use exact selected World or campaign owner and current graph head/revision. World Plan reads use `scope_mode=world`, null campaign, no packet session. |
+| Plan | Campaign-target Plan uses the exact workspace document and target session; a managed-World Plan has exact managed `world_id`, exact Plan `document_id`, and no target session. | Resolve the active saved Plan record/revision from its owning registry. Unsaved local draft is `unavailable_or_unsaved`, not a made-up durable document ID. | A campaign-target Plan may use its verified parent World as graph/owner scope while preserving its exact campaign anchor and session focus from the resolved Plan record. A managed-World Plan without a target session uses World scope, no campaign anchor, and `focus=none`. |
 | Play | `PlaySurfacePublisher` derives campaign/playable identity from the admitted durable Run; current beat/scene context has a dedicated server resolver. | Resolve exact admitted Run, playable artifact/revision, and current Beat-first moment from Run authority. | The Run's actual owning World/campaign only. Missing/invalid Run is distinct from a valid Run with no current moment. |
 | Build | `BuildSurfaceContext` observes the active workspace-document session/record, including exact document, campaign and class when admitted. | Resolve exact active Build document and saved revision from workspace-document authority; never trust posted Markdown as server context. | Use the document's verified owner scope. No active document may still allow ordinary chat if scope is otherwise absent. |
 | Ingest | `MemoryIngestPage` derives campaign/session from its PlanView context and publishes surface context; exact extraction/source IDs are currently route inputs, not an admitted generic conversation owner. | Resolve the exact selected recap/source/run through the owning ingestion/APP-STATE authority before treating it as current work. | Use the verified campaign/World only. Missing recap context does not imply no campaign; failed scope lookup is unavailable, not absent. |
@@ -153,6 +153,7 @@ child route under the already-registered `/api/live` router. This avoids a new
   "graph_request": {
     "mode": "world",
     "world_id": "world-locator",
+    "campaign_id": "longmont-c2",
     "revision_pin": null,
     "focus": {"kind": "session", "session_id": "session-23", "campaign_id": "longmont-c2"}
   },
@@ -166,21 +167,36 @@ child route under the already-registered `/api/live` router. This avoids a new
 server resolves the selected World or campaign through its existing owner
 authority. `graph_request` is a required discriminated choice: `{mode:"none"}`
 means no graph retrieval is requested and carries no selected node, while
-`{mode:"world",world_id,revision_pin,focus}` or
+`{mode:"world",world_id,campaign_id,revision_pin,focus}` or
 `{mode:"campaign",campaign_id,revision_pin,focus}` explicitly requests one
-graph lens. `focus` is a required client locator for requested graph lenses
-and is either
+graph lens. In world mode, `campaign_id` is the optional exact narrative
+campaign anchor within the World, not a campaign-scope restriction; null means
+no narrative campaign anchor and maps to the existing graph DTO's empty
+`campaign_id` for a World-wide read. It must resolve inside the requested
+World and, when a Plan is the work object, agree with that saved Plan's exact
+campaign context. In campaign mode, `campaign_id` is the exact graph scope and
+narrative anchor. `focus` is a required client locator for requested graph
+lenses and is either
 `{kind:"none",session_id:null,campaign_id:null}` or
 `{kind:"session",session_id,campaign_id}` with an exact nonblank session ID
 and exact focus campaign ID when one applies (otherwise null). It is a temporal
 retrieval focus, not an alternate graph scope or authorization. The server
 must corroborate it against the resolved surface/work snapshot and reject any
-disagreement. The current surface/work resolver supplies the accepted value;
-it is never guessed from a URL, session number, World ID, or campaign
-surrogate. A managed World Plan with no target
-session uses `kind:"none"`. A campaign Plan preserves its exact resolved
-session and focus campaign. A World lens on a session-focused surface preserves
-that same session focus and exact campaign when applicable. A null revision pin
+disagreement. A campaign Plan target session may remain a campaign focus while
+the verified graph/owner scope is its parent World; the resolved Plan record
+must establish that exact World/campaign/session relation. In campaign mode,
+an explicit focus campaign must equal the campaign scope. In World mode, an
+explicit focus campaign may differ from the narrative campaign anchor only
+when the exact session/target record proves both campaigns belong to the same
+World. The current surface/work resolver supplies the accepted value; it is
+never guessed from a URL, session number, World ID, or campaign surrogate. The
+JSON example is a campaign-target Plan under the selected, verified parent
+World: its graph scope is World, while its exact campaign is both the narrative
+anchor and session-focus campaign. A managed World Plan with no target session
+uses `kind:"none"` and no campaign anchor. A World lens on another
+session-focused surface preserves that same exact session focus and campaign
+when applicable.
+A null revision pin
 means resolve the current readable revision; a non-null pin requests that exact
 revision. The server resolves a campaign to its owning World. A graph lens may
 equal or narrow the verified
@@ -191,7 +207,8 @@ cannot request the broader World lens. With no work owner, a graph lens is
 allowed only when the current surface resolver independently proves the exact
 selected World/campaign; otherwise reject it. World selection with
 `graph_request.mode="none"` remains ordinary no-retrieval conversation. A
-non-null `graph_selection` or session focus paired with `mode:"none"` is
+non-null `graph_selection`, campaign anchor, or session focus paired with
+`mode:"none"` is
 contradictory and fails validation; the server must not ignore it or silently
 upgrade the request to retrieval.
 
@@ -245,7 +262,8 @@ scope: absent | resolved | rejected | unavailable; kind + canonical owner ID
 primary_work: absent | resolved | changed_since_expected | foreign | removed | unavailable
 client_work_state_reported: none | saved_clean | saved_dirty | new_unsaved
 graph: not_requested | ready | empty | unavailable | rejected; requested lens,
-       canonical World/campaign, requested pin, requested/resolved temporal
+       canonical World/scope campaign/narrative campaign, requested pin,
+       requested/resolved temporal
        focus, actual revision, observed head, is_head,
        selection_found: null | false | true, optional exact selected node
 conversation: client thread ID + turn ID + provider-continuity outcome
@@ -411,8 +429,9 @@ The future implementation's focused contract suite must prove:
 1. Request parsing rejects unknown fields, malformed identities, unknown
    `client_work_state` values and oversized messages; `null` is explicit and
    distinguishable from malformed. `graph_request.mode="none"` is an explicit
-   no-retrieval request, not a missing or malformed lens; non-null selection
-   or session focus paired with it is rejected, never ignored/upgraded.
+   no-retrieval request, not a missing or malformed lens; non-null selection,
+   campaign anchor or session focus paired with it is rejected, never
+   ignored/upgraded.
 2. Exact Index turn with no scope returns a normal no-graph conversation result
    and does not invoke a graph tool or claim graph grounding. It succeeds with
    packet loading unavailable: the configured `session_dir()` is used only for
@@ -421,14 +440,18 @@ The future implementation's focused contract suite must prove:
    resolves the World graph at an observed revision; Plan document ID/revision
    is resolved independently. A browser-reported `new_unsaved` Plan remains a
    client hint only: no draft body or synthetic document ID reaches the server.
-   Its graph focus is `kind:"none"`, not a guessed session. Campaign Plan
-   preserves the exact resolved session ID and focus campaign. World-mode
-   retrieval from a session-focused surface preserves that same exact focus
-   when applicable; tests reject guessed session numbers and campaign
-   surrogates.
-4. World lens maps to explicit `scope_mode=world`, null campaign, and exact
-   World. Campaign lens maps to exact nonblank campaign. There is no fallback
-   or `surface_id`-derived campaign.
+   A managed-World Plan without a target session has `focus=none`, not a guessed
+   session. A campaign-target Plan under a verified World owner/lens preserves
+   its exact resolved Plan session and focus campaign; owner, saved Plan,
+   graph-mode World, narrative campaign anchor and focus must agree through
+   the server/surface authority.
+   World-mode retrieval from another session-focused surface also preserves
+   that exact focus when applicable. Tests reject guessed session numbers and
+   campaign surrogates.
+4. World lens maps to explicit `scope_mode=world`, exact World, and its
+   independently validated narrative campaign anchor (or null/empty when
+   absent). Campaign lens maps to exact nonblank campaign as both scope and
+   narrative anchor. There is no fallback or `surface_id`-derived campaign.
 5. Foreign/removed World, campaign, Plan, Build document or Run yields typed
    failure; it never degrades to absent context. A valid existing work object
    at a newer revision resolves against that actual revision and reports
