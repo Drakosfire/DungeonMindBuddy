@@ -135,76 +135,164 @@ add six UI Ask panels or make the current surface owners magically equivalent.
 ## §4 Proposed bounded wire and result contract
 
 The accepted design may refine field names, but it must preserve these
-semantics. The proposed endpoint is `POST /api/agent/turn`; it is additive and
-does not weaken `/api/live/query`.
+semantics. The additive endpoint is `POST /api/live/agent/turn`, composed as a
+child route under the already-registered `/api/live` router. This avoids a new
+`main.py` registration while #763/#765 are open and leaves
+`/api/live/query` unchanged as the campaign/session packet-bound legacy route.
 
 ```json
 {
   "schema": "dmb_agent_turn_request_v1",
-  "thread_id": "buddy-thread-opaque",
+  "client_thread_id": "agent-thread-opaque",
   "turn_id": "client-turn-opaque",
   "surface": {"surface_id": "plan", "instance_id": "lease-identity"},
-  "owner_scope": {"kind": "world", "world_id": "verified-by-server"},
-  "primary_work": {"kind": "plan", "object_id": "document-id", "expected_revision": 3},
-  "graph_selection": {"node_id": "node:hempholm", "revision_pin": null},
+  "owner_scope": {"kind": "world", "world_id": "world-locator"},
+  "primary_work": {"kind": "plan", "object_id": "document-locator", "expected_revision": 3},
+  "client_work_state": "saved_dirty",
+  "graph_request": {"mode": "world", "world_id": "world-locator", "revision_pin": null},
+  "graph_selection": {"node_id": "node:hempholm"},
   "message": "What have we established about this place?"
 }
 ```
 
 `owner_scope` is explicitly one of `null`, `{kind:"world", world_id}`, or
-`{kind:"campaign", campaign_id}`. `primary_work` and `graph_selection` are
-optional and independent. The request carries bounded identity only; no client
-`ambientSummary`, quoted work prose, source excerpts, workspace paths, fake
-session numbers, or caller-asserted resolved statuses.
+`{kind:"campaign", campaign_id}`. These values are untrusted locators; the
+server resolves the selected World or campaign through its existing owner
+authority. `graph_request` is a required discriminated choice: `{mode:"none"}`
+means no graph retrieval is requested, while `{mode:"world",world_id,
+revision_pin}` or `{mode:"campaign",campaign_id,revision_pin}` explicitly
+requests one graph lens. A null revision pin means resolve the current readable
+revision; a non-null pin requests that exact revision. The server resolves a
+campaign to its owning World. A graph lens may equal or narrow the verified
+owner scope, never widen it: World owner + same World lens is valid; World owner
++ a campaign lens is valid only when that campaign resolves inside the same
+World; campaign owner permits only that same campaign lens; a campaign owner
+cannot request the broader World lens. With no work owner, a graph lens is
+allowed only when the current surface resolver independently proves the exact
+selected World/campaign; otherwise reject it. World selection with
+`graph_request.mode="none"` remains ordinary no-retrieval conversation.
+
+`primary_work` is null only when no durable work object is selected, or a
+bounded `{kind, object_id, expected_revision}` locator for a saved object.
+`client_work_state` is a separate presentation hint with values
+`none|saved_clean|saved_dirty|new_unsaved`; it is not a resolved status or
+authority. Thus null work + `none` means no selected work, while null work +
+`new_unsaved` means the client reports a local unsaved draft. The response
+echoes that distinction as `client_work_state_reported` (never `resolved`) and
+never claims to have read draft content. A dirty saved draft resolves only its exact
+committed base revision; no local editor prose or unsubmitted diff is sent.
+Contradictory selection/hint pairs fail validation rather than being guessed.
+
+The request carries bounded identity and the typed UI-state hint only; no
+client `ambientSummary`, quoted work prose, source excerpts, workspace paths,
+fake session numbers, or caller-asserted resolved statuses.
 
 Every non-null submitted identity is re-resolved at the server-owned boundary
-on every turn. A missing/foreign/malformed supplied identity is rejected with
-a typed 4xx and no downgrade to null. A genuinely absent optional identity is
-allowed and reported absent. The server may return a resolved current owner
-snapshot distinct from the caller's `expected_revision`; a changed revision
-must be visible and cannot be represented as the requested stale version.
+on every turn. A malformed, foreign, or removed identity is rejected with a
+typed 4xx and no downgrade to null. A genuinely absent optional identity is
+allowed and reported absent. `expected_revision` is a freshness expectation,
+not a historical content pin: if the same authorized work object still exists
+at a newer committed revision, the read-only turn may proceed against that
+current revision and must return `changed_since_expected`, the exact revision
+actually used, and the matching owner snapshot. It must never label that
+answer as using the older revision. Exact graph `revision_pin` is different: if
+that revision cannot be read, reject the requested graph turn and do not call
+the answer model; if it is readable but non-head, report its actual revision
+and `is_head=false`.
+
+Within a valid authorized lens, an exact selected node that is not returned by
+the graph query is `selection_found=false` (a valid not-found/empty result),
+not a foreign-identity error; the server must not reveal whether that node
+exists in another scope. A valid empty graph or `selection_found=false` may
+still call the answer model with an explicit empty retrieval result for an
+ordinary answer, but the response must say no graph evidence was found and
+must not claim graph grounding or fabricate citations. Invalid/foreign scope,
+unavailable graph service, or an unreadable requested revision remains
+fail-closed and makes no answer-model call.
 
 The result separates:
 
 ```text
 surface: current surface_id + resolution status + owner snapshot generation
 scope: absent | resolved | rejected | unavailable; kind + canonical owner ID
-primary_work: absent | resolved | unsaved | stale | foreign | unavailable
-graph: not_requested | ready | empty | unavailable; World, scope_mode,
-       graph revision, observed head, is_head, optional exact selected node
-conversation: Buddy thread ID + turn ID + server binding outcome
+primary_work: absent | resolved | changed_since_expected | foreign | removed | unavailable
+client_work_state_reported: none | saved_clean | saved_dirty | new_unsaved
+graph: not_requested | ready | empty | unavailable | rejected; requested lens,
+       canonical World/campaign, requested pin, actual revision, observed head,
+       is_head, selection_found: null | false | true, optional exact selected node
+conversation: client thread ID + turn ID + provider-continuity outcome
 answer: text/status/warnings; no implied graph grounding when graph not used
 ```
 
 Statuses must not collapse: no scope is different from an invalid foreign
-scope; no primary object is different from an unsaved local draft; empty graph
-is different from graph-service outage; a non-head graph revision is different
-from the current head. A requested graph that cannot be authoritatively
-resolved follows the existing fail-closed retrieval policy and does not call
-the answer model. A turn with no requested/available scope may use ordinary
-conversation without graph tools and must not claim retrieval or citations.
+scope; absent work is different from a client-reported unsaved draft; empty
+graph is different from graph-service outage; a non-head graph revision is
+different from the current head. A requested graph that cannot be
+authoritatively resolved follows the existing fail-closed retrieval policy and
+does not call the answer model. A turn with `graph_request.mode="none"` may use
+ordinary conversation without graph tools and must not claim retrieval or
+citations. Surface owner/scope, primary work, and graph request remain separate
+fields; selection of a graph node does not itself request a graph read.
+
+`selection_found` is `null` when no graph selection was requested, `true` only
+when the exact requested node is present in the authorized result, and `false`
+when a valid authorized query does not return it. It never reveals
+cross-scope existence.
 
 The response carries the exact graph revision/head state and the independent
-primary-work revision used for that turn. Graph and document revisions must
-never be compared as if they share an identity space. A UI request-generation
-token may suppress stale late responses; it is not server authorization.
+primary-work revision used for that turn. It also echoes `client_work_state`
+as `client_work_state_reported`; it does not convert that browser hint into a
+server-verified status. Graph and document revisions must never be compared as
+if they share an identity space. A UI request-generation token may suppress
+stale late responses; it is not server authorization.
 
 ## §5 Conversation binding and compatibility
 
-- Stable Buddy `thread_id` is not a Hermes `hermes_session_id` and not a graph
-  session ID. It is bound server-side to structured owner scope plus the
-  primary work-object identity when present. Surface is per-turn context, not
-  an owner ID.
-- Surface changes within the same verified owner scope and same primary work
-  object may retain the Buddy conversation. Changing scope or primary object
-  rejects the old binding or requires a new thread; it never reuses a provider
-  pointer by campaign string coincidence.
-- A provider continuation pointer is internal, bound to the Buddy thread and
-  structured owner key, and can never establish World/campaign authority.
-- Existing campaign-scoped `/api/live/query` requests and pointer files remain
-  compatible. The implementation must explicitly define read/upgrade behavior
-  for legacy campaign keys; no lossy rewrite or deletion of existing pointer
-  state is allowed.
+- Buddy product conversation history is currently client-owned, not a
+  server-authoritative thread store. `AgentInteractionProvider` holds it and
+  `agentInteractionHistory.ts` persists `AgentInteractionThread` turns and
+  indexes in browser `localStorage`: thread records use
+  `agent-interaction-thread-v2:<campaign>:<threadId>`, active-thread keys use
+  `agent-interaction-active-thread-v2:<campaign>:<surface>:<document?>`, and
+  indexes use `agent-interaction-thread-index-v2:<campaign>:<surface>:<document?>`.
+  These browser records survive reload on that browser profile, but are not a
+  cross-device or server-authenticated history authority.
+- A client `client_thread_id` is therefore an opaque UI/history locator, not a
+  credential and not a canonical server-owned product thread. The UI must use
+  a separate local history when owner scope or primary work object changes;
+  same verified scope/work may preserve a client conversation across surface
+  changes. The server never accepts client `conversation_history` as authority
+  on this new endpoint.
+- `HermesSessionPointerStore` in
+  `apps/live_control_server/services/hermes_session_store.py` persists only
+  provider continuation bindings to `hermes_thread_pointers.json` under the
+  existing live-session base. It is not Buddy message history. The generic
+  route reuses this same file/store but adds a versioned structured binding
+  namespace over canonical owner scope, primary work identity (or none), and
+  client thread ID. Reuse is allowed only for an exact structured-key and
+  stored-identity match; a changed scope/work key starts fresh provider
+  continuity and cannot fetch another key's Hermes session.
+- Legacy behavior is deliberately not migrated implicitly. Existing
+  `/api/live/query` keeps its current `(campaign_id, agent_thread_id)` lookup,
+  validation, recovery, and update behavior unchanged. The new generic route
+  never reads, rewrites, deletes, or auto-adopts a legacy campaign-only pointer,
+  because it cannot prove that pointer's primary-work binding. It starts a
+  fresh structured provider continuation instead. Existing legacy UI threads
+  remain available through the old route; an adopter must create a clean new
+  client thread at cutover rather than display old history as if Hermes had
+  continued it.
+- The server resolves surface/owner/work/graph context anew on every request
+  and returns a per-turn `resolved_context` snapshot in that response. Buddy
+  currently has no durable server-side transcript/snapshot store: the new
+  backend must not claim otherwise. In the later six-surface UI-adoption
+  handoff, each result summary (canonical owner/work IDs, actual revisions,
+  graph request/result status and surface resolution status; no source prose)
+  is persisted with the turn in the existing `AgentInteractionTurn` browser
+  history at `apps/live-control-ui/src/planSurface/components/agentInteractionHistory.ts`
+  and typed in `apps/live-control-ui/src/api/types.ts`. `worldGraphContext`
+  source payloads remain stripped from local persistence as today. The UI
+  handoff must disclose that this history is browser-local; creating a new
+  server transcript store requires a separate design/lease.
 - The new path uses the existing injected `AgentRuntime` seam. Deterministic
   fake-runtime tests are the owning proof; no paid live-provider smoke is a
   merge gate.
@@ -216,13 +304,29 @@ token may suppress stale late responses; it is not server authorization.
 This design PR creates no implementation lease. Before activation, re-check
 current `main`, all open PRs, the active DEMO roadmap, and route ownership.
 
-**Known collision gate:** open PR #763 is a paused Rules route candidate. It is
-not permission to share route registration files concurrently. The future
-implementation handoff must re-check whether #763 still owns
-`apps/live_control_server/main.py`, `routes/live.py`, or related router
-registration. If any required production path overlaps, wait for #763 to settle
-or rebrief/split the route seam before activating. Do not quietly append a
-second router to a contested central file.
+**Open-PR collision inventory observed 2026-09-29 (recheck at activation):**
+
+| PR | State/topology | Relevant current paths | Effect on this design |
+|---|---|---|---|
+| #763 Rules query | Open draft, paused; targets `main` | `apps/live_control_server/main.py`, `routes/rules_query.py`, related model/service/tests, `pyproject.toml`, `uv.lock` | Do not edit shared registration or dependency files concurrently. |
+| #764 Rules Lawyer ToolHost | Open; stacked on #763 | Plan projection/catalog and Rules UI/test files; no server route registration | No runtime path overlap if the new route stays backend-only. |
+| #765 Rules Lawyer synthesis | Open; stacked on #764 | `apps/live_control_server/main.py`, new Rules route/model/service/tests | Second active claimant on central router registration; #763 is not the only collision. |
+| #781 Interaction Map | Open, targets `main` | Build Agent semantic-action UI and tests | No backend router or history path overlap. |
+| #760 / #761 UI convergence/STOP | Open design PRs stacked in UI docs | UI handoffs/roadmap documents | No backend path overlap. |
+| #790 this design | Open design PR, targets `main` | DEMO handoff, roadmap, prior J2 handoff and mirror only | No implementation lease. |
+
+The implementation uses the bounded existing-router seam instead of competing
+for `main.py`: create an Agent router with path `/agent/turn`, include it as a
+child of the already-registered `/api/live` router in
+`apps/live_control_server/routes/live.py`, and expose
+`POST /api/live/agent/turn`. Preserve `/api/live/query` behavior and do not
+modify `main.py`. Current open PRs #763 and #765 both edit `main.py`; the
+complete inventory above must still be refreshed before activation, and the
+full application route table must prove no path collision. This avoids an
+indefinite wait on paused #763 while preserving the existing app registration
+boundary. If review shows `routes/live.py` or the exact route path is newly
+leased/claimed, stop and coordinate rather than switching back to `main.py`
+unilaterally.
 
 Proposed future implementation paths, subject to PRIME/ARCHITECTURE review and
 activation-time collision check:
@@ -230,7 +334,7 @@ activation-time collision check:
 | Action | Path | Purpose |
 |---|---|---|
 | Create | `apps/live_control_server/routes/agent.py` | Additive generic turn endpoint; keep packet-bound live route intact |
-| Modify | `apps/live_control_server/main.py` | Register the new route only after the #763 collision is cleared |
+| Modify | `apps/live_control_server/routes/live.py` | Include the new Agent subrouter under the already-registered `/api/live` router; do not modify `main.py` |
 | Create | `apps/live_control_server/models/agent_turn.py` | Strict typed generic request/result and owner/scope statuses |
 | Create | `apps/live_control_server/services/agent_turn_service.py` | Resolve surface/work/scope separately, assemble one turn, preserve fail-closed retrieval |
 | Modify | `apps/live_control_server/services/agent_runtime.py` | Represent optional graph retrieval scope without fabricating a required one |
@@ -243,6 +347,8 @@ activation-time collision check:
 | Create | `tests/test_agent_turn_route.py` | API owning-boundary proof including 4xx scope/thread conflicts and no-fallback behavior |
 | Modify | `tests/test_live_query_hermes_graph.py` | Preserve existing packet-bound `/api/live/query` compatibility controls |
 | Modify | `tests/test_hermes_session_store.py` | Structured owner binding and legacy campaign pointer continuity |
+| Modify (later UI adoption only) | `apps/live-control-ui/src/api/types.ts` | Type per-turn resolved-context summary and client-reported unsaved state |
+| Modify (later UI adoption only) | `apps/live-control-ui/src/planSurface/components/agentInteractionHistory.ts` | Persist safe resolved-context summary with existing browser-local Agent turns; keep full source payload stripped |
 | Modify | `Docs/Roadmaps/ROADMAP-demo.md` | Record accepted contract, exact implementation/review evidence, and remaining six UI-owner witnesses |
 | Modify | `Docs/Sources/design-agent/ACTIVE_AUTHORITY/ROADMAP-demo.md` | Keep byte-identical to the sole roadmap authority |
 | Modify | `Docs/Plans/HANDOFF-DEMO-J2-world-plan-canvas-composition-v1.md` | Backward-looking completion record for #789 while retaining the user's unaccepted visual judgment |
@@ -271,38 +377,68 @@ route/publisher are stop/rebrief conditions.
 
 The future implementation's focused contract suite must prove:
 
-1. Request parsing rejects unknown fields, malformed identities and oversized
-   messages; `null` is explicit and distinguishable from malformed.
+1. Request parsing rejects unknown fields, malformed identities, unknown
+   `client_work_state` values and oversized messages; `null` is explicit and
+   distinguishable from malformed. `graph_request.mode="none"` is an explicit
+   no-retrieval request, not a missing or malformed lens.
 2. Exact Index turn with no scope returns a normal no-graph conversation result
    and does not invoke a graph tool or claim graph grounding.
 3. Exact managed World Plan with null product campaign and no target session
    resolves the World graph at an observed revision; Plan document ID/revision
-   is resolved independently.
+   is resolved independently. A browser-reported `new_unsaved` Plan remains a
+   client hint only: no draft body or synthetic document ID reaches the server.
 4. World lens maps to explicit `scope_mode=world`, null campaign, and exact
    World. Campaign lens maps to exact nonblank campaign. There is no fallback
    or `surface_id`-derived campaign.
-5. Foreign/stale World, campaign, Plan, Build document, Run, or selected-node
-   identity yields typed failure; it never degrades to absent context.
-6. Unsaved local Plan draft is explicitly unsaved and never serialized as a
-   server document ID. No primary object is a distinct valid absence.
-7. Graph empty, graph unavailable, and graph not requested produce distinct
-   response states. A requested unavailable/invalid graph prevents an
-   authoritative answer call; genuinely unscoped chat remains allowed.
+5. Foreign/removed World, campaign, Plan, Build document or Run yields typed
+   failure; it never degrades to absent context. A valid existing work object
+   at a newer revision resolves against that actual revision and reports
+   `changed_since_expected`. A selected graph node not found within a valid
+   authorized graph lens reports `selection_found=false`, not foreign identity.
+6. Unsaved local Plan draft is explicitly reported as a client hint and never
+   serialized as a server document ID or treated as resolved work. No primary
+   object is a distinct valid absence. The hint never authorizes reading draft
+   contents.
+7. Graph not requested, valid empty, selection not found, graph unavailable,
+   invalid/foreign scope, and unavailable exact revision have distinct
+   outcomes. Valid empty/not-found may invoke the model with explicit empty
+   graph context and no grounding claim; invalid or unavailable requested
+   retrieval prevents an answer call. Genuine no-scope chat remains allowed.
 8. Graph revision/head and work-object revision are both present where
-   resolved and are not conflated. A stale expected work revision is visible.
-9. Same structured owner + same primary object may continue the Buddy thread
-   across a surface change; changing either rejects/rebinds explicitly.
-10. Hermes pointer identity cannot cross owner scopes or establish product
-    identity; existing campaign pointer bindings remain readable and stable.
+   resolved and are not conflated. A changed expected work revision visibly
+   returns expected-versus-used revisions; an exact graph pin is honored or
+   rejected, never silently replaced.
+9. Same structured owner + same primary object may reuse the provider
+   continuation across a surface change. Changing either changes the
+   structured pointer key and starts fresh continuity; it cannot read a
+   pointer stored for the prior key. The later UI-adoption suite also proves
+   that local history selects/creates a separate client thread when scope or
+   primary work changes. Buddy transcript/history stays client-owned in the
+   existing browser store and is not represented as server-owned.
+10. Hermes pointer identity cannot cross owner scopes/work objects or establish
+    product identity. Legacy `/api/live/query` retains its exact campaign key;
+    the generic route starts a new structured binding without reading or
+    rewriting campaign-only legacy bindings. Tests prove both paths.
 11. Existing `/api/live/query` campaign packet tests stay green and continue to
     enforce loaded campaign/session equality.
 12. Tests inject a deterministic AgentRuntime. No credentials, model calls,
     provider cost or live DB writes are required.
+13. The full application route table includes exactly one
+    `POST /api/live/agent/turn` registration through the `/api/live` router,
+    while `/api/live/query` remains registered once with its unchanged method,
+    path and packet-bound behavior.
 
-Six-surface integrations remain separate owning evidence after the backend
-contract: each surface must prove its actual current owner publishes or resolves
-an exact identity, that Ask works where it is claimed, and that absence,
-unsaved state, stale state and unavailable authority are shown truthfully.
+After design acceptance, delivery proceeds in this order: (1) implement and
+verify the backend turn baseline; (2) a separately activated shared Agent
+UI/adapters handoff adopts the contract on Index, Plan, Play, Build, Ingest,
+and Combat; then (3) end-to-end witnesses exercise those real owner-to-backend
+paths. The six surface integrations are mandatory owning evidence; backend
+tests alone do not claim universal product availability. The World-reference
+lens is a later consumer of this same graph request/resolution authority, not a
+prerequisite that displaces universal Agent adoption or creates a competing
+lens. Each adopter proves that its actual owner publishes or resolves an exact
+identity, that Ask works where claimed, and that absence, unsaved state,
+changed revision and unavailable authority are shown truthfully.
 
 ## §9 Required commands and handback
 
@@ -318,9 +454,12 @@ ruff check apps/live_control_server/routes/agent.py \
 git diff --check
 ```
 
-Also run current server import/type validation and any route-registry check
-required by `#763` after it settles. Record inherited unrelated baseline
-failures rather than silently expanding this lease.
+Also run current server import/type validation and a full application route
+table witness for `POST /api/live/agent/turn`, proving one registration and no
+path collision. At activation, recheck route ownership in open PRs #763 and
+#765 and any newer open PR. Do not wait on #763 solely because it is paused if
+the nested-router seam remains available and unclaimed. Record inherited
+unrelated baseline failures rather than silently expanding this lease.
 
 The design-review handback must resolve:
 
@@ -331,11 +470,16 @@ The design-review handback must resolve:
 - the Hermes pointer compatibility/read-upgrade strategy;
 - whether one backend resolver can be universal while six product owners
   remain independent;
-- whether the proposed path lease is minimal after #763 settles; and
-- the explicit follow-up order for six UI surface adopters and the separate
-  World-reference lens.
+- whether the proposed nested-router path lease remains minimal after the
+  current #763/#765 route-ownership recheck; and
+- acceptance of the explicit backend → six-surface shared UI/adapters →
+  end-to-end sequence, with World-reference lens work later on this same
+  resolved graph authority.
 
 No production implementation begins until PRIME and ARCHITECTURE accept those
-decisions, the collision is cleared, and this handoff is re-anchored as ACTIVE
-on current main. The next step is the reusable World-reference lens; it must
-consume this same resolved scope/graph authority, not create a second lens.
+decisions, the route-registration collision is cleared by the bounded seam or
+explicit coordination, and this handoff is re-anchored as ACTIVE on current
+main. The first implementation is the backend turn baseline; universal
+six-surface UI adoption and end-to-end proof follow as separately activated
+serial DEMO work. The World-reference lens is later and must consume this same
+resolved scope/graph authority, not create a second lens.
