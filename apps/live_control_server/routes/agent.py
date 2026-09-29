@@ -7,7 +7,7 @@ from typing import Any, Mapping
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import ValidationError
 
-from apps.live_control_server.config import repo_root, session_dir
+from apps.live_control_server.config import repo_root, session_dir, world_graph_root
 from apps.live_control_server.models.agent_turn import AgentTurnRequest
 from apps.live_control_server.services.agent_runtime import (
     AgentCurrentWorkContext,
@@ -91,9 +91,10 @@ def _work_resolver(
         )
     record_world_id = getattr(record, "world_id", None)
     record_campaign_id = getattr(record, "campaign_id", None)
-    effective_owner_id = record_world_id or record_campaign_id
     if owner is not None and (
-        owner.get("kind") != "world" or owner.get("id") != effective_owner_id
+        owner.get("kind") != "world"
+        or record_world_id is None
+        or owner.get("id") != record_world_id
     ):
         raise AgentTurnServiceError(
             "The saved Plan does not belong to the requested owner scope.",
@@ -241,7 +242,7 @@ def _graph_resolver(
     try:
         return build_existing_graph_context(
             body,
-            root=repo_root(),
+            root=world_graph_root(),
             world_id=requested_world_id,
         )
     except Exception as exc:
