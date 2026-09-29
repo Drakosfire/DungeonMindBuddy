@@ -95,17 +95,22 @@ World-list, Plan-view, and World-Plan-list GETs returned 200, while graph
 projection remains 503 because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL`
 is not configured. A visible editor focus check showed the action outline on
 the editor without an equally bright enclosing-canvas ring; the warm 2px
-boundary remains visible when unfocused. The browser control did not provide a
-reliable exact viewport/console reading, so this is not a six-case or mobile
-witness. No Plan was saved and no model or graph write occurred during this
-check. The inline editing toolbar still does
-not use the established toolbar/surface-navigation homes the operator expects,
-so current composition is not accepted. This is implementation evidence, not
-the required six-case dogfood or operator acceptance. J2 and visual acceptance
-remain open until blank/short/long views are inspected at desktop and 390×844
-on the valid isolated route, toolbar placement is resolved through existing
-shell seams, and the operator accepts the actual product. #789 stays
-historical; its visual result is not accepted.
+projection remains 503 because `DUNGEONMIND_WORLD_GRAPH_AUTHORITY_DATABASE_URL`
+is not configured. On 2026-09-29 the exact PR preview then completed the six
+blank/short/long visual cases at 1280×720 and 390×844. All six had no
+horizontal overflow (desktop `scrollWidth/clientWidth=1265/1265`; narrow
+`375/375`); browser error/warning logs were empty. Focus remained visible
+without an equally bright canvas-ancestor ring, and the warm boundary remained
+visible unfocused. Screenshots were captured and visually inspected in the
+live browser session, not committed. The route uses disposable
+`of-conks-demo-plan-canvas`; the named #789 Plan is unavailable in this API
+database. No Plan was saved and no model or graph write occurred. Graph
+projection still returns 503 and the status badge reports attention. This
+completes the bounded visual/layout witness, not product acceptance. The inline
+editing toolbar still does not use the established toolbar/surface-navigation
+homes the operator expects, so current composition is not accepted. J2 remains
+open for explicit operator ACCEPT/REJECT and disposition of that toolbar
+placement issue; #789 stays historical and its visual result is not accepted.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
