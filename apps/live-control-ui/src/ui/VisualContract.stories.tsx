@@ -68,19 +68,24 @@ export const ToolHostPeek = () => (
 
 const editDockTarget = { kind: "document", id: "dock-layout-fixture" } as const;
 
-const editDockPublication: SurfaceInteractionPublication = {
+const indexEditDockPublication: SurfaceInteractionPublication = {
   ...ROUTE_COMPATIBILITY_PUBLICATIONS.index,
-  surfaceId: "plan",
   label: "Edit dock layout fixture",
-  identity: { surfaceId: "plan", instanceKey: "edit-dock-layout-fixture" },
   canvas: { canvasId: "edit-dock-layout-fixture", workObject: editDockTarget },
 };
 
-function EditHostDockFixture() {
-  usePublishSurfaceInteraction(editDockPublication);
+const planEditDockPublication: SurfaceInteractionPublication = {
+  ...indexEditDockPublication,
+  surfaceId: "plan",
+  identity: { surfaceId: "plan", instanceKey: "edit-dock-layout-fixture" },
+};
+
+function EditHostDockFixture({ surfaceId }: { surfaceId: "index" | "plan" }) {
+  const publication = surfaceId === "plan" ? planEditDockPublication : indexEditDockPublication;
+  usePublishSurfaceInteraction(publication);
   return (
     <AppChrome
-      activeRoute="plan"
+      activeRoute={surfaceId}
       editToolboxLayout="dock"
       editorTools={{
         target: editDockTarget,
@@ -96,6 +101,7 @@ function EditHostDockFixture() {
       }}
     >
       <main
+        className={surfaceId === "plan" ? "plan-surface-root" : undefined}
         data-testid="dock-responsive-canvas"
         style={{
           boxSizing: "border-box",
@@ -112,10 +118,16 @@ function EditHostDockFixture() {
   );
 }
 
-export const EditHostDockResponsive = () => (
-  <AgentInteractionProvider>
-    <PeekRegionProvider>
-      <EditHostDockFixture />
-    </PeekRegionProvider>
-  </AgentInteractionProvider>
-);
+function EditHostDockStory({ surfaceId }: { surfaceId: "index" | "plan" }) {
+  return (
+    <AgentInteractionProvider>
+      <PeekRegionProvider>
+        <EditHostDockFixture surfaceId={surfaceId} />
+      </PeekRegionProvider>
+    </AgentInteractionProvider>
+  );
+}
+
+export const EditHostDockResponsive = () => <EditHostDockStory surfaceId="plan" />;
+
+export const EditHostDockResponsiveOtherSurface = () => <EditHostDockStory surfaceId="index" />;
