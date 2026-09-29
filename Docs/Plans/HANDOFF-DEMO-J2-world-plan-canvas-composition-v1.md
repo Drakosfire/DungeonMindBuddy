@@ -14,7 +14,7 @@ pr_body_template: |
 # HANDOFF — restore the World-owned Plan canvas and editing chrome
 
 **Created:** 2026-09-29
-**Status:** COMPLETE / HISTORICAL — Buddy #789 merged at `ed1bf1ba0531bf9018f2397863825fa20c781bfe` from reviewed code head `7e4fb73d5a553b58bd1350c9c0ded653ef97b2e0`; implementation lease released. Technical composition acceptance does not supersede the operator's explicit visual rejection.
+**Status:** COMPLETE / HISTORICAL — Buddy #789 merged at `ed1bf1ba0531bf9018f2397863825fa20c781bfe` from reviewed code head `7e4fb73d5a553b58bd1350c9c0ded653ef97b2e0`; one distinct review-head cycle. Composition implementation is complete; the operator explicitly rejected its visual quality, so Plan presentation and J2 remain unaccepted.
 **Workstream / owner:** LOCAL DEMO ACCEPTED / DEMO J2; Buddy Plan composition
 **Direction:** STEWARD → CODE → PRIME
 **Activation base:** Buddy `main@eac67508ea34115b102c7c4af8a55e17843a16d9` (PR #788 merge)
@@ -255,15 +255,17 @@ unaccepted because the World-owned route omits the shared canvas/tools/context;
 this PR addresses that composition gap. Neither PR alone closes J1/J2 or LOCAL
 DEMO ACCEPTED.
 
-**Later authority sync (2026-09-29):** the required all-surface contract was
-designed in PR #790 at accepted exact head
+**Later authority sync (2026-09-29):** the required all-surface contract is
+defined by PR #790 at accepted exact design head
 `3fcc60de6159add04fe9455f5aee0a58816bfece` (PRIME Cycle 4 DESIGN PASS;
-ARCHITECTURE exact-head focused PASS). PRIME explicitly activated the bounded
-backend baseline from current main `ed1bf1ba0531bf9018f2397863825fa20c781bfe`
-under `HANDOFF-DEMO-universal-agent-turn-backend-v1.md`. That successor remains
-backend-only; shared UI/adoption for Index, Plan, Play, Build, Ingest, and
-Combat and human Plan visual acceptance remain open. This retrospective update
-does not claim those successor outcomes are complete.
+ARCHITECTURE exact-head focused PASS). Its bounded backend implementation
+successor, PR #791, merged at `6501bfa5143592cec8d7a3f521e3f34d929a5a95`
+from reviewed code head `40e7c5f81ab0a6faa53026ea571d2994f77d163c` after two
+distinct review-head cycles (Cycle 1 HOLD `5349662805`; Cycle 2 APPROVE banner
+`5350948969`). The backend remains only a baseline: shared UI/adoption for
+Index, Plan, Play, Build, Ingest, and Combat, owner-to-backend end-to-end
+witnesses, and human Plan visual acceptance remain open. This retrospective
+update does not claim those successor outcomes are complete.
 
 ## §8 Handback
 
