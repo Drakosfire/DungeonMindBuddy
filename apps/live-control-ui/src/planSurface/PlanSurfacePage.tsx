@@ -988,14 +988,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <button type="button" onClick={useServerVersion}>Use saved Plan version</button>
           </section>
         ) : null}
-        <div className="world-owned-plan__toolbar">
-          <MarkdownEditorToolbar model={toolbarModel} aria-label="Plan editing tools" />
-        </div>
         <PlanSurfaceCanvasFrame
           className="world-owned-plan__canvas"
           testId="world-owned-plan-editor"
           identityLabel={documentId ? `Editing Plan · ${title || "Untitled"}` : "Unsaved Plan draft"}
-          themeId="mireward-runbook"
+          themeId="world-plan"
+          beforeEditor={(
+            <div className="world-owned-plan__toolbar">
+              <MarkdownEditorToolbar model={toolbarModel} aria-label="Plan editing tools" />
+            </div>
+          )}
         >
           <MarkdownEditorCore
             content={editorContent}

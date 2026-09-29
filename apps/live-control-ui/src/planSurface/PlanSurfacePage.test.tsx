@@ -181,7 +181,12 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
   expect(screen.getByTestId("world-plan-surface-context")).toBeInTheDocument();
   await waitFor(() => expect(screen.getByRole("button", { name: "Bold" })).toBeEnabled());
   expect(screen.getByRole("button", { name: "Read aloud" })).toBeEnabled();
-  expect(screen.getByTestId("world-owned-plan-editor")).toHaveClass("plan-surface-canvas");
+  const planCanvas = screen.getByTestId("world-owned-plan-editor");
+  expect(planCanvas).toHaveClass("plan-surface-canvas");
+  expect(planCanvas.querySelector(".world-owned-plan__toolbar")).toBeInTheDocument();
+  const markdownSurface = planCanvas.querySelector(".tiptap-spike-editor");
+  expect(markdownSurface).toHaveClass("md-theme-world-plan");
+  expect(markdownSurface).toHaveAttribute("data-md-theme", "world-plan");
   expect(screen.getByTestId("world-owned-plan-markdown-editor")).toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: "Read aloud" }));
   await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Read aloud"));

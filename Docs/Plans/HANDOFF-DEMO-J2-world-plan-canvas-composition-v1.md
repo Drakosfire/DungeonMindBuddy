@@ -311,3 +311,15 @@ exact head and controls merge sequencing.
 - PRIME and ARCHITECTURE have the proposed reusable all-six-surface
   conversational Agent context contract for review. That proposal is not
   accepted authority or implementation scope; no Agent/API files were changed.
+
+### Successor authority sync (2026-09-29)
+
+The operator rejected the rendered World Plan composition as visually
+boundaryless/default-styled after #789 merged. PRIME accepted the bounded
+follow-up design in #792 (merged at
+`4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`). The successor handoff
+`HANDOFF-DEMO-J2-plan-canvas-visual-acceptance-v1.md` is ACTIVE for one serial,
+presentation-only implementation. This historical composition handoff stays
+complete; neither #789 nor its accepted persistence/recovery evidence is
+reopened, and neither #789 nor this record claims Plan visual acceptance or J2
+completion.

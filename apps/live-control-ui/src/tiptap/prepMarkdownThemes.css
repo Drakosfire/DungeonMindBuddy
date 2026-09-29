@@ -3,6 +3,104 @@
   background: var(--md-bg, transparent);
 }
 
+/* World Plan's writing surface is a distinct supported theme. Keep it separate
+   from the established campaign runbook theme used by PlanSurfaceShell. */
+.md-content.md-theme-world-plan {
+  --md-fg: var(--ui-text-on-paper, #332d25);
+  --md-heading: #40311f;
+  --md-surface: #f0e2ca;
+  --md-border: #c9b58d;
+  --md-accent: #765324;
+  --md-bg: var(--ui-background-paper, #f7ebd7);
+  --md-callout-bg: #f2e5cf;
+  --md-callout-border: #bca477;
+  --md-ref-chip-bg: rgb(111 80 39 / 9%);
+  --md-ref-chip-border: rgb(91 65 31 / 42%);
+  --md-ref-chip-fg: #3d3427;
+  --fg: var(--md-fg);
+  --fg-mute: #655740;
+  --border: var(--md-border);
+  --bg-input: var(--md-surface);
+  --accent: var(--md-accent);
+  color: var(--md-fg);
+  background: var(--md-bg);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.06rem;
+  line-height: 1.75;
+}
+
+.md-content.md-theme-world-plan h1,
+.md-content.md-theme-world-plan h2,
+.md-content.md-theme-world-plan h3,
+.md-content.md-theme-world-plan h4 {
+  color: var(--md-heading);
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1.25;
+}
+
+.md-content.md-theme-world-plan h1 {
+  font-size: clamp(1.8rem, 4vw, 2.4rem);
+  letter-spacing: -0.025em;
+}
+
+.md-content.md-theme-world-plan h2,
+.md-content.md-theme-world-plan h3 {
+  padding-bottom: 0.22rem;
+  border-bottom: 1px solid rgb(118 83 36 / 26%);
+}
+
+.md-content.md-theme-world-plan blockquote {
+  border-left-color: rgb(118 83 36 / 72%);
+  border-radius: 0 0.4rem 0.4rem 0;
+  background: rgb(118 83 36 / 7%);
+}
+
+.md-content.md-theme-world-plan .md-callout {
+  border-radius: 0.35rem;
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 62%);
+}
+
+.md-content.md-theme-world-plan .md-callout-read-aloud {
+  --md-callout-bg: #efe3cc;
+  --md-callout-border: #b39a6d;
+}
+
+.md-content.md-theme-world-plan .md-callout-gm-note {
+  --md-callout-bg: #ece2cf;
+  --md-callout-border: #8c7654;
+}
+
+.md-content.md-theme-world-plan .md-callout-rules {
+  --md-callout-bg: #e8e4d6;
+  --md-callout-border: #758064;
+}
+
+.md-content.md-theme-world-plan .md-callout-warning {
+  --md-callout-bg: #f1dfc9;
+  --md-callout-border: #a75e36;
+}
+
+.md-content.md-theme-world-plan .md-decision-consequence {
+  --md-dc-pane-border: rgb(118 83 36 / 28%);
+  border-color: rgb(118 83 36 / 35%);
+  border-radius: 0.4rem;
+  background: rgb(118 83 36 / 6%);
+}
+
+.md-content.md-theme-world-plan a {
+  color: #62451e;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.16em;
+}
+
+.md-content.md-theme-world-plan code {
+  color: #5b4326;
+}
+
+.md-content.md-theme-world-plan pre {
+  background: #eee1c9;
+}
+
 .md-content[data-md-theme] h1,
 .md-content[data-md-theme] h2,
 .md-content[data-md-theme] h3,

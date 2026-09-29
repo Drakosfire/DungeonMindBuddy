@@ -107,6 +107,7 @@ code {
 
 .world-owned-plan input:focus-visible,
 .world-owned-plan button:focus-visible,
+.world-owned-plan__toolbar summary:focus-visible,
 .world-owned-plan .ProseMirror:focus-visible,
 .world-owned-plan__canvas:focus-within {
   outline: 3px solid var(--ui-accent-action);
@@ -135,114 +136,127 @@ code {
   cursor: not-allowed;
 }
 
-.world-owned-plan__canvas {
+.world-owned-plan__canvas.plan-surface-canvas {
   min-width: 0;
-  padding: clamp(1rem, 2vw, 1.5rem);
-  border: 3px solid #73829a;
-  border-radius: 0.85rem;
-  background: #151b25;
+  padding: clamp(0.75rem, 1.8vw, 1.35rem);
+  border: 1px solid #6a604c;
+  border-top: 3px solid #927b52;
+  border-radius: 0.65rem;
+  background: #191c21;
   box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 8%),
-    0 0 0 1px #0a0d12,
-    0 1rem 2.5rem rgb(0 0 0 / 28%);
+    inset 0 1px 0 rgb(255 255 255 / 4%),
+    0 1rem 2.5rem rgb(0 0 0 / 22%);
 }
 
 .world-owned-plan__canvas > .plan-surface-kicker {
-  margin: 0;
-  padding: 0 0 0.75rem;
-  border-bottom: 1px solid #414e61;
-  color: #c7d2e2;
+  width: 100%;
+  margin: 0 0 0.8rem;
+  padding: 0 0 0.65rem;
+  border-bottom: 1px solid #343d4b;
+  color: #bdc7d6;
   font-size: 0.76rem;
   font-weight: 750;
-  letter-spacing: 0.075em;
+  letter-spacing: 0.09em;
   text-transform: uppercase;
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar {
   display: flex;
   flex-wrap: wrap;
-  align-items: start;
-  gap: 0.55rem;
-  padding: 0.7rem;
-  border: 1px solid #3b4557;
-  border-radius: var(--ui-radius-md);
-  background: #171d29;
-  box-shadow: 0 0.4rem 1rem rgb(0 0 0 / 18%);
+  align-items: center;
+  gap: 0.7rem 1rem;
+  width: 100%;
+  margin: 0 auto 0.9rem;
+  padding: 0 0 0.8rem;
+  border: 0;
+  border-bottom: 1px solid #343d4b;
+  background: transparent;
+  box-shadow: none;
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__section {
-  min-width: 9rem;
-  border: 1px solid #3b4557;
-  border-radius: var(--ui-radius-sm);
-  background: #1c2431;
+  min-width: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__section summary {
-  padding: 0.55rem 0.7rem;
-  color: #c4cddd;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 999px;
+  background: var(--ui-background-chrome);
+  color: var(--ui-text-secondary);
   font-size: 0.78rem;
   font-weight: 750;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.055em;
   text-transform: uppercase;
   cursor: pointer;
+  list-style: none;
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__section summary::-webkit-details-marker {
+  display: none;
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__section summary::after {
+  content: "+";
+  color: var(--ui-accent-action);
+  font-size: 0.95rem;
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__section[open] summary {
+  color: var(--ui-text-primary);
+}
+
+.world-owned-plan__toolbar .markdown-editor-toolbar__section[open] summary::after {
+  content: "−";
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem;
-  padding: 0 0.5rem 0.5rem;
+  gap: 0.35rem;
+  margin-top: 0.45rem;
+  padding: 0;
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__actions button {
-  min-height: 2.2rem;
-  padding: 0.4rem 0.65rem;
-  border: 1px solid #66758d;
-  border-radius: 0.35rem;
-  background: #252f3f;
-  color: #edf1f8;
-  font-size: 0.88rem;
+  min-height: 2.1rem;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-background-chrome);
+  color: var(--ui-text-primary);
+  font-size: 0.84rem;
+  font-weight: 600;
 }
 
 .world-owned-plan__toolbar .markdown-editor-toolbar__actions button:hover:not(:disabled) {
-  border-color: #a9bddc;
-  background: #303e53;
+  border-color: var(--ui-accent-action);
+  background: #222936;
 }
 
-.world-owned-plan__canvas .tiptap-spike-editor {
-  --fg: #332d25;
-  --fg-mute: #665943;
-  --md-fg: #332d25;
-  --md-heading: #4b3c27;
-  --md-surface: #f0e1c7;
-  --md-border: #d0b98f;
-  --md-accent: #77541f;
-  --md-callout-bg: #f0e1c7;
-  --md-callout-border: #bea578;
-  --bg-input: #f0e1c7;
-  --border: #d0b98f;
-  width: min(100%, 82ch);
-  min-height: 44vh;
-  margin: 1rem auto 0;
-  border: 2px solid #d6c29f;
-  border-radius: 0.4rem;
-  background: #f7ebd7;
-  color: #332d25;
+.world-owned-plan__canvas .tiptap-spike-editor.md-theme-world-plan {
+  width: min(100%, 72ch);
+  min-height: clamp(15rem, 32vh, 28rem);
+  margin: 0 auto;
+  border: 2px solid #806a46;
+  border-left: 0.5rem solid #a98b58;
+  border-radius: 0.25rem 0.55rem 0.55rem 0.25rem;
   box-shadow:
-    inset 0 0 0 1px rgb(255 255 255 / 72%),
-    0 0 0 1px #9b8259,
-    0 0.45rem 1.15rem rgb(0 0 0 / 28%);
+    inset 0 0 0 1px rgb(255 255 255 / 50%),
+    0 2px 5px rgb(0 0 0 / 28%),
+    0 0.75rem 1.35rem rgb(0 0 0 / 20%);
 }
 
 .world-owned-plan__canvas .ProseMirror {
-  min-height: max(42vh, 20rem);
+  min-height: clamp(14rem, 30vh, 26rem);
   max-width: none;
   margin: 0;
-  padding: clamp(1.25rem, 3vw, 2.5rem);
-  color: #332d25;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 1.06rem;
-  line-height: 1.75;
+  padding: clamp(1.35rem, 3vw, 2.6rem);
   overflow-wrap: anywhere;
 }
 
@@ -294,16 +308,16 @@ code {
   }
 
   .world-owned-plan__canvas {
-    padding: 0.75rem;
+    padding: 0.6rem;
   }
 
   .world-owned-plan__toolbar .markdown-editor-toolbar__section {
-    flex: 1 1 calc(50% - 0.55rem);
+    flex: 0 1 auto;
   }
 
   .world-owned-plan__canvas .ProseMirror {
-    min-height: max(40vh, 16rem);
-    padding: 1.15rem;
+    min-height: clamp(14rem, 30vh, 26rem);
+    padding: 1.15rem 1rem;
   }
 }
 

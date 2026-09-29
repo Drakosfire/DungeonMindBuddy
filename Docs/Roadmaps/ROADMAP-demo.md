@@ -82,12 +82,20 @@ around a large blank slab. The operator re-viewed the actual route on
 2026-09-29 and again rejected it as awful, boundaryless, and default-styled.
 J2 composition code is integrated, but J2 and operator acceptance remain open;
 the existence of border declarations or theme tokens is not product acceptance.
-The bounded successor design is now proposed in
-[HANDOFF-DEMO-J2-plan-canvas-visual-acceptance-v1](../Plans/HANDOFF-DEMO-J2-plan-canvas-visual-acceptance-v1.md),
-design branch `codex/demo-plan-canvas-visual-boundary-design`, handoff commit
-`16ee6adc3c7c601ba40d741457d81cd7d82f091a`. It has no production-code
-changes or active implementation lease and remains subject to PRIME review and
-merge. #789 stays historical; its visual result is not accepted.
+The bounded successor design was accepted in PR #792, merged at
+`4017a876a1f0fb6aa3fd5d3ac80083fb93ca52c9`. Its handoff is re-anchored and
+ACTIVE for one serial implementation PR. That slice is changing the World Plan
+from a transparent editor shell around a faintly edged blank slab into one
+visibly bounded work surface: editing tools sit inside the canvas frame, the
+paper has a stronger distinct edge, and its empty-state height is reduced.
+Browser inspection is still partial: the named #789 witness is absent from the
+currently reachable API database, so the visual preview used an existing
+synthetic Plan route whose legacy document scope leaves editing controls
+disabled. No content was edited or saved. This is implementation evidence, not
+the required six-case dogfood or operator acceptance. J2 and visual acceptance
+remain open until the correct isolated witness is reachable, blank/short/long
+views are inspected at desktop and 390×844, and the operator accepts the actual
+route. #789 stays historical; its visual result is not accepted.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
@@ -412,7 +420,9 @@ Buddy can admit the exact saved source snapshot to native World source authority
 it does not yet establish extracted assertions, governed assertion publication,
 ordinary Agent read/citation, or J3 completion. World-owned blank Plan and
 shared-canvas composition code are integrated via #788/#789, but Plan visual
-acceptance remains rejected. The active Agent backend baseline is specified
+acceptance remains rejected. The bounded visual successor design #792 is
+merged; its single active implementation lane is repairing the canvas boundary
+and authored appearance. The active Agent backend baseline is specified
 by the accepted #790 design and the ACTIVE implementation handoff above. Its
 first bounded implementation supports explicit no-graph conversation and
 verified World-scoped reads; it does not write graph knowledge or close J3.
