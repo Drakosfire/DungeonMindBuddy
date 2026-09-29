@@ -14,7 +14,7 @@ pr_body_template: |
 # HANDOFF — restore the World-owned Plan canvas and editing chrome
 
 **Created:** 2026-09-29
-**Status:** ACTIVE — implementation dispatch waits for PRIME scope review of this exact handoff
+**Status:** ACTIVE — implementation dispatch authorized for the existing composition lease; revised product/Agent authority is being sent to PRIME and ARCHITECTURE
 **Workstream / owner:** LOCAL DEMO ACCEPTED / DEMO J2; Buddy Plan composition
 **Direction:** STEWARD → CODE → PRIME
 **Activation base:** Buddy `main@eac67508ea34115b102c7c4af8a55e17843a16d9` (PR #788 merge)
@@ -66,19 +66,23 @@ Re-anchored facts:
   Content shape. It does not prove full Plan-shell composition or J2.
 - The live blank World B witness is
   `http://127.0.0.1:5201/plan?world=pr788-exact-head-witness-b-2026-09-28`.
-  The operator's current feedback is that the canvas is visually unacceptable
-  and reads as generic/default styling. Inspection shows the World branch in
-  `PlanSurfacePage.tsx` directly renders `EditorContent` inside
-  `.world-owned-plan__editor`. The existing campaign Plan canvas instead
-  composes `PlanSurfaceCanvas`, `plan-surface-canvas`, and the `tiptap-spike-editor
-  md-content md-theme-*` presentation. The World page has a thin token-based
-  border, but not that established canvas hierarchy or the editor toolbar.
+  Operator feedback: the Plan surface looks awful, has no perceptible canvas
+  boundary, and falls back to generic/default editor styling. Inspection shows
+  the World branch in `PlanSurfacePage.tsx` directly renders `EditorContent`
+  inside `.world-owned-plan__editor`. The established campaign Plan canvas
+  instead composes `PlanSurfaceCanvas`, `plan-surface-canvas`, and the
+  `tiptap-spike-editor md-content md-theme-*` presentation. A thin CSS border is
+  not a sufficient product boundary: the World route is also missing the
+  established toolbar and Plan context/action composition. The required repair
+  is to compose the actual shared canvas and its owning surface controls, not
+  patch the raw editor with another decorative border.
 - World-owned Plan already has its own Saved Plans selector, local draft journal,
   uncertain-create recovery, and scope-specific APIs. Keep these as authority;
   do not replace them with campaign/session Plan descriptors.
 - The global route navigation already remains mounted. The missing established
-  Plan composition is the Plan editor toolbar and Plan-owned context/actions,
-  not a need to invent a second route system.
+  Plan composition includes the editor toolbar and Plan-owned context/actions;
+  verify the real canvas boundary and styling in-browser rather than inferring
+  success from a CSS declaration or component mount.
 - Open PR #781 (`INTERACTION MAP: prove shared Build projection action`) leases
   Agent semantic-action projection paths and a handoff; no overlap with this
   UI lease. Open draft PR #763 is a paused Rules packet and its API/dependency
@@ -107,13 +111,23 @@ implementation authorization.
 
 This implementation may not make Agent appear functional by sending a fake
 campaign or session. Do not add a decorative Agent panel or inert Open button.
-Until the separate World-Plan Agent contract is designed, accepted, and given
-its own path lease, keep the existing no-plugin/no-chrome behavior and report it
-as the explicit remaining J2 blocker. The next J2 handoff must be re-anchored
-after this composition slice and include the Agent API, thread-scope, retrieval,
-exact-document edit, stale-revision rejection, and legacy campaign-compatibility
-proofs returned by ARCHITECTURE. Do not edit Agent or server paths under this
-handoff.
+The user has clarified a DEMO minimum: **a real, surface-aware conversational
+Agent entry and conversation on every DEMO surface**. This is baseline
+capability, not optional polish. The baseline must receive truthful current
+surface/World/document/object/selection context when present, handle absent
+documents and graph heads honestly, and isolate multi-turn context so a World
+or document change cannot silently keep routing to stale context. Advanced
+authoring/action execution is a later capability and must not be bundled into
+the baseline merely to expose the Agent.
+
+Do not make an inert Agent panel/button or fake campaign/session identity. The
+current composition implementation remains limited to its accepted UI lease;
+before any Agent backend work, produce one reusable Plan/Play/Build/Ingest
+surface-aware Agent contract proposal, with actual owner paths and owning-boundary
+proofs, for PRIME and ARCHITECTURE review. Avoid a WorldPlan-only design that
+would immediately need replacement on the next surface. No Agent/API paths are
+leased by this handoff. Carry the user's all-surfaces minimum explicitly into
+the roadmap and next substantive Agent handoff.
 
 ## §3 Required product behavior
 
@@ -146,10 +160,12 @@ handoff.
 | `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx` | Compose World-owned Plan with shared Plan canvas/editor affordances while retaining #788 World-specific lifecycle |
 | `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx` | World Plan canvas, toolbar, navigation, identity replacement, and persistence regressions |
 | `apps/live-control-ui/src/planSurface/components/PlanSurfaceCanvas.tsx` | Extract/reuse presentation and toolbar seam without passing fake `PlanSessionDescriptor` or campaign identity |
+| `apps/live-control-ui/src/planSurface/components/PlanSurfaceContext.tsx` | Compose truthful World/document Plan context and invalidate it on identity changes without manufacturing campaign/session descriptors |
 | `apps/live-control-ui/src/planSurface/PlanSurfaceShell.test.tsx` | Guard established campaign Plan composition and shared toolbar compatibility |
 | `apps/live-control-ui/src/styles.css` | Remove/retire only World-owned ad-hoc editor rules that conflict with the shared canvas; no app-wide theme redesign |
 | `Docs/Plans/HANDOFF-DEMO-world-owned-blank-plan-v1.md` | Backward-looking completion record for #788; preserve its original authority and evidence |
 | `Docs/Roadmaps/ROADMAP-demo.md` | Backward-looking #788 completion sync; record that visual/shell composition and J2 remain open |
+| `Docs/Plans/HANDOFF-DEMO-J2-world-plan-canvas-composition-v1.md` | Keep this handoff's status, evidence, and successor proposal record current |
 
 No unlisted production path is authorized. If the reusable seam needs another
 file, stop and ask PRIME for a same-slice lease amendment before editing it.
@@ -175,9 +191,11 @@ file, stop and ask PRIME for a same-slice lease amendment before editing it.
 This implementation lane may use only the isolated API `127.0.0.1:8821`, UI
 `127.0.0.1:5201`, disposable PostgreSQL port `55441`, database
 `dmb_world_plan_demo`, and worktree-owned output roots for its product witness.
-PRIME owns the existing processes. Do not kill, restart, or silently replace any
-process; coordinate the exact process handoff before running branch code on those
-ports. Never write the persistent J1 databases `54330`/`54331` or any shared
+DEMO owns only the exact isolated API `8821`, UI `5201`, and disposable
+PostgreSQL `55441` runtime for this lane, and may restore/restart them only after
+verifying free/owned ports, PID, process/worktree, and logs. No shared process
+may be stopped or replaced. Never write the persistent J1
+databases `54330`/`54331` or any shared
 rehearsal state. No migrations against an existing database; use only the named
 disposable target after verifying identity.
 
@@ -217,9 +235,12 @@ disposable target after verifying identity.
 - World A: open blank Plan, use a formatting/component tool, author, Save, reload,
   and reopen the exact document. World B: verify empty/different document state
   and that no A toolbar callback or draft leaks into B.
-- No Agent Ask success is claimed. If the capability is absent, confirm there is
-  no misleading Ask chrome, and carry the API/identity gap as an explicit open
-  requirement for the next J2 slice.
+- Verify no-plugin behavior suppresses only unsupported Agent chrome; it must
+  not suppress the supported Plan toolbar, truthful Plan context, or navigation.
+  Do not claim Agent baseline acceptance from this composition slice. The
+  universal surface-aware conversational Agent contract is a mandatory next
+  capability and must be proposed for PRIME/ARCHITECTURE review before Agent
+  backend implementation; advanced authoring/actions stay separate.
 - Repeat the #788 ordinary persistence/recovery witness impacted by the editor
   composition; no database reset/deletion or user-data overwrite.
 
@@ -227,9 +248,19 @@ disposable target after verifying identity.
 
 The implementation PR updates #788's handoff/roadmap with merge `eac67508…`,
 reviewed code head `27bb1a76…`, five distinct review-head cycles and the bounded
-acceptance evidence already recorded on #788. Record that #788 proves persistence
-only, while this PR proves presentation composition only; neither alone closes
-J1/J2 or LOCAL DEMO ACCEPTED.
+acceptance evidence already recorded on #788. Preserve #788's accepted
+persistence/recovery and bounded styling evidence. Record the later operator
+dogfood as a distinct finding: the full integrated Plan composition remains
+unaccepted because the World-owned route omits the shared canvas/tools/context;
+this PR addresses that composition gap. Neither PR alone closes J1/J2 or LOCAL
+DEMO ACCEPTED.
+
+Before any Agent implementation, hand back one reusable surface-aware Agent
+contract proposal for Plan/Play/Build/Ingest and other in-scope navigation. It
+must identify actual context owners, freshness/identity behavior, conversation
+and thread isolation, backend validation, campaign compatibility, and
+owning-boundary proofs; PRIME and ARCHITECTURE review it before a separate
+bounded Agent implementation lease is authorized.
 
 ## §8 Handback
 
