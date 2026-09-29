@@ -202,6 +202,14 @@ code {
 }
 
 @media (max-width: 640px) {
+  html:has(.world-owned-plan) {
+    overflow-x: clip;
+  }
+
+  .app-wrap:has(.world-owned-plan) {
+    overflow-x: clip;
+  }
+
   .app-wrap:has(.world-owned-plan) .app-world-graph-status {
     flex: 1 1 100%;
     width: 100%;
