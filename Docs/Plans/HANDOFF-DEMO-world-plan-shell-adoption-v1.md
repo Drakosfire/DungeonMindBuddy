@@ -16,12 +16,12 @@ pr_body_template: |
 ---
 # HANDOFF — World Plan adopts Buddy's established editing shell
 
-**Created:** 2026-09-29  
-**Status:** BLOCKED — PRIME must review the amended contract, settle #793's predecessor disposition, and explicitly activate the one serial implementation lane.  
-**Workstream / owner:** DEMO / World Plan composition  
-**Design base:** Buddy `origin/main@374d69d78ef58a062116de73e095b57f4a92ca15` (after #794 and #795 merged); the #793 implementation source head is `cba5dddcf2c482ec729e714cf75e6acd665b42e9`.  
-**Topology:** serial amendment of #793 only. No successor PR.  
-**PR title:** `DEMO: adopt the World Plan editing shell`  
+**Created:** 2026-09-29
+**Status:** BLOCKED — PRIME must review the amended contract, settle #793's predecessor disposition, and explicitly activate the one serial implementation lane.
+**Workstream / owner:** DEMO / World Plan composition
+**Design base:** Buddy `origin/main@374d69d78ef58a062116de73e095b57f4a92ca15` (after #794 and #795 merged); the #793 implementation source head is `cba5dddcf2c482ec729e714cf75e6acd665b42e9`.
+**Topology:** serial amendment of #793 only. No successor PR.
+**PR title:** `DEMO: adopt the World Plan editing shell`
 **PRIME:** owns review, predecessor disposition, activation and merge.
 
 ## §1 Mission and invariant
