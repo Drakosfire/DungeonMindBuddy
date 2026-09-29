@@ -2473,7 +2473,7 @@ button:disabled {
     background: rgba(8, 10, 14, 0.45);
   }
 
-  .app-shell--edit-dock:has(.plan-agent-shell.open) .app-edit-toolbox--docked .app-edit-toolbox-backdrop[hidden] {
+  .app-shell--edit-dock .app-edit-toolbox--docked .app-edit-toolbox-backdrop[hidden] {
     display: none !important;
   }
 
