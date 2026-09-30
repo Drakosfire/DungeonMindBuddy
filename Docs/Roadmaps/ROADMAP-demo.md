@@ -135,6 +135,12 @@ head `47cac7b1d6ab3a1c9327438d10143b7977bbed93`. It supports verified World or
 no owner and no primary work or graph request. The next serial bite is the
 saved managed-World Plan Agent conversation under
 [`HANDOFF-DEMO-plan-agent-conversation.md`](../Plans/HANDOFF-DEMO-plan-agent-conversation.md).
+Its design-only Buddy #804 merged at
+`7a4159f447da715a2a5d586b862a7079b7316929` from reviewed head
+`e5b0d3e3e84eaae347092937281605e9478f7499` after PRIME and ARCHITECTURE
+exact-head PASS. PRIME explicitly activated the implementation on that merged
+main; the active lease is bounded to the handoff's listed UI/API client/history
+paths and owning-boundary witness.
 Plan's current cited Ask and reviewed document-edit flows remain separate and
 unchanged; the generic Agent endpoint has no citation/grounding response
 contract, so the Plan conversation requests no graph. The endpoint supplies
