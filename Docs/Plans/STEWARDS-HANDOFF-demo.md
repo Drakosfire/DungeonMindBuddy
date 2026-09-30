@@ -1,9 +1,11 @@
 # Steward handoff — DEMO, from preparation to a resumable session
 
-**Status:** ACTIVE — operator adopted the DEMO stewardship mandate on 2026-09-26  
-**Owner:** existing Codex task DEMO (`01a0885e-375c-7501-9f6e-a58528b39894`)  
+**Status:** ACTIVE mandate; fresh DEMO task pending operator creation after the 2026-09-29 reboot
+
+**Owner:** the next operator-created DEMO task. The prior DEMO tasks `01a0885e-375c-7501-9f6e-a58528b39894` and `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` retain history only; PRIME has frozen their #793 implementation and runtime authority.
+
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Mandate amended:** 2026-09-29 — established Surface composition, universal Agent baseline and product-first sequencing
+**Mandate amended:** 2026-09-29 — fresh DEMO transfer, three bounded World Plan slices and PRIME model routing
 **Execution state:** [ROADMAP-demo.md](../Roadmaps/ROADMAP-demo.md) only  
 **Transfer evidence:** [reconciliation report](../Reports/REPORT-DEMO-roadmap-reconciliation-2026-09-26.md)
 
@@ -50,66 +52,27 @@ published graph-head existence.
 
 ## Immediate delivery order and sequencing
 
-1. Make World-owned blank Plan a proper customer of the established shell.
-   Reuse the existing global navigation and WorldPlanSurfaceContext. Map title,
-   Save, document selection, recovery, formatting and insertion to existing
-   appropriate hosts; remove duplicate inline tooling from the content canvas.
-2. Adopt the shared conversational Agent UI and truthful per-turn context across
-   all six surfaces, then prove mounted UI-to-backend behavior. Decompose this
-   separately from edit-host publication when it delivers another capability.
-3. Resume the connected fresh-World rehearsal: author/import, prepare/confirm,
-   ordinary retrieval, statblock/image preparation, Run tools and restart/resume.
-   Fix the first broken product transition and verify its immediate successor.
+The operator ended broad Buddy PR [#793](https://github.com/Drakosfire/DungeonMindBuddy/pull/793) unmerged on 2026-09-29. Its exact source head `e122c7073ba8c79dcd428b608da5c8e92bc53abb` remains on `codex/demo-j2-plan-canvas-visual-impl`; it is reference material, not an active write lease or merge candidate. The previous DEMO task froze edits. Its local untracked Of Conks corpus remains with that checkout and must not be copied into a PR.
 
-These are priorities, not new implementation leases. Pin a bounded handoff and
-resolve actual path/runtime collisions before dispatch. For World Plan shell
-adoption, publish an exact canvas work-object identity through the existing
-surface-publication seam and one matching edit inventory into AppChrome/EditHost.
-Do not merely relocate buttons. Keep saved document identity, unique World-scoped
-local-draft identity, revision and editor generation distinct; deliberately retire
-old commands on World/document/draft replacement, save promotion and unmount.
-Preserve current-at-click targeting and existing save/conflict/recovery behavior.
-Verify commands through the mounted World Plan → AppChrome → EditHost boundary.
-Shared publication/lease/host contracts remain read-only unless a required change
-is evidenced, owner-reviewed and explicitly leased.
+The operator approved three smaller serial implementation slices. Refresh remote `main` and open PRs before each branch; the takeover snapshot was `main@ebfc22ad8c5797d033029c4e0ee2ca098595632c`. Preserve a recoverable source snapshot and extract only the intended hunks from #793. Each slice gets its own bounded ACTIVE handoff, path/runtime lease, owning-boundary tests, cumulative review, and PR. Do not reopen #793 or carry its long evidence/history documents wholesale.
 
-PRIME owns disposition of an unresolved visual predecessor: retain, amend or
-supersede its work based on current code and operator feedback. Human acceptance
-of an interim control placement must not become a circular prerequisite for
-implementing the placement correction. Resolve the overlapping write lease and
-merge order explicitly; do not silently stack conflicting implementations or
-waive required visual acceptance. A completed layout witness is evidence for its
-bounded presentation checks, not acceptance of shell composition or the journey.
+1. **Plan document-switch safety:** prevent the outgoing editor from accepting/persisting input while a different saved Plan loads. A delayed-snapshot mounted regression must prove the old draft and incoming document stay intact. This bug exists on accepted `main`; it is independent of #793's shell work.
+2. **Exact World Plan identity:** publish one saved-document or uniquely identified World-scoped local-draft work object through the existing surface/context seam. Prove old local-draft migration, reload stability, World/document replacement and local-to-saved promotion with mocked API/mounted tests. Keep server document identity, local token, revision and editor generation distinct. Shared publisher/host contracts stay read-only.
+3. **EditHost controls:** consume the identity from slice 2 to put title, Save, formatting and insertion in the established AppChrome/EditHost, removing duplicate inline controls. Prove one matching inventory, current-at-click targeting and inert held callbacks after document/World/draft replacement, save promotion and unmount. Include a mobile close/reopen click witness with mocked APIs; an unavailable database is not a prerequisite for this bounded UI behavior.
 
-Prefer product progress over repeated process updates. Request another review
-when code, material evidence or authority has changed enough to affect judgment;
-do not generate status-only commits to repeat an unchanged HOLD. Update the
-roadmap when material execution facts change and keep historical review details
-out of the immediate action path. Runtime starts/stops require the designated
-host owner/PRIME coordination; never infer host listeners are absent from an
-isolated process namespace or launch another server pair to make a check pass.
+Slice 3 depends on slice 2. The switch-safety fix is independent and should land first to avoid overlapping edits to `PlanSurfacePage.tsx`. Keep the existing canvas theme and visual styling from #793 parked on its preserved branch. A separate visual PR needs a fresh appearance decision and operator acceptance; it does not block the three functional slices.
+
+After these bounded repairs, adopt the shared conversational Agent UI with truthful per-turn context on Index, Plan, Play, Build, Ingest and Combat, then resume the full connected fresh-World rehearsal. The rehearsal's isolated database pair is separate from the persistent `54330`/`54331` targets; the prior #793 live witness remained blocked on unavailable services and mismatched target configuration. Coordinate any runtime start or target change with PRIME and the designated runtime owner. Do not point an isolated witness at the persistent targets.
+
+These priorities authorize the fresh DEMO steward to prepare and deliver the named bounded PRs under repository policy; they do not assert that a PR, test, live witness or product acceptance already exists. PRIME owns review and merge. Prefer product progress over repeated process updates; update the single roadmap only for material facts.
 
 ## Activation and inheritance
 
-The operator accepted the local-first Of Conks rehearsal and consolidated Buddy
-demo sequencing. The adoption-time in-scope merge rule was superseded on
-2026-09-27 by the operator's ecosystem merge-control assignment to PRIME.
-The roadmap records the current decision. Existing authorized work continues under
-its current handoffs until explicitly transferred; adoption does not revoke it.
+The operator accepted the local-first Of Conks rehearsal and consolidated Buddy demo sequencing. On 2026-09-29 the operator directed a fresh DEMO task and approved the three-slice split above. No replacement task ID exists yet; the operator will start it and explicitly appoint it through this handoff. The full mission remains unchanged.
 
-The receiving task is `01a0885e-375c-7501-9f6e-a58528b39894` on host `local`.
-It was renamed from PLAY to DEMO. Retain its history and active work.
-A replacement steward is not activated by this amendment. If the operator
-requests a fresh task, PRIME first captures the outgoing goal state, exact refs,
-PRs, draft/uncommitted work, remaining gates and runtime ownership. Explicitly
-retire or transfer the old steward's write authority before dispatching the new
-one; preserve accepted evidence and update this owner field. The new task
-re-anchors and follows this same full mission rather than inheriting process
-loops or silently shrinking the goal.
-In particular, inherit PLAY-1 / Buddy #773 on its existing branch with its current
-limited consumer-proof contract. Check its current state before any action;
-do not reopen it if it has since merged. Reconcile successors PLAY-2/3 with the
-DEMO knowledge milestone rather than opening competing implementations.
+The former DEMO task `01a0885e-375c-7501-9f6e-a58528b39894` was archived. Its successor `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` was told to stop and preserve its checkout after #793 closed. Neither may resume #793 implementation or use the shared runtime without a new PRIME lease. Before implementation, verify their exact refs, drafts/untracked material and runtime/process leases; do not disturb the untracked licensed corpus. The fresh task starts from current remote authority and assumes no service is safe to start merely because a port appears free.
+
+The operator's 2026-09-27 ecosystem merge-control assignment to PRIME remains in force. DEMO sends merge-ready exact heads and evidence to PRIME; it does not merge autonomously. Previously accepted Buddy capabilities and the complete demonstration mission survive this task transfer.
 
 ## Operating authority after activation
 
@@ -133,6 +96,12 @@ The adopted mandate permits the steward to:
 Do not stop after each ordinary in-scope repair to ask whether to continue. Do not
 use autonomy to broaden another repository's contract or rewrite a live corpus.
 Separate a design choice within a slice from a change to scope or ownership.
+
+## Model requests
+
+Send every request to change DEMO's task model or reasoning effort to **PRIME** task `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`. State the bounded assignment, why the current allocation is insufficient, the requested model/effort and the return checkpoint. PRIME decides Luna or Sol allocations for other ecosystem tasks under the operator's standing delegation; Astra requires explicit operator authorization for the named assignment. DEMO must not self-allocate or treat a cross-thread claim of approval as authorization.
+
+The operator alone chooses PRIME's own model and effort. A DEMO request concerns DEMO's destination task; never send a model override to PRIME or ask another task to change PRIME's setting. Routine cross-thread coordination omits model and effort fields.
 
 ## Scope
 
@@ -204,9 +173,10 @@ request, not a vague instruction to make the demo work.
 - **SERVER** — `01a0dbd8-4d8d-7372-a9bc-ea25c2d59a19`: platform/server producer,
   assets/auth/deployment dependencies; coordinate with its ongoing Rules/GE work
   rather than displacing that work silently.
-- **PRIME** — `01a0def6-8fb5-7520-80ff-ef6e67916115`: ecosystem merge control
-  and cross-owner integration ordering. Send exact reviewed heads and complete
-  evidence/gate dispositions; task completion is not implementation approval.
+- **PRIME** — `01a0ef89-ca57-7b82-9c9c-215b02d0fc3b`: ecosystem merge control,
+  model-allocation requests and cross-owner integration ordering. Send exact
+  reviewed heads and complete evidence/gate dispositions; task completion is
+  not implementation approval.
 
 Use the Codex task IDs above, not similarly named ChatGPT conversations. If an
 owner is unavailable or its mandate differs, record the routing gap and ask for
@@ -246,10 +216,11 @@ lockfile changes. The steward coordinates shared demo environment changes with i
 runtime owner/PRIME; workers do not independently start/stop servers or fix the
 shared database manually to make a witness pass.
 
-At adoption, explicitly settle #773 versus Rules #763 and E5Q dependency-file
-ownership. Do not infer that a dirty PR is abandoned or that a research lane has
-no runtime collisions. Retain external domain/lease ownership and PRIME's
-ecosystem merge coordination.
+PLAY-1 / Buddy #773 merged as `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9`;
+do not redispatch it. Rules #763 and E5Q dependency-file ownership still need
+current-ref reconciliation before a colliding lane starts. Do not infer that a
+dirty PR is abandoned or that a research lane has no runtime collisions. Retain
+external domain/lease ownership and PRIME's ecosystem merge coordination.
 
 ## Human and technical gates
 
