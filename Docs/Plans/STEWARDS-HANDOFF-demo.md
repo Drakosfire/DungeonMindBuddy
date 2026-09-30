@@ -214,10 +214,11 @@ lockfile changes. The steward coordinates shared demo environment changes with i
 runtime owner/PRIME; workers do not independently start/stop servers or fix the
 shared database manually to make a witness pass.
 
-At adoption, explicitly settle #773 versus Rules #763 and E5Q dependency-file
-ownership. Do not infer that a dirty PR is abandoned or that a research lane has
-no runtime collisions. Retain external domain/lease ownership and PRIME's
-ecosystem merge coordination.
+PLAY-1 / Buddy #773 merged as `7fe771e86df2e796484b058aa2e6a8e7c94c9fb9`;
+do not redispatch it. Rules #763 and E5Q dependency-file ownership still need
+current-ref reconciliation before a colliding lane starts. Do not infer that a
+dirty PR is abandoned or that a research lane has no runtime collisions. Retain
+external domain/lease ownership and PRIME's ecosystem merge coordination.
 
 ## Human and technical gates
 
