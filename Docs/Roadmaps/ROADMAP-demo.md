@@ -129,13 +129,17 @@ backend baseline and merged at `6501bfa5143592cec8d7a3f521e3f34d929a5a95`
 from reviewed code head `40e7c5f81ab0a6faa53026ea571d2994f77d163c` after two
 distinct review-head cycles (`5349662805`, `5350948969`). It proves the
 verified-World backend and conversation-only route, not universal UI adoption.
-The current bounded implementation adopts Index conversation through the
-shared Agent chrome, with verified World or no owner and no primary work or
-graph request, under
+The first UI adoption, Index conversation through shared Agent chrome, merged
+as Buddy #803 at `3c9d5f2300d8658b678d25c357760905538dabbd` from reviewed
+head `47cac7b1d6ab3a1c9327438d10143b7977bbed93`. It supports verified World or
+no owner and no primary work or graph request. The next serial bite is the
+saved managed-World Plan Agent conversation under
 [`HANDOFF-DEMO-index-agent-conversation.md`](../Plans/HANDOFF-DEMO-index-agent-conversation.md).
-Plan, Play, Build, Ingest and Combat remain separate adoption work, followed by
-owner-to-backend end-to-end witnesses. Campaign-owner/campaign-lens remains
-fail-closed pending
+Plan's current cited Ask and reviewed document-edit flows remain separate and
+unchanged; the generic Agent endpoint has no citation/grounding response
+contract, so the Plan conversation requests no graph. Play, Build, Ingest and
+Combat remain separate adoption work, followed by owner-to-backend end-to-end
+witnesses. Campaign-owner/campaign-lens remains fail-closed pending
 a Buddy-owned campaign→World authority. The visual rejection remains open and
 is not waived by this backend work. J1 and J1–J6 remain unaccepted until their
 connected product witnesses pass.

@@ -1,6 +1,6 @@
 # DEMO — Index conversational Agent entry
 
-**Status:** ACTIVE — PRIME reviewed and activated design head `09430129e652fee4f8b507383488f6822dcffaed`
+**Status:** MERGED — Buddy #803 merged at `3c9d5f2300d8658b678d25c357760905538dabbd`
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -118,3 +118,9 @@ reports the inherited `ThreatPublicationPanel.tsx:553` JSX namespace error.
 No provider, server, port, database or corpus was used. The remaining five
 surface adoptions, connected provider witness and operator acceptance stay
 open.
+
+**Settlement:** Buddy #803 merged from exact reviewed head
+`47cac7b1d6ab3a1c9327438d10143b7977bbed93`. The full App-suite failures were
+reproduced on a clean archive of the #802 base, confirming that baseline debt
+predates this slice. The Index implementation and UI-history lease ended at
+merge; subsequent surface adoption is separately bounded.
