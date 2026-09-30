@@ -210,7 +210,7 @@ def execute_agent_turn(
     trace.context_summary = dict(assembly.trace_summary)
     with trace.phase("runtime_dispatch"):
         result = selected_runtime.run(assembly.invocation)
-    final_trace = trace.finalize(
+    final_trace = trace.finalize_and_log(
         status="ok" if result.status == "ok" else "error",
         model_calls=result.model_calls,
         extra_warnings=result.telemetry_warnings,

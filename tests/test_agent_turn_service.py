@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -287,3 +289,47 @@ def test_unresolvable_requested_graph_fails_before_runtime(tmp_path: Path) -> No
             runtime=runtime,
         )
     assert runtime.invocations == []
+
+
+def test_successful_plan_turn_returns_one_sanitized_trace_event(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    prompt_secret = "plan-prompt-secret-6d3b"
+    runtime = FakeRuntime()
+    request = _request(
+        message=prompt_secret,
+        surface={"surface_id": "plan", "instance_id": "plan-main"},
+        owner_scope={"kind": "world", "world_id": "world:plan"},
+    )
+
+    with caplog.at_level(logging.INFO, logger="dmb.agent.turn_trace"):
+        response = execute_agent_turn(
+            request,
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+            owner_resolver=lambda _request: {
+                "kind": "world",
+                "id": "world:plan",
+                "name": "Trace Test World",
+            },
+            work_resolver=lambda _request, _owner: None,
+            graph_resolver=lambda *_args: pytest.fail(
+                "graphless Plan turn must not resolve graph authority"
+            ),
+            runtime=runtime,
+        )
+
+    trace = response.answer.trace
+    trace_events = [
+        record.getMessage()
+        for record in caplog.records
+        if record.name == "dmb.agent.turn_trace"
+        and record.getMessage().startswith("dmb_agent_turn_trace ")
+    ]
+
+    assert response.answer.status == "ok"
+    assert trace["status"] == "ok"
+    assert len(trace_events) == 1
+    logged_trace = json.loads(trace_events[0].removeprefix("dmb_agent_turn_trace "))
+    assert logged_trace["trace_id"] == trace["trace_id"]
+    assert prompt_secret not in trace_events[0]
