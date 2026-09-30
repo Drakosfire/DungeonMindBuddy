@@ -111,7 +111,9 @@ unmount, API error retry and mismatched-response rejection. API transport and
 history sanitizer suites passed 79/79 and 30/30; Agent chrome passed 3/3 and
 the real App root-route Index mount passed. The full App suite has 21 failures
 in unrelated Plan, Build and Play fixtures that reach unmocked workspace/Run
-URLs and show `World selection unavailable`; 11 tests pass. UI typecheck
+URLs and show `World selection unavailable`; 11 tests pass. A clean archive of
+the exact #802 base `118e680244ab830c24c0f7cfa12f636ac303e034` reproduces the
+same 21/32 result, confirming these failures are inherited. UI typecheck
 reports the inherited `ThreatPublicationPanel.tsx:553` JSX namespace error.
 No provider, server, port, database or corpus was used. The remaining five
 surface adoptions, connected provider witness and operator acceptance stay
