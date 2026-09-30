@@ -130,6 +130,11 @@ Decision/Consequence blocks, it returned copy-ready prose and said it could not
 trigger Review/Apply. The editor stayed unchanged at saved Plan revision 3.
 This reproduces a broken J2 transition on the current World Plan route; the
 historical #784 editor bridge does not establish that this route uses it.
+**Next action:** after the serial #810 gate clears, design a bounded Buddy fix
+for the selected-World route that gives the Agent authorized access to the exact
+saved Plan text and a reviewable Apply path. No J2 implementation lease is
+active. Keep the J3 work below as downstream diagnosis until this transition is
+repaired and accepted.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
@@ -954,8 +959,8 @@ fixture seeding or a parallel authority as an implementation shortcut.
   unavailable (503). This run is downstream inspection on the existing
   caller-selected `space_id=world_id` path, not evidence for MIND #96. Quote
   correction alone cannot clear either boundary.
-- **Next J3 definition:** the World-owned Plan lane is integrated; after the
-  serial #810 gate clears, define the Buddy product path from selected source
+- **Next J3 definition:** after the serial #810 gate and current J2 transition
+  clear, define the Buddy product path from selected source
   spans through MIND #96 provisioning/admission and WorldKeeper prepare/commit
   to ordinary Agent citation and restart read-after-write. Buddy must persist
   the server-minted `world_id` → `space_id` binding, remove the current
