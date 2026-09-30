@@ -1,7 +1,9 @@
 # Steward handoff — DEMO, from preparation to a resumable session
 
-**Status:** ACTIVE mandate; fresh DEMO task pending operator creation after the 2026-09-29 reboot  
-**Owner:** the next operator-created DEMO task. The prior DEMO tasks `01a0885e-375c-7501-9f6e-a58528b39894` and `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` retain history only; PRIME has frozen their #793 implementation and runtime authority.  
+**Status:** ACTIVE mandate; fresh DEMO task pending operator creation after the 2026-09-29 reboot
+
+**Owner:** the next operator-created DEMO task. The prior DEMO tasks `01a0885e-375c-7501-9f6e-a58528b39894` and `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` retain history only; PRIME has frozen their #793 implementation and runtime authority.
+
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Mandate amended:** 2026-09-29 — fresh DEMO transfer, three bounded World Plan slices and PRIME model routing
 **Execution state:** [ROADMAP-demo.md](../Roadmaps/ROADMAP-demo.md) only  
