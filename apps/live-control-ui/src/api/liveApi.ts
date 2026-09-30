@@ -15,6 +15,8 @@ import type {
   LiveQueryResponse,
   IndexAgentTurnRequestV1,
   IndexAgentTurnResponseV1,
+  WorldPlanAgentTurnRequestV1,
+  WorldPlanAgentTurnResponseV1,
   LiveQueryBackend,
   LiveQueryOptions,
   PlanDocumentEditProposalRequest,
@@ -1219,6 +1221,15 @@ export async function postIndexAgentTurn(
   request: IndexAgentTurnRequestV1,
 ): Promise<IndexAgentTurnResponseV1> {
   return apiFetch<IndexAgentTurnResponseV1>("/api/live/agent/turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
+}
+
+export async function postWorldPlanAgentTurn(
+  request: WorldPlanAgentTurnRequestV1,
+): Promise<WorldPlanAgentTurnResponseV1> {
+  return apiFetch<WorldPlanAgentTurnResponseV1>("/api/live/agent/turn", {
     method: "POST",
     body: JSON.stringify(request),
   });

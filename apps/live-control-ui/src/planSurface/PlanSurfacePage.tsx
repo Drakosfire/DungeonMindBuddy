@@ -22,6 +22,7 @@ import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { WorldPlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
+import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
 import { toAppChromeToolsGeneration, type MarkdownEditorToolbarModel } from "../tiptap/MarkdownEditorToolbar";
 import { CALLOUT_KINDS, defaultCalloutLabel } from "../tiptap/markdown/calloutMarkdown";
 import { SemanticMarkdownPaste } from "../tiptap/extensions/SemanticMarkdownPaste";
@@ -284,6 +285,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const statusRef = useRef(status);
   statusRef.current = status;
   const switchingDocumentRef = useRef(false);
+  const serverTitleRef = useRef("");
   const serverMarkdownRef = useRef("");
   const editorRef = useRef<Editor | null>(null);
   const workObject = useMemo(() => worldPlanWorkObject({ worldId, documentId, localDraftId }), [worldId, documentId, localDraftId]);
@@ -400,6 +402,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           revisionRef.current = snapshot.loaded_revision;
           titleRef.current = nextTitle;
           markdownRef.current = nextMarkdown;
+          serverTitleRef.current = snapshot.record.title;
           serverMarkdownRef.current = snapshot.markdown;
           pendingWriteRef.current = recoverLocal ? localDraft.pending_write ?? null : null;
           setTitle(nextTitle);
@@ -460,7 +463,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setError(null);
     try {
       const snapshot = await getWorldOwnedPlanSnapshot(nextDocumentId);
-      if (snapshot.record.world_id !== worldId || snapshot.record.campaign_id !== null) {
+      if (snapshot.record.world_id !== worldId || snapshot.record.campaign_id !== null || snapshot.record.kind !== "plan") {
         throw new Error("This Plan does not belong to the selected World.");
       }
       if (!selectedViewIsCurrent(epoch, priorDocumentId)) return;
@@ -474,6 +477,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       revisionRef.current = snapshot.loaded_revision;
       titleRef.current = snapshot.record.title;
       markdownRef.current = snapshot.markdown;
+      serverTitleRef.current = snapshot.record.title;
       serverMarkdownRef.current = snapshot.markdown;
       pendingWriteRef.current = null;
       uncertainCreateDraftRef.current = preservedUncertainDraft;
@@ -518,6 +522,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     revisionRef.current = null;
     titleRef.current = "Plan";
     markdownRef.current = "";
+    serverTitleRef.current = "";
+    serverMarkdownRef.current = "";
     pendingWriteRef.current = null;
     setRecoveryConflict(false);
     setServerDraft(null);
@@ -659,6 +665,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           revisionRef.current = currentRevision;
           titleRef.current = submittedTitle;
           markdownRef.current = submittedMarkdown;
+          serverTitleRef.current = created.title;
           serverMarkdownRef.current = "";
           setCreateUncertain(false);
           setUncertainCreateDraft(null);
@@ -727,6 +734,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         }
         currentRevision = snapshot.loaded_revision;
         revisionRef.current = currentRevision;
+        serverTitleRef.current = snapshot.record.title;
         serverMarkdownRef.current = committed ? committedMarkdown ?? snapshot.markdown : snapshot.markdown;
         pendingWriteRef.current = null;
         const latest = readWorldPlanLocalDraft(worldId);
@@ -842,6 +850,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       }
       currentRevision = committed.registry_revision;
       revisionRef.current = currentRevision;
+      serverTitleRef.current = committed.title;
       serverMarkdownRef.current = submittedMarkdown;
       pendingWriteRef.current = null;
       const latest = readWorldPlanLocalDraft(worldId);
@@ -912,6 +921,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     if (!serverDraft) return;
     titleRef.current = serverDraft.title;
     markdownRef.current = serverDraft.markdown;
+    serverTitleRef.current = serverDraft.title;
+    serverMarkdownRef.current = serverDraft.markdown;
     revisionRef.current = serverDraft.revision;
     pendingWriteRef.current = null;
     const generation = ++editGenerationRef.current;
@@ -1128,6 +1139,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         {message ? <p role="status">{message}</p> : null}
         {error ? <p role="alert">{error}</p> : null}
       </main>
+      <WorldPlanAgentConversation
+        worldId={worldId}
+        worldName={worldName}
+        documentId={documentId}
+        surfaceInstanceId={surfaceIdentity.instanceKey}
+        revision={revisionRef.current}
+        savedDirty={Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current))}
+        pageReady={status === "ready"}
+        saveInFlight={saving || pendingWriteRef.current !== null}
+      />
     </AppChrome>
   );
 }

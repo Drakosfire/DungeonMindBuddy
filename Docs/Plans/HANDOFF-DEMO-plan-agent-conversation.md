@@ -1,16 +1,16 @@
 # DEMO — saved managed-World Plan Agent conversation
 
-**Status:** PROPOSED — design-only handoff for PRIME review; no implementation lease is active
+**Status:** ACTIVE — implementation authorized by PRIME after Buddy #804 merged
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
-**Authority:** [STEWARDS-HANDOFF-demo.md](STEWARDS-HANDOFF-demo.md), accepted [universal Agent turn contract](HANDOFF-DEMO-universal-agent-turn-context-v1.md) §3–§4, and PRIME's directive to prepare this design-only handoff before any implementation dispatch.
+**Authority:** [STEWARDS-HANDOFF-demo.md](STEWARDS-HANDOFF-demo.md), accepted [universal Agent turn contract](HANDOFF-DEMO-universal-agent-turn-context-v1.md) §3–§4, Buddy #804 merge `7a4159f447da715a2a5d586b862a7079b7316929`, and PRIME's explicit implementation dispatch after exact-head PRIME/ARCHITECTURE PASS.
 
-**Pinned base:** Buddy #803 merged as `3c9d5f2300d8658b678d25c357760905538dabbd`; fetched `origin/main` at that exact commit before this lane.
+**Pinned base:** `origin/main` at Buddy #804 merge `7a4159f447da715a2a5d586b862a7079b7316929`, fetched before implementation.
 
-**Branch/checkout:** `codex/demo-plan-agent` in `/home/drakosfire/.codex/worktrees/8b2b/DungeonMindBuddy`.
+**Branch/checkout:** `codex/demo-plan-agent-conversation` in `/home/drakosfire/.codex/worktrees/8b2b/DungeonMindBuddy`.
 
-**Topology:** serial. The Index slice is merged. No other DEMO Agent adoption lane is active. Open PRs #781, #798, #760–#761, and #763–#765 were inspected. #764's exact write set is limited to Rules Lawyer / Plan projection catalog files and does not overlap the proposed paths; `planSurface/config/planSurfaceConfig.ts` remains read-only. Recheck paths before opening the implementation PR.
+**Topology:** serial. Index #803 and design #804 are merged; no other DEMO Agent adoption lane is active. Re-anchored and inspected open PRs #798, #781, #760–#761, and #763–#765. Their exact changed paths do not overlap this lease. #764 touches Rules Lawyer / Plan projection catalog files and `planSurface/config/planSurfaceConfig.ts`; those remain outside this lease and read-only. No shared write-path or runtime-state collision was found.
 
 ## One capability and failure cases
 
@@ -65,11 +65,13 @@ show that distinction with the actual revision and must never imply that the
 answer used the older revision. Graph is not requested in this slice, so
 graph-unavailable and graph-pin behavior are outside this implementation.
 
-## Proposed exclusive expected path lease
+## Active exclusive expected path lease
 
-These paths are requested for a later implementation dispatch. They are not
-an active write lease until PRIME merges this handoff and explicitly
-dispatches implementation against that exact authority.
+These paths are the exclusive active write lease for this implementation,
+activated by PRIME's explicit dispatch on Buddy #804 merge
+`7a4159f447da715a2a5d586b862a7079b7316929`. The lease is bounded to one
+saved managed-World Plan conversation. Do not edit any path outside this list
+without returning the exact blocker to PRIME for transfer or split.
 
 - `Docs/Plans/HANDOFF-DEMO-plan-agent-conversation.md` — this bounded proposed
   proposal and its acceptance witness.
@@ -97,7 +99,7 @@ dispatches implementation against that exact authority.
   `/api/live/agent/turn` client and transport behavior.
 
 The existing `PlanAgentInteractionBar.tsx` and its tests are outside the
-proposed write set. So are
+active write set. So are
 `AgentInteractionProvider.tsx`, `AgentInteractionChrome.tsx`, `AskPluginSlot.tsx`,
 `surfaceInteraction/**`, App/root provider composition, all other surface
 owners, `planSurface/config/planSurfaceConfig.ts`, backend routes/resolvers,
@@ -165,10 +167,33 @@ tests, UI typecheck, and cumulative base-to-head diff review. Name inherited
 failures. Mocked UI tests do not certify a live provider, campaign authority,
 the other four surfaces, or full DEMO acceptance.
 
-**Proposed gate:** PRIME/ARCHITECTURE review this exact handoff and its endpoint
-contract critique. Only after this design handoff is merged and PRIME
-explicitly dispatches implementation against the merged authority may the
-proposed paths be edited. The later implementation should deliver one PR
-titled `DEMO: add saved World Plan Agent conversation` and return its exact
-base/head, evidence, and remaining gates to PRIME for independent review and
-merge control.
+**Implementation authorization:** PRIME merged this design in Buddy #804 at
+`7a4159f447da715a2a5d586b862a7079b7316929` after exact-head PRIME and
+ARCHITECTURE PASS, then explicitly dispatched this bounded implementation.
+The active lease above is the sole write authority. Deliver one PR titled
+`DEMO: add saved World Plan Agent conversation`; report its exact base/head,
+owning-boundary evidence, inherited failures, and remaining gates to PRIME for
+independent implementation review and merge control. This implementation does
+not claim full DEMO acceptance.
+
+## Implementation verification record
+
+Implementation is on `codex/demo-plan-agent-conversation`, based on fetched
+`origin/main` at `7a4159f447da715a2a5d586b862a7079b7316929` (Buddy #804).
+The current focused run passes all 147 tests: `PlanSurfacePage.test.tsx` 35,
+`agentInteractionHistory.test.ts` 32, and `liveApi.test.ts` 80. The mounted
+reviewed Plan edit regression passes (1/1); previously selected Plan shell
+regressions passed (3/3). These are mocked UI/API checks, not a live provider or
+runtime witness.
+
+The UI typecheck remains blocked by the existing error
+`src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503: Cannot
+find namespace 'JSX'`; no typecheck error pointed to this slice. The
+out-of-lease `PlanAgentInteractionBar.test.tsx` run is 3/8 passing and 5 failing
+because each failure cannot find the existing `Capture Plan target` button;
+this slice did not edit that component or test, and those paths are outside its
+write lease. No edits were made to address that separate failure.
+
+`git diff --check` passes. No live provider, server, port, database, corpus,
+runtime state, or product generation was used or changed. PRIME still owns
+independent review, broader DEMO acceptance, and merge disposition.

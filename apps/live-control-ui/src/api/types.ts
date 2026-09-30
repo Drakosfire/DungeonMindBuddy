@@ -661,7 +661,7 @@ export interface AgentInteractionTurn {
   backend: LiveQueryBackend | "plan_edit";
   status: "ok" | "error" | "partial" | string;
   contextSummary?: AgentInteractionContextSummary;
-  agentTurnResolved?: IndexAgentTurnResolvedSummary | null;
+  agentTurnResolved?: IndexAgentTurnResolvedSummary | WorldPlanAgentTurnResolvedSummary | null;
   citations?: LiveQueryCitation[];
   trace?: AgentInteractionTrace | null;
   warnings?: string[];
@@ -720,6 +720,89 @@ export interface IndexAgentTurnResolvedSummary {
   workStatus: "absent";
   graphStatus: "not_requested";
   pointerStatus: "absent" | "accepted" | "recovered" | "rejected" | "reused";
+}
+
+/** Bounded source-free facts kept with one browser-local World Plan turn. */
+export interface WorldPlanAgentTurnResolvedSummary {
+  surfaceId: "plan";
+  instanceId: string;
+  ownerStatus: "resolved";
+  ownerId: string;
+  ownerName?: string | null;
+  workKind: "plan";
+  workObjectId: string;
+  workStatus: "resolved" | "changed_since_expected";
+  expectedRevision: number;
+  revisionUsed: number;
+  clientWorkState: "saved_clean" | "saved_dirty";
+  graphStatus: "not_requested";
+  pointerStatus: "absent" | "accepted" | "recovered" | "rejected" | "reused";
+}
+
+/** Accepted generic turn route, bound to one saved Plan in a verified World. */
+export interface WorldPlanAgentTurnRequestV1 {
+  schema: "dmb_agent_turn_request_v1";
+  client_thread_id: string;
+  turn_id: string;
+  surface: { surface_id: "plan"; instance_id: string };
+  owner_scope: { kind: "world"; world_id: string };
+  primary_work: { kind: "plan"; object_id: string; expected_revision: number };
+  client_work_state: "saved_clean" | "saved_dirty";
+  graph_request: { mode: "none" };
+  graph_selection: null;
+  message: string;
+}
+
+/** Wire shape returned by the accepted generic turn route; runtime-validated by its caller. */
+export interface WorldPlanAgentTurnResponseV1 {
+  schema: "dmb_agent_turn_response_v1";
+  client_thread_id: string;
+  turn_id: string;
+  surface: {
+    surface_id: string;
+    instance_id: string;
+    status: "resolved" | "rejected" | "unavailable";
+  };
+  owner_scope: {
+    status: "absent" | "resolved" | "rejected" | "unavailable";
+    kind: "world" | "campaign" | null;
+    owner_id: string | null;
+    name: string | null;
+  };
+  primary_work: {
+    status: "absent" | "resolved" | "changed_since_expected" | "foreign" | "removed" | "unavailable";
+    kind: string | null;
+    object_id: string | null;
+    revision_used: string | number | null;
+    expected_revision: number | null;
+  };
+  client_work_state_reported: "none" | "saved_clean" | "saved_dirty" | "new_unsaved";
+  graph: {
+    status: "not_requested" | "ready" | "empty" | "unavailable" | "rejected";
+    world_id: string | null;
+    campaign_id: string | null;
+    scope_mode: "world" | "campaign" | null;
+    revision_id: string | null;
+    focus: Record<string, unknown> | null;
+    selection_node_id: string | null;
+    selection_found: boolean | null;
+    head_revision_id: string | null;
+    is_head: boolean | null;
+  };
+  conversation: {
+    client_thread_id: string;
+    turn_id: string;
+    pointer_status: "absent" | "accepted" | "recovered" | "rejected" | "reused";
+    pointer_id: string | null;
+  };
+  answer: {
+    status: "ok" | "error";
+    text: string | null;
+    code: string | null;
+    message: string | null;
+    graph_grounded: boolean;
+    trace: Record<string, unknown>;
+  };
 }
 
 export interface PlanDocumentEditProposalRequest {

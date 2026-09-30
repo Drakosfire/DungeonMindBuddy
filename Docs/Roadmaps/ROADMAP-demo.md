@@ -135,6 +135,12 @@ head `47cac7b1d6ab3a1c9327438d10143b7977bbed93`. It supports verified World or
 no owner and no primary work or graph request. The next serial bite is the
 saved managed-World Plan Agent conversation under
 [`HANDOFF-DEMO-plan-agent-conversation.md`](../Plans/HANDOFF-DEMO-plan-agent-conversation.md).
+Its design-only Buddy #804 merged at
+`7a4159f447da715a2a5d586b862a7079b7316929` from reviewed head
+`e5b0d3e3e84eaae347092937281605e9478f7499` after PRIME and ARCHITECTURE
+exact-head PASS. PRIME explicitly activated the implementation on that merged
+main; the active lease is bounded to the handoff's listed UI/API client/history
+paths and owning-boundary witness.
 Plan's current cited Ask and reviewed document-edit flows remain separate and
 unchanged; the generic Agent endpoint has no citation/grounding response
 contract, so the Plan conversation requests no graph. The endpoint supplies
@@ -247,23 +253,29 @@ is not claimed to be that original body. The owner observed configured
 `temperature=0.7` and routed the GE control incompatibility to ARCHITECTURE.
 
 SERVER PR #34, [`STATBLOCK: omit provider temperature through GenerationEngine`](https://github.com/Drakosfire/DungeonMindServer/pull/34),
-has PRIME Cycle 2 **PASS** on frozen head
+passed PRIME Cycle 2 on frozen head
 `0ddedbde9836bd05c9812e182c715b9a42199dca`, base
 `eb3125455454716d32c6daf53ad005cdc1ec968c`
-([review 5334080400](https://github.com/Drakosfire/DungeonMindServer/pull/34#pullrequestreview-5334080400)).
-GitHub currently reports OPEN, draft, mergeable, with no merge commit. The
-implementation pins accepted GE #7 `80288d7b467ac3c3586f4e3c964385cefe69f931`
-and sets `temperature=None`; 11 real-consumer tests and 16 combined seam tests
-pass with zero skips, and exact-head red-team CI `36378550004` is SUCCESS.
-Tests cover card, PCG, map and image consumers with the actual pinned GE and
-fake external generation. No live provider call or runtime change was made.
-PRIME owns the pending merge disposition. On merge, SERVER must coordinate the
-`7861` runtime update against this exact ref and same isolated collections;
-the new Ferry Keeper intent still must pass through ordinary UI. #785 remains
-on its live gate until that succeeds.
-After acceptance/merge, SERVER must coordinate the exact-ref `7861` runtime
-update with the same isolated collections before DEMO submits the genuinely new
-Ferry Keeper intent through ordinary UI. This does not waive #785's live proof.
+([review 5334080400](https://github.com/Drakosfire/DungeonMindServer/pull/34#pullrequestreview-5334080400)),
+then merged at `1e8a6185…`. Its implementation pins accepted GE #7
+`80288d7b467ac3c3586f4e3c964385cefe69f931` and sets `temperature=None`; 11
+real-consumer tests and 16 combined seam tests passed with zero skips, and
+exact-head red-team CI `36378550004` succeeded. Tests cover card, PCG, map and
+image consumers with the actual pinned GE and fake external generation. The PR
+and merge changed source; they do not prove a deployed-runtime update.
+
+SERVER's current host read-only check found no visible service or listener on
+`7861`; the unauthenticated health request could not connect, the historical
+`/tmp` runtime checkout is absent, and sandbox restrictions blocked the `ss`
+netlink check. Exact running Server/GenerationEngine refs and collection
+isolation therefore remain unverified. No runtime, configuration, state, or
+product generation was changed. PRIME accepts a read-only HOLD. Before DEMO
+issues a new Ferry Keeper intent, the owning runtime host must establish exact
+deployed refs and isolated collections; SERVER coordinates an update to
+`1e8a6185…` only if the runtime is stale. Preserve failed request
+`d41f849e-334d-4248-814d-8e9ccebf9148`; do not replay it. After runtime
+coordination, DEMO still needs one genuinely new Ferry Keeper intent through
+ordinary UI. #785 remains on its live gate until that succeeds.
 
 The product's body request key `d41f849e-334d-4248-814d-8e9ccebf9148` is
 distinct from the producer log request ID. SERVER verified it is terminal
