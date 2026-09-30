@@ -129,10 +129,12 @@ lane on `main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, branch
 `Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
 that new handoff, `src/application_state/migrations/env.py`, and
 `tests/application_state/test_migration_logging.py`; one PR to `main` is
-authorized and RAKE does not merge. Do not absorb the repair into C1. Hold this
-PR until it merges, then rebase and rerun all seven suites against a fresh
-disposable PostgreSQL target. Rerunning just the two tests passed (2 passed, 11
-existing Pydantic `schema`-field shadow warnings), but the combined suite is not green.
+authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811)
+is open at head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e` with no review yet.
+Do not absorb the repair into C1. Hold this PR until #811 merges, then rebase
+and rerun all seven suites against a fresh disposable PostgreSQL target.
+Rerunning just the two tests passed (2 passed, 11 existing Pydantic
+`schema`-field shadow warnings), but the combined suite is not green.
 All C1 behavior tests passed, including the focused PostgreSQL World Runbook,
 context, ownership, and pin-boundary run (29 passed, 11 existing warnings).
 

@@ -211,10 +211,12 @@ RAKE DUTY's separate repair lane on
 `Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
 that new handoff, `src/application_state/migrations/env.py`, and
 `tests/application_state/test_migration_logging.py`; one PR to `main` is
-authorized and RAKE does not merge. C1 must not absorb the repair. Hold PR #810
-until that repair merges, then rebase and rerun the seven suites against a fresh
-disposable PostgreSQL target. The two tests passed alone (2 passed, 11 existing
-Pydantic shadow warnings), but the combined witness is not green. All
+authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811)
+is open at head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e` with no review yet.
+C1 must not absorb the repair. Hold PR #810 until #811 merges, then rebase and
+rerun the seven suites against a fresh disposable PostgreSQL target. The two
+tests passed alone (2 passed, 11 existing Pydantic shadow warnings), but the
+combined witness is not green. All
 C1-specific behavior tests passed, including the focused World Runbook,
 context, ownership, and pin-boundary tests (29 passed). Scoped Ruff, Python
 compilation, and `git diff --check` passed. C2 stays blocked pending C1 review,
@@ -226,13 +228,15 @@ ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
 session is only a secondary locator and must be server-verified against that
 document and revision. Owner scope comes only from the authoritative record;
 stale revisions conflict, and campaign/world ID equality never grants scope.
-Build Agent adoption waits for the current Build composition/admission slice to
-merge and state-sync, then a separate disjoint resolver/request lease. The
-checked-in Build composition handoff still says ACTIVE, but the re-anchor found
-no matching open implementation PR or Codex task; #781 covers semantic-action
-UI only. PRIME will reconcile the current owner/ref after RAKE's logger repair
-review; no Build implementation lease is activated. No overlapping Build Agent
-implementation is dispatched.
+PRIME's 2026-09-30 reconciliation found that the old Build composition
+implementation merged in Buddy #507 at
+`19752690ee7a573141925aabcf352043da15bbe0`; its named outputs exist on current
+main. The old handoff's ACTIVE label is stale, not a live code lease. PRIME
+will route that status cleanup separately after RAKE's logger repair review.
+Build Agent adoption stays blocked pending a new exact-document/revision
+state-sync/admission slice and its own future resolver/request lease. PR #781
+covers semantic-action UI only. No Build implementation lease is active, and
+no overlapping Build Agent implementation is dispatched.
 
 Generic Agent Run resolution remains a separate successor. Ingest and Combat
 Agent adoption remain open after Play. Campaign-owner/campaign-lens stays
