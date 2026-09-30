@@ -1,6 +1,6 @@
 # DEMO — World Plan editing controls in AppChrome EditHost
 
-**Status:** ACTIVE — PRIME reviewed and activated design head `7640b71b361d11ef4dd7417675c11d931d9e930f`
+**Status:** MERGED — Buddy #802, reviewed head `1cc18982bb4e1db4bfbc13ab383761c3a8f64bb8`, merge `118e680244ab830c24c0f7cfa12f636ac303e034`
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 

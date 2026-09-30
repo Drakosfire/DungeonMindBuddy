@@ -132,27 +132,52 @@ verified-World backend and conversation-only route, not universal UI adoption.
 The first UI adoption, Index conversation through shared Agent chrome, merged
 as Buddy #803 at `3c9d5f2300d8658b678d25c357760905538dabbd` from reviewed
 head `47cac7b1d6ab3a1c9327438d10143b7977bbed93`. It supports verified World or
-no owner and no primary work or graph request. The next serial bite is the
+no owner and no primary work or graph request. The next serial bite was the
 saved managed-World Plan Agent conversation under
 [`HANDOFF-DEMO-plan-agent-conversation.md`](../Plans/HANDOFF-DEMO-plan-agent-conversation.md).
 Its design-only Buddy #804 merged at
 `7a4159f447da715a2a5d586b862a7079b7316929` from reviewed head
 `e5b0d3e3e84eaae347092937281605e9478f7499` after PRIME and ARCHITECTURE
-exact-head PASS. PRIME explicitly activated the implementation on that merged
-main; the active lease is bounded to the handoff's listed UI/API client/history
-paths and owning-boundary witness.
+exact-head PASS. PRIME explicitly activated the bounded implementation.
+Buddy #805 merged on 2026-09-30 at
+`f23d43d714b7aba68d940bbcb4cceb027f3c63e1` from reviewed head
+`0dc016d93f81212f7ee32ea2c137b7cbb2577c5b`. PRIME passed the exact cumulative
+diff and its owning-boundary evidence; focused Plan, history and API tests
+passed 147/147. The mounted reviewed Plan edit regression passed 1/1. UI
+typecheck retains the inherited `ThreatPublicationPanel.tsx:553` JSX namespace
+error. The separate legacy `PlanAgentInteractionBar.test.tsx` suite remains
+3/8 on both base and head because its fixture mocks the retired
+`getWorkspaceDocument` call while the selected-World provider now uses
+`getWorkspaceDocumentAny`; no changes to that out-of-slice path were made.
+The #805 write lease ended at merge. No provider or live runtime was used.
+
 Plan's current cited Ask and reviewed document-edit flows remain separate and
 unchanged; the generic Agent endpoint has no citation/grounding response
-contract, so the Plan conversation requests no graph. The endpoint supplies
-saved Plan identity/title/revision metadata, not committed Plan Markdown; this
-first conversation is metadata-scoped and must not claim document QA,
-retrieval, quotation, or editing. Content-aware Plan assistance needs a
-separate owner-reviewed server-side content-access contract. Play, Build,
-Ingest and Combat remain separate adoption work, followed by owner-to-backend
-end-to-end witnesses. Campaign-owner/campaign-lens remains fail-closed pending
-a Buddy-owned campaign→World authority. The visual rejection remains open and
-is not waived by this backend work. J1 and J1–J6 remain unaccepted until their
-connected product witnesses pass.
+contract, so this Plan conversation requests no graph. The endpoint supplies
+saved Plan identity/title/revision metadata, not committed Plan Markdown; it
+must not claim document QA, retrieval, quotation, citation or editing.
+Content-aware Plan assistance needs a separate owner-reviewed server-side
+content-access contract.
+
+**Next Play prerequisite — BLOCKED:** before adopting Agent on Play, Buddy needs
+an explicit World-owned Runbook/PlayRun owner contract. Current generic Agent
+`_work_resolver` supports `kind="plan"` only; PlayRun V1 exposes only
+`campaign_id`, current Runbook creation/committed revision is campaign-only,
+and World-scoped Play consumers compare that field to the selected World.
+ARCHITECTURE's 2026-09-30 owner ruling adopts `world_id` on the exact World-
+owned Runbook revision as canonical and derives a Run's World through its
+pinned artifact/revision. A typed `world_id` in PlayRun list/detail responses
+must be server-derived from that pin; `campaign_id` may be retained only as a
+non-authoritative compatibility locator after all readers are migrated. Do not
+use campaign equality, synthesize a Campaign, or bind legacy Runs by ID match.
+The bounded design and its consumer audit are recorded in the BLOCKED
+[`HANDOFF-DEMO-world-owned-play-runs.md`](../Plans/HANDOFF-DEMO-world-owned-play-runs.md);
+it holds no implementation lease. PRIME must activate an exact implementation
+handoff before code work begins. Generic Agent Run resolution and Play UI
+adoption remain a separate successor after that owner contract. Build, Ingest
+and Combat Agent adoption remain open after Play. Campaign-owner/campaign-lens
+stays fail-closed. The visual rejection remains open and is not waived by
+Agent work. J1–J6 remain unaccepted until connected product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:

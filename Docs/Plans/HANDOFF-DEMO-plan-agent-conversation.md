@@ -1,6 +1,6 @@
 # DEMO — saved managed-World Plan Agent conversation
 
-**Status:** ACTIVE — implementation authorized by PRIME after Buddy #804 merged
+**Status:** MERGED — Buddy #805, reviewed head `0dc016d93f81212f7ee32ea2c137b7cbb2577c5b`, merge `f23d43d714b7aba68d940bbcb4cceb027f3c63e1`
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -65,13 +65,13 @@ show that distinction with the actual revision and must never imply that the
 answer used the older revision. Graph is not requested in this slice, so
 graph-unavailable and graph-pin behavior are outside this implementation.
 
-## Active exclusive expected path lease
+## Implementation path lease (released at merge)
 
-These paths are the exclusive active write lease for this implementation,
-activated by PRIME's explicit dispatch on Buddy #804 merge
-`7a4159f447da715a2a5d586b862a7079b7316929`. The lease is bounded to one
-saved managed-World Plan conversation. Do not edit any path outside this list
-without returning the exact blocker to PRIME for transfer or split.
+These paths formed the exclusive write lease during implementation, activated
+by PRIME's explicit dispatch on Buddy #804 merge
+`7a4159f447da715a2a5d586b862a7079b7316929`. The lease was bounded to one
+saved managed-World Plan conversation and ended when Buddy #805 merged at
+`f23d43d714b7aba68d940bbcb4cceb027f3c63e1`.
 
 - `Docs/Plans/HANDOFF-DEMO-plan-agent-conversation.md` — this bounded proposed
   proposal and its acceptance witness.
@@ -98,8 +98,8 @@ without returning the exact blocker to PRIME for transfer or split.
 - `apps/live-control-ui/src/api/liveApi.ts` and `liveApi.test.ts` — typed
   `/api/live/agent/turn` client and transport behavior.
 
-The existing `PlanAgentInteractionBar.tsx` and its tests are outside the
-active write set. So are
+The existing `PlanAgentInteractionBar.tsx` and its tests were outside the
+implementation write set. So were
 `AgentInteractionProvider.tsx`, `AgentInteractionChrome.tsx`, `AskPluginSlot.tsx`,
 `surfaceInteraction/**`, App/root provider composition, all other surface
 owners, `planSurface/config/planSurfaceConfig.ts`, backend routes/resolvers,
@@ -167,14 +167,14 @@ tests, UI typecheck, and cumulative base-to-head diff review. Name inherited
 failures. Mocked UI tests do not certify a live provider, campaign authority,
 the other four surfaces, or full DEMO acceptance.
 
-**Implementation authorization:** PRIME merged this design in Buddy #804 at
-`7a4159f447da715a2a5d586b862a7079b7316929` after exact-head PRIME and
-ARCHITECTURE PASS, then explicitly dispatched this bounded implementation.
-The active lease above is the sole write authority. Deliver one PR titled
-`DEMO: add saved World Plan Agent conversation`; report its exact base/head,
-owning-boundary evidence, inherited failures, and remaining gates to PRIME for
-independent implementation review and merge control. This implementation does
-not claim full DEMO acceptance.
+**Implementation authorization and settlement:** PRIME merged this design in
+Buddy #804 at `7a4159f447da715a2a5d586b862a7079b7316929` after exact-head
+PRIME and ARCHITECTURE PASS, then explicitly dispatched this bounded
+implementation. Buddy #805 delivered the capability and merged at
+`f23d43d714b7aba68d940bbcb4cceb027f3c63e1` from reviewed head
+`0dc016d93f81212f7ee32ea2c137b7cbb2577c5b`. PRIME independently reviewed the
+exact cumulative diff and owning-boundary evidence. The write lease is
+released. This implementation does not claim full DEMO acceptance.
 
 ## Implementation verification record
 
@@ -194,6 +194,8 @@ because each failure cannot find the existing `Capture Plan target` button;
 this slice did not edit that component or test, and those paths are outside its
 write lease. No edits were made to address that separate failure.
 
-`git diff --check` passes. No live provider, server, port, database, corpus,
-runtime state, or product generation was used or changed. PRIME still owns
-independent review, broader DEMO acceptance, and merge disposition.
+`git diff --check` passed. No live provider, server, port, database, corpus,
+runtime state, or product generation was used or changed. The existing
+`PlanAgentInteractionBar.test.tsx` fixture failures and inherited UI typecheck
+error remain separate from #805. PRIME completed independent review and merge
+control; broader DEMO acceptance remains open.
