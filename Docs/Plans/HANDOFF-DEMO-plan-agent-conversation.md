@@ -1,6 +1,6 @@
 # DEMO — saved managed-World Plan Agent conversation
 
-**Status:** ACTIVE — bounded Plan adoption authorized by PRIME after Buddy #803 merged
+**Status:** PROPOSED — design-only handoff for PRIME review; no implementation lease is active
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -10,7 +10,7 @@
 
 **Branch/checkout:** `codex/demo-plan-agent` in `/home/drakosfire/.codex/worktrees/8b2b/DungeonMindBuddy`.
 
-**Topology:** serial. The Index slice is merged. No other DEMO Agent adoption lane is active. Open PRs #781, #798, #760–#761, and #763–#765 were inspected. #764's exact write set is limited to Rules Lawyer / Plan projection catalog files and does not overlap this lease; `planSurface/config/planSurfaceConfig.ts` remains read-only. Recheck paths before opening the implementation PR.
+**Topology:** serial. The Index slice is merged. No other DEMO Agent adoption lane is active. Open PRs #781, #798, #760–#761, and #763–#765 were inspected. #764's exact write set is limited to Rules Lawyer / Plan projection catalog files and does not overlap the proposed paths; `planSurface/config/planSurfaceConfig.ts` remains read-only. Recheck paths before opening the implementation PR.
 
 ## One capability and failure cases
 
@@ -49,10 +49,14 @@ show that distinction with the actual revision and must never imply that the
 answer used the older revision. Graph is not requested in this slice, so
 graph-unavailable and graph-pin behavior are outside this implementation.
 
-## Exclusive expected write lease
+## Proposed exclusive expected path lease
 
-- `Docs/Plans/HANDOFF-DEMO-plan-agent-conversation.md` — this bounded ACTIVE
-  authority and exact evidence.
+These paths are requested for a later implementation dispatch. They are not
+an active write lease until PRIME merges this handoff and explicitly
+dispatches implementation against that exact authority.
+
+- `Docs/Plans/HANDOFF-DEMO-plan-agent-conversation.md` — this bounded proposed
+  proposal and its acceptance witness.
 - `Docs/Plans/HANDOFF-DEMO-index-agent-conversation.md` — backward-looking
   #803 merge settlement only.
 - `Docs/Roadmaps/ROADMAP-demo.md` — #803 settlement and this slice's bounded
@@ -75,7 +79,8 @@ graph-unavailable and graph-pin behavior are outside this implementation.
 - `apps/live-control-ui/src/api/liveApi.ts` and `liveApi.test.ts` — typed
   `/api/live/agent/turn` client and transport behavior.
 
-The existing `PlanAgentInteractionBar.tsx` and its tests are read-only. So are
+The existing `PlanAgentInteractionBar.tsx` and its tests are outside the
+proposed write set. So are
 `AgentInteractionProvider.tsx`, `AgentInteractionChrome.tsx`, `AskPluginSlot.tsx`,
 `surfaceInteraction/**`, App/root provider composition, all other surface
 owners, `planSurface/config/planSurfaceConfig.ts`, backend routes/resolvers,
@@ -115,8 +120,10 @@ tests, UI typecheck, and cumulative base-to-head diff review. Name inherited
 failures. Mocked UI tests do not certify a live provider, campaign authority,
 the other four surfaces, or full DEMO acceptance.
 
-**Activation:** PRIME explicitly activated this bounded saved managed-World
-Plan slice and specified the owning-boundary acceptance witness. Deliver one
-PR titled `DEMO: add saved World Plan Agent conversation`; return its exact
+**Proposed gate:** PRIME/ARCHITECTURE review this exact handoff and its endpoint
+contract critique. Only after this design handoff is merged and PRIME
+explicitly dispatches implementation against the merged authority may the
+proposed paths be edited. The later implementation should deliver one PR
+titled `DEMO: add saved World Plan Agent conversation` and return its exact
 base/head, evidence, and remaining gates to PRIME for independent review and
 merge control.
