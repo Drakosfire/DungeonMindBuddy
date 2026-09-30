@@ -294,10 +294,12 @@ describe("App inspector integration", () => {
     );
   });
 
-  it("renders the launcher at the root route", () => {
+  it("renders the launcher and Index Agent chrome at the root route", async () => {
     render(<App />);
 
     expect(screen.getByRole("heading", { name: /command board/i })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Open" })).toBeInTheDocument();
+    expect(screen.getByTestId("agent-interaction-chrome")).toHaveAttribute("data-surface-id", "index");
     expect(screen.getByRole("link", { name: /plan prep surface/i })).toHaveAttribute("href", "/plan");
     expect(screen.getByRole("link", { name: /play runbook table deck/i })).toHaveAttribute("href", "/play");
     expect(screen.getByRole("link", { name: /ingest memory review/i })).toHaveAttribute("href", "/ingest");

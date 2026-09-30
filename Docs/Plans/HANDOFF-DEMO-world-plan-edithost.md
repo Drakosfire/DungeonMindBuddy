@@ -85,3 +85,9 @@ promotion and unmount. UI typecheck reports only the inherited
 `ThreatPublicationPanel.tsx:553` JSX namespace error outside this lease.
 No runtime, service, database, corpus or provider was used; operator visual
 acceptance and the connected DEMO journey remain outstanding.
+
+**Settlement:** Buddy #802 merged at
+`118e680244ab830c24c0f7cfa12f636ac303e034` from PRIME-reviewed head
+`1cc18982bb4e1db4bfbc13ab383761c3a8f64bb8`. PRIME independently
+reran the 19 focused tests. The EditHost functional lease ended at merge;
+the rejected Plan appearance and six-surface Agent UI remain open.

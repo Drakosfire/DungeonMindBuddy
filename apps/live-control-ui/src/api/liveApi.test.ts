@@ -30,6 +30,7 @@ import {
   putPlayActiveRun,
   putPlayRunReferenceManifest,
   postLiveQuery,
+  postIndexAgentTurn,
   postThreatQueryHydration,
   postWorldGraphProjection,
   postWorldGraphCompleteObject,
@@ -70,6 +71,50 @@ import type {
   TiptapMarkdownWritePrepareResponse,
   WorkspaceDocumentRecord,
 } from "./types";
+
+describe("Index Agent turn transport", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("posts the exact no-work/no-graph Index request to the accepted endpoint", async () => {
+    const request = {
+      schema: "dmb_agent_turn_request_v1" as const,
+      client_thread_id: "thread-1",
+      turn_id: "turn-1",
+      surface: { surface_id: "index" as const, instance_id: "index-instance" },
+      owner_scope: { kind: "world" as const, world_id: "world-a" },
+      primary_work: null,
+      client_work_state: "none" as const,
+      graph_request: { mode: "none" as const },
+      graph_selection: null,
+      message: "Hello",
+    };
+    const response = { schema: "dmb_agent_turn_response_v1", turn_id: "turn-1" };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(response));
+    await expect(postIndexAgentTurn(request)).resolves.toEqual(response);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/turn");
+    expect(fetchSpy.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
+  });
+
+  it("preserves endpoint rejection as an API error", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(
+      { detail: "World ownership changed" },
+      { ok: false, status: 409, statusText: "Conflict" },
+    ));
+    await expect(postIndexAgentTurn({
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: "thread-1",
+      turn_id: "turn-1",
+      surface: { surface_id: "index", instance_id: "index-instance" },
+      owner_scope: { kind: "world", world_id: "world-a" },
+      primary_work: null,
+      client_work_state: "none",
+      graph_request: { mode: "none" },
+      graph_selection: null,
+      message: "Hello",
+    })).rejects.toMatchObject({ name: "LiveApiError", status: 409 });
+  });
+});
 
 function mockJsonResponse(
   payload: unknown,

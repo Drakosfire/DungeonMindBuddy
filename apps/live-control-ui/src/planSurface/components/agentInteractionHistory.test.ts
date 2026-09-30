@@ -107,6 +107,42 @@ describe("agentInteractionHistory", () => {
     localStorage.clear();
   });
 
+  it("persists only bounded resolved Index turn facts with the browser-local transcript", () => {
+    const thread = createAgentInteractionThread("index-owner:world:world-a", null, "index", "hermes", "Index chat");
+    thread.turns = [{
+      turnId: "turn-1",
+      askedAt: "2026-09-30T00:00:00Z",
+      question: "Hello",
+      answer: "Hi",
+      backend: "hermes",
+      status: "ok",
+      agentTurnResolved: {
+        surfaceId: "index",
+        instanceId: "index-instance",
+        ownerStatus: "resolved",
+        ownerId: "world-a",
+        ownerName: "World A",
+        workStatus: "absent",
+        graphStatus: "not_requested",
+        pointerStatus: "reused",
+        sourceProse: "RAW_SOURCE_BODY_SECRET",
+      } as AgentInteractionThread["turns"][number]["agentTurnResolved"],
+    }];
+    persistAgentThread(thread);
+    const stored = localStorage.getItem(threadStorageKey(thread.campaignId, thread.threadId)) ?? "";
+    expect(stored).not.toContain("RAW_SOURCE_BODY_SECRET");
+    expect(loadAgentThreadById(thread.campaignId, thread.threadId)?.turns[0].agentTurnResolved).toEqual({
+      surfaceId: "index",
+      instanceId: "index-instance",
+      ownerStatus: "resolved",
+      ownerId: "world-a",
+      ownerName: "World A",
+      workStatus: "absent",
+      graphStatus: "not_requested",
+      pointerStatus: "reused",
+    });
+  });
+
   it("keeps bounded reviewed Plan proposal turns in the existing thread", () => {
     const thread = makeThread();
     thread.turns[0].backend = "plan_edit";

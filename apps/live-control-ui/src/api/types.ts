@@ -661,6 +661,7 @@ export interface AgentInteractionTurn {
   backend: LiveQueryBackend | "plan_edit";
   status: "ok" | "error" | "partial" | string;
   contextSummary?: AgentInteractionContextSummary;
+  agentTurnResolved?: IndexAgentTurnResolvedSummary | null;
   citations?: LiveQueryCitation[];
   trace?: AgentInteractionTrace | null;
   warnings?: string[];
@@ -680,6 +681,45 @@ export interface AgentInteractionTurn {
     applied: boolean;
     targetKind: "replace_selection" | "insert_at_caret";
   } | null;
+}
+
+/** Accepted generic turn route, narrowed to Index's honest no-work/no-graph contract. */
+export interface IndexAgentTurnRequestV1 {
+  schema: "dmb_agent_turn_request_v1";
+  client_thread_id: string;
+  turn_id: string;
+  surface: { surface_id: "index"; instance_id: string };
+  owner_scope: { kind: "world"; world_id: string } | null;
+  primary_work: null;
+  client_work_state: "none";
+  graph_request: { mode: "none" };
+  graph_selection: null;
+  message: string;
+}
+
+export interface IndexAgentTurnResponseV1 {
+  schema: "dmb_agent_turn_response_v1";
+  client_thread_id: string;
+  turn_id: string;
+  surface: { surface_id: string; instance_id: string; status: "resolved" | "rejected" | "unavailable" };
+  owner_scope: { status: "absent" | "resolved" | "rejected" | "unavailable"; kind: "world" | "campaign" | null; owner_id: string | null; name: string | null };
+  primary_work: { status: "absent" | "resolved" | "changed_since_expected" | "foreign" | "removed" | "unavailable"; kind: string | null; object_id: string | null; revision_used: string | number | null; expected_revision: number | null };
+  client_work_state_reported: "none" | "saved_clean" | "saved_dirty" | "new_unsaved";
+  graph: { status: "not_requested" | "ready" | "empty" | "unavailable" | "rejected"; world_id: string | null; campaign_id: string | null; scope_mode: "world" | "campaign" | null; revision_id: string | null; selection_node_id: string | null; selection_found: boolean | null; head_revision_id: string | null; is_head: boolean | null };
+  conversation: { client_thread_id: string; turn_id: string; pointer_status: "absent" | "accepted" | "recovered" | "rejected" | "reused"; pointer_id: string | null };
+  answer: { status: "ok" | "error"; text: string | null; code: string | null; message: string | null; graph_grounded: boolean; trace: Record<string, unknown> };
+}
+
+/** Bounded, source-free facts kept with one browser-local Index transcript turn. */
+export interface IndexAgentTurnResolvedSummary {
+  surfaceId: "index";
+  instanceId: string;
+  ownerStatus: "absent" | "resolved";
+  ownerId: string | null;
+  ownerName: string | null;
+  workStatus: "absent";
+  graphStatus: "not_requested";
+  pointerStatus: "absent" | "accepted" | "recovered" | "rejected" | "reused";
 }
 
 export interface PlanDocumentEditProposalRequest {
