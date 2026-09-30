@@ -251,14 +251,22 @@ RAKE DUTY's separate repair lane on
 `codex/rake-alembic-preserve-loggers`, under
 `Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
 that new handoff, `src/application_state/migrations/env.py`, and
-`tests/application_state/test_migration_logging.py`; one PR to `main` is
+`tests/test_application_state_migration_logging.py`; one PR to `main` is
 authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811)
-is open at head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`. PRIME's current
-disposition is HOLD: the test path under `tests/application_state/` activates
-the global PostgreSQL fixture before the offline test runs. RAKE is moving it
-to `tests/test_application_state_migration_logging.py`, updating the leased
-handoff path, and rerunning with no test database configured. Treat the current
-test result as not yet proving zero database use. C1 must not absorb the repair.
+is still open at remote head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`.
+RAKE's local candidate `619c11998a7bc17bc0fd740791352e1b275cdf84` is one
+commit ahead of that head, with a cumulative diff limited to the three leased
+paths. The root test path does not match the `tests/application_state/` selector,
+and pytest setup showed no nested `application_state_dsn` fixture. Its global
+autouse wrapper returns without requesting the database fixture. The offline
+regression passed 1/1 under fail-closed socket, Psycopg, and SQLAlchemy
+connection guards; the guard recorded no attempts. Scoped Ruff and cumulative
+`git diff --check` passed. `strace` was unavailable under the sandbox's ptrace
+restriction, and the two Hermes tests could not be collected in RAKE's available
+environment because `dungeonmind.application.vnext` is missing; those tests
+remain unverified there. Automatic review rejected the push for lack of explicit
+operator authorization; RAKE did not retry. Publication awaits the operator's
+answer. C1 must not absorb the repair.
 Hold PR #810 until #811 merges, then rebase and rerun the seven suites against a
 fresh disposable PostgreSQL target. The two tests passed alone (2 passed, 11
 existing Pydantic shadow warnings), but the combined witness is not green. All
