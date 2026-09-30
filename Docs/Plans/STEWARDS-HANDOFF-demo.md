@@ -103,6 +103,20 @@ Send every request to change DEMO's task model or reasoning effort to **PRIME** 
 
 The operator alone chooses PRIME's own model and effort. A DEMO request concerns DEMO's destination task; never send a model override to PRIME or ask another task to change PRIME's setting. Routine cross-thread coordination omits model and effort fields.
 
+## Provider use and receipts
+
+PRIME's 2026-09-30 ruling retires the former $0.20 per-turn cap. Routine DEMO
+calls and finite retries through the configured provider/model for acceptance
+work need no additional per-turn spend lease. Do not stop solely because usage
+or cost receipts are unavailable after a successful call; report unavailable
+values as unknown, never as zero. Keep retry sequences finite, and stop to
+diagnose after a concrete provider or runtime failure. Bounded
+configured-provider acceptance work for this DEMO remains covered by the
+operator-authorized budget. A new spend decision is needed only for a commitment
+outside this use case that introduces a materially different program/provider or
+is open-ended. Requests to change DEMO's model or reasoning effort still go
+through PRIME.
+
 ## Scope
 
 DEMO owns Buddy product composition: document/Markdown-component interaction,
@@ -231,7 +245,9 @@ until an accepted amendment replaces it; autonomous polishing applies to already
 accepted direction or newly bounded in-scope defects, not an unreviewed broad redesign.
 
 Stop for destructive/live-data migration, unresolved authority semantics, changed
-product scope, unavailable credentials/access, or a material new spend decision.
+product scope, unavailable credentials/access, or a spend commitment outside
+this established DEMO use case that introduces a materially different
+program/provider or is open-ended.
 Use the designated demo environment; do not silently switch existing V2 Worlds
 to V3 or mutate live Eldyrwild. A local demo may use separately proven persistent
 isolated authority, but both reads and writes must actually use that authority.
