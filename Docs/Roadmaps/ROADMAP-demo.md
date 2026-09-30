@@ -134,7 +134,7 @@ as Buddy #803 at `3c9d5f2300d8658b678d25c357760905538dabbd` from reviewed
 head `47cac7b1d6ab3a1c9327438d10143b7977bbed93`. It supports verified World or
 no owner and no primary work or graph request. The next serial bite is the
 saved managed-World Plan Agent conversation under
-[`HANDOFF-DEMO-index-agent-conversation.md`](../Plans/HANDOFF-DEMO-index-agent-conversation.md).
+[`HANDOFF-DEMO-plan-agent-conversation.md`](../Plans/HANDOFF-DEMO-plan-agent-conversation.md).
 Plan's current cited Ask and reviewed document-edit flows remain separate and
 unchanged; the generic Agent endpoint has no citation/grounding response
 contract, so the Plan conversation requests no graph. Play, Build, Ingest and

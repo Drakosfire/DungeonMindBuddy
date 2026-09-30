@@ -4,7 +4,7 @@
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
-**Authority:** [STEWARDS-HANDOFF-demo.md](STEWARDS-HANDOFF-demo.md), accepted [universal Agent turn contract](HANDOFF-DEMO-universal-agent-turn-context-v1.md) §3–§4, and PRIME's bounded Plan activation.
+**Authority:** [STEWARDS-HANDOFF-demo.md](STEWARDS-HANDOFF-demo.md), accepted [universal Agent turn contract](HANDOFF-DEMO-universal-agent-turn-context-v1.md) §3–§4, and PRIME's directive to prepare this design-only handoff before any implementation dispatch.
 
 **Pinned base:** Buddy #803 merged as `3c9d5f2300d8658b678d25c357760905538dabbd`; fetched `origin/main` at that exact commit before this lane.
 
@@ -39,8 +39,8 @@ Pre-dispatch critique: the easiest false success is answering from a selected
 World while omitting the exact Plan or using a stale document revision. The
 highest identity risk is treating a local draft as a saved Plan or carrying a
 late answer across a Plan/World/revision/thread/route change. Fail closed for
-foreign, removed, unavailable, malformed, or mismatched saved work and for an
-unavailable/rejected graph result. The accepted contract treats
+foreign, removed, unavailable, malformed, or mismatched saved work. The
+accepted contract treats
 `expected_revision` as a freshness expectation, not a historical content pin:
 if the same Plan is still authorized at a newer committed revision, the
 backend may answer from that actual revision and reports
