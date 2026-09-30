@@ -244,6 +244,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const pendingWriteRef = useRef(localDraft?.pending_write ?? null);
   const uncertainCreateDraftRef = useRef(localDraft?.uncertain_create_draft ?? null);
   const savingRef = useRef(false);
+  const switchingDocumentRef = useRef(false);
   const serverMarkdownRef = useRef("");
   const editorRef = useRef<Editor | null>(null);
 
@@ -382,6 +383,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     if (savingRef.current) return;
     const epoch = ++selectionEpochRef.current;
     const priorDocumentId = documentIdRef.current;
+    // Close the outgoing edit lease before React paints the loading state.
+    switchingDocumentRef.current = true;
+    editorRef.current?.setEditable(false);
     editorIdentityRef.current = `${worldId}:${nextDocumentId}:${editorGeneration + 1}`;
     editorRef.current = null;
     setEditor(null);
@@ -424,6 +428,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         create_uncertain: false,
       });
       setMessage(null);
+      switchingDocumentRef.current = false;
       setStatus("ready");
     } catch (reason) {
       if (!selectedViewIsCurrent(epoch, priorDocumentId)) return;
@@ -435,6 +440,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const resetBlankPlan = () => {
     if (savingRef.current) return;
     ++selectionEpochRef.current;
+    switchingDocumentRef.current = false;
     editorIdentityRef.current = `${worldId}:blank:${editorGeneration + 1}`;
     editorRef.current = null;
     setEditor(null);
@@ -960,7 +966,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <h1>{documentId ? title || "Untitled Plan" : "New Plan"}</h1>
             <p className="world-owned-plan__intro">A working space for this World. Your draft is local until you save it.</p>
           </div>
-          <label>Plan title<input value={title} onChange={(event) => {
+          <label>Plan title<input value={title} disabled={status !== "ready"} onChange={(event) => {
+            if (switchingDocumentRef.current || status !== "ready") return;
             const next = event.target.value;
             titleRef.current = next;
             const generation = ++editGenerationRef.current;
@@ -1000,12 +1007,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <MarkdownEditorCore
             content={editorContent}
             documentKey={`${worldId}:${documentId ?? "local"}:${editorGeneration}`}
-            editable
+            editable={status === "ready"}
             extensions={[SemanticMarkdownPaste]}
             onEditorChange={setCurrentEditor}
             dataTestId="world-owned-plan-markdown-editor"
-            onUpdate={(json: JSONContent, _editor: Editor, meta) => {
-              if (!meta.programmatic) {
+            onUpdate={(json: JSONContent, updatedEditor: Editor, meta) => {
+              if (!meta.programmatic && !switchingDocumentRef.current && status === "ready" && updatedEditor === editorRef.current) {
                 const next = defaultMarkdownDocumentAdapter.exportMarkdown(json);
                 markdownRef.current = next;
                 const generation = ++editGenerationRef.current;

@@ -857,3 +857,80 @@ it("does not bind an unbound recovery to the empty-ID blank Plan while editing i
   });
   expect(screen.getByRole("button", { name: "Save Plan" })).toBeDisabled();
 });
+
+it("closes the outgoing Plan editor while the next saved document snapshot is pending", async () => {
+  const firstId = "plan-a";
+  const secondId = "plan-b";
+  const draftKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const firstRecord = worldPlanRecord(firstId, worldId, 2);
+  const secondRecord = worldPlanRecord(secondId, worldId, 7);
+  localStorage.setItem(draftKey, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: firstId,
+    title: "A draft title",
+    markdown: "# A draft body\n",
+    revision: 2,
+    edit_generation: 4,
+  }));
+  vi.spyOn(liveApi, "getWorkspaceDocumentAny").mockImplementation(async (id) =>
+    id === secondId ? secondRecord : firstRecord);
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{ schema_version: "dmb_world_container_record_v1", world_id: worldId, name: "Of Conks", source_root_relpath: "corpus/of-conks-cons-demo-markdown", created_at: "2026-01-01T00:00:00Z" }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [firstRecord, secondRecord],
+  });
+  let resolveSecond!: (snapshot: Awaited<ReturnType<typeof liveApi.getWorldOwnedPlanSnapshot>>) => void;
+  const pendingSecond = new Promise<Awaited<ReturnType<typeof liveApi.getWorldOwnedPlanSnapshot>>>((resolve) => {
+    resolveSecond = resolve;
+  });
+  const snapshot = (record: WorldOwnedPlanRecordV2, markdown: string) => ({
+    schema_version: "dmb_workspace_document_snapshot_v2" as const,
+    record,
+    markdown,
+    content_sha256: "a".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: record.revision,
+  });
+  vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockImplementation(async (id) =>
+    id === secondId ? pendingSecond : snapshot(firstRecord, "# A saved body\n"));
+
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${firstId}`);
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${firstId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  const outgoingEditor = screen.getByTestId("world-owned-plan-markdown-editor").querySelector("[contenteditable]");
+  expect(outgoingEditor).not.toBeNull();
+  expect(outgoingEditor).toHaveAttribute("contenteditable", "true");
+  fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: secondId } });
+  expect(outgoingEditor).toHaveAttribute("contenteditable", "false");
+  await waitFor(() => expect(screen.getByText("Loading World Plan…")).toBeInTheDocument());
+  expect(screen.getByLabelText("Plan title")).toBeDisabled();
+  fireEvent.change(screen.getByLabelText("Plan title"), { target: { value: "Wrong destination" } });
+  fireEvent.input(outgoingEditor!, { target: { textContent: "Wrong destination body" } });
+  expect(JSON.parse(localStorage.getItem(draftKey) ?? "null")).toMatchObject({
+    document_id: firstId,
+    title: "A draft title",
+    markdown: "# A draft body\n",
+  });
+  resolveSecond(snapshot(secondRecord, "# B saved body\n"));
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("B saved body");
+  expect(screen.getByLabelText("Plan title")).toHaveValue("Plan");
+  expect(JSON.parse(localStorage.getItem(draftKey) ?? "null")).toMatchObject({
+    document_id: secondId,
+    markdown: "# B saved body\n",
+    revision: 7,
+  });
+});

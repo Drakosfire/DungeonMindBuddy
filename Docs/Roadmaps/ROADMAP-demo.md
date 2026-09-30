@@ -91,7 +91,15 @@ approved a fresh DEMO steward and three serial, bounded replacements: (1)
 prevent outgoing Plan edits while another document loads, (2) publish exact
 World Plan saved/local-draft identity, and (3) put title/Save/format/insertion
 in AppChrome/EditHost with stale-command fencing. [The steward handoff](../Plans/STEWARDS-HANDOFF-demo.md)
-pins their boundaries. No successor PR or active implementation lease exists yet.
+pins their boundaries. The operator appointed fresh DEMO task
+`01a0efc8-f3a8-7be2-a556-33eb338338e8`. The first serial implementation
+lease is now active on `codex/demo-plan-switch-safety`, based on
+`b82c25fe4cce7c1e560850c2db020cff648d4913`, under
+[`HANDOFF-DEMO-plan-document-switch-safety.md`](../Plans/HANDOFF-DEMO-plan-document-switch-safety.md).
+Its delayed-snapshot mounted test proves the outgoing editor is inert and its
+local draft stays intact until a different saved Plan loads with its own identity. The
+remaining identity and EditHost slices are not activated. This bounded repair
+does not close J2 or the rejected appearance gate.
 The visual theme remains parked on the preserved #793 branch for a separate
 appearance decision. #789 stays historical; J2 and operator acceptance remain open.
 

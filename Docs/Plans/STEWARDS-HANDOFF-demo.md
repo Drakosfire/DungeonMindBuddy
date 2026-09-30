@@ -1,8 +1,8 @@
 # Steward handoff — DEMO, from preparation to a resumable session
 
-**Status:** ACTIVE mandate; fresh DEMO task pending operator creation after the 2026-09-29 reboot
+**Status:** ACTIVE mandate; fresh DEMO task appointed after the 2026-09-29 reboot
 
-**Owner:** the next operator-created DEMO task. The prior DEMO tasks `01a0885e-375c-7501-9f6e-a58528b39894` and `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` retain history only; PRIME has frozen their #793 implementation and runtime authority.
+**Owner:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`, appointed by the operator. The prior DEMO tasks `01a0885e-375c-7501-9f6e-a58528b39894` and `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` retain history only; PRIME has frozen their #793 implementation and runtime authority.
 
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Mandate amended:** 2026-09-29 — fresh DEMO transfer, three bounded World Plan slices and PRIME model routing
@@ -68,7 +68,7 @@ These priorities authorize the fresh DEMO steward to prepare and deliver the nam
 
 ## Activation and inheritance
 
-The operator accepted the local-first Of Conks rehearsal and consolidated Buddy demo sequencing. On 2026-09-29 the operator directed a fresh DEMO task and approved the three-slice split above. No replacement task ID exists yet; the operator will start it and explicitly appoint it through this handoff. The full mission remains unchanged.
+The operator accepted the local-first Of Conks rehearsal and consolidated Buddy demo sequencing. On 2026-09-29 the operator directed a fresh DEMO task and approved the three-slice split above. The operator appointed task `01a0efc8-f3a8-7be2-a556-33eb338338e8` to this mandate. The full mission remains unchanged.
 
 The former DEMO task `01a0885e-375c-7501-9f6e-a58528b39894` was archived. Its successor `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` was told to stop and preserve its checkout after #793 closed. Neither may resume #793 implementation or use the shared runtime without a new PRIME lease. Before implementation, verify their exact refs, drafts/untracked material and runtime/process leases; do not disturb the untracked licensed corpus. The fresh task starts from current remote authority and assumes no service is safe to start merely because a port appears free.
 
