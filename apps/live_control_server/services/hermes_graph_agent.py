@@ -13,7 +13,8 @@ this runtime therefore:
 
 * prefers Hermes site-packages on ``sys.path`` and binds Hermes ``agent.*`` in
   ``sys.modules``;
-* sets process-wide ``HERMES_HOME`` to an isolated temp profile.
+* sets process-wide ``HERMES_HOME`` to an isolated per-turn temp profile while
+  pinning Hermes' cached file-logger home to the reusable worker's private home.
 
 A process-wide :data:`_RUNTIME_LOCK` serializes *these* turns against each
 other. It cannot protect unrelated server threads that import modules or
@@ -90,6 +91,7 @@ from graph_memory.retrieval.models import (
 HermesGraphAgentStatus = Literal["ok", "error"]
 
 _RUNTIME_LOCK = threading.RLock()
+_WORKER_HOME_ENV = "DMB_HERMES_GRAPH_AGENT_WORKER_HOME"
 _CONVERSATION_ONLY_SYSTEM_POLICY = (
     "You are DungeonBuddy's conversational assistant. Respond using only the "
     "conversation context and descriptive current-surface context provided. "
@@ -147,6 +149,24 @@ def import_hermes_aiagent() -> Any:
         with hermes_import_namespace():
             module = importlib.import_module("run_agent")
             return module.AIAgent
+
+
+def _initialize_worker_logger_home() -> None:
+    """Cache Hermes' logger home from the host-owned worker profile once."""
+    worker_home = os.environ.get(_WORKER_HOME_ENV)
+    if not worker_home:
+        return
+
+    previous_home = os.environ.get("HERMES_HOME")
+    os.environ["HERMES_HOME"] = worker_home
+    try:
+        with hermes_import_namespace():
+            importlib.import_module("run_agent")
+    finally:
+        if previous_home is None:
+            os.environ.pop("HERMES_HOME", None)
+        else:
+            os.environ["HERMES_HOME"] = previous_home
 
 
 def _derive_answer_scope(
@@ -963,6 +983,16 @@ def run_hermes_graph_agent_turn(
             return _error_result(**kwargs)
 
         try:
+            try:
+                _initialize_worker_logger_home()
+            except Exception:
+                return observed_error(
+                    hermes_session_id=session_id,
+                    error_code="hermes_import_error",
+                    error_message=(
+                        "Hermes AIAgent could not be imported from the locked environment."
+                    ),
+                )
             _prepare_isolated_hermes_home(
                 hermes_home,
                 enabled_plugin_ids=policy.enabled_plugin_ids,

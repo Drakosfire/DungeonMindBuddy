@@ -9,6 +9,9 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import shutil
+import sys
+import tempfile
 import threading
 import time
 import uuid
@@ -17,6 +20,7 @@ from dataclasses import dataclass
 from multiprocessing.context import BaseContext
 from multiprocessing.process import BaseProcess
 from multiprocessing.queues import Queue
+from pathlib import Path
 from typing import Any, Literal
 
 from apps.live_control_server.services.hermes_graph_agent_contract import (
@@ -44,6 +48,38 @@ DEFAULT_TURN_TIMEOUT_S = 120.0
 DEFAULT_ACCEPT_TIMEOUT_S = 15.0
 DEFAULT_READY_TIMEOUT_S = 30.0
 DEFAULT_SHUTDOWN_TIMEOUT_S = 5.0
+_WORKER_HOME_ENV = "DMB_HERMES_GRAPH_AGENT_WORKER_HOME"
+_WORKER_HOME_PREFIX = "dmb-hermes-graph-worker-home-"
+_LOGGING_DRAINED_MARKER = ".dmb-hermes-logging-drained"
+
+
+def _run_worker_in_private_hermes_home(
+    worker_target: Callable[..., Any],
+    request_queue: Queue[bytes],
+    response_queue: Queue[bytes],
+    hermes_home: str,
+) -> None:
+    """Give one worker a stable logger home and stop its queue before exit."""
+    os.environ["HERMES_HOME"] = hermes_home
+    os.environ[_WORKER_HOME_ENV] = hermes_home
+    try:
+        worker_target(request_queue, response_queue)
+    finally:
+        # Hermes 0.18.2 registers its own atexit drain, but the host owns the
+        # home lifetime. Drain and stop synchronously so the parent can safely
+        # remove the directory after this process exits.
+        hermes_logging = sys.modules.get("hermes_logging")
+        if hermes_logging is not None:
+            flush = getattr(hermes_logging, "flush_log_queue", None)
+            stop = getattr(hermes_logging, "_stop_queue_listener", None)
+            if callable(flush):
+                flush()
+            if callable(stop):
+                stop()
+        stderr_flush = getattr(sys.stderr, "flush", None)
+        if callable(stderr_flush):
+            stderr_flush()
+        (Path(hermes_home) / _LOGGING_DRAINED_MARKER).touch(exist_ok=True)
 
 _HOST_LOCK = threading.RLock()
 _GLOBAL_HOST: HermesGraphAgentHost | None = None
@@ -300,6 +336,7 @@ class _WorkerHandles:
     request_queue: Queue[bytes]
     response_queue: Queue[bytes]
     pid: int
+    hermes_home: Path
 
 
 class HermesGraphAgentHost:
@@ -584,18 +621,37 @@ class HermesGraphAgentHost:
                 )
             request_queue: Queue[bytes] = self._ctx.Queue()
             response_queue: Queue[bytes] = self._ctx.Queue()
+            hermes_home = Path(tempfile.mkdtemp(prefix=_WORKER_HOME_PREFIX))
             process = self._ctx.Process(
-                target=self._worker_target,
-                args=(request_queue, response_queue),
+                target=_run_worker_in_private_hermes_home,
+                args=(
+                    self._worker_target,
+                    request_queue,
+                    response_queue,
+                    str(hermes_home),
+                ),
                 name="dmb-hermes-graph-agent-worker",
                 daemon=True,
             )
-            process.start()
+            try:
+                process.start()
+            except BaseException:
+                shutil.rmtree(hermes_home, ignore_errors=True)
+                try:
+                    request_queue.close()
+                except Exception:
+                    pass
+                try:
+                    response_queue.close()
+                except Exception:
+                    pass
+                raise
             provisional = _WorkerHandles(
                 process=process,
                 request_queue=request_queue,
                 response_queue=response_queue,
                 pid=int(process.pid or 0),
+                hermes_home=hermes_home,
             )
             self._worker = provisional
             self._worker_ready = False
@@ -682,6 +738,15 @@ class HermesGraphAgentHost:
                     worker.response_queue.close()
                 except Exception:
                     pass
+                # The worker wrapper drains/stops Hermes' asynchronous file
+                # logger before exiting. Joining above ensures no handler can
+                # still write while the worker-owned home is being removed.
+                log_dir = worker.hermes_home / "logs"
+                logging_drained = (
+                    worker.hermes_home / _LOGGING_DRAINED_MARKER
+                ).is_file()
+                if logging_drained or not log_dir.exists():
+                    shutil.rmtree(worker.hermes_home, ignore_errors=True)
                 return True
             return False
 

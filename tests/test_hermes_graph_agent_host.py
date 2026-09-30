@@ -62,6 +62,62 @@ HOST_MODULE = (
 )
 
 
+def _install_offline_worker_network_guard() -> tuple[list[str], list[str]]:
+    """Block sockets and locally answer Hermes model-catalog GETs in a worker."""
+    from unittest.mock import patch
+
+    network_attempts: list[str] = []
+    model_metadata_stubs: list[str] = []
+
+    def _deny_network(*args: Any, **_kwargs: Any) -> None:
+        network_attempts.append(str(args[-1] if args else "unknown"))
+        raise OSError("network access is disabled in this offline worker test")
+
+    class _OfflineMetadataResponse:
+        @staticmethod
+        def raise_for_status() -> None:
+            return None
+
+        @staticmethod
+        def json() -> dict[str, list[Any]]:
+            return {"data": []}
+
+    def _stub_model_metadata_get(
+        url: Any, *_args: Any, **_kwargs: Any
+    ) -> _OfflineMetadataResponse:
+        model_metadata_stubs.append(str(url))
+        return _OfflineMetadataResponse()
+
+    for target in (
+        "socket.getaddrinfo",
+        "socket.create_connection",
+        "socket.socket.connect",
+    ):
+        patch(target, side_effect=_deny_network).start()
+    patch("requests.get", side_effect=_stub_model_metadata_get).start()
+    return network_attempts, model_metadata_stubs
+
+
+def _write_offline_worker_witness(
+    env_name: str,
+    network_attempts: list[str],
+    model_metadata_stubs: list[str],
+    **extra: Any,
+) -> None:
+    witness_path = os.environ.get(env_name)
+    if witness_path:
+        Path(witness_path).write_text(
+            json.dumps(
+                {
+                    "network_attempts": network_attempts,
+                    "model_metadata_stubs": model_metadata_stubs,
+                    **extra,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+
 def _scope() -> HermesGraphScope:
     return HermesGraphScope(
         world_id="world:eldyrwild",
@@ -160,6 +216,97 @@ def _stub_worker_main(request_queue: Any, response_queue: Any) -> None:
                 "requestId": request_id,
                 "pid": os.getpid(),
                 "payload": result,
+            },
+        )
+
+
+def _logging_fake_agent_worker(request_queue: Any, response_queue: Any) -> None:
+    """Run two offline Rung 3 turns and emit Hermes file logs for each."""
+    import importlib
+    import logging
+    import sys
+
+    network_attempts, model_metadata_stubs = _install_offline_worker_network_guard()
+
+    from hermes_logging import setup_logging
+
+    from apps.live_control_server.services.hermes_graph_agent import (
+        run_hermes_graph_agent_turn,
+    )
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        deserialize_hermes_graph_agent_turn_request,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    sys.stderr = (  # type: ignore[assignment]
+        Path(os.environ["HERMES_HOME"]) / "worker-stderr.log"
+    ).open("w", encoding="utf-8")
+
+    class _LogWitnessAgent:
+        def __init__(self, **kwargs: Any) -> None:
+            self.session_id = kwargs.get("session_id")
+
+        def run_conversation(self, user_message: str, **_kwargs: Any) -> dict[str, Any]:
+            logger = logging.getLogger("rake.worker.home.witness")
+            logger.info("%s-info", user_message)
+            logger.warning("%s-warning", user_message)
+            return {
+                "final_response": f"Received: {user_message}",
+                "messages": [],
+                "session_id": self.session_id,
+            }
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            _write_offline_worker_witness(
+                "DMB_HERMES_LOGGING_TEST_OFFLINE_WITNESS",
+                network_attempts,
+                model_metadata_stubs,
+            )
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        if message.get("type") == "proceed":
+            continue
+        if message.get("type") != "execute":
+            continue
+
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+
+        payload = message.get("payload") or {}
+        request = deserialize_hermes_graph_agent_turn_request(payload)
+
+        def _factory(**kwargs: Any) -> _LogWitnessAgent:
+            run_agent = importlib.import_module("run_agent")
+            setup_logging(hermes_home=Path(run_agent._hermes_home))
+            return _LogWitnessAgent(**kwargs)
+
+        result = run_hermes_graph_agent_turn(request, agent_factory=_factory)
+        _write_offline_worker_witness(
+            "DMB_HERMES_LOGGING_TEST_OFFLINE_WITNESS",
+            network_attempts,
+            model_metadata_stubs,
+        )
+        if network_attempts:
+            raise AssertionError(
+                f"unexpected network attempt(s): {network_attempts!r}"
+            )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": serialize_hermes_graph_agent_turn_result(result),
             },
         )
 
@@ -775,10 +922,20 @@ def _slow_ready_worker(request_queue: Any, response_queue: Any) -> None:
 
 
 def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> None:
-    """Real Rung 3 + AIAgent worker with only the external model mocked."""
+    """Real Rung 3 + AIAgent worker with a local Responses stream only."""
     import json as json_mod
     from types import SimpleNamespace
-    from unittest.mock import MagicMock, patch
+    from unittest.mock import patch
+
+    network_attempts, model_metadata_stubs = _install_offline_worker_network_guard()
+
+    def _write_offline_witness(responses_stub_calls: int) -> None:
+        _write_offline_worker_witness(
+            "DMB_HERMES_HOST_OFFLINE_WITNESS",
+            network_attempts,
+            model_metadata_stubs,
+            responses_stub_calls=responses_stub_calls,
+        )
 
     from apps.live_control_server.services.hermes_graph_agent import (
         hermes_import_namespace,
@@ -791,21 +948,6 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
         serialize_hermes_graph_agent_turn_result,
     )
     from graph_memory.retrieval.models import WorldGraphRetrievalResult
-
-    def _mock_chat_response(
-        *,
-        content: str | None = "Hello",
-        finish_reason: str = "stop",
-        tool_calls: list[Any] | None = None,
-    ) -> SimpleNamespace:
-        msg = SimpleNamespace(
-            content=content,
-            tool_calls=tool_calls,
-            reasoning_content=None,
-            reasoning=None,
-        )
-        choice = SimpleNamespace(message=msg, finish_reason=finish_reason)
-        return SimpleNamespace(choices=[choice], model="test/model", usage=None)
 
     AIAgent = import_hermes_aiagent()
 
@@ -823,23 +965,50 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
         "operation": "search",
         "queryText": "Tripod",
     }
-    tc = SimpleNamespace(
-        id="call-graph-1",
-        type="function",
-        function=SimpleNamespace(
-            name="expand_graph_retrieval",
-            arguments=json_mod.dumps(tool_args),
-        ),
-    )
-    tool_resp = _mock_chat_response(
-        content=None,
-        finish_reason="tool_calls",
-        tool_calls=[tc],
-    )
-    final_resp = _mock_chat_response(
-        content="Tripod stands at the North Gate.",
-        finish_reason="stop",
-    )
+    responses_streams = [
+        [
+            SimpleNamespace(
+                type="response.output_item.done",
+                item=SimpleNamespace(
+                    type="function_call",
+                    id="fc_1",
+                    call_id="call-graph-1",
+                    name="expand_graph_retrieval",
+                    arguments=json_mod.dumps(tool_args),
+                    status="completed",
+                ),
+            ),
+            SimpleNamespace(
+                type="response.completed",
+                response=SimpleNamespace(
+                    id="resp-tool",
+                    status="completed",
+                    usage=SimpleNamespace(input_tokens=10, output_tokens=2),
+                ),
+            ),
+        ],
+        [
+            SimpleNamespace(
+                type="response.output_text.delta",
+                delta="Tripod stands at the North Gate.",
+            ),
+            SimpleNamespace(
+                type="response.completed",
+                response=SimpleNamespace(
+                    id="resp-final",
+                    status="completed",
+                    usage=SimpleNamespace(input_tokens=12, output_tokens=7),
+                ),
+            ),
+        ],
+    ]
+    mocked_responses_requests: list[dict[str, Any]] = []
+
+    def _create_responses_stream(**kwargs: Any) -> Any:
+        mocked_responses_requests.append(kwargs)
+        if not responses_streams:
+            raise AssertionError("unexpected extra local Responses request")
+        return iter(responses_streams.pop(0))
 
     def _factory(**kwargs: Any) -> Any:
         with hermes_import_namespace():
@@ -848,8 +1017,14 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                     api_key="test-key-1234567890",
                     **kwargs,
                 )
-        agent.client = MagicMock()
-        agent.client.chat.completions.create.side_effect = [tool_resp, final_resp]
+        local_responses_client = SimpleNamespace(
+            responses=SimpleNamespace(create=_create_responses_stream)
+        )
+        agent.client = local_responses_client
+        agent._create_request_openai_client = (  # type: ignore[method-assign]
+            lambda **_kwargs: local_responses_client
+        )
+        agent._close_request_openai_client = lambda *_args, **_kwargs: None  # type: ignore[method-assign]
         agent._cached_system_prompt = "test"
         agent._use_prompt_caching = False
         agent.tool_delay = 0
@@ -883,6 +1058,11 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                 _fake_execute,
             ):
                 result = run_hermes_graph_agent_turn(request, agent_factory=_factory)
+            _write_offline_witness(len(mocked_responses_requests))
+            if network_attempts:
+                raise AssertionError(
+                    f"unexpected network attempt(s): {network_attempts!r}"
+                )
             _put_json(
                 response_queue,
                 {
@@ -893,6 +1073,7 @@ def _tool_using_aiagent_host_worker(request_queue: Any, response_queue: Any) -> 
                 },
             )
         except Exception as exc:
+            _write_offline_witness(len(mocked_responses_requests))
             from apps.live_control_server.services.hermes_graph_agent_contract import (
                 PROCESS_ISOLATION_MODE,
             )
@@ -1643,6 +1824,75 @@ def test_shutdown_leaves_no_live_worker() -> None:
     assert not Path(f"/proc/{pid}").exists()
 
 
+def test_reused_worker_drains_hermes_logs_before_home_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    offline_witness = tmp_path / "offline-witness.json"
+    monkeypatch.setenv("DMB_HERMES_LOGGING_TEST_OFFLINE_WITNESS", str(offline_witness))
+    host = HermesGraphAgentHost(
+        worker_target=_logging_fake_agent_worker,
+        accept_timeout_s=5.0,
+        turn_timeout_s=15.0,
+        ready_timeout_s=15.0,
+    )
+    observed_cleanup: list[dict[str, Any]] = []
+    real_rmtree = hermes_host_mod.shutil.rmtree
+
+    def _capture_before_cleanup(path: str | Path, *args: Any, **kwargs: Any) -> None:
+        path_obj = Path(path)
+        if path_obj.name.startswith("dmb-hermes-graph-worker-home-"):
+            worker = host._worker
+            assert worker is not None
+            observed_cleanup.append(
+                {
+                    "process_alive": worker.process.is_alive(),
+                    "drained": (path_obj / ".dmb-hermes-logging-drained").is_file(),
+                    "agent_log": (path_obj / "logs" / "agent.log").read_text(
+                        encoding="utf-8"
+                    ),
+                    "errors_log": (path_obj / "logs" / "errors.log").read_text(
+                        encoding="utf-8"
+                    ),
+                    "stderr": (path_obj / "worker-stderr.log").read_text(
+                        encoding="utf-8"
+                    ),
+                    "home": path_obj,
+                }
+            )
+        real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(hermes_host_mod.shutil, "rmtree", _capture_before_cleanup)
+    try:
+        first = host.execute(_request(question="rake-worker-turn-one"))
+        first_pid = host.worker_pid
+        second = host.execute(_request(question="rake-worker-turn-two"))
+        assert host.worker_pid == first_pid
+        assert first.status == second.status == "ok"
+        assert first.final_response == "Received: rake-worker-turn-one"
+        assert second.final_response == "Received: rake-worker-turn-two"
+        assert host.shutdown()
+    finally:
+        host.shutdown()
+
+    assert len(observed_cleanup) == 1
+    evidence = observed_cleanup[0]
+    assert evidence["process_alive"] is False
+    assert evidence["drained"] is True
+    assert "rake-worker-turn-one-info" in evidence["agent_log"]
+    assert "rake-worker-turn-two-info" in evidence["agent_log"]
+    assert "rake-worker-turn-one-warning" in evidence["errors_log"]
+    assert "rake-worker-turn-two-warning" in evidence["errors_log"]
+    assert "FileNotFoundError" not in evidence["stderr"]
+    assert not evidence["home"].exists()
+    offline_evidence = json.loads(offline_witness.read_text(encoding="utf-8"))
+    assert offline_evidence["network_attempts"] == []
+    assert set(offline_evidence["model_metadata_stubs"]) <= {
+        "https://openrouter.ai/api/v1/models",
+        "https://api.openai.com/v1/models",
+    }
+
+
 def test_repeated_start_stop_cycles() -> None:
     host = HermesGraphAgentHost(worker_target=_stub_worker_main)
     for _ in range(3):
@@ -1890,8 +2140,13 @@ def test_stale_execute_does_not_kill_replacement_worker(
         host.shutdown()
 
 
-def test_host_executes_real_aiagent_tool_turn_through_wire(tmp_path: Path) -> None:
-    """End-to-end: host wire must carry a completed tool-using Hermes turn."""
+def test_host_executes_real_aiagent_tool_turn_through_wire(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """End-to-end with a local Responses stream and zero network attempts."""
+    offline_witness = tmp_path / "offline-witness.json"
+    monkeypatch.setenv("DMB_HERMES_HOST_OFFLINE_WITNESS", str(offline_witness))
     host = HermesGraphAgentHost(
         worker_target=_tool_using_aiagent_host_worker,
         turn_timeout_s=120.0,
@@ -1922,6 +2177,13 @@ def test_host_executes_real_aiagent_tool_turn_through_wire(tmp_path: Path) -> No
         assert result.process_isolation == "process_exclusive"
     finally:
         host.shutdown()
+    offline_evidence = json.loads(offline_witness.read_text(encoding="utf-8"))
+    assert offline_evidence["network_attempts"] == []
+    assert offline_evidence["responses_stub_calls"] == 2
+    assert set(offline_evidence["model_metadata_stubs"]) <= {
+        "https://openrouter.ai/api/v1/models",
+        "https://api.openai.com/v1/models",
+    }
 
 
 class _ImmortalProcess:
@@ -1956,7 +2218,9 @@ class _FakeQueue:
         raise TimeoutError("fake queue empty")
 
 
-def test_immortal_worker_stays_tracked_blocks_spawn_and_retains_global_host() -> None:
+def test_immortal_worker_stays_tracked_blocks_spawn_and_retains_global_host(
+    tmp_path: Path,
+) -> None:
     """A process that survives kill must stay tracked; no second worker allowed."""
     immortal = _ImmortalProcess(pid=424242)
     fake_handles = _WorkerHandles(
@@ -1964,6 +2228,7 @@ def test_immortal_worker_stays_tracked_blocks_spawn_and_retains_global_host() ->
         request_queue=_FakeQueue(),  # type: ignore[arg-type]
         response_queue=_FakeQueue(),  # type: ignore[arg-type]
         pid=424242,
+        hermes_home=tmp_path / "worker-home",
     )
     host = HermesGraphAgentHost(worker_target=_stub_worker_main)
     with host._worker_lock:  # noqa: SLF001
