@@ -25,6 +25,9 @@ import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
 import { MarkdownEditorToolbar, type MarkdownEditorToolbarModel } from "../tiptap/MarkdownEditorToolbar";
 import { CALLOUT_KINDS, defaultCalloutLabel } from "../tiptap/markdown/calloutMarkdown";
 import { SemanticMarkdownPaste } from "../tiptap/extensions/SemanticMarkdownPaste";
+import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
+import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
+import { buildWorldPlanSurfaceIdentity, createWorldPlanLocalDraftId, worldPlanWorkObject } from "./worldPlanIdentity";
 import "../tiptap/prepMarkdownThemes.css";
 import "../tiptap/tiptapSpike.css";
 
@@ -110,6 +113,7 @@ interface WorldPlanLocalDraftV2 {
   scope_mode: "world";
   world_id: string;
   document_id: string | null;
+  local_draft_id?: string | null;
   title: string;
   markdown: string;
   revision: number | null;
@@ -142,11 +146,17 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
     const value = JSON.parse(raw) as Partial<WorldPlanLocalDraftV2>;
     if (value.schema_version !== "dmb_plan_promotion_recovery_v2" || value.scope_mode !== "world"
       || value.world_id !== worldId || typeof value.title !== "string" || typeof value.markdown !== "string") return null;
-    return {
+    const documentId = typeof value.document_id === "string" ? value.document_id : null;
+    const existingLocalId = typeof value.local_draft_id === "string"
+      && value.local_draft_id.startsWith(`local-plan:${worldId}:`)
+      ? value.local_draft_id : null;
+    const localDraftId = existingLocalId ?? (documentId === null ? createWorldPlanLocalDraftId(worldId) : null);
+    const draft: WorldPlanLocalDraftV2 = {
       schema_version: "dmb_plan_promotion_recovery_v2",
       scope_mode: "world",
       world_id: worldId,
-      document_id: typeof value.document_id === "string" ? value.document_id : null,
+      document_id: documentId,
+      local_draft_id: localDraftId,
       title: value.title,
       markdown: value.markdown,
       revision: typeof value.revision === "number" ? value.revision : null,
@@ -184,6 +194,14 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
         }
         : null,
     };
+    if (documentId === null && existingLocalId === null) {
+      try {
+        localStorage.setItem(worldPlanLocalDraftKey(worldId), JSON.stringify(draft));
+      } catch {
+        // Keep the recovered content usable for this mount if local storage is full.
+      }
+    }
+    return draft;
   } catch {
     return null;
   }
@@ -192,7 +210,7 @@ function readWorldPlanLocalDraft(worldId: string): WorldPlanLocalDraftV2 | null 
 function persistWorldPlanLocalDraft(
   worldId: string,
   draft: Pick<WorldPlanLocalDraftV2, "document_id" | "title" | "markdown" | "revision">
-    & Partial<Pick<WorldPlanLocalDraftV2, "edit_generation" | "create_uncertain" | "uncertain_create_draft" | "pending_write">>,
+    & Partial<Pick<WorldPlanLocalDraftV2, "local_draft_id" | "edit_generation" | "create_uncertain" | "uncertain_create_draft" | "pending_write">>,
 ): void {
   try {
     const previous = readWorldPlanLocalDraft(worldId);
@@ -203,6 +221,7 @@ function persistWorldPlanLocalDraft(
       schema_version: "dmb_plan_promotion_recovery_v2",
       scope_mode: "world",
       world_id: worldId,
+      local_draft_id: previous?.local_draft_id ?? null,
       edit_generation: 0,
       create_uncertain: false,
       pending_write: null,
@@ -215,12 +234,29 @@ function persistWorldPlanLocalDraft(
 }
 
 function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName: string }) {
-  const [localDraft] = useState(() => readWorldPlanLocalDraft(worldId));
+  const [localDraft] = useState(() => {
+    const existing = readWorldPlanLocalDraft(worldId);
+    const requestedDocumentId = new URLSearchParams(window.location.search).get("documentId")?.trim();
+    if (existing || requestedDocumentId) return existing;
+    const fresh: WorldPlanLocalDraftV2 = {
+      schema_version: "dmb_plan_promotion_recovery_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: null,
+      local_draft_id: createWorldPlanLocalDraftId(worldId),
+      title: "Plan",
+      markdown: "",
+      revision: null,
+    };
+    persistWorldPlanLocalDraft(worldId, fresh);
+    return fresh;
+  });
   const [initialDocumentId] = useState(() =>
     new URLSearchParams(window.location.search).get("documentId")?.trim() || localDraft?.document_id || null,
   );
   const [records, setRecords] = useState<WorldOwnedPlanRecordV2[]>([]);
   const [documentId, setDocumentId] = useState<string | null>(initialDocumentId);
+  const [localDraftId, setLocalDraftId] = useState(() => localDraft?.local_draft_id ?? createWorldPlanLocalDraftId(worldId));
   const [title, setTitle] = useState(localDraft?.title ?? "Plan");
   const [markdown, setMarkdown] = useState(localDraft?.markdown ?? "");
   const [createUncertain, setCreateUncertain] = useState(localDraft?.create_uncertain ?? false);
@@ -247,6 +283,22 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const switchingDocumentRef = useRef(false);
   const serverMarkdownRef = useRef("");
   const editorRef = useRef<Editor | null>(null);
+  const surfaceIdentity = useMemo(() => buildWorldPlanSurfaceIdentity({ worldId, documentId, localDraftId }), [worldId, documentId, localDraftId]);
+  const activePublication = useMemo<SurfaceInteractionPublication | null>(() => status === "ready" ? {
+    surfaceId: "plan",
+    label: "World Plan",
+    identity: surfaceIdentity,
+    canvas: {
+      canvasId: "markdown-canvas",
+      workObject: worldPlanWorkObject({ worldId, documentId, localDraftId }),
+    },
+    agentContext: null,
+    tools: [],
+    editCommands: [],
+    projections: [],
+    projectionBindings: [],
+  } : null, [documentId, localDraftId, status, surfaceIdentity, worldId]);
+  usePublishSurfaceInteraction(activePublication);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -445,6 +497,8 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     editorRef.current = null;
     setEditor(null);
     documentIdRef.current = null;
+    const nextLocalDraftId = createWorldPlanLocalDraftId(worldId);
+    setLocalDraftId(nextLocalDraftId);
     revisionRef.current = null;
     titleRef.current = "Plan";
     markdownRef.current = "";
@@ -462,6 +516,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     setEditorGeneration((value) => value + 1);
     persistWorldPlanLocalDraft(worldId, {
       document_id: null,
+      local_draft_id: nextLocalDraftId,
       title: "Plan",
       markdown: "",
       revision: null,
@@ -954,6 +1009,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         worldId={worldId}
         worldName={worldName}
         documentId={documentId}
+        localDraftId={localDraftId}
         records={records}
         disabled={saving || status === "loading"}
         onSelect={(nextId) => { void openPlan(nextId); }}
@@ -1014,6 +1070,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             onUpdate={(json: JSONContent, updatedEditor: Editor, meta) => {
               if (!meta.programmatic && !switchingDocumentRef.current && status === "ready" && updatedEditor === editorRef.current) {
                 const next = defaultMarkdownDocumentAdapter.exportMarkdown(json);
+                if (next === markdownRef.current) return;
                 markdownRef.current = next;
                 const generation = ++editGenerationRef.current;
                 setMarkdown(next);

@@ -93,13 +93,18 @@ World Plan saved/local-draft identity, and (3) put title/Save/format/insertion
 in AppChrome/EditHost with stale-command fencing. [The steward handoff](../Plans/STEWARDS-HANDOFF-demo.md)
 pins their boundaries. The operator appointed fresh DEMO task
 `01a0efc8-f3a8-7be2-a556-33eb338338e8`. The first serial implementation
-lease is now active on `codex/demo-plan-switch-safety`, based on
-`b82c25fe4cce7c1e560850c2db020cff648d4913`, under
+slice merged as Buddy #800 at `393ec5664916ee4eeabe0d0801bc6c8de9820c79`
+from reviewed head `d64a9745fdc751360468266323489a18d2579ee1` under
 [`HANDOFF-DEMO-plan-document-switch-safety.md`](../Plans/HANDOFF-DEMO-plan-document-switch-safety.md).
-Its delayed-snapshot mounted test proves the outgoing editor is inert and its
-local draft stays intact until a different saved Plan loads with its own identity. The
-remaining identity and EditHost slices are not activated. This bounded repair
-does not close J2 or the rejected appearance gate.
+PRIME's first exact-head review held a handoff allowlist typo; the corrected
+head passed independent focused review and 9/9 mounted Plan page tests. UI
+typecheck retains the inherited `ThreatPublicationPanel.tsx:553` JSX namespace
+error outside that diff. The delayed-snapshot witness proves the outgoing
+editor is inert and its local draft stays intact until another saved Plan loads.
+The second serial identity slice is ACTIVE under
+[`HANDOFF-DEMO-world-plan-identity.md`](../Plans/HANDOFF-DEMO-world-plan-identity.md),
+design head `746f93f49c1479bc0f133e84ae254684315d5729`; EditHost controls
+remain queued. These bounded repairs do not close J2 or the rejected appearance gate.
 The visual theme remains parked on the preserved #793 branch for a separate
 appearance decision. #789 stays historical; J2 and operator acceptance remain open.
 

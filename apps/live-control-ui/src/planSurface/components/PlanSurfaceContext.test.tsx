@@ -153,6 +153,7 @@ describe("WorldPlanSurfaceContext", () => {
           worldId="world-a"
           worldName="Of Conks"
           documentId={DOC_A}
+          localDraftId={null}
           title="Of Conks Session 28"
           records={[record]}
           onSelect={onSelect}
@@ -178,6 +179,7 @@ describe("WorldPlanSurfaceContext", () => {
           worldId="world-a"
           worldName="Of Conks"
           documentId={DOC_A}
+          localDraftId={null}
           title="Saved Plan"
           records={[{
             schema_version: "dmb_world_owned_plan_record_v2",

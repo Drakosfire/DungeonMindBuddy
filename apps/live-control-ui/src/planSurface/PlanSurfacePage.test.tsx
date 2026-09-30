@@ -6,9 +6,14 @@ import * as liveApi from "../api/liveApi";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import type { WorldOwnedPlanRecordV2 } from "../api/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
+import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 
 vi.mock("../chrome/AppChrome", async () => {
-  const { SurfaceContextHost, SurfaceContextProvider } = await import("../surfaceInteraction/contextHost");
+  const { SurfaceContextHost, SurfaceContextProvider, useSurfaceContext } = await import("../surfaceInteraction/contextHost");
+  function ContextIdentityProbe() {
+    const { contributions } = useSurfaceContext();
+    return <output data-testid="world-plan-context-identity">{contributions["plan-world-context"]?.surfaceIdentity.instanceKey ?? "none"}</output>;
+  }
   return {
     AppChrome: ({ children, editorTools }: {
       children: ReactNode;
@@ -17,6 +22,7 @@ vi.mock("../chrome/AppChrome", async () => {
       <SurfaceContextProvider>
         <div>
           <SurfaceContextHost />
+          <ContextIdentityProbe />
           {editorTools?.tools?.sections?.flatMap((section) => section.actions.map((action) => (
             <button key={`${section.id}:${action.id}`} type="button" onClick={action.onClick}>{action.label}</button>
           )))}
@@ -69,7 +75,23 @@ function managedContext(owner: string) {
 
 function VerifiedPlanPage() {
   const selected = useSelectedWorld();
-  return selected.kind === "managed" ? <PlanSurfacePage /> : <span>{selected.kind}</span>;
+  return selected.kind === "managed" ? (
+    <AgentInteractionProvider>
+      <PlanSurfacePage />
+      <PublicationProbe />
+    </AgentInteractionProvider>
+  ) : <span>{selected.kind}</span>;
+}
+
+function PublicationProbe() {
+  const { surfaceInteractionBasePublication } = useAgentInteraction();
+  const publication = surfaceInteractionBasePublication;
+  return (
+    <div data-testid="world-plan-publication"
+      data-instance-key={publication?.identity.instanceKey ?? "none"}
+      data-work-object={publication?.canvas?.workObject ? `${publication.canvas.workObject.kind}:${publication.canvas.workObject.id}` : "none"}
+    />
+  );
 }
 
 afterEach(() => {
@@ -183,11 +205,16 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
   expect(screen.getByRole("button", { name: "Read aloud" })).toBeEnabled();
   expect(screen.getByTestId("world-owned-plan-editor")).toHaveClass("plan-surface-canvas");
   expect(screen.getByTestId("world-owned-plan-markdown-editor")).toBeInTheDocument();
+  const initialLocalId = JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`) ?? "null").local_draft_id;
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `plan-local-draft:${initialLocalId}`));
+  expect(screen.getByTestId("world-plan-context-identity")).toHaveTextContent(screen.getByTestId("world-plan-publication").getAttribute("data-instance-key")!);
   fireEvent.click(screen.getByRole("button", { name: "Read aloud" }));
   await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Read aloud"));
   await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
   fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
   await waitFor(() => expect(screen.getByText("Saved to this World.")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `document:${record.document_id}`));
+  expect(screen.getByTestId("world-plan-context-identity")).toHaveTextContent(screen.getByTestId("world-plan-publication").getAttribute("data-instance-key")!);
   expect(liveApi.createWorldOwnedPlan).toHaveBeenCalledWith({
     schema_version: "dmb_workspace_document_create_v2",
     scope_mode: "world",
@@ -858,7 +885,7 @@ it("does not bind an unbound recovery to the empty-ID blank Plan while editing i
   expect(screen.getByRole("button", { name: "Save Plan" })).toBeDisabled();
 });
 
-it("closes the outgoing Plan editor while the next saved document snapshot is pending", async () => {
+it("retires outgoing Plan editing and canvas identity through pending and failed saved-document loads", async () => {
   const firstId = "plan-a";
   const secondId = "plan-b";
   const draftKey = `dmb:world-plan-local-draft:v2:${worldId}`;
@@ -910,12 +937,16 @@ it("closes the outgoing Plan editor while the next saved document snapshot is pe
     </SelectedWorldProvider>,
   );
   await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `document:${firstId}`));
+  const firstIdentity = screen.getByTestId("world-plan-publication").getAttribute("data-instance-key");
   const outgoingEditor = screen.getByTestId("world-owned-plan-markdown-editor").querySelector("[contenteditable]");
   expect(outgoingEditor).not.toBeNull();
   expect(outgoingEditor).toHaveAttribute("contenteditable", "true");
   fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: secondId } });
   expect(outgoingEditor).toHaveAttribute("contenteditable", "false");
   await waitFor(() => expect(screen.getByText("Loading World Plan…")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", "none"));
+  expect(screen.getByTestId("world-plan-context-identity")).toHaveTextContent(firstIdentity!);
   expect(screen.getByLabelText("Plan title")).toBeDisabled();
   fireEvent.change(screen.getByLabelText("Plan title"), { target: { value: "Wrong destination" } });
   fireEvent.input(outgoingEditor!, { target: { textContent: "Wrong destination body" } });
@@ -926,11 +957,134 @@ it("closes the outgoing Plan editor while the next saved document snapshot is pe
   });
   resolveSecond(snapshot(secondRecord, "# B saved body\n"));
   await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
-  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("B saved body");
+  await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("B saved body"));
+  expect(screen.getByTestId("world-owned-plan-markdown-editor").querySelector("[contenteditable]")).not.toBe(outgoingEditor);
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `document:${secondId}`));
+  expect(screen.getByTestId("world-plan-context-identity")).toHaveTextContent(screen.getByTestId("world-plan-publication").getAttribute("data-instance-key")!);
+  const secondIdentity = screen.getByTestId("world-plan-context-identity").textContent;
   expect(screen.getByLabelText("Plan title")).toHaveValue("Plan");
   expect(JSON.parse(localStorage.getItem(draftKey) ?? "null")).toMatchObject({
     document_id: secondId,
     markdown: "# B saved body\n",
     revision: 7,
   });
+  vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockRejectedValueOnce(new Error("Snapshot unavailable"));
+  fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: firstId } });
+  await waitFor(() => expect(screen.getByText("Snapshot unavailable")).toBeInTheDocument());
+  expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", "none");
+  expect(screen.getByTestId("world-plan-context-identity")).toHaveTextContent(secondIdentity!);
+  expect(screen.getByTestId("world-plan-context-identity")).not.toHaveTextContent(firstIdentity!);
+  expect(screen.getByLabelText("Plan document")).toHaveValue(secondId);
+});
+
+it("migrates a legacy blank World draft to one stable canvas and context identity", async () => {
+  const draftKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const recovery = { title: "Recovered", markdown: "# Recovery\n", edit_generation: 3, bound_document_id: null };
+  const pendingWrite = { phase: "prepare", base_revision: 1, prepared_revision: null, base_markdown: "# Old\n", markdown: "# New\n", edit_generation: 2 };
+  localStorage.setItem(draftKey, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: null,
+    title: "Legacy draft",
+    markdown: "# Keep my text\n",
+    revision: null,
+    edit_generation: 4,
+    create_uncertain: false,
+    uncertain_create_draft: recovery,
+    pending_write: pendingWrite,
+  }));
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{ schema_version: "dmb_world_container_record_v1", world_id: worldId, name: "Of Conks", source_root_relpath: "corpus/of-conks-cons-demo-markdown", created_at: "2026-01-01T00:00:00Z" }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [],
+  });
+  window.history.replaceState({}, "", `/plan?world=${worldId}`);
+  const mount = () => render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}`}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+  const first = mount();
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).not.toHaveAttribute("data-work-object", "none"));
+  const migrated = JSON.parse(localStorage.getItem(draftKey) ?? "null");
+  expect(migrated).toMatchObject({
+    document_id: null,
+    title: "Legacy draft",
+    markdown: "# Keep my text\n",
+    uncertain_create_draft: recovery,
+    pending_write: pendingWrite,
+  });
+  expect(migrated.edit_generation).toBe(4);
+  expect(migrated.local_draft_id).toMatch(new RegExp(`^local-plan:${worldId}:`));
+  const firstKey = screen.getByTestId("world-plan-publication").getAttribute("data-instance-key");
+  expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `plan-local-draft:${migrated.local_draft_id}`);
+  await waitFor(() => expect(screen.getByTestId("world-plan-context-identity")).toHaveTextContent(firstKey!));
+  fireEvent.change(screen.getByLabelText("Plan title"), { target: { value: "Renamed local draft" } });
+  expect(JSON.parse(localStorage.getItem(draftKey) ?? "null")).toMatchObject({
+    local_draft_id: migrated.local_draft_id,
+    title: "Renamed local draft",
+    uncertain_create_draft: recovery,
+    pending_write: pendingWrite,
+  });
+  first.unmount();
+
+  mount();
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-instance-key", firstKey));
+  expect(JSON.parse(localStorage.getItem(draftKey) ?? "null").local_draft_id).toBe(migrated.local_draft_id);
+  fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: "" } });
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(draftKey) ?? "null").local_draft_id).not.toBe(migrated.local_draft_id));
+  const newDraft = JSON.parse(localStorage.getItem(draftKey) ?? "null");
+  expect(newDraft.local_draft_id).toMatch(new RegExp(`^local-plan:${worldId}:`));
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `plan-local-draft:${newDraft.local_draft_id}`));
+  expect(screen.getByTestId("world-plan-context-identity")).not.toHaveTextContent(firstKey!);
+});
+
+it("replaces World Plan identity by World and releases the canvas on unmount", async () => {
+  const secondWorld = "world-b";
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockImplementation(async (id) => managedContext(id));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [worldId, secondWorld].map((id) => ({
+      schema_version: "dmb_world_container_record_v1" as const,
+      world_id: id,
+      name: id,
+      source_root_relpath: `corpus/${id}`,
+      created_at: "2026-01-01T00:00:00Z",
+    })),
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockImplementation(async (id) => ({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: id,
+    records: [],
+  }));
+  function Harness({ world, show = true }: { world: string; show?: boolean }) {
+    return (
+      <AgentInteractionProvider>
+        {show ? (
+          <SelectedWorldProvider key={world} locationSnapshot={`/plan?world=${world}`}>
+            <PlanSurfacePage />
+          </SelectedWorldProvider>
+        ) : null}
+        <PublicationProbe />
+      </AgentInteractionProvider>
+    );
+  }
+  const { rerender } = render(<Harness world={worldId} />);
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).not.toHaveAttribute("data-work-object", "none"));
+  const firstWorkObject = screen.getByTestId("world-plan-publication").getAttribute("data-work-object");
+  const firstIdentity = screen.getByTestId("world-plan-publication").getAttribute("data-instance-key");
+  expect(firstWorkObject).toContain(`local-plan:${worldId}:`);
+  rerender(<Harness world={secondWorld} />);
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication").getAttribute("data-work-object")).toContain(`local-plan:${secondWorld}:`));
+  expect(screen.getByTestId("world-plan-publication")).not.toHaveAttribute("data-instance-key", firstIdentity);
+  rerender(<Harness world={secondWorld} show={false} />);
+  await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", "none"));
 });
