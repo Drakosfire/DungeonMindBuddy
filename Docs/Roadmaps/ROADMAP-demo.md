@@ -170,14 +170,22 @@ pinned artifact/revision. A typed `world_id` in PlayRun list/detail responses
 must be server-derived from that pin; `campaign_id` may be retained only as a
 non-authoritative compatibility locator after all readers are migrated. Do not
 use campaign equality, synthesize a Campaign, or bind legacy Runs by ID match.
-The bounded design and its consumer audit are recorded in the BLOCKED
-[`HANDOFF-DEMO-world-owned-play-runs.md`](../Plans/HANDOFF-DEMO-world-owned-play-runs.md);
-it holds no implementation lease. PRIME must activate an exact implementation
-handoff before code work begins. Generic Agent Run resolution and Play UI
-adoption remain a separate successor after that owner contract. Build, Ingest
-and Combat Agent adoption remain open after Play. Campaign-owner/campaign-lens
-stays fail-closed. The visual rejection remains open and is not waived by
-Agent work. J1–J6 remain unaccepted until connected product witnesses pass.
+PRIME held design PR #806's initial head
+`12821bc55dd7e2e2b2406665cdc59334f7c1021b` for explicit response versioning
+and smaller serial scope. The revised BLOCKED
+[`HANDOFF-DEMO-world-owned-play-runs.md`](../Plans/HANDOFF-DEMO-world-owned-play-runs.md)
+preserves strict campaign V1 behavior and proposes a separate versioned
+World-only V2 route family with a typed owner and no Campaign identity. It
+sequences three separately activated PRs: A, explicit World-owned Runbook
+identity/resolution without Run creation; B, the V2 PlayRun backend with exact
+pin/manifest checks and a separately reviewed storage strategy; C, migration of
+all audited Play/context consumers and the integrated World Run create/list/
+resume witness. Generic Agent Run resolution and Play UI remain a later
+successor after C. The revised #806 awaits PRIME re-review and grants no
+implementation lease. Build, Ingest and Combat Agent adoption remain open after
+Play. Campaign-owner/campaign-lens stays fail-closed. The visual rejection
+remains open and is not waived by Agent work. J1–J6 remain unaccepted until
+connected product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:

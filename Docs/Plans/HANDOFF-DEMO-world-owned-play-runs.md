@@ -1,16 +1,26 @@
 # HANDOFF — DEMO: World-owned Play Runs
 
-**Status:** BLOCKED — bounded contract is designed; no implementation lease
+**Status:** BLOCKED — PR #806's requested versioning and serial split are recorded; awaiting PRIME re-review; no implementation lease
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Pinned base:** Buddy `main@f23d43d714b7aba68d940bbcb4cceb027f3c63e1`, including the merge of #805
-**Topology:** Serial DEMO successor to #805; this owner contract precedes generic Agent Run resolution and Play Agent UI adoption
+**Topology:** Serial gates A → B → C, each with its own ACTIVE handoff and PR; generic Agent Run resolution and Play Agent UI follow as a separate successor
 **Architecture ruling:** ARCHITECTURE task `01a086f2-c457-7b10-b753-df6063cab1ce`, 2026-09-30, after the current PlayRun consumer audit
 
-This document records a concrete Buddy-owned product contract and its unresolved
-activation gate. It grants no code write lease. Do not begin implementation
-until PRIME accepts the boundary and activates a new `ACTIVE` handoff with the
-exact path allowlist, base, verification commands, and PR topology.
+This BLOCKED document records the Buddy-owned contract and a three-gate serial
+design. It is not one implementation allowlist and grants no code write lease.
+Do not begin a phase until PRIME accepts this design and activates a separate
+`ACTIVE` handoff with that phase's exact path allowlist, base, verification
+commands, and PR topology.
+
+## Design-review checkpoint
+
+PRIME held PR #806's initial design head
+`12821bc55dd7e2e2b2406665cdc59334f7c1021b` for a revision. The canonical
+Runbook owner rule was accepted; the requested changes were an explicit
+versioned response plan that preserves strict campaign V1 clients, plus three
+smaller serial implementation gates. This revision records those changes on
+the same design PR. No implementation lease was granted.
 
 ## User transition and capability
 
@@ -35,25 +45,114 @@ ARCHITECTURE's ruling after the consumer audit establishes these decisions:
 2. A Play Run pins one exact Runbook artifact, committed revision, and content
    SHA. The server derives the Run's World from that exact pinned revision; do
    not add a separately mutable Run owner or trust browser pointers.
-3. A PlayRun list/detail response exposes a typed, server-derived
-   `world_id: string | null`. A new response schema version may be needed to
-   preserve strict V1 consumers. The proposed World-owned response reports no
-   `campaign_id`; the internal locator is not exposed as a Campaign. A
-   campaign-backed Run retains its current Campaign value, and an unbound
-   legacy Run resolves to `world_id=null`.
-4. The persisted V1 `campaign_id` column may use a reserved locator such as
-   `world:<world_id>` only as opaque compatibility storage after every reader
-   has been migrated. It is never owner evidence, a Campaign lookup key, or a
-   substitute for the typed resolved `world_id`. Campaign list queries must
-   never surface a World-only Run just because a real Campaign ID matches the
-   locator. Do not expose the locator as a Campaign label.
-5. A legacy Run becomes World-bound only when its exact pinned Runbook revision
+3. Preserve the current strict campaign PlayRun V1 contract unchanged. It has
+   the fixed `dmb_play_run_record_v1` discriminator and requires nonblank
+   `campaign_id`; do not emit a World-owned V1 record or leak a tagged locator
+   to a V1 client.
+4. World-owned Runs use a separate, explicitly versioned V2 API family. Its
+   record/list discriminators are V2, the response requires server-derived
+   `world_id`, and it carries no Campaign identity. List, detail, create/replay,
+   progress, rebase, and World Run reference-manifest operations use that same
+   World-scoped family. The request's World scope is an expectation to verify
+   against the exact pinned Runbook revision, not an authority source.
+5. API versioning does not choose the PlayRun storage migration. Before Phase B
+   enables World operations, separately audit the V1 `campaign_id NOT NULL`
+   storage consumers. A reserved locator such as `world:<world_id>` is allowed
+   internally only if every reader treats it as opaque and non-authoritative;
+   otherwise review a typed/index or nullable-storage change. Do not expose the
+   locator, use it for Campaign queries, or let it compete with the Runbook's
+   canonical World binding.
+6. Existing campaign V1 endpoints and records retain their exact behavior.
+   Campaign list queries must never surface a World-only Run because a real
+   Campaign ID matches an internal locator. An unbound legacy Run has no World
+   owner and remains on the campaign V1 path only where its existing campaign
+   contract is valid.
+7. A legacy Run becomes World-bound only when its exact pinned Runbook revision
    already has an explicit World binding. Never backfill ownership from
    `campaign_id == world_id`, even when the values match.
-6. The separate generic Agent Run resolver and Play Agent UI require a later
+8. The separate generic Agent Run resolver and Play Agent UI require a later
    handoff. That resolver must validate the requested World, exact Run, pinned
    Runbook revision/SHA, sealed manifest, `run_revision`, and current Beat or
    Scene before a model call.
+
+## Required serial implementation gates
+
+These are three separately reviewable capabilities. This design handoff grants
+no lease across them; PRIME activates each phase with its own `ACTIVE` handoff
+and exact path allowlist. Merge and verify each predecessor before dispatching
+the next.
+
+### A — World-owned Runbook foundation
+
+Add explicit `world_id` to a World-owned Runbook `WorkObject` and its committed
+revision, and resolve that owner through the exact revision. Keep campaign
+Runbooks unchanged. This phase does not create a Play Run, change the PlayRun
+V1 record/storage, or migrate Play UI consumers.
+
+The owning-boundary witness creates and commits a World-owned Runbook, reloads
+its exact revision and verifies its World; rejects a foreign World or malformed
+scope; and proves existing campaign Runbook create/read/commit behavior remains
+unchanged. No Run may be started from the new World-owned Runbook in Phase A.
+
+### B — World PlayRun backend V2
+
+Add a separate explicit World-scoped route family, proposed as
+`/api/live/world-play-runs/v2`. Do not change existing campaign
+`/api/live/play-runs` V1 routes or responses. The V2 family covers list, detail,
+create/replay, progress, rebase, and reference-manifest read/seal operations.
+Proposed operations are `GET /api/live/world-play-runs/v2?world_id=W`,
+`GET|PUT /api/live/world-play-runs/v2/{run_id}?world_id=W`,
+`PUT /api/live/world-play-runs/v2/{run_id}/progress?world_id=W`,
+`PUT /api/live/world-play-runs/v2/{run_id}/rebase?world_id=W`, and
+`GET|PUT /api/live/world-play-runs/v2/{run_id}/reference-manifest?world_id=W`.
+The World value is a requested scope to verify, never the owner proof.
+Every PlayRun record/list response uses its own V2 discriminator and returns
+the World resolved from the exact pinned Runbook revision. Define separate
+literals such as `dmb_world_play_run_record_v2` and
+`dmb_world_play_runs_list_v2`; the World record requires `world_id` and has no
+`campaign_id`. Preserve the Run ID, artifact ID, playable revision/SHA,
+independent `run_revision`, timestamps, and progress in V2. The reference
+manifest retains its own schema and is read/sealed only through the World V2
+family with exact Run/artifact/revision/SHA checks. Create verifies the
+requested World against the exact Runbook revision; operations on an existing
+Run verify its World against that Run's pin before they read or mutate state.
+V1 endpoints remain campaign-only and cannot create or return World-owned Runs.
+
+The V2 API shape does not prescribe PlayRun storage. Before enabling its
+World-owned create path, the implementation must separately inspect every
+storage reader and select a safe persistence/index strategy. A tagged internal
+locator is usable only if the full storage consumer audit proves it is opaque;
+otherwise use an explicitly reviewed storage migration. Neither option may
+create a competing World authority or backfill by Campaign equality. Existing
+campaign V1 behavior must be proven unchanged. The V2 route has no UI caller in
+this phase; World Run creation remains unavailable through all unmigrated V1
+consumers.
+
+### C — Play surface migration and enablement
+
+Migrate the audited Play surface, Start Run, resume/active selection, Runbook
+label/projection, and Agent-context readers to the typed V2 `world_id`. Treat
+the existing global active-Run pointer as a selection hint only and verify it
+through the World-scoped V2 detail route before resume. Remove all World-owner
+checks and labels that depend on `campaign_id`. Only after every World-scoped
+reader uses the V2 owner may the Play UI create, list, open, and resume
+World-owned Runs.
+
+The owning witness runs the mounted Play flow from a managed World: create a
+World-owned Runbook, start a Run, list/select it in that World, reload and
+resume it, update progress, and rebase only to a same-World exact revision.
+Repeat the campaign-backed path as a compatibility control. Cross-World
+selection, a matching Campaign string, an unbound legacy Run, and a damaged pin
+must fail closed. This phase does not add the generic Agent Run resolver or
+Play conversation UI.
+
+After C is merged and accepted at the owning boundary, create a separate serial
+handoff for generic Agent Run resolution and Play Agent UI adoption. Its real
+`POST /api/live/agent/turn` witness must resolve World A from the exact Runbook
+pin, reject World B before the model call, reject unbound legacy Runs, and
+report exact Run/run revision, artifact/playable revision, and current
+Beat/Scene. It must never use the browser's published pointer or `campaign_id`
+as authority.
 
 ## Current boundary and why activation is blocked
 
@@ -77,11 +176,11 @@ The current code on the pinned base does not implement that contract:
   separate and does not establish World ownership for generic Agent turns.
 
 The tagged-locator condition is therefore false today. All listed consumers
-must migrate to the typed resolved owner in the same owner-capability lane, or
-World-owned Run creation must stay unavailable to any consumer that cannot
-resolve it safely. The schema versioning and exact code write set still need
-PRIME's activation review; this BLOCKED handoff is not an implementation path
-allowlist.
+must migrate to the typed resolved owner before World-owned Run creation is
+enabled, or that creation must stay unavailable to any consumer that cannot
+resolve it safely. Storage representation remains unresolved and must be
+reviewed independently from the V2 API shape during Phase B. This BLOCKED
+handoff is not an implementation path allowlist.
 
 ## Invariants and failure cases
 
@@ -103,28 +202,13 @@ allowlist.
   mutation. No migration edits existing ownership, and no live database or
   product runtime is part of this capability's test lane.
 
-## Owning-boundary evidence required after activation
+## Owning-boundary evidence
 
-The activated implementation must prove the real Buddy WorkObject/committed
-revision → Run create/list/detail/rebase path, not only a helper projection:
-
-1. Create and commit a World-owned Runbook; start a Run; reload list and detail.
-   The response reports the World derived from the exact pinned revision and
-   preserves artifact ID, playable revision/SHA, and independent `run_revision`.
-2. Attempt list/detail under World B and with a Campaign whose ID resembles the
-   legacy locator; neither admits World A's Run. The successful World A path
-   does not depend on a Campaign record.
-3. Exercise every audited consumer: World filtering and selected-Run admission,
-   resume, Start Run, context publication, Runbook labeling, native projection,
-   rebase, and `agent_play_surface_context`. None exposes or treats the locator
-   as authority.
-4. Preserve campaign-backed Run behavior. A legacy Run with no explicit World
-   binding has `world_id=null`; an exact pinned Runbook revision with a real
-   World binding resolves only to that World. Corrupt pins and manifests fail
-   closed.
-5. Run focused backend/API and mounted Play tests, the relevant compatibility
-   suites, UI typecheck, and cumulative base-to-head diff review. Record
-   inherited failures without expanding the slice.
+Each phase has its own owning-boundary witness above and a separate ACTIVE
+implementation handoff. The tests for each gate must exercise that layer
+directly; they are not one combined implementation PR or one helper-only proof.
+Each ACTIVE handoff pins exact tests, inherited failures, and cumulative
+base-to-head review.
 
 Generic `POST /api/live/agent/turn` Run-resolution tests with a model/runtime
 spy belong to the later Agent Run resolver handoff, not this owner-capability
@@ -148,14 +232,14 @@ repositories, dependencies, and runtime state remain out of scope.
 
 ## Activation gate and handback
 
-Before implementation, PRIME must explicitly accept or revise this proposed
-capability, settle whether its strict response compatibility requires a V2
-PlayRun response, and activate an `ACTIVE` handoff with one exact serial path
-lease. Re-anchor Buddy main and all open PRs at activation; the 2026-09-30
-inventory (#798, #781, #760–#761, #763–#765) is only a snapshot. Confirm the
-World-owned Runbook contract remains Buddy-owned and does not require a new
-DungeonMind or WorldKeeper authority. Do not start a database, server, provider,
-or corpus for this slice.
+PRIME requested a revision of design PR #806 that specifies V2 coexistence and
+the A/B/C split. After re-review, PRIME may activate Phase A only with its own
+exact serial path lease. Re-anchor Buddy main and all open PRs before every
+phase; the 2026-09-30 inventory (#798, #781, #760–#761, #763–#765) is only a
+snapshot. Confirm the World-owned Runbook contract remains Buddy-owned and does
+not require a new DungeonMind or WorldKeeper authority. Before Phase B, review
+all storage readers and any migration separately from the API version. Do not
+start a database, server, provider, or corpus for these bounded slices.
 
 After merge and owner-boundary verification, create a separate serial handoff
 for generic Agent Run resolution and Play Agent UI adoption. That later slice
