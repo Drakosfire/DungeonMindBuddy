@@ -13,6 +13,7 @@ import type { WorldPlanAgentTurnRequestV1, WorldPlanAgentTurnResponseV1 } from "
 import {
   activeThreadStorageKey,
   createAgentInteractionThread,
+  loadAgentThreadById,
   persistAgentThread,
   threadIndexStorageKey,
   threadStorageKey,
@@ -343,6 +344,94 @@ it("uses only the exact saved World Plan identity and metadata in its conversati
   ]);
   expect(JSON.stringify(stored)).not.toContain(savedAgentPlanText);
   expect(JSON.stringify(stored)).not.toContain("MUST_NOT_BE_PERSISTED");
+});
+
+it("persists bounded Plan Agent trace receipts through reload without prompt data", async () => {
+  mockSavedPlanForAgent();
+  const requestId = "resp_plan_receipt_1";
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+    const response = worldPlanAgentResponse(request);
+    response.answer.trace = {
+      schema: "dmb_agent_turn_trace_v1",
+      trace_id: "plan-trace-receipt",
+      runtime: "process_isolated",
+      backend: "hermes",
+      mode: "hermes_graph_agent",
+      provider: "openai-api",
+      model: "gpt-5.4",
+      started_at: "2026-09-30T00:00:00Z",
+      completed_at: "2026-09-30T00:00:01Z",
+      elapsed_ms: 1000,
+      status: "ok",
+      usage: {
+        available: true,
+        status: "reported",
+        input_tokens: 10,
+        output_tokens: 2,
+        total_tokens: 12,
+      },
+      cost: { status: "estimated", usd: 0.000055, priced_call_count: 1, unpriced_call_count: 0 },
+      model_calls: [{
+        call_id: "call-1",
+        runtime_api_request_id: requestId,
+        sequence: 1,
+        status: "ok",
+        provider: "openai-api",
+        requested_model: "gpt-5.4",
+        response_model: "gpt-5.4",
+        duration_ms: 900,
+        usage: {
+          available: true,
+          status: "reported",
+          input_tokens: 10,
+          output_tokens: 2,
+          total_tokens: 12,
+        },
+        cost: { status: "estimated", usd: 0.000055 },
+        request: { body: "RAW_PROMPT_SECRET" },
+      }],
+      steps: [],
+      context_summary: {},
+      artifact_refs: [],
+      warnings: [],
+      prompt_preview: "RAW_PROMPT_SECRET",
+      prompt: "RAW_PROMPT_SECRET",
+      messages: [{ role: "user", content: "RAW_PROMPT_SECRET" }],
+    };
+    return response;
+  });
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.change(await screen.findByLabelText("Your question"), { target: { value: "What trace receipts are available?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  expect(await screen.findByText("I can see the saved Plan title and revision metadata, but not its prose.")).toBeInTheDocument();
+
+  const request = postTurn.mock.calls[0][0];
+  const storageKey = threadStorageKey(planAgentNamespace(), request.client_thread_id);
+  const stored = localStorage.getItem(storageKey) ?? "";
+  expect(stored).toContain(requestId);
+  expect(stored).not.toContain("RAW_PROMPT_SECRET");
+
+  const reloaded = loadAgentThreadById(planAgentNamespace(), request.client_thread_id);
+  expect(reloaded?.turns[0].trace).toMatchObject({
+    trace_id: "plan-trace-receipt",
+    provider: "openai-api",
+    model: "gpt-5.4",
+    usage: { available: true, status: "reported", input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+    cost: { status: "estimated", usd: 0.000055 },
+    model_calls: [{
+      runtime_api_request_id: requestId,
+      usage: { available: true, status: "reported", input_tokens: 10, output_tokens: 2, total_tokens: 12 },
+      cost: { status: "estimated", usd: 0.000055 },
+    }],
+  });
+  expect(JSON.stringify(reloaded)).not.toContain("RAW_PROMPT_SECRET");
 });
 
 it("keeps Ask disabled for an unresolved pending write", async () => {
