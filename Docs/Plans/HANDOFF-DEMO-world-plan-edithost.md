@@ -1,6 +1,6 @@
 # DEMO — World Plan editing controls in AppChrome EditHost
 
-**Status:** BLOCKED — PRIME activation review pending; no product write lease yet
+**Status:** ACTIVE — PRIME reviewed and activated design head `7640b71b361d11ef4dd7417675c11d931d9e930f`
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -69,6 +69,19 @@ the cumulative base-to-head diff, focused tests and UI typecheck; label any
 inherited failures. A mocked host witness does not self-award operator visual
 acceptance or the connected DEMO journey.
 
-**Activation gate:** PRIME critiques this exact design head and explicitly
-authorizes ACTIVE implementation. Then complete one bounded PR and return its
+**Activation gate:** PRIME critiqued the exact pushed design head and authorized
+ACTIVE implementation. Complete one bounded PR and return its
 exact reviewed head, evidence and remaining gates to PRIME for merge control.
+
+## Author verification
+
+The mounted World Plan page and context regressions plus the real
+World Plan → AppChrome → EditHost integration witness passed 19/19 focused
+tests. The real host test exercises title, Save, formatting, insertion,
+target-matched inventory, no inline duplicates and Edit close/reopen at
+390×844. Held title/Save/format callbacks were checked after saved-document
+replacement, blank-draft rotation, World replacement, local-to-saved
+promotion and unmount. UI typecheck reports only the inherited
+`ThreatPublicationPanel.tsx:553` JSX namespace error outside this lease.
+No runtime, service, database, corpus or provider was used; operator visual
+acceptance and the connected DEMO journey remain outstanding.
