@@ -182,15 +182,19 @@ the exact Runbook revision is canonical, unfiltered V1/product-continuity
 inventory remains campaign-only, and downgrade refuses while World Runs exist.
 V2 list/detail/create/progress/rebase/manifest operations must validate the
 exact pin. V1 remains campaign-only, including its active-Run setter. PRIME's
-activation-time open PR inventory (#798, #781, #760–#761, #763–#765) had no
-overlap with this lease; shared `main.py` route registration is excluded. PRIME
-will provide a fresh disposable PostgreSQL 16 tmpfs target for the owning
-witness. No product server, persistent database, provider, or corpus is part of
-this backend slice.
+refreshed open PR inventory (#798, #781, #760–#761, #763–#765) has no overlap
+with this lease; shared `main.py` route registration is excluded. The
+implementation is committed at `40a8bbc9` on the authorized branch. The focused
+PostgreSQL owning-boundary suite passed 75 tests on 2026-09-30 against PRIME's
+disposable PostgreSQL 16 tmpfs target; Ruff, in-memory Python compilation,
+offline Alembic upgrade/downgrade rendering, and the OpenAPI check also passed.
+No product server, persistent database, provider, or corpus is part of this
+backend slice.
 
 Phase C, which migrates audited Play/context consumers and proves World
-create/list/select/reload/resume, remains blocked until Phase B merges and its
-owning witness passes. Generic Agent Run resolution remains a later successor.
+create/list/select/reload/resume, remains blocked until Phase B merges; the
+Phase B owning witness now passes. Generic Agent Run resolution remains a later
+successor.
 Build, Ingest and Combat Agent adoption remain open after Play.
 Campaign-owner/campaign-lens stays fail-closed. The visual rejection remains
 open and is not waived by Agent work. J1–J6 remain unaccepted until connected

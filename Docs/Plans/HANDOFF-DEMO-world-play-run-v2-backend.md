@@ -127,8 +127,8 @@ The tests must exercise the PostgreSQL-backed application-state and existing
 campaign routes. Use a fresh PRIME-designated PostgreSQL 16 tmpfs target; the
 test fixture creates and drops uniquely named databases. Do not use persistent
 demo targets `54330`/`54331`, start a product server/provider, or load a corpus.
-PRIME will coordinate a fresh disposable target for this lane; the prior Phase
-A container on port `55429` was removed.
+PRIME designated the fresh disposable target for this lane; the prior Phase A
+container on port `55429` was removed.
 
 The witness must prove:
 
@@ -150,8 +150,8 @@ The witness must prove:
 - Migration downgrade refuses while World rows remain. Existing active-pointer
   storage and V1 API shape are unchanged.
 
-Focused command once PRIME provides the isolated PostgreSQL admin target via
-`DMB_APPLICATION_STATE_TEST_DATABASE_URL`:
+Focused PostgreSQL suite (set `DMB_APPLICATION_STATE_TEST_DATABASE_URL` to the
+PRIME-designated isolated admin target):
 
 ~~~sh
 UV_CACHE_DIR=/tmp/dmb-uv-cache uv run pytest \
@@ -171,9 +171,24 @@ UV_CACHE_DIR=/tmp/dmb-uv-cache uv run pytest \
 Also run scoped Ruff on changed Python paths, Python compilation, cumulative
 `git diff --check`, and Alembic offline upgrade/downgrade rendering. The
 migration witness must verify the single Alembic head and guarded downgrade.
-No PostgreSQL target is currently running; coordinate provisioning with PRIME
-before executing the database suites. The earlier Phase A 53/53 result is a
-separate predecessor witness and does not substitute for these Phase B tests.
+PRIME designated disposable PostgreSQL 16 tmpfs container
+`prime-demo-playrun-v2-pg-20260930` for this witness. The focused suite above
+passed **75 tests** on 2026-09-30 against that target. The `uv run` invocation
+shown above could not resolve dependencies from PyPI in this environment, so
+the same test paths were executed as `rtk pytest -p no:cacheprovider` with the
+existing project environment and without installing packages. Scoped Ruff
+passed across all 13 changed Python files; in-memory Python compilation passed;
+offline Alembic upgrade and guarded-downgrade rendering passed with one
+migration head; and an OpenAPI check confirmed all seven World V2 operations
+and the required `world_id` list parameter. Existing Pydantic `schema`-shadow
+warnings appeared during app construction. The earlier Phase A 53/53 result
+remains a separate predecessor witness and does not substitute for these Phase
+B tests.
+
+The implementation/test changes are committed at
+`40a8bbc9` (`DEMO: add World-owned PlayRun V2 backend`) on the authorized
+branch. This passing witness does not mean Phase B is merged; Phase C remains
+blocked until the Phase B PR merges and its owning witness is accepted.
 
 ## Collision, predecessor, and handback
 

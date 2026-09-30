@@ -245,12 +245,15 @@ routes only to the already-registered `routes/play_runs.py`. The exact storage
 consumer audit selected nullable `world_id` plus nullable `campaign_id`, an
 exactly-one-owner check, a World index, no ownership backfill, campaign-only
 default inventory, and downgrade refusal while World rows remain. The prior
-Phase A PostgreSQL target was removed; PRIME will coordinate a fresh disposable
-PostgreSQL 16 tmpfs target before Phase B database tests. Do not start a product
-database, server, provider, or corpus for this slice.
+Phase A PostgreSQL target was removed. PRIME designated a fresh disposable
+PostgreSQL 16 tmpfs target for Phase B; the focused owner-boundary witness has
+passed 75 tests there. Do not start a product database, server, provider, or
+corpus for this slice.
 
-Phase C remains blocked until Phase B merges and its owning witness passes.
-Re-anchor main, open PRs, and active leases again before each later phase.
+The Phase B implementation and tests are committed at `40a8bbc9` on the
+authorized branch. Phase C remains blocked until Phase B merges; its owning
+witness now passes. Re-anchor main, open PRs, and active leases again before
+each later phase.
 
 After Phase C merges and passes its owner-boundary verification, create a
 separate serial handoff for generic Agent Run resolution and Play Agent UI
