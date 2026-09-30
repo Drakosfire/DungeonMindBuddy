@@ -1,6 +1,6 @@
 # DEMO — World Plan editing controls in AppChrome EditHost
 
-**Status:** ACTIVE — PRIME reviewed and activated design head `7640b71b361d11ef4dd7417675c11d931d9e930f`
+**Status:** MERGED — Buddy #802, reviewed head `1cc18982bb4e1db4bfbc13ab383761c3a8f64bb8`, merge `118e680244ab830c24c0f7cfa12f636ac303e034`
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -85,3 +85,8 @@ promotion and unmount. UI typecheck reports only the inherited
 `ThreatPublicationPanel.tsx:553` JSX namespace error outside this lease.
 No runtime, service, database, corpus or provider was used; operator visual
 acceptance and the connected DEMO journey remain outstanding.
+
+**Settlement:** PRIME independently reviewed the exact cumulative seven-path
+diff and reran the 19 focused tests at the accepted head. The remaining
+typecheck error was inherited. The EditHost functional lease ended at merge;
+the rejected Plan appearance and six-surface Agent UI remain open.
