@@ -898,8 +898,9 @@ that their foundations are absent. Historical slices retain their IDs.
   the same SHA-256, 48,453 Markdown characters and 48,778 bytes. This passes
   the full-source paste/readback witness for the agreed normalized Markdown
   input; it does not prove PDF parsing or J3. It also does not prove MIND #96
-  provisioning: the current Buddy adapter still initializes `space_id` as
-  `world_id` through `initialize_empty_knowledge_space`.
+  provisioning: Build selected the source with `campaign=<world_id>`, and the
+  current Buddy adapter requires `campaign_id == world_id` then initializes
+  `space_id` as `world_id` through `initialize_empty_knowledge_space`.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
@@ -958,7 +959,8 @@ fixture seeding or a parallel authority as an implementation shortcut.
   serial #810 gate clears, define the Buddy product path from selected source
   spans through MIND #96 provisioning/admission and WorldKeeper prepare/commit
   to ordinary Agent citation and restart read-after-write. Buddy must persist
-  the server-minted `world_id` → `space_id` binding and compose the accepted
+  the server-minted `world_id` → `space_id` binding, remove the current
+  `campaign_id == world_id` admission assumption, and compose the accepted
   admission/change services in its authenticated server path. WorldKeeper's
   `confirmed_by` value is not authentication, so Buddy must derive it from the
   server-side session. Owner audits identify these as Buddy integration duties;
