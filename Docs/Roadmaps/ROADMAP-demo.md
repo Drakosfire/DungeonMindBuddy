@@ -925,8 +925,7 @@ fixture seeding or a parallel authority as an implementation shortcut.
 
 - **State:** MIND #83/#85/#96 and Buddy #787 are merged; no active MIND or
   WorldKeeper prerequisite lease and no J3 implementation lease. Buddy PR #810
-  remains open at `a20e14518ebdb24a5e1790c2486dfad8758c7920`, held until RAKE
-  PR #811 merges and C1 is rebased and rerun.
+  remains open and held until RAKE PR #811 merges and C1 is rebased and rerun.
 - **Accepted foundation:** MIND #83 provides public empty native initialization
   at `031b6650d0a506cf40f0189fc5cfac055ac37308`; MIND #85 provides native source
   and evidence admission at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`.
