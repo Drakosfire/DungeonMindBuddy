@@ -27,7 +27,7 @@ loading. It does not change save/recovery semantics or document identity.
 
 - `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx`
 - `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx`
-- `Docs/Plans/HANDOFF-DEMO-plan-document-switch-safety-v1.md`
+- `Docs/Plans/HANDOFF-DEMO-plan-document-switch-safety.md`
 - `Docs/Plans/STEWARDS-HANDOFF-demo.md` — only the backward-looking owner transfer
 - `Docs/Roadmaps/ROADMAP-demo.md` — only this slice's current state and evidence
 
