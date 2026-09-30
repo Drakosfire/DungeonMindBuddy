@@ -1,6 +1,6 @@
 # DEMO — Index conversational Agent entry
 
-**Status:** BLOCKED — PRIME activation review pending; no product write lease yet
+**Status:** ACTIVE — PRIME reviewed and activated design head `09430129e652fee4f8b507383488f6822dcffaed`
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -96,7 +96,23 @@ and history regressions, run UI typecheck, and review the exact cumulative
 base-to-head diff. Any inherited failures must be named. This mocked boundary
 does not certify a live provider or the complete six-surface DEMO journey.
 
-**Activation gate:** PRIME critiques this pinned design head, confirms the
-exclusive write set and explicitly authorizes ACTIVE implementation. Then
-deliver one bounded PR titled `DEMO: add Index Agent conversation` and return
+**Activation gate:** PRIME critiqued the pinned design head, confirmed the
+exclusive write set and authorized ACTIVE implementation. Deliver one bounded
+PR titled `DEMO: add Index Agent conversation` and return
 its exact head, verification and remaining gates to PRIME for merge control.
+
+## Author verification
+
+The mounted real-provider and chrome witness passed 7/7 Index tests. It covers
+two submitted turns with one client thread ID, verified World and no-owner
+requests, unverified World lookup suppression, bounded transcript reload,
+World and route replacement, new thread,
+unmount, API error retry and mismatched-response rejection. API transport and
+history sanitizer suites passed 79/79 and 30/30; Agent chrome passed 3/3 and
+the real App root-route Index mount passed. The full App suite has 21 failures
+in unrelated Plan, Build and Play fixtures that reach unmocked workspace/Run
+URLs and show `World selection unavailable`; 11 tests pass. UI typecheck
+reports the inherited `ThreatPublicationPanel.tsx:553` JSX namespace error.
+No provider, server, port, database or corpus was used. The remaining five
+surface adoptions, connected provider witness and operator acceptance stay
+open.

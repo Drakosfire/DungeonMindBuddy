@@ -109,10 +109,14 @@ PRIME independently reran 18/18 focused mounted Plan page/context tests and
 accepted the exact canvas/context identity, legacy local-draft migration,
 pending/failed selection retirement, promotion and unmount behavior. The
 inherited JSX namespace typecheck error remains outside that diff. The third
-serial EditHost placement slice is ACTIVE under
+serial EditHost placement slice merged as Buddy #802 at
+`118e680244ab830c24c0f7cfa12f636ac303e034`, independently reviewed at
+`1cc18982bb4e1db4bfbc13ab383761c3a8f64bb8`, under
 [`HANDOFF-DEMO-world-plan-edithost.md`](../Plans/HANDOFF-DEMO-world-plan-edithost.md),
-design head `7640b71b361d11ef4dd7417675c11d931d9e930f`. These bounded repairs
-do not close J2 or the rejected appearance gate.
+with 19/19 focused Plan/context/real EditHost tests, including a 390×844
+close/reopen path and stale-callback fences. The inherited JSX namespace
+typecheck error remains. These bounded repairs do not close J2 or the rejected
+appearance gate.
 The visual theme remains parked on the preserved #793 branch for a separate
 appearance decision. #789 stays historical; J2 and operator acceptance remain open.
 
@@ -125,9 +129,13 @@ backend baseline and merged at `6501bfa5143592cec8d7a3f521e3f34d929a5a95`
 from reviewed code head `40e7c5f81ab0a6faa53026ea571d2994f77d163c` after two
 distinct review-head cycles (`5349662805`, `5350948969`). It proves the
 verified-World backend and conversation-only route, not universal UI adoption.
-The next bounded implementation must separately adopt shared Agent UI/context
-on Index, Plan, Play, Build, Ingest and Combat, followed by owner-to-backend
-end-to-end witnesses. Campaign-owner/campaign-lens remains fail-closed pending
+The current bounded implementation adopts Index conversation through the
+shared Agent chrome, with verified World or no owner and no primary work or
+graph request, under
+[`HANDOFF-DEMO-index-agent-conversation.md`](../Plans/HANDOFF-DEMO-index-agent-conversation.md).
+Plan, Play, Build, Ingest and Combat remain separate adoption work, followed by
+owner-to-backend end-to-end witnesses. Campaign-owner/campaign-lens remains
+fail-closed pending
 a Buddy-owned campaign→World authority. The visual rejection remains open and
 is not waived by this backend work. J1 and J1–J6 remain unaccepted until their
 connected product witnesses pass.

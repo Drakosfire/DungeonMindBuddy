@@ -4,6 +4,7 @@ import type {
   AgentInteractionThreadSummary,
   AgentInteractionThread,
   AgentInteractionTurn,
+  IndexAgentTurnResolvedSummary,
   AgentInteractionTurnMeta,
   LiveQueryBackend,
   AgentInteractionTrace,
@@ -677,6 +678,28 @@ function safePlanEditForPersistence(turn: AgentInteractionTurn): AgentInteractio
   };
 }
 
+function safeIndexAgentTurnResolved(value: unknown): IndexAgentTurnResolvedSummary | null {
+  if (!isRecord(value) || value.surfaceId !== "index" || value.workStatus !== "absent"
+    || value.graphStatus !== "not_requested"
+    || !["absent", "resolved"].includes(String(value.ownerStatus))
+    || !["absent", "accepted", "recovered", "rejected", "reused"].includes(String(value.pointerStatus))) return null;
+  const instanceId = truncatePersistedString(value.instanceId);
+  const ownerId = value.ownerId == null ? null : truncatePersistedString(value.ownerId);
+  const ownerName = value.ownerName == null ? null : truncatePersistedString(value.ownerName);
+  if (!instanceId || (value.ownerStatus === "resolved" && !ownerId)
+    || (value.ownerStatus === "absent" && ownerId !== null)) return null;
+  return {
+    surfaceId: "index",
+    instanceId,
+    ownerStatus: value.ownerStatus as IndexAgentTurnResolvedSummary["ownerStatus"],
+    ownerId,
+    ownerName,
+    workStatus: "absent",
+    graphStatus: "not_requested",
+    pointerStatus: value.pointerStatus as IndexAgentTurnResolvedSummary["pointerStatus"],
+  };
+}
+
 /** Re-validate grounding/citations and re-project Hermes traces on load and write. */
 export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteractionTurn {
   if (isHermesGraphTurn(turn)) {
@@ -686,6 +709,7 @@ export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteract
       : turn.trace;
     return {
       ...turn,
+      agentTurnResolved: safeIndexAgentTurnResolved(turn.agentTurnResolved),
       planEdit: safePlanEditForPersistence(turn),
       grounding: validated.grounding,
       citations: validated.citations,
@@ -699,6 +723,7 @@ export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteract
   const citations = Array.isArray(turn.citations) ? turn.citations : [];
   return {
     ...turn,
+    agentTurnResolved: safeIndexAgentTurnResolved(turn.agentTurnResolved),
     planEdit: safePlanEditForPersistence(turn),
     citations: citations.filter((citation) => {
       if (!citation || typeof citation !== "object") return false;

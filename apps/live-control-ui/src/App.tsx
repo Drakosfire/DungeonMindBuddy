@@ -14,7 +14,8 @@ import type {
 import { AgentInteractionProvider } from "./agentInteraction/AgentInteractionProvider";
 import { AskPluginSlotProvider } from "./agentInteraction/AskPluginSlot";
 import { AgentInteractionChrome } from "./agentInteraction/AgentInteractionChrome";
-import { usePublishAgentSurfaceContext } from "./agentInteraction/usePublishAgentSurfaceContext";
+import { IndexAgentConversation } from "./agentInteraction/IndexAgentConversation";
+import { useAgentInteraction } from "./agentInteraction/useAgentInteraction";
 import { usePublishSurfaceInteraction } from "./agentInteraction/usePublishSurfaceInteraction";
 import {
   ROUTE_COMPATIBILITY_PUBLICATIONS,
@@ -64,6 +65,7 @@ function subscribeSelectedWorldLocation(onChange: () => void): () => void {
 }
 
 function IndexSurfacePublisher() {
+  const { publishSurfaceContext } = useAgentInteraction();
   const context = useMemo(
     () => ({
       surfaceId: "index",
@@ -76,7 +78,11 @@ function IndexSurfacePublisher() {
     }),
     [],
   );
-  usePublishAgentSurfaceContext(context);
+  useEffect(() => {
+    // Index conversation owns its World/no-owner local thread namespace.
+    // Displaying Index context does not allocate a synthetic campaign scope.
+    publishSurfaceContext({ ...context, updatedAt: new Date().toISOString() });
+  }, [context, publishSurfaceContext]);
   usePublishSurfaceInteraction(ROUTE_COMPATIBILITY_PUBLICATIONS.index);
   return null;
 }
@@ -97,6 +103,7 @@ function MirewardIndex() {
   return (
     <main className="launcher-root">
       <IndexSurfacePublisher />
+      <IndexAgentConversation />
       <header className="launcher-header">
         <h1>Command Board</h1>
         <p>Core surfaces for prep, live play, memory review, worldbuilding, and combat.</p>

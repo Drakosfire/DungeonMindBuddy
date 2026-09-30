@@ -13,6 +13,8 @@ import type {
   CitationFreshnessRequest,
   CitationFreshnessResponse,
   LiveQueryResponse,
+  IndexAgentTurnRequestV1,
+  IndexAgentTurnResponseV1,
   LiveQueryBackend,
   LiveQueryOptions,
   PlanDocumentEditProposalRequest,
@@ -1211,6 +1213,15 @@ export async function postWorldGraphSourceAnchorRead(
       body: JSON.stringify(request),
     },
   );
+}
+
+export async function postIndexAgentTurn(
+  request: IndexAgentTurnRequestV1,
+): Promise<IndexAgentTurnResponseV1> {
+  return apiFetch<IndexAgentTurnResponseV1>("/api/live/agent/turn", {
+    method: "POST",
+    body: JSON.stringify(request),
+  });
 }
 
 export async function postLiveQuery(
