@@ -70,6 +70,7 @@ _REQUEST_ALLOWED_KEYS = frozenset(
         "retrievalSessionId",
         "retrievalSession",
         "surfaceContextBlock",
+        "planContinuityTurn",
     }
 )
 _REQUEST_FORBIDDEN_KEYS = frozenset(
@@ -255,6 +256,7 @@ class HermesGraphAgentTurnRequest:
     retrieval_session_id: str | None = None
     retrieval_session: Mapping[str, Any] | None = None
     surface_context_block: str | None = None
+    plan_continuity_turn: bool = False
 
 
 def _reject_unknown_keys(payload: Mapping[str, Any], allowed: frozenset[str], *, label: str) -> None:
@@ -743,6 +745,8 @@ def serialize_hermes_graph_agent_turn_request(
             label="surfaceContextBlock",
             max_chars=MAX_SURFACE_CONTEXT_BLOCK_CHARS,
         )
+    if not isinstance(request.plan_continuity_turn, bool):
+        raise ValueError("planContinuityTurn must be a boolean")
     return {
         "question": question,
         "worldId": world_id,
@@ -774,6 +778,7 @@ def serialize_hermes_graph_agent_turn_request(
         ),
         "retrievalSession": retrieval_session,
         "surfaceContextBlock": surface_block,
+        "planContinuityTurn": request.plan_continuity_turn,
     }
 
 
@@ -794,6 +799,9 @@ def deserialize_hermes_graph_agent_turn_request(
     retrieval_session_raw = payload.get("retrievalSession")
     if retrieval_session_raw is not None and not isinstance(retrieval_session_raw, Mapping):
         raise ValueError("retrievalSession must be a mapping or null")
+    plan_continuity_turn = payload.get("planContinuityTurn", False)
+    if not isinstance(plan_continuity_turn, bool):
+        raise ValueError("planContinuityTurn must be a boolean")
     conversation_only = policy is not None and policy.mode == "conversation_only"
     if conversation_only:
         graph_keys = (
@@ -852,6 +860,7 @@ def deserialize_hermes_graph_agent_turn_request(
             label="surfaceContextBlock",
             max_chars=MAX_SURFACE_CONTEXT_BLOCK_CHARS,
         ),
+        plan_continuity_turn=plan_continuity_turn,
     )
 
 

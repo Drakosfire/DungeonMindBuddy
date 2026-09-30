@@ -150,6 +150,7 @@ def test_no_work_turn_carries_surface_and_verified_world_through_real_adapters(
     )
 
     invocation = runtime.invocations[0]
+    assert invocation.plan_continuity_turn is False
     context = invocation.context_packet.surface_context
     assert context is not None
     assert context.surface_id == surface_id
@@ -171,6 +172,7 @@ def test_no_work_turn_carries_surface_and_verified_world_through_real_adapters(
     assert hermes_request.capability_policy.mode == "conversation_only"
     assert hermes_request.capability_policy.graph_scope is None
     assert hermes_request.capability_policy.enabled_toolsets == ()
+    assert hermes_request.plan_continuity_turn is False
     hermes_prompt = _build_ephemeral_system_prompt(
         hermes_request.capability_policy,
         hermes_request,
@@ -178,11 +180,28 @@ def test_no_work_turn_carries_surface_and_verified_world_through_real_adapters(
     )
     assert label in hermes_prompt
     assert 'Current World: "The Glass Orchard"' in hermes_prompt
-
     pydantic_prompt = pydantic_ai_agent_instructions(invocation)
     assert label in pydantic_prompt
     assert 'Current World: "The Glass Orchard"' in pydantic_prompt
     assert "No graph retrieval is performed on this turn" in pydantic_prompt
+
+
+def test_server_resolves_saved_plan_continuity_flag_before_runtime_dispatch(
+    tmp_path: Path,
+) -> None:
+    runtime = FakeRuntime()
+    execute_agent_turn(
+        _plan_request(),
+        root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+        owner_resolver=lambda _request: None,
+        work_resolver=_plan_work,
+        graph_resolver=lambda *_args: pytest.fail("no graph turn expected"),
+        runtime=runtime,
+    )
+
+    assert len(runtime.invocations) == 1
+    assert runtime.invocations[0].plan_continuity_turn is True
 
 
 def test_graphless_followup_reuses_same_binding_without_current_graph_authority(

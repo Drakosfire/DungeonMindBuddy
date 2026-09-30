@@ -287,12 +287,6 @@ def _native_history_is_valid(history: Any) -> bool:
     )
 
 
-def _is_saved_plan_continuity_turn(request: HermesGraphAgentTurnRequest) -> bool:
-    """Use persistent profiles only when server context names a saved Plan."""
-    block = request.surface_context_block or ""
-    return "The GM is working in Plan on the planning document " in block
-
-
 def _load_native_hermes_history(
     *,
     session_id: str,
@@ -1056,7 +1050,9 @@ def run_hermes_graph_agent_turn(
         # surfaces keep their existing per-turn Hermes home behavior.
         profiles_root_raw = os.environ.get(_SESSION_PROFILES_ENV)
         test_only_ephemeral_profile = agent_factory is not None and not profiles_root_raw
-        plan_continuity_turn = _is_saved_plan_continuity_turn(request)
+        # This is a typed server decision carried over runtime IPC. Rendered
+        # surface prose is descriptive and never grants persistence.
+        plan_continuity_turn = request.plan_continuity_turn
         if plan_continuity_turn and not profiles_root_raw and not test_only_ephemeral_profile:
             return _error_result(
                 hermes_session_id=session_id,

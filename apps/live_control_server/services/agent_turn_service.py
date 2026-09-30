@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -228,7 +228,8 @@ def execute_agent_turn(
     )
     trace.context_summary = dict(assembly.trace_summary)
     with trace.phase("runtime_dispatch"):
-        result = selected_runtime.run(assembly.invocation)
+        invocation = replace(assembly.invocation, plan_continuity_turn=plan_continuity)
+        result = selected_runtime.run(invocation)
     final_trace = trace.finalize_and_log(
         status="ok" if result.status == "ok" else "error",
         model_calls=result.model_calls,
