@@ -39,6 +39,7 @@ def admit_playable_revision(
     revision_n: int,
     expected_sha256: str,
     *,
+    expected_world_id: str | None = None,
     require_current: bool = False,
     require_clean: bool = False,
 ) -> CommittedPlayableRevision:
@@ -63,10 +64,22 @@ def admit_playable_revision(
         raise ApplicationStateValidationError(
             "playable_artifact_id must identify a runbook workspace document"
         )
-    if obj.world_id is not None:
-        raise ApplicationStateValidationError(
-            "World-owned Runbooks cannot start a campaign PlayRun V1"
-        )
+    if expected_world_id is None:
+        if obj.world_id is not None:
+            raise ApplicationStateValidationError(
+                "World-owned Runbooks cannot start a campaign PlayRun V1"
+            )
+        if obj.campaign_id is None:
+            raise ApplicationStateConflictError(
+                "campaign PlayRun requires a campaign-owned Runbook"
+            )
+    else:
+        if not expected_world_id.strip() or expected_world_id != expected_world_id.strip():
+            raise ApplicationStateValidationError("world_id must be non-empty and canonical")
+        if obj.world_id != expected_world_id or obj.campaign_id is not None:
+            raise ApplicationStateConflictError(
+                "selected World does not own the Runbook"
+            )
     if obj.status != "active":
         raise ApplicationStateConflictError("runbook workspace document is discarded")
     if obj.current_revision_id is None:

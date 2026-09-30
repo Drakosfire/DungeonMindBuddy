@@ -18,6 +18,8 @@ from pydantic import (
 
 PLAY_RUN_RECORD_SCHEMA = "dmb_play_run_record_v1"
 PLAY_RUNS_LIST_SCHEMA = "dmb_play_runs_list_v1"
+WORLD_PLAY_RUN_RECORD_SCHEMA = "dmb_world_play_run_record_v2"
+WORLD_PLAY_RUNS_LIST_SCHEMA = "dmb_world_play_runs_list_v2"
 
 
 def _iso_z(value: datetime | str) -> str:
@@ -32,6 +34,8 @@ def _map_application_state(exc: Exception) -> PlayRunRegistryError:
 
 
 def _record_from_play_run(run: object) -> PlayRunRecord:
+    if getattr(run, "world_id", None) is not None or getattr(run, "campaign_id", None) is None:
+        raise PlayRunRegistryError("campaign PlayRun response requires a campaign-owned Run")
     progress = getattr(run, "progress")
     return PlayRunRecord(
         run_id=str(run.run_id),
@@ -212,6 +216,94 @@ class PlayRunsListResponse(BaseModel):
     records: list[PlayRunRecord] = Field(default_factory=list)
 
 
+class WorldPlayRunRecord(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    schema_version: Literal["dmb_world_play_run_record_v2"] = WORLD_PLAY_RUN_RECORD_SCHEMA
+    run_id: str
+    world_id: str
+    playable_artifact_id: str
+    playable_revision: int = Field(gt=0)
+    playable_content_sha256: str
+    run_revision: int = Field(default=1, gt=0)
+    created_at: str
+    updated_at: str
+    progress: PlayRunProgress = Field(default_factory=empty_play_run_progress)
+    rebased_from_run_revision: int | None = None
+
+    @field_validator("run_id")
+    @classmethod
+    def _validate_run_id(cls, value: str) -> str:
+        return _canonical_uuid(value, field_name="run_id")
+
+    @field_validator("playable_artifact_id")
+    @classmethod
+    def _validate_playable_artifact_id(cls, value: str) -> str:
+        return _canonical_uuid(value, field_name="playable_artifact_id")
+
+    @field_validator("world_id")
+    @classmethod
+    def _validate_world_id(cls, value: str) -> str:
+        if not value.strip() or value != value.strip():
+            raise ValueError("world_id must be non-empty and canonical")
+        return value
+
+    @field_validator("playable_content_sha256")
+    @classmethod
+    def _validate_playable_sha(cls, value: str) -> str:
+        return _canonical_sha256(value, field_name="playable_content_sha256")
+
+    @field_validator("created_at", "updated_at")
+    @classmethod
+    def _validate_timestamp(cls, value: str) -> str:
+        return _utc_iso(value)
+
+    @field_validator("rebased_from_run_revision")
+    @classmethod
+    def _validate_rebased_from_run_revision(cls, value: int | None) -> int | None:
+        if value is None:
+            return None
+        if isinstance(value, bool) or value <= 0:
+            raise ValueError("rebased_from_run_revision must be a positive integer")
+        return value
+
+    @model_serializer(mode="wrap")
+    def _omit_absent_rebase_receipt(self, serializer: object) -> dict[str, object]:
+        payload = serializer(self)
+        if payload.get("rebased_from_run_revision") is None:
+            payload.pop("rebased_from_run_revision", None)
+        return payload
+
+
+class WorldPlayRunsListResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    schema_version: Literal["dmb_world_play_runs_list_v2"] = WORLD_PLAY_RUNS_LIST_SCHEMA
+    records: list[WorldPlayRunRecord] = Field(default_factory=list)
+
+
+def _world_record_from_aggregate(aggregate: object) -> WorldPlayRunRecord:
+    run = getattr(aggregate, "run")
+    world_id = getattr(aggregate, "world_id")
+    if run.world_id != world_id or run.campaign_id is not None:
+        raise PlayRunRegistryError(
+            "World PlayRun response requires its verified World-owned Run",
+            status_code=500,
+        )
+    return WorldPlayRunRecord(
+        run_id=str(run.run_id),
+        world_id=world_id,
+        playable_artifact_id=str(run.playable_work_object_id),
+        playable_revision=int(run.playable_revision_n),
+        playable_content_sha256=str(run.playable_content_sha256),
+        run_revision=int(run.run_revision),
+        created_at=_iso_z(run.created_at),
+        updated_at=_iso_z(run.updated_at),
+        progress=PlayRunProgress.model_validate(run.progress),
+        rebased_from_run_revision=getattr(run, "rebased_from_run_revision", None),
+    )
+
+
 def _validate_run_id(run_id: str) -> str:
     try:
         return _canonical_uuid(run_id, field_name="run_id")
@@ -227,6 +319,12 @@ def _validate_playable_artifact_id(playable_artifact_id: str) -> str:
         )
     except ValueError as exc:
         raise PlayRunRegistryError(str(exc), status_code=422) from exc
+
+
+def _validate_world_id(world_id: str) -> str:
+    if not isinstance(world_id, str) or not world_id.strip() or world_id != world_id.strip():
+        raise PlayRunRegistryError("world_id must be non-empty and canonical", status_code=422)
+    return world_id
 
 
 def _validate_expected_revision(expected_playable_revision: int) -> int:
@@ -657,6 +755,111 @@ def list_play_runs(
     except ApplicationStateError as exc:
         raise _map_application_state(exc) from exc
     return [_record_from_play_run(aggregate.run) for aggregate in aggregates]
+
+
+def get_world_play_run(root: Path, *, world_id: str, run_id: str) -> WorldPlayRunRecord:
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import get_world_play_run_aggregate
+
+    canonical_run_id = _validate_run_id(run_id)
+    canonical_world_id = _validate_world_id(world_id)
+    try:
+        aggregate = get_world_play_run_aggregate(
+            canonical_run_id, world_id=canonical_world_id
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return _world_record_from_aggregate(aggregate)
+
+
+def list_world_play_runs(
+    root: Path,
+    *,
+    world_id: str,
+    playable_artifact_id: str | None = None,
+) -> list[WorldPlayRunRecord]:
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import list_world_play_run_aggregates
+
+    canonical_world_id = _validate_world_id(world_id)
+    resolved_artifact_id = (
+        None
+        if playable_artifact_id is None
+        else _validate_playable_artifact_id(playable_artifact_id)
+    )
+    try:
+        aggregates = list_world_play_run_aggregates(
+            world_id=canonical_world_id,
+            playable_artifact_id=resolved_artifact_id,
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return [_world_record_from_aggregate(aggregate) for aggregate in aggregates]
+
+
+def create_or_replay_world_play_run(
+    root: Path,
+    *,
+    world_id: str,
+    run_id: str,
+    playable_artifact_id: str,
+    expected_playable_revision: int,
+    expected_playable_content_sha256: str,
+) -> WorldPlayRunRecord:
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import create_world_play_run
+
+    canonical_world_id = _validate_world_id(world_id)
+    canonical_run_id = _validate_run_id(run_id)
+    canonical_artifact_id = _validate_playable_artifact_id(playable_artifact_id)
+    expected_revision = _validate_expected_revision(expected_playable_revision)
+    expected_sha = _validate_expected_sha(expected_playable_content_sha256)
+    try:
+        aggregate = create_world_play_run(
+            world_id=canonical_world_id,
+            run_id=canonical_run_id,
+            playable_artifact_id=canonical_artifact_id,
+            expected_playable_revision=expected_revision,
+            expected_playable_content_sha256=expected_sha,
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return _world_record_from_aggregate(aggregate)
+
+
+def replace_world_play_run_progress(
+    root: Path,
+    *,
+    world_id: str,
+    run_id: str,
+    expected_run_revision: int,
+    progress: PlayRunProgress,
+) -> WorldPlayRunRecord:
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import replace_world_play_run_progress as replace_progress
+
+    canonical_world_id = _validate_world_id(world_id)
+    canonical_run_id = _validate_run_id(run_id)
+    if (
+        not isinstance(expected_run_revision, int)
+        or isinstance(expected_run_revision, bool)
+        or expected_run_revision <= 0
+    ):
+        raise PlayRunRegistryError("expected_run_revision must be a positive integer", status_code=422)
+    try:
+        aggregate = replace_progress(
+            world_id=canonical_world_id,
+            run_id=canonical_run_id,
+            expected_run_revision=expected_run_revision,
+            progress=progress.model_dump(mode="json"),
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state(exc) from exc
+    return _world_record_from_aggregate(aggregate)
 
 
 def create_or_replay_play_run(

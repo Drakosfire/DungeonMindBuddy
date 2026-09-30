@@ -7,7 +7,10 @@ from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
-from apps.live_control_server.services.play_run_registry import PlayRunRecord
+from apps.live_control_server.services.play_run_registry import (
+    PlayRunRecord,
+    WorldPlayRunRecord,
+)
 
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
@@ -76,3 +79,45 @@ def rebase_or_replay_play_run(
     except ApplicationStateError as exc:
         raise PlayRunRebaseError(str(exc), status_code=exc.status_code) from exc
     return _record_from_play_run(aggregate.run)
+
+
+def rebase_or_replay_world_play_run(
+    root: Path,
+    *,
+    world_id: str,
+    run_id: str,
+    expected_run_revision: int,
+    target_playable_revision: int,
+    target_playable_content_sha256: str,
+) -> WorldPlayRunRecord:
+    del root
+    from application_state.errors import ApplicationStateError
+    from application_state.play.service import rebase_world_play_run
+    from apps.live_control_server.services.play_run_registry import (
+        _world_record_from_aggregate,
+        _validate_run_id,
+        _validate_world_id,
+    )
+
+    try:
+        request = RebasePlayRunRequest(
+            expected_run_revision=expected_run_revision,
+            target_playable_revision=target_playable_revision,
+            target_playable_content_sha256=target_playable_content_sha256,
+        )
+    except ValidationError as exc:
+        raise PlayRunRebaseError(str(exc), status_code=422) from exc
+
+    canonical_run_id = _validate_run_id(run_id)
+    canonical_world_id = _validate_world_id(world_id)
+    try:
+        aggregate = rebase_world_play_run(
+            world_id=canonical_world_id,
+            run_id=canonical_run_id,
+            expected_run_revision=request.expected_run_revision,
+            target_playable_revision=request.target_playable_revision,
+            target_playable_content_sha256=request.target_playable_content_sha256,
+        )
+    except ApplicationStateError as exc:
+        raise PlayRunRebaseError(str(exc), status_code=exc.status_code) from exc
+    return _world_record_from_aggregate(aggregate)

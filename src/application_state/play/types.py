@@ -11,7 +11,8 @@ from pydantic import BaseModel
 
 class PlayRun(BaseModel):
     run_id: UUID
-    campaign_id: str
+    campaign_id: str | None
+    world_id: str | None = None
     playable_work_object_id: UUID
     playable_revision_n: int
     playable_work_revision_id: UUID
@@ -36,6 +37,14 @@ class PlayRunManifest(BaseModel):
 class PlayRunAggregate(BaseModel):
     run: PlayRun
     manifest: PlayRunManifest
+
+
+class WorldPlayRunAggregate(BaseModel):
+    """A PlayRun whose World was resolved from its exact pinned revision."""
+
+    run: PlayRun
+    manifest: PlayRunManifest
+    world_id: str
 
 
 class PlayActiveRun(BaseModel):
