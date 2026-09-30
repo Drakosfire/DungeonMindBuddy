@@ -92,6 +92,7 @@ HermesGraphAgentStatus = Literal["ok", "error"]
 
 _RUNTIME_LOCK = threading.RLock()
 _WORKER_HOME_ENV = "DMB_HERMES_GRAPH_AGENT_WORKER_HOME"
+_SESSION_PROFILES_ENV = "DMB_HERMES_GRAPH_AGENT_SESSION_PROFILES_ROOT"
 _CONVERSATION_ONLY_SYSTEM_POLICY = (
     "You are DungeonBuddy's conversational assistant. Respond using only the "
     "conversation context and descriptive current-surface context provided. "
@@ -266,6 +267,88 @@ def _prepare_isolated_hermes_home(
     config_path.write_text(
         yaml.safe_dump(config, sort_keys=False),
         encoding="utf-8",
+    )
+
+
+def _native_history_is_valid(history: Any) -> bool:
+    if not isinstance(history, list) or not history:
+        return False
+    if any(
+        not isinstance(message, Mapping)
+        or message.get("role") not in {"user", "assistant", "tool"}
+        or "content" not in message
+        for message in history
+    ):
+        return False
+    return (
+        history[-1].get("role") == "assistant"
+        and any(message.get("role") == "user" for message in history)
+        and any(message.get("role") == "assistant" for message in history)
+    )
+
+
+def _load_native_hermes_history(
+    *,
+    session_id: str,
+    state_db_path: Path,
+) -> tuple[Any, list[dict[str, Any]] | None]:
+    """Read one exact Hermes session without changing its profile."""
+    if not state_db_path.is_file() or state_db_path.is_symlink():
+        return None, None
+    try:
+        with hermes_import_namespace():
+            hermes_state = importlib.import_module("hermes_state")
+            session_db = hermes_state.SessionDB(db_path=state_db_path, read_only=True)
+            try:
+                session_row = session_db.get_session(session_id)
+                history = session_db.get_messages_as_conversation(session_id)
+            finally:
+                session_db.close()
+    except Exception:
+        return None, None
+    if not isinstance(session_row, Mapping) or not _native_history_is_valid(history):
+        return None, None
+    return hermes_state, [dict(message) for message in history]
+
+
+def _remove_unbound_hermes_profile(profile_home: Path, profiles_root: Path) -> None:
+    """Remove only a profile path contained directly in the dedicated root."""
+    if profile_home.is_symlink():
+        profile_home.unlink()
+        return
+    resolved_root = profiles_root.resolve()
+    resolved_profile = profile_home.resolve()
+    if resolved_profile.parent != resolved_root:
+        raise ValueError("Hermes session profile escaped its isolated root")
+    if resolved_profile.is_dir():
+        shutil.rmtree(resolved_profile)
+    elif resolved_profile.exists():
+        resolved_profile.unlink()
+
+
+def _persisted_turn_matches(
+    session_db: Any,
+    *,
+    session_id: str,
+    question: str,
+    final_response: str | None,
+) -> bool:
+    try:
+        history = session_db.get_messages_as_conversation(session_id)
+    except Exception:
+        return False
+    if not _native_history_is_valid(history):
+        return False
+    last_user = next(
+        (message for message in reversed(history) if message.get("role") == "user"),
+        None,
+    )
+    last_assistant = history[-1]
+    return (
+        isinstance(last_user, Mapping)
+        and str(last_user.get("content") or "").strip() == question
+        and isinstance(final_response, str)
+        and str(last_assistant.get("content") or "").strip() == final_response.strip()
     )
 
 
@@ -963,9 +1046,105 @@ def run_hermes_graph_agent_turn(
             )
 
     with _RUNTIME_LOCK:
+        # Persistent native profiles belong to saved Plan work only. Other
+        # surfaces keep their existing per-turn Hermes home behavior.
+        profiles_root_raw = os.environ.get(_SESSION_PROFILES_ENV)
+        test_only_ephemeral_profile = agent_factory is not None and not profiles_root_raw
+        # This is a typed server decision carried over runtime IPC. Rendered
+        # surface prose is descriptive and never grants persistence.
+        plan_continuity_turn = request.plan_continuity_turn
+        if plan_continuity_turn and not profiles_root_raw and not test_only_ephemeral_profile:
+            return _error_result(
+                hermes_session_id=session_id,
+                error_code="hermes_continuity_unavailable",
+                error_message="The isolated Hermes conversation profile is unavailable.",
+            )
+
+        persistent_profile = plan_continuity_turn and not test_only_ephemeral_profile
+        profile_created_for_new_session = False
+        profile_turn_persisted = False
+        session_db: Any | None = None
+        hermes_state: Any | None = None
+        previous_default_db_path: Any = None
+        restored_history: list[dict[str, Any]] | None = None
+        if persistent_profile:
+            profiles_root = Path(str(profiles_root_raw)).expanduser().resolve()
+            profile_home = profiles_root / hashlib.sha256(
+                session_id.encode("utf-8")
+            ).hexdigest()
+            state_db_path = profile_home / "state.db"
+            continuing_session = bool(request.session_id and request.session_id.strip())
+            try:
+                if profile_home.is_symlink():
+                    raise ValueError("Hermes profile path is a symbolic link")
+                if continuing_session:
+                    hermes_state, restored_history = _load_native_hermes_history(
+                        session_id=session_id,
+                        state_db_path=state_db_path,
+                    )
+                    if hermes_state is None or restored_history is None:
+                        return _error_result(
+                            hermes_session_id=session_id,
+                            error_code="hermes_continuity_unavailable",
+                            error_message=(
+                                "Saved conversation continuity is unavailable. "
+                                "Start a new conversation."
+                            ),
+                        )
+                else:
+                    profiles_root.mkdir(parents=True, exist_ok=True)
+                    if profile_home.exists():
+                        raise ValueError("New Hermes session profile already exists")
+                    profile_home.mkdir()
+                    profile_created_for_new_session = True
+                    with hermes_import_namespace():
+                        hermes_state = importlib.import_module("hermes_state")
+                if hermes_state is None:
+                    with hermes_import_namespace():
+                        hermes_state = importlib.import_module("hermes_state")
+                resolved_root = profiles_root.resolve()
+                if profile_home.resolve().parent != resolved_root:
+                    raise ValueError("Hermes profile escaped its isolated root")
+                _prepare_isolated_hermes_home(
+                    profile_home,
+                    enabled_plugin_ids=policy.enabled_plugin_ids,
+                    model=model,
+                    provider=provider,
+                    base_url=base_url,
+                )
+                previous_default_db_path = hermes_state.DEFAULT_DB_PATH
+                hermes_state.DEFAULT_DB_PATH = state_db_path
+                session_db = hermes_state.SessionDB(
+                    db_path=state_db_path,
+                    read_only=False,
+                )
+            except Exception:
+                if session_db is not None:
+                    try:
+                        session_db.close()
+                    except Exception:
+                        pass
+                if hermes_state is not None and previous_default_db_path is not None:
+                    hermes_state.DEFAULT_DB_PATH = previous_default_db_path
+                if profile_created_for_new_session:
+                    try:
+                        _remove_unbound_hermes_profile(profile_home, profiles_root)
+                    except Exception:
+                        pass
+                return _error_result(
+                    hermes_session_id=session_id,
+                    error_code="hermes_continuity_unavailable",
+                    error_message=(
+                        "Saved conversation continuity is unavailable. "
+                        "Start a new conversation."
+                    ),
+                )
+            hermes_home = profile_home
+        else:
+            hermes_home = Path(tempfile.mkdtemp(prefix="dmb-hermes-graph-home-"))
+
         # Capture and mutate process-global env only while holding the lock so
-        # concurrent turns cannot restore a sibling's deleted temp home.
-        hermes_home = Path(tempfile.mkdtemp(prefix="dmb-hermes-graph-home-"))
+        # concurrent turns cannot restore a sibling's profile or DB path.
         previous_home = os.environ.get("HERMES_HOME")
         root_token = set_graph_root_override(request.root)
         policy_token = set_active_capability_policy(policy)
@@ -993,13 +1172,14 @@ def run_hermes_graph_agent_turn(
                         "Hermes AIAgent could not be imported from the locked environment."
                     ),
                 )
-            _prepare_isolated_hermes_home(
-                hermes_home,
-                enabled_plugin_ids=policy.enabled_plugin_ids,
-                model=model,
-                provider=provider,
-                base_url=base_url,
-            )
+            if not persistent_profile:
+                _prepare_isolated_hermes_home(
+                    hermes_home,
+                    enabled_plugin_ids=policy.enabled_plugin_ids,
+                    model=model,
+                    provider=provider,
+                    base_url=base_url,
+                )
             os.environ["HERMES_HOME"] = str(hermes_home)
 
             factory = agent_factory
@@ -1097,6 +1277,7 @@ def run_hermes_graph_agent_turn(
                         provider=provider,
                         model=model,
                         base_url=base_url,
+                        **({"session_db": session_db} if session_db is not None else {}),
                         tool_start_callback=collector.on_start,
                         tool_complete_callback=collector.on_complete,
                         ephemeral_system_prompt=_build_ephemeral_system_prompt(
@@ -1124,9 +1305,17 @@ def run_hermes_graph_agent_turn(
                             )
 
                     history = (
-                        [dict(item) for item in request.conversation_history]
-                        if request.conversation_history
-                        else None
+                        restored_history
+                        if persistent_profile and request.session_id
+                        else (
+                            None
+                            if persistent_profile
+                            else (
+                                [dict(item) for item in request.conversation_history]
+                                if request.conversation_history
+                                else None
+                            )
+                        )
                     )
                     try:
                         raw = agent.run_conversation(
@@ -1170,20 +1359,47 @@ def run_hermes_graph_agent_turn(
             final_response = raw.get("final_response")
             if final_response is not None and not isinstance(final_response, str):
                 final_response = str(final_response)
-
+            returned_session_id = str(raw.get("session_id") or session_id)
+            if persistent_profile and returned_session_id != session_id:
+                return observed_error(
+                    hermes_session_id=session_id,
+                    error_code="hermes_continuity_unavailable",
+                    error_message=(
+                        "Hermes changed the isolated conversation identity. "
+                        "Start a new conversation."
+                    ),
+                    tool_events=collector.events,
+                )
+            if persistent_profile and not _persisted_turn_matches(
+                session_db,
+                session_id=session_id,
+                question=str(request.question).strip(),
+                final_response=final_response,
+            ):
+                return observed_error(
+                    hermes_session_id=session_id,
+                    error_code="hermes_continuity_unavailable",
+                    error_message=(
+                        "Hermes did not persist this turn to its isolated conversation. "
+                        "Start a new conversation."
+                    ),
+                    tool_events=collector.events,
+                )
             hydrated = (
                 get_session(request.retrieval_session_id)
                 if request.retrieval_session_id
                 else None
             )
             model_calls, telemetry_warnings = api_observer.finish()
+            if persistent_profile:
+                profile_turn_persisted = True
             return HermesGraphAgentTurnResult(
                 status="ok",
                 final_response=final_response,
                 messages=[
                     dict(m) if isinstance(m, Mapping) else {"value": m} for m in messages
                 ],
-                hermes_session_id=str(raw.get("session_id") or session_id),
+                hermes_session_id=returned_session_id,
                 tool_events=list(collector.events),
                 process_isolation=PROCESS_ISOLATION_MODE,
                 retrieval_session_id=request.retrieval_session_id,
@@ -1224,7 +1440,20 @@ def run_hermes_graph_agent_turn(
                 os.environ.pop("HERMES_HOME", None)
             else:
                 os.environ["HERMES_HOME"] = previous_home
-            shutil.rmtree(hermes_home, ignore_errors=True)
+            if session_db is not None:
+                try:
+                    session_db.close()
+                except Exception:
+                    pass
+            if hermes_state is not None and previous_default_db_path is not None:
+                hermes_state.DEFAULT_DB_PATH = previous_default_db_path
+            if persistent_profile and profile_created_for_new_session and not profile_turn_persisted:
+                try:
+                    _remove_unbound_hermes_profile(profile_home, profiles_root)
+                except Exception:
+                    pass
+            elif not persistent_profile:
+                shutil.rmtree(hermes_home, ignore_errors=True)
 
 
 __all__ = [

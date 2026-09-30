@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, Mapping
 
@@ -25,7 +25,10 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
     resolve_agent_world_graph_query_context,
 )
 from apps.live_control_server.services.hermes_agent_runtime import default_hermes_agent_runtime
-from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+from apps.live_control_server.services.hermes_session_store import (
+    HermesSessionPointerStore,
+    HermesStructuredPointerResolution,
+)
 
 
 class AgentTurnServiceError(ValueError):
@@ -134,6 +137,8 @@ def execute_agent_turn(
     )
     work_kind = None if work is None else work.kind
     work_id = None if work is None else work.object_id
+    plan_binding = work_kind == "plan"
+    plan_continuity = plan_binding and request.surface.surface_id == "plan"
     surface_context = _surface_context_for_turn(request, owner, work)
     pointer = pointer_store.resolve_structured_for_request(
         owner_kind=owner_kind,
@@ -143,6 +148,20 @@ def execute_agent_turn(
         agent_thread_id=request.client_thread_id,
         pointer_id=None,
     )
+    if pointer.pointer_status == "rejected" and plan_continuity:
+        raise AgentTurnServiceError(
+            "Saved conversation continuity is unavailable or expired. "
+            "Choose New conversation to start fresh; the saved work was not changed.",
+            code="hermes_continuity_unavailable",
+            status_code=409,
+        )
+    if pointer.pointer_status == "rejected" or (plan_binding and not plan_continuity):
+        pointer = HermesStructuredPointerResolution(
+            continuity_session_id=None,
+            pointer_status="recovered",
+            pointer_in_request=pointer.pointer_in_request,
+            recovery_message=pointer.recovery_message,
+        )
 
     graph_result: dict[str, Any]
     scope: AgentWorldScope | None = None
@@ -209,7 +228,8 @@ def execute_agent_turn(
     )
     trace.context_summary = dict(assembly.trace_summary)
     with trace.phase("runtime_dispatch"):
-        result = selected_runtime.run(assembly.invocation)
+        invocation = replace(assembly.invocation, plan_continuity_turn=plan_continuity)
+        result = selected_runtime.run(invocation)
     final_trace = trace.finalize_and_log(
         status="ok" if result.status == "ok" else "error",
         model_calls=result.model_calls,
@@ -231,7 +251,49 @@ def execute_agent_turn(
     )
 
     pointer_binding = None
-    if result.runtime_session_id:
+    if plan_continuity and result.error_code == "hermes_continuity_unavailable":
+        if pointer.continuity_session_id:
+            pointer_store.revoke_structured_after_continuity_failure(
+                owner_kind=owner_kind,
+                owner_id=owner_id,
+                work_kind=work_kind,
+                work_id=work_id,
+                agent_thread_id=request.client_thread_id,
+                hermes_session_id=pointer.continuity_session_id,
+            )
+        raise AgentTurnServiceError(
+            "Saved conversation continuity is unavailable or expired. "
+            "Choose New conversation to start fresh; the saved work was not changed.",
+            code="hermes_continuity_unavailable",
+            status_code=409,
+        )
+    if plan_continuity and result.status == "ok":
+        if not result.runtime_session_id:
+            raise AgentTurnServiceError(
+                "Hermes did not return a persistent conversation session. "
+                "Choose New conversation to start fresh; the saved work was not changed.",
+                code="hermes_continuity_unavailable",
+                status_code=409,
+            )
+        if pointer.continuity_session_id and result.runtime_session_id != pointer.continuity_session_id:
+            pointer_store.revoke_structured_after_continuity_failure(
+                owner_kind=owner_kind,
+                owner_id=owner_id,
+                work_kind=work_kind,
+                work_id=work_id,
+                agent_thread_id=request.client_thread_id,
+                hermes_session_id=pointer.continuity_session_id,
+            )
+            raise AgentTurnServiceError(
+                "Hermes could not resume the saved conversation. "
+                "Choose New conversation to start fresh; the saved work was not changed.",
+                code="hermes_continuity_unavailable",
+                status_code=409,
+            )
+    if (
+        result.runtime_session_id
+        and (not plan_binding or (plan_continuity and result.status == "ok"))
+    ):
         pointer_binding = pointer_store.upsert_structured_after_turn(
             owner_kind=owner_kind,
             owner_id=owner_id,
@@ -239,6 +301,7 @@ def execute_agent_turn(
             work_id=work_id,
             agent_thread_id=request.client_thread_id,
             hermes_session_id=result.runtime_session_id,
+            require_new_thread=plan_continuity,
         )
     if result.status != "ok":
         answer = {

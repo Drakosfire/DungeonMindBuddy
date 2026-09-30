@@ -3,12 +3,17 @@
 from __future__ import annotations
 
 import concurrent.futures
+from datetime import datetime, timedelta, timezone
 import json
 from pathlib import Path
 
 import pytest
 
-from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+from apps.live_control_server.services.hermes_session_store import (
+    HermesSessionPointerError,
+    HermesSessionPointerStore,
+    hermes_profile_key,
+)
 from src.live_play.live_store import write_json
 
 
@@ -110,7 +115,7 @@ def test_structured_pointer_continuity_is_keyed_by_owner_work_and_thread(
         pointer_id=first.pointer_id,
     )
     assert wrong_work.continuity_session_id is None
-    assert wrong_work.pointer_status == "recovered"
+    assert wrong_work.pointer_status == "rejected"
 
     raw_after = json.loads((base / "hermes_thread_pointers.json").read_text())
     assert raw_after["bindings"]["campaign:c1::thread-1"] == legacy_payload
@@ -186,22 +191,190 @@ def test_structured_pointer_rejects_stored_schema_or_identity_drift(
     payload["structured_bindings"][key][field] = tampered_value
     path.write_text(json.dumps(payload), encoding="utf-8")
 
-    recovered = store.resolve_structured_for_request(
+    rejected = store.resolve_structured_for_request(
         **identity,
         pointer_id=original.pointer_id,
     )
-    assert recovered.continuity_session_id is None
-    assert recovered.pointer_status == "recovered"
-    assert recovered.pointer_id is None
+    assert rejected.continuity_session_id is None
+    assert rejected.pointer_status == "rejected"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    binding_key = next(iter(payload["structured_bindings"]))
+    assert payload["structured_bindings"][binding_key]["status"] == "invalid"
 
+    with pytest.raises(HermesSessionPointerError, match="new client thread"):
+        store.upsert_structured_after_turn(
+            **identity,
+            hermes_session_id="session-fresh",
+            require_new_thread=True,
+        )
     fresh = store.upsert_structured_after_turn(
-        **identity,
+        owner_kind=identity["owner_kind"],
+        owner_id=identity["owner_id"],
+        work_kind=identity["work_kind"],
+        work_id=identity["work_id"],
+        agent_thread_id="thread-new",
         hermes_session_id="session-fresh",
     )
     assert fresh.pointer_id != original.pointer_id
     assert fresh.hermes_session_id == "session-fresh"
     corrected = store.resolve_structured_for_request(
-        **identity,
+        owner_kind=identity["owner_kind"],
+        owner_id=identity["owner_id"],
+        work_kind=identity["work_kind"],
+        work_id=identity["work_id"],
+        agent_thread_id="thread-new",
         pointer_id=fresh.pointer_id,
     )
     assert corrected.continuity_session_id == "session-fresh"
+
+
+def test_structured_idle_expiry_persists_before_confined_profile_cleanup(
+    tmp_path: Path,
+) -> None:
+    base = tmp_path / "live-session"
+    store = HermesSessionPointerStore(base)
+    legacy = store.upsert_after_turn(
+        campaign_id="campaign:c1",
+        agent_thread_id="thread-one",
+        hermes_session_id="legacy-session",
+    )
+    identity = {
+        "owner_kind": "world",
+        "owner_id": "world:one",
+        "work_kind": "plan",
+        "work_id": "plan:one",
+        "agent_thread_id": "thread-one",
+    }
+    binding = store.upsert_structured_after_turn(
+        **identity,
+        hermes_session_id="session-expiring",
+    )
+    profile = store.structured_profile_home(binding.hermes_session_id)
+    profile.mkdir(parents=True)
+    marker = profile / "state.db"
+    marker.write_text("disposable profile", encoding="utf-8")
+
+    path = base / "hermes_thread_pointers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    key = next(iter(payload["structured_bindings"]))
+    old = datetime.now(timezone.utc) - timedelta(days=8)
+    payload["structured_bindings"][key]["updated_at"] = old.strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    resolved = store.resolve_structured_for_request(**identity, pointer_id=None)
+    assert resolved.pointer_status == "rejected"
+    persisted = json.loads(path.read_text(encoding="utf-8"))
+    assert persisted["structured_bindings"][key]["status"] == "expired"
+    assert store.get_for_thread(
+        campaign_id="campaign:c1", agent_thread_id="thread-one"
+    ) == legacy
+    assert not profile.exists()
+    with pytest.raises(HermesSessionPointerError, match="new client thread"):
+        store.upsert_structured_after_turn(
+            **identity,
+            hermes_session_id="session-replacement",
+            require_new_thread=True,
+        )
+
+
+def test_idle_ttl_does_not_change_non_plan_structured_bindings(tmp_path: Path) -> None:
+    base = tmp_path / "live-session"
+    store = HermesSessionPointerStore(base)
+    binding = store.upsert_structured_after_turn(
+        owner_kind=None,
+        owner_id=None,
+        work_kind="index",
+        work_id="index-home",
+        agent_thread_id="thread-index",
+        hermes_session_id="index-session",
+    )
+    profile = store.structured_profile_home(binding.hermes_session_id)
+    profile.mkdir(parents=True)
+    (profile / "state.db").write_text("do not expire", encoding="utf-8")
+    path = base / "hermes_thread_pointers.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    key = next(iter(payload["structured_bindings"]))
+    old = datetime.now(timezone.utc) - timedelta(days=8)
+    payload["structured_bindings"][key]["updated_at"] = old.strftime(
+        "%Y-%m-%dT%H:%M:%SZ"
+    )
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+    resolved = store.resolve_structured_for_request(
+        owner_kind=None,
+        owner_id=None,
+        work_kind="index",
+        work_id="index-home",
+        agent_thread_id="thread-index",
+        pointer_id=None,
+    )
+    assert resolved.continuity_session_id == "index-session"
+    assert profile.is_dir()
+    persisted = json.loads(path.read_text(encoding="utf-8"))
+    assert persisted["structured_bindings"][key]["status"] == "active"
+
+
+def test_profile_cleanup_uses_hashed_session_key_and_stays_in_profile_root(
+    tmp_path: Path,
+) -> None:
+    store = HermesSessionPointerStore(tmp_path / "live-session")
+    assert store.structured_profile_home("private-session-id").name == hermes_profile_key(
+        "private-session-id"
+    )
+    binding = store.upsert_structured_after_turn(
+        owner_kind=None,
+        owner_id=None,
+        work_kind=None,
+        work_id=None,
+        agent_thread_id="thread-cleanup",
+        hermes_session_id="private-session-id",
+    )
+    profile = store.structured_profile_home(binding.hermes_session_id)
+    profile.mkdir(parents=True)
+    (profile / "state.db").write_text("private", encoding="utf-8")
+
+    assert store.revoke_structured_after_continuity_failure(
+        owner_kind=None,
+        owner_id=None,
+        work_kind=None,
+        work_id=None,
+        agent_thread_id="thread-cleanup",
+        hermes_session_id="private-session-id",
+    )
+    assert not profile.exists()
+    resolved = store.resolve_structured_for_request(
+        owner_kind=None,
+        owner_id=None,
+        work_kind=None,
+        work_id=None,
+        agent_thread_id="thread-cleanup",
+        pointer_id=None,
+    )
+    assert resolved.pointer_status == "rejected"
+
+    linked = store.upsert_structured_after_turn(
+        owner_kind=None,
+        owner_id=None,
+        work_kind=None,
+        work_id=None,
+        agent_thread_id="thread-external-link",
+        hermes_session_id="linked-session",
+    )
+    outside = tmp_path / "outside-profile"
+    outside.mkdir()
+    marker = outside / "keep.txt"
+    marker.write_text("outside", encoding="utf-8")
+    linked_profile = store.structured_profile_home(linked.hermes_session_id)
+    linked_profile.symlink_to(outside, target_is_directory=True)
+    assert store.revoke_structured_after_continuity_failure(
+        owner_kind=None,
+        owner_id=None,
+        work_kind=None,
+        work_id=None,
+        agent_thread_id="thread-external-link",
+        hermes_session_id="linked-session",
+    )
+    assert not linked_profile.exists()
+    assert marker.read_text(encoding="utf-8") == "outside"

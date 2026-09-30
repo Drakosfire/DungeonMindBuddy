@@ -154,6 +154,7 @@ def map_invocation_to_hermes_request(
         retrieval_session_id=None if retrieval is None else retrieval.session_id,
         retrieval_session=None if retrieval is None else retrieval.packet,
         surface_context_block=surface_context_block,
+        plan_continuity_turn=invocation.plan_continuity_turn,
     )
 
 

@@ -257,8 +257,10 @@ def test_no_scope_invocation_maps_to_explicit_toolless_conversation_turn() -> No
         context_packet=AgentContextPacket(world_scope=None, retrieval_session=None),
         capability_policy=CONVERSATION_ONLY_POLICY,
         run_options=AgentRunOptions(runtime_session_id="provider-session"),
+        plan_continuity_turn=True,
     )
     request = map_invocation_to_hermes_request(invocation)
+    assert request.plan_continuity_turn is True
     assert request.world_id is None
     assert request.campaign_id is None
     assert request.scope_mode is None

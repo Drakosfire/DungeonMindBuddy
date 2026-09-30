@@ -36,6 +36,10 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     serialize_hermes_graph_agent_turn_result,
     serialize_model_call,
 )
+from apps.live_control_server.config import session_dir
+from apps.live_control_server.services.hermes_session_store import (
+    STRUCTURED_PROFILE_ROOT_NAME,
+)
 
 HostErrorCode = Literal[
     "hermes_worker_lost",
@@ -49,6 +53,7 @@ DEFAULT_ACCEPT_TIMEOUT_S = 15.0
 DEFAULT_READY_TIMEOUT_S = 30.0
 DEFAULT_SHUTDOWN_TIMEOUT_S = 5.0
 _WORKER_HOME_ENV = "DMB_HERMES_GRAPH_AGENT_WORKER_HOME"
+_SESSION_PROFILES_ENV = "DMB_HERMES_GRAPH_AGENT_SESSION_PROFILES_ROOT"
 _WORKER_HOME_PREFIX = "dmb-hermes-graph-worker-home-"
 _LOGGING_DRAINED_MARKER = ".dmb-hermes-logging-drained"
 
@@ -58,10 +63,12 @@ def _run_worker_in_private_hermes_home(
     request_queue: Queue[bytes],
     response_queue: Queue[bytes],
     hermes_home: str,
+    session_profiles_root: str,
 ) -> None:
     """Give one worker a stable logger home and stop its queue before exit."""
     os.environ["HERMES_HOME"] = hermes_home
     os.environ[_WORKER_HOME_ENV] = hermes_home
+    os.environ[_SESSION_PROFILES_ENV] = session_profiles_root
     try:
         worker_target(request_queue, response_queue)
     finally:
@@ -350,12 +357,18 @@ class HermesGraphAgentHost:
         ready_timeout_s: float = DEFAULT_READY_TIMEOUT_S,
         worker_target: Callable[..., Any] | None = None,
         context: BaseContext | None = None,
+        session_profiles_root: Path | None = None,
     ) -> None:
         self._turn_timeout_s = float(turn_timeout_s)
         self._accept_timeout_s = float(accept_timeout_s)
         self._ready_timeout_s = float(ready_timeout_s)
         self._worker_target = worker_target or hermes_graph_agent_worker_main
         self._ctx = context or mp.get_context("spawn")
+        self._session_profiles_root = (
+            session_profiles_root
+            if session_profiles_root is not None
+            else session_dir() / STRUCTURED_PROFILE_ROOT_NAME
+        ).expanduser().resolve()
         # Serializes start() and execute() so only one thread consumes the
         # worker response queue at a time (ready vs accepted cannot cross-steal).
         self._turn_gate = threading.Lock()
@@ -629,6 +642,7 @@ class HermesGraphAgentHost:
                     request_queue,
                     response_queue,
                     str(hermes_home),
+                    str(self._session_profiles_root),
                 ),
                 name="dmb-hermes-graph-agent-worker",
                 daemon=True,

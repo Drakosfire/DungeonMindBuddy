@@ -112,6 +112,8 @@ class AgentRuntimeInvocation:
     context_packet: AgentContextPacket
     capability_policy: AgentCapabilityPolicy
     run_options: AgentRunOptions
+    # Resolved by AgentTurnService from the saved-work owner and active surface.
+    plan_continuity_turn: bool = False
 
 
 @dataclass(frozen=True, slots=True)
