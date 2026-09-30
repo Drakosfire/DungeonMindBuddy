@@ -129,17 +129,11 @@ lane on `main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, branch
 `Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
 that new handoff, `src/application_state/migrations/env.py`, and
 `tests/application_state/test_migration_logging.py`; one PR to `main` is
-authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811)
-is open at head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`. PRIME's current
-disposition is HOLD because the test path under `tests/application_state/`
-activates the global PostgreSQL fixture before the offline test runs. RAKE is
-moving it to `tests/test_application_state_migration_logging.py`, updating the
-leased handoff path, and rerunning with no test database configured. Do not
-treat the current test result as proving zero database use. Do not absorb the
-repair into C1. Hold this PR until #811 merges, then rebase and rerun all seven
-suites against a fresh disposable PostgreSQL target. Rerunning just the two
-tests passed (2 passed, 11 existing Pydantic `schema`-field shadow warnings),
-but the combined suite is not green.
+authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811) is open at exact remote head `619c11998a7bc17bc0fd740791352e1b275cdf84`, published as a fast-forward from the original head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`. The regression now lives at `tests/test_application_state_migration_logging.py`, outside the nested PostgreSQL fixture path. RAKE reports the offline regression passed 1/1; the ordered run of that regression and both C1 Hermes trace tests passed 3/3 in 8.48 seconds.
+
+The offline test runs Alembic SQL mode with an unusable port-1 URL. The ordered run used a temporary archive of the exact pinned DungeonMind commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` because the shared environment had a stale installed package; no dependency sync or database access was used. Eleven existing Pydantic `schema`-field shadow warnings were emitted. Scoped Ruff and `git diff --check origin/main...HEAD` passed against `main@efadc41019e39ca53d19bca85cd7e2a560763049`. The cumulative PR diff remains limited to RAKE's three leased paths.
+
+PRIME has the exact corrected head and evidence for independent review; review and merge remain pending. Do not absorb the repair into C1. The earlier seven-suite C1 run remains 240 passed and 2 failed; it has not been rerun against a fresh target. Hold PR #810 until #811 merges, then rebase and rerun all seven suites against a fresh disposable PostgreSQL target.
 All C1 behavior tests passed, including the focused PostgreSQL World Runbook,
 context, ownership, and pin-boundary run (29 passed, 11 existing warnings).
 
