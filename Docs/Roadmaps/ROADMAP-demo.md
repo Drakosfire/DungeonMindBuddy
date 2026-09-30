@@ -212,11 +212,15 @@ RAKE DUTY's separate repair lane on
 that new handoff, `src/application_state/migrations/env.py`, and
 `tests/application_state/test_migration_logging.py`; one PR to `main` is
 authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811)
-is open at head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e` with no review yet.
-C1 must not absorb the repair. Hold PR #810 until #811 merges, then rebase and
-rerun the seven suites against a fresh disposable PostgreSQL target. The two
-tests passed alone (2 passed, 11 existing Pydantic shadow warnings), but the
-combined witness is not green. All
+is open at head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`. PRIME's current
+disposition is HOLD: the test path under `tests/application_state/` activates
+the global PostgreSQL fixture before the offline test runs. RAKE is moving it
+to `tests/test_application_state_migration_logging.py`, updating the leased
+handoff path, and rerunning with no test database configured. Treat the current
+test result as not yet proving zero database use. C1 must not absorb the repair.
+Hold PR #810 until #811 merges, then rebase and rerun the seven suites against a
+fresh disposable PostgreSQL target. The two tests passed alone (2 passed, 11
+existing Pydantic shadow warnings), but the combined witness is not green. All
 C1-specific behavior tests passed, including the focused World Runbook,
 context, ownership, and pin-boundary tests (29 passed). Scoped Ruff, Python
 compilation, and `git diff --check` passed. C2 stays blocked pending C1 review,
