@@ -186,7 +186,7 @@ class TiptapMarkdownWritePrepareRequest(BaseModel):
         elif (
             self.scope_mode != "world" or not self.world_id or not self.world_id.strip()
         ):
-            raise ValueError("V2 Plan writes require scope_mode=world and world_id")
+            raise ValueError("V2 World writes require scope_mode=world and world_id")
         return self
 
 
@@ -228,7 +228,7 @@ class TiptapMarkdownWriteCommitRequest(BaseModel):
         elif (
             self.scope_mode != "world" or not self.world_id or not self.world_id.strip()
         ):
-            raise ValueError("V2 Plan writes require scope_mode=world and world_id")
+            raise ValueError("V2 World writes require scope_mode=world and world_id")
         return self
 
 
@@ -430,17 +430,17 @@ def _require_requested_world_scope(obj, world_id: str | None) -> None:
     if world_id is None:
         if obj.world_id is not None:
             raise TiptapMarkdownWriteConflictError(
-                "World-owned Plans require the World-scoped V2 write contract"
+                "World-owned documents require the World-scoped V2 write contract"
             )
         return
     if (
-        obj.kind != "plan"
+        obj.kind not in ("plan", "runbook")
         or obj.world_id != world_id
         or obj.campaign_id is not None
         or obj.target_session is not None
     ):
         raise TiptapMarkdownWriteConflictError(
-            "Plan scope does not match the selected World"
+            "document scope does not match the selected World"
         )
 
 

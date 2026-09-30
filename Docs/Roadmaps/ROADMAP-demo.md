@@ -159,8 +159,8 @@ must not claim document QA, retrieval, quotation, citation or editing.
 Content-aware Plan assistance needs a separate owner-reviewed server-side
 content-access contract.
 
-**Next Play prerequisite — Phase B ACTIVE; Play Agent adoption remains
-BLOCKED:** ARCHITECTURE's 2026-09-30 owner ruling makes `world_id` on the exact
+**Next Play prerequisite — Phase C1 ACTIVE; C2 BLOCKED; Agent adoption remains
+open:** ARCHITECTURE's 2026-09-30 owner ruling makes `world_id` on the exact
 World-owned Runbook revision canonical and derives a Run's World through its
 pinned artifact/revision. Never use campaign equality, synthesize a Campaign,
 or bind legacy Runs by ID match. The accepted design preserves strict campaign
@@ -171,44 +171,49 @@ owning-boundary witness on 2026-09-30: 53 passed, 11 Pydantic `schema`-field
 shadow warnings, 35.18 seconds. This establishes World-owned Runbook revision
 identity; it did not create Runs or change PlayRun storage.
 
-PRIME explicitly activated one serial Phase B implementation PR from
-`main@6c6a8ab48d568c2827fca4ce019d701beb473166`, branch
-`codex/demo-world-playruns-v2`, under
-[`HANDOFF-DEMO-world-play-run-v2-backend.md`](../Plans/HANDOFF-DEMO-world-play-run-v2-backend.md).
-The exact 16-path lease adds nullable `play.run.world_id`, makes
-`campaign_id` nullable, enforces exactly one owner, and indexes World queries.
-Legacy ownership is never inferred; the stored World ID is only a checked hint,
-the exact Runbook revision is canonical, unfiltered V1/product-continuity
-inventory remains campaign-only, and downgrade refuses while World Runs exist.
-V2 list/detail/create/progress/rebase/manifest operations must validate the
-exact pin. V1 remains campaign-only, including its active-Run setter. PRIME's
-refreshed open PR inventory (#798, #781, #760–#761, #763–#765) has no overlap
-with this lease; shared `main.py` route registration is excluded. The
-implementation began at `40a8bbc9` on the authorized branch. PRIME held that
-exact head because existing World Runs stopped resolving after their source
-Runbook was discarded, and the V2 response omitted the immutable WorkRevision
-UUID. The repair separates exact retained-pin verification from new-Run
-admission and adds the canonical revision UUID to V2 records without changing
-V1. The 76-test PostgreSQL owning-boundary suite now passes against PRIME's
-disposable PostgreSQL 16 tmpfs target, including create → advance → discard →
-V2 reads/progress/manifest and idempotent replay, while a new Run or rebase
-from the discarded source still fails closed. The regression changes Runbook
-status through the Content owner service because the existing campaign discard
-wrapper rejects World-owned documents; that wrapper remains outside this
-lease. Scoped Ruff, in-memory Python compilation, and cumulative diff checks
-pass; the migration is unchanged from its previously verified upgrade,
-downgrade, and single-head evidence. PRIME's exact-head re-review is pending.
-No product server, persistent database, provider, or corpus is part of this
-backend slice.
+Phase B Buddy #809 merged at `a8b0d5c29feaf451b4a7b562302272bc02fdad2a`.
+Its nullable-owner migration, exact pin validation, no ownership backfill,
+campaign-only V1, and World V2 route family are complete. The PostgreSQL
+owning-boundary suite passed 76 tests against PRIME's disposable PostgreSQL 16
+tmpfs target. It includes create → advance → discard → V2 reads/progress/
+manifest and idempotent replay; new Run creation or rebase from the discarded
+source still fails closed. Scoped Ruff, in-memory Python compilation,
+cumulative diff checks, and migration upgrade/guarded downgrade evidence passed.
+No product server, persistent database, provider, or corpus was used.
 
-Phase C, which migrates audited Play/context consumers and proves World
-create/list/select/reload/resume, remains blocked until Phase B merges; the
-Phase B owning witness now passes. Generic Agent Run resolution remains a later
-successor.
-Build, Ingest and Combat Agent adoption remain open after Play.
-Campaign-owner/campaign-lens stays fail-closed. The visual rejection remains
-open and is not waived by Agent work. J1–J6 remain unaccepted until connected
-product witnesses pass.
+PRIME explicitly activated one serial Phase C1 implementation PR from
+`main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, branch
+`codex/demo-world-play-c1`, under
+[`HANDOFF-DEMO-world-play-surface-v2.md`](../Plans/HANDOFF-DEMO-world-play-surface-v2.md).
+Its exact path list is the exclusive write lease. C1 exposes typed World-owned
+Runbook list/create/read/snapshot and TipTap prepare/commit through existing
+Content support, then adds specialized read-only World Play context V2 to the
+nested `/api/live/query` contract. `dmb_agent_surface_context_request_v1` and
+campaign behavior stay unchanged; V2 carries `world_id`, `run_id`, and
+`run_revision`, not `campaign_id`, and is admitted only after World V2 detail
+and exact pinned Runbook revision/SHA validation. The generic Agent backend
+baseline in #791 remains unchanged. PRIME's refreshed open PR inventory (#798,
+#781, #760–#761, #763–#765) has no overlap with C1 paths. PRIME designated
+disposable PostgreSQL 16 tmpfs target `prime-demo-phase-c1-pg-20260930` at
+`127.0.0.1:32768` for its owning witness. The UI lifecycle remains blocked as
+serial C2 until C1 merges and its witness passes. Do not start a product
+server/database, provider, or corpus.
+
+The final seven-suite C1 PostgreSQL invocation collected 242 tests: 240 passed
+and two Hermes trace-capture assertions failed in the combined run
+because the expected `dmb.agent.turn_trace` records were absent. Rerunning only
+those two tests passed (2 passed, 11 existing Pydantic shadow warnings). The
+test cases and `agent_turn_trace.py` are unchanged in this slice. The failures
+are order-sensitive and remain unresolved; this is not a green combined
+witness. All C1-specific behavior tests passed, including the focused World
+Runbook, context, ownership, and pin-boundary tests (29 passed). Scoped Ruff,
+Python compilation, and `git diff --check` passed. C2 stays blocked pending
+PRIME's review and an accepted owner witness.
+
+Generic Agent Run resolution remains a separate successor. Build, Ingest and
+Combat Agent adoption remain open after Play. Campaign-owner/campaign-lens
+stays fail-closed. The visual rejection remains open and is not waived by
+Agent work. J1–J6 remain unaccepted until connected product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:

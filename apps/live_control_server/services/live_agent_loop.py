@@ -17,7 +17,7 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
     resolve_agent_world_graph_query_context,
 )
 from apps.live_control_server.services.agent_surface_context import (
-    AgentSurfaceContextRequest,
+    AgentSurfaceContextRequestAny,
     resolve_agent_surface_context,
 )
 from apps.live_control_server.services.agent_turn_trace import AgentTurnTraceBuilder
@@ -174,7 +174,7 @@ def process_live_query(
     outer_campaign_id: str | None = None,
     conversation_history: Any | None = None,
     agent_runtime: AgentRuntime | None = None,
-    surface_context: AgentSurfaceContextRequest | None = None,
+    surface_context: AgentSurfaceContextRequestAny | None = None,
     managed_world_packet: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     session_base = base or session_dir()

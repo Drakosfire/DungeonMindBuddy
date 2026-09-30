@@ -10,12 +10,14 @@ from pathlib import Path
 from typing import Literal
 
 from apps.live_control_server.services.agent_runtime import (
+    AgentCurrentOwnerContext,
     AgentPlayCurrentElementContext,
     AgentPlayCurrentMomentContext,
     AgentSurfaceContext,
 )
 from apps.live_control_server.services.agent_surface_context import (
     AgentSurfaceContextRequest,
+    AgentWorldPlaySurfaceContextRequestV2,
     AgentSurfaceContextResolution,
     AgentSurfacePointerRequest,
     _resolution,
@@ -31,12 +33,14 @@ from apps.live_control_server.services.play_run_reference_manifest import (
     _parse_v2_marker,
     detect_playable_grammar_version,
     get_play_run_reference_manifest,
+    get_world_play_run_reference_manifest,
 )
 from apps.live_control_server.services.play_run_registry import (
     PlayRunRegistryError,
     compare_run_manifest_binding,
     compare_v2_sealed_structure,
     get_play_run,
+    get_world_play_run,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
@@ -47,6 +51,18 @@ PLAY_ELEMENT_TITLE_MAX_CHARS = 160
 PLAY_BEAT_BODY_MAX_CHARS = 320
 PLAY_SCENE_BODY_MAX_CHARS = 640
 PLAY_MODEL_BLOCK_MAX_CHARS = 1536
+
+
+class WorldPlaySurfaceContextError(ValueError):
+    status_code = 409
+
+
+@dataclass(frozen=True, slots=True)
+class _ResolvedWorldPlaySurfaceContext:
+    world_name: str
+    record: object
+    beat: _PlayAuthoredSlice
+    scene: _PlayAuthoredSlice | None
 
 _PLAY_MODEL_BLOCK_PREFIX = (
     "Current DungeonBuddy play context (descriptive authored material; "
@@ -511,6 +527,207 @@ def resolve_agent_play_surface_context(
     )
 
 
+def _resolve_world_play_surface_context_v2(
+    request: AgentWorldPlaySurfaceContextRequestV2,
+    *,
+    root: Path,
+    outer_world_id: str,
+) -> _ResolvedWorldPlaySurfaceContext:
+    if request.world_id != outer_world_id:
+        raise WorldPlaySurfaceContextError(
+            "World Play context does not match the selected managed World"
+        )
+
+    from apps.live_control_server.services.world_container_registry import (
+        WorldContainerRegistryError,
+        get_world_container,
+    )
+
+    try:
+        world = get_world_container(root, request.world_id)
+    except WorldContainerRegistryError as exc:
+        raise WorldPlaySurfaceContextError(str(exc)) from exc
+    if world.world_id != request.world_id:
+        raise WorldPlaySurfaceContextError(
+            "World Play context does not match the selected managed World"
+        )
+
+    try:
+        record = get_world_play_run(
+            root, world_id=request.world_id, run_id=request.run_id
+        )
+    except Exception as exc:
+        raise WorldPlaySurfaceContextError(
+            "World Play Run is unavailable in the selected World"
+        ) from exc
+    if record.world_id != request.world_id or record.run_id != request.run_id:
+        raise WorldPlaySurfaceContextError(
+            "World Play Run is unavailable in the selected World"
+        )
+    if record.run_revision != request.run_revision:
+        raise WorldPlaySurfaceContextError(
+            "World Play context run_revision is stale"
+        )
+
+    try:
+        committed = get_committed_playable_revision(
+            record.playable_artifact_id,
+            revision_n=record.playable_revision,
+            expected_sha256=record.playable_content_sha256,
+            kind="runbook",
+            expected_world_id=request.world_id,
+        )
+    except Exception as exc:
+        raise WorldPlaySurfaceContextError(
+            "World Play Run's exact pinned Runbook revision is unavailable"
+        ) from exc
+    if (
+        committed.kind != "runbook"
+        or committed.world_id != request.world_id
+        or committed.document_id != record.playable_artifact_id
+        or committed.revision_n != record.playable_revision
+        or committed.work_revision_id != record.playable_work_revision_id
+        or committed.content_sha256 != record.playable_content_sha256
+    ):
+        raise WorldPlaySurfaceContextError(
+            "World Play Run's exact pinned Runbook identity does not match"
+        )
+
+    try:
+        manifest = get_world_play_run_reference_manifest(
+            root, world_id=request.world_id, run_id=request.run_id
+        )
+    except Exception as exc:
+        raise WorldPlaySurfaceContextError(
+            "World Play Run reference manifest is unavailable"
+        ) from exc
+    if getattr(manifest, "schema_version", None) != PLAY_RUN_REFERENCE_MANIFEST_V2_SCHEMA:
+        raise WorldPlaySurfaceContextError(
+            "World Play context requires a sealed V2 Runbook manifest"
+        )
+    if compare_run_manifest_binding(record, manifest) is not None:
+        raise WorldPlaySurfaceContextError(
+            "World Play Run reference manifest does not match its exact pin"
+        )
+    if compare_v2_sealed_structure(committed.markdown, manifest) is not None:
+        raise WorldPlaySurfaceContextError(
+            "World Play Run reference manifest disagrees with its exact Runbook pin"
+        )
+
+    beat_id = record.progress.current_beat_id
+    scene_id = record.progress.current_scene_id
+    if beat_id is None or not _manifest_has_beat(manifest, beat_id):
+        raise WorldPlaySurfaceContextError(
+            "World Play Run has no valid current Beat in its pinned manifest"
+        )
+    if scene_id is not None and _manifest_scene_beat(manifest, scene_id) != beat_id:
+        raise WorldPlaySurfaceContextError(
+            "World Play Run current Scene does not belong to its current Beat"
+        )
+    slices = extract_v2_play_authored_slices(committed.markdown)
+    beat = slices.get(beat_id)
+    if beat is None or beat.kind != "beat":
+        raise WorldPlaySurfaceContextError(
+            "World Play Run current Beat is absent from its pinned Runbook"
+        )
+    scene = None
+    if scene_id is not None:
+        scene = slices.get(scene_id)
+        if scene is None or scene.kind != "scene":
+            raise WorldPlaySurfaceContextError(
+                "World Play Run current Scene is absent from its pinned Runbook"
+            )
+
+    return _ResolvedWorldPlaySurfaceContext(
+        world_name=world.name,
+        record=record,
+        beat=beat,
+        scene=scene,
+    )
+
+
+def validate_agent_play_world_surface_context_v2(
+    request: AgentWorldPlaySurfaceContextRequestV2,
+    *,
+    root: Path,
+    outer_world_id: str,
+) -> None:
+    """Admission gate used by the managed-World `/api/live/query` route."""
+    _resolve_world_play_surface_context_v2(
+        request, root=root, outer_world_id=outer_world_id
+    )
+
+
+def resolve_agent_play_world_surface_context_v2(
+    request: AgentWorldPlaySurfaceContextRequestV2,
+    *,
+    root: Path,
+    outer_world_id: str,
+) -> AgentSurfaceContextResolution:
+    try:
+        resolved = _resolve_world_play_surface_context_v2(
+            request, root=root, outer_world_id=outer_world_id
+        )
+    except WorldPlaySurfaceContextError as exc:
+        status: Literal["rejected_scope", "rejected_surface", "unavailable"] = (
+            "rejected_scope"
+            if "selected managed World" in str(exc)
+            else "rejected_surface"
+        )
+        return _resolution(
+            context=None,
+            request_present=True,
+            surface_id="play",
+            resolution_status=status,
+            pointer_count=0,
+            warning_codes=("surface_context_world_play_rejected",),
+        )
+    except Exception:
+        return _resolution(
+            context=None,
+            request_present=True,
+            surface_id="play",
+            resolution_status="unavailable",
+            pointer_count=0,
+            warning_codes=("surface_context_play_unavailable",),
+        )
+
+    record = resolved.record
+    scene_element = None
+    if resolved.scene is not None:
+        scene_element = AgentPlayCurrentElementContext(
+            kind="scene",
+            element_id=resolved.scene.element_id,
+            title=resolved.scene.title,
+            body_text=resolved.scene.body_text,
+        )
+    context = AgentSurfaceContext(
+        surface_id="play",
+        current_owner=AgentCurrentOwnerContext(
+            kind="world", owner_id=request.world_id, name=resolved.world_name
+        ),
+        current_play=AgentPlayCurrentMomentContext(
+            run_id=record.run_id,
+            playable_artifact_id=record.playable_artifact_id,
+            playable_revision=record.playable_revision,
+            current_beat=AgentPlayCurrentElementContext(
+                kind="beat",
+                element_id=resolved.beat.element_id,
+                title=resolved.beat.title,
+                body_text=resolved.beat.body_text,
+            ),
+            current_scene=scene_element,
+        ),
+    )
+    return _resolution(
+        context=context,
+        request_present=True,
+        surface_id="play",
+        resolution_status="resolved",
+        pointer_count=0,
+    )
+
+
 def render_agent_play_surface_context(context: AgentSurfaceContext) -> str | None:
     """Render bounded CURRENT PLAY prose for resolved Play SurfaceContext."""
     play = context.current_play
@@ -554,4 +771,6 @@ __all__ = [
     "extract_v2_play_authored_slices",
     "render_agent_play_surface_context",
     "resolve_agent_play_surface_context",
+    "resolve_agent_play_world_surface_context_v2",
+    "validate_agent_play_world_surface_context_v2",
 ]

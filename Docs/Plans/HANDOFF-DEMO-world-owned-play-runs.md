@@ -1,6 +1,6 @@
 # HANDOFF — DEMO: World-owned Play Runs
 
-**Status:** DESIGN ACCEPTED — Phase A merged; Phase B ACTIVE; Phase C BLOCKED
+**Status:** DESIGN ACCEPTED — Phases A and B merged; Phase C1 ACTIVE; Phase C2 BLOCKED
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Design base:** Buddy `main@f23d43d714b7aba68d940bbcb4cceb027f3c63e1`, including the merge of #805
@@ -174,14 +174,20 @@ that owner. Campaign Runbook behavior remains supported. This establishes the
 Runbook owner contract only; PlayRun V1 still has campaign identity and its
 storage has no World owner field on the Phase B base.
 
-Phase B is ACTIVE under
-[`HANDOFF-DEMO-world-play-run-v2-backend.md`](HANDOFF-DEMO-world-play-run-v2-backend.md),
-from `main@6c6a8ab48d568c2827fca4ce019d701beb473166` on branch
-`codex/demo-world-playruns-v2`. Its bounded capability is the V2 backend and
-the reviewed nullable-owner migration described above. The campaign admission
-path continues to reject World-owned Runbooks. The Play UI, global active-Run
-selection, and Agent context remain campaign-bound until a later authorized
-Phase C lease. Generic Agent Run resolution remains a separate successor.
+Phase B Buddy PR #809 merged at
+`a8b0d5c29feaf451b4a7b562302272bc02fdad2a`. Its V2 backend and reviewed
+nullable-owner migration are complete; the recorded PostgreSQL owning-boundary
+witness passed 76 tests. The campaign admission path remains campaign-only.
+
+PRIME has activated Phase C1 under
+[`HANDOFF-DEMO-world-play-surface-v2.md`](HANDOFF-DEMO-world-play-surface-v2.md)
+from that exact main commit on `codex/demo-world-play-c1`. C1 adds typed,
+World-owned Runbook operations and a specialized read-only nested Play context
+V2 bridge. The existing universal Agent backend request V1 remains unchanged;
+the World context request has an explicit V2 discriminator and no
+`campaign_id`. C2, the mounted Play UI lifecycle and World Run enablement,
+remains BLOCKED until C1 merges and its PostgreSQL witness passes. Generic Agent
+Run resolution remains a separate successor.
 
 ## Invariants and failure cases
 
@@ -222,14 +228,13 @@ rejection, corrupted pin rejection, and a typed summary with exact World, Run,
 
 ## Phase C and successor areas — not a write lease
 
-Phase C must pin the exact Play surface, Runbook projection, and context
-consumer paths after re-anchoring main and open PRs. The shared surface
-publisher contract is not included by default. If typed World context cannot
-reach a consumer without changing that contract, activation must add the exact
-Buddy-owned path to its lease or keep that consumer unavailable until a later
-authorized slice. Generic Agent route/resolver, providers, graph publication,
-J3, external repositories, dependencies, and runtime state remain out of
-scope for the current Phase B lease.
+Phase C2 must pin the exact Play UI, Runbook projection, active selection, and
+context consumer paths after re-anchoring main and open PRs. C1 has a narrow
+typed context bridge and does not alter the shared surface publisher contract.
+If C2 needs another path or contract, activation must add that exact Buddy-owned
+path to its lease or keep that consumer unavailable until a later authorized
+slice. Generic Agent route/resolver, providers, graph publication, J3,
+external repositories, dependencies, and runtime state remain outside C1.
 
 ## Activation gate and handback
 
@@ -239,25 +244,24 @@ PRIME accepted the revised design at exact head
 `6c6a8ab48d568c2827fca4ce019d701beb473166` after its final evidence head
 `ed09199b56206a0d3b7a6262380a1352ea567849` passed the PostgreSQL witness.
 
-PRIME explicitly activated Phase B as one serial PR from that exact base on
-`codex/demo-world-playruns-v2`. The ACTIVE handoff is
-[`HANDOFF-DEMO-world-play-run-v2-backend.md`](HANDOFF-DEMO-world-play-run-v2-backend.md);
-its 16 paths are the exclusive write lease. At activation PRIME refreshed the
-open Buddy PR inventory (#798, #781, #760–#761, #763–#765) and found no overlap
-with the lease; #763/#765 touch the shared route registry, so this lane adds
-routes only to the already-registered `routes/play_runs.py`. The exact storage
-consumer audit selected nullable `world_id` plus nullable `campaign_id`, an
-exactly-one-owner check, a World index, no ownership backfill, campaign-only
-default inventory, and downgrade refusal while World rows remain. The prior
-Phase A PostgreSQL target was removed. PRIME designated a fresh disposable
-PostgreSQL 16 tmpfs target for Phase B; the focused owner-boundary witness has
-passed 75 tests there. Do not start a product database, server, provider, or
-corpus for this slice.
+Phase B was activated as one serial PR and merged as Buddy #809 at
+`a8b0d5c29feaf451b4a7b562302272bc02fdad2a`. Its exact-pin owner witness passed
+76 tests on PRIME's disposable PostgreSQL 16 tmpfs target; its stored World ID
+is a checked list hint, campaign V1 remains campaign-only, and no historical
+ownership was inferred.
 
-The Phase B implementation and tests are committed at `40a8bbc9` on the
-authorized branch. Phase C remains blocked until Phase B merges; its owning
-witness now passes. Re-anchor main, open PRs, and active leases again before
-each later phase.
+PRIME explicitly activated C1 as one serial PR from the exact merge base above.
+The ACTIVE handoff is
+[`HANDOFF-DEMO-world-play-surface-v2.md`](HANDOFF-DEMO-world-play-surface-v2.md);
+its exact path list is the exclusive write lease. The refreshed open Buddy PR
+inventory (#798, #781, #760–#761, #763–#765) does not overlap the C1 paths.
+PRIME designated disposable PostgreSQL 16 tmpfs target
+`prime-demo-phase-c1-pg-20260930` at `127.0.0.1:32768`. Do not start a product
+database/server, provider, or corpus. Re-anchor main, open PRs, and active
+leases again before C2.
+
+C2 remains blocked until C1 merges and its owning witness passes. Re-anchor
+main, open PRs, and active leases before dispatch.
 
 After Phase C merges and passes its owner-boundary verification, create a
 separate serial handoff for generic Agent Run resolution and Play Agent UI

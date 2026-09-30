@@ -7,6 +7,8 @@ Does not read document Markdown, alter World retrieval, or trust client prose.
 from __future__ import annotations
 
 import json
+import re
+import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +26,9 @@ from apps.live_control_server.services.workspace_document_registry import (
 )
 
 SURFACE_CONTEXT_REQUEST_SCHEMA = "dmb_agent_surface_context_request_v1"
+WORLD_PLAY_SURFACE_CONTEXT_REQUEST_SCHEMA_V2 = (
+    "dmb_agent_world_play_surface_context_request_v2"
+)
 SURFACE_CONTEXT_SUMMARY_SCHEMA = "dmb_agent_surface_context_summary_v1"
 
 MODEL_BLOCK_MAX_CHARS = 512
@@ -92,6 +97,43 @@ class AgentSurfaceContextRequest(BaseModel):
         if isinstance(value, str) and not value.strip():
             return None
         return value
+
+
+class AgentWorldPlaySurfaceContextRequestV2(BaseModel):
+    """Explicit managed-World Play context; it has no campaign/document pointers."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    schema_: Literal[
+        "dmb_agent_world_play_surface_context_request_v2"
+    ] = Field(alias="schema")
+    surface_id: Literal["play"]
+    world_id: str = Field(min_length=1, max_length=63)
+    run_id: str = Field(min_length=36, max_length=36)
+    run_revision: int = Field(gt=0)
+
+    @field_validator("world_id")
+    @classmethod
+    def _canonical_world_id(cls, value: str) -> str:
+        if value != value.strip() or not re.fullmatch(r"[a-z][a-z0-9_-]{0,62}", value):
+            raise ValueError("world_id must be a canonical managed World ID")
+        return value
+
+    @field_validator("run_id")
+    @classmethod
+    def _canonical_run_id(cls, value: str) -> str:
+        try:
+            parsed = uuid.UUID(value)
+        except ValueError as exc:
+            raise ValueError("run_id must be a UUID") from exc
+        if str(parsed) != value:
+            raise ValueError("run_id must be a canonical UUID")
+        return value
+
+
+AgentSurfaceContextRequestAny = (
+    AgentSurfaceContextRequest | AgentWorldPlaySurfaceContextRequestV2
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,7 +264,7 @@ def _render_plan_surface_context(context: AgentSurfaceContext) -> str | None:
 
 
 def resolve_agent_surface_context(
-    request: AgentSurfaceContextRequest | None,
+    request: AgentSurfaceContextRequestAny | None,
     *,
     root: Path,
     outer_campaign_id: str,
@@ -235,6 +277,17 @@ def resolve_agent_surface_context(
             request_present=False,
             surface_id=None,
             resolution_status="absent",
+        )
+
+    if isinstance(request, AgentWorldPlaySurfaceContextRequestV2):
+        from apps.live_control_server.services.agent_play_surface_context import (
+            resolve_agent_play_world_surface_context_v2,
+        )
+
+        return resolve_agent_play_world_surface_context_v2(
+            request,
+            root=root,
+            outer_world_id=outer_campaign_id,
         )
 
     pointer_count = len(request.pointers)
@@ -352,9 +405,12 @@ __all__ = [
     "SURFACE_CONTEXT_REQUEST_SCHEMA",
     "SURFACE_CONTEXT_SUMMARY_SCHEMA",
     "SURFACE_SUMMARY_KEYS",
+    "WORLD_PLAY_SURFACE_CONTEXT_REQUEST_SCHEMA_V2",
     "TITLE_MODEL_MAX_CHARS",
     "AgentSurfaceContextRequest",
+    "AgentSurfaceContextRequestAny",
     "AgentSurfaceContextResolution",
+    "AgentWorldPlaySurfaceContextRequestV2",
     "AgentSurfacePointerRequest",
     "ResolutionStatus",
     "render_agent_surface_context",
