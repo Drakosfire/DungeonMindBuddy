@@ -46,7 +46,7 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
 
-**Current DEMO lane (2026-09-28):** three bounded predecessors are now merged.
+**Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
 `f8b923875f9444a1addfb2472a2b8fab35eceb4c`, reviewed code head
 `471a967d11e315b24fd5cfe5541f447753fb81f4` (three distinct review-head cycles,
@@ -119,6 +119,17 @@ typecheck error remains. These bounded repairs do not close J2 or the rejected
 appearance gate.
 The visual theme remains parked on the preserved #793 branch for a separate
 appearance decision. #789 stays historical; J2 and operator acceptance remain open.
+
+**Fresh-native J2 witness (2026-09-30):** in World
+`demo-of-conks-fresh-journey-20260930-c`, Plan
+`bd5a57e0-b091-488c-9d73-bf4a59b0ad97` was created in the fresh World and saved
+before source import, then survived reload with its prep prose and conversation
+turns. The current shared Plan Agent identifies itself as
+`Conversation only`; after a request to add registered Read Aloud and
+Decision/Consequence blocks, it returned copy-ready prose and said it could not
+trigger Review/Apply. The editor stayed unchanged at saved Plan revision 3.
+This reproduces a broken J2 transition on the current World Plan route; the
+historical #784 editor bridge does not establish that this route uses it.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
@@ -871,7 +882,7 @@ that their foundations are absent. Historical slices retain their IDs.
   acceptance, image selection/reopen, Plan association, or graph/product
   read-after-write was proven. The UI reported World Graph unavailable; the
   World-only publication guard was proven by tests only. J4 remains open.
-- **DEMO-J1 input-pin recheck:** the local purchased
+- **DEMO-J1 input-pin and full-source browser witness:** the local purchased
   `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
   is still 48,778 bytes / 565 lines, SHA-256
   `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`.
@@ -880,8 +891,13 @@ that their foundations are absent. Historical slices retain their IDs.
   `playable/hempholm-prep.md` remains at the already recorded `c473329d…`
   rather than its stale local manifest pin. Do not use either manufactured
   target as real-generation evidence. Browser Import source currently exposes
-  a Markdown paste field, not a file chooser. No new full-source import was
-  submitted in this checkpoint, so the long-file browser witness remains open.
+  a Markdown paste field, not a file chooser. In the fresh World above, the
+  ordinary Build paste flow imported the full pinned source as
+  `Of Conks & Cons v2.1 (parsed Markdown)`, saved document
+  `18910774-fe8d-4e07-b861-05760ee805f1` at revision 2, and read it back with
+  the same SHA-256, 48,453 Markdown characters and 48,778 bytes. This passes
+  the full-source paste/readback witness for the agreed normalized Markdown
+  input; it does not prove PDF parsing or J3.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
@@ -902,28 +918,48 @@ native genesis/source authority. If the fresh-native route requires an absent
 contract, return that precise gap to MIND rather than reintroducing migration,
 fixture seeding or a parallel authority as an implementation shortcut.
 
-### First-customer native source prerequisites — satisfied; J3 remains open
+### First-customer native source foundations — accepted; fresh-World J3 remains open
 
-- **State:** MIND #83/#85 and Buddy #787 are merged; no active MIND prerequisite
-  lease and no J3 implementation lease.
+- **State:** MIND #83/#85/#96 and Buddy #787 are merged; no active MIND or
+  WorldKeeper prerequisite lease and no J3 implementation lease. Buddy PR #810
+  remains open at `a20e14518ebdb24a5e1790c2486dfad8758c7920`, held until RAKE
+  PR #811 merges and C1 is rebased and rerun.
 - **Accepted foundation:** MIND #83 provides public empty native initialization
   at `031b6650d0a506cf40f0189fc5cfac055ac37308`; MIND #85 provides native source
   and evidence admission at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`.
+  MIND #96 adds server-minted native spaces and durable source-admission
+  receipts at `619329c2c8586572ffd04558a79b3555c2ca3764`.
 - **Buddy product seam:** #787 merged at
   `f7ce9b99b8e9b73129c6f474989cdb30875a31c8` and proves ordinary Build import,
   exact saved-source admission, reload, and fresh-process readback for the
-  48,777-byte admitted snapshot. It is source authority only; it does not prove
-  extraction, accepted assertions, graph publication, retrieval, or J3.
-- **Next J3 definition:** after the World-owned Plan lane, re-anchor and define
-  the source-selection → governed assertion preparation/confirmation → ordinary
-  Agent read/citation path, including exact identity/scope and durable
-  read-after-write. If a concrete MIND/WorldKeeper contract gap appears, route
-  that specific gap to its owner; do not assume an external blocker or create a
-  parallel authority.
+  48,777-byte admitted snapshot. The fresh-world browser witness above now also
+  proves whole-source paste/readback for the 48,778-byte pin. Neither proves
+  accepted assertions, graph publication, retrieval, or J3.
+- **Fresh-world extraction checkpoint (2026-09-30):** normal Build Extract on
+  source document `18910774-fe8d-4e07-b861-05760ee805f1` revision 2 created
+  reviewable run `1a0d5bc4-ae35-4ef7-99a4-c298c5eddf84` and source artifact
+  `artifact:worldbuilding:18910774-fe8d-4e07-b861-05760ee805f1:r2:7a379fc90256`.
+  Graph Review found three nonliteral evidence quotes. More fundamentally,
+  `apps/live_control_server/services/extract_promote.py` makes this
+  `worldbuilding` ExtractionRun inspect-only: `worldbuilding_draft` assertions
+  cannot reach World Graph prepare/confirm under the current contract. No
+  correction child, confirmation, native graph write, retrieval or restart
+  read-after-write was attempted or proven; the World projection also remained
+  unavailable (503). Quote correction alone cannot clear the domain gate.
+- **Next J3 definition:** the World-owned Plan lane is integrated; after the
+  serial #810 gate clears, define the Buddy product path from selected source
+  spans through MIND admission and WorldKeeper prepare/commit to ordinary Agent
+  citation and restart read-after-write. MIND #96 mints `space_id`; Buddy must
+  persist the fresh `world_id` → `space_id` binding and compose the accepted
+  admission/change services in its authenticated server path. WorldKeeper's
+  `confirmed_by` value is not authentication, so Buddy must derive it from the
+  server-side session. Owner audits identify these as Buddy integration duties;
+  no external contract gap or J3 implementation lease is currently active.
 - **Human witness still required:** New World → blank Plan before import →
-  author/import bounded Of Conks material → inspect inert preparation →
-  explicit confirmation → ordinary Agent retrieval/citation → restart. No
-  console/SQL/manual-ID repair, forced campaign or synthetic source/graph.
+  import bounded Of Conks material → select/admit exact source evidence →
+  inspect inert preparation → authenticated confirmation → ordinary Agent
+  retrieval/citation → restart. No console/SQL/manual-ID repair, forced
+  campaign or synthetic source/graph.
 - **Exclusions:** deleting previous demo state, importing legacy graph IDs,
   bridge migration, new DB per World, production C1/C2 changes, and expanding
   completed #785.
