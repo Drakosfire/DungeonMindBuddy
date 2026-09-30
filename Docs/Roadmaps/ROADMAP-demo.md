@@ -181,11 +181,13 @@ identity/resolution without Run creation; B, the V2 PlayRun backend with exact
 pin/manifest checks and a separately reviewed storage strategy; C, migration of
 all audited Play/context consumers and the integrated World Run create/list/
 resume witness. Generic Agent Run resolution and Play UI remain a later
-successor after C. The revised #806 awaits PRIME re-review and grants no
-implementation lease. Build, Ingest and Combat Agent adoption remain open after
-Play. Campaign-owner/campaign-lens stays fail-closed. The visual rejection
-remains open and is not waived by Agent work. J1–J6 remain unaccepted until
-connected product witnesses pass.
+successor after C. PRIME passed revised #806 design at exact head
+`2656d90807fc8331943cd75faccda1e0ddc0fc23`. Phase A is not activated and has
+no implementation lease; PRIME will coordinate its separate ACTIVE handoff
+after the design merge and re-anchor. Build, Ingest and Combat Agent adoption
+remain open after Play. Campaign-owner/campaign-lens stays fail-closed. The
+visual rejection remains open and is not waived by Agent work. J1–J6 remain
+unaccepted until connected product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:

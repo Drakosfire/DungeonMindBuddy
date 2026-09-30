@@ -1,6 +1,6 @@
 # HANDOFF — DEMO: World-owned Play Runs
 
-**Status:** BLOCKED — PR #806's requested versioning and serial split are recorded; awaiting PRIME re-review; no implementation lease
+**Status:** BLOCKED — PRIME accepted the design; Phase A is not activated and has no implementation lease
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Pinned base:** Buddy `main@f23d43d714b7aba68d940bbcb4cceb027f3c63e1`, including the merge of #805
@@ -15,12 +15,13 @@ commands, and PR topology.
 
 ## Design-review checkpoint
 
-PRIME held PR #806's initial design head
-`12821bc55dd7e2e2b2406665cdc59334f7c1021b` for a revision. The canonical
-Runbook owner rule was accepted; the requested changes were an explicit
-versioned response plan that preserves strict campaign V1 clients, plus three
-smaller serial implementation gates. This revision records those changes on
-the same design PR. No implementation lease was granted.
+PRIME held initial PR #806 head `12821bc55dd7e2e2b2406665cdc59334f7c1021b`
+for a revision, then passed the revised design at
+`2656d90807fc8331943cd75faccda1e0ddc0fc23`. PRIME accepted the explicit
+versioned response plan that preserves strict campaign V1 clients and the
+three separately reviewable serial gates. Phase A implementation has not been
+activated and has no code lease; PRIME will coordinate its separate ACTIVE
+handoff after the design merge and re-anchor.
 
 ## User transition and capability
 
@@ -232,14 +233,15 @@ repositories, dependencies, and runtime state remain out of scope.
 
 ## Activation gate and handback
 
-PRIME requested a revision of design PR #806 that specifies V2 coexistence and
-the A/B/C split. After re-review, PRIME may activate Phase A only with its own
-exact serial path lease. Re-anchor Buddy main and all open PRs before every
-phase; the 2026-09-30 inventory (#798, #781, #760–#761, #763–#765) is only a
-snapshot. Confirm the World-owned Runbook contract remains Buddy-owned and does
-not require a new DungeonMind or WorldKeeper authority. Before Phase B, review
-all storage readers and any migration separately from the API version. Do not
-start a database, server, provider, or corpus for these bounded slices.
+PRIME accepted the revised design at exact head
+`2656d90807fc8331943cd75faccda1e0ddc0fc23`. Phase A is not yet active; PRIME
+will coordinate a separate ACTIVE handoff with an exact serial path lease after
+the design merges. Re-anchor Buddy main and all open PRs before every phase; the
+2026-09-30 inventory (#798, #781, #760–#761, #763–#765) is only a snapshot.
+Confirm the World-owned Runbook contract remains Buddy-owned and does not
+require a new DungeonMind or WorldKeeper authority. Before Phase B, review all
+storage readers and any migration separately from the API version. Do not start
+a database, server, provider, or corpus for these bounded slices.
 
 After merge and owner-boundary verification, create a separate serial handoff
 for generic Agent Run resolution and Play Agent UI adoption. That later slice
