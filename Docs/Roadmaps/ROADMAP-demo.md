@@ -141,9 +141,23 @@ configured model. The server must not add committed Plan Markdown to the prompt.
 The ordinary Plan Ask remains metadata-only and graph:none. `WorldOwnedPlanPage`
 owns editor/document/dirty/save state; Apply changes only the same mounted draft
 and the existing Plan writer remains the Save authority.
+RAKE's read-only audit at Buddy `origin/main@9a8e0a7782252e297467cfe63826e40a85fd9b23`,
+#805 `f23d43d714b7aba68d940bbcb4cceb027f3c63e1`, and #784
+`b6c63a56f784be5cc2fc7de5bb6d167e32520bb8` found that the legacy proposal
+bridge checks World/document/revision/body/selection, but its caller checks the
+thread before awaiting Apply and only after mutation; switching threads during
+that await can still apply the old proposal. A delayed proposal can also show
+stale Review after draft/selection changes, and #805's pending-thread fallback
+may accept a completion after active scope becomes null/foreign. Existing tests
+do not cover these races on the World-only route or a pending completion after
+unmount. J2's owning-boundary witness must include a World-only Apply→ordinary
+Save/reload success, stale World/Plan/revision/draft-generation/save/selection
+cases, a deferred Apply with thread switch, and a deferred completion after
+unmount; each stale case must leave the draft and saved document unchanged.
 **Next action:** after the serial #810 gate clears and Buddy is re-anchored, write
 a bounded J2 implementation handoff and obtain its owner review/lease. No J2
-implementation lease is active. RAKE's read-only stale-target audit is pending.
+implementation lease is active. RAKE made no code changes, provider calls, or
+runtime operations for this diagnostic.
 Keep the J3 work below as downstream diagnosis until this transition is
 repaired and accepted.
 
