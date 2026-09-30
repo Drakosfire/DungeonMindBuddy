@@ -120,7 +120,7 @@ appearance gate.
 The visual theme remains parked on the preserved #793 branch for a separate
 appearance decision. #789 stays historical; J2 and operator acceptance remain open.
 
-**Fresh-native J2 witness (2026-09-30):** in World
+**Fresh World J2 rehearsal (2026-09-30):** in World
 `demo-of-conks-fresh-journey-20260930-c`, Plan
 `bd5a57e0-b091-488c-9d73-bf4a59b0ad97` was created in the fresh World and saved
 before source import, then survived reload with its prep prose and conversation
@@ -897,7 +897,9 @@ that their foundations are absent. Historical slices retain their IDs.
   `18910774-fe8d-4e07-b861-05760ee805f1` at revision 2, and read it back with
   the same SHA-256, 48,453 Markdown characters and 48,778 bytes. This passes
   the full-source paste/readback witness for the agreed normalized Markdown
-  input; it does not prove PDF parsing or J3.
+  input; it does not prove PDF parsing or J3. It also does not prove MIND #96
+  provisioning: the current Buddy adapter still initializes `space_id` as
+  `world_id` through `initialize_empty_knowledge_space`.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
@@ -932,9 +934,13 @@ fixture seeding or a parallel authority as an implementation shortcut.
 - **Buddy product seam:** #787 merged at
   `f7ce9b99b8e9b73129c6f474989cdb30875a31c8` and proves ordinary Build import,
   exact saved-source admission, reload, and fresh-process readback for the
-  48,777-byte admitted snapshot. The fresh-world browser witness above now also
-  proves whole-source paste/readback for the 48,778-byte pin. Neither proves
-  accepted assertions, graph publication, retrieval, or J3.
+  48,777-byte admitted snapshot. Its current adapter still sets the native
+  `space_id` equal to `world_id` via caller-selected
+  `initialize_empty_knowledge_space`; the source handoff does not use MIND #96's
+  server-minted `create_empty_space`. The fresh-world browser witness above
+  proves whole-source paste/readback for the 48,778-byte pin, not #96
+  provisioning. Neither proves accepted assertions, graph publication,
+  retrieval, or J3.
 - **Fresh-world extraction checkpoint (2026-09-30):** normal Build Extract on
   source document `18910774-fe8d-4e07-b861-05760ee805f1` revision 2 created
   reviewable run `1a0d5bc4-ae35-4ef7-99a4-c298c5eddf84` and source artifact
@@ -945,12 +951,14 @@ fixture seeding or a parallel authority as an implementation shortcut.
   cannot reach World Graph prepare/confirm under the current contract. No
   correction child, confirmation, native graph write, retrieval or restart
   read-after-write was attempted or proven; the World projection also remained
-  unavailable (503). Quote correction alone cannot clear the domain gate.
+  unavailable (503). This run is downstream inspection on the existing
+  caller-selected `space_id=world_id` path, not evidence for MIND #96. Quote
+  correction alone cannot clear either boundary.
 - **Next J3 definition:** the World-owned Plan lane is integrated; after the
   serial #810 gate clears, define the Buddy product path from selected source
-  spans through MIND admission and WorldKeeper prepare/commit to ordinary Agent
-  citation and restart read-after-write. MIND #96 mints `space_id`; Buddy must
-  persist the fresh `world_id` → `space_id` binding and compose the accepted
+  spans through MIND #96 provisioning/admission and WorldKeeper prepare/commit
+  to ordinary Agent citation and restart read-after-write. Buddy must persist
+  the server-minted `world_id` → `space_id` binding and compose the accepted
   admission/change services in its authenticated server path. WorldKeeper's
   `confirmed_by` value is not authentication, so Buddy must derive it from the
   server-side session. Owner audits identify these as Buddy integration duties;
