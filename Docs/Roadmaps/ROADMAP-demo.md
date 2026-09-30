@@ -181,10 +181,14 @@ identity/resolution without Run creation; B, the V2 PlayRun backend with exact
 pin/manifest checks and a separately reviewed storage strategy; C, migration of
 all audited Play/context consumers and the integrated World Run create/list/
 resume witness. Generic Agent Run resolution and Play UI remain a later
-successor after C. PRIME passed revised #806 design at exact head
-`2656d90807fc8331943cd75faccda1e0ddc0fc23`. Phase A is not activated and has
-no implementation lease; PRIME will coordinate its separate ACTIVE handoff
-after the design merge and re-anchor. Build, Ingest and Combat Agent adoption
+successor after C. PRIME passed the final #806 head
+`16974eee5f4904f907cdb4d57b170affa1107a15`, merged at
+`36deec27e8a963cdb75bdb67609e15547786b446`. The separate
+[`HANDOFF-DEMO-world-owned-runbook-foundation.md`](../Plans/HANDOFF-DEMO-world-owned-runbook-foundation.md)
+now proposes Phase A's exact Content ownership, migration, resolver, campaign
+compatibility witness, path lease, and test command. It remains BLOCKED with no
+implementation lease until PRIME explicitly activates it after re-anchoring
+main and current PR/lease state. Build, Ingest and Combat Agent adoption
 remain open after Play. Campaign-owner/campaign-lens stays fail-closed. The
 visual rejection remains open and is not waived by Agent work. J1–J6 remain
 unaccepted until connected product witnesses pass.
