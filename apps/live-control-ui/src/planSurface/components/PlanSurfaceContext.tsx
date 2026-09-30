@@ -18,6 +18,7 @@ import {
   type PlanDocumentCreateControlProps,
 } from "./PlanDocumentCreateControl";
 import { PlanDocumentSelector, type PlanDocumentListStatus } from "./PlanDocumentSelector";
+import { buildWorldPlanSurfaceIdentity } from "../worldPlanIdentity";
 
 export interface PlanSurfaceContextProps {
   campaignId: string;
@@ -43,6 +44,7 @@ export interface WorldPlanSurfaceContextProps {
   worldId: string;
   worldName: string;
   documentId: string | null;
+  localDraftId: string | null;
   records: WorldOwnedPlanRecordV2[];
   disabled?: boolean;
   onSelect: (documentId: string) => void;
@@ -53,15 +55,17 @@ export function WorldPlanSurfaceContext({
   worldId,
   worldName,
   documentId,
+  localDraftId,
   records,
   disabled = false,
   onSelect,
   onNewPlan,
 }: WorldPlanSurfaceContextProps) {
-  const surfaceIdentity = useMemo(() => buildSurfaceInteractionIdentity({
-    surfaceId: "plan",
-    instanceParts: ["world-plan", worldId, documentId],
-  }), [documentId, worldId]);
+  const surfaceIdentity = useMemo(() => buildWorldPlanSurfaceIdentity({
+    worldId,
+    documentId,
+    localDraftId,
+  }), [documentId, localDraftId, worldId]);
 
   const content = useMemo(() => (
     <SurfaceContextModule label="PLAN" className="plan-surface-context">

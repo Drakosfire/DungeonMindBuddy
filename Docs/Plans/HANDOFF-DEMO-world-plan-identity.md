@@ -1,6 +1,6 @@
 # DEMO — exact World Plan work-object identity
 
-**Status:** BLOCKED — activation review pending; no implementation write lease yet
+**Status:** ACTIVE — PRIME reviewed and activated design head `746f93f49c1479bc0f133e84ae254684315d5729`
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -68,7 +68,7 @@ diff, focused tests and UI typecheck, stating inherited failures. This is an
 identity publication slice, not universal Agent turn wiring or EditHost command
 placement. No full connected DEMO acceptance is claimed by these tests.
 
-**Activation gate:** PRIME reviews this exact design head, confirms the
-allowlist/invariant and records ACTIVE authorization before product code edits.
-Then implement, test, commit, push and open/update one assigned PR; return its
+**Activation gate:** PRIME reviewed the exact pushed design head, confirmed the
+allowlist/invariant and authorized ACTIVE implementation. Implement, test,
+commit, push and open/update one assigned PR; return its
 exact head and evidence to PRIME for independent review and merge control.

@@ -1,6 +1,6 @@
 # DEMO — Plan document-switch safety
 
-**Status:** ACTIVE — operator-approved first slice of the 2026-09-29 DEMO transfer
+**Status:** MERGED — Buddy #800, reviewed head `d64a9745fdc751360468266323489a18d2579ee1`, merge `393ec5664916ee4eeabe0d0801bc6c8de9820c79`
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Authority:** [STEWARDS-HANDOFF-demo.md](STEWARDS-HANDOFF-demo.md) on fetched `origin/main@b82c25fe4cce7c1e560850c2db020cff648d4913`
 **Topology:** serial; this slice lands before exact World Plan identity and EditHost controls
@@ -47,6 +47,8 @@ base-to-head diff. Record inherited failures separately. No live database is a
 gate for this bounded UI invariant; the connected DEMO rehearsal remains a
 later milestone under its designated runtime owner.
 
-PRIME owns independent review and merge. The next identity slice may be pinned
-while this PR is open, but its overlapping `PlanSurfacePage.tsx` lease is not
-activated until this predecessor lands.
+PRIME's first exact-head review held the handoff allowlist; the corrected head
+passed independent focused review and 9/9 mounted Plan page tests. UI typecheck
+retained the inherited `ThreatPublicationPanel.tsx:553` JSX namespace error,
+outside the cumulative diff. The exclusive Plan page lease was released by
+merge. The connected DEMO journey and operator appearance acceptance remain open.
