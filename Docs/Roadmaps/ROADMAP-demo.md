@@ -130,10 +130,21 @@ Decision/Consequence blocks, it returned copy-ready prose and said it could not
 trigger Review/Apply. The editor stayed unchanged at saved Plan revision 3.
 This reproduces a broken J2 transition on the current World Plan route; the
 historical #784 editor bridge does not establish that this route uses it.
-**Next action:** after the serial #810 gate clears, design a bounded Buddy fix
-for the selected-World route that gives the Agent authorized access to the exact
-saved Plan text and a reviewable Apply path. No J2 implementation lease is
-active. Keep the J3 work below as downstream diagnosis until this transition is
+ARCHITECTURE's read-only ruling at Buddy `origin/main@9a8e0a7782252e297467cfe63826e40a85fd9b23`
+selects reuse of #784's inert proposal and local editor-apply safeguards through
+a distinct typed World-only admission path. Keep the existing campaign/session
+branch unchanged; never alias World ID as campaign ID or invent a session. A
+World proposal may use only the explicitly selected mounted editor draft as
+untrusted model context, with exact World/document/base revision and saved-base
+digest validation; disclose that draft, selection and instruction go to the
+configured model. The server must not add committed Plan Markdown to the prompt.
+The ordinary Plan Ask remains metadata-only and graph:none. `WorldOwnedPlanPage`
+owns editor/document/dirty/save state; Apply changes only the same mounted draft
+and the existing Plan writer remains the Save authority.
+**Next action:** after the serial #810 gate clears and Buddy is re-anchored, write
+a bounded J2 implementation handoff and obtain its owner review/lease. No J2
+implementation lease is active. RAKE's read-only stale-target audit is pending.
+Keep the J3 work below as downstream diagnosis until this transition is
 repaired and accepted.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
