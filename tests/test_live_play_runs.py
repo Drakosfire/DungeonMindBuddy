@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from apps.live_control_server.main import create_app
 from apps.live_control_server.services.play_run_registry import (
     get_play_run,
+    list_play_runs,
 )
 from apps.live_control_server.services.tiptap_markdown_write import (
     TiptapMarkdownWriteCommitRequest,
@@ -26,11 +27,10 @@ from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
 )
 
-pytest_plugins = ["tests.application_state.conftest"]
-
 from tests.application_state.play_runtime_helpers import (
     leftover_run_path,
 )
+pytest_plugins = ["tests.application_state.conftest"]
 _PLAYABLE_BY_SHA: dict[tuple[str, str], int] = {}
 
 
@@ -324,6 +324,36 @@ def test_non_runbook_draft_and_discarded_are_rejected_over_http(
     )
     assert discarded_response.status_code == 409
     assert not leftover_run_path(root, RUN_ID_A).exists()
+
+
+def test_campaign_play_v1_rejects_world_runbook_before_persisting_run(
+    client: TestClient,
+    root: Path,
+    application_state_dsn: str,
+) -> None:
+    from application_state.content.service import commit_runbook, create_world_runbook
+
+    created = create_world_runbook(title="World Play Runbook", world_id="demo-world-a")
+    _, revision = commit_runbook(
+        str(created.work_object_id),
+        "# prepared World session\n",
+        expected_revision=created.object_revision,
+    )
+    response = client.put(
+        f"/api/live/play-runs/{RUN_ID_A}",
+        json={
+            "playable_artifact_id": str(created.work_object_id),
+            "expected_playable_revision": revision.revision_n,
+            "expected_playable_content_sha256": revision.content_sha256,
+        },
+    )
+
+    assert response.status_code == 422, response.text
+    assert list_play_runs(root) == []
+    assert not leftover_run_path(root, RUN_ID_A).exists()
+    with pytest.raises(WorkspaceDocumentRegistryError) as error:
+        get_workspace_document_snapshot(root, str(created.work_object_id))
+    assert error.value.status_code == 422
 
 
 def test_two_run_ids_can_share_one_playable_binding(

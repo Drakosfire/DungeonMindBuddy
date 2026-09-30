@@ -41,20 +41,19 @@ class WorkObject(BaseModel):
             if not self.campaign_id or not self.campaign_id.strip():
                 raise ValueError("campaign-owned work objects require campaign_id")
             return self
-        if self.kind != "plan":
-            raise ValueError("only Plans can be World-owned")
         if self.campaign_id is not None:
-            raise ValueError("World-owned Plans cannot also have campaign_id")
+            raise ValueError("World-owned content cannot also have campaign_id")
         if not self.world_id.strip():
-            raise ValueError("World-owned Plans require world_id")
+            raise ValueError("World-owned content requires world_id")
         if self.target_session is not None:
-            raise ValueError("World-owned Plans cannot have target_session")
+            raise ValueError("World-owned content cannot have target_session")
         return self
 
 
 class WorkRevision(BaseModel):
     work_revision_id: UUID
     work_object_id: UUID
+    world_id: str | None = None
     revision_n: int
     markdown: str
     content_sha256: str

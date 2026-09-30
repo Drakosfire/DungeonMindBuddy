@@ -8,7 +8,12 @@ import psycopg
 from psycopg.rows import dict_row
 
 from application_state.content import repository as repo
-from application_state.content.types import CommittedPlayableRevision, WorkObject, WorkRevision
+from application_state.content.types import (
+    CommittedPlayableRevision,
+    WorkObject,
+    WorkRevision,
+    sha256_utf8,
+)
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateNotFoundError,
@@ -58,6 +63,10 @@ def admit_playable_revision(
         raise ApplicationStateValidationError(
             "playable_artifact_id must identify a runbook workspace document"
         )
+    if obj.world_id is not None:
+        raise ApplicationStateValidationError(
+            "World-owned Runbooks cannot start a campaign PlayRun V1"
+        )
     if obj.status != "active":
         raise ApplicationStateConflictError("runbook workspace document is discarded")
     if obj.current_revision_id is None:
@@ -71,10 +80,26 @@ def admit_playable_revision(
         )
     if revision.content_sha256 != digest:
         raise ApplicationStateConflictError("playable content SHA mismatch")
+    if revision.work_object_id != obj.work_object_id or revision.world_id != obj.world_id:
+        raise ApplicationStateConflictError(
+            "playable revision owner does not match its WorkObject"
+        )
+    if sha256_utf8(revision.markdown) != revision.content_sha256:
+        raise ApplicationStateConflictError(
+            "playable revision content SHA does not match its Markdown"
+        )
     current = repo.get_work_revision(conn, obj.current_revision_id)
     if current is None:
         raise ApplicationStateConflictError(
             "committed workspace document is missing its WorkRevision"
+        )
+    if (
+        current.work_object_id != obj.work_object_id
+        or current.world_id != obj.world_id
+        or sha256_utf8(current.markdown) != current.content_sha256
+    ):
+        raise ApplicationStateConflictError(
+            "current playable revision owner or digest does not match its WorkObject"
         )
     if require_current and revision.work_revision_id != current.work_revision_id:
         raise ApplicationStateConflictError(
@@ -102,8 +127,8 @@ def _lock_work_revision_for_share(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            SELECT work_revision_id, work_object_id, revision_n, markdown,
-                   content_sha256, created_at
+            SELECT work_revision_id, work_object_id, world_id, revision_n,
+                   markdown, content_sha256, created_at
             FROM content.work_revision
             WHERE work_object_id = %s AND revision_n = %s
             FOR SHARE

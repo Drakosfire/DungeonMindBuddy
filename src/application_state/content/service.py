@@ -19,6 +19,7 @@ from application_state.content.types import (
 )
 from application_state.errors import (
     ApplicationStateConflictError,
+    ApplicationStateIntegrityError,
     ApplicationStateNotFoundError,
     ApplicationStateValidationError,
 )
@@ -64,15 +65,13 @@ def create_work_object(
     if cleaned_world is not None:
         if not cleaned_world:
             raise ApplicationStateValidationError("world_id is required")
-        if kind != "plan":
-            raise ApplicationStateValidationError("only Plans can be World-owned")
         if cleaned_campaign is not None:
             raise ApplicationStateValidationError(
-                "World-owned Plans cannot also have campaign_id"
+                "World-owned content cannot also have campaign_id"
             )
         if target_session is not None:
             raise ApplicationStateValidationError(
-                "World-owned Plans cannot have target_session"
+                "World-owned content cannot have target_session"
             )
     elif not cleaned_campaign:
         raise ApplicationStateValidationError("campaign_id is required")
@@ -126,6 +125,24 @@ def create_world_plan(
     document_id: str | None = None,
 ) -> WorkObject:
     return create_plan(
+        title=title,
+        campaign_id=None,
+        world_id=world_id,
+        target_session=None,
+        target_relpath=target_relpath,
+        document_id=document_id,
+    )
+
+
+def create_world_runbook(
+    *,
+    title: str,
+    world_id: str,
+    target_relpath: str | None = None,
+    document_id: str | None = None,
+) -> WorkObject:
+    return create_work_object(
+        kind="runbook",
         title=title,
         campaign_id=None,
         world_id=world_id,
@@ -242,6 +259,7 @@ def snapshot_content(document_id: str) -> ContentSnapshot:
                 raise ApplicationStateConflictError(
                     "committed workspace document is missing its WorkRevision"
                 )
+            _require_revision_owner(obj, committed)
         if working is not None and (
             committed is None or working.content_sha256 != committed.content_sha256
         ):
@@ -485,6 +503,8 @@ def _commit(
             # the current revision.
             if obj.current_revision_id is not None:
                 current = repo.get_work_revision(conn, obj.current_revision_id)
+                if current is not None:
+                    _require_revision_owner(obj, current)
                 if (
                     current is not None
                     and current.content_sha256 == digest
@@ -496,6 +516,8 @@ def _commit(
             )
         if obj.current_revision_id is not None:
             current = repo.get_work_revision(conn, obj.current_revision_id)
+            if current is not None:
+                _require_revision_owner(obj, current)
             if current is not None and current.content_sha256 == digest:
                 # exact replay at current head
                 return obj, current
@@ -503,6 +525,7 @@ def _commit(
         revision = WorkRevision(
             work_revision_id=uuid4(),
             work_object_id=work_object_id,
+            world_id=obj.world_id,
             revision_n=revision_n,
             markdown=content,
             content_sha256=digest,
@@ -583,6 +606,7 @@ def current_committed_revision(
             raise ApplicationStateConflictError(
                 "committed workspace document is missing its WorkRevision"
             )
+        _require_revision_owner(obj, committed)
         working = repo.get_working_copy(conn, work_object_id)
         divergent = (
             working is not None and working.content_sha256 != committed.content_sha256
@@ -600,6 +624,7 @@ def exact_committed_revision(
     *,
     kind: AdmittedKind | None = None,
     expected_sha256: str | None = None,
+    expected_world_id: str | None = None,
 ) -> CommittedPlayableRevision:
     if (
         not isinstance(revision_n, int)
@@ -617,17 +642,32 @@ def exact_committed_revision(
                 f"workspace document not found: {document_id}"
             )
         _require_kind(obj, kind)
+        if obj.kind == "runbook" and obj.world_id is not None and expected_sha256 is None:
+            raise ApplicationStateValidationError(
+                "expected_sha256 is required for an exact World Runbook revision"
+            )
+        if expected_world_id is not None:
+            expected_world = expected_world_id.strip()
+            if not expected_world:
+                raise ApplicationStateValidationError("expected_world_id is required")
+            if obj.world_id != expected_world:
+                raise ApplicationStateConflictError(
+                    f"workspace document is not owned by selected World {expected_world}"
+                )
         revision = repo.get_work_revision_by_n(conn, work_object_id, revision_n)
         if revision is None:
             raise ApplicationStateNotFoundError(
                 "historical revision bytes were never retained"
             )
+        _require_revision_owner(obj, revision)
         if expected_sha256 is not None and revision.content_sha256 != expected_sha256:
             raise ApplicationStateConflictError("playable content SHA mismatch")
         working = repo.get_working_copy(conn, work_object_id)
         current = None
         if obj.current_revision_id is not None:
             current = repo.get_work_revision(conn, obj.current_revision_id)
+            if current is not None:
+                _require_revision_owner(obj, current)
         divergent = False
         if current is not None and working is not None:
             divergent = working.content_sha256 != current.content_sha256
@@ -635,6 +675,21 @@ def exact_committed_revision(
             work_object=obj,
             work_revision=revision,
             has_divergent_working_copy=divergent,
+        )
+
+
+def _require_revision_owner(obj: WorkObject, revision: WorkRevision) -> None:
+    if revision.work_object_id != obj.work_object_id:
+        raise ApplicationStateIntegrityError(
+            "committed revision belongs to a different WorkObject"
+        )
+    if revision.world_id != obj.world_id:
+        raise ApplicationStateIntegrityError(
+            "committed revision World owner does not match its WorkObject"
+        )
+    if sha256_utf8(revision.markdown) != revision.content_sha256:
+        raise ApplicationStateIntegrityError(
+            "committed revision content SHA does not match its Markdown"
         )
 
 

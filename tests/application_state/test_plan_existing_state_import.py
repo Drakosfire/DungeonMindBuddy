@@ -10,6 +10,7 @@ from apps.live_control_server.services.workspace_document_registry import (
     get_workspace_document_snapshot,
 )
 from application_state.content.import_plans import import_plans_from_registry
+from application_state.content.service import exact_committed_revision
 from application_state.errors import ApplicationStateConflictError
 
 
@@ -48,6 +49,13 @@ def test_import_exact_and_idempotent(tmp_path: Path, application_state_dsn: str)
     assert snapshot.markdown == "# imported exactly\n"
     assert snapshot.record.revision == 7
     assert snapshot.record.document_id == record.document_id
+    imported = exact_committed_revision(
+        record.document_id,
+        7,
+        kind="plan",
+    )
+    assert imported.work_object.world_id is None
+    assert imported.work_revision.world_id is None
 
 
 def test_import_conflict_fails_closed(tmp_path: Path, application_state_dsn: str) -> None:

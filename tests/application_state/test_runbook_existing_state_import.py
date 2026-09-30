@@ -75,6 +75,11 @@ def test_import_exact_revision_n_and_idempotent(
     committed = get_committed_playable_revision(record.document_id)
     assert committed.revision_n == 17
     assert committed.markdown == "# imported exactly\n"
+    assert (
+        exact_committed_revision(record.document_id, 17, kind="runbook")
+        .work_revision.world_id
+        is None
+    )
     with pytest.raises(ApplicationStateNotFoundError, match="historical revision bytes were never retained"):
         exact_committed_revision(record.document_id, 16, kind="runbook")
 
