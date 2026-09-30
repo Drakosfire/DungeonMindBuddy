@@ -28,7 +28,7 @@ Only these paths may be edited:
 ~~~text
 Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md
 src/application_state/migrations/env.py
-tests/application_state/test_migration_logging.py
+tests/test_application_state_migration_logging.py
 ~~~
 
 No database, container, product runtime, C1 path, migration revision, dependency,
