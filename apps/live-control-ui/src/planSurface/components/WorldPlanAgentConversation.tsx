@@ -12,7 +12,12 @@ import { useAskPluginSlotOptional, useRegisterAskPluginPresence } from "../../ag
 import { usePublishAgentSurfaceContext } from "../../agentInteraction/usePublishAgentSurfaceContext";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
-import { AGENT_TURN_HISTORY_CAP, createAgentInteractionThread, threadTitleFromQuestion } from "./agentInteractionHistory";
+import {
+  AGENT_TURN_HISTORY_CAP,
+  createAgentInteractionThread,
+  safeTraceForPersistence,
+  threadTitleFromQuestion,
+} from "./agentInteractionHistory";
 import "./WorldPlanAgentConversation.css";
 
 interface WorldPlanAgentConversationProps {
@@ -28,6 +33,7 @@ interface WorldPlanAgentConversationProps {
 
 interface ValidatedWorldPlanResponse {
   answer: string;
+  trace: Record<string, unknown>;
   summary: WorldPlanAgentTurnResolvedSummary;
 }
 
@@ -179,7 +185,7 @@ function validateWorldPlanResponse(
     graphStatus: "not_requested",
     pointerStatus: conversation.pointer_status as WorldPlanAgentTurnResolvedSummary["pointerStatus"],
   };
-  return { ok: true, value: { answer: answer.text, summary } };
+  return { ok: true, value: { answer: answer.text, trace: answer.trace, summary } };
 }
 
 function isScopedPlanThread(
@@ -354,6 +360,7 @@ export function WorldPlanAgentConversation({
         answer: validation.value.answer,
         backend: "hermes",
         status: "ok",
+        trace: safeTraceForPersistence(validation.value.trace),
         agentTurnResolved: validation.value.summary,
       };
       agent.updateThread({
