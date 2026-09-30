@@ -1067,7 +1067,6 @@ def run_hermes_graph_agent_turn(
                         provider=provider,
                         model=model,
                         base_url=base_url,
-                        api_mode="chat_completions",
                         tool_start_callback=collector.on_start,
                         tool_complete_callback=collector.on_complete,
                         ephemeral_system_prompt=_build_ephemeral_system_prompt(
