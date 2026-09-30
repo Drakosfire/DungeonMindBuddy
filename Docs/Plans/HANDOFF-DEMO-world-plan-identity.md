@@ -47,6 +47,7 @@ The page continues to use its existing local recovery and save/conflict paths.
 - `apps/live-control-ui/src/planSurface/components/PlanSurfaceContext.test.tsx`
 - `apps/live-control-ui/src/planSurface/worldPlanIdentity.ts` — only if a small shared World Plan identity helper is needed to prevent context/canvas drift
 - `Docs/Plans/HANDOFF-DEMO-world-plan-identity.md`
+- `Docs/Plans/HANDOFF-DEMO-plan-document-switch-safety.md` — only the backward-looking #800 result/status settlement
 - `Docs/Roadmaps/ROADMAP-demo.md` — backward-looking #800 settlement and this slice's execution evidence
 
 No AppChrome/EditHost controls, shared Surface publisher/host changes,
