@@ -103,6 +103,17 @@ Send every request to change DEMO's task model or reasoning effort to **PRIME** 
 
 The operator alone chooses PRIME's own model and effort. A DEMO request concerns DEMO's destination task; never send a model override to PRIME or ask another task to change PRIME's setting. Routine cross-thread coordination omits model and effort fields.
 
+## Provider use and receipts
+
+PRIME's 2026-09-30 ruling retires the former $0.20 per-turn cap. Routine DEMO
+calls and finite retries through the configured provider/model for acceptance
+work need no additional per-turn spend lease. Do not stop solely because usage
+or cost receipts are unavailable after a successful call; report unavailable
+values as unknown, never as zero. Keep retry sequences finite, and stop to
+diagnose after a concrete provider or runtime failure. Requests to change DEMO's
+model or reasoning effort still go through PRIME; route any material new
+provider, spend, or scope decision before proceeding.
+
 ## Scope
 
 DEMO owns Buddy product composition: document/Markdown-component interaction,
