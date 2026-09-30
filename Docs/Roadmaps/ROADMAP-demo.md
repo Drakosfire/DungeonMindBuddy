@@ -101,10 +101,18 @@ head passed independent focused review and 9/9 mounted Plan page tests. UI
 typecheck retains the inherited `ThreatPublicationPanel.tsx:553` JSX namespace
 error outside that diff. The delayed-snapshot witness proves the outgoing
 editor is inert and its local draft stays intact until another saved Plan loads.
-The second serial identity slice is ACTIVE under
-[`HANDOFF-DEMO-world-plan-identity.md`](../Plans/HANDOFF-DEMO-world-plan-identity.md),
-design head `746f93f49c1479bc0f133e84ae254684315d5729`; EditHost controls
-remain queued. These bounded repairs do not close J2 or the rejected appearance gate.
+The second serial identity slice merged as Buddy #801 at
+`442ee470a33ce4dfa0ba3239c9022ab69220cde9`, reviewed head
+`550aa4c0251ffa08477bda2293829725f2d6a8d8`, under
+[`HANDOFF-DEMO-world-plan-identity.md`](../Plans/HANDOFF-DEMO-world-plan-identity.md).
+PRIME independently reran 18/18 focused mounted Plan page/context tests and
+accepted the exact canvas/context identity, legacy local-draft migration,
+pending/failed selection retirement, promotion and unmount behavior. The
+inherited JSX namespace typecheck error remains outside that diff. The third
+serial EditHost placement slice is ACTIVE under
+[`HANDOFF-DEMO-world-plan-edithost.md`](../Plans/HANDOFF-DEMO-world-plan-edithost.md),
+design head `7640b71b361d11ef4dd7417675c11d931d9e930f`. These bounded repairs
+do not close J2 or the rejected appearance gate.
 The visual theme remains parked on the preserved #793 branch for a separate
 appearance decision. #789 stays historical; J2 and operator acceptance remain open.
 

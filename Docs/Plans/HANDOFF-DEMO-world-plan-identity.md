@@ -1,6 +1,6 @@
 # DEMO — exact World Plan work-object identity
 
-**Status:** ACTIVE — PRIME reviewed and activated design head `746f93f49c1479bc0f133e84ae254684315d5729`
+**Status:** MERGED — Buddy #801, reviewed head `550aa4c0251ffa08477bda2293829725f2d6a8d8`, merge `442ee470a33ce4dfa0ba3239c9022ab69220cde9`
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -68,7 +68,9 @@ diff, focused tests and UI typecheck, stating inherited failures. This is an
 identity publication slice, not universal Agent turn wiring or EditHost command
 placement. No full connected DEMO acceptance is claimed by these tests.
 
-**Activation gate:** PRIME reviewed the exact pushed design head, confirmed the
-allowlist/invariant and authorized ACTIVE implementation. Implement, test,
-commit, push and open/update one assigned PR; return its
-exact head and evidence to PRIME for independent review and merge control.
+**Settlement:** PRIME reviewed the cumulative eight-path diff and independently
+reran 18/18 focused Plan page/context tests at the accepted head. The existing
+`ThreatPublicationPanel.tsx:553` JSX namespace typecheck error remained outside
+the diff. No runtime, database, corpus or provider was used. The exact World
+Plan identity lease was released by merge; EditHost placement and the connected
+DEMO journey remain open.

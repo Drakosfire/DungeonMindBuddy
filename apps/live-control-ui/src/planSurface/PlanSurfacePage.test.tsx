@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ReactNode } from "react";
+import type { ReactElement, ReactNode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
@@ -7,6 +7,8 @@ import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/Select
 import type { WorldOwnedPlanRecordV2 } from "../api/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
 import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
+
+const chromeCapture = vi.hoisted(() => ({ editorTools: null as unknown }));
 
 vi.mock("../chrome/AppChrome", async () => {
   const { SurfaceContextHost, SurfaceContextProvider, useSurfaceContext } = await import("../surfaceInteraction/contextHost");
@@ -17,19 +19,25 @@ vi.mock("../chrome/AppChrome", async () => {
   return {
     AppChrome: ({ children, editorTools }: {
       children: ReactNode;
-      editorTools?: { tools?: { sections?: Array<{ id: string; actions: Array<{ id: string; label: string; onClick: () => void }> }> } } | null;
-    }) => (
-      <SurfaceContextProvider>
-        <div>
-          <SurfaceContextHost />
-          <ContextIdentityProbe />
-          {editorTools?.tools?.sections?.flatMap((section) => section.actions.map((action) => (
-            <button key={`${section.id}:${action.id}`} type="button" onClick={action.onClick}>{action.label}</button>
-          )))}
-          {children}
-        </div>
-      </SurfaceContextProvider>
-    ),
+      editorTools?: { tools?: { sections?: Array<{ id: string; panel?: ReactNode; actions: Array<{ id: string; label: string; onClick: () => void; disabled?: boolean }> }> } } | null;
+    }) => {
+      chromeCapture.editorTools = editorTools;
+      return (
+        <SurfaceContextProvider>
+          <div>
+            <SurfaceContextHost />
+            <ContextIdentityProbe />
+            {editorTools?.tools?.sections?.map((section) => <div key={section.id}>
+              {section.panel}
+              {section.actions.map((action) => (
+                <button key={`${section.id}:${action.id}`} type="button" onClick={action.onClick} disabled={action.disabled}>{action.label}</button>
+              ))}
+            </div>)}
+            {children}
+          </div>
+        </SurfaceContextProvider>
+      );
+    },
   };
 });
 vi.mock("./PlanSurfaceShell", () => ({
@@ -39,6 +47,25 @@ vi.mock("./PlanSurfaceShell", () => ({
 }));
 
 const worldId = "of-conks-cons-demo";
+
+function capturedPlanControls() {
+  const tools = chromeCapture.editorTools as {
+    tools: { sections: Array<{
+      id: string;
+      panel?: ReactNode;
+      actions: Array<{ label: string; onClick: () => void }>;
+    }> };
+  };
+  const document = tools.tools.sections.find((section) => section.id === "world-plan-document")!;
+  const input = (document.panel as ReactElement<{
+    children: [string, ReactElement<{ onChange: (event: { target: { value: string } }) => void }>];
+  }>).props.children[1];
+  return {
+    changeTitle: input.props.onChange,
+    save: document.actions.find((action) => action.label === "Save Plan")!.onClick,
+    bold: tools.tools.sections.flatMap((section) => section.actions).find((action) => action.label === "Bold")!.onClick,
+  };
+}
 
 function worldPlanRecord(id: string, owner: string, revision = 1): WorldOwnedPlanRecordV2 {
   return {
@@ -97,6 +124,7 @@ function PublicationProbe() {
 afterEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
+  chromeCapture.editorTools = null;
 });
 
 it("saves a blank managed World Plan through the exact World-scoped V2 contract", async () => {
@@ -194,7 +222,7 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
     file_exists: false,
     loaded_revision: 3,
   });
-  render(
+  const view = render(
     <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}`}>
       <VerifiedPlanPage />
     </SelectedWorldProvider>,
@@ -211,6 +239,7 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
   fireEvent.click(screen.getByRole("button", { name: "Read aloud" }));
   await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Read aloud"));
   await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  const prePromotionControls = capturedPlanControls();
   fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
   await waitFor(() => expect(screen.getByText("Saved to this World.")).toBeInTheDocument());
   await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `document:${record.document_id}`));
@@ -234,6 +263,19 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
   expect(getPlanView).not.toHaveBeenCalled();
   expect(liveApi.getManagedWorldPlanContext).toHaveBeenCalledWith(worldId);
   expect(screen.queryByTestId("plan-page-campaign")).not.toBeInTheDocument();
+  const savedJournal = localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`);
+  prePromotionControls.changeTitle({ target: { value: "Stale local title" } });
+  prePromotionControls.bold();
+  prePromotionControls.save();
+  expect(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)).toBe(savedJournal);
+  expect(liveApi.createWorldOwnedPlan).toHaveBeenCalledTimes(1);
+  const postPromotionControls = capturedPlanControls();
+  view.unmount();
+  postPromotionControls.changeTitle({ target: { value: "Unmounted title" } });
+  postPromotionControls.bold();
+  postPromotionControls.save();
+  expect(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`)).toBe(savedJournal);
+  expect(liveApi.createWorldOwnedPlan).toHaveBeenCalledTimes(1);
 });
 
 it("keeps a late World A create acknowledgement in A's recovery journal after navigating to World B", async () => {
@@ -939,6 +981,8 @@ it("retires outgoing Plan editing and canvas identity through pending and failed
   await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
   await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `document:${firstId}`));
   const firstIdentity = screen.getByTestId("world-plan-publication").getAttribute("data-instance-key");
+  const outgoingTitle = screen.getByLabelText("Plan title");
+  const outgoingControls = capturedPlanControls();
   const outgoingEditor = screen.getByTestId("world-owned-plan-markdown-editor").querySelector("[contenteditable]");
   expect(outgoingEditor).not.toBeNull();
   expect(outgoingEditor).toHaveAttribute("contenteditable", "true");
@@ -947,8 +991,11 @@ it("retires outgoing Plan editing and canvas identity through pending and failed
   await waitFor(() => expect(screen.getByText("Loading World Plan…")).toBeInTheDocument());
   await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", "none"));
   expect(screen.getByTestId("world-plan-context-identity")).toHaveTextContent(firstIdentity!);
-  expect(screen.getByLabelText("Plan title")).toBeDisabled();
-  fireEvent.change(screen.getByLabelText("Plan title"), { target: { value: "Wrong destination" } });
+  expect(screen.queryByLabelText("Plan title")).not.toBeInTheDocument();
+  fireEvent.change(outgoingTitle, { target: { value: "Wrong destination" } });
+  outgoingControls.changeTitle({ target: { value: "Wrong callback title" } });
+  outgoingControls.bold();
+  outgoingControls.save();
   fireEvent.input(outgoingEditor!, { target: { textContent: "Wrong destination body" } });
   expect(JSON.parse(localStorage.getItem(draftKey) ?? "null")).toMatchObject({
     document_id: firstId,
@@ -968,6 +1015,11 @@ it("retires outgoing Plan editing and canvas identity through pending and failed
     markdown: "# B saved body\n",
     revision: 7,
   });
+  const secondJournal = localStorage.getItem(draftKey);
+  outgoingControls.changeTitle({ target: { value: "Wrong loaded title" } });
+  outgoingControls.bold();
+  outgoingControls.save();
+  expect(localStorage.getItem(draftKey)).toBe(secondJournal);
   vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockRejectedValueOnce(new Error("Snapshot unavailable"));
   fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: firstId } });
   await waitFor(() => expect(screen.getByText("Snapshot unavailable")).toBeInTheDocument());
@@ -1038,12 +1090,18 @@ it("migrates a legacy blank World draft to one stable canvas and context identit
   mount();
   await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-instance-key", firstKey));
   expect(JSON.parse(localStorage.getItem(draftKey) ?? "null").local_draft_id).toBe(migrated.local_draft_id);
+  const retiredBlankControls = capturedPlanControls();
   fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: "" } });
   await waitFor(() => expect(JSON.parse(localStorage.getItem(draftKey) ?? "null").local_draft_id).not.toBe(migrated.local_draft_id));
   const newDraft = JSON.parse(localStorage.getItem(draftKey) ?? "null");
   expect(newDraft.local_draft_id).toMatch(new RegExp(`^local-plan:${worldId}:`));
   await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", `plan-local-draft:${newDraft.local_draft_id}`));
   expect(screen.getByTestId("world-plan-context-identity")).not.toHaveTextContent(firstKey!);
+  const blankJournal = localStorage.getItem(draftKey);
+  retiredBlankControls.changeTitle({ target: { value: "Old blank title" } });
+  retiredBlankControls.bold();
+  retiredBlankControls.save();
+  expect(localStorage.getItem(draftKey)).toBe(blankJournal);
 });
 
 it("replaces World Plan identity by World and releases the canvas on unmount", async () => {
@@ -1082,9 +1140,19 @@ it("replaces World Plan identity by World and releases the canvas on unmount", a
   const firstWorkObject = screen.getByTestId("world-plan-publication").getAttribute("data-work-object");
   const firstIdentity = screen.getByTestId("world-plan-publication").getAttribute("data-instance-key");
   expect(firstWorkObject).toContain(`local-plan:${worldId}:`);
+  const worldAKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const worldAJournal = localStorage.getItem(worldAKey);
+  const worldAControls = capturedPlanControls();
   rerender(<Harness world={secondWorld} />);
   await waitFor(() => expect(screen.getByTestId("world-plan-publication").getAttribute("data-work-object")).toContain(`local-plan:${secondWorld}:`));
   expect(screen.getByTestId("world-plan-publication")).not.toHaveAttribute("data-instance-key", firstIdentity);
+  const worldBKey = `dmb:world-plan-local-draft:v2:${secondWorld}`;
+  const worldBJournal = localStorage.getItem(worldBKey);
+  worldAControls.changeTitle({ target: { value: "Cross World title" } });
+  worldAControls.bold();
+  worldAControls.save();
+  expect(localStorage.getItem(worldAKey)).toBe(worldAJournal);
+  expect(localStorage.getItem(worldBKey)).toBe(worldBJournal);
   rerender(<Harness world={secondWorld} show={false} />);
   await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", "none"));
 });
