@@ -137,8 +137,9 @@ endpoint and existing Plan snapshot/write APIs. Prove:
    declared response schema before display or persistence; TypeScript types
    alone are insufficient. Require the schema discriminator; matching
    top-level and nested client thread/turn IDs; exact Plan surface ID and
-   instance echo; resolved owner kind/ID matching the requested World; Plan
-   work kind and exact saved document ID; echoed expected revision; matching
+   instance echo with `surface.status="resolved"`; resolved owner kind/ID
+   matching the requested World; Plan work kind and exact saved document ID;
+   echoed expected revision; matching
    `client_work_state_reported`; and a valid used revision. Require
    `resolved` exactly when the used revision equals the expected revision and
    `changed_since_expected` when it differs. Require graph status
@@ -153,10 +154,11 @@ endpoint and existing Plan snapshot/write APIs. Prove:
    revision in the pending-request fence and recheck before appending or
    persisting. Switching Plans and returning/reloading restores only that
    World/document transcript. Negative mounted witnesses mutate Plan ID,
-   revision, thread/turn IDs, surface instance, graph state, grounding flag,
-   and answer shape and prove none is displayed or persisted. Existing
-   campaign Plan Ask/citation and reviewed document-edit proposal regressions
-   still pass.
+   revision, thread/turn IDs, surface instance/status—including `rejected`
+   and `unavailable` paired with an otherwise valid answer—graph state,
+   grounding flag, and answer shape and prove none is displayed or persisted;
+   existing campaign Plan Ask/citation and reviewed document-edit proposal
+   regressions still pass.
 
 Run the focused World Plan and legacy Plan Agent tests, relevant API/history
 tests, UI typecheck, and cumulative base-to-head diff review. Name inherited
