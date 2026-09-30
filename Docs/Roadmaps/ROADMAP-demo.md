@@ -252,24 +252,9 @@ RAKE DUTY's separate repair lane on
 `Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
 that new handoff, `src/application_state/migrations/env.py`, and
 `tests/test_application_state_migration_logging.py`; one PR to `main` is
-authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811)
-is still open at remote head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`.
-RAKE's local candidate `619c11998a7bc17bc0fd740791352e1b275cdf84` is one
-commit ahead of that head, with a cumulative diff limited to the three leased
-paths. The root test path does not match the `tests/application_state/` selector,
-and pytest setup showed no nested `application_state_dsn` fixture. Its global
-autouse wrapper returns without requesting the database fixture. The offline
-regression passed 1/1 under fail-closed socket, Psycopg, and SQLAlchemy
-connection guards; the guard recorded no attempts. Scoped Ruff and cumulative
-`git diff --check` passed. `strace` was unavailable under the sandbox's ptrace
-restriction, and the two Hermes tests could not be collected in RAKE's available
-environment because `dungeonmind.application.vnext` is missing; those tests
-remain unverified there. Automatic review rejected the push for lack of explicit
-operator authorization; RAKE did not retry. Publication awaits the operator's
-answer. C1 must not absorb the repair.
-Hold PR #810 until #811 merges, then rebase and rerun the seven suites against a
-fresh disposable PostgreSQL target. The two tests passed alone (2 passed, 11
-existing Pydantic shadow warnings), but the combined witness is not green. All
+authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811) is open at exact remote head `619c11998a7bc17bc0fd740791352e1b275cdf84`, a fast-forward from `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`. Its offline regression is now at `tests/test_application_state_migration_logging.py`, outside the nested PostgreSQL fixture selector. RAKE reports the standalone regression passed 1/1 and the ordered regression plus two C1 Hermes trace tests passed 3/3 in 8.48 seconds. The run used the exact pinned DungeonMind commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` from a temporary source archive to correct a stale installed package; no dependency sync or database access occurred. Eleven existing Pydantic `schema` shadowing warnings were emitted. Scoped Ruff and `git diff --check origin/main...HEAD` passed against current `main@efadc41019e39ca53d19bca85cd7e2a560763049`; the cumulative PR diff contains only RAKE's three leased paths.
+
+PRIME has the exact head and evidence for independent review; it owns the merge. The earlier seven-suite C1 run remains 240 passed, 2 failed, and has not been rerun against a fresh target. Keep PR #810 on HOLD until #811 merges, then rebase and rerun all seven suites against a fresh disposable PostgreSQL target. These focused logger checks do not replace that witness. C1 must not absorb the repair. All
 C1-specific behavior tests passed, including the focused World Runbook,
 context, ownership, and pin-boundary tests (29 passed). Scoped Ruff, Python
 compilation, and `git diff --check` passed. C2 stays blocked pending C1 review,
