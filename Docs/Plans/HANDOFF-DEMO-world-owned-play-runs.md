@@ -118,8 +118,12 @@ Every PlayRun record/list response uses its own V2 discriminator and returns
 the World resolved from the exact pinned Runbook revision. Define separate
 literals such as `dmb_world_play_run_record_v2` and
 `dmb_world_play_runs_list_v2`; the World record requires `world_id` and has no
-`campaign_id`. Preserve the Run ID, artifact ID, playable revision/SHA,
-independent `run_revision`, timestamps, and progress in V2. The reference
+`campaign_id`. Preserve the Run ID, artifact ID, playable revision, immutable
+WorkRevision ID/SHA, independent `run_revision`, timestamps, and progress in
+V2. A new Run requires a current, clean exact revision; same-ID/same-pin replay
+of an existing Run verifies and returns that retained pin even if the source is
+later discarded or advances. Reusing its ID with a different pin conflicts.
+The reference
 manifest retains its own schema and is read/sealed only through the World V2
 family with exact Run/artifact/revision/SHA checks. Create verifies the
 requested World against the exact Runbook revision; operations on an existing

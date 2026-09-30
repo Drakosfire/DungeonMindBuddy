@@ -184,10 +184,20 @@ V2 list/detail/create/progress/rebase/manifest operations must validate the
 exact pin. V1 remains campaign-only, including its active-Run setter. PRIME's
 refreshed open PR inventory (#798, #781, #760–#761, #763–#765) has no overlap
 with this lease; shared `main.py` route registration is excluded. The
-implementation is committed at `40a8bbc9` on the authorized branch. The focused
-PostgreSQL owning-boundary suite passed 75 tests on 2026-09-30 against PRIME's
-disposable PostgreSQL 16 tmpfs target; Ruff, in-memory Python compilation,
-offline Alembic upgrade/downgrade rendering, and the OpenAPI check also passed.
+implementation began at `40a8bbc9` on the authorized branch. PRIME held that
+exact head because existing World Runs stopped resolving after their source
+Runbook was discarded, and the V2 response omitted the immutable WorkRevision
+UUID. The repair separates exact retained-pin verification from new-Run
+admission and adds the canonical revision UUID to V2 records without changing
+V1. The 76-test PostgreSQL owning-boundary suite now passes against PRIME's
+disposable PostgreSQL 16 tmpfs target, including create → advance → discard →
+V2 reads/progress/manifest and idempotent replay, while a new Run or rebase
+from the discarded source still fails closed. The regression changes Runbook
+status through the Content owner service because the existing campaign discard
+wrapper rejects World-owned documents; that wrapper remains outside this
+lease. Scoped Ruff, in-memory Python compilation, and cumulative diff checks
+pass; the migration is unchanged from its previously verified upgrade,
+downgrade, and single-head evidence. PRIME's exact-head re-review is pending.
 No product server, persistent database, provider, or corpus is part of this
 backend slice.
 

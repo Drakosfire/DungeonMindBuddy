@@ -5,7 +5,11 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from application_state.content.service import commit_runbook, create_world_runbook
+from application_state.content.service import (
+    commit_runbook,
+    create_world_runbook,
+    update_runbook_metadata,
+)
 from apps.live_control_server.main import create_app
 from tests.application_state.play_runtime_helpers import (
     SOURCE_MARKDOWN,
@@ -150,6 +154,108 @@ def test_create_rejects_wrong_world_and_bad_sha_without_persisting(
     ).json()["records"] == []
 
 
+def test_world_run_keeps_its_exact_pin_after_source_runbook_is_discarded(
+    application_state_dsn: str,
+    client: TestClient,
+) -> None:
+    world_id = "discarded-runbook-world"
+    work_object, pinned_revision = _create_world_runbook(world_id)
+    path = f"/api/live/world-play-runs/v2/{WORLD_RUN_ID}"
+    created = client.put(
+        path,
+        params={"world_id": world_id},
+        json=_create_body(work_object, pinned_revision),
+    )
+    assert created.status_code == 200, created.text
+    created_record = created.json()
+    assert created_record["playable_revision"] == pinned_revision.revision_n
+    assert created_record["playable_work_revision_id"] == str(
+        pinned_revision.work_revision_id
+    )
+    assert created_record["playable_content_sha256"] == pinned_revision.content_sha256
+
+    target_work_object, newer_revision = commit_runbook(
+        str(work_object.work_object_id),
+        SURVIVING_TARGET_MARKDOWN,
+        expected_revision=work_object.object_revision,
+    )
+    discarded = update_runbook_metadata(
+        str(work_object.work_object_id),
+        status="discarded",
+        expected_revision=target_work_object.object_revision,
+    )
+    assert discarded.status == "discarded"
+
+    listed = client.get(
+        "/api/live/world-play-runs/v2", params={"world_id": world_id}
+    )
+    assert listed.status_code == 200, listed.text
+    assert listed.json()["records"] == [created_record]
+    detail = client.get(path, params={"world_id": world_id})
+    assert detail.status_code == 200, detail.text
+    assert detail.json() == created_record
+    assert client.get(path, params={"world_id": "another-world"}).status_code == 404
+
+    replay = client.put(
+        path,
+        params={"world_id": world_id},
+        json=_create_body(work_object, pinned_revision),
+    )
+    assert replay.status_code == 200, replay.text
+    assert replay.json() == created_record
+
+    progressed = client.put(
+        f"{path}/progress",
+        params={"world_id": world_id},
+        json={
+            "expected_run_revision": 1,
+            "progress": gate_progress().model_dump(mode="json"),
+        },
+    )
+    assert progressed.status_code == 200, progressed.text
+    progressed_record = progressed.json()
+    assert progressed_record["world_id"] == world_id
+    assert progressed_record["run_revision"] == 2
+    assert progressed_record["playable_revision"] == pinned_revision.revision_n
+    assert progressed_record["playable_work_revision_id"] == str(
+        pinned_revision.work_revision_id
+    )
+    assert progressed_record["playable_content_sha256"] == pinned_revision.content_sha256
+
+    manifest_path = f"{path}/reference-manifest"
+    fetched_manifest = client.get(manifest_path, params={"world_id": world_id})
+    assert fetched_manifest.status_code == 200, fetched_manifest.text
+    manifest = fetched_manifest.json()
+    assert manifest["run_id"] == WORLD_RUN_ID
+    assert manifest["playable_revision"] == pinned_revision.revision_n
+    assert manifest["playable_content_sha256"] == pinned_revision.content_sha256
+    sealed_manifest = client.put(manifest_path, params={"world_id": world_id})
+    assert sealed_manifest.status_code == 200, sealed_manifest.text
+    assert sealed_manifest.json() == manifest
+
+    rebase_after_discard = client.put(
+        f"{path}/rebase",
+        params={"world_id": world_id},
+        json={
+            "expected_run_revision": 2,
+            "target_playable_revision": newer_revision.revision_n,
+            "target_playable_content_sha256": newer_revision.content_sha256,
+        },
+    )
+    assert rebase_after_discard.status_code == 409
+    assert client.get(path, params={"world_id": world_id}).json() == progressed_record
+
+    new_run_after_discard = client.put(
+        f"/api/live/world-play-runs/v2/{WORLD_RUN_ID_2}",
+        params={"world_id": world_id},
+        json=_create_body(target_work_object, newer_revision),
+    )
+    assert new_run_after_discard.status_code == 409
+    assert client.get(
+        "/api/live/world-play-runs/v2", params={"world_id": world_id}
+    ).json()["records"] == [progressed_record]
+
+
 def test_world_rebase_is_same_owner_newer_only_and_uses_run_revision_cas(
     application_state_dsn: str, client: TestClient
 ) -> None:
@@ -182,6 +288,9 @@ def test_world_rebase_is_same_owner_newer_only_and_uses_run_revision_cas(
     assert rebased_record["run_revision"] == 2
     assert rebased_record["rebased_from_run_revision"] == 1
     assert rebased_record["playable_revision"] == second_revision.revision_n
+    assert rebased_record["playable_work_revision_id"] == str(
+        second_revision.work_revision_id
+    )
     sealed = client.get(
         f"{path}/reference-manifest", params={"world_id": "demo-world-a"}
     ).json()

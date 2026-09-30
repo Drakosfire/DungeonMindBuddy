@@ -7,7 +7,10 @@ from uuid import UUID
 
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
-from application_state.content.playable_admission import admit_playable_revision
+from application_state.content.playable_admission import (
+    admit_playable_revision,
+    resolve_pinned_playable_revision,
+)
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateIntegrityError,
@@ -73,21 +76,19 @@ def _resolve_world_run_owner(conn, run: PlayRun, *, world_id: str) -> str:
         raise ApplicationStateNotFoundError(
             f"Play Run not found in World {requested_world_id}: {run.run_id}"
         )
-    admitted = admit_playable_revision(
+    revision = resolve_pinned_playable_revision(
         conn,
         run.playable_work_object_id,
         run.playable_revision_n,
+        run.playable_work_revision_id,
         run.playable_content_sha256,
         expected_world_id=requested_world_id,
     )
-    if (
-        admitted.work_revision.work_revision_id != run.playable_work_revision_id
-        or admitted.work_revision.world_id != requested_world_id
-    ):
+    if revision.world_id != requested_world_id:
         raise ApplicationStateIntegrityError(
             "Play Run binding does not match its exact World-owned Runbook revision"
         )
-    return admitted.work_revision.world_id
+    return revision.world_id
 
 
 def _require_positive_revision(value: int, *, field_name: str) -> int:

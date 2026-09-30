@@ -224,6 +224,7 @@ class WorldPlayRunRecord(BaseModel):
     world_id: str
     playable_artifact_id: str
     playable_revision: int = Field(gt=0)
+    playable_work_revision_id: str
     playable_content_sha256: str
     run_revision: int = Field(default=1, gt=0)
     created_at: str
@@ -240,6 +241,11 @@ class WorldPlayRunRecord(BaseModel):
     @classmethod
     def _validate_playable_artifact_id(cls, value: str) -> str:
         return _canonical_uuid(value, field_name="playable_artifact_id")
+
+    @field_validator("playable_work_revision_id")
+    @classmethod
+    def _validate_playable_work_revision_id(cls, value: str) -> str:
+        return _canonical_uuid(value, field_name="playable_work_revision_id")
 
     @field_validator("world_id")
     @classmethod
@@ -295,6 +301,7 @@ def _world_record_from_aggregate(aggregate: object) -> WorldPlayRunRecord:
         world_id=world_id,
         playable_artifact_id=str(run.playable_work_object_id),
         playable_revision=int(run.playable_revision_n),
+        playable_work_revision_id=str(run.playable_work_revision_id),
         playable_content_sha256=str(run.playable_content_sha256),
         run_revision=int(run.run_revision),
         created_at=_iso_z(run.created_at),

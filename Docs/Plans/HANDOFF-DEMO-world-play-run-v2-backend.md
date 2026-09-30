@@ -108,10 +108,14 @@ GET  /api/live/world-play-runs/v2/{run_id}/reference-manifest?world_id=W
 PUT  /api/live/world-play-runs/v2/{run_id}/reference-manifest?world_id=W
 ~~~
 
-Create/replay must bind only a current, clean, exact committed Runbook revision
-whose WorkObject and WorkRevision are explicitly owned by the requested World.
-Read/list/progress/rebase/manifest operations verify the Run's current exact
-pin and World before exposing data or changing state. Rebase may move only to a
+Creating a new Run must bind only a current, clean, exact committed Runbook
+revision whose WorkObject and WorkRevision are explicitly owned by the
+requested World. An idempotent replay of an existing Run verifies and returns
+that Run's exact stored pin; it does not re-admit the source as a new Run, so
+the same binding remains readable if the source is later discarded or advances
+to another revision. Reusing the Run ID with a different binding conflicts.
+Read/list/progress/rebase/manifest operations verify the Run's exact pin and
+World before exposing data or changing state. Rebase may move only to a
 strictly newer exact revision owned by the same World, with matching digest and
 admitted manifest/progress. Preserve CAS behavior for `run_revision`.
 
@@ -136,8 +140,13 @@ The witness must prove:
   `world_id = NULL`, including a campaign string equal to a World ID. No
   historical ownership is inferred.
 - Create/replay a World A Run from its exact World-owned Runbook revision;
-  persist and return the exact revision/SHA and `world_id = A`; V2 records have
-  no `campaign_id`. Replay with the same identity is idempotent.
+  persist and return the exact revision ID/SHA and `world_id = A`; V2 records
+  have no `campaign_id`. Replay with the same identity is idempotent.
+- After creating a Run, advance then discard its source Runbook. List, detail,
+  progress, manifest GET/PUT, and same-ID/same-pin replay continue to resolve
+  the exact retained pin. New Run creation from the discarded source and rebase
+  to it fail closed. The test changes status through the Content owner service;
+  the existing campaign-oriented discard wrapper is outside this lease.
 - World A list/detail/progress/manifest operations succeed only after resolving
   and matching the exact pin. World B, a mismatched stored hint, wrong SHA,
   missing revision, or corrupted pin fails closed before mutation. A same-World
@@ -173,17 +182,22 @@ Also run scoped Ruff on changed Python paths, Python compilation, cumulative
 migration witness must verify the single Alembic head and guarded downgrade.
 PRIME designated disposable PostgreSQL 16 tmpfs container
 `prime-demo-playrun-v2-pg-20260930` for this witness. The focused suite above
-passed **75 tests** on 2026-09-30 against that target. The `uv run` invocation
-shown above could not resolve dependencies from PyPI in this environment, so
-the same test paths were executed as `rtk pytest -p no:cacheprovider` with the
-existing project environment and without installing packages. Scoped Ruff
-passed across all 13 changed Python files; in-memory Python compilation passed;
-offline Alembic upgrade and guarded-downgrade rendering passed with one
-migration head; and an OpenAPI check confirmed all seven World V2 operations
-and the required `world_id` list parameter. Existing Pydantic `schema`-shadow
-warnings appeared during app construction. The earlier Phase A 53/53 result
-remains a separate predecessor witness and does not substitute for these Phase
-B tests.
+passed **76 tests** on 2026-09-30 against that target, including the exact-pin-
+after-discard regression and V2 revision-ID response assertions. PRIME's review
+HOLD on prior head `5756c5da` identified both gaps; the implementation now
+resolves retained pins separately from new-Run admission and includes the
+canonical WorkRevision UUID in V2 records. Campaign V1 response models remain
+unchanged. The revised head awaits PRIME's exact-head review. The `uv run`
+invocation shown above could not resolve dependencies from PyPI in this
+environment, so the same test paths were executed as `rtk pytest
+-p no:cacheprovider` with the existing project environment and without
+installing packages. Scoped Ruff passed across all 13 changed Python files;
+in-memory Python compilation passed; offline Alembic upgrade and
+guarded-downgrade rendering passed with one migration head; and an OpenAPI
+check confirmed all seven World V2 operations and the required `world_id` list
+parameter. Existing Pydantic `schema`-shadow warnings appeared during app
+construction. The earlier Phase A 53/53 result remains a separate predecessor
+witness and does not substitute for these Phase B tests.
 
 The implementation/test changes are committed at
 `40a8bbc9` (`DEMO: add World-owned PlayRun V2 backend`) on the authorized
