@@ -15,12 +15,23 @@
 ## One capability and failure cases
 
 On a saved Plan owned by the independently verified managed World, a user can
-open the existing app Agent chrome and have a multi-turn conversation through
-`POST /api/live/agent/turn`. Each turn sends the exact leased Plan surface
-instance, World owner, saved Plan document ID, expected document revision, and
-`graph_request: {mode:"none"}` with no graph selection. The request contains
-no local Markdown, title, path, fake document ID, or browser thread scope. A
-saved dirty editor is reported as `saved_dirty`; a clean one is `saved_clean`.
+open the existing app Agent chrome and have a multi-turn conversation
+associated with that Plan through `POST /api/live/agent/turn`. Each turn sends
+the exact leased Plan surface instance, World owner, saved Plan document ID,
+expected document revision, and `graph_request: {mode:"none"}` with no graph
+selection. The request contains no local Markdown, title, path, fake document
+ID, or browser thread scope. A saved dirty editor is reported as
+`saved_dirty`; a clean one is `saved_clean`.
+
+This is metadata-scoped conversation beside a saved Plan. The accepted
+`graph:none` path gives the Agent the user's question, conversation continuity,
+and resolved Plan metadata such as title and revision; it does not read or
+provide the committed Plan Markdown/prose. It cannot answer from, quote,
+retrieve, or revise the Plan's saved prose. The UI must say that the Agent
+does not read the Plan text and must not imply document QA, grounding, citation,
+retrieval, or editing. Sending browser-local editor content is not a workaround.
+A future content-aware Plan Agent needs a separate owner-reviewed server-side
+committed-content access contract with explicit privacy and revision behavior.
 
 The transcript uses a browser-local namespace isolated by the independently
 verified World and exact saved Plan document ID. It does not adopt a legacy
@@ -37,8 +48,8 @@ graph request and displays no retrieval or citation claim. Campaign-target
 Plans remain unsupported by this new turn path pending campaign-to-World
 authority. A World Plan local draft has no durable work ID or revision and
 cannot submit a generic Plan turn; show that the user must save first. Never
-put a `local-plan:*` token on the wire. A later unified cited conversation
-would require a separate Buddy response-contract proposal.
+put a `local-plan:*` token on the wire. A later content-aware or unified cited
+conversation requires a separate Buddy contract proposal.
 
 Pre-dispatch critique: the easiest false success is answering from a selected
 World while omitting the exact Plan or using a stale document revision. The
@@ -71,7 +82,8 @@ dispatches implementation against that exact authority.
   only on the managed-World Plan path.
 - `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
   — new Plan Ask plugin, exact request capture, response validation, transcript,
-  thread persistence, and stale-response fencing.
+  thread persistence, visible metadata-only capability notice, and
+  stale-response fencing.
 - `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.css`
   — content placement inside the existing shared Ask portal.
 - `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx` — mounted
@@ -98,29 +110,51 @@ production data, or `.env` is leased.
 
 Mount the real `PlanSurfacePage` World-owned Plan path with the real selected-
 World authority, Agent provider, Ask portal, and shared Agent chrome; mock the
-typed endpoint and existing Plan snapshot/write APIs. Prove:
+endpoint and existing Plan snapshot/write APIs. Prove:
 
 1. A loaded saved World Plan opens Ask and submits two turns through the
    accepted endpoint with one stable client thread ID, distinct turn IDs, exact
    `surface_id="plan"`, current leased instance, World ID, saved document ID,
    and expected revision. The graph request is explicitly `none` with no
-   selection; the UI makes no retrieval or citation claim.
-2. The actual answer and bounded per-turn resolved owner/work/provider facts,
-   including the revision actually used, are visible and survive thread
-   reload. Switching to another saved Plan and returning/reloading must not
-   cross transcripts. No trace, source prose, local Markdown, storage token,
-   or path persists in the new summary or wire request.
+   selection. A persistent, user-visible capability notice says the Agent
+   receives Plan metadata but does not read the Plan text; no document QA,
+   retrieval, grounding, citation, quotation, or editing capability is implied.
+   The UI makes no retrieval or citation claim.
+2. The actual answer and bounded per-turn resolved owner/work facts, including
+   the revision actually used and whitelisted conversation `pointer_status`,
+   are visible and survive thread reload. Do not persist provider identity,
+   pointer ID, trace, source prose, local Markdown, storage token, or path in
+   the new summary or wire request. Switching to another saved Plan and
+   returning/reloading must not cross transcripts.
 3. Clean/dirty saved state is reported accurately. A local unsaved draft has
    no enabled generic Ask and causes no endpoint call or fabricated document
-   ID. Campaign-target Plan requests are not sent through this new path.
+   ID. While a save/commit is in flight, Ask is disabled and a request never
+   uses a prepared-but-uncommitted revision; after commit, it uses the last
+   confirmed committed revision. Campaign-target Plan requests are not sent
+   through this new path.
 4. Unavailable, foreign, removed, or mismatched work produces a visible error
-   without rendering an answer. The no-graph result is validated as
-   `not_requested`, and the UI never presents it as grounded. A
-   `changed_since_expected` result may render its answer only with a visible
-   status naming both expected and actually used revisions.
+   without rendering an answer. Runtime-validate the response against the
+   declared response schema before display or persistence; TypeScript types
+   alone are insufficient. Require the schema discriminator; matching
+   top-level and nested client thread/turn IDs; exact Plan surface ID and
+   instance echo; resolved owner kind/ID matching the requested World; Plan
+   work kind and exact saved document ID; echoed expected revision; matching
+   `client_work_state_reported`; and a valid used revision. Require
+   `resolved` exactly when the used revision equals the expected revision and
+   `changed_since_expected` when it differs. Require graph status
+   `not_requested` with no scope or selection, and `answer.status="ok"`,
+   nonblank text, and `graph_grounded=false` before accepting an answer.
+   Missing, malformed, contradictory, or mismatched fields produce a visible
+   protocol error and write neither the turn nor its summary. A valid
+   `changed_since_expected` result may render only with a visible status naming
+   both expected and actually used revisions.
 5. Pending responses are suppressed after World, Plan document, expected
-   revision, route, or thread replacement/unmount. Switching Plans and
-   returning/reloading restores only that World/document transcript. Existing
+   revision, route, or thread replacement/unmount. Include the expected
+   revision in the pending-request fence and recheck before appending or
+   persisting. Switching Plans and returning/reloading restores only that
+   World/document transcript. Negative mounted witnesses mutate Plan ID,
+   revision, thread/turn IDs, surface instance, graph state, grounding flag,
+   and answer shape and prove none is displayed or persisted. Existing
    campaign Plan Ask/citation and reviewed document-edit proposal regressions
    still pass.
 
