@@ -200,15 +200,19 @@ serial C2 until C1 merges and its witness passes. Do not start a product
 server/database, provider, or corpus.
 
 The final seven-suite C1 PostgreSQL invocation collected 242 tests: 240 passed
-and two Hermes trace-capture assertions failed in the combined run
-because the expected `dmb.agent.turn_trace` records were absent. Rerunning only
-those two tests passed (2 passed, 11 existing Pydantic shadow warnings). The
-test cases and `agent_turn_trace.py` are unchanged in this slice. The failures
-are order-sensitive and remain unresolved; this is not a green combined
-witness. All C1-specific behavior tests passed, including the focused World
-Runbook, context, ownership, and pin-boundary tests (29 passed). Scoped Ruff,
-Python compilation, and `git diff --check` passed. C2 stays blocked pending
-PRIME's review and an accepted owner witness.
+and two Hermes trace-capture assertions failed in the combined run because the
+expected `dmb.agent.turn_trace` records were absent. PRIME traced this to
+`src/application_state/migrations/env.py:15` calling
+`logging.config.fileConfig` without `disable_existing_loggers=False`, which
+disables the trace logger when the migration environment loads. RAKE DUTY owns
+this separately leased infrastructure repair; C1 must not absorb it. Hold PR
+#810 until that repair merges, then rebase and rerun the seven suites against a
+fresh disposable PostgreSQL target. The two tests passed alone (2 passed, 11
+existing Pydantic shadow warnings), but the combined witness is not green.
+All C1-specific behavior tests passed, including the focused World Runbook,
+context, ownership, and pin-boundary tests (29 passed). Scoped Ruff, Python
+compilation, and `git diff --check` passed. C2 stays blocked pending C1 review,
+merge, and an accepted owner witness.
 
 Generic Agent Run resolution remains a separate successor. Build, Ingest and
 Combat Agent adoption remain open after Play. Campaign-owner/campaign-lens

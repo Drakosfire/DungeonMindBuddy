@@ -55,6 +55,7 @@ apps/live_control_server/services/workspace_document_registry.py
 apps/live_control_server/services/tiptap_markdown_write.py
 apps/live_control_server/services/agent_surface_context.py
 apps/live_control_server/services/agent_play_surface_context.py
+apps/live_control_server/services/live_agent_loop.py (only the surface_context request union annotation)
 tests/test_world_play_runs_v2.py
 tests/test_workspace_document_registry.py
 tests/test_live_tiptap_markdown_write.py
@@ -68,6 +69,11 @@ The last three handoff paths are limited to truthful predecessor settlement.
 Do not expand runtime scope based on those documentation edits. Do not edit
 `routes/agent.py`, `main.py`, a generic Agent Run resolver, UI files, provider
 code, schemas/migrations, dependencies, or any other repository.
+
+PRIME explicitly accepted `services/live_agent_loop.py` as a narrow lease
+amendment: only its `surface_context` parameter annotation carries the
+existing V1 request or typed World Play V2 request. No runtime behavior in
+that service is otherwise changed.
 
 ## Owning-boundary witness
 
@@ -114,13 +120,16 @@ and two Hermes trace-capture assertions failed in the combined run:
 `test_product_trace_aggregates_model_calls_and_keeps_tool_events` and
 `test_invalid_history_logs_failure_trace_once` in
 `tests/test_live_query_hermes_graph.py`. Both expected one
-`dmb.agent.turn_trace` log record and observed zero. Those test cases and
-`agent_turn_trace.py` are unchanged in this slice. Rerunning just the two tests
-passed (2 passed, 11 existing Pydantic `schema`-field shadow warnings). Treat
-these as order-sensitive failures requiring review; the combined suite is not
-green. All C1 behavior tests passed, including the focused PostgreSQL World
-Runbook, context, ownership, and pin-boundary run (29 passed, 11 existing
-warnings).
+`dmb.agent.turn_trace` log record and observed zero. PRIME traced this to
+`src/application_state/migrations/env.py:15` calling `logging.config.fileConfig`
+without `disable_existing_loggers=False`, which disables the trace logger when
+the migration environment loads. RAKE DUTY owns a separate, narrowly leased
+infrastructure repair; do not absorb it into C1. Hold this PR until that repair
+merges, then rebase and rerun all seven suites against a fresh disposable
+PostgreSQL target. Rerunning just the two tests passed (2 passed, 11 existing
+Pydantic `schema`-field shadow warnings), but the combined suite is not green.
+All C1 behavior tests passed, including the focused PostgreSQL World Runbook,
+context, ownership, and pin-boundary run (29 passed, 11 existing warnings).
 
 Scoped Ruff, Python `compileall`, and `git diff --check` passed. The Pydantic
 shadow warnings are pre-existing. These results do not authorize C2 or claim
