@@ -19,8 +19,9 @@ import threading
 import uuid
 import hashlib
 import json
+import shutil
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Literal
 
@@ -29,6 +30,8 @@ from src.live_play.live_store import load_json, write_json
 POINTER_BINDING_SCHEMA = "dmb_hermes_session_pointer_binding_v1"
 POINTER_STORE_SCHEMA = "dmb_hermes_session_pointer_store_v1"
 STRUCTURED_POINTER_BINDING_SCHEMA = "dmb_hermes_structured_session_pointer_binding_v1"
+STRUCTURED_POINTER_IDLE_TTL = timedelta(days=7)
+STRUCTURED_PROFILE_ROOT_NAME = "hermes_agent_profiles"
 BindingStatus = Literal["active", "expired", "invalid"]
 PointerStatus = Literal["absent", "accepted", "rejected", "recovered"]
 
@@ -343,6 +346,91 @@ class HermesSessionPointerStore:
         previous = binding.last_worker_pid
         return previous is not None and previous != worker_pid
 
+    @property
+    def structured_profile_root(self) -> Path:
+        return self._base / STRUCTURED_PROFILE_ROOT_NAME
+
+    def structured_profile_home(self, hermes_session_id: str) -> Path:
+        return self.structured_profile_root / hermes_profile_key(hermes_session_id)
+
+    def _remove_structured_profile(self, hermes_session_id: str | None) -> None:
+        if not isinstance(hermes_session_id, str) or not hermes_session_id.strip():
+            return
+        root = self.structured_profile_root
+        profile = self.structured_profile_home(hermes_session_id)
+        resolved_root = root.resolve()
+        if profile.is_symlink():
+            profile.unlink()
+            return
+        resolved_profile = profile.resolve()
+        if resolved_profile.parent != resolved_root:
+            raise HermesSessionPointerError(
+                "Structured Hermes profile escaped its isolated root.",
+                code="hermes_continuity_unavailable",
+            )
+        if resolved_profile.is_dir():
+            shutil.rmtree(resolved_profile)
+        elif resolved_profile.exists():
+            resolved_profile.unlink()
+
+    @staticmethod
+    def _binding_idle_expired(
+        binding: HermesStructuredSessionPointerBinding,
+        *,
+        now: datetime,
+    ) -> bool:
+        try:
+            updated_at = datetime.fromisoformat(binding.updated_at.replace("Z", "+00:00"))
+            if updated_at.tzinfo is None:
+                updated_at = updated_at.replace(tzinfo=timezone.utc)
+        except (TypeError, ValueError):
+            return True
+        return updated_at + STRUCTURED_POINTER_IDLE_TTL <= now
+
+    def _expire_idle_structured_bindings(
+        self,
+        store: dict[str, Any],
+        *,
+        now: datetime,
+    ) -> bool:
+        bindings = store.get("structured_bindings")
+        if not isinstance(bindings, dict):
+            return False
+        expired_sessions: list[str] = []
+        changed = False
+        for key, raw in bindings.items():
+            if not isinstance(raw, dict) or raw.get("work_kind") != "plan":
+                continue
+            binding = _parse_structured_binding(raw)
+            if binding is not None and binding.status == "active" and not self._binding_idle_expired(
+                binding, now=now
+            ):
+                continue
+            if binding is None:
+                # A malformed persisted binding is never allowed to resume.
+                if raw.get("status") != "invalid":
+                    raw["status"] = "invalid"
+                    raw["invalidated_at"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+                    changed = True
+                candidate = raw.get("hermes_session_id")
+                if isinstance(candidate, str):
+                    expired_sessions.append(candidate)
+            elif binding.status == "active":
+                raw["status"] = "expired"
+                raw["expired_at"] = now.strftime("%Y-%m-%dT%H:%M:%SZ")
+                expired_sessions.append(binding.hermes_session_id)
+                changed = True
+            elif binding.status in {"expired", "invalid"}:
+                # Complete cleanup if an earlier process persisted the status
+                # but stopped before removing the native profile.
+                expired_sessions.append(binding.hermes_session_id)
+        if changed:
+            self._save_store(store)
+        # Persist invalid/expired status before removing any native profile bytes.
+        for session_id in expired_sessions:
+            self._remove_structured_profile(session_id)
+        return changed
+
     def resolve_structured_for_request(
         self,
         *,
@@ -355,8 +443,8 @@ class HermesSessionPointerStore:
     ) -> HermesStructuredPointerResolution:
         """Resolve only the exact structured owner/work/thread key.
 
-        A supplied pointer bound to another key is recovered as a fresh
-        provider session; it is never used to cross the current authority.
+        An expired, invalid, malformed, or foreign binding is rejected. The
+        caller must require a new client thread before creating fresh continuity.
         Legacy campaign bindings are intentionally not inspected here.
         """
         key = _structured_binding_key(
@@ -367,52 +455,77 @@ class HermesSessionPointerStore:
             agent_thread_id=agent_thread_id,
         )
         normalized_pointer = str(pointer_id or "").strip() or None
+        now = datetime.now(timezone.utc)
         with self._lock:
             store = self._load_store()
+            self._expire_idle_structured_bindings(store, now=now)
             bindings = store.get("structured_bindings")
-            if not isinstance(bindings, dict):
+            raw = bindings.get(key) if isinstance(bindings, dict) else None
+            if raw is None:
                 return HermesStructuredPointerResolution(
                     continuity_session_id=None,
-                    pointer_status="recovered" if normalized_pointer else "absent",
+                    pointer_status="rejected" if normalized_pointer else "absent",
                     pointer_in_request=normalized_pointer is not None,
                     recovery_message=(
-                        "Unknown structured Hermes pointer; started a fresh session."
+                        "Unknown structured Hermes pointer; start a new conversation."
                         if normalized_pointer
                         else None
                     ),
                 )
-            raw = bindings.get(key)
             binding = _parse_structured_binding(raw) if isinstance(raw, dict) else None
-            if (
-                binding is None
-                or binding.status != "active"
-                or not _structured_binding_matches(
-                    binding,
-                    owner_kind=owner_kind,
-                    owner_id=owner_id,
-                    work_kind=work_kind,
-                    work_id=work_id,
-                    agent_thread_id=agent_thread_id,
-                )
-            ):
+            if binding is None:
+                session_id = raw.get("hermes_session_id") if isinstance(raw, dict) else None
+                if isinstance(raw, dict):
+                    if raw.get("status") != "invalid":
+                        raw["status"] = "invalid"
+                        raw["invalidated_at"] = _utc_now_z()
+                        self._save_store(store)
+                    self._remove_structured_profile(
+                        session_id if isinstance(session_id, str) else None
+                    )
                 return HermesStructuredPointerResolution(
                     continuity_session_id=None,
-                    pointer_status=(
-                        "recovered" if normalized_pointer or raw is not None else "absent"
-                    ),
+                    pointer_status="rejected",
                     pointer_in_request=normalized_pointer is not None,
-                    recovery_message=(
-                        "Structured Hermes session is unavailable; started a fresh session."
-                        if normalized_pointer or raw is not None
-                        else None
-                    ),
+                    recovery_message="Saved conversation continuity is unavailable. Start a new conversation.",
+                )
+            if binding.status != "active":
+                return HermesStructuredPointerResolution(
+                    continuity_session_id=None,
+                    pointer_status="rejected",
+                    pointer_in_request=normalized_pointer is not None,
+                    pointer_id=binding.pointer_id,
+                    recovery_message="Saved conversation continuity is unavailable. Start a new conversation.",
+                )
+            if not _structured_binding_matches(
+                binding,
+                owner_kind=owner_kind,
+                owner_id=owner_id,
+                work_kind=work_kind,
+                work_id=work_id,
+                agent_thread_id=agent_thread_id,
+            ):
+                raw["status"] = "invalid"
+                raw["invalidated_at"] = _utc_now_z()
+                self._save_store(store)
+                self._remove_structured_profile(binding.hermes_session_id)
+                return HermesStructuredPointerResolution(
+                    continuity_session_id=None,
+                    pointer_status="rejected",
+                    pointer_in_request=normalized_pointer is not None,
+                    pointer_id=binding.pointer_id,
+                    recovery_message="Saved conversation continuity is unavailable. Start a new conversation.",
                 )
             if normalized_pointer is not None and normalized_pointer != binding.pointer_id:
+                raw["status"] = "invalid"
+                raw["invalidated_at"] = _utc_now_z()
+                self._save_store(store)
+                self._remove_structured_profile(binding.hermes_session_id)
                 return HermesStructuredPointerResolution(
                     continuity_session_id=None,
-                    pointer_status="recovered",
+                    pointer_status="rejected",
                     pointer_in_request=True,
-                    recovery_message="Hermes pointer did not match this context; started a fresh session.",
+                    recovery_message="Hermes pointer did not match this context. Start a new conversation.",
                 )
             return HermesStructuredPointerResolution(
                 continuity_session_id=binding.hermes_session_id,
@@ -420,6 +533,40 @@ class HermesSessionPointerStore:
                 pointer_in_request=normalized_pointer is not None,
                 pointer_id=binding.pointer_id,
             )
+
+    def revoke_structured_after_continuity_failure(
+        self,
+        *,
+        owner_kind: str | None,
+        owner_id: str | None,
+        work_kind: str | None,
+        work_id: str | None,
+        agent_thread_id: str,
+        hermes_session_id: str | None,
+    ) -> bool:
+        """Expire the exact binding before deleting its native Hermes profile."""
+        key = _structured_binding_key(
+            owner_kind=owner_kind,
+            owner_id=owner_id,
+            work_kind=work_kind,
+            work_id=work_id,
+            agent_thread_id=agent_thread_id,
+        )
+        expected_session = str(hermes_session_id or "").strip()
+        with self._lock:
+            store = self._load_store()
+            bindings = store.get("structured_bindings")
+            raw = bindings.get(key) if isinstance(bindings, dict) else None
+            binding = _parse_structured_binding(raw) if isinstance(raw, dict) else None
+            if binding is None or (
+                expected_session and binding.hermes_session_id != expected_session
+            ):
+                return False
+            raw["status"] = "invalid"
+            raw["invalidated_at"] = _utc_now_z()
+            self._save_store(store)
+            self._remove_structured_profile(binding.hermes_session_id)
+            return True
 
     def upsert_structured_after_turn(
         self,
@@ -432,6 +579,7 @@ class HermesSessionPointerStore:
         hermes_session_id: str,
         worker_pid: int | None = None,
         existing_pointer_id: str | None = None,
+        require_new_thread: bool = False,
     ) -> HermesStructuredSessionPointerBinding:
         normalized_session = str(hermes_session_id or "").strip()
         if not normalized_session:
@@ -452,6 +600,13 @@ class HermesSessionPointerStore:
                 store["structured_bindings"] = bindings
             raw = bindings.get(key)
             previous = _parse_structured_binding(raw) if isinstance(raw, dict) else None
+            if require_new_thread and raw is not None and (
+                previous is None or previous.status != "active"
+            ):
+                raise HermesSessionPointerError(
+                    "Expired or invalid Hermes continuity requires a new client thread.",
+                    code="hermes_continuity_unavailable",
+                )
             if previous is not None and not _structured_binding_matches(
                 previous,
                 owner_kind=owner_kind,
@@ -507,6 +662,14 @@ class HermesSessionPointerError(ValueError):
     def __init__(self, message: str, *, code: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+
+def hermes_profile_key(hermes_session_id: str) -> str:
+    normalized = str(hermes_session_id or "").strip()
+    if not normalized:
+        raise ValueError("hermes_session_id is required to derive a profile key")
+    return hashlib.sha256(normalized.encode("utf-8")).hexdigest()
 
 
 def _parse_structured_binding(raw: dict[str, Any]) -> HermesStructuredSessionPointerBinding | None:
@@ -593,6 +756,7 @@ __all__ = [
     "HermesSessionPointerBinding",
     "HermesSessionPointerError",
     "HermesSessionPointerStore",
+    "hermes_profile_key",
     "HermesStructuredPointerResolution",
     "HermesStructuredSessionPointerBinding",
     "PointerStatus",

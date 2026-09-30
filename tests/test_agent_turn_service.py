@@ -14,6 +14,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRuntimeResult,
 )
 from apps.live_control_server.services.agent_turn_service import (
+    AgentTurnResolvedWork,
     AgentTurnServiceError,
     execute_agent_turn,
 )
@@ -44,14 +45,32 @@ class FakeRuntime:
 
     def __init__(self) -> None:
         self.invocations = []
+        self.result: AgentRuntimeResult | None = None
 
     def run(self, invocation: Any) -> AgentRuntimeResult:
         self.invocations.append(invocation)
+        if self.result is not None:
+            return self.result
         return AgentRuntimeResult(
             status="ok",
             final_text="Hello.",
             runtime_session_id="runtime-session-1",
         )
+
+
+def _plan_work(_request: Any, _owner: Any) -> AgentTurnResolvedWork:
+    return AgentTurnResolvedWork(
+        kind="plan",
+        object_id="plan:one",
+        revision=3,
+        changed_since_expected=False,
+        owner_kind=None,
+        owner_id=None,
+    )
+
+
+def _plan_request() -> AgentTurnRequest:
+    return _request(surface={"surface_id": "plan", "instance_id": "plan-main"})
 
 
 def test_no_graph_turn_uses_no_scope_runtime_and_only_structured_pointer_store(
@@ -261,6 +280,254 @@ def test_graphless_followup_reuses_same_binding_without_current_graph_authority(
     assert "historical graph-derived statements" in prompt
     assert "not revalidated as current graph evidence" in prompt
     assert "request an explicit graph-retrieval turn" in prompt
+
+
+def test_expired_structured_binding_stops_before_runtime_and_removes_profile(
+    tmp_path: Path,
+) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    pointer_base = tmp_path / "pointers"
+    pointer_store = HermesSessionPointerStore(pointer_base)
+    binding = pointer_store.upsert_structured_after_turn(
+        owner_kind=None,
+        owner_id=None,
+        work_kind="plan",
+        work_id="plan:one",
+        agent_thread_id="thread-1",
+        hermes_session_id="expired-session",
+    )
+    profile = pointer_store.structured_profile_home(binding.hermes_session_id)
+    profile.mkdir(parents=True)
+    (profile / "state.db").write_text("native state", encoding="utf-8")
+    store_path = pointer_base / "hermes_thread_pointers.json"
+    payload = json.loads(store_path.read_text(encoding="utf-8"))
+    key = next(iter(payload["structured_bindings"]))
+    payload["structured_bindings"][key]["updated_at"] = (
+        datetime.now(timezone.utc) - timedelta(days=8)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    store_path.write_text(json.dumps(payload), encoding="utf-8")
+    runtime = FakeRuntime()
+
+    with pytest.raises(AgentTurnServiceError) as error:
+        execute_agent_turn(
+            _plan_request(),
+            root=tmp_path,
+            pointer_store=pointer_store,
+            owner_resolver=lambda _request: None,
+            work_resolver=_plan_work,
+            graph_resolver=lambda *_args: pytest.fail("no graph turn expected"),
+            runtime=runtime,
+        )
+
+    assert error.value.status_code == 409
+    assert error.value.code == "hermes_continuity_unavailable"
+    assert not runtime.invocations
+    assert not profile.exists()
+    persisted = json.loads(store_path.read_text(encoding="utf-8"))
+    assert persisted["structured_bindings"][key]["status"] == "expired"
+
+
+def test_rejected_plan_pointer_does_not_change_other_agent_surface_behavior(
+    tmp_path: Path,
+) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    pointer_base = tmp_path / "pointers"
+    pointer_store = HermesSessionPointerStore(pointer_base)
+    pointer_store.upsert_structured_after_turn(
+        owner_kind=None,
+        owner_id=None,
+        work_kind="plan",
+        work_id="plan:one",
+        agent_thread_id="thread-1",
+        hermes_session_id="expired-session",
+    )
+    store_path = pointer_base / "hermes_thread_pointers.json"
+    payload = json.loads(store_path.read_text(encoding="utf-8"))
+    key = next(iter(payload["structured_bindings"]))
+    payload["structured_bindings"][key]["updated_at"] = (
+        datetime.now(timezone.utc) - timedelta(days=8)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    store_path.write_text(json.dumps(payload), encoding="utf-8")
+    runtime = FakeRuntime()
+    request = _request(
+        surface={"surface_id": "build", "instance_id": "plan-main"}
+    )
+
+    response = execute_agent_turn(
+        request,
+        root=tmp_path,
+        pointer_store=pointer_store,
+        owner_resolver=lambda _request: None,
+        work_resolver=_plan_work,
+        graph_resolver=lambda *_args: pytest.fail("no graph turn expected"),
+        runtime=runtime,
+    )
+
+    assert response.answer.status == "ok"
+    assert len(runtime.invocations) == 1
+    persisted = json.loads(store_path.read_text(encoding="utf-8"))
+    assert persisted["structured_bindings"][key]["status"] == "expired"
+
+
+def test_native_continuity_failure_revokes_binding_without_returning_answer(
+    tmp_path: Path,
+) -> None:
+    pointer_base = tmp_path / "pointers"
+    pointer_store = HermesSessionPointerStore(pointer_base)
+    binding = pointer_store.upsert_structured_after_turn(
+        owner_kind=None,
+        owner_id=None,
+        work_kind="plan",
+        work_id="plan:one",
+        agent_thread_id="thread-1",
+        hermes_session_id="session-original",
+    )
+    profile = pointer_store.structured_profile_home(binding.hermes_session_id)
+    profile.mkdir(parents=True)
+    (profile / "state.db").write_text("native state", encoding="utf-8")
+    runtime = FakeRuntime()
+    runtime.result = AgentRuntimeResult(
+        status="error",
+        runtime_session_id="session-original",
+        error_code="hermes_continuity_unavailable",
+        error_message="missing native history",
+    )
+
+    with pytest.raises(AgentTurnServiceError) as error:
+        execute_agent_turn(
+            _plan_request(),
+            root=tmp_path,
+            pointer_store=pointer_store,
+            owner_resolver=lambda _request: None,
+            work_resolver=_plan_work,
+            graph_resolver=lambda *_args: pytest.fail("no graph turn expected"),
+            runtime=runtime,
+        )
+
+    assert error.value.status_code == 409
+    assert error.value.code == "hermes_continuity_unavailable"
+    assert len(runtime.invocations) == 1
+    assert not profile.exists()
+    payload = json.loads((pointer_base / "hermes_thread_pointers.json").read_text())
+    stored = next(iter(payload["structured_bindings"].values()))
+    assert stored["status"] == "invalid"
+
+
+def test_changed_hermes_session_identity_revokes_saved_plan_binding(
+    tmp_path: Path,
+) -> None:
+    pointer_base = tmp_path / "pointers"
+    pointer_store = HermesSessionPointerStore(pointer_base)
+    binding = pointer_store.upsert_structured_after_turn(
+        owner_kind=None,
+        owner_id=None,
+        work_kind="plan",
+        work_id="plan:one",
+        agent_thread_id="thread-1",
+        hermes_session_id="session-original",
+    )
+    profile = pointer_store.structured_profile_home(binding.hermes_session_id)
+    profile.mkdir(parents=True)
+    (profile / "state.db").write_text("native state", encoding="utf-8")
+    runtime = FakeRuntime()
+    runtime.result = AgentRuntimeResult(
+        status="ok",
+        final_text="This answer must not be shown.",
+        runtime_session_id="session-different",
+    )
+
+    with pytest.raises(AgentTurnServiceError) as error:
+        execute_agent_turn(
+            _plan_request(),
+            root=tmp_path,
+            pointer_store=pointer_store,
+            owner_resolver=lambda _request: None,
+            work_resolver=_plan_work,
+            graph_resolver=lambda *_args: pytest.fail("no graph turn expected"),
+            runtime=runtime,
+        )
+
+    assert error.value.code == "hermes_continuity_unavailable"
+    assert "This answer must not be shown." not in str(error.value)
+    assert not profile.exists()
+    payload = json.loads((pointer_base / "hermes_thread_pointers.json").read_text())
+    stored = next(iter(payload["structured_bindings"].values()))
+    assert stored["status"] == "invalid"
+
+
+def test_runtime_error_does_not_create_or_renew_structured_pointer(
+    tmp_path: Path,
+) -> None:
+    pointer_store = HermesSessionPointerStore(tmp_path / "pointers")
+    runtime = FakeRuntime()
+    runtime.result = AgentRuntimeResult(
+        status="error",
+        runtime_session_id="unpersisted-session",
+        error_code="provider_unavailable",
+        error_message="provider failed",
+    )
+
+    response = execute_agent_turn(
+        _plan_request(),
+        root=tmp_path,
+        pointer_store=pointer_store,
+        owner_resolver=lambda _request: None,
+        work_resolver=_plan_work,
+        graph_resolver=lambda *_args: pytest.fail("no graph turn expected"),
+        runtime=runtime,
+    )
+
+    assert response.answer.status == "error"
+    assert not (tmp_path / "pointers" / "hermes_thread_pointers.json").exists()
+
+
+def test_successful_persisted_plan_turn_refreshes_sliding_idle_ttl(
+    tmp_path: Path,
+) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    pointer_base = tmp_path / "pointers"
+    pointer_store = HermesSessionPointerStore(pointer_base)
+    pointer_store.upsert_structured_after_turn(
+        owner_kind=None,
+        owner_id=None,
+        work_kind="plan",
+        work_id="plan:one",
+        agent_thread_id="thread-1",
+        hermes_session_id="plan-session",
+    )
+    store_path = pointer_base / "hermes_thread_pointers.json"
+    payload = json.loads(store_path.read_text(encoding="utf-8"))
+    key = next(iter(payload["structured_bindings"]))
+    payload["structured_bindings"][key]["updated_at"] = (
+        datetime.now(timezone.utc) - timedelta(days=6)
+    ).strftime("%Y-%m-%dT%H:%M:%SZ")
+    store_path.write_text(json.dumps(payload), encoding="utf-8")
+    runtime = FakeRuntime()
+    runtime.result = AgentRuntimeResult(
+        status="ok",
+        final_text="Plan reply.",
+        runtime_session_id="plan-session",
+    )
+
+    response = execute_agent_turn(
+        _plan_request(),
+        root=tmp_path,
+        pointer_store=pointer_store,
+        owner_resolver=lambda _request: None,
+        work_resolver=_plan_work,
+        graph_resolver=lambda *_args: pytest.fail("no graph turn expected"),
+        runtime=runtime,
+    )
+
+    assert response.answer.status == "ok"
+    refreshed = json.loads(store_path.read_text(encoding="utf-8"))
+    binding = refreshed["structured_bindings"][key]
+    updated_at = datetime.fromisoformat(binding["updated_at"].replace("Z", "+00:00"))
+    assert updated_at > datetime.now(timezone.utc) - timedelta(minutes=1)
+    assert binding["hermes_session_id"] == "plan-session"
 
 
 def test_unresolvable_requested_graph_fails_before_runtime(tmp_path: Path) -> None:
