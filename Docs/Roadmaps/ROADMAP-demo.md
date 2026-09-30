@@ -129,13 +129,21 @@ backend baseline and merged at `6501bfa5143592cec8d7a3f521e3f34d929a5a95`
 from reviewed code head `40e7c5f81ab0a6faa53026ea571d2994f77d163c` after two
 distinct review-head cycles (`5349662805`, `5350948969`). It proves the
 verified-World backend and conversation-only route, not universal UI adoption.
-The current bounded implementation adopts Index conversation through the
-shared Agent chrome, with verified World or no owner and no primary work or
-graph request, under
-[`HANDOFF-DEMO-index-agent-conversation.md`](../Plans/HANDOFF-DEMO-index-agent-conversation.md).
-Plan, Play, Build, Ingest and Combat remain separate adoption work, followed by
-owner-to-backend end-to-end witnesses. Campaign-owner/campaign-lens remains
-fail-closed pending
+The first UI adoption, Index conversation through shared Agent chrome, merged
+as Buddy #803 at `3c9d5f2300d8658b678d25c357760905538dabbd` from reviewed
+head `47cac7b1d6ab3a1c9327438d10143b7977bbed93`. It supports verified World or
+no owner and no primary work or graph request. The next serial bite is the
+saved managed-World Plan Agent conversation under
+[`HANDOFF-DEMO-plan-agent-conversation.md`](../Plans/HANDOFF-DEMO-plan-agent-conversation.md).
+Plan's current cited Ask and reviewed document-edit flows remain separate and
+unchanged; the generic Agent endpoint has no citation/grounding response
+contract, so the Plan conversation requests no graph. The endpoint supplies
+saved Plan identity/title/revision metadata, not committed Plan Markdown; this
+first conversation is metadata-scoped and must not claim document QA,
+retrieval, quotation, or editing. Content-aware Plan assistance needs a
+separate owner-reviewed server-side content-access contract. Play, Build,
+Ingest and Combat remain separate adoption work, followed by owner-to-backend
+end-to-end witnesses. Campaign-owner/campaign-lens remains fail-closed pending
 a Buddy-owned campaign→World authority. The visual rejection remains open and
 is not waived by this backend work. J1 and J1–J6 remain unaccepted until their
 connected product witnesses pass.
@@ -748,8 +756,16 @@ that their foundations are absent. Historical slices retain their IDs.
   `pub_svc.kernel`; not reported green. No new model call ran. API admission,
   mounted UI/attempt recovery, live generation and formal implementation review
   remained outstanding at that checkpoint. The current exact-head code/test
-  evidence and unpassed live/review gates are recorded above; #785 is not
-  merge-ready and does not close J4.
+  evidence and unpassed live/review gates are recorded above. At that historical
+  checkpoint #785 was not merge-ready; it later merged at
+  `f8b923875f9444a1addfb2472a2b8fab35eceb4c` as recorded in the current
+  checkpoint above, but merge did not close J4. Its scoped live witness left
+  durable candidate `cand_pzlyueamr9m2glmq` / draft
+  `3dc55037-6bcb-4ff4-908d-6bff2e3deb2c` not save-ready because the movement
+  reference `swim` was unregistered. No mechanics repair, successor save or
+  acceptance, image selection/reopen, Plan association, or graph/product
+  read-after-write was proven. The UI reported World Graph unavailable; the
+  World-only publication guard was proven by tests only. J4 remains open.
 - **DEMO-J1 input-pin recheck:** the local purchased
   `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
   is still 48,778 bytes / 565 lines, SHA-256
