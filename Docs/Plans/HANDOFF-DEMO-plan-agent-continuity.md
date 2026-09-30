@@ -1,6 +1,6 @@
 # HANDOFF — DEMO Plan Agent thread continuity
 
-**Status:** ACTIVE — one bounded runtime continuity repair
+**Status:** COMPLETE / HISTORICAL — PR #817 merged; no active implementation lease
 
 **Owner:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -76,3 +76,14 @@ At the updated working tree: Agent turn service + Hermes adapter tests **26 pass
 ## Authority
 
 PRIME explicitly authorized this single parallel-independent implementation from `main@9a8e0a7782252e297467cfe63826e40a85fd9b23` after the read-only RAKE diagnosis and ARCHITECTURE's runtime/session-lifecycle ruling. PRIME selected the 7-day sliding idle TTL and restricted cleanup to the dedicated hashed profile root. During exact-head review, PRIME expanded this same slice's lease to the typed invocation, adapter, wire-contract, and service paths listed above; no second capability or PR was added. PRIME owns the post-test live witness, review, and merge.
+
+
+## Post-merge settlement — 2026-09-30
+
+PR #817 merged to Buddy `main` at `437af1d0f14a6c495ec2add553861040a8a436a6` from reviewed code head `92b07c6c6d83dce51c14d010c14634d4ba3eff07`. The implementation lease ended at merge.
+
+Author-reported focused evidence on that head: Agent turn service and Hermes adapter, 26 passed; session store, 13 passed; Hermes graph agent, 51 passed with an isolated `HERMES_HOME`; focused host/wire/continuity cases, 6 passed. PRIME's independent exact-head review reported 95 focused tests passing across the service, adapter, store, graph-agent, and changed host paths.
+
+The complete host suite did not finish. On the exact PR working tree, 57 cases were collected and 41 passed before `test_app_lifespan_shuts_down_global_host` stalled until the 180-second timeout. The focused faulthandler trace stopped in Starlette `TestClient.__enter__` while AnyIO awaited portal startup. The same startup stack reproduced on clean base `9a8e0a7782252e297467cfe63826e40a85fd9b23`, indicating an inherited host-test harness stall; the full suite remains unverified. No provider, network, or database was used for these local checks.
+
+PRIME still owns the separate patched-runtime continuity witness; it is pending and is not claimed as passed. The merge and focused tests do not establish operator acceptance of the full DEMO or close J2. The next DEMO successor should update `ROADMAP-demo.md` under its own authorized lease; that file is currently leased by PR #810.
