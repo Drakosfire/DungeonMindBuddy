@@ -1,18 +1,20 @@
 # HANDOFF — DEMO: World-owned Runbook foundation
 
-**Status:** BLOCKED — activation proposal is complete; awaiting PRIME activation; no code write lease
+**Status:** ACTIVE — PRIME explicitly activated the Phase A lease
 **Steward:** DEMO task 01a0efc8-f3a8-7be2-a556-33eb338338e8
 **Repository:** Drakosfire/DungeonMindBuddy
 **Pinned proposal base:** Buddy main at 36deec27e8a963cdb75bdb67609e15547786b446, the merge of #806
 **Design predecessor:** #806, reviewed head 16974eee5f4904f907cdb4d57b170affa1107a15, merged at 36deec27e8a963cdb75bdb67609e15547786b446
 **Architecture ruling:** ARCHITECTURE task 01a086f2-c457-7b10-b753-df6063cab1ce, 2026-09-30
-**Proposed implementation branch:** codex/demo-world-runbook-foundation, to be created only after PRIME activates this handoff and re-anchors main
+**PRIME activation:** after #807 merged; explicit activation pins main at f59395a9c5677b1beb46402b7de6c148a5ef6e8d
+**Implementation branch:** codex/demo-world-runbook-foundation in /home/drakosfire/.codex/worktrees/8b2b/DungeonMindBuddy
 **Topology:** Serial Phase A predecessor to Phase B in HANDOFF-DEMO-world-owned-play-runs.md; one open implementation PR for this workstream
 
-This is a concrete activation proposal, not an ACTIVE lease. Do not edit the
-implementation paths below until PRIME explicitly activates this handoff. If
-main or the open-PR inventory changes before activation, re-anchor and have
-PRIME repin the base and any affected paths.
+PRIME explicitly activated this bounded Phase A lane after reviewing #807.
+The implementation branch was created from the exact authorized main base
+f59395a9c5677b1beb46402b7de6c148a5ef6e8d. The path allowlist below is now an
+exclusive write lease. If a required path falls outside it, stop before editing
+and return to PRIME for an explicit transfer or split.
 
 ## Capability and owner invariant
 
@@ -45,9 +47,9 @@ no owner field. Runbook creation and committed-revision ownership are therefore
 campaign-only today. ARCHITECTURE ruled that the exact pinned Runbook revision
 is the canonical Run owner source; campaign equality is not authority.
 
-## Proposed exclusive write lease
+## ACTIVE exclusive write lease
 
-After activation, the lane may edit only these paths:
+The lane may edit only these paths:
 
 ~~~text
 src/application_state/content/types.py
@@ -120,14 +122,35 @@ cache. No baseline test assertions ran; this is an environment limitation, not
 a reported test failure. Recheck after PRIME activation in the authorized test
 environment and record any inherited failure before implementation changes.
 
+Post-activation environment recheck on 2026-09-30: the fixture's local test
+admin at `127.0.0.1:54329` was not accepting connections (`pg_isready` reported
+no response). After project dependencies were available, the focused new
+World Runbook exact-revision test reached fixture setup but failed before
+collection/assertions when the fixture could not connect to create its unique
+`dungeonbuddy_app_state_test_<uuid>` database (`connection refused`). No test
+database was created, no migration or test body ran, and no PostgreSQL service
+was started. The full focused suite remains pending this disposable target.
+
+Implementation checkpoint on 2026-09-30: the active lease now adds World-owned
+Runbook Content creation, persists and checks `WorkRevision.world_id`, backfills
+only explicit existing WorkObject owners, fences mismatched revision owners,
+and rejects World Runbooks on campaign Play V1 before Run/manifest writes. Added
+tests exercise exact historical Runbook resolution, bad scope/digest/owner,
+imported campaign ownership, existing World Plan ownership, migration backfill
+without campaign-ID inference, and V1 no-persistence behavior. Python compilation,
+scoped Ruff 0.15.7, `git diff --check`, and Alembic offline upgrade/downgrade
+rendering pass; Alembic reports single head `20260929_0008`. These checks do not
+replace the required PostgreSQL execution, which remains pending the local test
+admin target becoming available.
+
 ## Collision and predecessor audit
 
-The refreshed open PR inventory on 2026-09-29 was #798, #781, #763, #764, #765,
-#760, and #761. Their current file lists cover backlog records, the interaction
-map, Rules Lawyer routes/services/UI and dependencies, and UI design handoffs.
-None overlaps the proposed application-state, workspace registry service,
-tests, or roadmap paths. Recheck exact PR files and active leases immediately
-before activation; this inventory is a snapshot, not a lasting lease ruling.
+After #807 merged, the refreshed open PR inventory was #798, #781, #763, #764,
+#765, #760, and #761. Their exact file lists cover backlog records, the
+interaction map, Rules Lawyer routes/services/UI and dependencies, and UI
+design handoffs. None overlaps this Phase A lease. This collision check is a
+snapshot; recheck exact PR files and active leases before any transfer or
+successor slice.
 
 Phase A follows the merged #806 design and is serial. Do not dispatch Phase B
 until the Phase A PR is merged and its exact owning-boundary witness passes.
@@ -139,12 +162,14 @@ Play conversation remain a later successor.
 
 ## Activation and handback
 
-PRIME must explicitly set this handoff ACTIVE and pin the implementation
-branch/base, exact write lease, verification commands, disposable test target,
-and serial PR topology before any code edit. The proposed base is
-36deec27e8a963cdb75bdb67609e15547786b446; re-fetch main and refresh open PRs
-and active leases at activation. The current checkout branch holding this
-proposal is a docs branch and is not the implementation lane.
+PRIME's activation pins base
+f59395a9c5677b1beb46402b7de6c148a5ef6e8d, branch
+codex/demo-world-runbook-foundation, this exact path allowlist, the five-suite
+pytest command above, and one serial implementation PR before Phase B. Main was
+fetched and current open PR files were checked after #807 merged. The
+application-state fixture creates a unique disposable database, but verify
+the configured test-admin target is the intended local test PostgreSQL before
+running the suite; never use a persistent demo database.
 
 After implementation, inspect the cumulative base-to-head diff, run the owning
 tests, record exact evidence and inherited failures here and in ROADMAP-demo,

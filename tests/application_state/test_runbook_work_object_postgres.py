@@ -126,8 +126,10 @@ def test_historical_revision_survives_newer_commit(
         expected_revision=first.object_revision,
     )
     assert second_revision.revision_n == 2
+    assert first_revision.world_id is None
     loaded = exact_committed_revision(str(created.work_object_id), 1, kind="runbook")
     assert loaded.work_revision.revision_n == 1
+    assert loaded.work_revision.world_id is None
     assert loaded.work_revision.markdown == "# revision one\n"
     assert loaded.work_revision.work_revision_id == first_revision.work_revision_id
     current = get_committed_playable_revision(str(created.work_object_id))
@@ -505,3 +507,155 @@ def test_pathless_runbook_prepare_and_commit_receipts_agree(
     assert "out/workspace/" not in committed.target_relpath
     fake = tmp_path / "out" / "workspace" / "runbook" / f"{created.document_id}.md"
     assert not fake.exists()
+
+
+def test_world_runbook_revision_owner_is_pinned_to_exact_revision(
+    application_state_dsn: str,
+) -> None:
+    from application_state.content.service import (
+        commit_runbook,
+        create_world_runbook,
+        exact_committed_revision,
+    )
+    from application_state.content.types import sha256_utf8
+    from application_state.errors import (
+        ApplicationStateConflictError,
+        ApplicationStateNotFoundError,
+        ApplicationStateValidationError,
+    )
+
+    created = create_world_runbook(title="World Runbook", world_id="demo-world-a")
+    first, first_revision = commit_runbook(
+        str(created.work_object_id),
+        "# first runbook revision\n",
+        expected_revision=created.object_revision,
+    )
+    assert first.world_id == "demo-world-a"
+    assert first.campaign_id is None
+    assert first.target_session is None
+    assert first_revision.world_id == "demo-world-a"
+
+    _, second_revision = commit_runbook(
+        str(first.work_object_id),
+        "# second runbook revision\n",
+        expected_revision=first.object_revision,
+    )
+    assert second_revision.revision_n == 2
+    assert second_revision.world_id == "demo-world-a"
+
+    historical = exact_committed_revision(
+        str(created.work_object_id),
+        1,
+        kind="runbook",
+        expected_sha256=sha256_utf8("# first runbook revision\n"),
+        expected_world_id="demo-world-a",
+    )
+    assert historical.work_revision.work_revision_id == first_revision.work_revision_id
+    assert historical.work_revision.work_object_id == created.work_object_id
+    assert historical.work_revision.world_id == "demo-world-a"
+    assert historical.work_revision.markdown == "# first runbook revision\n"
+
+    with pytest.raises(ApplicationStateValidationError, match="expected_sha256"):
+        exact_committed_revision(
+            str(created.work_object_id),
+            1,
+            kind="runbook",
+        )
+
+    with pytest.raises(ApplicationStateConflictError, match="selected World"):
+        exact_committed_revision(
+            str(created.work_object_id),
+            1,
+            kind="runbook",
+            expected_sha256=sha256_utf8("# first runbook revision\n"),
+            expected_world_id="demo-world-b",
+        )
+    with pytest.raises(ApplicationStateConflictError, match="SHA mismatch"):
+        exact_committed_revision(
+            str(created.work_object_id),
+            1,
+            kind="runbook",
+            expected_sha256=sha256_utf8("# wrong bytes\n"),
+            expected_world_id="demo-world-a",
+        )
+    with pytest.raises(ApplicationStateNotFoundError, match="never retained"):
+        exact_committed_revision(
+            str(created.work_object_id),
+            3,
+            kind="runbook",
+            expected_sha256=sha256_utf8("# missing revision\n"),
+        )
+
+
+def test_world_runbook_scope_rejects_blank_or_mixed_owner(
+    application_state_dsn: str,
+) -> None:
+    from application_state.content.service import create_world_runbook, create_work_object
+    from application_state.errors import ApplicationStateValidationError
+
+    with pytest.raises(ApplicationStateValidationError, match="world_id is required"):
+        create_world_runbook(title="Invalid", world_id="  ")
+    with pytest.raises(ApplicationStateValidationError, match="cannot also have campaign_id"):
+        create_work_object(
+            kind="runbook",
+            title="Invalid",
+            campaign_id="campaign-a",
+            world_id="demo-world-a",
+        )
+    with pytest.raises(ApplicationStateValidationError, match="cannot have target_session"):
+        create_work_object(
+            kind="runbook",
+            title="Invalid",
+            campaign_id=None,
+            world_id="demo-world-a",
+            target_session=2,
+        )
+
+
+def test_repository_and_database_reject_mismatched_revision_world_owner(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+
+    from application_state.config import load_runtime_dsn
+    from application_state.content import repository as repo
+    from application_state.content.service import create_world_runbook
+    from application_state.content.types import WorkRevision, sha256_utf8
+    from application_state.errors import ApplicationStateIntegrityError
+    from application_state.unit_of_work import unit_of_work
+
+    obj = create_world_runbook(title="Owner guard", world_id="demo-world-a")
+    markdown = "# invalid owner\n"
+    bad_revision = WorkRevision(
+        work_revision_id=UUID("cccccccc-cccc-4ccc-8ccc-cccccccccccc"),
+        work_object_id=obj.work_object_id,
+        world_id="demo-world-b",
+        revision_n=1,
+        markdown=markdown,
+        content_sha256=sha256_utf8(markdown),
+        created_at=repo.now_utc(),
+    )
+    dsn = load_runtime_dsn()
+    with unit_of_work(dsn) as conn:
+        with pytest.raises(ApplicationStateIntegrityError, match="does not match"):
+            repo.insert_work_revision(conn, bad_revision)
+
+    with pytest.raises(psycopg.errors.RaiseException, match="does not match"):
+        with unit_of_work(dsn) as conn:
+            conn.execute(
+                """
+                INSERT INTO content.work_revision (
+                    work_revision_id, work_object_id, world_id, revision_n,
+                    markdown, content_sha256, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    bad_revision.work_revision_id,
+                    bad_revision.work_object_id,
+                    bad_revision.world_id,
+                    bad_revision.revision_n,
+                    bad_revision.markdown,
+                    bad_revision.content_sha256,
+                    bad_revision.created_at,
+                ),
+            )

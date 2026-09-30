@@ -144,13 +144,23 @@ def update_work_object(
 def insert_work_revision(
     conn: psycopg.Connection, revision: WorkRevision
 ) -> WorkRevision:
+    owner = get_work_object(conn, revision.work_object_id)
+    if owner is None:
+        raise ApplicationStateIntegrityError(
+            "work_revision owner WorkObject does not exist"
+        )
+    if revision.world_id != owner.world_id:
+        raise ApplicationStateIntegrityError(
+            "work_revision World owner does not match its WorkObject"
+        )
     conn.execute(
         """
         INSERT INTO content.work_revision (
-            work_revision_id, work_object_id, revision_n, markdown, content_sha256, created_at
+            work_revision_id, work_object_id, world_id, revision_n, markdown,
+            content_sha256, created_at
         )
         VALUES (
-            %(work_revision_id)s, %(work_object_id)s, %(revision_n)s,
+            %(work_revision_id)s, %(work_object_id)s, %(world_id)s, %(revision_n)s,
             %(markdown)s, %(content_sha256)s, %(created_at)s
         )
         """,
@@ -168,7 +178,8 @@ def get_work_revision(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            SELECT work_revision_id, work_object_id, revision_n, markdown, content_sha256, created_at
+            SELECT work_revision_id, work_object_id, world_id, revision_n,
+                   markdown, content_sha256, created_at
             FROM content.work_revision
             WHERE work_revision_id = %s
             """,
@@ -184,7 +195,8 @@ def get_work_revision_by_n(
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            SELECT work_revision_id, work_object_id, revision_n, markdown, content_sha256, created_at
+            SELECT work_revision_id, work_object_id, world_id, revision_n,
+                   markdown, content_sha256, created_at
             FROM content.work_revision
             WHERE work_object_id = %s AND revision_n = %s
             """,

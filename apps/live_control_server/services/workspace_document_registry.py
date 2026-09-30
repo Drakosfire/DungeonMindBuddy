@@ -66,6 +66,11 @@ def _record_from_work_object(
     )
     world_id = getattr(obj, "world_id", None)
     campaign_id = getattr(obj, "campaign_id", None)
+    if obj.kind == "runbook" and world_id is not None:
+        raise WorkspaceDocumentRegistryError(
+            "World-owned Runbooks are not available through campaign V1",
+            status_code=422,
+        )
     if obj.kind == "plan" and world_id is not None and campaign_id is None:
         return WorldOwnedPlanRecordV2(world_id=world_id, **values)
     return WorkspaceDocumentRecord(
@@ -921,6 +926,11 @@ def get_committed_playable_revision(
                 f"workspace document not found: {canonical_id}", status_code=404
             )
         is_world_plan = obj.world_id is not None
+        if obj.kind == "runbook" and is_world_plan:
+            raise WorkspaceDocumentRegistryError(
+                "World-owned Runbooks are not available through campaign V1",
+                status_code=422,
+            )
         if is_world_plan and (obj.kind != "plan" or obj.campaign_id is not None):
             raise WorkspaceDocumentRegistryError(
                 "World-owned committed revisions are only valid for World Plans",

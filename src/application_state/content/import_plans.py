@@ -60,7 +60,10 @@ def import_plans_from_registry(root: Path, records: list[object]) -> ImportRepor
 def _import_one(conn, root: Path, record: object) -> str:
     document_id = UUID(str(getattr(record, "document_id")))
     title = str(getattr(record, "title"))
-    campaign_id = str(getattr(record, "campaign_id"))
+    campaign_value = getattr(record, "campaign_id", None)
+    campaign_id = str(campaign_value) if campaign_value is not None else None
+    world_value = getattr(record, "world_id", None)
+    world_id = str(world_value) if world_value is not None else None
     status = str(getattr(record, "status"))
     content_status = str(getattr(record, "content_status"))
     revision_n = int(getattr(record, "revision"))
@@ -80,6 +83,8 @@ def _import_one(conn, root: Path, record: object) -> str:
         return _replay_or_conflict(
             conn,
             existing,
+            campaign_id=campaign_id,
+            world_id=world_id,
             digest=digest,
             revision_n=revision_n,
             content_status=content_status,
@@ -97,6 +102,7 @@ def _import_one(conn, root: Path, record: object) -> str:
         work_object_id=document_id,
         kind="plan",
         campaign_id=campaign_id,
+        world_id=world_id,
         title=title,
         target_session=target_session,
         target_relpath=target_relpath,
@@ -111,6 +117,7 @@ def _import_one(conn, root: Path, record: object) -> str:
         revision = WorkRevision(
             work_revision_id=uuid4(),
             work_object_id=document_id,
+            world_id=obj.world_id,
             revision_n=revision_n,
             markdown=markdown,
             content_sha256=digest,
@@ -157,11 +164,21 @@ def _replay_or_conflict(
     conn,
     existing: WorkObject,
     *,
+    campaign_id: str | None,
+    world_id: str | None,
     digest: str,
     revision_n: int,
     content_status: str,
     markdown: str,
 ) -> str:
+    if (
+        existing.kind != "plan"
+        or existing.campaign_id != campaign_id
+        or existing.world_id != world_id
+    ):
+        raise ApplicationStateConflictError(
+            f"plan {existing.work_object_id} owner conflict; refusing overwrite"
+        )
     if existing.object_revision != revision_n:
         raise ApplicationStateConflictError(
             f"plan {existing.work_object_id} already exists with different revision"
@@ -179,6 +196,10 @@ def _replay_or_conflict(
         if current.revision_n != revision_n:
             raise ApplicationStateConflictError(
                 f"plan {existing.work_object_id} revision_n conflict; refusing overwrite"
+            )
+        if current.world_id != existing.world_id:
+            raise ApplicationStateConflictError(
+                f"plan {existing.work_object_id} World owner conflict; refusing overwrite"
             )
         return "noop"
     working = repo.get_working_copy(conn, existing.work_object_id)

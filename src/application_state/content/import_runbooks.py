@@ -80,6 +80,10 @@ def _import_one(conn, snapshot: FrozenLegacyRunbook) -> str:
     document_id = UUID(str(getattr(record, "document_id")))
     title = str(getattr(record, "title"))
     campaign_id = str(getattr(record, "campaign_id"))
+    if getattr(record, "world_id", None) is not None:
+        raise ApplicationStateConflictError(
+            "campaign Runbook import cannot adopt a World-owned Runbook"
+        )
     status = str(getattr(record, "status"))
     content_status = str(getattr(record, "content_status"))
     revision_n = int(getattr(record, "revision"))
@@ -102,6 +106,7 @@ def _import_one(conn, snapshot: FrozenLegacyRunbook) -> str:
         return _replay_or_conflict(
             conn,
             existing,
+            campaign_id=campaign_id,
             digest=digest,
             revision_n=revision_n,
             content_status=content_status,
@@ -118,6 +123,7 @@ def _import_one(conn, snapshot: FrozenLegacyRunbook) -> str:
         work_object_id=document_id,
         kind="runbook",
         campaign_id=campaign_id,
+        world_id=None,
         title=title,
         target_session=target_session,
         target_relpath=target_relpath,
@@ -132,6 +138,7 @@ def _import_one(conn, snapshot: FrozenLegacyRunbook) -> str:
         revision = WorkRevision(
             work_revision_id=uuid4(),
             work_object_id=document_id,
+            world_id=obj.world_id,
             revision_n=revision_n,
             markdown=markdown,
             content_sha256=digest,
@@ -178,6 +185,7 @@ def _replay_or_conflict(
     conn,
     existing: WorkObject,
     *,
+    campaign_id: str,
     digest: str,
     revision_n: int,
     content_status: str,
@@ -186,6 +194,10 @@ def _replay_or_conflict(
     if existing.kind != "runbook":
         raise ApplicationStateConflictError(
             f"{existing.work_object_id} already exists as kind={existing.kind}"
+        )
+    if existing.campaign_id != campaign_id or existing.world_id is not None:
+        raise ApplicationStateConflictError(
+            f"runbook {existing.work_object_id} owner conflict; refusing overwrite"
         )
     if existing.object_revision != revision_n:
         raise ApplicationStateConflictError(
@@ -204,6 +216,10 @@ def _replay_or_conflict(
         if current.revision_n != revision_n:
             raise ApplicationStateConflictError(
                 f"runbook {existing.work_object_id} revision_n conflict; refusing overwrite"
+            )
+        if current.world_id != existing.world_id:
+            raise ApplicationStateConflictError(
+                f"runbook {existing.work_object_id} World owner conflict; refusing overwrite"
             )
         return "noop"
     working = repo.get_working_copy(conn, existing.work_object_id)

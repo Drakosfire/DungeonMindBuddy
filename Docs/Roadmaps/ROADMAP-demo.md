@@ -186,9 +186,14 @@ successor after C. PRIME passed the final #806 head
 `36deec27e8a963cdb75bdb67609e15547786b446`. The separate
 [`HANDOFF-DEMO-world-owned-runbook-foundation.md`](../Plans/HANDOFF-DEMO-world-owned-runbook-foundation.md)
 now proposes Phase A's exact Content ownership, migration, resolver, campaign
-compatibility witness, path lease, and test command. It remains BLOCKED with no
-implementation lease until PRIME explicitly activates it after re-anchoring
-main and current PR/lease state. Build, Ingest and Combat Agent adoption
+compatibility witness, path lease, and test command. After Buddy #807 merged,
+PRIME re-anchored main at `f59395a9c5677b1beb46402b7de6c148a5ef6e8d` and
+explicitly activated the serial implementation lease on branch
+`codex/demo-world-runbook-foundation`. The exact leased paths and five-suite
+owning-boundary witness are in the Phase A handoff; no implementation PR is
+open yet. The disposable test admin at `127.0.0.1:54329` did not respond on
+2026-09-30, so no database-backed verification has run or runtime has been
+started. Build, Ingest and Combat Agent adoption
 remain open after Play. Campaign-owner/campaign-lens stays fail-closed. The
 visual rejection remains open and is not waived by Agent work. J1–J6 remain
 unaccepted until connected product witnesses pass.
