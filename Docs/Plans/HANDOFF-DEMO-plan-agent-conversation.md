@@ -22,6 +22,11 @@ instance, World owner, saved Plan document ID, expected document revision, and
 no local Markdown, title, path, fake document ID, or browser thread scope. A
 saved dirty editor is reported as `saved_dirty`; a clean one is `saved_clean`.
 
+The transcript uses a browser-local namespace isolated by the independently
+verified World and exact saved Plan document ID. It does not adopt a legacy
+campaign Plan thread or provider pointer. The local namespace token is storage
+metadata only; it is never serialized as owner or work authority.
+
 The current `PlanAgentInteractionBar` remains the owner of existing campaign
 Plan retrieval/citation and reviewed document-edit proposal behavior. This
 slice does not route those flows through the new endpoint and does not alter
@@ -100,9 +105,11 @@ typed endpoint and existing Plan snapshot/write APIs. Prove:
    `surface_id="plan"`, current leased instance, World ID, saved document ID,
    and expected revision. The graph request is explicitly `none` with no
    selection; the UI makes no retrieval or citation claim.
-2. The actual answer and bounded per-turn resolved owner/work/graph/provider
-   facts are visible and survive thread reload. No trace, source prose, local
-   Markdown or path persists in the new summary.
+2. The actual answer and bounded per-turn resolved owner/work/provider facts,
+   including the revision actually used, are visible and survive thread
+   reload. Switching to another saved Plan and returning/reloading must not
+   cross transcripts. No trace, source prose, local Markdown, storage token,
+   or path persists in the new summary or wire request.
 3. Clean/dirty saved state is reported accurately. A local unsaved draft has
    no enabled generic Ask and causes no endpoint call or fabricated document
    ID. Campaign-target Plan requests are not sent through this new path.
@@ -112,8 +119,10 @@ typed endpoint and existing Plan snapshot/write APIs. Prove:
    `changed_since_expected` result may render its answer only with a visible
    status naming both expected and actually used revisions.
 5. Pending responses are suppressed after World, Plan document, expected
-   revision, route, or thread replacement/unmount. Existing campaign Plan
-   Ask/citation and reviewed document-edit proposal regressions still pass.
+   revision, route, or thread replacement/unmount. Switching Plans and
+   returning/reloading restores only that World/document transcript. Existing
+   campaign Plan Ask/citation and reviewed document-edit proposal regressions
+   still pass.
 
 Run the focused World Plan and legacy Plan Agent tests, relevant API/history
 tests, UI typecheck, and cumulative base-to-head diff review. Name inherited
