@@ -122,14 +122,23 @@ cache. No baseline test assertions ran; this is an environment limitation, not
 a reported test failure. Recheck after PRIME activation in the authorized test
 environment and record any inherited failure before implementation changes.
 
-Post-activation environment recheck on 2026-09-30: the fixture's local test
-admin at `127.0.0.1:54329` was not accepting connections (`pg_isready` reported
-no response). After project dependencies were available, the focused new
-World Runbook exact-revision test reached fixture setup but failed before
-collection/assertions when the fixture could not connect to create its unique
-`dungeonbuddy_app_state_test_<uuid>` database (`connection refused`). No test
-database was created, no migration or test body ran, and no PostgreSQL service
-was started. The full focused suite remains pending this disposable target.
+Initial post-activation environment check on 2026-09-30: the fixture's default
+test admin at `127.0.0.1:54329` was not accepting connections. The focused new
+World Runbook exact-revision test failed during fixture setup before creating
+its unique `dungeonbuddy_app_state_test_<uuid>` database; no migration or test
+body ran. No PostgreSQL service was started for that attempt.
+
+Resolved owning-boundary witness on 2026-09-30: PRIME provisioned a separate
+PostgreSQL 16 container with tmpfs storage on `127.0.0.1:55429`; it is distinct
+from the persistent demo targets `54330`/`54331`. The five-suite command below
+ran with `DMB_APPLICATION_STATE_TEST_DATABASE_URL` pointing to that container's
+`postgres` admin database. The fixture created and dropped its uniquely named
+disposable database. Result: **53 passed, 11 Pydantic `schema`-field shadow
+warnings, 35.18 seconds**. No test failed. The fixtures applied the migration
+and exercised the PostgreSQL-backed Content and campaign Play V1 boundaries.
+This verifies the isolated PostgreSQL 16 test lane; it does not claim a
+persistent demo migration or connected product rehearsal. No demo database,
+provider, corpus, or shared runtime was used.
 
 Implementation checkpoint on 2026-09-30: the active lease now adds World-owned
 Runbook Content creation, persists and checks `WorkRevision.world_id`, backfills
@@ -137,13 +146,12 @@ only explicit existing WorkObject owners, fences mismatched revision owners,
 and rejects World Runbooks on campaign Play V1 before Run/manifest writes. Added
 tests exercise exact historical Runbook resolution, bad scope/digest/owner,
 imported campaign ownership, existing World Plan ownership, migration backfill
-without campaign-ID inference, and V1 no-persistence behavior. Python compilation,
-scoped Ruff 0.15.7, `git diff --check`, and Alembic offline upgrade/downgrade
-rendering pass; Alembic reports single head `20260929_0008`. These checks do not
-replace the required PostgreSQL execution, which remains pending the local test
-admin target becoming available. Draft implementation PR [#808](https://github.com/Drakosfire/DungeonMindBuddy/pull/808)
-was opened from code commit `77293a3f`; it must remain draft until the five-suite
-owning-boundary witness passes.
+without campaign-ID inference, and V1 no-persistence behavior. The five-suite
+PostgreSQL witness above passes. Python compilation, scoped Ruff 0.15.7,
+`git diff --check`, and Alembic offline upgrade/downgrade rendering also pass;
+Alembic reports single head `20260929_0008`. Draft implementation PR [#808](https://github.com/Drakosfire/DungeonMindBuddy/pull/808)
+was opened from code commit `77293a3f`; it remains draft pending PRIME's final
+exact-head review.
 
 ## Collision and predecessor audit
 
