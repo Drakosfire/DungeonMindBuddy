@@ -141,7 +141,9 @@ without campaign-ID inference, and V1 no-persistence behavior. Python compilatio
 scoped Ruff 0.15.7, `git diff --check`, and Alembic offline upgrade/downgrade
 rendering pass; Alembic reports single head `20260929_0008`. These checks do not
 replace the required PostgreSQL execution, which remains pending the local test
-admin target becoming available.
+admin target becoming available. Draft implementation PR [#808](https://github.com/Drakosfire/DungeonMindBuddy/pull/808)
+was opened from code commit `77293a3f`; it must remain draft until the five-suite
+owning-boundary witness passes.
 
 ## Collision and predecessor audit
 

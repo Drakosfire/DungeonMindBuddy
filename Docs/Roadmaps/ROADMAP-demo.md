@@ -159,8 +159,10 @@ must not claim document QA, retrieval, quotation, citation or editing.
 Content-aware Plan assistance needs a separate owner-reviewed server-side
 content-access contract.
 
-**Next Play prerequisite — BLOCKED:** before adopting Agent on Play, Buddy needs
-an explicit World-owned Runbook/PlayRun owner contract. Current generic Agent
+**Next Play prerequisite — Phase A ACTIVE; Play Agent adoption remains
+BLOCKED:** ARCHITECTURE adopted the explicit owner contract, but the World
+Runbook Content chain, versioned PlayRun V2, and audited consumer migration
+have not landed. Current generic Agent
 `_work_resolver` supports `kind="plan"` only; PlayRun V1 exposes only
 `campaign_id`, current Runbook creation/committed revision is campaign-only,
 and World-scoped Play consumers compare that field to the selected World.
@@ -185,15 +187,18 @@ successor after C. PRIME passed the final #806 head
 `16974eee5f4904f907cdb4d57b170affa1107a15`, merged at
 `36deec27e8a963cdb75bdb67609e15547786b446`. The separate
 [`HANDOFF-DEMO-world-owned-runbook-foundation.md`](../Plans/HANDOFF-DEMO-world-owned-runbook-foundation.md)
-now proposes Phase A's exact Content ownership, migration, resolver, campaign
+pins Phase A's exact Content ownership, migration, resolver, campaign
 compatibility witness, path lease, and test command. After Buddy #807 merged,
 PRIME re-anchored main at `f59395a9c5677b1beb46402b7de6c148a5ef6e8d` and
 explicitly activated the serial implementation lease on branch
-`codex/demo-world-runbook-foundation`. The exact leased paths and five-suite
-owning-boundary witness are in the Phase A handoff; no implementation PR is
-open yet. The disposable test admin at `127.0.0.1:54329` did not respond on
-2026-09-30, so no database-backed verification has run or runtime has been
-started. Build, Ingest and Combat Agent adoption
+`codex/demo-world-runbook-foundation`. Implementation PR [#808](https://github.com/Drakosfire/DungeonMindBuddy/pull/808)
+is open as draft from code commit `77293a3f`; it remains pending the five-suite
+owning-boundary witness. The disposable test admin at `127.0.0.1:54329` refused
+the focused test's connection before fixture database creation on 2026-09-30.
+No database or service was created or started. Python compilation, scoped Ruff,
+diff checks, and offline Alembic upgrade/downgrade rendering pass, but no
+database-backed test or migration execution is claimed. Build, Ingest and
+Combat Agent adoption
 remain open after Play. Campaign-owner/campaign-lens stays fail-closed. The
 visual rejection remains open and is not waived by Agent work. J1–J6 remain
 unaccepted until connected product witnesses pass.
