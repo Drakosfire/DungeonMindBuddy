@@ -175,3 +175,25 @@ The active lease above is the sole write authority. Deliver one PR titled
 owning-boundary evidence, inherited failures, and remaining gates to PRIME for
 independent implementation review and merge control. This implementation does
 not claim full DEMO acceptance.
+
+## Implementation verification record
+
+Implementation is on `codex/demo-plan-agent-conversation`, based on fetched
+`origin/main` at `7a4159f447da715a2a5d586b862a7079b7316929` (Buddy #804).
+The current focused run passes all 147 tests: `PlanSurfacePage.test.tsx` 35,
+`agentInteractionHistory.test.ts` 32, and `liveApi.test.ts` 80. The mounted
+reviewed Plan edit regression passes (1/1); previously selected Plan shell
+regressions passed (3/3). These are mocked UI/API checks, not a live provider or
+runtime witness.
+
+The UI typecheck remains blocked by the existing error
+`src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503: Cannot
+find namespace 'JSX'`; no typecheck error pointed to this slice. The
+out-of-lease `PlanAgentInteractionBar.test.tsx` run is 3/8 passing and 5 failing
+because each failure cannot find the existing `Capture Plan target` button;
+this slice did not edit that component or test, and those paths are outside its
+write lease. No edits were made to address that separate failure.
+
+`git diff --check` passes. No live provider, server, port, database, corpus,
+runtime state, or product generation was used or changed. PRIME still owns
+independent review, broader DEMO acceptance, and merge disposition.

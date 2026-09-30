@@ -31,6 +31,7 @@ import {
   putPlayRunReferenceManifest,
   postLiveQuery,
   postIndexAgentTurn,
+  postWorldPlanAgentTurn,
   postThreatQueryHydration,
   postWorldGraphProjection,
   postWorldGraphCompleteObject,
@@ -69,6 +70,7 @@ import type {
   ProjectionWriteResult,
   StoreStatblockDraftRequest,
   TiptapMarkdownWritePrepareResponse,
+  WorldPlanAgentTurnRequestV1,
   WorkspaceDocumentRecord,
 } from "./types";
 
@@ -113,6 +115,34 @@ describe("Index Agent turn transport", () => {
       graph_selection: null,
       message: "Hello",
     })).rejects.toMatchObject({ name: "LiveApiError", status: 409 });
+  });
+});
+
+describe("World Plan Agent turn transport", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("posts the exact saved-Plan no-graph request to the accepted endpoint", async () => {
+    const request: WorldPlanAgentTurnRequestV1 = {
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: "thread-world-plan",
+      turn_id: "turn-world-plan",
+      surface: { surface_id: "plan", instance_id: "plan-instance" },
+      owner_scope: { kind: "world", world_id: "world-a" },
+      primary_work: { kind: "plan", object_id: "document-1", expected_revision: 3 },
+      client_work_state: "saved_dirty",
+      graph_request: { mode: "none" },
+      graph_selection: null,
+      message: "How should I organize this session?",
+    };
+    const response = { schema: "dmb_agent_turn_response_v1", turn_id: request.turn_id };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(response));
+
+    await expect(postWorldPlanAgentTurn(request)).resolves.toEqual(response);
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/turn");
+    expect(fetchSpy.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
+    expect(JSON.stringify(request)).not.toContain("local-plan:");
   });
 });
 

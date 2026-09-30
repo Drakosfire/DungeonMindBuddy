@@ -143,6 +143,93 @@ describe("agentInteractionHistory", () => {
     });
   });
 
+  it("persists only bounded resolved World Plan turn facts and rejects injected summary fields", () => {
+    const thread = createAgentInteractionThread(
+      "world-plan-agent:world-a:document-1",
+      null,
+      "plan",
+      "hermes",
+      "World Plan chat",
+      "document-1",
+    );
+    thread.turns = [{
+      turnId: "world-plan-turn-1",
+      askedAt: "2026-09-30T00:00:00Z",
+      question: "How should I organize this session?",
+      answer: "Group the scenes by location.",
+      backend: "hermes",
+      status: "ok",
+      agentTurnResolved: {
+        surfaceId: "plan",
+        instanceId: "world-plan-instance",
+        ownerStatus: "resolved",
+        ownerId: "world-a",
+        workKind: "plan",
+        workObjectId: "document-1",
+        workStatus: "changed_since_expected",
+        expectedRevision: 2,
+        revisionUsed: 3,
+        clientWorkState: "saved_dirty",
+        graphStatus: "not_requested",
+        pointerStatus: "reused",
+        sourceProse: "RAW_PLAN_MARKDOWN_SECRET",
+        pointerId: "RAW_PROVIDER_POINTER_SECRET",
+        localScopeToken: "RAW_LOCAL_SCOPE_SECRET",
+      } as AgentInteractionThread["turns"][number]["agentTurnResolved"],
+    }];
+
+    persistAgentThread(thread);
+
+    const stored = localStorage.getItem(threadStorageKey(thread.campaignId, thread.threadId)) ?? "";
+    expect(stored).not.toContain("RAW_PLAN_MARKDOWN_SECRET");
+    expect(stored).not.toContain("RAW_PROVIDER_POINTER_SECRET");
+    expect(stored).not.toContain("RAW_LOCAL_SCOPE_SECRET");
+    expect(loadAgentThreadById(thread.campaignId, thread.threadId)?.turns[0].agentTurnResolved).toEqual({
+      surfaceId: "plan",
+      instanceId: "world-plan-instance",
+      ownerStatus: "resolved",
+      ownerId: "world-a",
+      workKind: "plan",
+      workObjectId: "document-1",
+      workStatus: "changed_since_expected",
+      expectedRevision: 2,
+      revisionUsed: 3,
+      clientWorkState: "saved_dirty",
+      graphStatus: "not_requested",
+      pointerStatus: "reused",
+    });
+  });
+
+  it("drops a World Plan resolved summary with contradictory revision status", () => {
+    const thread = createAgentInteractionThread("world-plan-agent:world-a:document-1", null, "plan");
+    thread.turns = [{
+      turnId: "world-plan-turn-2",
+      askedAt: "2026-09-30T00:00:00Z",
+      question: "Question",
+      answer: "Answer",
+      backend: "hermes",
+      status: "ok",
+      agentTurnResolved: {
+        surfaceId: "plan",
+        instanceId: "world-plan-instance",
+        ownerStatus: "resolved",
+        ownerId: "world-a",
+        workKind: "plan",
+        workObjectId: "document-1",
+        workStatus: "changed_since_expected",
+        expectedRevision: 2,
+        revisionUsed: 2,
+        clientWorkState: "saved_clean",
+        graphStatus: "not_requested",
+        pointerStatus: "accepted",
+      },
+    }];
+
+    persistAgentThread(thread);
+
+    expect(loadAgentThreadById(thread.campaignId, thread.threadId)?.turns[0].agentTurnResolved).toBeNull();
+  });
+
   it("keeps bounded reviewed Plan proposal turns in the existing thread", () => {
     const thread = makeThread();
     thread.turns[0].backend = "plan_edit";

@@ -5,6 +5,7 @@ import type {
   AgentInteractionThread,
   AgentInteractionTurn,
   IndexAgentTurnResolvedSummary,
+  WorldPlanAgentTurnResolvedSummary,
   AgentInteractionTurnMeta,
   LiveQueryBackend,
   AgentInteractionTrace,
@@ -700,6 +701,53 @@ function safeIndexAgentTurnResolved(value: unknown): IndexAgentTurnResolvedSumma
   };
 }
 
+function safeWorldPlanAgentTurnResolved(value: unknown): WorldPlanAgentTurnResolvedSummary | null {
+  if (!isRecord(value)) return null;
+  if (value.surfaceId !== "plan"
+    || value.ownerStatus !== "resolved"
+    || value.workKind !== "plan"
+    || !["resolved", "changed_since_expected"].includes(String(value.workStatus))
+    || !["saved_clean", "saved_dirty"].includes(String(value.clientWorkState))
+    || value.graphStatus !== "not_requested"
+    || !["absent", "accepted", "recovered", "rejected", "reused"].includes(String(value.pointerStatus))
+    || typeof value.expectedRevision !== "number"
+    || !Number.isSafeInteger(value.expectedRevision)
+    || value.expectedRevision < 1
+    || typeof value.revisionUsed !== "number"
+    || !Number.isSafeInteger(value.revisionUsed)
+    || value.revisionUsed < 1
+    || (value.workStatus === "resolved") !== (value.revisionUsed === value.expectedRevision)) return null;
+
+  const instanceId = truncatePersistedString(value.instanceId);
+  const ownerId = truncatePersistedString(value.ownerId);
+  const workObjectId = truncatePersistedString(value.workObjectId);
+  if (!instanceId || !ownerId || !workObjectId) return null;
+
+  return {
+    surfaceId: "plan",
+    instanceId,
+    ownerStatus: "resolved",
+    ownerId,
+    workKind: "plan",
+    workObjectId,
+    workStatus: value.workStatus as WorldPlanAgentTurnResolvedSummary["workStatus"],
+    expectedRevision: value.expectedRevision,
+    revisionUsed: value.revisionUsed,
+    clientWorkState: value.clientWorkState as WorldPlanAgentTurnResolvedSummary["clientWorkState"],
+    graphStatus: "not_requested",
+    pointerStatus: value.pointerStatus as WorldPlanAgentTurnResolvedSummary["pointerStatus"],
+  };
+}
+
+function safeAgentTurnResolved(
+  value: unknown,
+): IndexAgentTurnResolvedSummary | WorldPlanAgentTurnResolvedSummary | null {
+  if (!isRecord(value)) return null;
+  if (value.surfaceId === "index") return safeIndexAgentTurnResolved(value);
+  if (value.surfaceId === "plan") return safeWorldPlanAgentTurnResolved(value);
+  return null;
+}
+
 /** Re-validate grounding/citations and re-project Hermes traces on load and write. */
 export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteractionTurn {
   if (isHermesGraphTurn(turn)) {
@@ -709,7 +757,7 @@ export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteract
       : turn.trace;
     return {
       ...turn,
-      agentTurnResolved: safeIndexAgentTurnResolved(turn.agentTurnResolved),
+      agentTurnResolved: safeAgentTurnResolved(turn.agentTurnResolved),
       planEdit: safePlanEditForPersistence(turn),
       grounding: validated.grounding,
       citations: validated.citations,
@@ -723,7 +771,7 @@ export function sanitizePersistedTurn(turn: AgentInteractionTurn): AgentInteract
   const citations = Array.isArray(turn.citations) ? turn.citations : [];
   return {
     ...turn,
-    agentTurnResolved: safeIndexAgentTurnResolved(turn.agentTurnResolved),
+    agentTurnResolved: safeAgentTurnResolved(turn.agentTurnResolved),
     planEdit: safePlanEditForPersistence(turn),
     citations: citations.filter((citation) => {
       if (!citation || typeof citation !== "object") return false;

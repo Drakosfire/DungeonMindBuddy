@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import type { ReactElement, ReactNode } from "react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { StrictMode, type ReactElement, type ReactNode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
@@ -7,6 +7,16 @@ import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/Select
 import type { WorldOwnedPlanRecordV2 } from "../api/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
 import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
+import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
+import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
+import type { WorldPlanAgentTurnRequestV1, WorldPlanAgentTurnResponseV1 } from "../api/types";
+import {
+  activeThreadStorageKey,
+  createAgentInteractionThread,
+  persistAgentThread,
+  threadIndexStorageKey,
+  threadStorageKey,
+} from "../agentInteraction/agentInteractionStorage";
 
 const chromeCapture = vi.hoisted(() => ({ editorTools: null as unknown }));
 
@@ -110,6 +120,104 @@ function VerifiedPlanPage() {
   ) : <span>{selected.kind}</span>;
 }
 
+function AgentEnabledPlanPage() {
+  const selected = useSelectedWorld();
+  return selected.kind === "managed" ? (
+    <AgentInteractionProvider>
+      <AskPluginSlotProvider>
+        <PlanSurfacePage />
+        <AgentInteractionChrome />
+      </AskPluginSlotProvider>
+    </AgentInteractionProvider>
+  ) : <span>{selected.kind}</span>;
+}
+
+const savedAgentPlanId = "saved-plan-agent-test";
+const savedAgentPlanText = "# Private Plan prose\nThe keeper waits beneath the black arch.\n";
+
+function planAgentNamespace(documentId = savedAgentPlanId) {
+  return `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
+}
+
+function mockSavedPlanForAgent(documentId = savedAgentPlanId, revision = 7) {
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  const record = worldPlanRecord(documentId, worldId, revision);
+  record.title = "Of Conks Session Plan";
+  record.target_relpath = `out/workspace/plan/${documentId}.md`;
+  vi.spyOn(liveApi, "getWorkspaceDocumentAny").mockResolvedValue(record);
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{
+      schema_version: "dmb_world_container_record_v1",
+      world_id: worldId,
+      name: "Of Conks",
+      source_root_relpath: "corpus/of-conks-cons-demo-markdown",
+      created_at: "2026-01-01T00:00:00Z",
+    }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [record],
+  });
+  vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockResolvedValue({
+    schema_version: "dmb_workspace_document_snapshot_v2",
+    record,
+    markdown: savedAgentPlanText,
+    content_sha256: "b".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: revision,
+  });
+  return record;
+}
+
+function worldPlanAgentResponse(request: WorldPlanAgentTurnRequestV1): WorldPlanAgentTurnResponseV1 {
+  return {
+    schema: "dmb_agent_turn_response_v1",
+    client_thread_id: request.client_thread_id,
+    turn_id: request.turn_id,
+    surface: { surface_id: "plan", instance_id: request.surface.instance_id, status: "resolved" },
+    owner_scope: { status: "resolved", kind: "world", owner_id: request.owner_scope.world_id, name: "Of Conks" },
+    primary_work: {
+      status: "resolved",
+      kind: "plan",
+      object_id: request.primary_work.object_id,
+      revision_used: request.primary_work.expected_revision,
+      expected_revision: request.primary_work.expected_revision,
+    },
+    client_work_state_reported: request.client_work_state,
+    graph: {
+      status: "not_requested",
+      world_id: null,
+      campaign_id: null,
+      scope_mode: null,
+      revision_id: null,
+      focus: null,
+      selection_node_id: null,
+      selection_found: null,
+      head_revision_id: null,
+      is_head: null,
+    },
+    conversation: {
+      client_thread_id: request.client_thread_id,
+      turn_id: request.turn_id,
+      pointer_status: "absent",
+      pointer_id: null,
+    },
+    answer: {
+      status: "ok",
+      text: "I can see the saved Plan title and revision metadata, but not its prose.",
+      code: null,
+      message: null,
+      graph_grounded: false,
+      trace: { raw_source: "MUST_NOT_BE_PERSISTED" },
+    },
+  };
+}
+
 function PublicationProbe() {
   const { surfaceInteractionBasePublication } = useAgentInteraction();
   const publication = surfaceInteractionBasePublication;
@@ -124,7 +232,416 @@ function PublicationProbe() {
 afterEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
+  window.history.replaceState({}, "", "/");
   chromeCapture.editorTools = null;
+});
+
+it("keeps the local blank Plan out of Agent scope until it has been saved", async () => {
+  window.history.replaceState({}, "", `/plan?world=${worldId}`);
+  vi.spyOn(liveApi, "getManagedWorldPlanContext").mockResolvedValue(managedContext(worldId));
+  vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+    schema_version: "dmb_world_container_registry_v1",
+    records: [{
+      schema_version: "dmb_world_container_record_v1",
+      world_id: worldId,
+      name: "Of Conks",
+      source_root_relpath: "corpus/of-conks-cons-demo-markdown",
+      created_at: "2026-01-01T00:00:00Z",
+    }],
+  });
+  vi.spyOn(liveApi, "listWorldOwnedPlans").mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [],
+  });
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  expect(await screen.findByText("Save this Plan to start an Agent conversation.")).toBeInTheDocument();
+  expect(screen.queryByTestId("agent-interaction-chrome")).not.toBeInTheDocument();
+  expect(postTurn).not.toHaveBeenCalled();
+});
+
+it("uses only the exact saved World Plan identity and metadata in its conversation request", async () => {
+  mockSavedPlanForAgent();
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+    const response = worldPlanAgentResponse(request);
+    response.primary_work.status = "changed_since_expected";
+    response.primary_work.revision_used = request.primary_work.expected_revision + 1;
+    return response;
+  });
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  expect(await screen.findByRole("region", { name: "Saved World Plan conversation" })).toBeInTheDocument();
+  expect(screen.getByText(/does not read its text/)).toBeInTheDocument();
+
+  act(() => capturedPlanControls().changeTitle({ target: { value: "Unsaved local title" } }));
+  fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "What Plan metadata can you see?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  expect(await screen.findByText(/I can see the saved Plan title and revision metadata/)).toBeInTheDocument();
+  expect(screen.getByText(/Expected revision 7; answered from revision 8\./)).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "And what is its saved revision?" } });
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(2));
+  expect(await screen.findAllByText(/I can see the saved Plan title and revision metadata/)).toHaveLength(2);
+
+  const [request, followUpRequest] = postTurn.mock.calls.map(([value]) => value);
+  expect(followUpRequest.client_thread_id).toBe(request.client_thread_id);
+  expect(followUpRequest.turn_id).not.toBe(request.turn_id);
+  expect(Object.keys(request).sort()).toEqual([
+    "client_thread_id",
+    "client_work_state",
+    "graph_request",
+    "graph_selection",
+    "message",
+    "owner_scope",
+    "primary_work",
+    "schema",
+    "surface",
+    "turn_id",
+  ].sort());
+  expect(request).toMatchObject({
+    schema: "dmb_agent_turn_request_v1",
+    surface: { surface_id: "plan", instance_id: screen.getByTestId("world-plan-context-identity").textContent },
+    owner_scope: { kind: "world", world_id: worldId },
+    primary_work: { kind: "plan", object_id: savedAgentPlanId, expected_revision: 7 },
+    client_work_state: "saved_dirty",
+    graph_request: { mode: "none" },
+    graph_selection: null,
+    message: "What Plan metadata can you see?",
+  });
+  expect(JSON.stringify(request)).not.toContain(savedAgentPlanText);
+  expect(JSON.stringify(request)).not.toContain("Of Conks Session Plan");
+  expect(JSON.stringify(request)).not.toContain(`out/workspace/plan/${savedAgentPlanId}.md`);
+  expect(JSON.stringify(request)).not.toContain(planAgentNamespace());
+
+  const stored = JSON.parse(localStorage.getItem(threadStorageKey(planAgentNamespace(), request.client_thread_id)) ?? "null");
+  expect(stored.turns[0].agentTurnResolved).toMatchObject({
+    ownerId: worldId,
+    workObjectId: savedAgentPlanId,
+    expectedRevision: 7,
+    revisionUsed: 8,
+    workStatus: "changed_since_expected",
+    clientWorkState: "saved_dirty",
+  });
+  expect(stored.turns).toHaveLength(2);
+  expect(stored.turns.map((turn: { question: string }) => turn.question)).toEqual([
+    "And what is its saved revision?",
+    "What Plan metadata can you see?",
+  ]);
+  expect(JSON.stringify(stored)).not.toContain(savedAgentPlanText);
+  expect(JSON.stringify(stored)).not.toContain("MUST_NOT_BE_PERSISTED");
+});
+
+it("keeps Ask disabled for an unresolved pending write", async () => {
+  mockSavedPlanForAgent();
+  localStorage.setItem(`dmb:world-plan-local-draft:v2:${worldId}`, JSON.stringify({
+    schema_version: "dmb_plan_promotion_recovery_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: savedAgentPlanId,
+    title: "Of Conks Session Plan",
+    markdown: savedAgentPlanText,
+    revision: 7,
+    edit_generation: 1,
+    pending_write: {
+      phase: "commit",
+      base_revision: 7,
+      prepared_revision: 8,
+      base_markdown: "# Previous committed Plan\n",
+      markdown: savedAgentPlanText,
+      edit_generation: 1,
+    },
+  }));
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  expect(await screen.findByText("Conversation paused while the Plan is saving.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Your question")).toBeDisabled();
+  expect(within(screen.getByRole("region", { name: "Saved World Plan conversation" })).getByRole("button", { name: "Saving…" })).toBeDisabled();
+  expect(postTurn).not.toHaveBeenCalled();
+});
+
+it("isolates Plan conversations when switching saved documents and after reload", async () => {
+  const documentA = savedAgentPlanId;
+  const documentB = "saved-plan-agent-test-b";
+  const recordA = mockSavedPlanForAgent(documentA);
+  const recordB = worldPlanRecord(documentB, worldId, 4);
+  recordB.title = "Second Of Conks Plan";
+  const snapshot = (record: WorldOwnedPlanRecordV2, text: string) => ({
+    schema_version: "dmb_workspace_document_snapshot_v2" as const,
+    record,
+    markdown: text,
+    content_sha256: "d".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: record.revision,
+  });
+  vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [recordA, recordB],
+  });
+  vi.mocked(liveApi.getWorkspaceDocumentAny).mockResolvedValue(recordA);
+  vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(async (id) =>
+    id === documentB ? snapshot(recordB, "# Second Plan text\n") : snapshot(recordA, savedAgentPlanText));
+
+  const makeThread = (documentId: string, answer: string) => {
+    const thread = createAgentInteractionThread(
+      planAgentNamespace(documentId), null, "plan", "hermes", `${documentId} conversation`, documentId,
+    );
+    thread.turns = [{
+      turnId: `${documentId}-turn`,
+      askedAt: "2026-09-30T00:00:00Z",
+      completedAt: "2026-09-30T00:00:01Z",
+      question: `${documentId} question`,
+      answer,
+      backend: "hermes",
+      status: "ok",
+      agentTurnResolved: null,
+    }];
+    persistAgentThread(thread);
+  };
+  makeThread(documentA, "Plan A transcript answer");
+  makeThread(documentB, "Plan B transcript answer");
+
+  const view = render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${documentA}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  expect(await screen.findByText("Plan A transcript answer")).toBeInTheDocument();
+
+  fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: documentB } });
+  expect(await screen.findByText("Plan B transcript answer")).toBeInTheDocument();
+  expect(screen.queryByText("Plan A transcript answer")).not.toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: documentA } });
+  expect(await screen.findByText("Plan A transcript answer")).toBeInTheDocument();
+  expect(screen.queryByText("Plan B transcript answer")).not.toBeInTheDocument();
+
+  view.unmount();
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${documentA}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  expect(await screen.findByText("Plan A transcript answer")).toBeInTheDocument();
+  expect(screen.queryByText("Plan B transcript answer")).not.toBeInTheDocument();
+});
+
+it("drops a pending turn when the selected saved Plan changes", async () => {
+  const documentA = savedAgentPlanId;
+  const documentB = "saved-plan-agent-test-b";
+  const recordA = mockSavedPlanForAgent(documentA);
+  const recordB = worldPlanRecord(documentB, worldId, 4);
+  recordB.title = "Second Of Conks Plan";
+  const snapshot = (record: WorldOwnedPlanRecordV2, markdown: string) => ({
+    schema_version: "dmb_workspace_document_snapshot_v2" as const,
+    record,
+    markdown,
+    content_sha256: "e".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: record.revision,
+  });
+  vi.mocked(liveApi.listWorldOwnedPlans).mockResolvedValue({
+    schema_version: "dmb_workspace_document_registry_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    records: [recordA, recordB],
+  });
+  vi.mocked(liveApi.getWorkspaceDocumentAny).mockResolvedValue(recordA);
+  vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockImplementation(async (id) =>
+    id === documentB ? snapshot(recordB, "# Second Plan text\n") : snapshot(recordA, savedAgentPlanText));
+  let resolveTurn!: (value: WorldPlanAgentTurnResponseV1) => void;
+  const pendingTurn = new Promise<WorldPlanAgentTurnResponseV1>((resolve) => { resolveTurn = resolve; });
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockReturnValue(pendingTurn);
+
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${documentA}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.change(await screen.findByLabelText("Your question"), { target: { value: "This answer belongs only to Plan A." } });
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(1));
+  const request = postTurn.mock.calls[0][0];
+
+  fireEvent.change(screen.getByLabelText("Plan document"), { target: { value: documentB } });
+  expect(await screen.findByText("Ask a general question to start a conversation associated with this Plan.")).toBeInTheDocument();
+  await act(async () => resolveTurn(worldPlanAgentResponse(request)));
+
+  expect(screen.queryByText("This answer belongs only to Plan A.")).not.toBeInTheDocument();
+  expect(screen.queryByText(/saved Plan title and revision metadata/)).not.toBeInTheDocument();
+  expect(localStorage.getItem(threadStorageKey(planAgentNamespace(documentA), request.client_thread_id))).toBeNull();
+  expect(localStorage.getItem(activeThreadStorageKey(planAgentNamespace(documentA), "plan", documentA))).toBeNull();
+});
+
+it("does not send the prepared revision while its Plan save is still committing", async () => {
+  const record = mockSavedPlanForAgent();
+  let releasePrepare!: (value: Awaited<ReturnType<typeof liveApi.prepareTiptapMarkdownWrite>>) => void;
+  const pendingPrepare = new Promise<Awaited<ReturnType<typeof liveApi.prepareTiptapMarkdownWrite>>>((resolve) => {
+    releasePrepare = resolve;
+  });
+  let releaseCommit!: (value: Awaited<ReturnType<typeof liveApi.commitWorldOwnedPlanMarkdownWrite>>) => void;
+  const pendingCommit = new Promise<Awaited<ReturnType<typeof liveApi.commitWorldOwnedPlanMarkdownWrite>>>((resolve) => {
+    releaseCommit = resolve;
+  });
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockReturnValue(pendingPrepare);
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockReturnValue(pendingCommit);
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  expect(await screen.findByLabelText("Your question")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await waitFor(() => expect(prepare).toHaveBeenCalledTimes(1));
+  expect(screen.getByText("Conversation paused while the Plan is saving.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Your question")).toBeDisabled();
+  expect(within(screen.getByRole("region", { name: "Saved World Plan conversation" })).getByRole("button", { name: "Saving…" })).toBeDisabled();
+  expect(postTurn).not.toHaveBeenCalled();
+
+  await act(async () => releasePrepare({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: record.document_id,
+    title: record.title,
+    target_relpath: record.target_relpath!,
+    target_display_path: record.target_relpath!,
+    registry_revision: 8,
+    file_exists: true,
+    writer_ok: true,
+    writer_confirm_token: "prepared-token",
+    warnings: [],
+    diagnostics: [],
+  }));
+  await waitFor(() => expect(commit).toHaveBeenCalledTimes(1));
+  expect(screen.getByLabelText("Your question")).toBeDisabled();
+  expect(postTurn).not.toHaveBeenCalled();
+
+  await act(async () => releaseCommit({
+    schema_version: "dmb_tiptap_markdown_write_commit_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: record.document_id,
+    title: record.title,
+    target_relpath: record.target_relpath!,
+    target_display_path: record.target_relpath!,
+    registry_revision: 8,
+    committed_revision: 8,
+    committed_record: { ...record, revision: 8 },
+    normalized_content_sha256: "c".repeat(64),
+    writer_ok: true,
+    writer_phase: "commit",
+    diagnostics: [],
+  }));
+  await screen.findByText("Saved to this World.");
+});
+
+const invalidWorldPlanResponses: Array<[string, (response: WorldPlanAgentTurnResponseV1) => void]> = [
+  ["a different Plan ID", (response) => { response.primary_work.object_id = "another-plan"; }],
+  ["a different expected revision", (response) => { response.primary_work.expected_revision = 8; }],
+  ["a contradictory used revision", (response) => { response.primary_work.revision_used = 8; }],
+  ["a different top-level thread ID", (response) => { response.client_thread_id = "another-thread"; }],
+  ["a different nested thread ID", (response) => { response.conversation.client_thread_id = "another-thread"; }],
+  ["a different top-level turn ID", (response) => { response.turn_id = "another-turn"; }],
+  ["a different nested turn ID", (response) => { response.conversation.turn_id = "another-turn"; }],
+  ["a different surface instance", (response) => { response.surface.instance_id = "another-surface"; }],
+  ["a rejected surface paired with a valid answer", (response) => { response.surface.status = "rejected"; }],
+  ["an unavailable surface paired with a valid answer", (response) => { response.surface.status = "unavailable"; }],
+  ["a requested graph", (response) => { response.graph.status = "ready"; }],
+  ["graph scope data despite no graph request", (response) => { response.graph.world_id = worldId; }],
+  ["a graph focus despite no graph request", (response) => { response.graph.focus = { node_id: "node-1" }; }],
+  ["a graph-grounded answer", (response) => { response.answer.graph_grounded = true; }],
+  ["an error answer", (response) => { response.answer.status = "error"; }],
+  ["a blank answer", (response) => { response.answer.text = "  "; }],
+  ["a malformed answer shape", (response) => { delete (response.answer as { trace?: Record<string, unknown> }).trace; }],
+];
+
+it.each(invalidWorldPlanResponses)("persists no first-turn transcript for %s", async (_description, mutate) => {
+  mockSavedPlanForAgent();
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+    const response = worldPlanAgentResponse(request);
+    mutate(response);
+    return response;
+  });
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.change(await screen.findByLabelText("Your question"), { target: { value: "Question that must not be saved" } });
+  fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(/response|turn|revision|Plan/i);
+  expect(postTurn).toHaveBeenCalledTimes(1);
+
+  const request = postTurn.mock.calls[0][0];
+  const namespace = planAgentNamespace();
+  expect(localStorage.getItem(threadStorageKey(namespace, request.client_thread_id))).toBeNull();
+  expect(localStorage.getItem(activeThreadStorageKey(namespace, "plan", savedAgentPlanId))).toBeNull();
+  expect(screen.queryByText("DungeonBuddy: Question that must not be saved")).not.toBeInTheDocument();
+  expect(screen.queryByText(/I can see the saved Plan title/)).not.toBeInTheDocument();
+});
+
+it("clears a scoped legacy provider pointer after mount without a render-phase update or duplicate thread persist", async () => {
+  const namespace = planAgentNamespace();
+  const legacyThread = createAgentInteractionThread(namespace, null, "plan", "hermes", "Legacy Plan thread", savedAgentPlanId);
+  legacyThread.hermesSession = { sessionId: "legacy-provider-pointer", runtime: "api" };
+  persistAgentThread(legacyThread);
+  const storedThreadKey = threadStorageKey(namespace, legacyThread.threadId);
+  const setItem = vi.spyOn(Storage.prototype, "setItem");
+  const consoleError = vi.spyOn(console, "error").mockImplementation(() => undefined);
+  mockSavedPlanForAgent();
+
+  render(
+    <StrictMode>
+      <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+        <AgentEnabledPlanPage />
+      </SelectedWorldProvider>
+    </StrictMode>,
+  );
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  await waitFor(() => {
+    const stored = JSON.parse(localStorage.getItem(storedThreadKey) ?? "null");
+    expect(stored.hermesSession).toBeNull();
+  });
+  expect(JSON.parse(localStorage.getItem(storedThreadKey) ?? "null").turns).toEqual([]);
+  expect(JSON.parse(localStorage.getItem(threadIndexStorageKey(namespace, "plan", savedAgentPlanId)) ?? "{}").threads[0].hermesSessionId).toBeNull();
+  expect(setItem.mock.calls.filter(([key]) => key === storedThreadKey)).toHaveLength(1);
+  expect(consoleError.mock.calls.flat().join(" ")).not.toMatch(/Cannot update a component.*while rendering/i);
 });
 
 it("saves a blank managed World Plan through the exact World-scoped V2 contract", async () => {
