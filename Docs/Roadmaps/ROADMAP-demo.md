@@ -82,12 +82,18 @@ around a large blank slab. The operator re-viewed the actual route on
 2026-09-29 and again rejected it as awful, boundaryless, and default-styled.
 J2 composition code is integrated, but J2 and operator acceptance remain open;
 the existence of border declarations or theme tokens is not product acceptance.
-The bounded successor design is now proposed in
-[HANDOFF-DEMO-J2-plan-canvas-visual-acceptance-v1](../Plans/HANDOFF-DEMO-J2-plan-canvas-visual-acceptance-v1.md),
-design branch `codex/demo-plan-canvas-visual-boundary-design`, handoff commit
-`16ee6adc3c7c601ba40d741457d81cd7d82f091a`. It has no production-code
-changes or active implementation lease and remains subject to PRIME review and
-merge. #789 stays historical; its visual result is not accepted.
+Buddy PR [#793](https://github.com/Drakosfire/DungeonMindBuddy/pull/793) was
+closed unmerged on 2026-09-29 after its broad shell/identity/visual scope and
+unavailable isolated-runtime witness stalled progress. Its source branch remains
+preserved at `e122c7073ba8c79dcd428b608da5c8e92bc53abb`; that code is not
+on `main` and its visual evidence is not product acceptance. The operator
+approved a fresh DEMO steward and three serial, bounded replacements: (1)
+prevent outgoing Plan edits while another document loads, (2) publish exact
+World Plan saved/local-draft identity, and (3) put title/Save/format/insertion
+in AppChrome/EditHost with stale-command fencing. [The steward handoff](../Plans/STEWARDS-HANDOFF-demo.md)
+pins their boundaries. No successor PR or active implementation lease exists yet.
+The visual theme remains parked on the preserved #793 branch for a separate
+appearance decision. #789 stays historical; J2 and operator acceptance remain open.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
