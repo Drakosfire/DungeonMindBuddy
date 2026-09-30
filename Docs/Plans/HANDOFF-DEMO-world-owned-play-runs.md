@@ -19,9 +19,13 @@ PRIME held initial PR #806 head `12821bc55dd7e2e2b2406665cdc59334f7c1021b`
 for a revision, then passed the revised design at
 `2656d90807fc8331943cd75faccda1e0ddc0fc23`. PRIME accepted the explicit
 versioned response plan that preserves strict campaign V1 clients and the
-three separately reviewable serial gates. Phase A implementation has not been
-activated and has no code lease; PRIME will coordinate its separate ACTIVE
-handoff after the design merge and re-anchor.
+three separately reviewable serial gates. Final reviewed head
+`16974eee5f4904f907cdb4d57b170affa1107a15` merged as
+`36deec27e8a963cdb75bdb67609e15547786b446`. The separate
+[`HANDOFF-DEMO-world-owned-runbook-foundation.md`](HANDOFF-DEMO-world-owned-runbook-foundation.md)
+pins the proposed Phase A scope and tests. It remains BLOCKED with no code lease
+until PRIME explicitly activates it after refreshing main, open PRs, and active
+leases.
 
 ## User transition and capability
 
@@ -200,8 +204,10 @@ handoff is not an implementation path allowlist.
 - Legacy Runs without an explicitly World-owned pinned Runbook remain unbound;
   a matching campaign string does not repair or authorize them.
 - A failed owner or pin check returns a typed failure before any dependent
-  mutation. No migration edits existing ownership, and no live database or
-  product runtime is part of this capability's test lane.
+  mutation. No migration assigns ownership to a legacy Run. Phase A may copy
+  an already-explicit WorkObject owner onto that same object's committed
+  revisions; it must never infer ownership from campaign_id. No live database
+  or product runtime is part of this capability's test lane.
 
 ## Owning-boundary evidence
 
@@ -234,10 +240,14 @@ repositories, dependencies, and runtime state remain out of scope.
 ## Activation gate and handback
 
 PRIME accepted the revised design at exact head
-`2656d90807fc8331943cd75faccda1e0ddc0fc23`. Phase A is not yet active; PRIME
-will coordinate a separate ACTIVE handoff with an exact serial path lease after
-the design merges. Re-anchor Buddy main and all open PRs before every phase; the
-2026-09-30 inventory (#798, #781, #760–#761, #763–#765) is only a snapshot.
+`16974eee5f4904f907cdb4d57b170affa1107a15`; #806 merged at
+`36deec27e8a963cdb75bdb67609e15547786b446`. A separate Phase A activation
+proposal is recorded in
+[`HANDOFF-DEMO-world-owned-runbook-foundation.md`](HANDOFF-DEMO-world-owned-runbook-foundation.md).
+It remains BLOCKED and grants no implementation lease until PRIME explicitly
+activates it after re-anchoring main, open PRs, and active leases.
+Re-anchor Buddy main and all open PRs before every phase; the 2026-09-30
+inventory (#798, #781, #760–#761, #763–#765) is only a snapshot.
 Confirm the World-owned Runbook contract remains Buddy-owned and does not
 require a new DungeonMind or WorldKeeper authority. Before Phase B, review all
 storage readers and any migration separately from the API version. Do not start
