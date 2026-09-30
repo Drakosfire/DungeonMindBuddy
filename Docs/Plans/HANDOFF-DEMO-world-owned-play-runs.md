@@ -1,17 +1,16 @@
 # HANDOFF — DEMO: World-owned Play Runs
 
-**Status:** BLOCKED — PRIME accepted the design; Phase A is not activated and has no implementation lease
+**Status:** DESIGN ACCEPTED — Phase A merged; Phase B ACTIVE; Phase C BLOCKED
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Pinned base:** Buddy `main@f23d43d714b7aba68d940bbcb4cceb027f3c63e1`, including the merge of #805
-**Topology:** Serial gates A → B → C, each with its own ACTIVE handoff and PR; generic Agent Run resolution and Play Agent UI follow as a separate successor
+**Design base:** Buddy `main@f23d43d714b7aba68d940bbcb4cceb027f3c63e1`, including the merge of #805
+**Topology:** Serial gates A → B → C, each with its own ACTIVE handoff and PR; A is merged, B is active, C is blocked. Generic Agent Run resolution and Play Agent UI follow as a separate successor.
 **Architecture ruling:** ARCHITECTURE task `01a086f2-c457-7b10-b753-df6063cab1ce`, 2026-09-30, after the current PlayRun consumer audit
 
-This BLOCKED document records the Buddy-owned contract and a three-gate serial
-design. It is not one implementation allowlist and grants no code write lease.
-Do not begin a phase until PRIME accepts this design and activates a separate
-`ACTIVE` handoff with that phase's exact path allowlist, base, verification
-commands, and PR topology.
+This design document records the Buddy-owned contract and three-gate serial
+sequence. It is not an implementation allowlist. The active Phase B write
+lease, base, branch, and verification commands are in the separate
+[`HANDOFF-DEMO-world-play-run-v2-backend.md`](HANDOFF-DEMO-world-play-run-v2-backend.md).
 
 ## Design-review checkpoint
 
@@ -21,11 +20,13 @@ for a revision, then passed the revised design at
 versioned response plan that preserves strict campaign V1 clients and the
 three separately reviewable serial gates. Final reviewed head
 `16974eee5f4904f907cdb4d57b170affa1107a15` merged as
-`36deec27e8a963cdb75bdb67609e15547786b446`. The separate
-[`HANDOFF-DEMO-world-owned-runbook-foundation.md`](HANDOFF-DEMO-world-owned-runbook-foundation.md)
-pins the proposed Phase A scope and tests. It remains BLOCKED with no code lease
-until PRIME explicitly activates it after refreshing main, open PRs, and active
-leases.
+`36deec27e8a963cdb75bdb67609e15547786b446`. Phase A Buddy PR #808 then merged
+at `6c6a8ab48d568c2827fca4ce019d701beb473166`; its final evidence head
+`ed09199b56206a0d3b7a6262380a1352ea567849` passed the five-suite PostgreSQL
+owning-boundary witness (53 passed, 11 Pydantic `schema`-field shadow warnings,
+35.18 seconds) on a separate PostgreSQL 16 tmpfs target. Phase A establishes
+explicit World ownership on the exact World-owned Runbook revision; it does
+not create Play Runs or change their storage.
 
 ## User transition and capability
 
@@ -60,13 +61,15 @@ ARCHITECTURE's ruling after the consumer audit establishes these decisions:
    progress, rebase, and World Run reference-manifest operations use that same
    World-scoped family. The request's World scope is an expectation to verify
    against the exact pinned Runbook revision, not an authority source.
-5. API versioning does not choose the PlayRun storage migration. Before Phase B
-   enables World operations, separately audit the V1 `campaign_id NOT NULL`
-   storage consumers. A reserved locator such as `world:<world_id>` is allowed
-   internally only if every reader treats it as opaque and non-authoritative;
-   otherwise review a typed/index or nullable-storage change. Do not expose the
-   locator, use it for Campaign queries, or let it compete with the Runbook's
-   canonical World binding.
+5. Phase B's reviewed storage strategy adds nullable `play.run.world_id`, makes
+   `campaign_id` nullable, and enforces exactly one owner with a database check;
+   a World index supports scoped list queries. Existing rows keep
+   `world_id = NULL`, including rows where `campaign_id` happens to equal a
+   World ID. No tagged locator, synthetic Campaign, or inferred backfill is
+   allowed. The exact pinned Runbook revision remains canonical; stored
+   `world_id` is only a checked list hint. Campaign V1 and default product
+   continuity inventory remain campaign-only, and downgrade refuses while
+   World-owned Run rows exist.
 6. Existing campaign V1 endpoints and records retain their exact behavior.
    Campaign list queries must never surface a World-only Run because a real
    Campaign ID matches an internal locator. An unbound legacy Run has no World
@@ -159,33 +162,22 @@ report exact Run/run revision, artifact/playable revision, and current
 Beat/Scene. It must never use the browser's published pointer or `campaign_id`
 as authority.
 
-## Current boundary and why activation is blocked
+## Current boundary and phase status
 
-The current code on the pinned base does not implement that contract:
+Phase A is merged. World-owned Runbooks now carry explicit `world_id` on their
+WorkObject and committed revision, and the exact revision resolver verifies
+that owner. Campaign Runbook behavior remains supported. This establishes the
+Runbook owner contract only; PlayRun V1 still has campaign identity and its
+storage has no World owner field on the Phase B base.
 
-- `WorkObject.validate_scope` currently permits `world_id` only for Plan.
-- Runbook creation is campaign-only, and the committed playable-revision path
-  has World ownership handling only for Plan.
-- PlayRun V1 requires nonblank `campaign_id`; its row has no World field.
-- Run creation copies the Runbook's `campaign_id`; rebase checks equality with
-  that field.
-- `GET /play-runs` filters by `campaign_id`, and the UI uses the selected World
-  ID as that Campaign value.
-- Play UI and context code compare or publish `campaign_id` as if it named the
-  World: `PlaySurfacePage`, `StartRunPanel`, `playSurfaceAgentContext`, and
-  `RunbookTableDeck`. `nativeRunbookProjection` copies the committed
-  `campaign_id`; the separate `agent_play_surface_context` also requires a
-  Campaign match.
-- Generic `routes/agent.py::_work_resolver` still supports `kind="plan"` only;
-  a Run turn fails with `work_kind_unresolved`. The A7 Play context resolver is
-  separate and does not establish World ownership for generic Agent turns.
-
-The tagged-locator condition is therefore false today. All listed consumers
-must migrate to the typed resolved owner before World-owned Run creation is
-enabled, or that creation must stay unavailable to any consumer that cannot
-resolve it safely. Storage representation remains unresolved and must be
-reviewed independently from the V2 API shape during Phase B. This BLOCKED
-handoff is not an implementation path allowlist.
+Phase B is ACTIVE under
+[`HANDOFF-DEMO-world-play-run-v2-backend.md`](HANDOFF-DEMO-world-play-run-v2-backend.md),
+from `main@6c6a8ab48d568c2827fca4ce019d701beb473166` on branch
+`codex/demo-world-playruns-v2`. Its bounded capability is the V2 backend and
+the reviewed nullable-owner migration described above. The campaign admission
+path continues to reject World-owned Runbooks. The Play UI, global active-Run
+selection, and Agent context remain campaign-bound until a later authorized
+Phase C lease. Generic Agent Run resolution remains a separate successor.
 
 ## Invariants and failure cases
 
@@ -224,37 +216,45 @@ model even when compatibility campaign strings match, unbound legacy Run
 rejection, corrupted pin rejection, and a typed summary with exact World, Run,
 `run_revision`, artifact, playable revision, and current Beat/Scene.
 
-## Candidate areas to recheck at activation — not a write lease
+## Phase C and successor areas — not a write lease
 
-The contract likely touches World-scoped content types and committed revision
-resolution, Runbook creation, PlayRun service/registry/routes, API response and
-query types, Play surface/runbook/context consumers, migrations, and their
-owning tests. PRIME must pin the exact expected paths after inspecting current
-main and open PRs. The shared surface publisher contract is not included by
-default. If typed World context cannot reach a consumer without changing that
-contract, activation must add the exact Buddy-owned path to the write lease or
-keep that consumer unavailable for World-owned Runs until a later authorized
-slice. Generic Agent route/resolver, providers, graph publication, J3, external
-repositories, dependencies, and runtime state remain out of scope.
+Phase C must pin the exact Play surface, Runbook projection, and context
+consumer paths after re-anchoring main and open PRs. The shared surface
+publisher contract is not included by default. If typed World context cannot
+reach a consumer without changing that contract, activation must add the exact
+Buddy-owned path to its lease or keep that consumer unavailable until a later
+authorized slice. Generic Agent route/resolver, providers, graph publication,
+J3, external repositories, dependencies, and runtime state remain out of
+scope for the current Phase B lease.
 
 ## Activation gate and handback
 
 PRIME accepted the revised design at exact head
 `16974eee5f4904f907cdb4d57b170affa1107a15`; #806 merged at
-`36deec27e8a963cdb75bdb67609e15547786b446`. A separate Phase A activation
-proposal is recorded in
-[`HANDOFF-DEMO-world-owned-runbook-foundation.md`](HANDOFF-DEMO-world-owned-runbook-foundation.md).
-It remains BLOCKED and grants no implementation lease until PRIME explicitly
-activates it after re-anchoring main, open PRs, and active leases.
-Re-anchor Buddy main and all open PRs before every phase; the 2026-09-30
-inventory (#798, #781, #760–#761, #763–#765) is only a snapshot.
-Confirm the World-owned Runbook contract remains Buddy-owned and does not
-require a new DungeonMind or WorldKeeper authority. Before Phase B, review all
-storage readers and any migration separately from the API version. Do not start
-a database, server, provider, or corpus for these bounded slices.
+`36deec27e8a963cdb75bdb67609e15547786b446`. Phase A Buddy #808 merged at
+`6c6a8ab48d568c2827fca4ce019d701beb473166` after its final evidence head
+`ed09199b56206a0d3b7a6262380a1352ea567849` passed the PostgreSQL witness.
 
-After merge and owner-boundary verification, create a separate serial handoff
-for generic Agent Run resolution and Play Agent UI adoption. That later slice
+PRIME explicitly activated Phase B as one serial PR from that exact base on
+`codex/demo-world-playruns-v2`. The ACTIVE handoff is
+[`HANDOFF-DEMO-world-play-run-v2-backend.md`](HANDOFF-DEMO-world-play-run-v2-backend.md);
+its 16 paths are the exclusive write lease. At activation PRIME refreshed the
+open Buddy PR inventory (#798, #781, #760–#761, #763–#765) and found no overlap
+with the lease; #763/#765 touch the shared route registry, so this lane adds
+routes only to the already-registered `routes/play_runs.py`. The exact storage
+consumer audit selected nullable `world_id` plus nullable `campaign_id`, an
+exactly-one-owner check, a World index, no ownership backfill, campaign-only
+default inventory, and downgrade refusal while World rows remain. The prior
+Phase A PostgreSQL target was removed; PRIME will coordinate a fresh disposable
+PostgreSQL 16 tmpfs target before Phase B database tests. Do not start a product
+database, server, provider, or corpus for this slice.
+
+Phase C remains blocked until Phase B merges and its owning witness passes.
+Re-anchor main, open PRs, and active leases again before each later phase.
+
+After Phase C merges and passes its owner-boundary verification, create a
+separate serial handoff for generic Agent Run resolution and Play Agent UI
+adoption. That later slice
 must prove a real `POST /api/live/agent/turn` response is derived from the
 validated owner chain. Neither slice closes J1–J6, the rejected visual
 acceptance gate, the governed J3 read-after-write path, or operator acceptance.

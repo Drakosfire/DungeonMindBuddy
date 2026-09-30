@@ -159,52 +159,42 @@ must not claim document QA, retrieval, quotation, citation or editing.
 Content-aware Plan assistance needs a separate owner-reviewed server-side
 content-access contract.
 
-**Next Play prerequisite — Phase A ACTIVE; Play Agent adoption remains
-BLOCKED:** ARCHITECTURE adopted the explicit owner contract, but the World
-Runbook Content chain, versioned PlayRun V2, and audited consumer migration
-have not landed. Current generic Agent
-`_work_resolver` supports `kind="plan"` only; PlayRun V1 exposes only
-`campaign_id`, current Runbook creation/committed revision is campaign-only,
-and World-scoped Play consumers compare that field to the selected World.
-ARCHITECTURE's 2026-09-30 owner ruling adopts `world_id` on the exact World-
-owned Runbook revision as canonical and derives a Run's World through its
-pinned artifact/revision. A typed `world_id` in PlayRun list/detail responses
-must be server-derived from that pin; `campaign_id` may be retained only as a
-non-authoritative compatibility locator after all readers are migrated. Do not
-use campaign equality, synthesize a Campaign, or bind legacy Runs by ID match.
-PRIME held design PR #806's initial head
-`12821bc55dd7e2e2b2406665cdc59334f7c1021b` for explicit response versioning
-and smaller serial scope. The revised BLOCKED
-[`HANDOFF-DEMO-world-owned-play-runs.md`](../Plans/HANDOFF-DEMO-world-owned-play-runs.md)
-preserves strict campaign V1 behavior and proposes a separate versioned
-World-only V2 route family with a typed owner and no Campaign identity. It
-sequences three separately activated PRs: A, explicit World-owned Runbook
-identity/resolution without Run creation; B, the V2 PlayRun backend with exact
-pin/manifest checks and a separately reviewed storage strategy; C, migration of
-all audited Play/context consumers and the integrated World Run create/list/
-resume witness. Generic Agent Run resolution and Play UI remain a later
-successor after C. PRIME passed the final #806 head
-`16974eee5f4904f907cdb4d57b170affa1107a15`, merged at
-`36deec27e8a963cdb75bdb67609e15547786b446`. The separate
-[`HANDOFF-DEMO-world-owned-runbook-foundation.md`](../Plans/HANDOFF-DEMO-world-owned-runbook-foundation.md)
-pins Phase A's exact Content ownership, migration, resolver, campaign
-compatibility witness, path lease, and test command. After Buddy #807 merged,
-PRIME re-anchored main at `f59395a9c5677b1beb46402b7de6c148a5ef6e8d` and
-explicitly activated the serial implementation lease on branch
-`codex/demo-world-runbook-foundation`. Implementation PR [#808](https://github.com/Drakosfire/DungeonMindBuddy/pull/808)
-is open as draft; its code head `cbab140772c37e4cc71401ffe174e06887943d4a`
-passed the five-suite PostgreSQL owning-boundary witness on 2026-09-30: 53
-passed, 11 Pydantic `schema`-field shadow warnings, 35.18 seconds. PRIME
-provisioned a separate PostgreSQL 16 container with tmpfs storage on
-`127.0.0.1:55429`; the fixture created and dropped its uniquely named database
-there. This is isolated test evidence, not a persistent demo migration or
-connected rehearsal. The earlier attempt against the default `54329` test admin
-failed before database creation and is superseded. Python compilation, scoped
-Ruff, diff checks, and offline Alembic upgrade/downgrade rendering also pass.
-The draft awaits PRIME's final exact-head review. Build, Ingest and Combat Agent
-adoption remain open after Play. Campaign-owner/campaign-lens stays fail-closed.
-The visual rejection remains open and is not waived by Agent work. J1–J6 remain
-unaccepted until connected product witnesses pass.
+**Next Play prerequisite — Phase B ACTIVE; Play Agent adoption remains
+BLOCKED:** ARCHITECTURE's 2026-09-30 owner ruling makes `world_id` on the exact
+World-owned Runbook revision canonical and derives a Run's World through its
+pinned artifact/revision. Never use campaign equality, synthesize a Campaign,
+or bind legacy Runs by ID match. The accepted design preserves strict campaign
+PlayRun V1 and adds a separate World-only V2 route family. Phase A Buddy #808
+merged at `6c6a8ab48d568c2827fca4ce019d701beb473166`; final evidence head
+`ed09199b56206a0d3b7a6262380a1352ea567849` passed the five-suite PostgreSQL
+owning-boundary witness on 2026-09-30: 53 passed, 11 Pydantic `schema`-field
+shadow warnings, 35.18 seconds. This establishes World-owned Runbook revision
+identity; it did not create Runs or change PlayRun storage.
+
+PRIME explicitly activated one serial Phase B implementation PR from
+`main@6c6a8ab48d568c2827fca4ce019d701beb473166`, branch
+`codex/demo-world-playruns-v2`, under
+[`HANDOFF-DEMO-world-play-run-v2-backend.md`](../Plans/HANDOFF-DEMO-world-play-run-v2-backend.md).
+The exact 16-path lease adds nullable `play.run.world_id`, makes
+`campaign_id` nullable, enforces exactly one owner, and indexes World queries.
+Legacy ownership is never inferred; the stored World ID is only a checked hint,
+the exact Runbook revision is canonical, unfiltered V1/product-continuity
+inventory remains campaign-only, and downgrade refuses while World Runs exist.
+V2 list/detail/create/progress/rebase/manifest operations must validate the
+exact pin. V1 remains campaign-only, including its active-Run setter. PRIME's
+activation-time open PR inventory (#798, #781, #760–#761, #763–#765) had no
+overlap with this lease; shared `main.py` route registration is excluded. PRIME
+will provide a fresh disposable PostgreSQL 16 tmpfs target for the owning
+witness. No product server, persistent database, provider, or corpus is part of
+this backend slice.
+
+Phase C, which migrates audited Play/context consumers and proves World
+create/list/select/reload/resume, remains blocked until Phase B merges and its
+owning witness passes. Generic Agent Run resolution remains a later successor.
+Build, Ingest and Combat Agent adoption remain open after Play.
+Campaign-owner/campaign-lens stays fail-closed. The visual rejection remains
+open and is not waived by Agent work. J1–J6 remain unaccepted until connected
+product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:
