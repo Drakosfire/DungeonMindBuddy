@@ -18,6 +18,7 @@ from apps.live_control_server.services.play_run_rebase import (
     PlayRunRebaseError,
     RebasePlayRunRequest,
     rebase_or_replay_play_run,
+    rebase_or_replay_world_play_run,
 )
 from apps.live_control_server.services.play_run_registry import (
     CreatePlayRunRequest,
@@ -25,17 +26,25 @@ from apps.live_control_server.services.play_run_registry import (
     PlayRunRegistryError,
     PlayRunsListResponse,
     ReplacePlayRunProgressRequest,
+    WorldPlayRunRecord,
+    WorldPlayRunsListResponse,
     create_or_replay_play_run,
+    create_or_replay_world_play_run,
     ensure_v2_native_ready,
     get_play_run,
+    get_world_play_run,
     list_play_runs,
+    list_world_play_runs,
     replace_play_run_progress,
+    replace_world_play_run_progress,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
     AnyPlayRunReferenceManifest,
     PlayRunReferenceManifestError,
     get_play_run_reference_manifest,
+    get_world_play_run_reference_manifest,
     seal_or_replay_play_run_reference_manifest,
+    seal_or_replay_world_play_run_reference_manifest,
 )
 
 router = APIRouter(prefix="/api/live", tags=["play-runs"])
@@ -177,3 +186,143 @@ def get_play_run_route(
     except PlayRunRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
     return _record_response(record)
+
+
+@router.get("/world-play-runs/v2", response_model=WorldPlayRunsListResponse)
+def get_world_play_runs_v2(
+    world_id: Annotated[str, Query(min_length=1)],
+    playable_artifact_id: Annotated[str | None, Query()] = None,
+) -> dict[str, Any]:
+    try:
+        records = list_world_play_runs(
+            repo_root(),
+            world_id=world_id,
+            playable_artifact_id=playable_artifact_id,
+        )
+    except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return WorldPlayRunsListResponse(records=records).model_dump(mode="json")
+
+
+@router.put("/world-play-runs/v2/{run_id}", response_model=WorldPlayRunRecord)
+def put_world_play_run_v2(
+    run_id: str,
+    body: CreatePlayRunRequest,
+    world_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        record = create_or_replay_world_play_run(
+            repo_root(),
+            world_id=world_id,
+            run_id=run_id,
+            playable_artifact_id=body.playable_artifact_id,
+            expected_playable_revision=body.expected_playable_revision,
+            expected_playable_content_sha256=body.expected_playable_content_sha256,
+        )
+    except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return record.model_dump(mode="json")
+
+
+@router.get("/world-play-runs/v2/{run_id}", response_model=WorldPlayRunRecord)
+def get_world_play_run_v2(
+    run_id: str,
+    world_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        record = get_world_play_run(repo_root(), world_id=world_id, run_id=run_id)
+    except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return record.model_dump(mode="json")
+
+
+@router.put(
+    "/world-play-runs/v2/{run_id}/progress", response_model=WorldPlayRunRecord
+)
+def put_world_play_run_progress_v2(
+    run_id: str,
+    body: ReplacePlayRunProgressRequest,
+    world_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        record = replace_world_play_run_progress(
+            repo_root(),
+            world_id=world_id,
+            run_id=run_id,
+            expected_run_revision=body.expected_run_revision,
+            progress=body.progress,
+        )
+    except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return record.model_dump(mode="json")
+
+
+@router.put(
+    "/world-play-runs/v2/{run_id}/rebase", response_model=WorldPlayRunRecord
+)
+def put_world_play_run_rebase_v2(
+    run_id: str,
+    body: RebasePlayRunRequest,
+    world_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        record = rebase_or_replay_world_play_run(
+            repo_root(),
+            world_id=world_id,
+            run_id=run_id,
+            expected_run_revision=body.expected_run_revision,
+            target_playable_revision=body.target_playable_revision,
+            target_playable_content_sha256=body.target_playable_content_sha256,
+        )
+    except PlayRunRebaseError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return record.model_dump(mode="json")
+
+
+@router.get(
+    "/world-play-runs/v2/{run_id}/reference-manifest",
+    response_model=AnyPlayRunReferenceManifest,
+    response_model_exclude_none=True,
+)
+def get_world_play_run_reference_manifest_v2(
+    run_id: str,
+    world_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    try:
+        manifest = get_world_play_run_reference_manifest(
+            repo_root(), world_id=world_id, run_id=run_id
+        )
+    except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except PlayRunReferenceManifestError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return manifest.model_dump(mode="json", exclude_none=True)
+
+
+@router.put(
+    "/world-play-runs/v2/{run_id}/reference-manifest",
+    response_model=AnyPlayRunReferenceManifest,
+    response_model_exclude_none=True,
+)
+async def put_world_play_run_reference_manifest_v2(
+    run_id: str,
+    request: Request,
+    world_id: Annotated[str, Query(min_length=1)],
+) -> dict[str, Any]:
+    raw = await request.body()
+    if raw.strip():
+        raise HTTPException(
+            status_code=422,
+            detail="reference-manifest seal does not accept a request body",
+        )
+    try:
+        manifest = seal_or_replay_world_play_run_reference_manifest(
+            repo_root(), world_id=world_id, run_id=run_id
+        )
+    except PlayRunRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except PlayRunReferenceManifestError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return manifest.model_dump(mode="json", exclude_none=True)

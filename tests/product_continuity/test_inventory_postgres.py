@@ -468,6 +468,36 @@ def test_w6_same_run_id_payload_conflict(
     assert item.classification == "CONFLICT"
 
 
+def test_world_play_run_is_not_campaign_product_continuity_inventory(
+    application_state_dsn: str, tmp_path: Path
+) -> None:
+    from application_state.content.service import commit_runbook, create_world_runbook
+    from application_state.play.service import (
+        create_world_play_run,
+        list_play_run_aggregates,
+    )
+    from tests.application_state.play_runtime_helpers import SOURCE_MARKDOWN
+
+    created = create_world_runbook(title="Inventory World Runbook", world_id="inventory-world")
+    work_object, revision = commit_runbook(
+        str(created.work_object_id),
+        SOURCE_MARKDOWN,
+        expected_revision=created.object_revision,
+    )
+    world_run = create_world_play_run(
+        world_id="inventory-world",
+        run_id="abababab-abab-4bab-8bab-abababababab",
+        playable_artifact_id=work_object.work_object_id,
+        expected_playable_revision=revision.revision_n,
+        expected_playable_content_sha256=revision.content_sha256,
+    )
+
+    campaign_runs = list_play_run_aggregates()
+    assert world_run.run.run_id not in {item.run.run_id for item in campaign_runs}
+    report = run_inventory(current_repo_root=tmp_path, historical_roots=[])
+    assert str(world_run.run.run_id) not in report.model_dump_json()
+
+
 def test_plan_orphan_digest_disagrees_with_current_is_conflict(
     application_state_dsn: str, tmp_path: Path
 ) -> None:

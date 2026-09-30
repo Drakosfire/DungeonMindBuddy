@@ -852,3 +852,36 @@ def seal_or_replay_play_run_reference_manifest(
     except ApplicationStateError as exc:
         raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
     return parse_manifest_payload(stored.manifest, run_id=str(stored.run_id))
+
+
+def get_world_play_run_reference_manifest(
+    root: Path, *, world_id: str, run_id: str
+) -> AnyPlayRunReferenceManifest:
+    del root
+    from application_state.errors import ApplicationStateError, ApplicationStateNotFoundError
+    from application_state.play.service import get_world_play_run_manifest
+    from apps.live_control_server.services.play_run_registry import (
+        _validate_run_id,
+        _validate_world_id,
+    )
+
+    canonical_run_id = _validate_run_id(run_id)
+    canonical_world_id = _validate_world_id(world_id)
+    try:
+        stored = get_world_play_run_manifest(
+            canonical_run_id, world_id=canonical_world_id
+        )
+    except ApplicationStateNotFoundError as exc:
+        raise PlayRunRegistryError(str(exc), status_code=exc.status_code) from exc
+    except ApplicationStateError as exc:
+        raise PlayRunReferenceManifestError(str(exc), status_code=exc.status_code) from exc
+    return parse_manifest_payload(stored.manifest, run_id=str(stored.run_id))
+
+
+def seal_or_replay_world_play_run_reference_manifest(
+    root: Path, *, world_id: str, run_id: str
+) -> AnyPlayRunReferenceManifest:
+    """Idempotently verify a sealed manifest through the World V2 owner fence."""
+    return get_world_play_run_reference_manifest(
+        root, world_id=world_id, run_id=run_id
+    )

@@ -39,6 +39,7 @@ def admit_playable_revision(
     revision_n: int,
     expected_sha256: str,
     *,
+    expected_world_id: str | None = None,
     require_current: bool = False,
     require_clean: bool = False,
 ) -> CommittedPlayableRevision:
@@ -63,10 +64,22 @@ def admit_playable_revision(
         raise ApplicationStateValidationError(
             "playable_artifact_id must identify a runbook workspace document"
         )
-    if obj.world_id is not None:
-        raise ApplicationStateValidationError(
-            "World-owned Runbooks cannot start a campaign PlayRun V1"
-        )
+    if expected_world_id is None:
+        if obj.world_id is not None:
+            raise ApplicationStateValidationError(
+                "World-owned Runbooks cannot start a campaign PlayRun V1"
+            )
+        if obj.campaign_id is None:
+            raise ApplicationStateConflictError(
+                "campaign PlayRun requires a campaign-owned Runbook"
+            )
+    else:
+        if not expected_world_id.strip() or expected_world_id != expected_world_id.strip():
+            raise ApplicationStateValidationError("world_id must be non-empty and canonical")
+        if obj.world_id != expected_world_id or obj.campaign_id is not None:
+            raise ApplicationStateConflictError(
+                "selected World does not own the Runbook"
+            )
     if obj.status != "active":
         raise ApplicationStateConflictError("runbook workspace document is discarded")
     if obj.current_revision_id is None:
@@ -119,6 +132,80 @@ def admit_playable_revision(
         work_revision=revision,
         has_divergent_working_copy=divergent,
     )
+
+
+def resolve_pinned_playable_revision(
+    conn: psycopg.Connection,
+    work_object_id: UUID | str,
+    revision_n: int,
+    work_revision_id: UUID | str,
+    expected_sha256: str,
+    *,
+    expected_world_id: str,
+) -> WorkRevision:
+    """Verify an existing World Run's exact retained immutable Runbook pin.
+
+    Unlike admission for a new Run or rebase target, an existing binding remains
+    readable after its source document is discarded or advances to another
+    current revision. The exact WorkObject and WorkRevision ownership and digest
+    still have to agree.
+    """
+    if not isinstance(revision_n, int) or isinstance(revision_n, bool) or revision_n <= 0:
+        raise ApplicationStateValidationError("revision_n must be a positive integer")
+    if (
+        not isinstance(expected_world_id, str)
+        or not expected_world_id.strip()
+        or expected_world_id != expected_world_id.strip()
+    ):
+        raise ApplicationStateValidationError("world_id must be non-empty and canonical")
+    if (
+        not isinstance(expected_sha256, str)
+        or len(expected_sha256) != 64
+        or any(ch not in "0123456789abcdef" for ch in expected_sha256)
+    ):
+        raise ApplicationStateValidationError(
+            "expected_sha256 must be 64 lowercase hex characters"
+        )
+
+    object_id = _as_uuid(work_object_id, field_name="work_object_id")
+    pinned_revision_id = _as_uuid(work_revision_id, field_name="work_revision_id")
+    obj = repo.lock_work_object(conn, object_id)
+    if obj is None:
+        raise ApplicationStateNotFoundError(
+            f"workspace document not found: {object_id}"
+        )
+    if obj.kind != "runbook":
+        raise ApplicationStateValidationError(
+            "playable_artifact_id must identify a runbook workspace document"
+        )
+    if obj.world_id != expected_world_id or obj.campaign_id is not None:
+        raise ApplicationStateConflictError(
+            "selected World does not own the Runbook"
+        )
+    if obj.status not in {"active", "discarded"}:
+        raise ApplicationStateConflictError("runbook workspace document is unavailable")
+
+    revision = _lock_work_revision_for_share(conn, object_id, revision_n)
+    if revision is None:
+        raise ApplicationStateNotFoundError(
+            "historical revision bytes were never retained"
+        )
+    if (
+        revision.work_revision_id != pinned_revision_id
+        or revision.revision_n != revision_n
+        or revision.work_object_id != obj.work_object_id
+        or revision.world_id != expected_world_id
+    ):
+        raise ApplicationStateConflictError(
+            "playable revision owner or identity does not match the pinned World Run"
+        )
+    if revision.content_sha256 != expected_sha256:
+        raise ApplicationStateConflictError("playable content SHA mismatch")
+    if sha256_utf8(revision.markdown) != revision.content_sha256:
+        raise ApplicationStateConflictError(
+            "playable revision content SHA does not match its Markdown"
+        )
+    return revision
 
 
 def _lock_work_revision_for_share(

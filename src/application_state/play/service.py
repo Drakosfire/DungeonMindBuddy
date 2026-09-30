@@ -7,7 +7,10 @@ from uuid import UUID
 
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
-from application_state.content.playable_admission import admit_playable_revision
+from application_state.content.playable_admission import (
+    admit_playable_revision,
+    resolve_pinned_playable_revision,
+)
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateIntegrityError,
@@ -15,7 +18,13 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.play import repository as repo
-from application_state.play.types import PlayActiveRun, PlayRun, PlayRunAggregate, PlayRunManifest
+from application_state.play.types import (
+    PlayActiveRun,
+    PlayRun,
+    PlayRunAggregate,
+    PlayRunManifest,
+    WorldPlayRunAggregate,
+)
 from application_state.unit_of_work import unit_of_work
 
 EMPTY_PROGRESS: dict = {
@@ -37,6 +46,49 @@ def _as_uuid(value: UUID | str, *, field_name: str) -> UUID:
     if str(value) != str(parsed):
         raise ApplicationStateValidationError(f"{field_name} must be a canonical UUID")
     return parsed
+
+
+def _require_world_id(value: str) -> str:
+    if not isinstance(value, str) or not value.strip() or value != value.strip():
+        raise ApplicationStateValidationError("world_id must be non-empty and canonical")
+    return value
+
+
+def _require_campaign_run(run: PlayRun) -> None:
+    if run.world_id is not None:
+        raise ApplicationStateNotFoundError(f"Play Run not found: {run.run_id}")
+    if run.campaign_id is None or not run.campaign_id.strip():
+        raise ApplicationStateIntegrityError(
+            "campaign Play Run is missing its required campaign owner"
+        )
+
+
+def _resolve_world_run_owner(conn, run: PlayRun, *, world_id: str) -> str:
+    """Verify the run row against its canonical exact committed revision owner."""
+    requested_world_id = _require_world_id(world_id)
+    if run.world_id is None:
+        if run.campaign_id is not None:
+            raise ApplicationStateNotFoundError(f"Play Run not found: {run.run_id}")
+        raise ApplicationStateIntegrityError("Play Run has no stored owner")
+    if run.campaign_id is not None or not run.world_id.strip():
+        raise ApplicationStateIntegrityError("Play Run owner columns are inconsistent")
+    if run.world_id != requested_world_id:
+        raise ApplicationStateNotFoundError(
+            f"Play Run not found in World {requested_world_id}: {run.run_id}"
+        )
+    revision = resolve_pinned_playable_revision(
+        conn,
+        run.playable_work_object_id,
+        run.playable_revision_n,
+        run.playable_work_revision_id,
+        run.playable_content_sha256,
+        expected_world_id=requested_world_id,
+    )
+    if revision.world_id != requested_world_id:
+        raise ApplicationStateIntegrityError(
+            "Play Run binding does not match its exact World-owned Runbook revision"
+        )
+    return revision.world_id
 
 
 def _require_positive_revision(value: int, *, field_name: str) -> int:
@@ -249,6 +301,7 @@ def create_play_run(
     with unit_of_work(dsn) as conn:
         existing = repo.get_run(conn, canonical_run_id)
         if existing is not None:
+            _require_campaign_run(existing)
             aggregate = _readable_aggregate(
                 existing, repo.get_manifest(conn, canonical_run_id)
             )
@@ -309,6 +362,102 @@ def create_play_run(
         return PlayRunAggregate(run=run, manifest=manifest)
 
 
+def create_world_play_run(
+    *,
+    world_id: str,
+    run_id: UUID | str,
+    playable_artifact_id: UUID | str,
+    expected_playable_revision: int,
+    expected_playable_content_sha256: str,
+) -> WorldPlayRunAggregate:
+    canonical_world_id = _require_world_id(world_id)
+    canonical_run_id = _as_uuid(run_id, field_name="run_id")
+    artifact_id = _as_uuid(playable_artifact_id, field_name="playable_artifact_id")
+    revision_n = _require_positive_revision(
+        expected_playable_revision, field_name="expected_playable_revision"
+    )
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        existing = repo.get_run(conn, canonical_run_id)
+        if existing is not None:
+            resolved_world_id = _resolve_world_run_owner(
+                conn, existing, world_id=canonical_world_id
+            )
+            aggregate = _readable_aggregate(
+                existing, repo.get_manifest(conn, canonical_run_id)
+            )
+            if _binding_matches(
+                existing,
+                artifact_id=artifact_id,
+                revision_n=revision_n,
+                sha256=expected_playable_content_sha256,
+            ):
+                return WorldPlayRunAggregate(
+                    run=aggregate.run,
+                    manifest=aggregate.manifest,
+                    world_id=resolved_world_id,
+                )
+            raise ApplicationStateConflictError(
+                "run_id is already bound to a different World Playable revision"
+            )
+
+        admitted = admit_playable_revision(
+            conn,
+            artifact_id,
+            revision_n,
+            expected_playable_content_sha256,
+            expected_world_id=canonical_world_id,
+            require_current=True,
+            require_clean=True,
+        )
+        resolved_world_id = admitted.work_revision.world_id
+        if resolved_world_id is None:
+            raise ApplicationStateIntegrityError(
+                "World-owned Runbook revision has no World owner"
+            )
+        now = repo.now_utc()
+        document = _derive_manifest_document(
+            admitted.work_revision.markdown,
+            run_id=canonical_run_id,
+            playable_artifact_id=artifact_id,
+            playable_revision=admitted.work_revision.revision_n,
+            playable_content_sha256=admitted.work_revision.content_sha256,
+            sealed_at=now,
+        )
+        run = repo.insert_run(
+            conn,
+            PlayRun(
+                run_id=canonical_run_id,
+                campaign_id=None,
+                world_id=resolved_world_id,
+                playable_work_object_id=artifact_id,
+                playable_revision_n=admitted.work_revision.revision_n,
+                playable_work_revision_id=admitted.work_revision.work_revision_id,
+                playable_content_sha256=admitted.work_revision.content_sha256,
+                run_revision=1,
+                progress=dict(EMPTY_PROGRESS),
+                created_at=now,
+                updated_at=now,
+            ),
+        )
+        manifest = repo.insert_manifest(
+            conn,
+            PlayRunManifest(
+                run_id=canonical_run_id,
+                playable_work_object_id=artifact_id,
+                playable_revision_n=admitted.work_revision.revision_n,
+                playable_work_revision_id=admitted.work_revision.work_revision_id,
+                playable_content_sha256=admitted.work_revision.content_sha256,
+                manifest=document,
+                sealed_at=now,
+            ),
+        )
+        return WorldPlayRunAggregate(
+            run=run, manifest=manifest, world_id=resolved_world_id
+        )
+
+
 def get_play_run_aggregate(run_id: UUID | str) -> PlayRunAggregate:
     canonical_run_id = _as_uuid(run_id, field_name="run_id")
     dsn = load_runtime_dsn()
@@ -317,11 +466,40 @@ def get_play_run_aggregate(run_id: UUID | str) -> PlayRunAggregate:
         run = repo.get_run(conn, canonical_run_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
+        _require_campaign_run(run)
         return _readable_aggregate(run, repo.get_manifest(conn, canonical_run_id))
+
+
+def get_world_play_run_aggregate(
+    run_id: UUID | str, *, world_id: str
+) -> WorldPlayRunAggregate:
+    canonical_run_id = _as_uuid(run_id, field_name="run_id")
+    canonical_world_id = _require_world_id(world_id)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        run = repo.get_run(conn, canonical_run_id)
+        if run is None:
+            raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
+        resolved_world_id = _resolve_world_run_owner(
+            conn, run, world_id=canonical_world_id
+        )
+        aggregate = _readable_aggregate(run, repo.get_manifest(conn, canonical_run_id))
+        return WorldPlayRunAggregate(
+            run=aggregate.run,
+            manifest=aggregate.manifest,
+            world_id=resolved_world_id,
+        )
 
 
 def get_play_run_manifest(run_id: UUID | str) -> PlayRunManifest:
     return get_play_run_aggregate(run_id).manifest
+
+
+def get_world_play_run_manifest(
+    run_id: UUID | str, *, world_id: str
+) -> PlayRunManifest:
+    return get_world_play_run_aggregate(run_id, world_id=world_id).manifest
 
 
 def replay_play_run_manifest(run_id: UUID | str) -> PlayRunManifest:
@@ -349,8 +527,45 @@ def list_play_run_aggregates(
         )
         aggregates: list[PlayRunAggregate] = []
         for run in runs:
+            _require_campaign_run(run)
             aggregates.append(
                 _readable_aggregate(run, repo.get_manifest(conn, run.run_id))
+            )
+        return aggregates
+
+
+def list_world_play_run_aggregates(
+    *,
+    world_id: str,
+    playable_artifact_id: UUID | str | None = None,
+) -> list[WorldPlayRunAggregate]:
+    canonical_world_id = _require_world_id(world_id)
+    artifact = (
+        None
+        if playable_artifact_id is None
+        else _as_uuid(playable_artifact_id, field_name="playable_artifact_id")
+    )
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        runs = repo.list_runs(
+            conn,
+            owner="world",
+            world_id=canonical_world_id,
+            playable_work_object_id=artifact,
+        )
+        aggregates: list[WorldPlayRunAggregate] = []
+        for run in runs:
+            resolved_world_id = _resolve_world_run_owner(
+                conn, run, world_id=canonical_world_id
+            )
+            aggregate = _readable_aggregate(run, repo.get_manifest(conn, run.run_id))
+            aggregates.append(
+                WorldPlayRunAggregate(
+                    run=aggregate.run,
+                    manifest=aggregate.manifest,
+                    world_id=resolved_world_id,
+                )
             )
         return aggregates
 
@@ -361,7 +576,43 @@ def replace_play_run_progress(
     expected_run_revision: int,
     progress: dict,
 ) -> PlayRun:
+    return _replace_play_run_progress(
+        run_id=run_id,
+        expected_run_revision=expected_run_revision,
+        progress=progress,
+        world_id=None,
+    )
+
+
+def replace_world_play_run_progress(
+    *,
+    world_id: str,
+    run_id: UUID | str,
+    expected_run_revision: int,
+    progress: dict,
+) -> WorldPlayRunAggregate:
+    result = _replace_play_run_progress(
+        run_id=run_id,
+        expected_run_revision=expected_run_revision,
+        progress=progress,
+        world_id=world_id,
+    )
+    if not isinstance(result, WorldPlayRunAggregate):
+        raise ApplicationStateIntegrityError(
+            "World PlayRun progress update lost its resolved owner"
+        )
+    return result
+
+
+def _replace_play_run_progress(
+    *,
+    run_id: UUID | str,
+    expected_run_revision: int,
+    progress: dict,
+    world_id: str | None,
+) -> PlayRun | WorldPlayRunAggregate:
     canonical_run_id = _as_uuid(run_id, field_name="run_id")
+    canonical_world_id = None if world_id is None else _require_world_id(world_id)
     expected = _require_positive_revision(
         expected_run_revision, field_name="expected_run_revision"
     )
@@ -371,9 +622,26 @@ def replace_play_run_progress(
         run = repo.lock_run(conn, canonical_run_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
+        resolved_world_id = (
+            None
+            if canonical_world_id is None
+            else _resolve_world_run_owner(conn, run, world_id=canonical_world_id)
+        )
+        if canonical_world_id is None:
+            _require_campaign_run(run)
         manifest = require_persisted_aggregate_integrity(
             run, repo.get_manifest(conn, canonical_run_id)
         )
+
+        def result(updated_run: PlayRun) -> PlayRun | WorldPlayRunAggregate:
+            if resolved_world_id is None:
+                return updated_run
+            return WorldPlayRunAggregate(
+                run=updated_run,
+                manifest=manifest,
+                world_id=resolved_world_id,
+            )
+
         admitted = _admit_progress_payload(
             progress,
             manifest.manifest,
@@ -382,9 +650,9 @@ def replace_play_run_progress(
             existing_progress=run.progress,
         )
         if expected == run.run_revision and admitted == run.progress:
-            return run
+            return result(run)
         if expected == run.run_revision - 1 and admitted == run.progress:
-            return run
+            return result(run)
         if expected != run.run_revision:
             raise ApplicationStateConflictError(
                 "run_revision does not match the current Play Run"
@@ -400,7 +668,7 @@ def replace_play_run_progress(
             raise ApplicationStateConflictError(
                 "run_revision does not match the current Play Run"
             )
-        return updated
+        return result(updated)
 
 
 def rebase_play_run(
@@ -410,7 +678,48 @@ def rebase_play_run(
     target_playable_revision: int,
     target_playable_content_sha256: str,
 ) -> PlayRunAggregate:
+    result = _rebase_play_run(
+        run_id=run_id,
+        expected_run_revision=expected_run_revision,
+        target_playable_revision=target_playable_revision,
+        target_playable_content_sha256=target_playable_content_sha256,
+        world_id=None,
+    )
+    if not isinstance(result, PlayRunAggregate):
+        raise ApplicationStateIntegrityError("campaign PlayRun rebase returned a World owner")
+    return result
+
+
+def rebase_world_play_run(
+    *,
+    world_id: str,
+    run_id: UUID | str,
+    expected_run_revision: int,
+    target_playable_revision: int,
+    target_playable_content_sha256: str,
+) -> WorldPlayRunAggregate:
+    result = _rebase_play_run(
+        run_id=run_id,
+        expected_run_revision=expected_run_revision,
+        target_playable_revision=target_playable_revision,
+        target_playable_content_sha256=target_playable_content_sha256,
+        world_id=world_id,
+    )
+    if not isinstance(result, WorldPlayRunAggregate):
+        raise ApplicationStateIntegrityError("World PlayRun rebase lost its resolved owner")
+    return result
+
+
+def _rebase_play_run(
+    *,
+    run_id: UUID | str,
+    expected_run_revision: int,
+    target_playable_revision: int,
+    target_playable_content_sha256: str,
+    world_id: str | None,
+) -> PlayRunAggregate | WorldPlayRunAggregate:
     canonical_run_id = _as_uuid(run_id, field_name="run_id")
+    canonical_world_id = None if world_id is None else _require_world_id(world_id)
     expected = _require_positive_revision(
         expected_run_revision, field_name="expected_run_revision"
     )
@@ -423,21 +732,40 @@ def rebase_play_run(
         run = repo.lock_run(conn, canonical_run_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
+        resolved_world_id = (
+            None
+            if canonical_world_id is None
+            else _resolve_world_run_owner(conn, run, world_id=canonical_world_id)
+        )
+        if canonical_world_id is None:
+            _require_campaign_run(run)
         manifest = require_persisted_aggregate_integrity(
             run, repo.get_manifest(conn, canonical_run_id)
         )
+
+        def result(
+            updated_run: PlayRun, updated_manifest: PlayRunManifest
+        ) -> PlayRunAggregate | WorldPlayRunAggregate:
+            if resolved_world_id is None:
+                return PlayRunAggregate(run=updated_run, manifest=updated_manifest)
+            return WorldPlayRunAggregate(
+                run=updated_run,
+                manifest=updated_manifest,
+                world_id=resolved_world_id,
+            )
+
         same_target = (
             run.playable_revision_n == target_n
             and run.playable_content_sha256 == target_playable_content_sha256
         )
         if same_target:
             if run.run_revision == expected:
-                return PlayRunAggregate(run=run, manifest=manifest)
+                return result(run, manifest)
             if (
                 run.run_revision == expected + 1
                 and run.rebased_from_run_revision == expected
             ):
-                return PlayRunAggregate(run=run, manifest=manifest)
+                return result(run, manifest)
             raise ApplicationStateConflictError(
                 "run_revision does not match the current Play Run"
             )
@@ -454,12 +782,20 @@ def rebase_play_run(
             run.playable_work_object_id,
             target_n,
             target_playable_content_sha256,
+            expected_world_id=canonical_world_id,
             require_current=False,
             require_clean=False,
         )
-        if admitted.work_object.campaign_id != run.campaign_id:
+        if canonical_world_id is None and admitted.work_object.campaign_id != run.campaign_id:
             raise ApplicationStateConflictError(
                 "workspace campaign_id does not match the Run campaign"
+            )
+        if (
+            canonical_world_id is not None
+            and admitted.work_revision.world_id != resolved_world_id
+        ):
+            raise ApplicationStateConflictError(
+                "target Runbook revision does not belong to the Run World"
             )
         now = repo.now_utc()
         document = _derive_manifest_document(
@@ -500,7 +836,7 @@ def rebase_play_run(
                 sealed_at=now,
             ),
         )
-        return PlayRunAggregate(run=updated, manifest=replaced)
+        return result(updated, replaced)
 
 
 def get_play_active_run() -> PlayActiveRun | None:
@@ -518,6 +854,7 @@ def set_play_active_run(run_id: UUID | str) -> PlayActiveRun:
         run = repo.lock_run(conn, canonical_run_id)
         if run is None:
             raise ApplicationStateNotFoundError(f"Play Run not found: {canonical_run_id}")
+        _require_campaign_run(run)
         require_persisted_aggregate_integrity(run, repo.get_manifest(conn, canonical_run_id))
         current = repo.lock_active_run(conn)
         if current is not None and current.run_id == canonical_run_id:

@@ -17,7 +17,7 @@ LOCAL_ACTIVE_RUN_SCOPE = "local"
 _ACTIVE_RUN_COLUMNS = "run_id, selected_at"
 
 _RUN_COLUMNS = """
-    run_id, campaign_id, playable_work_object_id, playable_revision_n,
+    run_id, campaign_id, world_id, playable_work_object_id, playable_revision_n,
     playable_work_revision_id, playable_content_sha256, run_revision, progress,
     rebased_from_run_revision, created_at, updated_at
 """
@@ -45,7 +45,7 @@ def insert_run(conn: psycopg.Connection, run: PlayRun) -> PlayRun:
         f"""
         INSERT INTO play.run ({_RUN_COLUMNS})
         VALUES (
-            %(run_id)s, %(campaign_id)s, %(playable_work_object_id)s,
+            %(run_id)s, %(campaign_id)s, %(world_id)s, %(playable_work_object_id)s,
             %(playable_revision_n)s, %(playable_work_revision_id)s,
             %(playable_content_sha256)s, %(run_revision)s, %(progress)s,
             %(rebased_from_run_revision)s, %(created_at)s, %(updated_at)s
@@ -88,13 +88,26 @@ def list_runs(
     conn: psycopg.Connection,
     *,
     campaign_id: str | None = None,
+    world_id: str | None = None,
+    owner: str = "campaign",
     playable_work_object_id: UUID | None = None,
 ) -> list[PlayRun]:
-    clauses: list[str] = []
+    if owner not in {"campaign", "world"}:
+        raise ValueError("owner must be campaign or world")
+    if owner == "world" and (world_id is None or not world_id.strip()):
+        raise ValueError("world_id is required for World PlayRun listing")
+    clauses: list[str] = (
+        ["campaign_id IS NOT NULL", "world_id IS NULL"]
+        if owner == "campaign"
+        else ["world_id IS NOT NULL"]
+    )
     params: list[object] = []
-    if campaign_id is not None:
+    if owner == "campaign" and campaign_id is not None:
         clauses.append("campaign_id = %s")
         params.append(campaign_id)
+    if owner == "world":
+        clauses.append("world_id = %s")
+        params.append(world_id)
     if playable_work_object_id is not None:
         clauses.append("playable_work_object_id = %s")
         params.append(playable_work_object_id)
