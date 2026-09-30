@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import importlib
 import importlib.metadata
 import json
 import os
@@ -19,6 +20,7 @@ from apps.live_control_server.services.hermes_graph_agent import (
     HermesGraphAgentTurnRequest,
     _derive_answer_scope,
     _summarize_tool_result,
+    hermes_import_namespace,
     run_hermes_graph_agent_turn,
 )
 from apps.live_control_server.services.hermes_graph_agent_contract import (
@@ -419,11 +421,51 @@ def test_agent_receives_exact_lockdown_configuration(tmp_path: Path) -> None:
     assert init.get("fallback_model") is None
     assert init.get("provider") == "openai-api"
     assert init.get("base_url") == "https://api.openai.com/v1"
-    assert init.get("api_mode") == "chat_completions"
+    assert "api_mode" not in init
     assert isinstance(init.get("model"), str) and init.get("model")
     assert "disabled_toolsets" not in init or init.get("disabled_toolsets") in (None, [])
     assert "anthropic" not in str(init.get("provider") or "").lower()
     assert "anthropic" not in str(init.get("base_url") or "").lower()
+
+
+def test_pinned_hermes_auto_selects_responses_for_policy_model(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.services.agent_graph_policy import (
+        resolve_agent_graph_openai_inference,
+    )
+
+    resolved = resolve_agent_graph_openai_inference(require_api_key=False)
+    assert resolved == (
+        "openai-api",
+        "gpt-5.3-codex",
+        "https://api.openai.com/v1",
+    )
+    provider, model, base_url = resolved
+    hermes_home = tmp_path / "hermes-home"
+    hermes_home.mkdir()
+    monkeypatch.setenv("HERMES_HOME", str(hermes_home))
+
+    with hermes_import_namespace():
+        run_agent = importlib.import_module("run_agent")
+        # AIAgent eagerly warms its selected transport at initialization. Keep
+        # that construction offline; no conversation or provider request runs.
+        with patch("run_agent.OpenAI"):
+            agent = run_agent.AIAgent(
+                api_key="sk-test-only",
+                provider=provider,
+                model=model,
+                base_url=base_url,
+                quiet_mode=True,
+                skip_memory=True,
+                skip_context_files=True,
+            )
+
+    assert agent.provider == provider
+    assert agent.model == model
+    assert agent.base_url == base_url
+    assert agent.api_mode == "codex_responses"
 
 
 def test_ephemeral_system_prompt_prefixes_neutral_graph_policy(tmp_path: Path) -> None:
