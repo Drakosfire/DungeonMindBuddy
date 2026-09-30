@@ -204,20 +204,40 @@ and two Hermes trace-capture assertions failed in the combined run because the
 expected `dmb.agent.turn_trace` records were absent. PRIME traced this to
 `src/application_state/migrations/env.py:15` calling
 `logging.config.fileConfig` without `disable_existing_loggers=False`, which
-disables the trace logger when the migration environment loads. RAKE DUTY owns
-this separately leased infrastructure repair; C1 must not absorb it. Hold PR
-#810 until that repair merges, then rebase and rerun the seven suites against a
-fresh disposable PostgreSQL target. The two tests passed alone (2 passed, 11
-existing Pydantic shadow warnings), but the combined witness is not green.
-All C1-specific behavior tests passed, including the focused World Runbook,
+disables the trace logger when the migration environment loads. PRIME activated
+RAKE DUTY's separate repair lane on
+`main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, branch
+`codex/rake-alembic-preserve-loggers`, under
+`Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
+that new handoff, `src/application_state/migrations/env.py`, and
+`tests/application_state/test_migration_logging.py`; one PR to `main` is
+authorized and RAKE does not merge. C1 must not absorb the repair. Hold PR #810
+until that repair merges, then rebase and rerun the seven suites against a fresh
+disposable PostgreSQL target. The two tests passed alone (2 passed, 11 existing
+Pydantic shadow warnings), but the combined witness is not green. All
+C1-specific behavior tests passed, including the focused World Runbook,
 context, ownership, and pin-boundary tests (29 passed). Scoped Ruff, Python
 compilation, and `git diff --check` passed. C2 stays blocked pending C1 review,
 merge, and an accepted owner witness.
 
-Generic Agent Run resolution remains a separate successor. Build, Ingest and
-Combat Agent adoption remain open after Play. Campaign-owner/campaign-lens
-stays fail-closed. The visual rejection remains open and is not waived by
-Agent work. J1–J6 remain unaccepted until connected product witnesses pass.
+**Build Agent adoption — contract resolved, implementation still blocked:**
+ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
+`document_id` plus its committed registry revision as primary work. A Canvas
+session is only a secondary locator and must be server-verified against that
+document and revision. Owner scope comes only from the authoritative record;
+stale revisions conflict, and campaign/world ID equality never grants scope.
+Build Agent adoption waits for the current Build composition/admission slice to
+merge and state-sync, then a separate disjoint resolver/request lease. The
+checked-in Build composition handoff still says ACTIVE, but the re-anchor found
+no matching open implementation PR or Codex task; #781 covers semantic-action
+UI only. PRIME will reconcile the current owner/ref after RAKE's logger repair
+review; no Build implementation lease is activated. No overlapping Build Agent
+implementation is dispatched.
+
+Generic Agent Run resolution remains a separate successor. Ingest and Combat
+Agent adoption remain open after Play. Campaign-owner/campaign-lens stays
+fail-closed. The visual rejection remains open and is not waived by Agent work.
+J1–J6 remain unaccepted until connected product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:

@@ -123,11 +123,16 @@ and two Hermes trace-capture assertions failed in the combined run:
 `dmb.agent.turn_trace` log record and observed zero. PRIME traced this to
 `src/application_state/migrations/env.py:15` calling `logging.config.fileConfig`
 without `disable_existing_loggers=False`, which disables the trace logger when
-the migration environment loads. RAKE DUTY owns a separate, narrowly leased
-infrastructure repair; do not absorb it into C1. Hold this PR until that repair
-merges, then rebase and rerun all seven suites against a fresh disposable
-PostgreSQL target. Rerunning just the two tests passed (2 passed, 11 existing
-Pydantic `schema`-field shadow warnings), but the combined suite is not green.
+the migration environment loads. PRIME activated RAKE DUTY's separate repair
+lane on `main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, branch
+`codex/rake-alembic-preserve-loggers`, under
+`Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
+that new handoff, `src/application_state/migrations/env.py`, and
+`tests/application_state/test_migration_logging.py`; one PR to `main` is
+authorized and RAKE does not merge. Do not absorb the repair into C1. Hold this
+PR until it merges, then rebase and rerun all seven suites against a fresh
+disposable PostgreSQL target. Rerunning just the two tests passed (2 passed, 11
+existing Pydantic `schema`-field shadow warnings), but the combined suite is not green.
 All C1 behavior tests passed, including the focused PostgreSQL World Runbook,
 context, ownership, and pin-boundary run (29 passed, 11 existing warnings).
 
