@@ -1,6 +1,7 @@
 # HANDOFF — DEMO: migrate World Play UI to typed V2
 
-**Status:** ACTIVE — PRIME explicitly authorized C2 after C1 merge and owner-boundary witness
+**Status:** COMPLETE — Buddy PR #820 merged at
+`bfa741261e715eadb48d873f87fccc1764417da8` after exact-head PRIME review
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Base:** Buddy `main@f34cc2a32b2abc9a4548d0750f911e154c39b54c` (C1 #810 plus model-policy PR #819)
@@ -124,14 +125,18 @@ still completes and remains discoverable/reconcilable. Code commit
 `269973feca4761ddfffab1c7a3843b7392168e5c` contains the fence and two
 mounted deferred A→B→A regressions.
 
-All eight focused C2 UI/API suites now pass 225 tests. Cumulative and working
-diff checks pass. UI typecheck retains only the inherited unrelated
-`ThreatPublicationPanel.tsx(553,77): Cannot find namespace 'JSX'` error. No
-server, database, provider, or corpus was used. PR #820 remains open for
-PRIME's re-review; this evidence claims neither merge nor operator acceptance.
+All eight focused C2 UI/API suites passed 225 tests, including two deferred
+same-World A→B→A mounted regressions and five prior World A→B regressions.
+Cumulative and working diff checks passed. UI typecheck retains only the
+inherited unrelated `ThreatPublicationPanel.tsx(553,77): Cannot find namespace
+'JSX'` error. No server, database, provider, or corpus was used. PRIME passed
+the exact head `0edeba0e231db57c451e4892bda867cd5e556f46`; its independent
+mounted Play/Start Run tests passed 32/32. Buddy PR #820 merged at
+`bfa741261e715eadb48d873f87fccc1764417da8`. The C2 write lease is ended.
+This does not claim J1/J2, connected-demo, visual, or operator acceptance.
 
 ## Predecessor settlement
 
-C1 Buddy PR #810 merged at `9aa82aacca3d27849b3fba83dcfc6577097b9b7d` from reviewed head `da2aa5c5dbe70d7ce49d90ecee2eb2274fae155e`; the C1 tested code head was `561513a8a2ca2099380e4f891ec1012f37e1f21d`. Its fresh seven-suite PostgreSQL owner witness passed 242 tests with 11 existing Pydantic `schema` shadow warnings in 106.39 seconds. C1 supplied the typed World-owned Runbook and World PlayRun V2 routes this UI slice consumes. This PR must update the C1 and World-owned PlayRun design handoffs plus the DEMO roadmap to record this predecessor fact and the exact C2 lease; do not mark C2 complete until this PR merges and the UI owning-boundary witness passes.
+C1 Buddy PR #810 merged at `9aa82aacca3d27849b3fba83dcfc6577097b9b7d` from reviewed head `da2aa5c5dbe70d7ce49d90ecee2eb2274fae155e`; the C1 tested code head was `561513a8a2ca2099380e4f891ec1012f37e1f21d`. Its fresh seven-suite PostgreSQL owner witness passed 242 tests with 11 existing Pydantic `schema` shadow warnings in 106.39 seconds. C1 supplied the typed World-owned Runbook and World PlayRun V2 routes this UI slice consumes. PR #820 consumed these C1 routes and is now merged; the exact C2 completion evidence and lease settlement are recorded above. Do not infer J1/J2 or operator acceptance from this bounded slice.
 
 The separate saved managed-World Plan Agent continuity witness is **PASS** per PRIME's later report after a clean attributable direct recall challenge. C2 does not independently rerun or expand that witness.
