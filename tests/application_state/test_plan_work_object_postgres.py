@@ -188,7 +188,7 @@ def test_current_world_plan_read_returns_immutable_basis_and_divergence(
     committed_obj, committed = commit_plan(
         str(created.work_object_id), body, expected_world_id=world_id
     )
-    autosave_plan(
+    draft_obj = autosave_plan(
         str(created.work_object_id),
         "# Uncommitted draft\n\nThis is not sent.\n",
         expected_world_id=world_id,
@@ -197,13 +197,15 @@ def test_current_world_plan_read_returns_immutable_basis_and_divergence(
     result = read_current_world_plan_revision(
         str(created.work_object_id),
         expected_world_id=world_id,
+        expected_revision=draft_obj.object_revision,
         expected_revision_n=committed.revision_n,
-        expected_sha256=committed.content_sha256,
+        expected_content_sha256=committed.content_sha256,
     )
 
     assert result.markdown == body
     assert result.world_id == world_id
     assert result.document_id == created.work_object_id
+    assert result.object_revision == draft_obj.object_revision
     assert result.work_revision_id == committed.work_revision_id
     assert result.revision_n == committed.revision_n
     assert result.content_sha256 == committed.content_sha256
@@ -229,12 +231,13 @@ def test_current_world_plan_read_rejects_wrong_owner_kind_and_status(
 
     world_id = "world-current-plan-owner-check"
     created = create_world_plan(title="Owned Plan", world_id=world_id)
-    _, committed = commit_plan(
+    committed_obj, committed = commit_plan(
         str(created.work_object_id), "# Current\n", expected_world_id=world_id
     )
     pin = {
+        "expected_revision": committed_obj.object_revision,
         "expected_revision_n": committed.revision_n,
-        "expected_sha256": committed.content_sha256,
+        "expected_content_sha256": committed.content_sha256,
     }
     with pytest.raises(ApplicationStateConflictError, match="not owned"):
         read_current_world_plan_revision(
@@ -244,7 +247,11 @@ def test_current_world_plan_read_rejects_wrong_owner_kind_and_status(
     runbook = create_world_runbook(title="Not a Plan", world_id=world_id)
     with pytest.raises(ApplicationStateNotFoundError, match="workspace document not found"):
         read_current_world_plan_revision(
-            str(runbook.work_object_id), expected_world_id=world_id, **pin
+            str(runbook.work_object_id),
+            expected_world_id=world_id,
+            expected_revision=runbook.object_revision,
+            expected_revision_n=committed.revision_n,
+            expected_content_sha256=committed.content_sha256,
         )
 
     discarded = update_plan_metadata(
@@ -253,7 +260,11 @@ def test_current_world_plan_read_rejects_wrong_owner_kind_and_status(
     assert discarded.status == "discarded"
     with pytest.raises(ApplicationStateConflictError, match="not active"):
         read_current_world_plan_revision(
-            str(created.work_object_id), expected_world_id=world_id, **pin
+            str(created.work_object_id),
+            expected_world_id=world_id,
+            expected_revision=discarded.object_revision,
+            expected_revision_n=committed.revision_n,
+            expected_content_sha256=committed.content_sha256,
         )
 
 
@@ -273,31 +284,82 @@ def test_current_world_plan_read_requires_current_pinned_commit(
         read_current_world_plan_revision(
             str(uncommitted.work_object_id),
             expected_world_id=world_id,
+            expected_revision=uncommitted.object_revision,
             expected_revision_n=1,
-            expected_sha256="a" * 64,
+            expected_content_sha256="a" * 64,
         )
 
     created = create_world_plan(title="Revisioned", world_id=world_id)
     _, first = commit_plan(
         str(created.work_object_id), "# First\n", expected_world_id=world_id
     )
-    _, second = commit_plan(
+    second_obj, second = commit_plan(
         str(created.work_object_id), "# Second\n", expected_world_id=world_id
     )
     with pytest.raises(ApplicationStateConflictError, match="revision number"):
         read_current_world_plan_revision(
             str(created.work_object_id),
             expected_world_id=world_id,
+            expected_revision=second_obj.object_revision,
             expected_revision_n=first.revision_n,
-            expected_sha256=first.content_sha256,
+            expected_content_sha256=first.content_sha256,
         )
     with pytest.raises(ApplicationStateConflictError, match="SHA"):
         read_current_world_plan_revision(
             str(created.work_object_id),
             expected_world_id=world_id,
+            expected_revision=second_obj.object_revision,
             expected_revision_n=second.revision_n,
-            expected_sha256="0" * 64,
+            expected_content_sha256="0" * 64,
         )
+
+
+def test_current_world_plan_read_rejects_stale_object_revision_after_metadata_update(
+    application_state_dsn: str,
+) -> None:
+    from application_state.content.service import (
+        commit_plan,
+        create_world_plan,
+        read_current_world_plan_revision,
+        update_plan_metadata,
+    )
+    from application_state.errors import ApplicationStateConflictError
+
+    world_id = "world-current-plan-object-revision-check"
+    created = create_world_plan(title="Before metadata change", world_id=world_id)
+    committed_obj, committed = commit_plan(
+        str(created.work_object_id),
+        "# Same immutable content\n",
+        expected_world_id=world_id,
+    )
+    updated = update_plan_metadata(
+        str(created.work_object_id),
+        title="After metadata change",
+        expected_revision=committed_obj.object_revision,
+    )
+    assert updated.object_revision == committed_obj.object_revision + 1
+
+    with pytest.raises(ApplicationStateConflictError, match="object revision"):
+        read_current_world_plan_revision(
+            str(created.work_object_id),
+            expected_world_id=world_id,
+            expected_revision=committed_obj.object_revision,
+            expected_revision_n=committed.revision_n,
+            expected_content_sha256=committed.content_sha256,
+        )
+
+    result = read_current_world_plan_revision(
+        str(created.work_object_id),
+        expected_world_id=world_id,
+        expected_revision=updated.object_revision,
+        expected_revision_n=committed.revision_n,
+        expected_content_sha256=committed.content_sha256,
+    )
+    assert result.object_revision == updated.object_revision
+    assert result.work_revision_id == committed.work_revision_id
+    assert result.revision_n == committed.revision_n
+    assert result.content_sha256 == committed.content_sha256
+    assert result.markdown == "# Same immutable content\n"
 
 
 def test_cas_conflict_one_success(
