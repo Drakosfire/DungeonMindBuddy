@@ -993,6 +993,30 @@ that their foundations are absent. Historical slices retain their IDs.
   A read-only contract clarification is routed to existing MIND; no answer,
   migration, source admission or J3 implementation is yet claimed. #783 remains
   independently owned and source-verified grounding remains unproven.
+- **DEMO-J2 World-only reviewed Apply:** Buddy #828 merged at
+  `dc30a7379b927edd8d9bfb510019f0fccbc3c5c5`, adding the managed-World
+  Compose → Review → Apply bridge while leaving ordinary Ask metadata-only.
+  The separate post-merge witness used synthetic World
+  `demo-j2-plan-apply-witness-2026-10-01` and Plan
+  `46e2e8fe-6d91-4552-be31-e69c818e77c6`, revision 3. Two configured-policy
+  proposal submissions returned reviewable content: canonical READ-ALOUD and
+  plain prose. Both Apply actions hit
+  `Agent proposal would not round-trip in this Plan location.` No edit was
+  applied and the saved body stayed unchanged. The configured model was
+  `gpt-5.3-codex`; exact observed model, retries, token usage, latency, and cost
+  are unknown because the client did not retain attributable receipts. The
+  reviewed proposals described insertion immediately after the first sentence;
+  the focused regression now reproduces that collapsed caret inside the
+  paragraph. Block insertion splits the paragraph, and Markdown import
+  normalizes the existing separator whitespace at the new edge. The bounded
+  repair consumes only adjacent whitespace while preserving the round-trip
+  guard. Its active lane is
+  [`HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md`](../Plans/HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md).
+  Its fixture tests pass, but the fix is not merged and J2 remains open. The
+  two failed proposals remain evidence; PRIME authorized exactly two fresh
+  configured-policy proposals only after the repair merges. Proposal
+  generation metadata display/storage is a separate bounded follow-up and is
+  not a blocker for this witness. The World Graph 503 remains a separate issue.
 - **DEMO-J3 post-#784 product checkpoint:** read-only rehearsal on integrated
   `main@c19a6c2bf51ae01337b2ad8a3188d45ad6f0fd64`, same isolated World
   and disposable saved Plan. Unlocking and selecting Stacy in the mounted

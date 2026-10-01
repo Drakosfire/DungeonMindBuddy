@@ -326,6 +326,26 @@ function insertionForTarget(
         content: paragraph.content ?? [],
       };
     }
+    if (captured.from === captured.to && start.parent.type.name === "paragraph") {
+      // Inserting block content splits the current paragraph. Whitespace that
+      // sat at the caret becomes leading/trailing whitespace on the new edge
+      // paragraphs, which Markdown import normalizes away. Consume only that
+      // adjacent whitespace so the simulated and mounted results are already
+      // canonical before the loss-prevention round-trip check.
+      const trailingWhitespace = start.nodeBefore?.isText
+        ? start.nodeBefore.text?.match(/\s+$/u)?.[0] ?? ""
+        : "";
+      const leadingWhitespace = start.nodeAfter?.isText
+        ? start.nodeAfter.text?.match(/^\s+/u)?.[0] ?? ""
+        : "";
+      return {
+        range: {
+          from: captured.from - trailingWhitespace.length,
+          to: captured.to + leadingWhitespace.length,
+        },
+        content,
+      };
+    }
     return { range: { from: captured.from, to: captured.to }, content };
   }
   const preceding = item.precedingItems.length

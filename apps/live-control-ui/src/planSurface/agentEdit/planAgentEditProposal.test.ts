@@ -358,6 +358,39 @@ describe("reviewed World-only Plan edit admission and Apply", () => {
     expect(editor.getText()).toContain("A new World-owned opening.");
   });
 
+  it.each([
+    ["plain prose", "A lone watcher keeps vigil above the marsh."],
+    [
+      "canonical READ-ALOUD content",
+      "> [!READ-ALOUD]\n> Three lantern flashes ripple across the eastern ridge. The scouts have returned, but no one will explain their silence. A cold wind threads through the camp, sharp against your skin.",
+    ],
+  ])("applies %s immediately after the first sentence in the live one-paragraph World Plan", async (_label, fragment) => {
+    const source = "Opening image: three lantern flashes ripple across the eastern ridge. The scouts have returned, but no one will explain why they were silent.";
+    const { editor, state } = mountedState(source);
+    editor.commands.setTextSelection(1 + source.indexOf(".") + 1);
+    const current = worldState(state);
+    const captured = await captureWorldPlanEditTarget(current, () => current);
+    const admitted = await admitWorldPlanEditProposal(
+      captured,
+      await worldResponseFor(captured, fragment),
+    );
+    await applyWorldPlanEditProposal({
+      captured,
+      admitted,
+      getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(),
+      getAgentBinding: matchingAgentBinding,
+    });
+
+    const savedMarkdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    const reimported = markdownToTiptapDoc(savedMarkdown);
+    expect(editor.getText()).toContain("Opening image: three lantern flashes ripple across the eastern ridge.");
+    expect(editor.getText()).toContain("The scouts have returned, but no one will explain why they were silent.");
+    expect(editor.getText()).toContain(fragment.includes("READ-ALOUD") ? "cold wind threads through the camp" : fragment);
+    expect(reimported.diagnostics.filter((diagnostic) => diagnostic.level === "warning")).toEqual([]);
+    expect(tiptapJsonToSemanticMarkdown(reimported.doc)).toBe(savedMarkdown);
+  });
+
   it("rejects a thread switch during deferred Apply at the final synchronous guard", async () => {
     const { editor, state } = mountedState();
     editor.commands.setTextSelection({ from: 7, to: 14 });

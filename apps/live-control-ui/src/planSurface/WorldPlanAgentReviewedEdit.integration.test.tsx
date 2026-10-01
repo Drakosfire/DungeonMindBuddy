@@ -41,6 +41,20 @@ vi.mock("./PlanSurfaceShell", () => ({
 const worldId = "world-reviewed-edit-integration";
 const documentId = "saved-world-plan-reviewed-edit";
 const initialMarkdown = "# Plan\n\nThe keeper waits beneath the black arch.\n";
+const liveApplyScenarios = [
+  [
+    "plain prose",
+    "Opening image: three lantern flashes ripple across the eastern ridge. The scouts have returned, but no one will explain why they were silent.",
+    "A lone watcher keeps vigil above the marsh.",
+    "A lone watcher keeps vigil above the marsh.",
+  ],
+  [
+    "canonical READ-ALOUD callout",
+    "Opening image: three lantern flashes ripple across the eastern ridge. The scouts have returned, but no one will explain why they were silent.",
+    "> [!READ-ALOUD]\n> Three lantern flashes ripple across the eastern ridge. The scouts have returned, but no one will explain their silence. A cold wind threads through the camp, sharp against your skin.",
+    "cold wind threads through the camp",
+  ],
+] as const;
 let savedMarkdown = initialMarkdown;
 let savedRevision = 7;
 let savedDigest = "b".repeat(64);
@@ -146,7 +160,8 @@ afterEach(() => {
   savedDigest = "b".repeat(64);
 });
 
-it("composes, reviews, applies, saves, and reloads one World Plan edit on the mounted editor", async () => {
+it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a live %s edit on the mounted editor", async (_label, sourceMarkdown, replacementMarkdown, expectedAppliedText) => {
+  savedMarkdown = sourceMarkdown;
   setupWorldApi();
   const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
     schema_version: "dmb_world_plan_document_edit_proposal_v1",
@@ -157,7 +172,7 @@ it("composes, reviews, applies, saves, and reloads one World Plan edit on the mo
     draft_sha256: request.draft_sha256,
     target_kind: request.target_kind,
     selected_text_sha256: await sha256Hex(request.selected_text),
-    replacement_markdown: "A lantern glows under the arch.",
+    replacement_markdown: replacementMarkdown,
     summary: "Add a lantern-lit opening beat.",
     assumptions: ["The lantern is already present at the location."],
     model: "gpt-6-luna",
@@ -207,7 +222,19 @@ it("composes, reviews, applies, saves, and reloads one World Plan edit on the mo
   const location = `/plan?world=${worldId}&documentId=${documentId}`;
   window.history.replaceState({}, "", location);
   const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  expect(await screen.findByTestId("world-owned-plan-markdown-editor")).toBeInTheDocument();
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(editorSurface).toHaveTextContent(sourceMarkdown));
+  const proseMirror = editorSurface.querySelector(".ProseMirror") as HTMLElement;
+  const textNode = proseMirror.querySelector("p")?.firstChild as Text;
+  expect(textNode?.textContent).toBe(sourceMarkdown);
+  const range = document.createRange();
+  const firstSentenceEnd = sourceMarkdown.indexOf(".") + 1;
+  range.setStart(textNode, firstSentenceEnd);
+  range.collapse(true);
+  const domSelection = window.getSelection();
+  domSelection?.removeAllRanges();
+  domSelection?.addRange(range);
+  fireEvent.mouseUp(proseMirror);
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByRole("region", { name: "Saved World Plan conversation" })).toBeInTheDocument();
   expect(screen.getByText(/Ask sends your question.*does not send Plan text/)).toBeInTheDocument();
@@ -225,15 +252,20 @@ it("composes, reviews, applies, saves, and reloads one World Plan edit on the mo
     base_content_sha256: "b".repeat(64),
     instruction: "Add a warm light source to the opening.",
   });
-  expect(request.draft_markdown).toContain("The keeper waits beneath the black arch.");
+  expect(request.draft_markdown.trimEnd()).toBe(sourceMarkdown);
+  expect(request.target_kind).toBe("insert_at_caret");
+  expect(request.selected_text).toBe("");
   expect(JSON.stringify(request)).not.toContain("session");
-  expect(screen.getByText("The keeper waits beneath the black arch.")).toBeInTheDocument();
-  expect(screen.getByText("A lantern glows under the arch.")).toBeInTheDocument();
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(sourceMarkdown);
+  expect(screen.getByRole("region", { name: "Review proposed Plan edit" })).toHaveTextContent(expectedAppliedText);
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
-  await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("A lantern glows under the arch."));
+  await waitFor(() => {
+    expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(sourceMarkdown);
+    expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedAppliedText);
+  });
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
   const namespace = `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
@@ -253,13 +285,14 @@ it("composes, reviews, applies, saves, and reloads one World Plan edit on the mo
     world_id: worldId,
     document_id: documentId,
     writer_confirm_token: "integration-save-token",
-    markdown: expect.stringContaining("A lantern glows under the arch."),
+    markdown: expect.stringContaining(replacementMarkdown),
   }));
 
   view.unmount();
   window.history.replaceState({}, "", location);
   render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  expect(await screen.findByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("A lantern glows under the arch.");
+  expect(await screen.findByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(sourceMarkdown);
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedAppliedText);
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByText("Plan proposal · Applied to the local draft")).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();

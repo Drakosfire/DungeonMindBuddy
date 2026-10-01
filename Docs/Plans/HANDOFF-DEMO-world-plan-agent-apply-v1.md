@@ -1,8 +1,9 @@
 # HANDOFF — DEMO: World-only reviewed Agent-to-Plan Apply
 
-**Status:** ACTIVE — PRIME activated the bounded implementation lease after
-reviewing and merging this handoff; a separate post-merge runtime lease remains
-required.
+**Status:** COMPLETE — implementation PR #828 merged and its historical write
+lease is released. The separate post-merge J2 witness reproduced an Apply
+failure; the active successor fix is tracked in
+[HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md](HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md).
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -22,9 +23,10 @@ handoff PR #825 merged. Isolated checkout:
 The implementation uses fixture-backed tests only: no product database,
 service, model/provider call, port, or corpus is leased or used.
 
-**Topology:** serial within DEMO: one J2 implementation PR on the active branch;
-do not merge it. The next Plan slice stays blocked until this implementation
-merges and its separate runtime witness completes.
+**Topology:** The historical implementation was one serial PR, #828, and is
+merged. Its implementation lease is released. The separately authorized
+round-trip repair is the active successor in
+[HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md](HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md); PRIME retains merge authority.
 
 **Runtime/state ownership:** No live product service, provider, product
 database, demo World, or corpus is used by this implementation. The real-route
@@ -241,12 +243,12 @@ The implementation PR must record only established predecessor facts:
   rake only; it neither proves nor negates J2.
 
 Do not claim usage cost is a billing receipt, use the projection 503 as a Plan
-turn failure, pre-mark this implementation complete, invent a merge SHA or
+turn failure, call the post-merge Apply witness a pass, invent a merge SHA or
 review count, or claim full J2/operator acceptance before those gates pass.
 
-## Current implementation checkpoint
+## Merged implementation checkpoint
 
-The implementation worktree is based on the recorded fresh `origin/main` and
+The implementation worktree was based on the recorded fresh `origin/main` and
 stays within the 17-path lease. Focused backend admission and real-route tests
 passed `22/22`; the real World-owned Plan route witness used a disposable
 PostgreSQL fixture on localhost port 54329, and its test container was stopped
@@ -260,25 +262,33 @@ switch. Bridge regressions also cover stale World/document/revision/digest/
 draft/selection/save state and null/foreign scope/thread. Scoped Ruff and
 `git diff --check` passed.
 
-The scoped UI typecheck reports only the inherited
+The scoped UI typecheck reported only the inherited
 `ThreatPublicationPanel.tsx:553` `JSX` namespace diagnostic. The normal build
-also cannot write its TypeScript build-info file under the read-only dependency
-mount; verification redirected that file to `/tmp` and confirmed there are no
-additional production-source diagnostics. The live configured-policy proposal
-rehearsal remains pending the separate PRIME runtime lease after merge.
+also could not write its TypeScript build-info file under the read-only
+dependency mount; verification redirected that file to `/tmp` and confirmed
+there were no additional production-source diagnostics.
+
+After PR #828 merged at `dc30a7379b927edd8d9bfb510019f0fccbc3c5c5`, the
+separately leased synthetic World witness submitted two configured-policy
+proposals against Plan `46e2e8fe-6d91-4552-be31-e69c818e77c6`, revision 3. A
+canonical READ-ALOUD proposal and a plain-prose proposal were both reviewable,
+but both Apply actions hit `Agent proposal would not round-trip in this Plan
+location.` No edit or Save occurred; the saved body stayed unchanged. The
+configured model was `gpt-5.3-codex`; observed model, retries, token usage, and
+cost were not retained and remain unknown. This is a failed J2 gate, not
+acceptance. The implementation lease closed at #828; the bounded successor
+handoff now owns the Apply repair and post-merge rerun.
 
 ## 6. Completion boundary
 
-PRIME already activated the exact §3 implementation lease against fresh
-`origin/main@5b7e1e4543c94708e11687feb60093d98d6db93f` on the isolated branch
-and checkout recorded above. Continue implementation through focused tests,
-cumulative diff review, commit, push, and the assigned PR handback. Do not
-merge. The implementation has no live runtime lease; after merge, request a
-fresh PRIME runtime lease for the product witness. If any required path or
-contract exceeds §3, stop before editing it and return the exact gap to PRIME.
+PRIME activated the historical §3 implementation lease against fresh
+`origin/main@5b7e1e4543c94708e11687feb60093d98d6db93f`; that work completed in
+PR #828 and is merged. Its post-merge witness found the Apply failure recorded
+above. The original lease is closed. Continue under the exact path lease and
+runtime gates in [HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md](HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md).
 
-This implementation completes only when the approved World-only Apply
-capability passes its owning-boundary tests, cumulative diff review,
-implementation PR review/merge, and its separately leased live witness. It does not close the
-remaining J2 multi-turn acceptance, full demo journey, or human product
-acceptance by itself.
+PR #828 completed the World-only Apply implementation slice, but its Apply
+witness failed. The successor must pass its owning-boundary tests, cumulative
+diff review, PRIME review/merge, and separately authorized live rerun. Neither
+slice closes remaining J2 multi-turn acceptance, the full demo journey, or
+human product acceptance by itself.
