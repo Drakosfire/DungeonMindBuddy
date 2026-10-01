@@ -4,9 +4,13 @@
 
 **Steward:** DEMO
 
-**Design base:** Buddy `origin/main@c48abb9fa5857df90af0b086ab78294445fd252a`.
+**Design base:** Buddy `origin/main@5a7abdfdf0be13c11b0ce849be433e03a6cb662d`.
 
-**Serial predecessor:** Buddy PR #833, `DEMO: ask from saved Plan content`, head `86c1ea2552a6f035f4b172ce83a694f57628f9b1`. This graph successor must not start until #833 merges and the steward re-anchors.
+**Merged serial predecessor:** Buddy PR #833, `DEMO: ask from saved Plan content`,
+merged at `5a7abdfdf0be13c11b0ce849be433e03a6cb662d`. The saved-Plan Ask
+implementation is merged; its configured-provider live witness remains
+unclaimed. This successor is re-anchored on that merge and remains BLOCKED on
+its own design/runtime gates.
 
 **Future implementation PR title:** `DEMO: query Session 29 across Elderwyld graph`
 
@@ -18,15 +22,24 @@ The current saved-Plan Ask slice remains graphless (`graph_request.mode=none`). 
 
 ## 2. Settled scope and identity contract
 
-- Buddy must resolve a verified managed World and read its persisted, explicit binding to the existing native MIND `space_id=eldyrwild`. The binding has an active/inactive state and a version or revision identity. Do not derive it from World name, slug, campaign ID, or graph contents; do not treat `managed_world_id == campaign_id` as authority.
-- The managed World ID and native space ID are distinct identities. A missing, inactive, wrong, or stale binding fails closed before provider dispatch.
-- Buddy `scope_mode=world` maps to MIND V2 native scope `WORLD_CROSS_CAMPAIGN` with GM admissibility. The older `campaign` scope with `campaign_id=longmont-c2` hides C1 and is not acceptable for this gate.
-- C2 Session 29 is Buddy Agent narrative focus only. Carry the exact C2/session focus into the Plan Agent turn, but do not use it as the native scope filter. The current direct adapter does not forward this focus; the successor must add the bounded Buddy-side narrative context.
+- Buddy must resolve a verified managed World and read its persisted, explicit, active binding to the existing native MIND V2 Graph `world_id=eldyrwild`. The binding has an active/inactive state and a version or revision identity. Do not derive it from World name, slug, campaign ID, or graph contents; do not treat `managed_world_id == campaign_id` as authority.
+- The managed World ID and native Graph `world_id` are distinct identities. MIND V2 Graph `world_id` is separate from VNext Knowledge `space_id`; do not translate or substitute these identifiers. A missing, inactive, wrong, or stale binding fails closed before provider dispatch. #826 provisions a new empty KnowledgeSpace and does not satisfy this existing-graph binding.
+- Buddy `scope_mode=world` maps to MIND V2 native scope `WORLD_CROSS_CAMPAIGN` with GM admissibility. Buddy derives GM authority from trusted server-side surface/session state before the native read. The browser and model cannot supply the native `world_id`, GM role, scope, or binding version. A non-GM turn or missing trusted GM state fails closed before provider dispatch. The older `campaign` scope with `campaign_id=longmont-c2` hides C1 and is not acceptable for this gate.
+- C2 Session 29 is Buddy Agent narrative focus only. Carry `campaign_id=longmont-c2` and `session_id=session-29` as narrative-focus labels into the Plan Agent turn; these are not a canonical native graph entity ID and neither narrows the native scope filter. If the query requires a native Session 29 entity ID, resolve it from the adopted graph during verification; if it is absent, report that absence instead of guessing an ID or assuming a Session 29 recap. The C2 acceptance question must use facts already present in the adopted graph. The current direct adapter does not forward this focus; the successor must add the bounded Buddy-side narrative context.
 - Resolve the native head once at the beginning of the turn. Pin search, every multi-hop expansion, evidence lookup, and source read to that same head. If the native API cannot honor the pin, fail closed; do not mix revisions.
 - Return native citations backed by evidence/source references from the pinned head. Never infer citations from local Buddy graph files or recap registries.
-- Return a compact receipt containing the managed World ID, native space ID, binding version/state, native scope and admissibility, C2/session narrative focus, native revision/head IDs, and evidence/source references. Do not include Plan Markdown or a graph dump in the receipt, response trace, or logs.
+- Return a compact receipt containing the managed World ID, native Graph `world_id`, binding version/state, native scope and admissibility, C2/session narrative focus, native revision/head IDs, `is_head`, and evidence/source references. Require `is_head=true` for the pinned current head. Do not include Plan Markdown or a graph dump in the receipt, response trace, or logs.
 
-The saved committed Plan remains governed by the PR #833 content-basis contract. Its Markdown may be sent to the configured model as already disclosed by that surface, but it must not be copied into graph receipts, native query logs, or traces.
+The saved committed Plan remains governed by the merged PR #833 content-basis
+contract. The user has separately granted blanket authorization for bounded use
+of their personal corpus in this connected session, including graph excerpts.
+Before dispatch, the Plan UI/turn contract must still disclose the configured
+provider destination and the bounded retrieved graph evidence/source excerpts
+being sent for that turn. Send only excerpts needed to answer; never the full
+graph. PR #833 discloses the committed Plan text and question, but that
+disclosure alone does not identify the graph excerpts or provider destination.
+Do not copy Plan Markdown or full graph payloads into graph receipts, native
+query logs, or traces.
 
 ## 3. Existing graph evidence and limits
 
@@ -36,12 +49,14 @@ A prior PRIME read-only native observation recorded head `rev:680c246047d67f9fe0
 
 ## 4. Acceptance witness
 
-- Use a deliberately distinct managed World ID with an active explicit binding to the existing, non-empty native `eldyrwild` graph. Prove the read path does not initialize, create, or populate a KnowledgeSpace.
-- At one captured native head, ask a C1 question and a C2 Session 29 question, then a cross-campaign multi-hop question that requires evidence from both campaigns. Verify every search, hop, evidence lookup, and source read used that same head.
-- Verify the answer citations resolve to native source/evidence references and support the claims. Reject unsupported claims instead of manufacturing citations.
-- Restart the Buddy process/runtime, re-resolve the active binding and newest native head R2, and repeat a graph-backed query. The returned receipt and citations must identify R2 and its sources.
-- Prove wrong, missing, inactive, and stale binding identities fail closed before provider dispatch. Prove no Plan Markdown or full graph payload is persisted in receipts, traces, or logs.
-- Run owner-boundary tests at the Buddy binding/route and MIND native query/evidence APIs. A static bundle inspection or fake adapter alone is not acceptance evidence; a read-only live witness against the existing native graph is required.
+- On the real, non-empty native `eldyrwild` Graph, use a deliberately distinct managed World ID with a persisted active binding to Graph `world_id=eldyrwild`. Keep this witness read-only: do not initialize, create, or populate a KnowledgeSpace or mutate the existing graph.
+- At one captured current native head R1, ask a C1 question, a C2 Session 29 question using facts already present in the adopted graph, and a cross-campaign multi-hop question requiring evidence from both campaigns. Verify every search, hop, evidence lookup, and source read used that same head and the receipt reports `is_head=true`.
+- Verify the Plan focus uses `campaign_id=longmont-c2` and `session_id=session-29` as narrative labels, not as a native graph entity ID; neither value narrows the MIND V2 `WORLD_CROSS_CAMPAIGN` query. If a native Session 29 entity ID is required but absent, report that absence and do not invent an ID or assume a recap.
+- Verify answer citations resolve to native source/evidence references from the pinned head and support the claims. Reject unsupported claims instead of manufacturing citations.
+- In an isolated disposable native fixture, prove head refresh across restart: read fixture head R1, advance only the fixture to R2, restart Buddy, re-resolve the binding and newest head, then verify a graph-backed query and receipt identify R2 with `is_head=true`. Never advance the real `eldyrwild` graph for this witness.
+- Prove wrong, missing, inactive, and stale binding identities fail closed before provider dispatch. Add a non-GM negative witness using trusted server-side session state; prove browser/model-supplied role, scope, native ID, or binding version cannot grant access.
+- Verify the Plan UI/turn contract shows the configured provider destination and the exact bounded graph evidence/source excerpts sent for the turn. No full graph payload is sent or persisted in receipts, traces, or logs.
+- Run owner-boundary tests at the Buddy binding/route and MIND native query/evidence APIs. Static bundle inspection or a fake adapter alone is not acceptance evidence; combine the read-only live `eldyrwild` witness with the isolated fixture restart witness.
 
 ## 5. Blockers and topology
 
@@ -49,9 +64,9 @@ This is a serial successor. It has no write lease and allocates no implementatio
 
 Before activation, the steward must:
 
-1. Wait for PR #833 to merge, fetch the current remote default, and reconcile the consumer receipt/handoff with the merged base.
+1. Keep this design anchored at `origin/main@5a7abdfdf0be13c11b0ce849be433e03a6cb662d`; record that #833 is merged there and that its configured-provider witness remains outstanding. Re-anchor again before any later implementation dispatch.
 2. Reinspect PR #826 and all active leases. PR #826's empty-space provisioning does not satisfy or implement the binding to this pre-existing Elderwyld graph. Resolve any shared World registry/binding ownership before assigning paths.
-3. Confirm a read-only native MIND V2 endpoint and isolated runtime are available to prove `WORLD_CROSS_CAMPAIGN`, pinned-head evidence/source reads, and restart behavior against `eldyrwild`.
+3. Confirm a read-only native MIND V2 Graph endpoint for `world_id=eldyrwild` and a separate isolated disposable native fixture/runtime for the R1→R2 restart proof. Keep the real graph witness read-only.
 4. Pin the exact Buddy and MIND base refs, final exclusive path allowlists, data stores, runtime/database/output ownership, verification commands, and PR topology in an ACTIVE handoff before implementation.
 
 Candidate boundaries for later assignment are Buddy's managed-World binding owner, graph query context/Agent route and service, native response/citation receipt models, and their tests, plus the MIND V2 cross-campaign query/evidence boundary. These are investigation targets only, not a write allowlist. Do not edit them under this BLOCKED handoff.
