@@ -56,11 +56,13 @@ Memory, or persistence of provider/tool internals.
   scope, each World has zero or one active conversation; a future account or
   multi-operator model requires a separately approved identity dimension.
 - `New conversation` carries a stable caller-generated command ID. Repeating
-  that ID with the same World and command returns the same server-generated
-  conversation ID; reusing it with a different binding conflicts. Creation,
-  activation, command receipt, and archival of the previous active conversation
-  commit atomically, so a lost response can be reconciled without creating a
-  second conversation. Archive is recoverable. Archiving the active
+  that ID with the same World and command returns its original receipt without
+  reapplying activation; reusing it with a different binding conflicts.
+  Creation, activation, command receipt, and archival of the previous active
+  conversation commit atomically, so a lost response can be reconciled without
+  creating a second conversation. A delayed retry after a later `New
+  conversation` returns the earlier receipt and does not switch the active
+  pointer back. Archive is recoverable. Archiving the active
   conversation clears the active pointer; the next submitted turn creates a
   fresh conversation. Reopening an archived conversation preserves its
   ID/history and atomically archives the former active conversation. Archive
@@ -209,8 +211,9 @@ family.
    World, stable IDs, turn and draft CAS/idempotency, typed provenance, and the
    verified legacy transcript import. Use the existing UoW/DSN/migration
    authority. Prove the contract at real PostgreSQL through the owning service:
-   World isolation, active switching/archive/reactivation including a late
-   retry after a newer conversation activation, concurrent writes,
+   World isolation, active switching/archive/reactivation, late retries of an
+   earlier `New conversation` and reopen after a newer activation, concurrent
+   writes,
    duplicate/uncertain turn and draft submission, import conflicts, restart
    recovery through a fresh service instance, and DB-unavailable fail-closed
    behavior. No UI, Play, provider-profile, WorldGraph, or live provider work.
