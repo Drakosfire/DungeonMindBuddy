@@ -1,7 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 
-import { LiveApiError, getPlayRun, putPlayRunProgress } from "../../api/liveApi";
-import type { PlayRunProgress, PlayRunRecord } from "../../api/types";
+import {
+  LiveApiError,
+  getPlayRun,
+  getWorldPlayRun,
+  putPlayRunProgress,
+  putWorldPlayRunProgress,
+} from "../../api/liveApi";
+import type { AnyPlayRunRecord, PlayRunProgress } from "../../api/types";
 import {
   canonicalizePlayRunProgress,
   type NativeRunbookChoiceV2,
@@ -26,7 +32,7 @@ export interface PlayCurrentMomentCockpitProps {
   deck: NativeRunbookReadyV2;
   mutationStatus: RunbookMutationStatus;
   onMutationStatus: (status: RunbookMutationStatus) => void;
-  onAuthoritativeRun: (run: PlayRunRecord) => void;
+  onAuthoritativeRun: (run: AnyPlayRunRecord) => void;
 }
 
 function relevanceLabel(relevance: NativeRunbookSceneV2["relevance"]): string | null {
@@ -183,10 +189,13 @@ export function PlayCurrentMomentCockpit({
     setExactRereadSucceeded(false);
     onMutationStatus("saving");
     try {
-      const updated = await putPlayRunProgress(boundRunId, {
+      const request = {
         expected_run_revision: expected,
         progress: canonicalizePlayRunProgress(next),
-      });
+      };
+      const updated = run.schema_version === "dmb_world_play_run_record_v2"
+        ? await putWorldPlayRunProgress(boundRunId, run.world_id, request)
+        : await putPlayRunProgress(boundRunId, request);
       if (!mountedRef.current || liveRunIdRef.current !== boundRunId || requestSerialRef.current !== serial) {
         return;
       }
@@ -198,9 +207,11 @@ export function PlayCurrentMomentCockpit({
         return;
       }
       const status = error instanceof LiveApiError ? error.status : 0;
-      let reconciled: PlayRunRecord | null = null;
+      let reconciled: AnyPlayRunRecord | null = null;
       try {
-        reconciled = await getPlayRun(boundRunId);
+        reconciled = run.schema_version === "dmb_world_play_run_record_v2"
+          ? await getWorldPlayRun(boundRunId, run.world_id)
+          : await getPlayRun(boundRunId);
       } catch {
         reconciled = null;
       }

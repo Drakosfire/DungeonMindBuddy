@@ -4,6 +4,8 @@ import type {
   PlayRunRecord,
   PlayRunReferenceManifest,
   WorkspaceCommittedRevision,
+  WorldOwnedRunbookCommittedRevisionV2,
+  WorldPlayRunRecordV2,
 } from "../api/types";
 import { CANONICAL_SHA256_RE, isCanonicalUuid } from "./runbook/nativeRunbookProjection";
 
@@ -291,4 +293,266 @@ export async function executeStartRunAttempt(input: {
     return { outcome: "blocked", binding, detail: confirmed.detail };
   }
   return sealExactRun(binding, confirmed.run, deps);
+}
+
+export type WorldStartRunBinding = {
+  runId: string;
+  worldId: string;
+  playableArtifactId: string;
+  expectedPlayableRevision: number;
+  expectedPlayableWorkRevisionId: string;
+  expectedPlayableContentSha256: string;
+};
+
+export type WorldStartRunDeps = {
+  generateRunId: () => string;
+  getCommittedRevision: (
+    documentId: string,
+    worldId: string,
+  ) => Promise<WorldOwnedRunbookCommittedRevisionV2>;
+  putRun: (
+    runId: string,
+    worldId: string,
+    request: CreatePlayRunRequest,
+  ) => Promise<WorldPlayRunRecordV2>;
+  getRun: (runId: string, worldId: string) => Promise<WorldPlayRunRecordV2>;
+  putManifest: (runId: string, worldId: string) => Promise<PlayRunReferenceManifest>;
+  getManifest: (runId: string, worldId: string) => Promise<PlayRunReferenceManifest>;
+};
+
+export type WorldStartRunResult =
+  | {
+    outcome: "ready";
+    binding: WorldStartRunBinding;
+    run: WorldPlayRunRecordV2;
+    manifest: PlayRunReferenceManifest;
+  }
+  | { outcome: "blocked"; binding?: WorldStartRunBinding; detail: string }
+  | { outcome: "incomplete"; binding: WorldStartRunBinding; run: WorldPlayRunRecordV2; detail: string }
+  | { outcome: "replay_create"; binding: WorldStartRunBinding; detail: string };
+
+export function bindWorldStartRunAttempt(
+  runId: string,
+  worldId: string,
+  selectedDocumentId: string,
+  committed: WorldOwnedRunbookCommittedRevisionV2,
+): { ok: true; binding: WorldStartRunBinding } | { ok: false; detail: string } {
+  if (!isCanonicalUuid(runId) || !isCanonicalUuid(selectedDocumentId)) {
+    return { ok: false, detail: "Start Run identities must be canonical UUIDs." };
+  }
+  if (
+    committed.schema_version !== "dmb_workspace_committed_revision_v2"
+    || committed.scope_mode !== "world"
+    || committed.world_id !== worldId
+    || committed.campaign_id !== null
+    || committed.document_id !== selectedDocumentId
+    || committed.kind !== "runbook"
+  ) {
+    return { ok: false, detail: "Committed Runbook does not belong to the selected World." };
+  }
+  if (committed.status !== "active") {
+    return { ok: false, detail: "World Runbook is discarded." };
+  }
+  if (committed.has_divergent_working_copy) {
+    return { ok: false, detail: "World Runbook has uncommitted changes." };
+  }
+  if (!Number.isInteger(committed.revision_n) || committed.revision_n <= 0) {
+    return { ok: false, detail: "World Runbook has no exact committed revision." };
+  }
+  if (!isCanonicalUuid(committed.work_revision_id)) {
+    return { ok: false, detail: "World Runbook has no exact WorkRevision ID." };
+  }
+  if (!CANONICAL_SHA256_RE.test(committed.content_sha256)) {
+    return { ok: false, detail: "World Runbook has no exact committed content SHA." };
+  }
+  return {
+    ok: true,
+    binding: {
+      runId,
+      worldId,
+      playableArtifactId: selectedDocumentId,
+      expectedPlayableRevision: committed.revision_n,
+      expectedPlayableWorkRevisionId: committed.work_revision_id,
+      expectedPlayableContentSha256: committed.content_sha256,
+    },
+  };
+}
+
+export function sameIntendedWorldRunBinding(
+  run: WorldPlayRunRecordV2,
+  binding: WorldStartRunBinding,
+): boolean {
+  return (
+    run.schema_version === "dmb_world_play_run_record_v2"
+    && run.run_id === binding.runId
+    && run.world_id === binding.worldId
+    && run.playable_artifact_id === binding.playableArtifactId
+    && run.playable_revision === binding.expectedPlayableRevision
+    && run.playable_work_revision_id === binding.expectedPlayableWorkRevisionId
+    && run.playable_content_sha256 === binding.expectedPlayableContentSha256
+    && !Object.prototype.hasOwnProperty.call(run, "campaign_id")
+  );
+}
+
+function confirmCreatedWorldRun(
+  run: WorldPlayRunRecordV2,
+  binding: WorldStartRunBinding,
+): { status: "continue_seal"; run: WorldPlayRunRecordV2 } | { status: "block"; detail: string } {
+  if (!sameIntendedWorldRunBinding(run, binding)) {
+    return { status: "block", detail: "returned World Run binding does not match this Start Run attempt" };
+  }
+  return { status: "continue_seal", run };
+}
+
+function sameIntendedWorldManifestBinding(
+  manifest: PlayRunReferenceManifest,
+  run: WorldPlayRunRecordV2,
+): boolean {
+  return (
+    manifest.run_id === run.run_id
+    && manifest.playable_artifact_id === run.playable_artifact_id
+    && manifest.playable_revision === run.playable_revision
+    && manifest.playable_content_sha256 === run.playable_content_sha256
+  );
+}
+
+async function reconcileUnknownWorldCreate(
+  binding: WorldStartRunBinding,
+  deps: WorldStartRunDeps,
+): Promise<WorldStartRunResult | { outcome: "continue_seal"; run: WorldPlayRunRecordV2 }> {
+  try {
+    const found = await deps.getRun(binding.runId, binding.worldId);
+    const confirmed = confirmCreatedWorldRun(found, binding);
+    if (confirmed.status === "block") return { outcome: "blocked", binding, detail: confirmed.detail };
+    return { outcome: "continue_seal", run: confirmed.run };
+  } catch (error) {
+    if (errorStatus(error) === 404) {
+      return {
+        outcome: "replay_create",
+        binding,
+        detail: "World Run create outcome is unknown and the Run is not visible yet. Retry keeps this UUID and World.",
+      };
+    }
+    return {
+      outcome: "replay_create",
+      binding,
+      detail: `World Run create outcome is unknown. Retry keeps UUID ${binding.runId} and World ${binding.worldId}.`,
+    };
+  }
+}
+
+async function sealExactWorldRun(
+  binding: WorldStartRunBinding,
+  run: WorldPlayRunRecordV2,
+  deps: WorldStartRunDeps,
+): Promise<WorldStartRunResult> {
+  try {
+    const manifest = await deps.putManifest(binding.runId, binding.worldId);
+    if (!sameIntendedWorldManifestBinding(manifest, run)) {
+      return {
+        outcome: "incomplete",
+        binding,
+        run,
+        detail: `World Run ${binding.runId} was created; its sealed manifest does not match the exact Run binding.`,
+      };
+    }
+    return { outcome: "ready", binding, run, manifest };
+  } catch (error) {
+    if (errorStatus(error) === 409) {
+      return {
+        outcome: "incomplete",
+        binding,
+        run,
+        detail: `World Run ${binding.runId} was created; setup is incomplete because the Runbook changed before the manifest was sealed.`,
+      };
+    }
+    try {
+      const manifest = await deps.getManifest(binding.runId, binding.worldId);
+      if (sameIntendedWorldManifestBinding(manifest, run)) {
+        return { outcome: "ready", binding, run, manifest };
+      }
+      return {
+        outcome: "incomplete",
+        binding,
+        run,
+        detail: `World Run ${binding.runId} was created; its sealed manifest does not match the exact Run binding.`,
+      };
+    } catch (reconcileError) {
+      return {
+        outcome: "incomplete",
+        binding,
+        run,
+        detail: `World Run ${binding.runId} was created; setup is incomplete. ${errorDetail(reconcileError, errorDetail(error, "Manifest seal could not be confirmed."))}`,
+      };
+    }
+  }
+}
+
+export async function executeStartWorldRunAttempt(input: {
+  selectedDocumentId: string;
+  worldId: string;
+  attempt: WorldStartRunBinding | null;
+  phase: StartRunPhase;
+  deps: WorldStartRunDeps;
+}): Promise<WorldStartRunResult> {
+  const { selectedDocumentId, worldId, deps } = input;
+  let binding = input.attempt;
+
+  if (input.phase === "fresh") {
+    const allocated = allocateStartRunId(deps.generateRunId);
+    if (!allocated.ok) return { outcome: "blocked", detail: allocated.detail };
+    let committed: WorldOwnedRunbookCommittedRevisionV2;
+    try {
+      committed = await deps.getCommittedRevision(selectedDocumentId, worldId);
+    } catch (error) {
+      return {
+        outcome: "blocked",
+        detail: errorDetail(error, "Could not load the selected World's exact committed Runbook revision."),
+      };
+    }
+    const bound = bindWorldStartRunAttempt(allocated.runId, worldId, selectedDocumentId, committed);
+    if (!bound.ok) return { outcome: "blocked", detail: bound.detail };
+    binding = bound.binding;
+  }
+
+  if (binding == null) return { outcome: "blocked", detail: "World Start Run attempt is missing its Run UUID." };
+  if (binding.worldId !== worldId || binding.playableArtifactId !== selectedDocumentId) {
+    return { outcome: "blocked", binding, detail: "this attempt is bound to a different World or Runbook" };
+  }
+
+  if (input.phase === "retry_seal") {
+    let run: WorldPlayRunRecordV2;
+    try {
+      run = await deps.getRun(binding.runId, worldId);
+    } catch (error) {
+      return { outcome: "blocked", binding, detail: errorDetail(error, "Could not reload the created World Run.") };
+    }
+    const confirmed = confirmCreatedWorldRun(run, binding);
+    if (confirmed.status === "block") return { outcome: "blocked", binding, detail: confirmed.detail };
+    return sealExactWorldRun(binding, confirmed.run, deps);
+  }
+
+  let run: WorldPlayRunRecordV2 | null = null;
+  try {
+    run = await deps.putRun(binding.runId, worldId, {
+      playable_artifact_id: binding.playableArtifactId,
+      expected_playable_revision: binding.expectedPlayableRevision,
+      expected_playable_content_sha256: binding.expectedPlayableContentSha256,
+    });
+  } catch (error) {
+    if (errorStatus(error) === 409) {
+      return {
+        outcome: "blocked",
+        binding,
+        detail: errorDetail(error, "The World Runbook changed before this exact Start Run could bind."),
+      };
+    }
+    const reconciled = await reconcileUnknownWorldCreate(binding, deps);
+    if (reconciled.outcome !== "continue_seal") return reconciled;
+    run = reconciled.run;
+  }
+
+  const confirmed = confirmCreatedWorldRun(run, binding);
+  if (confirmed.status === "block") return { outcome: "blocked", binding, detail: confirmed.detail };
+  return sealExactWorldRun(binding, confirmed.run, deps);
 }

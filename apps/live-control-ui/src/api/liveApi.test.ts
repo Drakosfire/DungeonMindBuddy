@@ -7,10 +7,16 @@ import {
   advanceCombatTurn,
   applyCombatHpDelta,
   commitTiptapMarkdownWrite,
+  commitWorldRunbookMarkdownWrite,
   admitNativeWorldSource,
   createWorldContainer,
   createWorldOwnedPlan,
+  createWorldOwnedRunbook,
+  getWorldOwnedRunbook,
+  getWorldOwnedRunbookCommittedRevision,
+  getWorldOwnedRunbookSnapshot,
   listWorldOwnedPlans,
+  listWorldOwnedRunbooks,
   createWorkspaceDocument,
   DEFAULT_PLANNING_MANIFEST_PATH,
   getArtifact,
@@ -29,6 +35,14 @@ import {
   getPlayRun,
   putPlayActiveRun,
   putPlayRunReferenceManifest,
+  getWorldPlayRun,
+  getWorldPlayRunReferenceManifest,
+  listWorldPlayRuns,
+  putWorldPlayRun,
+  putWorldPlayRunProgress,
+  putWorldPlayRunRebase,
+  putWorldPlayRunReferenceManifest,
+  prepareWorldRunbookMarkdownWrite,
   postLiveQuery,
   postIndexAgentTurn,
   postWorldPlanAgentTurn,
@@ -2238,6 +2252,177 @@ describe("liveApi workspace worldbuilding contracts", () => {
     expect(snapshot.markdown).toBe("# Committed\n");
     expect(snapshot.loaded_revision).toBe(2);
     expect(String(fetchSpy.mock.calls[0]?.[0])).toContain(`/workspace-documents/${record.document_id}/snapshot`);
+  });
+});
+
+describe("World Play V2 API transport", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  const worldId = "world one";
+  const documentId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+  const runId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const sha = "a".repeat(64);
+  const book = {
+    schema_version: "dmb_world_owned_runbook_record_v2",
+    scope_mode: "world",
+    document_id: documentId,
+    title: "North Gate",
+    campaign_id: null,
+    world_id: worldId,
+    target_session: null,
+    kind: "runbook",
+    target_relpath: null,
+    status: "active",
+    content_status: "committed",
+    revision: 7,
+    created_at: "2026-09-30T00:00:00Z",
+    updated_at: "2026-09-30T00:00:00Z",
+  };
+  const run = {
+    schema_version: "dmb_world_play_run_record_v2",
+    run_id: runId,
+    world_id: worldId,
+    playable_artifact_id: documentId,
+    playable_revision: 7,
+    playable_work_revision_id: "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+    playable_content_sha256: sha,
+    run_revision: 4,
+    created_at: "2026-09-30T00:00:00Z",
+    updated_at: "2026-09-30T00:00:00Z",
+    progress: { current_scene_id: null, current_beat_id: null, resolved_beat_ids: [], selections: {}, notes_by_element_id: {} },
+  };
+  const manifest = {
+    schema_version: "dmb_play_run_reference_manifest_v1",
+    run_id: runId,
+    playable_artifact_id: documentId,
+    playable_revision: 7,
+    playable_content_sha256: sha,
+    elements: [],
+    sealed_at: "2026-09-30T00:00:00Z",
+  };
+
+  it("uses World V2 routes, owner data, exact revision pins, and CAS request bodies", async () => {
+    const committed = {
+      schema_version: "dmb_workspace_committed_revision_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: documentId,
+      kind: "runbook",
+      campaign_id: null,
+      title: "North Gate",
+      status: "active",
+      object_revision: 7,
+      work_revision_id: run.playable_work_revision_id,
+      revision_n: 7,
+      markdown: "# Gate\n",
+      content_sha256: sha,
+      has_divergent_working_copy: false,
+      target_relpath: null,
+    };
+    const responses = [
+      { schema_version: "dmb_world_owned_runbooks_list_v2", scope_mode: "world", world_id: worldId, records: [book] },
+      book,
+      book,
+      { schema_version: "dmb_workspace_runbook_snapshot_v2", record: book, markdown: "# Gate\n", content_sha256: sha, file_fingerprint: "fp", file_exists: true, loaded_revision: 7 },
+      committed,
+      {
+        schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+        scope_mode: "world",
+        world_id: worldId,
+        document_id: documentId,
+        title: "North Gate",
+        target_relpath: `runbook:${documentId}`,
+        target_display_path: `runbook:${documentId}`,
+        registry_revision: 7,
+        file_exists: false,
+        writer_ok: true,
+        writer_confirm_token: "token",
+        warnings: [],
+        diagnostics: [],
+      },
+      {
+        schema_version: "dmb_tiptap_markdown_write_commit_v2",
+        scope_mode: "world",
+        world_id: worldId,
+        document_id: documentId,
+        title: "North Gate",
+        target_relpath: `runbook:${documentId}`,
+        target_display_path: `runbook:${documentId}`,
+        registry_revision: 8,
+        committed_revision: 7,
+        committed_record: book,
+        normalized_content_sha256: sha,
+        writer_ok: true,
+        diagnostics: [],
+      },
+      { schema_version: "dmb_world_play_runs_list_v2", records: [run] },
+      run,
+      run,
+      { ...run, run_revision: 5 },
+      { ...run, run_revision: 6, playable_revision: 8, playable_content_sha256: "b".repeat(64) },
+      manifest,
+      manifest,
+    ];
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => mockJsonResponse(responses.shift()));
+
+    await listWorldOwnedRunbooks(worldId);
+    await createWorldOwnedRunbook({ world_id: worldId, title: "North Gate" });
+    await getWorldOwnedRunbook(documentId, worldId);
+    await getWorldOwnedRunbookSnapshot(documentId, worldId);
+    await getWorldOwnedRunbookCommittedRevision(documentId, worldId, 7, sha);
+    await prepareWorldRunbookMarkdownWrite(worldId, { document_id: documentId, markdown: "# Gate\n", expected_revision: 7 });
+    await commitWorldRunbookMarkdownWrite(worldId, { document_id: documentId, markdown: "# Gate\n", writer_confirm_token: "token", expected_revision: 7 });
+    await listWorldPlayRuns(worldId);
+    await getWorldPlayRun(runId, worldId);
+    await putWorldPlayRun(runId, worldId, { playable_artifact_id: documentId, expected_playable_revision: 7, expected_playable_content_sha256: sha });
+    const progress = { expected_run_revision: 4, progress: run.progress };
+    const rebase = { expected_run_revision: 4, target_playable_revision: 8, target_playable_content_sha256: "b".repeat(64) };
+    await putWorldPlayRunProgress(runId, worldId, progress);
+    await putWorldPlayRunRebase(runId, worldId, rebase);
+    await getWorldPlayRunReferenceManifest(runId, worldId);
+    await putWorldPlayRunReferenceManifest(runId, worldId);
+
+    expect(fetchSpy.mock.calls.map(([url]) => String(url))).toEqual([
+      "/api/live/workspace-documents/world-runbooks?world_id=world%20one",
+      "/api/live/workspace-documents/world-runbooks",
+      `/api/live/workspace-documents/world-runbooks/${documentId}?world_id=world%20one`,
+      `/api/live/workspace-documents/world-runbooks/${documentId}/snapshot?world_id=world%20one`,
+      `/api/live/workspace-documents/world-runbooks/${documentId}/committed-revision/7?world_id=world+one&expected_sha256=${sha}`,
+      `/api/live/workspace-documents/world-runbooks/${documentId}/tiptap/prepare?world_id=world%20one`,
+      `/api/live/workspace-documents/world-runbooks/${documentId}/tiptap/commit?world_id=world%20one`,
+      "/api/live/world-play-runs/v2?world_id=world%20one",
+      `/api/live/world-play-runs/v2/${runId}?world_id=world%20one`,
+      `/api/live/world-play-runs/v2/${runId}?world_id=world%20one`,
+      `/api/live/world-play-runs/v2/${runId}/progress?world_id=world%20one`,
+      `/api/live/world-play-runs/v2/${runId}/rebase?world_id=world%20one`,
+      `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
+      `/api/live/world-play-runs/v2/${runId}/reference-manifest?world_id=world%20one`,
+    ]);
+    expect(JSON.parse(String(fetchSpy.mock.calls[1]?.[1]?.body))).toMatchObject({ scope_mode: "world", world_id: worldId });
+    expect(JSON.parse(String(fetchSpy.mock.calls[5]?.[1]?.body))).toMatchObject({ scope_mode: "world", world_id: worldId });
+    expect(JSON.parse(String(fetchSpy.mock.calls[10]?.[1]?.body))).toEqual(progress);
+    expect(JSON.parse(String(fetchSpy.mock.calls[11]?.[1]?.body))).toEqual(rebase);
+  });
+
+  it("rejects foreign and campaign-shaped V2 ownership responses", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(mockJsonResponse({ ...book, world_id: "world-other" }))
+      .mockResolvedValueOnce(mockJsonResponse({ ...book, campaign_id: worldId }))
+      .mockResolvedValueOnce(mockJsonResponse({ ...run, campaign_id: worldId }))
+      .mockResolvedValueOnce(mockJsonResponse({ ...run, world_id: "world-other" }));
+    await expect(getWorldOwnedRunbook(documentId, worldId)).rejects.toThrow(/selected World/);
+    await expect(getWorldOwnedRunbook(documentId, worldId)).rejects.toThrow(/selected World/);
+    await expect(getWorldPlayRun(runId, worldId)).rejects.toThrow(/V2 contract/);
+    await expect(getWorldPlayRun(runId, worldId)).rejects.toThrow(/V2 contract/);
+    expect(fetchSpy).toHaveBeenCalledTimes(4);
+  });
+
+  it("rejects missing World scope and malformed exact revision pins before transport", async () => {
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    await expect(createWorldOwnedRunbook({ world_id: " ", title: "North Gate" })).rejects.toThrow(/World ID/);
+    await expect(getWorldOwnedRunbookCommittedRevision(documentId, worldId, 7)).rejects.toThrow(/both revision/);
+    await expect(getWorldOwnedRunbookCommittedRevision(documentId, worldId, -1, sha)).rejects.toThrow(/positive revision/);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 

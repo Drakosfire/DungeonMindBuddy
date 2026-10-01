@@ -1,11 +1,15 @@
 import {
   LiveApiError,
+  commitWorldRunbookMarkdownWrite,
   commitTiptapMarkdownWrite,
   createWorkspaceDocument,
+  createWorldOwnedRunbook,
+  getWorldOwnedRunbookSnapshot,
   getWorkspaceDocumentSnapshot,
+  prepareWorldRunbookMarkdownWrite,
   prepareTiptapMarkdownWrite,
 } from "../api/liveApi";
-import type { WorkspaceDocumentRecord } from "../api/types";
+import type { WorldOwnedRunbookRecordV2, WorkspaceDocumentRecord } from "../api/types";
 import {
   createWorkspaceDocumentCreationController,
   type WorkspaceDocumentCreateIntent,
@@ -26,14 +30,38 @@ export type BlankRunbookAttempt = {
   campaignId: string;
 };
 
-export class BlankRunbookCreateError extends Error {
-  readonly attempt: BlankRunbookAttempt | null;
+export type WorldBlankRunbookAttempt = {
+  documentId: string;
+  beatId: string;
+  markdown: string;
+  expectedRevision: number;
+  worldId: string;
+};
 
-  constructor(message: string, attempt: BlankRunbookAttempt | null = null) {
+export class BlankRunbookCreateError extends Error {
+  readonly attempt: BlankRunbookAttempt | WorldBlankRunbookAttempt | null;
+
+  constructor(message: string, attempt: BlankRunbookAttempt | WorldBlankRunbookAttempt | null = null) {
     super(message);
     this.name = "BlankRunbookCreateError";
     this.attempt = attempt;
   }
+}
+
+export interface CreateBlankWorldRunbookDeps {
+  create?: typeof createWorldOwnedRunbook;
+  prepare?: typeof prepareWorldRunbookMarkdownWrite;
+  commit?: typeof commitWorldRunbookMarkdownWrite;
+  getSnapshot?: typeof getWorldOwnedRunbookSnapshot;
+  generateBeatId?: () => string;
+  attempt?: WorldBlankRunbookAttempt | null;
+  onAttemptRetained?: (attempt: WorldBlankRunbookAttempt) => void;
+}
+
+export interface CreateBlankWorldRunbookResult {
+  record: WorldOwnedRunbookRecordV2;
+  beatId: string;
+  markdown: string;
 }
 
 export function resolveBlankRunbookCampaignId(
@@ -223,4 +251,123 @@ export async function createBlankRunbook(
   };
   deps.onAttemptRetained?.(attempt);
   return prepareAndCommit(attempt, deps);
+}
+
+async function reconcileExactWorldDocument(
+  attempt: WorldBlankRunbookAttempt,
+  getSnapshot: typeof getWorldOwnedRunbookSnapshot,
+): Promise<CreateBlankWorldRunbookResult | { status: "not_committed"; expectedRevision: number } | { status: "unknown" }> {
+  try {
+    const snapshot = await getSnapshot(attempt.documentId, attempt.worldId);
+    if (
+      snapshot.record.document_id !== attempt.documentId
+      || snapshot.record.world_id !== attempt.worldId
+      || snapshot.record.campaign_id !== null
+      || snapshot.record.schema_version !== "dmb_world_owned_runbook_record_v2"
+    ) {
+      throw new BlankRunbookCreateError("World Runbook snapshot does not match the retained document and World.", attempt);
+    }
+    if (snapshot.record.content_status === "committed") {
+      if (snapshot.markdown !== attempt.markdown) {
+        throw new BlankRunbookCreateError("Committed World Runbook does not match this blank create attempt.", attempt);
+      }
+      return { record: snapshot.record, beatId: attempt.beatId, markdown: attempt.markdown };
+    }
+    return { status: "not_committed", expectedRevision: snapshot.record.revision };
+  } catch (error) {
+    if (error instanceof BlankRunbookCreateError) throw error;
+    return { status: "unknown" };
+  }
+}
+
+async function prepareAndCommitWorldRunbook(
+  attempt: WorldBlankRunbookAttempt,
+  deps: CreateBlankWorldRunbookDeps,
+): Promise<CreateBlankWorldRunbookResult> {
+  const prepare = deps.prepare ?? prepareWorldRunbookMarkdownWrite;
+  const commit = deps.commit ?? commitWorldRunbookMarkdownWrite;
+  const getSnapshot = deps.getSnapshot ?? getWorldOwnedRunbookSnapshot;
+  let prepared;
+  try {
+    prepared = await prepare(attempt.worldId, {
+      document_id: attempt.documentId,
+      markdown: attempt.markdown,
+      expected_revision: attempt.expectedRevision,
+    });
+  } catch (error) {
+    throw new BlankRunbookCreateError(errorMessage(error, "World Runbook prepare failed."), attempt);
+  }
+  if (!prepared.writer_ok || !prepared.writer_confirm_token) {
+    throw new BlankRunbookCreateError("World Runbook prepare did not return a commit token.", attempt);
+  }
+  try {
+    const committed = await commit(attempt.worldId, {
+      document_id: attempt.documentId,
+      markdown: attempt.markdown,
+      writer_confirm_token: prepared.writer_confirm_token,
+      expected_revision: attempt.expectedRevision,
+    });
+    return { record: committed.committed_record, beatId: attempt.beatId, markdown: attempt.markdown };
+  } catch (error) {
+    const status = errorStatus(error);
+    const certainFailure = status === 409 || status === 422 || status === 400;
+    if (!certainFailure) {
+      const reconciled = await reconcileExactWorldDocument(attempt, getSnapshot);
+      if ("record" in reconciled) return reconciled;
+    }
+    throw new BlankRunbookCreateError(
+      `${errorMessage(error, "World Runbook commit could not be confirmed.")} Retry will keep document ${attempt.documentId} in World ${attempt.worldId}.`,
+      attempt,
+    );
+  }
+}
+
+export async function createBlankWorldRunbook(
+  worldId: string,
+  deps: CreateBlankWorldRunbookDeps = {},
+): Promise<CreateBlankWorldRunbookResult> {
+  const retained = deps.attempt ?? null;
+  const cleanedWorld = worldId.trim();
+  if (!cleanedWorld || cleanedWorld !== worldId) {
+    throw new BlankRunbookCreateError("Selected World is required to create a Runbook.");
+  }
+  if (retained && retained.worldId !== cleanedWorld) {
+    throw new BlankRunbookCreateError("Retained World Runbook attempt belongs to another World.", retained);
+  }
+  if (retained) {
+    deps.onAttemptRetained?.(retained);
+    const getSnapshot = deps.getSnapshot ?? getWorldOwnedRunbookSnapshot;
+    const reconciled = await reconcileExactWorldDocument(retained, getSnapshot);
+    if ("record" in reconciled) return reconciled;
+    const retryAttempt: WorldBlankRunbookAttempt = {
+      ...retained,
+      expectedRevision: reconciled.status === "not_committed"
+        ? reconciled.expectedRevision
+        : retained.expectedRevision,
+    };
+    deps.onAttemptRetained?.(retryAttempt);
+    return prepareAndCommitWorldRunbook(retryAttempt, deps);
+  }
+  const created = await (deps.create ?? createWorldOwnedRunbook)({
+    world_id: cleanedWorld,
+    title: BLANK_RUNBOOK_TITLE,
+  });
+  if (
+    created.schema_version !== "dmb_world_owned_runbook_record_v2"
+    || created.world_id !== cleanedWorld
+    || created.campaign_id !== null
+    || created.kind !== "runbook"
+  ) {
+    throw new BlankRunbookCreateError("Created Runbook does not belong to the selected World.");
+  }
+  const beatId = deps.generateBeatId?.() ?? generatePlayableElementId("beat");
+  const attempt: WorldBlankRunbookAttempt = {
+    documentId: created.document_id,
+    beatId,
+    markdown: formatBlankRunbookMarkdown(beatId),
+    expectedRevision: created.revision,
+    worldId: cleanedWorld,
+  };
+  deps.onAttemptRetained?.(attempt);
+  return prepareAndCommitWorldRunbook(attempt, deps);
 }

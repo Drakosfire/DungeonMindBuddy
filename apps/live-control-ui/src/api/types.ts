@@ -1733,6 +1733,40 @@ export interface WorkspaceDocumentSnapshot {
   loaded_revision: number;
 }
 
+export interface WorldOwnedRunbookRecordV2 {
+  schema_version: "dmb_world_owned_runbook_record_v2";
+  scope_mode: "world";
+  document_id: string;
+  title: string;
+  campaign_id: null;
+  world_id: string;
+  target_session: null;
+  kind: "runbook";
+  target_relpath: string | null;
+  status: WorkspaceDocumentStatus;
+  content_status: WorkspaceDocumentContentStatus;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorldOwnedRunbooksResponseV2 {
+  schema_version: "dmb_world_owned_runbooks_list_v2";
+  scope_mode: "world";
+  world_id: string;
+  records: WorldOwnedRunbookRecordV2[];
+}
+
+export interface WorldOwnedRunbookSnapshotV2 {
+  schema_version: "dmb_workspace_runbook_snapshot_v2";
+  record: WorldOwnedRunbookRecordV2;
+  markdown: string;
+  content_sha256: string;
+  file_fingerprint: string;
+  file_exists: boolean;
+  loaded_revision: number;
+}
+
 export interface NativeWorldSourceAdmissionStatus {
   schema_version: "dmb_native_world_source_admission_status_v1";
   state: "pending" | "admitted";
@@ -1776,6 +1810,15 @@ export interface WorldOwnedCommittedRevisionV2 extends Omit<WorkspaceCommittedRe
   campaign_id: null;
 }
 
+export interface WorldOwnedRunbookCommittedRevisionV2 extends Omit<WorldOwnedCommittedRevisionV2, "kind"> {
+  kind: "runbook";
+}
+
+export type WorkspaceCommittedRevisionAny =
+  | WorkspaceCommittedRevision
+  | WorldOwnedCommittedRevisionV2
+  | WorldOwnedRunbookCommittedRevisionV2;
+
 export type PlayRunRecordSchema = "dmb_play_run_record_v1";
 export type PlayRunsListSchema = "dmb_play_runs_list_v1";
 export type PlayRunReferenceManifestV1Schema = "dmb_play_run_reference_manifest_v1";
@@ -1808,6 +1851,28 @@ export interface PlayRunRecord {
   rebased_from_run_revision?: number;
 }
 
+export interface WorldPlayRunRecordV2 {
+  schema_version: "dmb_world_play_run_record_v2";
+  run_id: string;
+  world_id: string;
+  playable_artifact_id: string;
+  playable_revision: number;
+  playable_work_revision_id: string;
+  playable_content_sha256: string;
+  run_revision: number;
+  created_at: string;
+  updated_at: string;
+  progress: PlayRunProgress;
+  rebased_from_run_revision?: number;
+}
+
+export type AnyPlayRunRecord = PlayRunRecord | WorldPlayRunRecordV2;
+
+export interface WorldPlayRunsListResponseV2 {
+  schema_version: "dmb_world_play_runs_list_v2";
+  records: WorldPlayRunRecordV2[];
+}
+
 export interface PlayRunsListResponse {
   schema_version: PlayRunsListSchema;
   records: PlayRunRecord[];
@@ -1832,6 +1897,12 @@ export interface CreatePlayRunRequest {
   playable_artifact_id: string;
   expected_playable_revision: number;
   expected_playable_content_sha256: string;
+}
+
+export interface RebasePlayRunRequest {
+  expected_run_revision: number;
+  target_playable_revision: number;
+  target_playable_content_sha256: string;
 }
 
 export interface PlayRunReferenceElement {
@@ -1973,6 +2044,13 @@ export interface WorldOwnedPlanMarkdownWriteCommitResponseV2 extends Omit<Tiptap
   scope_mode: "world";
   world_id: string;
   committed_record: WorldOwnedPlanRecordV2;
+}
+
+export interface WorldOwnedRunbookMarkdownWriteCommitResponseV2 extends Omit<TiptapMarkdownWriteCommitResponse, "schema_version" | "committed_record"> {
+  schema_version: "dmb_tiptap_markdown_write_commit_v2";
+  scope_mode: "world";
+  world_id: string;
+  committed_record: WorldOwnedRunbookRecordV2;
 }
 
 export type ExtractionRunLifecycleStatus =

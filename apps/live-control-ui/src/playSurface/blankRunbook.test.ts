@@ -2,12 +2,18 @@ import { describe, expect, it, vi } from "vitest";
 
 import { LiveApiError } from "../api/liveApi";
 import { parsePlayableHtmlComment } from "../tiptap/playable/playableElementIdentity";
-import type { WorkspaceDocumentRecord, WorkspaceDocumentSnapshot } from "../api/types";
+import type {
+  WorldOwnedRunbookRecordV2,
+  WorldOwnedRunbookSnapshotV2,
+  WorkspaceDocumentRecord,
+  WorkspaceDocumentSnapshot,
+} from "../api/types";
 import {
   BLANK_RUNBOOK_TITLE,
   BlankRunbookCreateError,
   UNTITLED_BEAT_HEADING,
   campaignIdFromProductContext,
+  createBlankWorldRunbook,
   createBlankRunbook,
   formatBlankRunbookMarkdown,
   resolveBlankRunbookCampaignId,
@@ -16,6 +22,7 @@ import {
 const DOC_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const BEAT_ID = "beat:aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const MARKDOWN = formatBlankRunbookMarkdown(BEAT_ID);
+const WORLD_ID = "longmont-c2";
 
 function record(campaignId: string, contentStatus: "draft" | "committed" = "committed"): WorkspaceDocumentRecord {
   return {
@@ -41,6 +48,40 @@ function snapshot(
   return {
     schema_version: "dmb_workspace_document_snapshot_v1",
     record: record("operator-campaign", contentStatus),
+    markdown,
+    content_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    file_fingerprint: "fp",
+    file_exists: contentStatus === "committed",
+    loaded_revision: 1,
+  };
+}
+
+function worldRecord(contentStatus: "draft" | "committed" = "committed"): WorldOwnedRunbookRecordV2 {
+  return {
+    schema_version: "dmb_world_owned_runbook_record_v2",
+    scope_mode: "world",
+    document_id: DOC_ID,
+    title: BLANK_RUNBOOK_TITLE,
+    campaign_id: null,
+    world_id: WORLD_ID,
+    target_session: null,
+    kind: "runbook",
+    target_relpath: null,
+    status: "active",
+    content_status: contentStatus,
+    revision: 1,
+    created_at: "2026-08-27T00:00:00Z",
+    updated_at: "2026-08-27T00:00:00Z",
+  };
+}
+
+function worldSnapshot(
+  contentStatus: "draft" | "committed",
+  markdown = MARKDOWN,
+): WorldOwnedRunbookSnapshotV2 {
+  return {
+    schema_version: "dmb_workspace_runbook_snapshot_v2",
+    record: worldRecord(contentStatus),
     markdown,
     content_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     file_fingerprint: "fp",
@@ -256,5 +297,71 @@ describe("blankRunbook", () => {
     expect(commit).toHaveBeenCalledTimes(1);
     expect(result.record.document_id).toBe(DOC_ID);
     expect(result.beatId).toBe(BEAT_ID);
+  });
+
+  it("creates and commits a blank World Runbook only through the explicit World V2 contract", async () => {
+    const created = worldRecord("draft");
+    const committed = worldRecord("committed");
+    const create = vi.fn().mockResolvedValue(created);
+    const prepare = vi.fn().mockResolvedValue({ writer_ok: true, writer_confirm_token: "world-token" });
+    const commit = vi.fn().mockResolvedValue({ committed_record: committed, writer_ok: true });
+    const onAttemptRetained = vi.fn();
+
+    const result = await createBlankWorldRunbook(WORLD_ID, {
+      create,
+      prepare,
+      commit,
+      generateBeatId: () => BEAT_ID,
+      onAttemptRetained,
+    });
+
+    expect(create).toHaveBeenCalledWith({ world_id: WORLD_ID, title: BLANK_RUNBOOK_TITLE });
+    expect(prepare).toHaveBeenCalledWith(WORLD_ID, {
+      document_id: DOC_ID,
+      markdown: MARKDOWN,
+      expected_revision: 1,
+    });
+    expect(commit).toHaveBeenCalledWith(WORLD_ID, {
+      document_id: DOC_ID,
+      markdown: MARKDOWN,
+      writer_confirm_token: "world-token",
+      expected_revision: 1,
+    });
+    expect(onAttemptRetained).toHaveBeenCalledWith({
+      documentId: DOC_ID,
+      beatId: BEAT_ID,
+      markdown: MARKDOWN,
+      expectedRevision: 1,
+      worldId: WORLD_ID,
+    });
+    expect(result.record.campaign_id).toBeNull();
+    expect(result.record.world_id).toBe(WORLD_ID);
+  });
+
+  it("reconciles a lost World commit from the exact same-World snapshot", async () => {
+    const create = vi.fn().mockResolvedValue(worldRecord("draft"));
+    const prepare = vi.fn().mockResolvedValue({ writer_ok: true, writer_confirm_token: "world-token" });
+    const commit = vi.fn().mockRejectedValue(new Error("network"));
+    const getSnapshot = vi.fn().mockResolvedValue(worldSnapshot("committed"));
+
+    const result = await createBlankWorldRunbook(WORLD_ID, {
+      create,
+      prepare,
+      commit,
+      getSnapshot,
+      generateBeatId: () => BEAT_ID,
+    });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(getSnapshot).toHaveBeenCalledWith(DOC_ID, WORLD_ID);
+    expect(result.record.document_id).toBe(DOC_ID);
+    expect(result.record.world_id).toBe(WORLD_ID);
+  });
+
+  it("rejects a World blank attempt if the create response belongs elsewhere", async () => {
+    const create = vi.fn().mockResolvedValue({ ...worldRecord("draft"), world_id: "world-other" });
+    const prepare = vi.fn();
+    await expect(createBlankWorldRunbook(WORLD_ID, { create, prepare })).rejects.toThrow(/selected World/);
+    expect(prepare).not.toHaveBeenCalled();
   });
 });

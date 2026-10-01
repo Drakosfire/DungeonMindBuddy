@@ -1,25 +1,36 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
+  getWorldOwnedRunbookCommittedRevision,
+  getWorldPlayRun,
+  getWorldPlayRunReferenceManifest,
   getPlayRun,
   getPlayRunReferenceManifest,
   getCommittedWorkspaceRevision,
+  listWorldOwnedRunbooks,
   listWorkspaceDocuments,
+  putWorldPlayRun,
+  putWorldPlayRunReferenceManifest,
   putPlayRun,
   putPlayRunReferenceManifest,
 } from "../api/liveApi";
-import type { WorkspaceDocumentRecord } from "../api/types";
+import type { WorldOwnedRunbookRecordV2, WorkspaceDocumentRecord } from "../api/types";
 import {
+  executeStartWorldRunAttempt,
   executeStartRunAttempt,
   type StartRunBinding,
   type StartRunDeps,
   type StartRunPhase,
+  type WorldStartRunBinding,
+  type WorldStartRunDeps,
 } from "./startRunAttempt";
 import {
   BlankRunbookCreateError,
+  createBlankWorldRunbook,
   createBlankRunbook,
   resolveBlankRunbookCampaignId,
   type BlankRunbookAttempt,
+  type WorldBlankRunbookAttempt,
 } from "./blankRunbook";
 import {
   playRunbookAuthoringCampaignMismatch,
@@ -35,6 +46,18 @@ const liveStartRunDeps: StartRunDeps = {
   getManifest: getPlayRunReferenceManifest,
 };
 
+const liveWorldStartRunDeps: WorldStartRunDeps = {
+  generateRunId: () => crypto.randomUUID(),
+  getCommittedRevision: getWorldOwnedRunbookCommittedRevision,
+  putRun: putWorldPlayRun,
+  getRun: getWorldPlayRun,
+  putManifest: putWorldPlayRunReferenceManifest,
+  getManifest: getWorldPlayRunReferenceManifest,
+};
+
+type StartRunbookRecord = WorkspaceDocumentRecord | WorldOwnedRunbookRecordV2;
+type StartRunAttemptBinding = StartRunBinding | WorldStartRunBinding;
+
 type ListStatus = "loading" | "ready" | "empty" | "unavailable";
 type AttemptStatus = "idle" | "starting" | "incomplete" | "blocked" | "replay_create";
 
@@ -49,27 +72,25 @@ export function StartRunPanel({
 }) {
   const [listStatus, setListStatus] = useState<ListStatus>("loading");
   const [listDetail, setListDetail] = useState<string | null>(null);
-  const [runbooks, setRunbooks] = useState<WorkspaceDocumentRecord[]>([]);
+  const [runbooks, setRunbooks] = useState<StartRunbookRecord[]>([]);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [attemptStatus, setAttemptStatus] = useState<AttemptStatus>("idle");
   const [attemptDetail, setAttemptDetail] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState<StartRunBinding | null>(null);
+  const [attempt, setAttempt] = useState<StartRunAttemptBinding | null>(null);
   const [campaignDraft, setCampaignDraft] = useState("");
   const [creatingBlank, setCreatingBlank] = useState(false);
   const [createBlankError, setCreateBlankError] = useState<string | null>(null);
   const [listRefreshWarning, setListRefreshWarning] = useState<string | null>(null);
   const [blankAttempt, setBlankAttempt] = useState<BlankRunbookAttempt | null>(null);
+  const [worldBlankAttempt, setWorldBlankAttempt] = useState<WorldBlankRunbookAttempt | null>(null);
   const startedRef = useRef<string | null>(null);
 
   const refreshRunbooks = useCallback(async () => {
     setListStatus("loading");
     setListDetail(null);
-    const listed = await listWorkspaceDocuments({
-      kind: "runbook",
-      status: "active",
-      ...(verifiedWorldId ? { campaign_id: verifiedWorldId } : {}),
-    });
-    const records = listed.records;
+    const records = verifiedWorldId
+      ? (await listWorldOwnedRunbooks(verifiedWorldId)).records
+      : (await listWorkspaceDocuments({ kind: "runbook", status: "active" })).records;
     setRunbooks(records);
     setListStatus(records.length === 0 ? "empty" : "ready");
     return records;
@@ -94,23 +115,60 @@ export function StartRunPanel({
     };
   }, [refreshRunbooks]);
 
-  const runAttempt = useCallback(async (phase: StartRunPhase, currentAttempt: StartRunBinding | null) => {
+  useEffect(() => {
+    setSelectedDocumentId(null);
+    setAttempt(null);
+    setAttemptStatus("idle");
+    setAttemptDetail(null);
+    setBlankAttempt(null);
+    setWorldBlankAttempt(null);
+    startedRef.current = null;
+  }, [verifiedWorldId]);
+
+  const runAttempt = useCallback(async (phase: StartRunPhase, currentAttempt: StartRunAttemptBinding | null) => {
     if (selectedDocumentId == null) return;
-    if (verifiedWorldId && !runbooks.some((record) =>
-      record.document_id === selectedDocumentId && record.campaign_id === verifiedWorldId
+    const selected = runbooks.find((record) => record.document_id === selectedDocumentId);
+    if (verifiedWorldId && (
+      selected == null
+      || selected.schema_version !== "dmb_world_owned_runbook_record_v2"
+      || selected.world_id !== verifiedWorldId
+      || selected.campaign_id !== null
     )) {
       setAttemptStatus("blocked");
       setAttemptDetail("Runbook does not belong to the selected World.");
       return;
     }
+    if (!verifiedWorldId && selected?.schema_version === "dmb_world_owned_runbook_record_v2") {
+      setAttemptStatus("blocked");
+      setAttemptDetail("World-owned Runbooks require their selected managed World.");
+      return;
+    }
+    if (verifiedWorldId && currentAttempt != null && !("worldId" in currentAttempt)) {
+      setAttemptStatus("blocked");
+      setAttemptDetail("This Start Run attempt belongs to Campaign scope, not the selected World.");
+      return;
+    }
+    if (!verifiedWorldId && currentAttempt != null && "worldId" in currentAttempt) {
+      setAttemptStatus("blocked");
+      setAttemptDetail("This Start Run attempt belongs to another World scope.");
+      return;
+    }
     setAttemptStatus("starting");
     setAttemptDetail(null);
-    const result = await executeStartRunAttempt({
-      selectedDocumentId,
-      attempt: currentAttempt,
-      phase,
-      deps: liveStartRunDeps,
-    });
+    const result = verifiedWorldId
+      ? await executeStartWorldRunAttempt({
+        selectedDocumentId,
+        worldId: verifiedWorldId,
+        attempt: currentAttempt as WorldStartRunBinding | null,
+        phase,
+        deps: liveWorldStartRunDeps,
+      })
+      : await executeStartRunAttempt({
+        selectedDocumentId,
+        attempt: currentAttempt as StartRunBinding | null,
+        phase,
+        deps: liveStartRunDeps,
+      });
     if (result.outcome === "ready") {
       if (startedRef.current === result.binding.runId) return;
       startedRef.current = result.binding.runId;
@@ -137,51 +195,67 @@ export function StartRunPanel({
 
   const resolvedCampaignId = resolveBlankRunbookCampaignId(productCampaignId, campaignDraft);
   const showCreate = listStatus === "empty" || listStatus === "ready";
-  const canCreateBlank = blankAttempt != null || resolvedCampaignId != null;
+  const canCreateBlank = blankAttempt != null
+    || worldBlankAttempt != null
+    || verifiedWorldId != null
+    || resolvedCampaignId != null;
   const selectedRunbook = selectedDocumentId == null
     ? null
     : runbooks.find((record) => record.document_id === selectedDocumentId) ?? null;
-  const campaignMismatchReason = selectedRunbook
-    ? playRunbookAuthoringCampaignMismatch(productCampaignId, selectedRunbook.campaign_id)
-    : null;
+  const campaignMismatchReason = selectedRunbook == null
+    ? null
+    : verifiedWorldId
+      ? selectedRunbook.schema_version !== "dmb_world_owned_runbook_record_v2"
+        || selectedRunbook.world_id !== verifiedWorldId
+        || selectedRunbook.campaign_id !== null
+        ? "Runbook does not belong to the selected World."
+        : null
+      : selectedRunbook.schema_version === "dmb_world_owned_runbook_record_v2"
+        ? "World-owned Runbooks require their selected managed World."
+        : playRunbookAuthoringCampaignMismatch(productCampaignId, selectedRunbook.campaign_id);
   const canOpenRunbookAuthoring = selectedDocumentId != null && campaignMismatchReason == null;
 
   const onCreateBlank = useCallback(async () => {
     if (!canCreateBlank || creatingBlank) return;
-    const campaignId = blankAttempt?.campaignId ?? resolvedCampaignId;
-    if (campaignId == null) return;
+    if (verifiedWorldId == null && (blankAttempt?.campaignId ?? resolvedCampaignId) == null) return;
     setCreatingBlank(true);
     setCreateBlankError(null);
     setListRefreshWarning(null);
     try {
-      const created = await createBlankRunbook(campaignId, {
-        attempt: blankAttempt,
-        onAttemptRetained: setBlankAttempt,
-      });
+      const createdRecord: StartRunbookRecord = verifiedWorldId
+        ? (await createBlankWorldRunbook(verifiedWorldId, {
+          attempt: worldBlankAttempt,
+          onAttemptRetained: setWorldBlankAttempt,
+        })).record
+        : (await createBlankRunbook(blankAttempt?.campaignId ?? resolvedCampaignId ?? "", {
+          attempt: blankAttempt,
+          onAttemptRetained: setBlankAttempt,
+        })).record;
       setBlankAttempt(null);
-      setSelectedDocumentId(created.record.document_id);
+      setWorldBlankAttempt(null);
+      setSelectedDocumentId(createdRecord.document_id);
       setAttempt(null);
       setAttemptStatus("idle");
       setAttemptDetail(null);
       startedRef.current = null;
       try {
         const records = await refreshRunbooks();
-        const selected = records.find((record) => record.document_id === created.record.document_id)
-          ?? created.record;
+        const selected = records.find((record) => record.document_id === createdRecord.document_id)
+          ?? createdRecord;
         setSelectedDocumentId(selected.document_id);
-        if (!records.some((record) => record.document_id === created.record.document_id)) {
+        if (!records.some((record) => record.document_id === createdRecord.document_id)) {
           setRunbooks((current) => (
-            current.some((record) => record.document_id === created.record.document_id)
+            current.some((record) => record.document_id === createdRecord.document_id)
               ? current
-              : [...current, created.record]
+              : [...current, createdRecord]
           ));
           setListStatus("ready");
         }
       } catch (refreshError) {
         setRunbooks((current) => (
-          current.some((record) => record.document_id === created.record.document_id)
+          current.some((record) => record.document_id === createdRecord.document_id)
             ? current
-            : [...current, created.record]
+            : [...current, createdRecord]
         ));
         setListStatus("ready");
         setListRefreshWarning(
@@ -192,7 +266,8 @@ export function StartRunPanel({
       }
     } catch (error) {
       if (error instanceof BlankRunbookCreateError && error.attempt) {
-        setBlankAttempt(error.attempt);
+        if ("worldId" in error.attempt) setWorldBlankAttempt(error.attempt);
+        else setBlankAttempt(error.attempt);
       }
       setCreateBlankError(
         error instanceof Error ? error.message : "Failed to create a blank Runbook.",
@@ -200,7 +275,7 @@ export function StartRunPanel({
     } finally {
       setCreatingBlank(false);
     }
-  }, [blankAttempt, canCreateBlank, creatingBlank, refreshRunbooks, resolvedCampaignId]);
+  }, [blankAttempt, canCreateBlank, creatingBlank, refreshRunbooks, resolvedCampaignId, verifiedWorldId, worldBlankAttempt]);
 
   return (
     <section className="play-start-run" data-testid="play-start-run">
@@ -234,7 +309,11 @@ export function StartRunPanel({
                   }}
                 >
                   <strong>{runbook.title || runbook.document_id}</strong>
-                  <span className="play-muted"> · {runbook.document_id}</span>
+                  <span className="play-muted">
+                    {runbook.schema_version === "dmb_world_owned_runbook_record_v2"
+                      ? ` · World ${runbook.world_id} · ${runbook.document_id}`
+                      : ` · ${runbook.document_id}`}
+                  </span>
                 </button>
               </li>
             );
@@ -243,7 +322,11 @@ export function StartRunPanel({
       ) : null}
       {showCreate ? (
         <div className="play-blank-runbook" data-testid="play-create-blank-runbook">
-          {productCampaignId?.trim() ? (
+          {verifiedWorldId ? (
+            <p className="play-muted" data-testid="play-create-blank-runbook-world-context">
+              World {verifiedWorldId}
+            </p>
+          ) : productCampaignId?.trim() ? (
             <p className="play-muted" data-testid="play-create-blank-runbook-campaign-context">
               Campaign {productCampaignId.trim()}
             </p>

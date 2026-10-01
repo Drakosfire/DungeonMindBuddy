@@ -1,14 +1,16 @@
 import type { JSONContent } from "@tiptap/core";
 
 import type {
+  AnyPlayRunRecord,
   PlayRunProgress,
-  PlayRunRecord,
   PlayRunReferenceElement,
   PlayRunReferenceManifest,
   PlayRunReferenceManifestV1,
   PlayRunReferenceManifestV2,
-  WorkspaceCommittedRevision,
   WorkspaceDocumentSnapshot,
+  WorkspaceCommittedRevisionAny,
+  WorldOwnedRunbookSnapshotV2,
+  WorldOwnedRunbookCommittedRevisionV2,
 } from "../../api/types";
 import {
   hasBlockingMarkdownImportDiagnostics,
@@ -82,9 +84,9 @@ export type NativeRunbookScene = NativeRunbookAuthoredElement & {
 export type NativeRunbookReadyDeck = {
   status: "ready";
   grammar: "v1";
-  run: PlayRunRecord;
+  run: AnyPlayRunRecord;
   manifest: PlayRunReferenceManifestV1;
-  snapshot: WorkspaceDocumentSnapshot;
+  snapshot: WorkspaceDocumentSnapshot | WorldOwnedRunbookSnapshotV2 | WorldOwnedRunbookCommittedRevisionV2;
   importedDoc: JSONContent;
   structure: PlayableStructureIndex;
   scenes: NativeRunbookScene[];
@@ -136,9 +138,9 @@ export type NativeRunbookBeatV2 = {
 export type NativeRunbookReadyV2 = {
   status: "ready";
   grammar: "v2";
-  run: PlayRunRecord;
+  run: AnyPlayRunRecord;
   manifest: PlayRunReferenceManifestV2;
-  snapshot: WorkspaceDocumentSnapshot;
+  snapshot: WorkspaceDocumentSnapshot | WorldOwnedRunbookSnapshotV2 | WorldOwnedRunbookCommittedRevisionV2;
   importedDoc: JSONContent;
   structure: PlayableStructureIndexV2;
   beats: NativeRunbookBeatV2[];
@@ -407,7 +409,7 @@ function compareMembership(
 }
 
 function bindingMismatch(
-  run: PlayRunRecord,
+  run: AnyPlayRunRecord,
   manifest: PlayRunReferenceManifestV1 | PlayRunReferenceManifestV2,
 ): string | null {
   if (manifest.run_id !== run.run_id) {
@@ -426,9 +428,34 @@ function bindingMismatch(
 }
 
 function workspaceBindingFailure(
-  run: PlayRunRecord,
-  committed: WorkspaceCommittedRevision,
+  run: AnyPlayRunRecord,
+  committed: WorkspaceCommittedRevisionAny,
 ): NativeRunbookFailure | null {
+  if (
+    (run.schema_version === "dmb_world_play_run_record_v2")
+    !== (committed.schema_version === "dmb_workspace_committed_revision_v2")
+  ) {
+    return failed("integrity_failure", "Run and committed Runbook do not use the same owner scope");
+  }
+  if (
+    run.schema_version === "dmb_world_play_run_record_v2"
+    && committed.schema_version === "dmb_workspace_committed_revision_v2"
+  ) {
+    if (
+      run.world_id !== committed.world_id
+      || committed.campaign_id !== null
+      || run.playable_work_revision_id !== committed.work_revision_id
+      || Object.prototype.hasOwnProperty.call(run, "campaign_id")
+    ) {
+      return failed("integrity_failure", "World Run and exact committed Runbook owner or WorkRevision do not match");
+    }
+  } else if (
+    run.schema_version === "dmb_play_run_record_v1"
+    && committed.schema_version === "dmb_workspace_committed_revision_v1"
+    && run.campaign_id !== committed.campaign_id
+  ) {
+    return failed("integrity_failure", "Campaign Run and committed Runbook owner do not match");
+  }
   if (committed.document_id !== run.playable_artifact_id) {
     return failed(
       "integrity_failure",
@@ -459,7 +486,13 @@ function workspaceBindingFailure(
   return null;
 }
 
-function snapshotFromCommitted(committed: WorkspaceCommittedRevision): WorkspaceDocumentSnapshot {
+function snapshotFromCommitted(
+  committed: WorkspaceCommittedRevisionAny,
+): WorkspaceDocumentSnapshot | WorldOwnedRunbookSnapshotV2 | WorldOwnedRunbookCommittedRevisionV2 {
+  if (committed.schema_version === "dmb_workspace_committed_revision_v2") {
+    if (committed.kind !== "runbook") throw new TypeError("Expected a committed World Runbook revision.");
+    return committed;
+  }
   return {
     schema_version: "dmb_workspace_document_snapshot_v1",
     record: {
@@ -563,8 +596,15 @@ export function displayedSceneAndBeat(
   };
 }
 
-export function sameAdmittedRunBinding(admitted: PlayRunRecord, next: PlayRunRecord): boolean {
-  return (
+export function sameAdmittedRunBinding(admitted: AnyPlayRunRecord, next: AnyPlayRunRecord): boolean {
+  if (admitted.schema_version !== next.schema_version) return false;
+  const sameScope = admitted.schema_version === "dmb_world_play_run_record_v2"
+    ? next.schema_version === "dmb_world_play_run_record_v2"
+      && admitted.world_id === next.world_id
+      && admitted.playable_work_revision_id === next.playable_work_revision_id
+    : next.schema_version === "dmb_play_run_record_v1"
+      && admitted.campaign_id === next.campaign_id;
+  return sameScope && (
     admitted.run_id === next.run_id
     && admitted.playable_artifact_id === next.playable_artifact_id
     && admitted.playable_revision === next.playable_revision
@@ -579,7 +619,7 @@ export function sameAdmittedRunBinding(admitted: PlayRunRecord, next: PlayRunRec
  */
 export function overlayRuntimeOnDeck(
   admission: NativeRunbookReadyDeck,
-  run: PlayRunRecord,
+  run: AnyPlayRunRecord,
 ): NativeRunbookReadyDeck | null {
   if (!sameAdmittedRunBinding(admission.run, run)) return null;
   const displayed = displayedSceneAndBeat(admission.scenes, run.progress);
@@ -657,14 +697,11 @@ export type V2AuthorityPreflight =
   | NativeRunbookFailure;
 
 export function preflightV2Authority(input: {
-  run: PlayRunRecord;
+  run: AnyPlayRunRecord;
   manifest: PlayRunReferenceManifestV2;
-  committed: WorkspaceCommittedRevision;
+  committed: WorkspaceCommittedRevisionAny;
 }): V2AuthorityPreflight {
   const { run, manifest, committed } = input;
-  if (run.schema_version !== "dmb_play_run_record_v1") {
-    return failed("integrity_failure", "Run schema_version is not dmb_play_run_record_v1");
-  }
   if (!isCanonicalUuid(run.run_id) || !isCanonicalUuid(run.playable_artifact_id)) {
     return failed("integrity_failure", "Run identity is not a canonical UUID");
   }
@@ -699,9 +736,9 @@ export function preflightV2Authority(input: {
 }
 
 function admitNativeRunbookV2(input: {
-  run: PlayRunRecord;
+  run: AnyPlayRunRecord;
   manifest: PlayRunReferenceManifestV2;
-  committed: WorkspaceCommittedRevision;
+  committed: WorkspaceCommittedRevisionAny;
 }): NativeRunbookAdmission {
   const { run, manifest, committed } = input;
   const preflight = preflightV2Authority(input);
@@ -757,7 +794,7 @@ function admitNativeRunbookV2(input: {
 
 export function overlayRuntimeOnV2(
   admission: NativeRunbookReadyV2,
-  run: PlayRunRecord,
+  run: AnyPlayRunRecord,
 ): NativeRunbookReadyV2 | null {
   if (!sameAdmittedRunBinding(admission.run, run)) return null;
   const currentBeatId = run.progress.current_beat_id;
@@ -791,14 +828,17 @@ export function overlayRuntimeOnV2(
 export const overlayRuntimeOnV2Ready = overlayRuntimeOnV2;
 
 export function admitNativeRunbook(input: {
-  run: PlayRunRecord;
+  run: AnyPlayRunRecord;
   manifest: PlayRunReferenceManifest;
-  committed: WorkspaceCommittedRevision;
+  committed: WorkspaceCommittedRevisionAny;
 }): NativeRunbookAdmission {
   const { run, manifest, committed } = input;
 
-  if (run.schema_version !== "dmb_play_run_record_v1") {
-    return failed("integrity_failure", "Run schema_version is not dmb_play_run_record_v1");
+  if (
+    run.schema_version !== "dmb_play_run_record_v1"
+    && run.schema_version !== "dmb_world_play_run_record_v2"
+  ) {
+    return failed("integrity_failure", "Run schema_version is not an admitted Play Run discriminator");
   }
   if (!isCanonicalUuid(run.run_id) || !isCanonicalUuid(run.playable_artifact_id)) {
     return failed("integrity_failure", "Run identity is not a canonical UUID");
