@@ -2,14 +2,23 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 
 import {
   LiveApiError,
+  getWorldOwnedRunbookCommittedRevision,
+  getWorldPlayRun,
+  getWorldPlayRunReferenceManifest,
   getPlayActiveRun,
   getPlayRun,
   getPlayRunReferenceManifest,
   getCommittedWorkspaceRevision,
+  listWorldPlayRuns,
   listPlayRuns,
+  putWorldPlayRunRebase,
   putPlayActiveRun,
 } from "../api/liveApi";
-import type { PlayRunRecord } from "../api/types";
+import type {
+  AnyPlayRunRecord,
+  WorldOwnedRunbookCommittedRevisionV2,
+  WorldPlayRunRecordV2,
+} from "../api/types";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
 import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurfaceInteraction";
 import { AppChrome } from "../chrome/AppChrome";
@@ -129,16 +138,25 @@ type PlayPublicationAuthority = {
   instanceId: string;
 };
 
+type PlayRouteIdentity = {
+  worldId: string | null;
+  runId: string | null;
+  chooser: boolean;
+  search: string;
+  generation: number;
+};
+
 function playPublicationAuthority(input: {
-  admittedRun: PlayRunRecord | null;
+  admittedRun: AnyPlayRunRecord | null;
   runQuery: string | null;
 }): PlayPublicationAuthority {
   const admittedRun = input.admittedRun;
+  const campaignRun = admittedRun?.schema_version === "dmb_play_run_record_v1" ? admittedRun : null;
   return {
-    campaignId: admittedRun?.campaign_id ?? null,
-    documentId: admittedRun?.playable_artifact_id ?? null,
-    ambientSummary: admittedRun
-      ? `Play · run ${admittedRun.run_id}`
+    campaignId: campaignRun?.campaign_id ?? null,
+    documentId: campaignRun?.playable_artifact_id ?? null,
+    ambientSummary: campaignRun
+      ? `Play · run ${campaignRun.run_id}`
       : input.runQuery
         ? `Play · run ${input.runQuery}`
         : "Play · choose a Run",
@@ -150,7 +168,7 @@ function PlaySurfacePublisher({
   admittedRun,
   runQuery,
 }: {
-  admittedRun: PlayRunRecord | null;
+  admittedRun: AnyPlayRunRecord | null;
   runQuery: string | null;
 }) {
   const authority = useMemo(
@@ -158,7 +176,9 @@ function PlaySurfacePublisher({
     [admittedRun, runQuery],
   );
   const agentContextContribution = useMemo(
-    () => buildPlaySurfaceAgentContext(admittedRun),
+    () => buildPlaySurfaceAgentContext(
+      admittedRun?.schema_version === "dmb_play_run_record_v1" ? admittedRun : null,
+    ),
     [admittedRun],
   );
 
@@ -202,17 +222,19 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
   const selectedWorld = useSelectedWorld();
   const selectedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const world = useOptionalWorldGraphLens();
-  const productCampaignId = selectedWorldId ?? campaignIdFromProductContext(world);
+  const productCampaignId = selectedWorldId ? null : campaignIdFromProductContext(world);
   const [status, setStatus] = useState<"loading" | "ready" | "unavailable" | "recovery_pending">("loading");
   const [detail, setDetail] = useState<string | null>(null);
-  const [records, setRecords] = useState<PlayRunRecord[]>([]);
+  const [records, setRecords] = useState<AnyPlayRunRecord[]>([]);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       setStatus("loading");
       try {
-        const listed = await listPlayRuns(selectedWorldId ? { campaign_id: selectedWorldId } : {});
+        const listed = selectedWorldId
+          ? await listWorldPlayRuns(selectedWorldId)
+          : await listPlayRuns();
         if (cancelled) return;
         setRecords(listed.records);
         setStatus("ready");
@@ -276,7 +298,9 @@ function PlayChooser({ continuityWarning }: { continuityWarning?: string | null 
                   <strong>{record.run_id}</strong>
                   <span className="play-muted">
                     {" "}
-                    · campaign {record.campaign_id} · revision {record.playable_revision}
+                    · {record.schema_version === "dmb_world_play_run_record_v2"
+                      ? `World ${record.world_id}`
+                      : `campaign ${record.campaign_id}`} · revision {record.playable_revision}
                   </span>
                 </a>
               </li>
@@ -321,15 +345,45 @@ export function PlaySurfacePage() {
   const locationSearch = useSyncExternalStore(subscribeLocation, playLocationSearch, () => "");
   const runQuery = playRunQuery(locationSearch);
   const chooserQuery = playChooserQuery(locationSearch);
+  const routeIdentityRef = useRef<PlayRouteIdentity>({
+    worldId: selectedWorldId,
+    runId: runQuery,
+    chooser: chooserQuery,
+    search: locationSearch,
+    generation: 0,
+  });
+  if (
+    routeIdentityRef.current.worldId !== selectedWorldId
+    || routeIdentityRef.current.runId !== runQuery
+    || routeIdentityRef.current.chooser !== chooserQuery
+    || routeIdentityRef.current.search !== locationSearch
+  ) {
+    routeIdentityRef.current = {
+      worldId: selectedWorldId,
+      runId: runQuery,
+      chooser: chooserQuery,
+      search: locationSearch,
+      generation: routeIdentityRef.current.generation + 1,
+    };
+  }
+  const renderedRoute = routeIdentityRef.current;
   const [loadStatus, setLoadStatus] = useState<PlayLoadStatus>(() => (
     playChooserQuery(window.location.search) ? "chooser" : "loading"
   ));
   const [detail, setDetail] = useState<string | null>(null);
   const [admission, setAdmission] = useState<NativeRunbookAdmission | null>(null);
+  const [pendingWorldRebase, setPendingWorldRebase] = useState<{
+    run: WorldPlayRunRecordV2;
+    current: WorldOwnedRunbookCommittedRevisionV2;
+  } | null>(null);
   const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
   const loadSerialRef = useRef(0);
+  const rebaseRequestRef = useRef(0);
   const activeWriteRunRef = useRef<string | null>(null);
   const activeWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const isCurrentRoute = useCallback((route: PlayRouteIdentity) => (
+    routeIdentityRef.current.generation === route.generation
+  ), []);
 
   const loadExactRun = useCallback(async (runId: string) => {
     const serial = loadSerialRef.current + 1;
@@ -337,29 +391,29 @@ export function PlaySurfacePage() {
     setLoadStatus("loading");
     setDetail(null);
     setAdmission(null);
+    setPendingWorldRebase(null);
     setMutationStatus("idle");
     try {
-      // Native readiness may write derived state. Verify the exact Run's
-      // server-owned campaign before asking the server to perform that work.
-      if (selectedWorldId) {
-        const observed = await getPlayRun(runId);
-        if (loadSerialRef.current !== serial) return;
-        if (observed.campaign_id !== selectedWorldId) {
-          setLoadStatus("integrity_failure");
-          setDetail(`Run ${runId} does not belong to World ${selectedWorldId}.`);
-          return;
-        }
-      }
-      const loaded = await getPlayRun(runId, { ensureNativeReady: true });
+      const loaded = selectedWorldId
+        ? await getWorldPlayRun(runId, selectedWorldId)
+        : await getPlayRun(runId, { ensureNativeReady: true });
       if (loadSerialRef.current !== serial) return;
-      if (selectedWorldId && loaded.campaign_id !== selectedWorldId) {
+      if (
+        selectedWorldId
+        && (loaded.schema_version !== "dmb_world_play_run_record_v2" || loaded.world_id !== selectedWorldId)
+      ) {
         setLoadStatus("integrity_failure");
         setDetail(`Run ${runId} does not belong to World ${selectedWorldId}.`);
         return;
       }
       let manifest;
       try {
-        manifest = await getPlayRunReferenceManifest(loaded.run_id);
+        manifest = selectedWorldId && loaded.schema_version === "dmb_world_play_run_record_v2"
+          ? await getWorldPlayRunReferenceManifest(loaded.run_id, selectedWorldId)
+          : loaded.schema_version === "dmb_play_run_record_v1"
+            ? await getPlayRunReferenceManifest(loaded.run_id)
+            : null;
+        if (manifest == null) throw new TypeError("Run schema does not match the selected Play scope.");
       } catch (error) {
         if (loadSerialRef.current !== serial) return;
         const classified = error instanceof LiveApiError && error.status === 404
@@ -376,10 +430,17 @@ export function PlaySurfacePage() {
       }
       let committed;
       try {
-        committed = await getCommittedWorkspaceRevision(
-          loaded.playable_artifact_id,
-          loaded.playable_revision,
-        );
+        committed = selectedWorldId && loaded.schema_version === "dmb_world_play_run_record_v2"
+          ? await getWorldOwnedRunbookCommittedRevision(
+            loaded.playable_artifact_id,
+            selectedWorldId,
+            loaded.playable_revision,
+            loaded.playable_content_sha256,
+          )
+          : loaded.schema_version === "dmb_play_run_record_v1"
+            ? await getCommittedWorkspaceRevision(loaded.playable_artifact_id, loaded.playable_revision)
+            : null;
+        if (committed == null) throw new TypeError("Run schema does not match the selected committed-revision scope.");
       } catch (error) {
         if (loadSerialRef.current !== serial) return;
         if (error instanceof LiveApiError && (error.status === 404 || error.status === 409)) {
@@ -393,6 +454,35 @@ export function PlaySurfacePage() {
         setDetail(error instanceof Error ? error.message : null);
         setAdmission(null);
         return;
+      }
+      if (selectedWorldId && loaded.schema_version === "dmb_world_play_run_record_v2") {
+        const current = await getWorldOwnedRunbookCommittedRevision(
+          loaded.playable_artifact_id,
+          selectedWorldId,
+        );
+        if (loadSerialRef.current !== serial) return;
+        if (current.status !== "active") {
+          setLoadStatus("integrity_failure");
+          setDetail("The bound World Runbook is discarded; Play will not rebase to it.");
+          return;
+        }
+        if (current.revision_n > loaded.playable_revision) {
+          setPendingWorldRebase({ run: loaded, current });
+          setLoadStatus("rebase_required");
+          setDetail(
+            `World Runbook ${loaded.playable_artifact_id} has committed revision ${current.revision_n}; Run ${loaded.run_id} is pinned to revision ${loaded.playable_revision}. Rebase only if you choose to apply the newer revision.`,
+          );
+          return;
+        }
+        if (
+          current.revision_n !== loaded.playable_revision
+          || current.content_sha256 !== loaded.playable_content_sha256
+          || current.work_revision_id !== loaded.playable_work_revision_id
+        ) {
+          setLoadStatus("integrity_failure");
+          setDetail("Current World Runbook authority conflicts with the Run's exact revision pin.");
+          return;
+        }
       }
       if (loadSerialRef.current !== serial) return;
       const nextAdmission = admitNativeRunbook({
@@ -438,12 +528,92 @@ export function PlaySurfacePage() {
     }
   }, [selectedWorldId]);
 
+  const rebaseWorldRun = useCallback(async () => {
+    const route = renderedRoute;
+    const request = rebaseRequestRef.current + 1;
+    rebaseRequestRef.current = request;
+    const isCurrentRequest = () => (
+      isCurrentRoute(route) && rebaseRequestRef.current === request
+    );
+    const pending = pendingWorldRebase;
+    const worldId = route.worldId;
+    if (
+      !pending
+      || !worldId
+      || route.runId !== pending.run.run_id
+      || pending.run.world_id !== worldId
+      || !isCurrentRequest()
+    ) return;
+    let target: WorldOwnedRunbookCommittedRevisionV2 | null = null;
+    setMutationStatus("saving");
+    setDetail(null);
+    try {
+      target = await getWorldOwnedRunbookCommittedRevision(
+        pending.run.playable_artifact_id,
+        worldId,
+      );
+      if (!isCurrentRequest()) return;
+      if (target.status !== "active") throw new Error("The selected World's Runbook is discarded.");
+      if (target.revision_n <= pending.run.playable_revision) {
+        await loadExactRun(pending.run.run_id);
+        return;
+      }
+      const rebased = await putWorldPlayRunRebase(pending.run.run_id, worldId, {
+        expected_run_revision: pending.run.run_revision,
+        target_playable_revision: target.revision_n,
+        target_playable_content_sha256: target.content_sha256,
+      });
+      if (
+        rebased.world_id !== worldId
+        || rebased.playable_artifact_id !== pending.run.playable_artifact_id
+        || rebased.playable_revision !== target.revision_n
+        || rebased.playable_work_revision_id !== target.work_revision_id
+        || rebased.playable_content_sha256 !== target.content_sha256
+        || rebased.rebased_from_run_revision !== pending.run.run_revision
+      ) {
+        throw new TypeError("World rebase response does not match the requested Runbook revision and Run revision.");
+      }
+      if (!isCurrentRequest()) return;
+      setPendingWorldRebase(null);
+      await loadExactRun(rebased.run_id);
+    } catch (error) {
+      let observed: WorldPlayRunRecordV2 | null = null;
+      try {
+        observed = await getWorldPlayRun(pending.run.run_id, worldId);
+      } catch {
+        observed = null;
+      }
+      if (!isCurrentRequest()) return;
+      if (
+        observed
+        && target
+        && observed.run_revision > pending.run.run_revision
+        && observed.world_id === worldId
+        && observed.playable_artifact_id === pending.run.playable_artifact_id
+        && observed.playable_revision === target.revision_n
+        && observed.playable_work_revision_id === target.work_revision_id
+        && observed.playable_content_sha256 === target.content_sha256
+        && observed.rebased_from_run_revision === pending.run.run_revision
+      ) {
+        setPendingWorldRebase(null);
+        await loadExactRun(observed.run_id);
+        return;
+      }
+      setMutationStatus("idle");
+      setLoadStatus("rebase_required");
+      setDetail(
+        `${error instanceof Error ? error.message : "World Run rebase failed."} The exact Run was reread; no progress retry was made. Choose again or reload the Run.`,
+      );
+    }
+  }, [isCurrentRoute, loadExactRun, pendingWorldRebase, renderedRoute]);
+
   useEffect(() => {
     if (chooserQuery) {
       loadSerialRef.current += 1;
       setLoadStatus("chooser");
       setDetail(null);
       setAdmission(null);
+      setPendingWorldRebase(null);
       setMutationStatus("idle");
       return;
     }
@@ -453,6 +623,7 @@ export function PlaySurfacePage() {
       setLoadStatus("loading");
       setDetail(null);
       setAdmission(null);
+      setPendingWorldRebase(null);
       setMutationStatus("idle");
       void (async () => {
         try {
@@ -468,10 +639,11 @@ export function PlaySurfacePage() {
             return;
           }
           if (selectedWorldId) {
-            const activeRun = await getPlayRun(active.run_id);
+            const activeRun = await getWorldPlayRun(active.run_id, selectedWorldId);
             if (loadSerialRef.current !== serial) return;
-            if (activeRun.campaign_id !== selectedWorldId) {
+            if (activeRun.world_id !== selectedWorldId) {
               setLoadStatus("chooser");
+              setDetail("Resume state points to another World. Choose a Run explicitly.");
               return;
             }
           }
@@ -608,6 +780,16 @@ export function PlaySurfacePage() {
         >
           <h1>{statusCopy(loadStatus, detail).title}</h1>
           <p>{statusCopy(loadStatus, detail).body}</p>
+          {loadStatus === "rebase_required" && pendingWorldRebase ? (
+            <button
+              type="button"
+              data-testid="play-world-run-rebase"
+              disabled={mutationStatus === "saving"}
+              onClick={() => { void rebaseWorldRun(); }}
+            >
+              Rebase this Run to the current World Runbook revision
+            </button>
+          ) : null}
         </main>
       ) : null}
     </AppChrome>

@@ -192,6 +192,15 @@ error. The separate legacy `PlanAgentInteractionBar.test.tsx` suite remains
 `getWorkspaceDocumentAny`; no changes to that out-of-slice path were made.
 The #805 write lease ended at merge. No provider or live runtime was used.
 
+**Plan Agent continuity witness — PASS (2026-10-01):** the isolated
+World Plan witness used the same saved World/Plan and visible conversation on
+both sides of a backend/Hermes worker restart, with the Plan remaining at
+revision 3 and the committed Plan body absent from persisted Hermes
+system/message text. The initial visible follow-up alone was inconclusive.
+PRIME later reports that a clean attributable direct recall challenge passed.
+The exact request/turn IDs and actual cost were not recorded in this roadmap.
+This is separate from C2 and does not close Plan Agent adoption.
+
 Plan's current cited Ask and reviewed document-edit flows remain separate and
 unchanged; the generic Agent endpoint has no citation/grounding response
 contract, so this Plan conversation requests no graph. The endpoint supplies
@@ -200,7 +209,20 @@ must not claim document QA, retrieval, quotation, citation or editing.
 Content-aware Plan assistance needs a separate owner-reviewed server-side
 content-access contract.
 
-**Next Play prerequisite — Phase C1 ACTIVE; C2 BLOCKED; Agent adoption remains
+**Hermes host-suite stall — incomplete, not green:** the full
+`tests/test_hermes_graph_agent_host.py` suite was reported at 52 tests on its base
+and 57 on PR #817's head; that run stalled after 40 progress dots for more than
+two minutes and was interrupted. RAKE's follow-up isolated
+`test_app_lifespan_shuts_down_global_host`, which times out alone at both refs
+while `TestClient.__enter__` waits for lifespan startup through AnyIO's blocking
+portal. A minimal FastAPI TestClient/lifespan and bare blocking-portal call also
+stalled in the same environment; a `threading.Event` control passed. Python
+3.13.1, AnyIO 4.13.0, Starlette 1.1.0, FastAPI 0.136.3, HTTPX 0.28.1 and pytest
+9.0.2 match the lock. This points to an environment-level portal scheduling
+problem, but the cause is unresolved; the full suite is not passing evidence.
+No provider, product server, database, or checkout mutation was used.
+
+**Next Play state — Phase C1 complete; C2 ACTIVE; Agent adoption remains
 open:** ARCHITECTURE's 2026-09-30 owner ruling makes `world_id` on the exact
 World-owned Runbook revision canonical and derives a Run's World through its
 pinned artifact/revision. Never use campaign equality, synthesize a Campaign,
@@ -238,9 +260,13 @@ baseline in #791 remains unchanged. PRIME's refreshed open PR inventory (#798,
 `prime-demo-phase-c1-pg-20260930` at `127.0.0.1:32768` is retired. PRIME designated fresh disposable PostgreSQL 16
 tmpfs container `prime-demo-c1-pg-20260930-b` at `127.0.0.1:55454`; PRIME owns
 the container and DEMO owns only test-fixture databases. The exact DSN and
-ownership are recorded in the C1 handoff. The UI lifecycle remains blocked as
-serial C2 until C1 merges; its witness now passes. Do not start or modify other
-containers, or use a product server, provider, or corpus.
+ownership are recorded in the C1 handoff. C1 completed in Buddy #810 at
+`9aa82aacca3d27849b3fba83dcfc6577097b9b7d`; its seven-suite PostgreSQL witness
+passed 242 tests with 11 existing Pydantic shadow warnings in 106.39 seconds.
+The mounted Play UI lifecycle is now ACTIVE as serial C2 under
+[`HANDOFF-DEMO-world-play-surface-c2.md`](../Plans/HANDOFF-DEMO-world-play-surface-c2.md),
+based on that exact main commit. It consumes C1's World V2 routes and preserves
+campaign V1. Generic Agent Run resolution and Play Agent UI remain later work.
 
 The pre-fix seven-suite C1 PostgreSQL invocation collected 242 tests: 240 passed
 and two Hermes trace-capture assertions failed in the combined run because the
@@ -274,10 +300,39 @@ passed 242 tests with 11 existing Pydantic `schema`-field shadow warnings in
 and cumulative/worktree `git diff --check` passed. ARCHITECTURE confirmed no
 contract or witness change was needed. The earlier 240-pass, 2-failure run is
 historical and superseded by this green witness; focused logger checks remain
-separate predecessor evidence, and C1 did not absorb RAKE's repair. PRIME owns
-review and merge of #810; C2 stays blocked pending C1 merge and accepted owner
-witness. All C1-specific focused World Runbook, context, ownership, and
+separate predecessor evidence, and C1 did not absorb RAKE's repair. Buddy #810 merged at `9aa82aacca3d27849b3fba83dcfc6577097b9b7d` from
+reviewed head `da2aa5c5dbe70d7ce49d90ecee2eb2274fae155e`. All C1-specific focused World Runbook, context, ownership, and
 pin-boundary tests also passed (29 passed).
+
+**C2 Play UI migration — ACTIVE:** PRIME authorized the serial successor after
+C1 merged and its PostgreSQL witness passed. The branch is
+`codex/demo-world-play-c2`, based on `main@f34cc2a32b2abc9a4548d0750f911e154c39b54c`,
+with its exclusive path/runtime lease in
+[`HANDOFF-DEMO-world-play-surface-c2.md`](../Plans/HANDOFF-DEMO-world-play-surface-c2.md).
+It moves managed-World Runbook and Run lifecycle consumers onto C1's typed V2
+routes without mapping World IDs into campaign V1. Play Agent conversation and
+generic Agent Run resolution remain later work; shared Agent V1 publisher and
+provider contracts stay untouched. Buddy PR #820 opened at head
+`f57b5d7f2f3b282d34b85f129f48e72ddbe3a153`. PRIME's first review held on late
+World A responses adopting into World B in Start Run list/create/seal, blank
+Runbook creation, and Play rebase. DEMO added scope/request generation fences
+and five mounted deferred A→B regressions, including exact reconciliation after
+a lost rebase response. The updated eight-suite UI/API witness passes 223 tests,
+including rediscovery of the committed World A blank Runbook after returning
+to World A; no stale completion changes World B's inventory, selection, or
+route. `git diff --check` passes; UI typecheck retains
+only the inherited unrelated JSX namespace error at
+`ThreatPublicationPanel.tsx:553`. PRIME's next review at head
+`2429543d733a0c031341d81d3f8ce427205eff10` found a same-World selection ABA:
+after A→B→A, the delayed A Start Run could still navigate. The same ID-only
+fence affected blank Runbook selection. Commit
+`269973feca4761ddfffab1c7a3843b7392168e5c` adds a per-selection generation
+fence and two mounted deferred A→B→A regressions; the exact World writes still
+finish and reconcile without stale selection adoption. The eight focused UI/API
+suites now pass 225 tests and cumulative diff checks pass. The inherited JSX
+namespace typecheck error remains the only diagnostic. PR #820 is open at the
+updated C2 branch for PRIME's re-review; no merge or operator acceptance is
+claimed.
 
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
@@ -966,10 +1021,14 @@ fixture seeding or a parallel authority as an implementation shortcut.
 ### First-customer native source foundations — accepted; fresh-World J3 remains open
 
 - **State:** MIND #83/#85/#96 and Buddy #787 are merged; no active MIND or
-  WorldKeeper prerequisite lease and no J3 implementation lease. Buddy PR #810
-  remains open after C1's seven-suite PostgreSQL witness passed on PRIME's fresh
-  disposable target; #811 merged at `2da16c35`. PRIME review and C1 merge remain
-  pending, so C2 remains blocked.
+  WorldKeeper prerequisite lease and no J3 implementation lease. Buddy #811
+  merged at `2da16c35e1902468451910a44550ff2db20a5bbe`; C1 Buddy #810 then
+  merged at `9aa82aacca3d27849b3fba83dcfc6577097b9b7d` after its seven-suite
+  PostgreSQL owner witness passed 242 tests with 11 existing Pydantic shadow
+  warnings in 106.39 seconds. C1 is complete and mounted Play UI C2 is ACTIVE
+  under its separate handoff after PR #819 merged at
+  `f34cc2a32b2abc9a4548d0750f911e154c39b54c`. This does not close J3 or generic
+  Agent Run resolution.
 - **Accepted foundation:** MIND #83 provides public empty native initialization
   at `031b6650d0a506cf40f0189fc5cfac055ac37308`; MIND #85 provides native source
   and evidence admission at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`.

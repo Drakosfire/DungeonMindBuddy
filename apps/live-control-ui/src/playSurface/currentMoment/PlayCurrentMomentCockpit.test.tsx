@@ -5,7 +5,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import { LiveApiError } from "../../api/liveApi";
-import type { PlayRunProgress, PlayRunRecord, PlayRunReferenceManifestV2 } from "../../api/types";
+import type {
+  PlayRunProgress,
+  PlayRunRecord,
+  PlayRunReferenceManifestV2,
+  WorldPlayRunRecordV2,
+} from "../../api/types";
 import { admitNativeRunbook, overlayRuntimeOnV2Ready } from "../runbook/nativeRunbookProjection";
 import type { RunbookMutationStatus } from "../runbook/RunbookTableDeck";
 import { PlayCurrentMomentCockpit } from "./PlayCurrentMomentCockpit";
@@ -53,6 +58,8 @@ vi.mock("../../api/liveApi", async (importOriginal) => {
     ...actual,
     putPlayRunProgress: vi.fn(),
     getPlayRun: vi.fn(),
+    putWorldPlayRunProgress: vi.fn(),
+    getWorldPlayRun: vi.fn(),
   };
 });
 
@@ -78,6 +85,23 @@ function runRecord(overrides: Partial<PlayRunRecord> = {}): PlayRunRecord {
     run_revision: 4,
     created_at: "2026-08-17T00:00:00Z",
     updated_at: "2026-08-17T00:00:00Z",
+    progress: progress(),
+    ...overrides,
+  };
+}
+
+function worldRunRecord(overrides: Partial<WorldPlayRunRecordV2> = {}): WorldPlayRunRecordV2 {
+  return {
+    schema_version: "dmb_world_play_run_record_v2",
+    run_id: RUN_ID,
+    world_id: "longmont-c2",
+    playable_artifact_id: ARTIFACT_ID,
+    playable_revision: 3,
+    playable_work_revision_id: "11111111-1111-4111-8111-111111111111",
+    playable_content_sha256: CONTENT_SHA,
+    run_revision: 4,
+    created_at: "2026-09-30T00:00:00Z",
+    updated_at: "2026-09-30T00:00:00Z",
     progress: progress(),
     ...overrides,
   };
@@ -131,6 +155,39 @@ function readyDeck(run: PlayRunRecord = runRecord(), markdown: string = MARKDOWN
   return admitted;
 }
 
+function readyWorldDeck(run: WorldPlayRunRecordV2 = worldRunRecord()) {
+  const scenes = [
+    { scene_id: "scene:tunnel", beat_id: "beat:survive" },
+    { scene_id: "scene:north-gate", beat_id: "beat:survive" },
+    { scene_id: "scene:courtyard", beat_id: "beat:survive" },
+  ];
+  const admitted = admitNativeRunbook({
+    run,
+    manifest: { ...v2Manifest(scenes), run_id: run.run_id },
+    committed: {
+      schema_version: "dmb_workspace_committed_revision_v2",
+      scope_mode: "world",
+      world_id: run.world_id,
+      document_id: run.playable_artifact_id,
+      kind: "runbook",
+      campaign_id: null,
+      title: "World Mireward Breach",
+      status: "active",
+      object_revision: run.playable_revision,
+      work_revision_id: run.playable_work_revision_id,
+      revision_n: run.playable_revision,
+      markdown: MARKDOWN,
+      content_sha256: run.playable_content_sha256,
+      has_divergent_working_copy: false,
+      target_relpath: null,
+    },
+  });
+  if (admitted.status !== "ready" || admitted.grammar !== "v2") {
+    throw new Error(`expected ready World v2 deck, got ${admitted.status}`);
+  }
+  return admitted;
+}
+
 function Harness({
   initialRun = runRecord(),
   markdown = MARKDOWN,
@@ -139,6 +196,21 @@ function Harness({
   markdown?: string;
 }) {
   const [deck, setDeck] = useState(() => readyDeck(initialRun, markdown));
+  const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
+  return (
+    <PlayCurrentMomentCockpit
+      deck={deck}
+      mutationStatus={mutationStatus}
+      onMutationStatus={setMutationStatus}
+      onAuthoritativeRun={(run) =>
+        setDeck((current) => overlayRuntimeOnV2Ready(current, run) ?? current)
+      }
+    />
+  );
+}
+
+function WorldHarness({ initialRun = worldRunRecord() }: { initialRun?: WorldPlayRunRecordV2 }) {
+  const [deck, setDeck] = useState(() => readyWorldDeck(initialRun));
   const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
   return (
     <PlayCurrentMomentCockpit
@@ -380,6 +452,33 @@ describe("PlayCurrentMomentCockpit", () => {
     expect(liveApi.getPlayRun).toHaveBeenCalledWith(RUN_ID);
     expect(screen.getByTestId("play-workspace-current")).toHaveTextContent("North Gate unique body.");
     expect(screen.queryByTestId("play-workspace-current")).not.toHaveTextContent("Tunnel unique body.");
+  });
+
+  it("writes World current-Scene progress through V2 and reconciles with the same World", async () => {
+    const user = userEvent.setup();
+    const updated = worldRunRecord({
+      run_revision: 9,
+      progress: progress({ current_scene_id: "scene:tunnel" }),
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockRejectedValue(new LiveApiError("CAS conflict", 409));
+    vi.mocked(liveApi.getWorldPlayRun).mockResolvedValue(updated);
+    render(<WorldHarness />);
+
+    await user.click(screen.getByRole("button", { name: "Make Tunnel Breach current" }));
+
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledWith(RUN_ID, "longmont-c2", {
+      expected_run_revision: 4,
+      progress: expect.objectContaining({
+        current_beat_id: "beat:survive",
+        current_scene_id: "scene:tunnel",
+      }),
+    });
+    expect(await screen.findByTestId("play-cas-conflict")).toBeInTheDocument();
+    expect(liveApi.getWorldPlayRun).toHaveBeenCalledWith(RUN_ID, "longmont-c2");
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(liveApi.getPlayRun).not.toHaveBeenCalled();
+    expect(screen.getByTestId("play-current-scene")).toHaveTextContent("Tunnel Breach");
   });
 
   it("reconciles an unknown mutation outcome from the exact Run", async () => {

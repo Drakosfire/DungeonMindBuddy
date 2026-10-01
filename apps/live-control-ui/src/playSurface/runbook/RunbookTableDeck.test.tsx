@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import * as liveApi from "../../api/liveApi";
 import { LiveApiError } from "../../api/liveApi";
-import type { PlayRunProgress, PlayRunRecord } from "../../api/types";
+import type { PlayRunProgress, PlayRunRecord, WorldPlayRunRecordV2 } from "../../api/types";
 import { admitNativeRunbook, overlayRuntimeOnDeck } from "./nativeRunbookProjection";
 import { RunbookTableDeck, type RunbookMutationStatus } from "./RunbookTableDeck";
 
@@ -43,6 +43,19 @@ const MARKDOWN = [
   "### Inside",
   "",
   "Inside body.",
+  "",
+].join("\n");
+
+const WORLD_MARKDOWN = [
+  "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+  "## Gate",
+  "",
+  "World scene.",
+  "",
+  "<!-- dmb-playable-element:v1 kind=beat id=beat:approach -->",
+  "### Approach",
+  "",
+  "World beat.",
   "",
 ].join("\n");
 
@@ -84,6 +97,8 @@ vi.mock("../../api/liveApi", async (importOriginal) => {
     ...actual,
     putPlayRunProgress: vi.fn(),
     getPlayRun: vi.fn(),
+    putWorldPlayRunProgress: vi.fn(),
+    getWorldPlayRun: vi.fn(),
   };
 });
 
@@ -109,6 +124,23 @@ function runRecord(overrides: Partial<PlayRunRecord> = {}): PlayRunRecord {
     run_revision: 4,
     created_at: "2026-08-17T00:00:00Z",
     updated_at: "2026-08-17T00:00:00Z",
+    progress: progress(),
+    ...overrides,
+  };
+}
+
+function worldRunRecord(overrides: Partial<WorldPlayRunRecordV2> = {}): WorldPlayRunRecordV2 {
+  return {
+    schema_version: "dmb_world_play_run_record_v2",
+    run_id: RUN_ID,
+    world_id: "longmont-c2",
+    playable_artifact_id: ARTIFACT_ID,
+    playable_revision: 3,
+    playable_work_revision_id: "11111111-1111-4111-8111-111111111111",
+    playable_content_sha256: CONTENT_SHA,
+    run_revision: 4,
+    created_at: "2026-09-30T00:00:00Z",
+    updated_at: "2026-09-30T00:00:00Z",
     progress: progress(),
     ...overrides,
   };
@@ -157,6 +189,43 @@ function readyDeck(run: PlayRunRecord = runRecord(), markdown: string = MARKDOWN
   return admitted;
 }
 
+function readyWorldDeck(run: WorldPlayRunRecordV2 = worldRunRecord()) {
+  const admitted = admitNativeRunbook({
+    run,
+    manifest: {
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: run.run_id,
+      playable_artifact_id: run.playable_artifact_id,
+      playable_revision: run.playable_revision,
+      playable_content_sha256: run.playable_content_sha256,
+      sealed_at: "2026-09-30T00:00:00Z",
+      elements: [
+        { kind: "beat", element_id: "beat:approach", scene_id: "scene:gate" },
+        { kind: "scene", element_id: "scene:gate" },
+      ],
+    },
+    committed: {
+      schema_version: "dmb_workspace_committed_revision_v2",
+      scope_mode: "world",
+      world_id: run.world_id,
+      document_id: run.playable_artifact_id,
+      kind: "runbook",
+      campaign_id: null,
+      title: "World North Gate",
+      status: "active",
+      object_revision: run.playable_revision,
+      work_revision_id: run.playable_work_revision_id,
+      revision_n: run.playable_revision,
+      markdown: WORLD_MARKDOWN,
+      content_sha256: run.playable_content_sha256,
+      has_divergent_working_copy: false,
+      target_relpath: null,
+    },
+  });
+  if (admitted.status !== "ready") throw new Error(`expected ready World deck, got ${admitted.status}`);
+  return admitted;
+}
+
 function Harness({
   initialRun = runRecord(),
   markdown = MARKDOWN,
@@ -165,6 +234,21 @@ function Harness({
   markdown?: string;
 }) {
   const [deck, setDeck] = useState(() => readyDeck(initialRun, markdown));
+  const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
+  return (
+    <RunbookTableDeck
+      deck={deck}
+      mutationStatus={mutationStatus}
+      onMutationStatus={setMutationStatus}
+      onAuthoritativeRun={(run) =>
+        setDeck((current) => overlayRuntimeOnDeck(current, run) ?? current)
+      }
+    />
+  );
+}
+
+function WorldHarness({ initialRun = worldRunRecord() }: { initialRun?: WorldPlayRunRecordV2 }) {
+  const [deck, setDeck] = useState(() => readyWorldDeck(initialRun));
   const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
   return (
     <RunbookTableDeck
@@ -212,6 +296,27 @@ describe("RunbookTableDeck", () => {
         current_scene_id: null,
       }),
     });
+  });
+
+  it("writes World Run progress through V2 and reconciles conflicts through World detail", async () => {
+    const user = userEvent.setup();
+    const updated = worldRunRecord({
+      run_revision: 5,
+      progress: progress({ resolved_beat_ids: ["beat:approach"] }),
+    });
+    vi.mocked(liveApi.putWorldPlayRunProgress).mockRejectedValueOnce(new LiveApiError("CAS conflict", 409));
+    vi.mocked(liveApi.getWorldPlayRun).mockResolvedValue(updated);
+    render(<WorldHarness />);
+    await user.click(screen.getByRole("checkbox", { name: "Resolved" }));
+
+    await waitFor(() => expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledTimes(1));
+    expect(liveApi.putWorldPlayRunProgress).toHaveBeenCalledWith(RUN_ID, "longmont-c2", {
+      expected_run_revision: 4,
+      progress: expect.objectContaining({ resolved_beat_ids: ["beat:approach"] }),
+    });
+    await waitFor(() => expect(liveApi.getWorldPlayRun).toHaveBeenCalledWith(RUN_ID, "longmont-c2"));
+    expect(liveApi.putPlayRunProgress).not.toHaveBeenCalled();
+    expect(liveApi.getPlayRun).not.toHaveBeenCalled();
   });
 
   it("changes only the named Choice selection", async () => {

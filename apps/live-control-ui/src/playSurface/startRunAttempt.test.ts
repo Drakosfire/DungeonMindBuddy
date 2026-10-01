@@ -4,14 +4,19 @@ import { LiveApiError } from "../api/liveApi";
 import type {
   PlayRunRecord,
   PlayRunReferenceManifest,
+  WorldOwnedRunbookCommittedRevisionV2,
+  WorldPlayRunRecordV2,
   WorkspaceCommittedRevision,
 } from "../api/types";
 import {
+  bindWorldStartRunAttempt,
   bindStartRunAttempt,
   confirmCreatedRun,
+  executeStartWorldRunAttempt,
   executeStartRunAttempt,
   sameIntendedManifestBinding,
   sameIntendedRunBinding,
+  type WorldStartRunDeps,
   type StartRunBinding,
   type StartRunDeps,
 } from "./startRunAttempt";
@@ -21,6 +26,8 @@ const OTHER_RUN_ID = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const DOCUMENT_ID = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const SHA_B = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+const WORLD_ID = "longmont-c2";
+const WORLD_WORK_REVISION_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
 function committed(overrides: Partial<WorkspaceCommittedRevision> = {}): WorkspaceCommittedRevision {
   return {
@@ -83,6 +90,84 @@ function manifest(overrides: Partial<PlayRunReferenceManifest> = {}): PlayRunRef
     playable_content_sha256: run.playable_content_sha256,
     elements: [{ kind: "scene", element_id: "scene:gate" }],
     sealed_at: "2026-08-17T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function worldCommitted(
+  overrides: Partial<WorldOwnedRunbookCommittedRevisionV2> = {},
+): WorldOwnedRunbookCommittedRevisionV2 {
+  return {
+    schema_version: "dmb_workspace_committed_revision_v2",
+    scope_mode: "world",
+    world_id: WORLD_ID,
+    document_id: DOCUMENT_ID,
+    kind: "runbook",
+    campaign_id: null,
+    title: "World North Gate",
+    status: "active",
+    object_revision: 7,
+    work_revision_id: WORLD_WORK_REVISION_ID,
+    revision_n: 7,
+    markdown: "# Gate\\n",
+    content_sha256: SHA_A,
+    has_divergent_working_copy: false,
+    target_relpath: null,
+    ...overrides,
+  };
+}
+
+function worldRun(overrides: Partial<WorldPlayRunRecordV2> = {}): WorldPlayRunRecordV2 {
+  return {
+    schema_version: "dmb_world_play_run_record_v2",
+    run_id: RUN_ID,
+    world_id: WORLD_ID,
+    playable_artifact_id: DOCUMENT_ID,
+    playable_revision: 7,
+    playable_work_revision_id: WORLD_WORK_REVISION_ID,
+    playable_content_sha256: SHA_A,
+    run_revision: 1,
+    created_at: "2026-09-30T00:00:00Z",
+    updated_at: "2026-09-30T00:00:00Z",
+    progress: {
+      current_scene_id: null,
+      current_beat_id: null,
+      resolved_beat_ids: [],
+      selections: {},
+      notes_by_element_id: {},
+    },
+    ...overrides,
+  };
+}
+
+function worldManifest(overrides: Partial<PlayRunReferenceManifest> = {}): PlayRunReferenceManifest {
+  return {
+    schema_version: "dmb_play_run_reference_manifest_v1",
+    run_id: RUN_ID,
+    playable_artifact_id: DOCUMENT_ID,
+    playable_revision: 7,
+    playable_content_sha256: SHA_A,
+    elements: [{ kind: "scene", element_id: "scene:gate" }],
+    sealed_at: "2026-09-30T00:00:00Z",
+    ...overrides,
+  };
+}
+
+function worldDeps(overrides: Partial<WorldStartRunDeps> = {}): WorldStartRunDeps & {
+  generateRunId: ReturnType<typeof vi.fn>;
+  getCommittedRevision: ReturnType<typeof vi.fn>;
+  putRun: ReturnType<typeof vi.fn>;
+  getRun: ReturnType<typeof vi.fn>;
+  putManifest: ReturnType<typeof vi.fn>;
+  getManifest: ReturnType<typeof vi.fn>;
+} {
+  return {
+    generateRunId: vi.fn(() => RUN_ID),
+    getCommittedRevision: vi.fn(async () => worldCommitted()),
+    putRun: vi.fn(async () => worldRun()),
+    getRun: vi.fn(async () => worldRun()),
+    putManifest: vi.fn(async () => worldManifest()),
+    getManifest: vi.fn(async () => worldManifest()),
     ...overrides,
   };
 }
@@ -303,5 +388,98 @@ describe("executeStartRunAttempt", () => {
     });
     expect(result.outcome).toBe("blocked");
     expect(api.putRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("World Start Run binding and attempt", () => {
+  it("binds the exact World Runbook WorkRevision and creates/seals with explicit World scope", async () => {
+    const api = worldDeps();
+    const result = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      attempt: null,
+      phase: "fresh",
+      deps: api,
+    });
+
+    expect(result.outcome).toBe("ready");
+    expect(api.generateRunId).toHaveBeenCalledTimes(1);
+    expect(api.getCommittedRevision).toHaveBeenCalledWith(DOCUMENT_ID, WORLD_ID);
+    expect(api.putRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID, {
+      playable_artifact_id: DOCUMENT_ID,
+      expected_playable_revision: 7,
+      expected_playable_content_sha256: SHA_A,
+    });
+    expect(api.putManifest).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
+    expect(bindWorldStartRunAttempt(RUN_ID, WORLD_ID, DOCUMENT_ID, worldCommitted())).toMatchObject({
+      ok: true,
+      binding: {
+        worldId: WORLD_ID,
+        expectedPlayableRevision: 7,
+        expectedPlayableWorkRevisionId: WORLD_WORK_REVISION_ID,
+        expectedPlayableContentSha256: SHA_A,
+      },
+    });
+  });
+
+  it("keeps one World and UUID after a lost create response, then replays the exact binding", async () => {
+    const api = worldDeps({
+      putRun: vi.fn(async () => { throw new Error("network"); }),
+      getRun: vi.fn(async () => { throw new LiveApiError("not found", 404); }),
+    });
+    const first = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      attempt: null,
+      phase: "fresh",
+      deps: api,
+    });
+    expect(first).toMatchObject({ outcome: "replay_create", binding: { runId: RUN_ID, worldId: WORLD_ID } });
+    expect(api.getRun).toHaveBeenCalledWith(RUN_ID, WORLD_ID);
+    expect(api.putManifest).not.toHaveBeenCalled();
+
+    api.putRun.mockResolvedValue(worldRun());
+    const replayed = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      attempt: first.outcome === "replay_create" ? first.binding : null,
+      phase: "replay_create",
+      deps: api,
+    });
+    expect(replayed.outcome).toBe("ready");
+    expect(api.generateRunId).toHaveBeenCalledTimes(1);
+    expect(api.putRun).toHaveBeenLastCalledWith(RUN_ID, WORLD_ID, {
+      playable_artifact_id: DOCUMENT_ID,
+      expected_playable_revision: 7,
+      expected_playable_content_sha256: SHA_A,
+    });
+  });
+
+  it("fails closed on a foreign World committed revision or campaign-shaped Run", async () => {
+    const foreign = worldDeps({
+      getCommittedRevision: vi.fn(async () => worldCommitted({ world_id: "world-other" })),
+    });
+    const preflight = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      attempt: null,
+      phase: "fresh",
+      deps: foreign,
+    });
+    expect(preflight.outcome).toBe("blocked");
+    expect(foreign.putRun).not.toHaveBeenCalled();
+
+    const campaignShaped = worldDeps({
+      putRun: vi.fn(async () => ({ ...worldRun(), campaign_id: WORLD_ID }) as WorldPlayRunRecordV2),
+    });
+    const created = await executeStartWorldRunAttempt({
+      selectedDocumentId: DOCUMENT_ID,
+      worldId: WORLD_ID,
+      attempt: null,
+      phase: "fresh",
+      deps: campaignShaped,
+    });
+    expect(created.outcome).toBe("blocked");
+    expect(campaignShaped.putManifest).not.toHaveBeenCalled();
   });
 });

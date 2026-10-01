@@ -1,17 +1,17 @@
 # HANDOFF — DEMO: typed World Play Runbook and Agent context V2
 
-**Status:** ACTIVE — PRIME explicitly activated C1
+**Status:** COMPLETE — Buddy PR #810 merged at `9aa82aacca3d27849b3fba83dcfc6577097b9b7d`
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Base:** Buddy `main@2da16c35e1902468451910a44550ff2db20a5bbe` (after RAKE PR #811 merge)
 **Branch / checkout:** `codex/demo-world-play-c1` / `/home/drakosfire/.codex/worktrees/8b2b/DungeonMindBuddy`
-**Topology:** Serial. C1 is one implementation PR; C2 remains BLOCKED until C1 merges and its PostgreSQL owning-boundary witness passes.
+**Topology:** Serial. C1 is complete; C2 is separately ACTIVE under `HANDOFF-DEMO-world-play-surface-c2.md`.
 **PR title:** `DEMO: add typed World Play Runbook and context V2`
 
 PRIME activated C1 after re-anchoring Buddy main, open PRs, and active leases.
-The paths below are an exclusive write lease. Stop and return to PRIME if a
-schema migration, another path, another repository, or a runtime/product-state
-change is needed. The ACTIVE Phase B implementation lease ended at #809 merge.
+The paths below were the exclusive C1 write lease; it ended when PR #810
+merged. The ACTIVE Phase B implementation lease ended at #809 merge. C2 has a
+separate exact-path lease in `HANDOFF-DEMO-world-play-surface-c2.md`.
 
 ## Capability and authority
 
@@ -38,7 +38,7 @@ pin. The specialized context reader remains read-only; this does not authorize
 the generic `/api/live/agent/turn` resolver, Play Agent UI, provider, turn, or
 prompt changes.
 
-## C1 exclusive write lease
+## C1 implementation paths — historical lease
 
 Only these paths may be edited:
 
@@ -177,23 +177,28 @@ Scoped Ruff passed on the nine changed Python files; Python `compileall`,
 passed. ARCHITECTURE confirmed the merged logger repair requires no C1 contract
 or witness changes. PRIME will retire the disposable container after
 verification. This passing witness supersedes the prior 240-pass, 2-failure
-run. Do not absorb RAKE's repair into C1. C2 remains blocked pending C1 merge.
-All C1 behavior tests passed, including the focused PostgreSQL World Runbook,
-context, ownership, and pin-boundary run (29 passed, 11 existing warnings).
+run. Do not absorb RAKE's repair into C1. All C1 behavior tests passed,
+including the focused PostgreSQL World Runbook, context, ownership, and
+pin-boundary run (29 passed, 11 existing warnings). PR #810 merged at
+`9aa82aacca3d27849b3fba83dcfc6577097b9b7d` from reviewed head
+`da2aa5c5dbe70d7ce49d90ecee2eb2274fae155e`; the code head used for the fresh
+witness was `561513a8a2ca2099380e4f891ec1012f37e1f21d`.
 
 Scoped Ruff, Python `compileall`, and `git diff --check` passed. The Pydantic
-shadow warnings are pre-existing. These results do not authorize C2 or claim
-the C1 witness is fully green.
+shadow warnings are pre-existing. These results establish the C1 backend
+owner-boundary gate; they do not claim the DEMO journey is accepted.
 
-## C2 remains blocked
+## C2 successor — ACTIVE
 
-C2 is a separate serial UI enablement lease, not part of this PR. It may start
-only after C1 merges and its owner-boundary witness passes. It must separately
-audit and migrate World Runbook selection, Start Run, active selection, reload,
-resume, progress and same-World rebase in the mounted Play surface. It must
-preserve campaign compatibility and fail closed on cross-World selection,
-campaign-string matches, unbound legacy Runs and damaged pins. No C2 UI path is
-authorized here.
+PRIME explicitly authorized the separate serial C2 UI lease after C1 merged and
+its PostgreSQL witness passed. C2 was activated from Buddy
+`main@9aa82aacca3d27849b3fba83dcfc6577097b9b7d`, then re-anchored after PR #819
+merged; the current implementation base is
+`main@f34cc2a32b2abc9a4548d0750f911e154c39b54c`. The exact paths, typed V2
+consumer boundary, failure behavior, and mounted owning-boundary tests are in
+[`HANDOFF-DEMO-world-play-surface-c2.md`](HANDOFF-DEMO-world-play-surface-c2.md).
+C2 migrates Play's World Runbook/Run lifecycle to V2 and preserves campaign V1.
+It leaves the shared Agent contract and Play Agent UI unavailable.
 
 The six-surface Agent UI adoption, generic Agent Run resolution, J1–J6,
 rejected visual acceptance, J3 retrieval and operator acceptance remain open.

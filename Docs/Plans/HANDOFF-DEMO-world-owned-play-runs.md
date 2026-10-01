@@ -1,6 +1,6 @@
 # HANDOFF — DEMO: World-owned Play Runs
 
-**Status:** DESIGN ACCEPTED — Phases A and B merged; Phase C1 ACTIVE; Phase C2 BLOCKED
+**Status:** DESIGN ACCEPTED — Phases A, B, and C1 merged; Phase C2 ACTIVE
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Design base:** Buddy `main@f23d43d714b7aba68d940bbcb4cceb027f3c63e1`, including the merge of #805
@@ -179,15 +179,22 @@ Phase B Buddy PR #809 merged at
 nullable-owner migration are complete; the recorded PostgreSQL owning-boundary
 witness passed 76 tests. The campaign admission path remains campaign-only.
 
-PRIME has activated Phase C1 under
-[`HANDOFF-DEMO-world-play-surface-v2.md`](HANDOFF-DEMO-world-play-surface-v2.md)
-from that exact main commit on `codex/demo-world-play-c1`. C1 adds typed,
-World-owned Runbook operations and a specialized read-only nested Play context
-V2 bridge. The existing universal Agent backend request V1 remains unchanged;
-the World context request has an explicit V2 discriminator and no
-`campaign_id`. C2, the mounted Play UI lifecycle and World Run enablement,
-remains BLOCKED until C1 merges and its PostgreSQL witness passes. Generic Agent
-Run resolution remains a separate successor.
+C1 Buddy PR #810 merged at
+`9aa82aacca3d27849b3fba83dcfc6577097b9b7d` from reviewed head
+`da2aa5c5dbe70d7ce49d90ecee2eb2274fae155e`. It adds typed World-owned
+Runbook operations and a specialized read-only nested Play context V2 bridge.
+The existing universal Agent backend request V1 remains unchanged; the World
+context request has an explicit V2 discriminator and no `campaign_id`. Its
+seven-suite PostgreSQL owning-boundary witness passed 242 tests with 11 existing
+Pydantic shadow warnings in 106.39 seconds. C1 is complete.
+
+C2 is ACTIVE under
+[`HANDOFF-DEMO-world-play-surface-c2.md`](HANDOFF-DEMO-world-play-surface-c2.md)
+from Buddy `main@f34cc2a32b2abc9a4548d0750f911e154c39b54c`, branch
+`codex/demo-world-play-c2`. It migrates mounted Play Runbook/Run lifecycle
+consumers to C1's typed World V2 routes while preserving campaign V1. The shared
+Agent publisher/provider contract, Play Agent conversation, and generic Agent
+Run resolution remain outside C2.
 
 ## Invariants and failure cases
 
@@ -260,8 +267,9 @@ PRIME designated disposable PostgreSQL 16 tmpfs target
 database/server, provider, or corpus. Re-anchor main, open PRs, and active
 leases again before C2.
 
-C2 remains blocked until C1 merges and its owning witness passes. Re-anchor
-main, open PRs, and active leases before dispatch.
+C2 is activated under its separate ACTIVE handoff after re-anchoring current
+main, open PRs, and active leases. Do not treat this design document as a write
+lease or claim C2 complete before its mounted UI witness and PR merge.
 
 After Phase C merges and passes its owner-boundary verification, create a
 separate serial handoff for generic Agent Run resolution and Play Agent UI

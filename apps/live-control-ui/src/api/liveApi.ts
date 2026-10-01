@@ -66,12 +66,16 @@ import type {
   NativeWorldSourceAdmissionStatus,
   WorkspaceCommittedRevision,
   WorldOwnedCommittedRevisionV2,
+  WorldOwnedRunbookCommittedRevisionV2,
   PlayActiveRunState,
   PlayRunRecord,
+  WorldPlayRunRecordV2,
+  WorldPlayRunsListResponseV2,
   PlayRunsListResponse,
   PlayRunReferenceManifest,
   CreatePlayRunRequest,
   ReplacePlayRunProgressRequest,
+  RebasePlayRunRequest,
   CreateWorkspaceDocumentRequest,
   UpdateWorkspaceDocumentMetadataRequest,
   WorkspaceDocumentRevisionRequest,
@@ -82,6 +86,10 @@ import type {
   WorldOwnedPlanRecordV2,
   WorldOwnedPlanSnapshotV2,
   WorldOwnedPlanMarkdownWriteCommitResponseV2,
+  WorldOwnedRunbookRecordV2,
+  WorldOwnedRunbooksResponseV2,
+  WorldOwnedRunbookSnapshotV2,
+  WorldOwnedRunbookMarkdownWriteCommitResponseV2,
   GraphPreviewSurfaceResponse,
   GraphPreviewRunsResponse,
   GraphIngestLatestRunResponse,
@@ -1720,6 +1728,227 @@ export async function getWorldOwnedPlanSnapshot(documentId: string): Promise<Wor
   );
 }
 
+const CANONICAL_API_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const CANONICAL_API_SHA256 = /^[0-9a-f]{64}$/;
+
+function assertWorldRunbookRecord(
+  value: unknown,
+  worldId: string,
+  expectedDocumentId?: string,
+): asserts value is WorldOwnedRunbookRecordV2 {
+  if (typeof value !== "object" || value == null) {
+    throw new TypeError("World Runbook response is not an object.");
+  }
+  const record = value as Partial<WorldOwnedRunbookRecordV2> & { campaign_id?: unknown };
+  if (
+    record.schema_version !== "dmb_world_owned_runbook_record_v2"
+    || record.scope_mode !== "world"
+    || record.world_id !== worldId
+    || record.campaign_id !== null
+    || record.kind !== "runbook"
+    || typeof record.document_id !== "string"
+    || !CANONICAL_API_UUID.test(record.document_id)
+    || (expectedDocumentId != null && record.document_id !== expectedDocumentId)
+  ) {
+    throw new TypeError("World Runbook response does not match the selected World and V2 contract.");
+  }
+}
+
+function assertWorldPlayRun(
+  value: unknown,
+  worldId: string,
+  expectedRunId?: string,
+): asserts value is WorldPlayRunRecordV2 {
+  if (typeof value !== "object" || value == null) {
+    throw new TypeError("World Play Run response is not an object.");
+  }
+  const run = value as Partial<WorldPlayRunRecordV2> & { campaign_id?: unknown };
+  if (
+    run.schema_version !== "dmb_world_play_run_record_v2"
+    || run.world_id !== worldId
+    || Object.prototype.hasOwnProperty.call(run, "campaign_id")
+    || typeof run.run_id !== "string"
+    || !CANONICAL_API_UUID.test(run.run_id)
+    || (expectedRunId != null && run.run_id !== expectedRunId)
+    || typeof run.playable_artifact_id !== "string"
+    || !CANONICAL_API_UUID.test(run.playable_artifact_id)
+    || typeof run.playable_work_revision_id !== "string"
+    || !CANONICAL_API_UUID.test(run.playable_work_revision_id)
+    || !Number.isInteger(run.playable_revision)
+    || (run.playable_revision ?? 0) <= 0
+    || !Number.isInteger(run.run_revision)
+    || (run.run_revision ?? 0) <= 0
+    || typeof run.playable_content_sha256 !== "string"
+    || !CANONICAL_API_SHA256.test(run.playable_content_sha256)
+    || typeof run.progress !== "object"
+    || run.progress == null
+  ) {
+    throw new TypeError("World Play Run response does not match the selected World and V2 contract.");
+  }
+}
+
+function worldQuery(worldId: string): string {
+  const cleaned = worldId.trim();
+  if (!cleaned || cleaned !== worldId) throw new TypeError("World ID must be non-empty and canonical.");
+  return `world_id=${encodeURIComponent(cleaned)}`;
+}
+
+export async function listWorldOwnedRunbooks(worldId: string): Promise<WorldOwnedRunbooksResponseV2> {
+  const response = await apiFetch<WorldOwnedRunbooksResponseV2>(
+    `/api/live/workspace-documents/world-runbooks?${worldQuery(worldId)}`,
+  );
+  if (
+    response.schema_version !== "dmb_world_owned_runbooks_list_v2"
+    || response.scope_mode !== "world"
+    || response.world_id !== worldId
+    || !Array.isArray(response.records)
+  ) {
+    throw new TypeError("World Runbook inventory does not match the selected World and V2 contract.");
+  }
+  response.records.forEach((record) => assertWorldRunbookRecord(record, worldId));
+  return response;
+}
+
+export async function createWorldOwnedRunbook(request: {
+  world_id: string;
+  title: string;
+}): Promise<WorldOwnedRunbookRecordV2> {
+  worldQuery(request.world_id);
+  const record = await apiFetch<WorldOwnedRunbookRecordV2>("/api/live/workspace-documents/world-runbooks", {
+    method: "POST",
+    body: JSON.stringify({
+      schema_version: "dmb_workspace_document_create_v2",
+      scope_mode: "world",
+      world_id: request.world_id,
+      title: request.title,
+    }),
+  });
+  assertWorldRunbookRecord(record, request.world_id);
+  return record;
+}
+
+export async function getWorldOwnedRunbook(
+  documentId: string,
+  worldId: string,
+): Promise<WorldOwnedRunbookRecordV2> {
+  const record = await apiFetch<WorldOwnedRunbookRecordV2>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(documentId)}?${worldQuery(worldId)}`,
+  );
+  assertWorldRunbookRecord(record, worldId, documentId);
+  return record;
+}
+
+export async function getWorldOwnedRunbookSnapshot(
+  documentId: string,
+  worldId: string,
+): Promise<WorldOwnedRunbookSnapshotV2> {
+  const snapshot = await apiFetch<WorldOwnedRunbookSnapshotV2>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(documentId)}/snapshot?${worldQuery(worldId)}`,
+  );
+  if (
+    snapshot.schema_version !== "dmb_workspace_runbook_snapshot_v2"
+    || snapshot.record == null
+    || snapshot.record.document_id !== documentId
+    || snapshot.record.world_id !== worldId
+  ) {
+    throw new TypeError("World Runbook snapshot does not match the selected World and document.");
+  }
+  assertWorldRunbookRecord(snapshot.record, worldId, documentId);
+  return snapshot;
+}
+
+export async function getWorldOwnedRunbookCommittedRevision(
+  documentId: string,
+  worldId: string,
+  revisionN?: number,
+  expectedSha256?: string,
+): Promise<WorldOwnedRunbookCommittedRevisionV2> {
+  worldQuery(worldId);
+  if ((revisionN == null) !== (expectedSha256 == null)) {
+    throw new TypeError("Exact World revision reads require both revision and expected SHA-256.");
+  }
+  if (
+    revisionN != null
+    && (!Number.isInteger(revisionN) || revisionN <= 0 || !CANONICAL_API_SHA256.test(expectedSha256 ?? ""))
+  ) {
+    throw new TypeError("Exact World revision reads require a positive revision and canonical SHA-256.");
+  }
+  const suffix = revisionN == null ? "" : `/${encodeURIComponent(String(revisionN))}`;
+  const query = new URLSearchParams({ world_id: worldId });
+  if (expectedSha256 != null) query.set("expected_sha256", expectedSha256);
+  const committed = await apiFetch<WorldOwnedRunbookCommittedRevisionV2>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(documentId)}/committed-revision${suffix}?${query.toString()}`,
+  );
+  if (
+    committed.schema_version !== "dmb_workspace_committed_revision_v2"
+    || committed.scope_mode !== "world"
+    || committed.world_id !== worldId
+    || committed.campaign_id !== null
+    || committed.document_id !== documentId
+    || committed.kind !== "runbook"
+    || (revisionN != null && committed.revision_n !== revisionN)
+    || (expectedSha256 != null && committed.content_sha256 !== expectedSha256)
+  ) {
+    throw new TypeError("World Runbook revision does not match the selected World, document, and exact pin.");
+  }
+  return committed;
+}
+
+export async function prepareWorldRunbookMarkdownWrite(
+  worldId: string,
+  request: TiptapMarkdownWritePrepareRequest,
+): Promise<TiptapMarkdownWritePrepareResponse> {
+  const response = await apiFetch<TiptapMarkdownWritePrepareResponse>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(request.document_id)}/tiptap/prepare?${worldQuery(worldId)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...request,
+        schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+        scope_mode: "world",
+        world_id: worldId,
+      }),
+    },
+  );
+  if (
+    response.schema_version !== "dmb_tiptap_markdown_write_prepare_v2"
+    || response.scope_mode !== "world"
+    || response.world_id !== worldId
+    || response.document_id !== request.document_id
+  ) {
+    throw new TypeError("World Runbook prepare response does not match the selected World and document.");
+  }
+  return response;
+}
+
+export async function commitWorldRunbookMarkdownWrite(
+  worldId: string,
+  request: TiptapMarkdownWriteCommitRequest,
+): Promise<WorldOwnedRunbookMarkdownWriteCommitResponseV2> {
+  const response = await apiFetch<WorldOwnedRunbookMarkdownWriteCommitResponseV2>(
+    `/api/live/workspace-documents/world-runbooks/${encodeURIComponent(request.document_id)}/tiptap/commit?${worldQuery(worldId)}`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        ...request,
+        schema_version: "dmb_tiptap_markdown_write_commit_v2",
+        scope_mode: "world",
+        world_id: worldId,
+      }),
+    },
+  );
+  if (
+    response.schema_version !== "dmb_tiptap_markdown_write_commit_v2"
+    || response.scope_mode !== "world"
+    || response.world_id !== worldId
+    || response.document_id !== request.document_id
+  ) {
+    throw new TypeError("World Runbook commit response does not match the selected World and document.");
+  }
+  assertWorldRunbookRecord(response.committed_record, worldId, request.document_id);
+  return response;
+}
+
 export async function getWorkspaceDocument(documentId: string): Promise<WorkspaceDocumentRecord> {
   return apiFetch<WorkspaceDocumentRecord>(
     `/api/live/workspace-documents/${encodeURIComponent(documentId)}`,
@@ -2066,4 +2295,92 @@ export async function putPlayRunProgress(
     `/api/live/play-runs/${encodeURIComponent(runId)}/progress`,
     { method: "PUT", body: JSON.stringify(request) },
   );
+}
+
+export async function listWorldPlayRuns(worldId: string): Promise<WorldPlayRunsListResponseV2> {
+  const response = await apiFetch<WorldPlayRunsListResponseV2>(
+    `/api/live/world-play-runs/v2?${worldQuery(worldId)}`,
+  );
+  if (
+    response.schema_version !== "dmb_world_play_runs_list_v2"
+    || !Array.isArray(response.records)
+  ) {
+    throw new TypeError("World Play Run inventory does not match the V2 contract.");
+  }
+  response.records.forEach((run) => assertWorldPlayRun(run, worldId));
+  return response;
+}
+
+export async function getWorldPlayRun(runId: string, worldId: string): Promise<WorldPlayRunRecordV2> {
+  const run = await apiFetch<WorldPlayRunRecordV2>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}?${worldQuery(worldId)}`,
+  );
+  assertWorldPlayRun(run, worldId, runId);
+  return run;
+}
+
+export async function putWorldPlayRun(
+  runId: string,
+  worldId: string,
+  request: CreatePlayRunRequest,
+): Promise<WorldPlayRunRecordV2> {
+  const run = await apiFetch<WorldPlayRunRecordV2>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}?${worldQuery(worldId)}`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
+  assertWorldPlayRun(run, worldId, runId);
+  return run;
+}
+
+export async function putWorldPlayRunProgress(
+  runId: string,
+  worldId: string,
+  request: ReplacePlayRunProgressRequest,
+): Promise<WorldPlayRunRecordV2> {
+  const run = await apiFetch<WorldPlayRunRecordV2>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}/progress?${worldQuery(worldId)}`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
+  assertWorldPlayRun(run, worldId, runId);
+  return run;
+}
+
+export async function putWorldPlayRunRebase(
+  runId: string,
+  worldId: string,
+  request: RebasePlayRunRequest,
+): Promise<WorldPlayRunRecordV2> {
+  const run = await apiFetch<WorldPlayRunRecordV2>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}/rebase?${worldQuery(worldId)}`,
+    { method: "PUT", body: JSON.stringify(request) },
+  );
+  assertWorldPlayRun(run, worldId, runId);
+  return run;
+}
+
+export async function getWorldPlayRunReferenceManifest(
+  runId: string,
+  worldId: string,
+): Promise<PlayRunReferenceManifest> {
+  const manifest = await apiFetch<PlayRunReferenceManifest>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}/reference-manifest?${worldQuery(worldId)}`,
+  );
+  if (manifest.run_id !== runId) {
+    throw new TypeError("World Play Run manifest does not match the requested Run.");
+  }
+  return manifest;
+}
+
+export async function putWorldPlayRunReferenceManifest(
+  runId: string,
+  worldId: string,
+): Promise<PlayRunReferenceManifest> {
+  const manifest = await apiFetch<PlayRunReferenceManifest>(
+    `/api/live/world-play-runs/v2/${encodeURIComponent(runId)}/reference-manifest?${worldQuery(worldId)}`,
+    { method: "PUT" },
+  );
+  if (manifest.run_id !== runId) {
+    throw new TypeError("World Play Run manifest does not match the requested Run.");
+  }
+  return manifest;
 }
