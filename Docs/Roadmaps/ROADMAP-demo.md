@@ -198,11 +198,18 @@ the earlier evidence checkpoint and its separate bootstrap 503 are recorded
 below. The bounded Apply slice and its witness are complete. The proposed next
 game-prep work remains content-aware saved/draft Plan Ask; the explicit
 governed-Eldyrwild graph read is a separate gate, and Session 28 recap ingestion
-is separate from both. PRIME verified that
-this durable graph has 93 local contribution files and a head of 472 nodes / 376
-edges with C1/C2; it is separate from the absent new Buddy World-container
-record in the primary checkout and does not depend on J3 native-space
-provisioning or re-ingest. Never alias `campaign_id == world_id`. This
+is separate from both. The earlier local Buddy graph snapshot
+(`rev:0c644…`) has 472 nodes, 376 edges, and 93 local contribution files; it
+is not the current native head. PRIME separately verified the native V6
+authority read-only in `dungeonmind_cutover_live`: head
+`rev:680c246047d67f9fe0293ee90526f670`, parent adoption
+`rev:34b1f8e2625d5ba693fc726a2a1a4720`, and 95 native contributions. The
+explicit C2 source artifacts currently cover only Sessions 22–25, with
+`0007_reviewed_world_init` as the Alembic revision. A new empty KnowledgeSpace
+created through VNext/J3 does not import this graph. Sessions 26, 27, and 28
+remain unproved in native authority; Session 28 recap ingestion and graph
+read-after-write remain separate open gates. Never alias
+`campaign_id == world_id`. This
 separation does not authorize a new Plan content-access contract or graph
 context path by itself. Saturday game-prep context: Eldyrwild C2 Session 29
 follows the ongoing Mireward Reach siege; the
