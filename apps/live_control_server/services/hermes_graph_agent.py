@@ -861,6 +861,7 @@ class _ApiObserverCollector:
         self.model_calls: list[dict[str, Any]] = []
         self.warnings: list[str] = []
         self._pending: dict[str, dict[str, Any]] = {}
+        self._runtime_api_mode: str | None = None
         self._on_model_call = on_model_call
         self._callbacks: dict[str, Callable[..., Any]] = {
             "pre_api_request": self.on_pre_api_request,
@@ -892,6 +893,8 @@ class _ApiObserverCollector:
             status=status,  # type: ignore[arg-type]
             sequence=len(self.model_calls) + 1,
         )
+        if call.get("api_mode") is None:
+            call["api_mode"] = self._runtime_api_mode
         self.model_calls.append(call)
         if self._on_model_call is None:
             return
@@ -899,6 +902,18 @@ class _ApiObserverCollector:
             self._on_model_call(call)
         except Exception:
             self._note("observer_telemetry_emit_failed")
+
+    def capture_runtime_api_mode(self, agent: Any) -> None:
+        """Use Hermes' resolved agent mode, never infer it from routing policy."""
+        try:
+            runtime_mode = getattr(agent, "api_mode", None)
+        except Exception:
+            return
+        if not isinstance(runtime_mode, str):
+            return
+        runtime_mode = runtime_mode.strip()
+        if runtime_mode:
+            self._runtime_api_mode = runtime_mode[:_MAX_BOUNDED_ID_CHARS]
 
     def on_pre_api_request(self, **kwargs: Any) -> None:
         try:
@@ -1286,6 +1301,7 @@ def run_hermes_graph_agent_turn(
                             retrieval_session_packet=retrieval_session_packet,
                         ),
                     )
+                    api_observer.capture_runtime_api_mode(agent)
 
                     agent_tools = getattr(agent, "tools", None)
                     if isinstance(agent_tools, list):

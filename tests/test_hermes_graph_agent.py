@@ -1937,6 +1937,12 @@ class _ObserverFakeAgent(_FakeAgent):
         )
 
 
+class _RuntimeModeObserverFakeAgent(_ObserverFakeAgent):
+    def __init__(self, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.api_mode = "codex_responses"
+
+
 def _observer_request(tmp_path: Path, session_id: str) -> HermesGraphAgentTurnRequest:
     return HermesGraphAgentTurnRequest(
         question="What do we know about Tripod?",
@@ -1948,7 +1954,7 @@ def _observer_request(tmp_path: Path, session_id: str) -> HermesGraphAgentTurnRe
 
 
 def test_observer_hooks_create_one_record_per_api_attempt(tmp_path: Path) -> None:
-    _ObserverFakeAgent.events = [
+    _RuntimeModeObserverFakeAgent.events = [
         (
             "pre_api_request",
             _observer_payload(api_request_id="api-req-a", turn_id="turn-a", kind="pre"),
@@ -1968,7 +1974,7 @@ def test_observer_hooks_create_one_record_per_api_attempt(tmp_path: Path) -> Non
     ]
     result = run_hermes_graph_agent_turn(
         _observer_request(tmp_path, "sess-observer-1"),
-        agent_factory=_ObserverFakeAgent,
+        agent_factory=_RuntimeModeObserverFakeAgent,
     )
     assert result.status == "ok"
     assert [call["runtime_api_request_id"] for call in result.model_calls] == [
@@ -1976,11 +1982,13 @@ def test_observer_hooks_create_one_record_per_api_attempt(tmp_path: Path) -> Non
         "api-req-b",
     ]
     assert all(call["runtime_turn_id"] == "turn-a" for call in result.model_calls)
+    # An explicit per-request observer mode takes precedence over the agent fallback.
+    assert all(call["api_mode"] == "chat_completions" for call in result.model_calls)
     assert HERMES_OBSERVER_PRIVACY_SENTINEL not in json.dumps(result.model_calls)
 
 
 def test_observer_retry_error_then_success_keeps_two_calls(tmp_path: Path) -> None:
-    _ObserverFakeAgent.events = [
+    events = [
         (
             "pre_api_request",
             _observer_payload(api_request_id="api-req-fail", turn_id="turn-retry", kind="pre"),
@@ -1998,13 +2006,75 @@ def test_observer_retry_error_then_success_keeps_two_calls(tmp_path: Path) -> No
             _observer_payload(api_request_id="api-req-ok", turn_id="turn-retry", kind="post"),
         ),
     ]
+    for _, payload in events:
+        payload.pop("api_mode")
+    _RuntimeModeObserverFakeAgent.events = events
     result = run_hermes_graph_agent_turn(
         _observer_request(tmp_path, "sess-observer-retry"),
-        agent_factory=_ObserverFakeAgent,
+        agent_factory=_RuntimeModeObserverFakeAgent,
     )
     assert [call["status"] for call in result.model_calls] == ["error", "ok"]
     assert result.model_calls[0]["retryable"] is True
     assert result.model_calls[1]["usage"]["status"] == "reported"
+    assert [call["api_mode"] for call in result.model_calls] == [
+        "codex_responses",
+        "codex_responses",
+    ]
+
+
+def test_observer_uses_constructed_runtime_api_mode_when_observer_omits_it(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        MAX_ID_CHARS,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    request_id = f"api-req-{'x' * (MAX_ID_CHARS + 20)}"
+    pre = _observer_payload(api_request_id=request_id, turn_id="turn-runtime", kind="pre")
+    post = _observer_payload(api_request_id=request_id, turn_id="turn-runtime", kind="post")
+    pre.pop("api_mode")
+    post.pop("api_mode")
+    _RuntimeModeObserverFakeAgent.events = [
+        ("pre_api_request", pre),
+        ("post_api_request", post),
+    ]
+
+    result = run_hermes_graph_agent_turn(
+        _observer_request(tmp_path, "sess-observer-runtime-mode"),
+        agent_factory=_RuntimeModeObserverFakeAgent,
+    )
+
+    assert result.status == "ok"
+    assert len(result.model_calls) == 1
+    assert result.model_calls[0]["api_mode"] == "codex_responses"
+    assert result.model_calls[0]["runtime_api_request_id"] == request_id[:MAX_ID_CHARS]
+    serialized = serialize_hermes_graph_agent_turn_result(result)
+    serialized_call = serialized["modelCalls"][0]
+    assert serialized_call["api_mode"] == "codex_responses"
+    assert serialized_call["runtime_api_request_id"] == request_id[:MAX_ID_CHARS]
+    assert HERMES_OBSERVER_PRIVACY_SENTINEL not in json.dumps(serialized)
+
+
+def test_observer_missing_mode_stays_unknown_without_runtime_agent_mode(
+    tmp_path: Path,
+) -> None:
+    pre = _observer_payload(api_request_id="api-req-unknown", turn_id="turn-unknown", kind="pre")
+    post = _observer_payload(api_request_id="api-req-unknown", turn_id="turn-unknown", kind="post")
+    pre.pop("api_mode")
+    post.pop("api_mode")
+    _ObserverFakeAgent.events = [
+        ("pre_api_request", pre),
+        ("post_api_request", post),
+    ]
+
+    result = run_hermes_graph_agent_turn(
+        _observer_request(tmp_path, "sess-observer-unknown-mode"),
+        agent_factory=_ObserverFakeAgent,
+    )
+
+    assert result.status == "ok"
+    assert result.model_calls[0]["api_mode"] is None
 
 
 def test_observer_hooks_unregister_between_sequential_turns(tmp_path: Path) -> None:

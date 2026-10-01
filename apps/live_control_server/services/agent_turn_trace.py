@@ -15,6 +15,7 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Any, Iterator, Literal
 
+from apps.live_control_server.services.hermes_graph_agent_contract import MAX_ID_CHARS
 from src.agent.planner_pricing import usage_cost_usd
 
 SCHEMA = "dmb_agent_turn_trace_v1"
@@ -96,6 +97,11 @@ def _optional_str(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _bounded_optional_str(value: Any, *, max_chars: int = MAX_ID_CHARS) -> str | None:
+    text = _optional_str(value)
+    return text[:max_chars] if text else None
 
 
 def _unix_to_iso(value: Any) -> str | None:
@@ -258,14 +264,14 @@ def map_hermes_observer_to_model_call(
         )
     call: dict[str, Any] = {
         "call_id": call_id or new_call_id(),
-        "runtime_api_request_id": _optional_str(payload.get("api_request_id")),
-        "runtime_turn_id": _optional_str(payload.get("turn_id")),
+        "runtime_api_request_id": _bounded_optional_str(payload.get("api_request_id")),
+        "runtime_turn_id": _bounded_optional_str(payload.get("turn_id")),
         "sequence": sequence,
         "status": status,
         "provider": _optional_str(payload.get("provider")),
         "requested_model": requested_model,
         "response_model": response_model,
-        "api_mode": _optional_str(payload.get("api_mode")),
+        "api_mode": _bounded_optional_str(payload.get("api_mode")),
         "started_at": _unix_to_iso(payload.get("started_at")),
         "completed_at": _unix_to_iso(payload.get("ended_at")),
         "duration_ms": _duration_ms_from_observer(payload),
