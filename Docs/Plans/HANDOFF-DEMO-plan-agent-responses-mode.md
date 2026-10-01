@@ -1,6 +1,7 @@
 # HANDOFF — DEMO: route the saved Plan Agent through Hermes Responses mode
 
-**Status:** ACTIVE — PRIME authorized one bounded implementation PR on 2026-09-30
+**Status:** IMPLEMENTATION MERGED — Buddy #812 complete;
+separately leased two-turn live witness pending
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -10,21 +11,20 @@ saved managed-World Plan Agent contract in
 ARCHITECTURE’s same-model transport ruling, RAKE DUTY’s read-only retry and
 telemetry triage, and PRIME’s explicit activation.
 
-**Base:** Buddy `main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, verified from
+**Implementation base (historical):** Buddy
+`main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, verified from
 the GitHub `main` ref on 2026-09-30. The local fetch metadata is read-only in
-the calling checkout; this isolated worktree starts at the verified commit.
+the calling checkout; the isolated worktree started at the verified commit.
 
-**Branch / checkout:** `codex/demo-plan-agent-responses-mode` in the isolated
+**Implementation branch / checkout (historical):**
+`codex/demo-plan-agent-responses-mode` in the isolated
 worktree `/home/drakosfire/.codex/worktrees/demo-plan-agent-responses-mode/DungeonMindBuddy`.
 
-**Topology:** `parallel-independent`, explicitly authorized by PRIME. Concurrent
-#810 is at `a20e14518ebdb24a5e1790c2486dfad8758c7920`; its active paths cover
-World Play Runbook/context routes and tests and exclude this adapter and test.
-Concurrent #811 is at `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`; it is limited
-to Alembic logging and its test. This PR uses no database, service, port, corpus,
-or provider during implementation and tests. Do not edit either concurrent
-lease. Obtain a fresh runtime target from PRIME after merge before the live Plan
-witness.
+**Topology:** The implementation was authorized as one parallel-independent
+PR; Buddy #812 is now merged. Concurrent PRs #810 and #811 also completed and
+their paths did not overlap the Hermes adapter. The implementation/tests used no
+database, service, port, corpus, or provider. The post-merge Plan witness has a
+separate PRIME runtime lease recorded below.
 
 ## One capability and observed failure
 
@@ -49,9 +49,11 @@ Chat Completions.
 
 ## Invariants and failure cases
 
-- Preserve model `gpt-5.3-codex`, provider `openai-api`, base URL
-  `https://api.openai.com/v1`, existing key resolution, prompts, turn history,
-  graph-none policy, Plan identity, response mapping, and UI/session semantics.
+- PR #812 changes no model policy, provider, URL, key resolution, prompts, turn
+  history, graph-none policy, Plan identity, response mapping, or UI/session
+  semantics. Its offline adapter/selector proof used the then-configured
+  `openai-api`, `gpt-5.3-codex`, and `https://api.openai.com/v1` inputs; the
+  post-merge witness uses current policy-selected model settings.
 - Omit Buddy’s forced `api_mode` argument so the exact pinned Hermes runtime
   can resolve `codex_responses` from the existing provider/model/base inputs.
 - If exact-pin offline verification does not resolve to `codex_responses`, stop
@@ -119,22 +121,54 @@ Run the focused Hermes graph-agent tests, relevant Agent turn/trace tests, and
 `git diff --check`. Review the exact cumulative `a8b0d5c2..HEAD` diff and all
 leased paths. Report inherited failures without broadening this slice.
 
-## Post-merge live witness — separately leased runtime
+## Post-merge live witness — assigned isolated runtime
 
-PRIME authorized one new synthetic managed-World Plan witness only after this
-repair is reviewed and merged. Before starting services, obtain a fresh
-disposable DB/API/UI target from PRIME; the earlier containers and ports were
-retired and must not be reused. Create a new synthetic World and saved Plan
-through the ordinary UI; do not assume the retired witness’s Plan revision or
-database still exists.
+**Status at 2026-10-01:** assigned and pending; the API/UI services have not
+started and the empty databases have not been migrated or bootstrapped.
 
-Use the same `gpt-5.3-codex` model and at most two ordinary UI turns on the same
-saved Plan with `graph_request={"mode":"none"}`. The authorized additional cap
-is at most 6 OpenAI HTTP attempts and $0.50 estimated/observed spend. Stop on
-the first provider error or either cap. Record client-thread, turn and provider
-request IDs, actual mode/model/base, returned usage/cost, saved editor state,
-and no-graph evidence; report unavailable values as unknown. A successful
-response on one turn alone does not prove multi-turn continuity.
+PRIME assigned this fresh disposable, localhost-only pair exclusively to DEMO
+for this witness:
+
+- Buddy application-state PostgreSQL: container
+  `prime-demo-agent-buddy-pg-20261001`, `127.0.0.1:55457`, database
+  `dungeonbuddy_application_state`.
+- DungeonMind World graph PostgreSQL: container
+  `prime-demo-agent-mind-pg-20261001`, `127.0.0.1:55458`, database
+  `dungeonmind`.
+- Buddy API: `127.0.0.1:7866`; UI: `127.0.0.1:5178`.
+
+Both databases are empty and require explicit owner migrations/bootstrap. Before
+using them, verify the API resolves both configured database URLs to these
+assigned endpoints. Keep this witness isolated from persistent ports
+`54330/54331` and existing Plan services `7865/5177`. Start/stop only the
+API/UI processes on the assigned ports. Database access was delivered through
+an operator-approved mode-0600 local credential file; do not print, log, commit,
+or copy its values into this handoff, and remove the temporary file after the
+witness.
+
+Use current Buddy policy from the merged #819 model-policy change:
+`hermes_graph_agent` selects `gpt-6-luna`. Do not force the historical
+`gpt-5.3-codex` model. Record the model and actual transport resolved by the
+live request; the #812 offline selector test used its historical
+`gpt-5.3-codex` input and does not establish the live Luna transport. Because
+this handoff proves the Responses-mode repair, a PASS requires actual transport
+`codex_responses`. If policy-selected Luna resolves otherwise or the transport
+cannot be identified, stop and report exact evidence to PRIME. Do not override
+the model or transport to make the witness pass.
+
+Create one synthetic managed World and saved Plan through the ordinary UI. Run
+two consecutive ordinary Plan UI turns on that same World/Plan with
+`graph_request={"mode":"none"}`. Record the World/Plan, client-thread and turn
+IDs, provider request IDs where available, actual model/transport/base,
+conversation continuity, usage/cost when returned, saved editor state after
+reload, and evidence that no graph request occurred. Stop on the first provider
+error, six total OpenAI HTTP attempts, or the previously authorized additional
+spend cap of $0.50. Unknown usage/cost stays unknown, not zero. A successful
+single turn does not prove continuity. If an assigned prerequisite fails,
+return its exact failure to PRIME without switching targets.
+
+This is bounded post-merge transport/conversation evidence. It does not establish
+J1/J2, the complete connected DEMO, or operator acceptance.
 
 ## Implementation verification record
 
@@ -153,8 +187,9 @@ while inspecting Hermes’ selected mode; no conversation was run.
 The RTK wrapper could not spawn `pytest` because it is absent from its command
 path; the same targeted test was then run successfully with the exact project
 virtualenv’s pytest executable. This was a test-runner lookup issue, not a test
-failure. The post-merge two-turn live witness remains pending a fresh PRIME
-runtime lease. The current roadmap also records inherited, unmodified Plan/UI
+failure. PR #812 is merged; the assigned post-merge two-turn witness remains
+pending and has not started as of this handoff update. The current roadmap also
+records inherited, unmodified Plan/UI
 failures outside this lease: the `ThreatPublicationPanel.tsx` JSX namespace
 typecheck error and the legacy `PlanAgentInteractionBar.test.tsx` fixture’s
 3/8 result against its retired `getWorkspaceDocument` mock. They were not rerun
@@ -162,9 +197,10 @@ as part of this backend adapter slice.
 
 ## Review handback
 
-PRIME owns exact-head review and merge. The final handback will include branch,
-base, head, changed paths, focused and owning-boundary tests, relevant live
-evidence after merge, inherited failures, unknown cost/usage where applicable,
-remaining gates, and the next roadmap action. This repair does not accept the
-Plan conversation until its live two-turn witness passes, and does not close
-the appearance gate or J1–J6 journey.
+PRIME reviewed the exact cumulative PR #812 head
+`3e006ca17aa2d3bc5ac2db45e84d33a4e972cb6e` and merged it at
+`3494b8f4561b2ec465af42bf4fb55bac3f42ee3c`. The remaining
+handback is the assigned live witness result: report its exact evidence,
+inherited failures, unknown cost/usage where applicable, remaining gates, and
+next roadmap action. Until that witness passes, this does not accept the Plan
+conversation, close the appearance gate, or accept J1–J6.

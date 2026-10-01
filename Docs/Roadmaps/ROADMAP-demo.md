@@ -154,10 +154,11 @@ unmount. J2's owning-boundary witness must include a World-only Apply→ordinary
 Save/reload success, stale World/Plan/revision/draft-generation/save/selection
 cases, a deferred Apply with thread switch, and a deferred completion after
 unmount; each stale case must leave the draft and saved document unchanged.
-**Next action:** after the serial #810 gate clears and Buddy is re-anchored, write
-a bounded J2 implementation handoff and obtain its owner review/lease. No J2
-implementation lease is active. RAKE made no code changes, provider calls, or
-runtime operations for this diagnostic.
+**Next action:** finish the separately assigned #812 live Plan witness
+first. Then re-anchor and prepare a bounded J2 Plan-Apply implementation
+handoff for owner review and a new lease. No J2 implementation lease is active.
+RAKE made no code changes, provider calls, or runtime operations for this
+diagnostic.
 Keep the J3 work below as downstream diagnosis until this transition is
 repaired and accepted.
 
@@ -192,6 +193,33 @@ error. The separate legacy `PlanAgentInteractionBar.test.tsx` suite remains
 `getWorkspaceDocumentAny`; no changes to that out-of-slice path were made.
 The #805 write lease ended at merge. No provider or live runtime was used.
 
+**Plan transport-mode implementation — merged; live witness pending:** Buddy
+#812 (`DEMO: route Hermes Agent turns through Responses mode`) merged at
+`3494b8f4561b2ec465af42bf4fb55bac3f42ee3c` from reviewed head
+`3e006ca17aa2d3bc5ac2db45e84d33a4e972cb6e`. The bounded change removes
+Buddy's explicit Hermes `api_mode` override; the pinned Hermes runtime selects
+transport. Its focused Hermes, Agent turn and trace suites passed 74/74, with
+no provider, database or product runtime used. PR #819 subsequently made
+`gpt-6-luna` the current `hermes_graph_agent` policy model; the #812 offline
+transport probe used the then-configured `gpt-5.3-codex` inputs and does not
+establish the live Luna transport.
+
+PRIME assigned a separate disposable localhost witness target: Buddy
+application-state DB `prime-demo-agent-buddy-pg-20261001` at
+`127.0.0.1:55457/dungeonbuddy_application_state`, DungeonMind World DB
+`prime-demo-agent-mind-pg-20261001` at `127.0.0.1:55458/dungeonmind`, API
+`127.0.0.1:7866`, and UI `127.0.0.1:5178`. As of this update, no migrations,
+bootstrap, API/UI service, or provider turn has started. The next bounded
+witness is two consecutive Plan UI turns with
+`graph_request={"mode":"none"}` on one new synthetic
+managed World and saved Plan, using policy-selected GPT-6 Luna. Record actual
+model/transport, same-conversation continuity, saved editor state after reload,
+and no-graph evidence. A PASS requires actual `codex_responses`; if Luna
+resolves otherwise or transport cannot be identified, return the exact evidence
+to PRIME without forcing a mode/model. Stop at the first provider error, six
+total OpenAI HTTP attempts, or the authorized $0.50 cap. It is separate from
+the earlier continuity PASS and does not certify J1/J2 or operator acceptance.
+
 **Plan Agent continuity witness — PASS (2026-10-01):** the isolated
 World Plan witness used the same saved World/Plan and visible conversation on
 both sides of a backend/Hermes worker restart, with the Plan remaining at
@@ -209,21 +237,23 @@ must not claim document QA, retrieval, quotation, citation or editing.
 Content-aware Plan assistance needs a separate owner-reviewed server-side
 content-access contract.
 
-**Hermes host-suite stall — incomplete, not green:** the full
-`tests/test_hermes_graph_agent_host.py` suite was reported at 52 tests on its base
-and 57 on PR #817's head; that run stalled after 40 progress dots for more than
-two minutes and was interrupted. RAKE's follow-up isolated
-`test_app_lifespan_shuts_down_global_host`, which times out alone at both refs
-while `TestClient.__enter__` waits for lifespan startup through AnyIO's blocking
-portal. A minimal FastAPI TestClient/lifespan and bare blocking-portal call also
-stalled in the same environment; a `threading.Event` control passed. Python
-3.13.1, AnyIO 4.13.0, Starlette 1.1.0, FastAPI 0.136.3, HTTPX 0.28.1 and pytest
-9.0.2 match the lock. This points to an environment-level portal scheduling
-problem, but the cause is unresolved; the full suite is not passing evidence.
-No provider, product server, database, or checkout mutation was used.
+**Hermes host test — environment-limited; current-base rerun not claimed:**
+RAKE isolated `tests/test_hermes_graph_agent_host.py::test_app_lifespan_shuts_down_global_host`
+on Buddy `f34cc2a32b2abc9a4548d0750f911e154c39b54c`. It timed out at the
+24-second sandbox cap while `TestClient.__enter__` waited for AnyIO portal
+startup; faulthandler showed the portal thread idle in the event-loop selector.
+A minimal portal reproduced the wait. The sandbox returned `EPERM` for both
+the asyncio self-pipe wakeup and `socketpair()`. Outside the sandbox, the named
+test passed 1/1 in 6.45 seconds. Test/module/dependency lock had no relevant
+changes since #817. This identifies the test-runner sandbox's AF_UNIX wakeup
+restriction as the owner; no Buddy code fix is indicated. The full host suite
+has not been shown green, and this is not a fresh test pass on later
+`main@bfa741261e715eadb48d873f87fccc1764417da8`. The narrow acceptance is a
+minimal portal wakeup and the named test passing under the original timeout in a
+runner that permits local AF_UNIX sockets.
 
-**Next Play state — Phase C1 complete; C2 ACTIVE; Agent adoption remains
-open:** ARCHITECTURE's 2026-09-30 owner ruling makes `world_id` on the exact
+**Next Play state — C1 and C2 complete; Agent adoption remains open:**
+ARCHITECTURE's 2026-09-30 owner ruling makes `world_id` on the exact
 World-owned Runbook revision canonical and derives a Run's World through its
 pinned artifact/revision. Never use campaign equality, synthesize a Campaign,
 or bind legacy Runs by ID match. The accepted design preserves strict campaign
@@ -263,9 +293,10 @@ the container and DEMO owns only test-fixture databases. The exact DSN and
 ownership are recorded in the C1 handoff. C1 completed in Buddy #810 at
 `9aa82aacca3d27849b3fba83dcfc6577097b9b7d`; its seven-suite PostgreSQL witness
 passed 242 tests with 11 existing Pydantic shadow warnings in 106.39 seconds.
-The mounted Play UI lifecycle is now ACTIVE as serial C2 under
-[`HANDOFF-DEMO-world-play-surface-c2.md`](../Plans/HANDOFF-DEMO-world-play-surface-c2.md),
-based on that exact main commit. It consumes C1's World V2 routes and preserves
+C2 was activated as a serial successor under
+[`HANDOFF-DEMO-world-play-surface-c2.md`](../Plans/HANDOFF-DEMO-world-play-surface-c2.md)
+from this main commit and later merged as Buddy #820; its completion and
+evidence are recorded below. It consumes C1's World V2 routes and preserves
 campaign V1. Generic Agent Run resolution and Play Agent UI remain later work.
 
 The pre-fix seven-suite C1 PostgreSQL invocation collected 242 tests: 240 passed
@@ -304,35 +335,28 @@ separate predecessor evidence, and C1 did not absorb RAKE's repair. Buddy #810 m
 reviewed head `da2aa5c5dbe70d7ce49d90ecee2eb2274fae155e`. All C1-specific focused World Runbook, context, ownership, and
 pin-boundary tests also passed (29 passed).
 
-**C2 Play UI migration — ACTIVE:** PRIME authorized the serial successor after
-C1 merged and its PostgreSQL witness passed. The branch is
-`codex/demo-world-play-c2`, based on `main@f34cc2a32b2abc9a4548d0750f911e154c39b54c`,
-with its exclusive path/runtime lease in
-[`HANDOFF-DEMO-world-play-surface-c2.md`](../Plans/HANDOFF-DEMO-world-play-surface-c2.md).
-It moves managed-World Runbook and Run lifecycle consumers onto C1's typed V2
-routes without mapping World IDs into campaign V1. Play Agent conversation and
-generic Agent Run resolution remain later work; shared Agent V1 publisher and
-provider contracts stay untouched. Buddy PR #820 opened at head
-`f57b5d7f2f3b282d34b85f129f48e72ddbe3a153`. PRIME's first review held on late
-World A responses adopting into World B in Start Run list/create/seal, blank
-Runbook creation, and Play rebase. DEMO added scope/request generation fences
-and five mounted deferred A→B regressions, including exact reconciliation after
-a lost rebase response. The updated eight-suite UI/API witness passes 223 tests,
-including rediscovery of the committed World A blank Runbook after returning
-to World A; no stale completion changes World B's inventory, selection, or
-route. `git diff --check` passes; UI typecheck retains
-only the inherited unrelated JSX namespace error at
-`ThreatPublicationPanel.tsx:553`. PRIME's next review at head
-`2429543d733a0c031341d81d3f8ce427205eff10` found a same-World selection ABA:
-after A→B→A, the delayed A Start Run could still navigate. The same ID-only
-fence affected blank Runbook selection. Commit
-`269973feca4761ddfffab1c7a3843b7392168e5c` adds a per-selection generation
-fence and two mounted deferred A→B→A regressions; the exact World writes still
-finish and reconcile without stale selection adoption. The eight focused UI/API
-suites now pass 225 tests and cumulative diff checks pass. The inherited JSX
-namespace typecheck error remains the only diagnostic. PR #820 is open at the
-updated C2 branch for PRIME's re-review; no merge or operator acceptance is
-claimed.
+**C2 Play UI migration — COMPLETE:** Buddy PR #820 merged at
+`bfa741261e715eadb48d873f87fccc1764417da8` from exact reviewed head
+`0edeba0e231db57c451e4892bda867cd5e556f46` (behavioral correction
+`269973feca4761ddfffab1c7a3843b7392168e5c`). The managed-World Play UI now
+uses C1's typed V2 routes while preserving campaign
+V1. Its eight focused UI/API suites passed 225/225, including two mounted
+same-World A→B→A selection-generation regressions; cumulative diff checks
+passed. PRIME's independent mounted Play/Start Run witness passed 32/32. UI
+typecheck still reports only the inherited unrelated
+`ThreatPublicationPanel.tsx(553,77): Cannot find namespace 'JSX'` diagnostic.
+The C2 lease ended at merge. This slice does not establish Play Agent adoption,
+J1/J2, connected-demo acceptance, visual acceptance, or operator acceptance.
+
+ARCHITECTURE's 2026-10-01 Play Agent context ruling identifies the exact
+server-verified World-owned Run plus expected `run_revision` as the primary
+per-turn work locator. Resolve the Run's exact pinned Runbook artifact,
+revision/content SHA, current Beat and optional Scene as supporting context;
+never substitute the latest Runbook, campaign identity, or a browser pointer.
+Without a valid selected Run, Play primary work is absent, and a selected
+Runbook alone does not represent an active Run. These are per-turn context
+fields, not the durable conversation key, which remains the server-verified
+World. No implementation lease for Play Agent adoption is active.
 
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
@@ -1025,9 +1049,10 @@ fixture seeding or a parallel authority as an implementation shortcut.
   merged at `2da16c35e1902468451910a44550ff2db20a5bbe`; C1 Buddy #810 then
   merged at `9aa82aacca3d27849b3fba83dcfc6577097b9b7d` after its seven-suite
   PostgreSQL owner witness passed 242 tests with 11 existing Pydantic shadow
-  warnings in 106.39 seconds. C1 is complete and mounted Play UI C2 is ACTIVE
-  under its separate handoff after PR #819 merged at
-  `f34cc2a32b2abc9a4548d0750f911e154c39b54c`. This does not close J3 or generic
+  warnings in 106.39 seconds. C1 is complete. At this checkpoint C2 was
+  ACTIVE under its separate handoff from main after #819 merged at
+  `f34cc2a32b2abc9a4548d0750f911e154c39b54c`; C2 later merged as Buddy #820
+  (see the current execution checkpoint). This does not close J3 or generic
   Agent Run resolution.
 - **Accepted foundation:** MIND #83 provides public empty native initialization
   at `031b6650d0a506cf40f0189fc5cfac055ac37308`; MIND #85 provides native source
