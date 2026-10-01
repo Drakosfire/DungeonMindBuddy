@@ -6,9 +6,9 @@ import re
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from apps.live_control_server.services.registry_file_lock import (
     registry_mutation_lock,
@@ -19,6 +19,7 @@ from src.live_play.live_store import load_json, write_json
 DEFAULT_REGISTRY_REL = "out/registries/world_containers.json"
 REGISTRY_SCHEMA = "dmb_world_container_registry_v1"
 RECORD_SCHEMA = "dmb_world_container_record_v1"
+SPACE_BINDING_VERSION = 1
 
 # Must stay aligned with workspace_document_registry._SAFE_WORLD_ID_RE.
 _SAFE_WORLD_ID_RE = re.compile(r"^[a-z][a-z0-9_-]{0,62}$")
@@ -41,6 +42,75 @@ class WorldContainerRecord(BaseModel):
     name: str
     source_root_relpath: str
     created_at: str
+    # The binding fields have defaults so v1 records written before this slice
+    # continue to load as explicitly unbound.
+    space_binding_status: Literal["unbound", "pending", "active"] = "unbound"
+    space_binding_version: int | None = None
+    space_allocation_id: str | None = None
+    space_id: str | None = None
+    space_provisioning_receipt: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def _binding_state_is_coherent(self) -> "WorldContainerRecord":
+        if self.space_binding_status == "unbound":
+            if any(
+                value is not None
+                for value in (
+                    self.space_binding_version,
+                    self.space_allocation_id,
+                    self.space_id,
+                    self.space_provisioning_receipt,
+                )
+            ):
+                raise ValueError("unbound World cannot contain KnowledgeSpace identity")
+        elif self.space_binding_status == "pending":
+            if (
+                not self.space_allocation_id
+                or self.space_binding_version is not None
+                or self.space_id is not None
+                or self.space_provisioning_receipt is not None
+            ):
+                raise ValueError("pending World binding is malformed")
+        elif (
+            not self.space_allocation_id
+            or not self.space_id
+            or self.space_binding_version != SPACE_BINDING_VERSION
+            or self.space_provisioning_receipt is None
+            or self.space_provisioning_receipt.get("allocation_id")
+            != self.space_allocation_id
+            or self.space_provisioning_receipt.get("space_id") != self.space_id
+        ):
+            raise ValueError("active World binding is malformed")
+        return self
+
+    @classmethod
+    def from_storage(cls, payload: dict[str, Any]) -> "WorldContainerRecord":
+        return cls.model_validate(payload)
+
+
+class WorldContainerPublicRecord(BaseModel):
+    """Redacted HTTP view; MIND identities and receipts stay server-side."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["dmb_world_container_record_v1"] = RECORD_SCHEMA
+    world_id: str
+    name: str
+    source_root_relpath: str
+    created_at: str
+    space_binding_status: Literal["unbound", "pending", "active"]
+    space_binding_version: int | None = None
+
+    @classmethod
+    def from_record(cls, record: WorldContainerRecord) -> "WorldContainerPublicRecord":
+        return cls(
+            world_id=record.world_id,
+            name=record.name,
+            source_root_relpath=record.source_root_relpath,
+            created_at=record.created_at,
+            space_binding_status=record.space_binding_status,
+            space_binding_version=record.space_binding_version,
+        )
 
 
 class WorldContainerRegistryDocument(BaseModel):
@@ -49,12 +119,30 @@ class WorldContainerRegistryDocument(BaseModel):
     schema_version: Literal["dmb_world_container_registry_v1"] = REGISTRY_SCHEMA
     records: list[WorldContainerRecord] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def _binding_identities_are_unique(self) -> "WorldContainerRegistryDocument":
+        bound_space_ids = [
+            record.space_id
+            for record in self.records
+            if record.space_binding_status == "active"
+        ]
+        allocation_ids = [
+            record.space_allocation_id
+            for record in self.records
+            if record.space_allocation_id is not None
+        ]
+        if len(bound_space_ids) != len(set(bound_space_ids)):
+            raise ValueError("KnowledgeSpace may be bound to only one World")
+        if len(allocation_ids) != len(set(allocation_ids)):
+            raise ValueError("allocation identity may be bound to only one World")
+        return self
+
 
 class WorldContainersListResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal["dmb_world_container_registry_v1"] = REGISTRY_SCHEMA
-    records: list[WorldContainerRecord] = Field(default_factory=list)
+    records: list[WorldContainerPublicRecord] = Field(default_factory=list)
 
 
 class CreateWorldContainerRequest(BaseModel):
@@ -123,7 +211,18 @@ def _load_unlocked(root: Path) -> tuple[WorldContainerRegistryDocument, str]:
     if not path.is_file():
         return WorldContainerRegistryDocument(), token
     try:
-        document = WorldContainerRegistryDocument.model_validate(load_json(path))
+        raw = load_json(path)
+        if not isinstance(raw, dict):
+            raise ValueError("registry document must be an object")
+        records = raw.get("records")
+        if not isinstance(records, list):
+            raise ValueError("registry records must be a list")
+        # Validate each record independently so legacy v1 JSON receives the
+        # unbound defaults without relaxing top-level or record validation.
+        document = WorldContainerRegistryDocument(
+            schema_version=raw.get("schema_version"),
+            records=[WorldContainerRecord.from_storage(row) for row in records],
+        )
     except (TypeError, ValueError) as exc:
         raise WorldContainerRegistryError(
             f"malformed world container registry: {exc}",
@@ -266,3 +365,27 @@ def create_world_container(root: Path, *, name: str) -> WorldContainerRecord:
             raise
 
         return record
+
+
+def replace_world_container_record(
+    root: Path,
+    updated: WorldContainerRecord,
+    *,
+    expected_token: str,
+) -> None:
+    """Persist one already-locked record transition using the registry CAS."""
+    document, _token = _load_unlocked(root)
+    records = list(document.records)
+    for index, record in enumerate(records):
+        if record.world_id == updated.world_id:
+            records[index] = updated
+            break
+    else:
+        raise WorldContainerRegistryError(
+            f"world container not found: {updated.world_id}", status_code=404
+        )
+    _save_cas(
+        root,
+        document.model_copy(update={"records": records}),
+        expected_token=expected_token,
+    )
