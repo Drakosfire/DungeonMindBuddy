@@ -234,13 +234,15 @@ campaign behavior stay unchanged; V2 carries `world_id`, `run_id`, and
 `run_revision`, not `campaign_id`, and is admitted only after World V2 detail
 and exact pinned Runbook revision/SHA validation. The generic Agent backend
 baseline in #791 remains unchanged. PRIME's refreshed open PR inventory (#798,
-#781, #760–#761, #763–#765) has no overlap with C1 paths. PRIME designated
-disposable PostgreSQL 16 tmpfs target `prime-demo-phase-c1-pg-20260930` at
-`127.0.0.1:32768` for its owning witness. The UI lifecycle remains blocked as
-serial C2 until C1 merges and its witness passes. Do not start a product
-server/database, provider, or corpus.
+#781, #760–#761, #763–#765) has no overlap with C1 paths. The previous C1 target
+`prime-demo-phase-c1-pg-20260930` at `127.0.0.1:32768` is retired. PRIME designated fresh disposable PostgreSQL 16
+tmpfs container `prime-demo-c1-pg-20260930-b` at `127.0.0.1:55454`; PRIME owns
+the container and DEMO owns only test-fixture databases. The exact DSN and
+ownership are recorded in the C1 handoff. The UI lifecycle remains blocked as
+serial C2 until C1 merges; its witness now passes. Do not start or modify other
+containers, or use a product server, provider, or corpus.
 
-The final seven-suite C1 PostgreSQL invocation collected 242 tests: 240 passed
+The pre-fix seven-suite C1 PostgreSQL invocation collected 242 tests: 240 passed
 and two Hermes trace-capture assertions failed in the combined run because the
 expected `dmb.agent.turn_trace` records were absent. PRIME traced this to
 `src/application_state/migrations/env.py:15` calling
@@ -251,14 +253,31 @@ RAKE DUTY's separate repair lane on
 `codex/rake-alembic-preserve-loggers`, under
 `Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
 that new handoff, `src/application_state/migrations/env.py`, and
-`tests/test_application_state_migration_logging.py`; one PR to `main` is
-authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811) is open at exact remote head `619c11998a7bc17bc0fd740791352e1b275cdf84`, a fast-forward from `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`. Its offline regression is now at `tests/test_application_state_migration_logging.py`, outside the nested PostgreSQL fixture selector. RAKE reports the standalone regression passed 1/1 and the ordered regression plus two C1 Hermes trace tests passed 3/3 in 8.48 seconds. The run used the exact pinned DungeonMind commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` from a temporary source archive to correct a stale installed package; no dependency sync or database access occurred. Eleven existing Pydantic `schema` shadowing warnings were emitted. Scoped Ruff and `git diff --check origin/main...HEAD` passed against current `main@efadc41019e39ca53d19bca85cd7e2a560763049`; the cumulative PR diff contains only RAKE's three leased paths.
+`tests/test_application_state_migration_logging.py`; RAKE was authorized to
+open one PR to `main`, with PRIME retaining review and merge. Buddy
+[PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811) opened at
+head `619c11998a7bc17bc0fd740791352e1b275cdf84`, a fast-forward from
+`ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`, and later merged at
+`2da16c35e1902468451910a44550ff2db20a5bbe`. Its offline regression is at
+`tests/test_application_state_migration_logging.py`, outside the nested
+PostgreSQL fixture selector. RAKE reports the standalone regression passed 1/1 and the ordered regression plus two C1 Hermes trace tests passed 3/3 in 8.48 seconds. The run used the exact pinned DungeonMind commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` from a temporary source archive to correct a stale installed package; no dependency sync or database access occurred. Eleven existing Pydantic `schema` shadowing warnings were emitted. Scoped Ruff and `git diff --check origin/main...HEAD` passed against current `main@efadc41019e39ca53d19bca85cd7e2a560763049`; the cumulative PR diff contains only RAKE's three leased paths.
 
-PRIME has the exact head and evidence for independent review; it owns the merge. The earlier seven-suite C1 run remains 240 passed, 2 failed, and has not been rerun against a fresh target. Keep PR #810 on HOLD until #811 merges, then rebase and rerun all seven suites against a fresh disposable PostgreSQL target. These focused logger checks do not replace that witness. C1 must not absorb the repair. All
-C1-specific behavior tests passed, including the focused World Runbook,
-context, ownership, and pin-boundary tests (29 passed). Scoped Ruff, Python
-compilation, and `git diff --check` passed. C2 stays blocked pending C1 review,
-merge, and an accepted owner witness.
+PRIME independently reviewed RAKE's exact head and merged Buddy #811 at
+`2da16c35e1902468451910a44550ff2db20a5bbe` from reviewed head
+`619c11998a7bc17bc0fd740791352e1b275cdf84`. C1 was rebased onto that main; the
+implementation code head at the fresh witness was
+`561513a8a2ca2099380e4f891ec1012f37e1f21d`. Its seven-suite PostgreSQL witness
+passed 242 tests with 11 existing Pydantic `schema`-field shadow warnings in
+106.39 seconds against PRIME's disposable target
+`prime-demo-c1-pg-20260930-b` at `127.0.0.1:55454`. A post-run query found no
+`dungeonbuddy_app_state_test_*` databases. Scoped Ruff, Python `compileall`,
+and cumulative/worktree `git diff --check` passed. ARCHITECTURE confirmed no
+contract or witness change was needed. The earlier 240-pass, 2-failure run is
+historical and superseded by this green witness; focused logger checks remain
+separate predecessor evidence, and C1 did not absorb RAKE's repair. PRIME owns
+review and merge of #810; C2 stays blocked pending C1 merge and accepted owner
+witness. All C1-specific focused World Runbook, context, ownership, and
+pin-boundary tests also passed (29 passed).
 
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
@@ -948,7 +967,9 @@ fixture seeding or a parallel authority as an implementation shortcut.
 
 - **State:** MIND #83/#85/#96 and Buddy #787 are merged; no active MIND or
   WorldKeeper prerequisite lease and no J3 implementation lease. Buddy PR #810
-  remains open and held until RAKE PR #811 merges and C1 is rebased and rerun.
+  remains open after C1's seven-suite PostgreSQL witness passed on PRIME's fresh
+  disposable target; #811 merged at `2da16c35`. PRIME review and C1 merge remain
+  pending, so C2 remains blocked.
 - **Accepted foundation:** MIND #83 provides public empty native initialization
   at `031b6650d0a506cf40f0189fc5cfac055ac37308`; MIND #85 provides native source
   and evidence admission at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`.

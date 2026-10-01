@@ -3,7 +3,7 @@
 **Status:** ACTIVE — PRIME explicitly activated C1
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Base:** Buddy `main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a` (Phase B PR #809)
+**Base:** Buddy `main@2da16c35e1902468451910a44550ff2db20a5bbe` (after RAKE PR #811 merge)
 **Branch / checkout:** `codex/demo-world-play-c1` / `/home/drakosfire/.codex/worktrees/8b2b/DungeonMindBuddy`
 **Topology:** Serial. C1 is one implementation PR; C2 remains BLOCKED until C1 merges and its PostgreSQL owning-boundary witness passes.
 **PR title:** `DEMO: add typed World Play Runbook and context V2`
@@ -77,9 +77,11 @@ that service is otherwise changed.
 
 ## Owning-boundary witness
 
-Against PRIME's disposable PostgreSQL 16 tmpfs target
-`prime-demo-phase-c1-pg-20260930` at `127.0.0.1:32768` (database `postgres`,
-user `dungeonmind`), prove:
+Against PRIME's fresh disposable PostgreSQL 16 tmpfs container
+`prime-demo-c1-pg-20260930-b` at `127.0.0.1:55454` (PRIME owns the container;
+DEMO owns only the databases created and dropped by test fixtures). The
+previously named `prime-demo-phase-c1-pg-20260930` at `127.0.0.1:32768` is
+retired and must not be used. Prove:
 
 - Create a managed World A Runbook through the typed API, list/read it only in
   World A, then obtain its Content snapshot and immutable committed revision.
@@ -97,43 +99,85 @@ user `dungeonmind`), prove:
   managed World Plan behavior remain unchanged. No context read mutates Run,
   Runbook, or manifest state.
 
-Run the named C1 suite against the designated database. The test fixtures
-create/drop their own uniquely named databases. The target is disposable; do
-not start or modify a container or touch persistent demo state. Sandbox
-loopback requires running the owning tests with per-command escalation for
-`127.0.0.1:32768`; use the DSN supplied by PRIME and preserve test failures.
+Run these seven C1 suites with `DMB_APPLICATION_STATE_TEST_DATABASE_URL` set
+to `postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:55454/postgres`:
 
-~~~sh
-postgresql://dungeonmind@127.0.0.1:32768/postgres
+~~~text
+tests/test_world_play_runs_v2.py
+tests/test_workspace_document_registry.py
+tests/test_live_tiptap_markdown_write.py
+tests/test_agent_surface_context.py
+tests/test_agent_play_surface_context.py
+tests/test_live_query_hermes_graph.py
+tests/test_live_control_server.py
 ~~~
 
+PRIME owns container `prime-demo-c1-pg-20260930-b`; the test fixtures
+create/drop their own uniquely named databases. Do not start or modify any
+container, touch other containers or persistent demo state, or use the retired
+32768 target. PRIME will retire its container after verification. Preserve test
+failures.
+
 Run scoped Ruff, Python compilation, `git diff --check`, and the named tests.
-Inspect the exact cumulative `a8b0d5c2...HEAD` diff. Commit and push this
-bounded branch, open exactly one PR, and return its URL, exact head, tests and
-failure dispositions to PRIME. PRIME owns review and merge. Retire the
-designated C1 test database after the tests complete.
+Inspect the exact cumulative `2da16c35...HEAD` diff. Commit and push this
+bounded branch, update the assigned PR #810, and return its URL, exact head,
+tests and failure dispositions to PRIME. PRIME owns review and merge; PRIME
+retires the test container after verification.
 
 ## Implementation verification — 2026-09-30
 
-The final seven-suite PostgreSQL invocation collected 242 tests: 240 passed
-and two Hermes trace-capture assertions failed in the combined run:
-`test_product_trace_aggregates_model_calls_and_keeps_tool_events` and
-`test_invalid_history_logs_failure_trace_once` in
+The pre-fix seven-suite PostgreSQL invocation on the previous C1 base collected
+242 tests: 240 passed and two Hermes trace-capture assertions failed in the
+combined run: `test_product_trace_aggregates_model_calls_and_keeps_tool_events`
+and `test_invalid_history_logs_failure_trace_once` in
 `tests/test_live_query_hermes_graph.py`. Both expected one
-`dmb.agent.turn_trace` log record and observed zero. PRIME traced this to
+`dmb.agent.turn_trace` record and observed zero. PRIME traced this to
 `src/application_state/migrations/env.py:15` calling `logging.config.fileConfig`
 without `disable_existing_loggers=False`, which disables the trace logger when
 the migration environment loads. PRIME activated RAKE DUTY's separate repair
-lane on `main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, branch
+lane from `main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, branch
 `codex/rake-alembic-preserve-loggers`, under
-`Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
-that new handoff, `src/application_state/migrations/env.py`, and
-`tests/application_state/test_migration_logging.py`; one PR to `main` is
-authorized and RAKE does not merge. Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811) is open at exact remote head `619c11998a7bc17bc0fd740791352e1b275cdf84`, published as a fast-forward from the original head `ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`. The regression now lives at `tests/test_application_state_migration_logging.py`, outside the nested PostgreSQL fixture path. RAKE reports the offline regression passed 1/1; the ordered run of that regression and both C1 Hermes trace tests passed 3/3 in 8.48 seconds.
+`Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths were
+that handoff, `src/application_state/migrations/env.py`, and
+`tests/test_application_state_migration_logging.py`; RAKE was authorized to open
+one PR and PRIME retained review and merge.
 
-The offline test runs Alembic SQL mode with an unusable port-1 URL. The ordered run used a temporary archive of the exact pinned DungeonMind commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` because the shared environment had a stale installed package; no dependency sync or database access was used. Eleven existing Pydantic `schema`-field shadow warnings were emitted. Scoped Ruff and `git diff --check origin/main...HEAD` passed against `main@efadc41019e39ca53d19bca85cd7e2a560763049`. The cumulative PR diff remains limited to RAKE's three leased paths.
+Buddy [PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811) merged
+at Buddy main `2da16c35e1902468451910a44550ff2db20a5bbe` from reviewed head
+`619c11998a7bc17bc0fd740791352e1b275cdf84` (original head
+`ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`). The offline regression is at
+`tests/test_application_state_migration_logging.py`, outside the nested
+PostgreSQL fixture path. RAKE reported the offline Alembic SQL-mode regression
+passed 1/1 and the ordered regression plus both C1 Hermes trace tests passed
+3/3 in 8.48 seconds. That run used an unusable port-1 URL for the offline test
+and a temporary source archive of pinned DungeonMind commit
+`7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` for imports; it made no database
+connection or dependency sync. Eleven existing Pydantic `schema` shadow
+warnings were emitted. Scoped Ruff and `git diff --check origin/main...HEAD`
+passed against the then-current main `efadc41019e39ca53d19bca85cd7e2a560763049`;
+the cumulative RAKE diff contained only its three leased paths. PRIME
+independently reran the offline regression (1 passed) before merging #811.
 
-PRIME has the exact corrected head and evidence for independent review; review and merge remain pending. Do not absorb the repair into C1. The earlier seven-suite C1 run remains 240 passed and 2 failed; it has not been rerun against a fresh target. Hold PR #810 until #811 merges, then rebase and rerun all seven suites against a fresh disposable PostgreSQL target.
+C1 was rebased onto `main@2da16c35e1902468451910a44550ff2db20a5bbe`; the
+implementation code head at the fresh witness was
+`561513a8a2ca2099380e4f891ec1012f37e1f21d`. PRIME designated fresh disposable
+PostgreSQL 16 tmpfs container `prime-demo-c1-pg-20260930-b` at
+`127.0.0.1:55454`, with admin DSN
+`postgresql://dungeonmind:dungeonmind-dev@127.0.0.1:55454/postgres`. PRIME owns
+the container; DEMO owns only test-fixture databases. The previous target
+`prime-demo-phase-c1-pg-20260930` at `127.0.0.1:32768` is retired.
+
+The exact seven-suite PostgreSQL witness passed: 242 passed, 11 existing
+Pydantic `schema`-field shadow warnings, in 106.39 seconds. It ran against the
+rebased implementation code head above with
+`DMB_APPLICATION_STATE_TEST_DATABASE_URL` set to the designated admin DSN. The
+post-run cleanup query found no `dungeonbuddy_app_state_test_*` databases.
+Scoped Ruff passed on the nine changed Python files; Python `compileall`,
+`git diff --check origin/main...HEAD`, and the worktree `git diff --check`
+passed. ARCHITECTURE confirmed the merged logger repair requires no C1 contract
+or witness changes. PRIME will retire the disposable container after
+verification. This passing witness supersedes the prior 240-pass, 2-failure
+run. Do not absorb RAKE's repair into C1. C2 remains blocked pending C1 merge.
 All C1 behavior tests passed, including the focused PostgreSQL World Runbook,
 context, ownership, and pin-boundary run (29 passed, 11 existing warnings).
 
