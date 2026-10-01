@@ -94,6 +94,9 @@ export function StartRunPanel({
     campaignId: productCampaignId,
     generation: 0,
   });
+  const selectedDocumentRef = useRef(selectedDocumentId);
+  const selectedDocumentScopeGenerationRef = useRef(scopeRef.current.generation);
+  const selectionGenerationRef = useRef(0);
   if (
     scopeRef.current.worldId !== verifiedWorldId
     || scopeRef.current.campaignId !== productCampaignId
@@ -103,10 +106,23 @@ export function StartRunPanel({
       campaignId: productCampaignId,
       generation: scopeRef.current.generation + 1,
     };
+    selectionGenerationRef.current += 1;
   }
   const renderedScope = scopeRef.current;
-  const selectedDocumentRef = useRef(selectedDocumentId);
-  selectedDocumentRef.current = selectedDocumentId;
+  if (selectedDocumentScopeGenerationRef.current === renderedScope.generation) {
+    selectedDocumentRef.current = selectedDocumentId;
+  }
+  const selectDocument = useCallback((documentId: string | null) => {
+    if (
+      selectedDocumentScopeGenerationRef.current !== scopeRef.current.generation
+      || selectedDocumentRef.current !== documentId
+    ) {
+      selectionGenerationRef.current += 1;
+    }
+    selectedDocumentRef.current = documentId;
+    selectedDocumentScopeGenerationRef.current = scopeRef.current.generation;
+    setSelectedDocumentId(documentId);
+  }, []);
   const runbookListRequestRef = useRef(0);
   const worldBlankAttemptsRef = useRef(new Map<string, WorldBlankRunbookAttempt>());
   const isCurrentScope = useCallback((scope: StartRunPanelScope) => (
@@ -114,8 +130,15 @@ export function StartRunPanel({
     && scopeRef.current.worldId === scope.worldId
     && scopeRef.current.campaignId === scope.campaignId
   ), []);
-  const isCurrentSelection = useCallback((scope: StartRunPanelScope, documentId: string | null) => (
-    isCurrentScope(scope) && selectedDocumentRef.current === documentId
+  const isCurrentSelection = useCallback((
+    scope: StartRunPanelScope,
+    documentId: string | null,
+    selectionGeneration: number,
+  ) => (
+    isCurrentScope(scope)
+    && selectedDocumentScopeGenerationRef.current === scope.generation
+    && selectionGenerationRef.current === selectionGeneration
+    && selectedDocumentRef.current === documentId
   ), [isCurrentScope]);
 
   const refreshRunbooks = useCallback(async (scope: StartRunPanelScope = renderedScope) => {
@@ -150,6 +173,9 @@ export function StartRunPanel({
   }, [refreshRunbooks, renderedScope]);
 
   useEffect(() => {
+    selectionGenerationRef.current += 1;
+    selectedDocumentRef.current = null;
+    selectedDocumentScopeGenerationRef.current = renderedScope.generation;
     setSelectedDocumentId(null);
     setAttempt(null);
     setAttemptStatus("idle");
@@ -169,7 +195,8 @@ export function StartRunPanel({
   const runAttempt = useCallback(async (phase: StartRunPhase, currentAttempt: StartRunAttemptBinding | null) => {
     const scope = renderedScope;
     const documentId = selectedDocumentId;
-    if (documentId == null || !isCurrentSelection(scope, documentId)) return;
+    const selectionGeneration = selectionGenerationRef.current;
+    if (documentId == null || !isCurrentSelection(scope, documentId, selectionGeneration)) return;
     const selected = runbooks.find((record) => record.document_id === documentId);
     if (scope.worldId && (
       selected == null
@@ -212,7 +239,7 @@ export function StartRunPanel({
         phase,
         deps: liveStartRunDeps,
       });
-    if (!isCurrentSelection(scope, documentId)) return;
+    if (!isCurrentSelection(scope, documentId, selectionGeneration)) return;
     if (result.outcome === "ready") {
       if (startedRef.current === result.binding.runId) return;
       startedRef.current = result.binding.runId;
@@ -267,6 +294,7 @@ export function StartRunPanel({
     const scope = renderedScope;
     if (!isCurrentScope(scope) || !canCreateBlank || creatingBlank) return;
     const selectedAtStart = selectedDocumentRef.current;
+    const selectionGeneration = selectionGenerationRef.current;
     if (scope.worldId == null && (blankAttempt?.campaignId ?? resolvedCampaignId) == null) return;
     setCreatingBlank(true);
     setCreateBlankError(null);
@@ -290,17 +318,19 @@ export function StartRunPanel({
       if (!isCurrentScope(scope)) return;
       setBlankAttempt(null);
       setWorldBlankAttempt(null);
-      setAttempt(null);
-      setAttemptStatus("idle");
-      setAttemptDetail(null);
-      startedRef.current = null;
+      if (isCurrentSelection(scope, selectedAtStart, selectionGeneration)) {
+        setAttempt(null);
+        setAttemptStatus("idle");
+        setAttemptDetail(null);
+        startedRef.current = null;
+      }
       try {
         const records = await refreshRunbooks(scope);
         if (!isCurrentScope(scope)) return;
         const selected = records.find((record) => record.document_id === createdRecord.document_id)
           ?? createdRecord;
-        if (isCurrentSelection(scope, selectedAtStart)) {
-          setSelectedDocumentId(selected.document_id);
+        if (isCurrentSelection(scope, selectedAtStart, selectionGeneration)) {
+          selectDocument(selected.document_id);
         }
         if (!records.some((record) => record.document_id === createdRecord.document_id)) {
           setRunbooks((current) => (
@@ -318,8 +348,8 @@ export function StartRunPanel({
             : [...current, createdRecord]
         ));
         setListStatus("ready");
-        if (isCurrentSelection(scope, selectedAtStart)) {
-          setSelectedDocumentId(createdRecord.document_id);
+        if (isCurrentSelection(scope, selectedAtStart, selectionGeneration)) {
+          selectDocument(createdRecord.document_id);
         }
         setListRefreshWarning(
           refreshError instanceof Error
@@ -341,7 +371,7 @@ export function StartRunPanel({
     } finally {
       if (isCurrentScope(scope)) setCreatingBlank(false);
     }
-  }, [blankAttempt, canCreateBlank, creatingBlank, currentWorldBlankAttempt, isCurrentScope, isCurrentSelection, refreshRunbooks, renderedScope, resolvedCampaignId]);
+  }, [blankAttempt, canCreateBlank, creatingBlank, currentWorldBlankAttempt, isCurrentScope, isCurrentSelection, refreshRunbooks, renderedScope, resolvedCampaignId, selectDocument]);
 
   return (
     <section className="play-start-run" data-testid="play-start-run">
@@ -367,7 +397,7 @@ export function StartRunPanel({
                   aria-pressed={selected}
                   data-testid={`play-start-runbook-${runbook.document_id}`}
                   onClick={() => {
-                    setSelectedDocumentId(runbook.document_id);
+                    selectDocument(runbook.document_id);
                     setAttempt(null);
                     setAttemptStatus("idle");
                     setAttemptDetail(null);
