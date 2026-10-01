@@ -1,6 +1,6 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE ARCHITECTURE / PLAY-FIRST COMPLETE — AS0 through AS5 merged; World Agent Conversation selected for design reconciliation only
+**Status:** ACTIVE APP-STATE IMPLEMENTATION — AS0 through AS5 merged; Agent Conversation storage/service slice in progress
 **Line of work / flow:** `APP-STATE`  
 **Created:** 2026-08-24  
 **Updated:** 2026-10-01
@@ -19,7 +19,7 @@ AS2   PLAYABLE               DONE — PR #643 merge b4d63daab3eeb8150ca73fe9492d
 AS3   PLAY RUNTIME           DONE — PR #646 merge 9c946cd8c24effccec8d06cfc1cb5e310c9edc5e
 AS4   PLAY CONTINUITY        DONE — PR #649 merge 993f837b6f2fc601acf2ae3a4b7926af1858ac6c
 AS5   PLAY DEMOLITION        DONE — PR #650 merge cc016661f80416e0816f56349217cf33c53a195f
-NEXT   WORLD AGENT CONVERSATION  SELECTED DESIGN — no migration number or implementation lease assigned
+NEXT   WORLD AGENT CONVERSATION  STORAGE/SERVICE ACTIVE — migration 20261001_0010
 OTHER  CANDIDATE FAMILIES        UNSELECTED — evidence-driven only
 ```
 
@@ -115,8 +115,11 @@ The evidence now selects one bounded family without assigning it an AS number:
 **World-scoped Agent conversation continuity**. The rationale, lifecycle,
 records, import/cutover rules, and serial implementation sequence are in
 [`../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md`](../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md).
-The docs-only reconciliation is under review. No schema, implementation, or
-runtime lease is active.
+Design PR #821 merged at
+`16d5e549b34593d68c447ef18f1428128c3f46ba`. PRIME granted the serial APP-STATE
+storage/domain-service lease from that base; the implementation and owning
+PostgreSQL evidence are in progress. No Agent runtime or UI successor lease is
+active.
 
 The remaining candidates are migration families, **not pre-authorized PRs,
 schemas, or table names**.
@@ -135,8 +138,9 @@ Re-anchor from current product evidence before selecting any additional family:
 | Plan publish-to-corpus | explicit WorkRevision export | never silent publication |
 | Run mutation history | optional audit history if independently useful | not event sourcing by default |
 
-Do not assign an implementation migration number until its design decision and
-PRIME's implementation lease are settled.
+Migration `20261001_0010` is assigned to this selected family under the active
+lease. Do not treat it as complete until its owning-service PostgreSQL evidence
+passes and the implementation PR merges.
 
 ---
 
