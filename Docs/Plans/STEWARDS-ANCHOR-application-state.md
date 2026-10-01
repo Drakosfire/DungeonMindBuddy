@@ -1,6 +1,6 @@
 # STEWARD'S ANCHOR — APPLICATION STATE
 
-**Status:** ACTIVE ARCHITECTURE PICKUP — PLAY-FIRST COMPLETE; WORLD AGENT CONVERSATION SELECTED (DESIGN ONLY)
+**Status:** ACTIVE APP-STATE IMPLEMENTATION — WORLD AGENT CONVERSATION STORAGE SERVICE
 **Line of work / flow:** `APP-STATE`  
 **Created:** 2026-08-24  
 **Updated:** 2026-10-01
@@ -25,7 +25,7 @@ AS2   PLAYABLE               DONE
 AS3   PLAY RUNTIME           DONE
 AS4   PLAY CONTINUITY        DONE
 AS5   PLAY DEMOLITION        DONE
-NEXT   WORLD AGENT CONVERSATION   SELECTED DESIGN; IMPLEMENTATION LEASE NOT ACTIVE
+NEXT   WORLD AGENT CONVERSATION   STORAGE IMPLEMENTATION ACTIVE (SERIAL)
 OTHER  CANDIDATE FAMILIES         UNSELECTED
 ```
 
@@ -150,10 +150,12 @@ A persistence concern discovered during BF2/BF3 should be treated as a new concr
 
 Combat remains separate and may later be selected as an APP-STATE family. Play's completion does not imply Combat durability.
 
-Product evidence now selects one separate family: **World-scoped Agent
-conversation continuity**. This does not reopen AS1–AS5 or make Play behavior
-part of APP-STATE. Its design reconciliation is under review; no implementation
-or runtime lease is active.
+Product evidence selects one separate family: **World-scoped Agent conversation
+continuity**. Design PR #821 merged at
+`16d5e549b34593d68c447ef18f1428128c3f46ba`; PRIME granted a serial storage and
+domain-service lease from that base. This does not reopen AS1–AS5 or make Play
+behavior part of APP-STATE. The implementation is in flight; no runtime/UI
+successor lease is active.
 
 ---
 
@@ -212,14 +214,15 @@ Exact-head formal review and distinct-head review-cycle counting remain mandator
 
 ## 8. What remains false
 
-- no migration number has been assigned to the selected Agent Conversation family;
-- implementation is not authorized until this design reconciliation lands and
-  PRIME grants a bounded path/runtime lease;
+- migration `20261001_0010` is assigned to Agent Conversation under the active
+  serial APP-STATE lease; it is not yet merged or verified;
+- Agent runtime, route, provider, WorldGraph, UI, and Play work remain outside
+  the active lease and require successor-owner authorization;
 - Combat durability is not implied by Play completion;
 - Ingest/SourceArtifact/Asset/generated-artifact application-state families are not implemented merely because the substrate can support them;
 - CUTOVER graph-engine demolition remains a separate lane;
 - global product durability/CR-U17 is not complete merely because Play is durable.
 
-The next APP-STATE action is to land the design reconciliation, then request a
-separate exact implementation lease. Do not begin schema/runtime work before
-that gate resolves.
+The current APP-STATE action is to complete migration `20261001_0010` and its
+owning PostgreSQL service evidence on the exact leased paths. Do not dispatch
+AGENT-INTERACTION or DEMO successors before this PR passes and merges.

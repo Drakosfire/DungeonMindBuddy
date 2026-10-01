@@ -1,17 +1,18 @@
 # APP-STATE — World-scoped Agent conversation continuity
 
-**Status:** BLOCKED — design selected; implementation lease not active
+**Status:** ACTIVE — APP-STATE storage/domain-service lease granted by PRIME
 **Owner:** APP-STATE
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Design base:** `main@bfa741261e715eadb48d873f87fccc1764417da8`
+**Design PR:** #821, merge `16d5e549b34593d68c447ef18f1428128c3f46ba`
+**Implementation base:** `main@16d5e549b34593d68c447ef18f1428128c3f46ba`
 **Topology:** serial: APP-STATE storage/domain service, then AGENT-INTERACTION runtime adoption, then DEMO surface cutover.
 **Decision authority:** `ARCHITECTURE-application-state-layer.md`, `DECISION-agent-context-compilation.md`, and the assigned ARCHITECTURE review.
 **Product integration owners:** AGENT-INTERACTION and DEMO.
 
-This handoff records a selected design. It does not authorize schema, runtime,
-route, provider, or UI edits. PRIME must activate a separate exact path and
-runtime lease after this design reconciliation lands and the implementation
-base is re-anchored.
+The design is merged. PRIME granted the first serial implementation lease for
+the exact APP-STATE migration/domain-service/test paths below and one isolated
+PostgreSQL container at `127.0.0.1:55459`. This lease does not include Agent
+runtime/routes, providers, WorldGraph, product UI, or Play behavior.
 
 ## 1. Evidence and reason for selection
 
@@ -55,14 +56,20 @@ Memory, or persistence of provider/tool internals.
   foreign key or copied World truth. In the current single-operator product
   scope, each World has zero or one active conversation; a future account or
   multi-operator model requires a separately approved identity dimension.
-- `New conversation` carries a stable caller-generated command ID. Repeating
-  that ID with the same World and command returns its original receipt without
-  reapplying activation; reusing it with a different binding conflicts.
-  Creation, activation, command receipt, and archival of the previous active
-  conversation commit atomically, so a lost response can be reconciled without
-  creating a second conversation. A delayed retry after a later `New
-  conversation` returns the earlier receipt and does not switch the active
-  pointer back. Archive is recoverable. Archiving the active
+- `New conversation` carries a stable caller-generated command ID and the
+  expected World active-pointer revision/target. A stale first delivery
+  conflicts before creating or activating a conversation. Repeating a
+  committed command ID with the same World and binding first resolves its
+  durable receipt, before checking the now-stale active-pointer CAS; it returns
+  that receipt without reapplying activation. Reusing it with a different
+  binding conflicts. Creation, activation, command receipt, and archival of the
+  previous active conversation commit atomically, so a lost response can be
+  reconciled without creating a second conversation. A delayed retry after a
+  later `New conversation` returns the earlier receipt and does not switch the
+  active pointer back. Distinct commands issued against the same pointer
+  cannot reorder activations: after one commits, a delayed first delivery of
+  the other fails its expected-pointer check and leaves the committed active
+  conversation unchanged. Archive is recoverable. Archiving the active
   conversation clears the active pointer; the next submitted turn creates a
   fresh conversation. Reopening an archived conversation preserves its
   ID/history and atomically archives the former active conversation. Archive
@@ -146,6 +153,35 @@ Memory, or persistence of provider/tool internals.
   turn and is not imported by this family. Keep that local data until the
   Plan/Content owner provides its own adoption or stale-proposal disposition.
 
+### Observed Buddy predecessor persistence on the design base
+
+The current Buddy implementation confirms why this must be a server-owned
+World family rather than a promotion of the existing browser/provider keys:
+
+- `WorldPlanAgentConversation` creates client thread IDs, but its local
+  storage namespace is `world-plan-agent:world:<world>:document:<document>`.
+  The generic Agent Interaction provider stores thread bodies, active IDs,
+  summaries, and at most 20 visible turns in browser `localStorage`; its active
+  key is scoped by namespace, surface, and document. This survives a same
+  browser reload, but is neither shared across browsers nor a World-global
+  pointer across documents/surfaces.
+- The UI creates a fresh `turn_id` for a send and appends a visible turn only
+  after a response validates. There is no server-accepted turn receipt in
+  this local transcript path to reconcile an uncertain send after reload.
+- `HermesSessionPointerStore` separately maps the structured owner, work, and
+  client-thread tuple to a provider pointer and Hermes session in
+  `hermes_thread_pointers.json` under the live session directory. The Plan
+  binding is idle-expired after seven days and its native profile is removed;
+  store locking is same-process only. It is provider continuity metadata, not
+  the canonical visible transcript or a World-wide active-conversation
+  pointer.
+- The saved Plan editor draft and Plan edit/proposal artifacts remain in their
+  existing browser/domain paths. They are not eligible Agent conversation
+  turns, and APP-STATE must not turn them into generic action receipts.
+
+These are predecessor facts at the pinned design base, not claims that the
+current APP-STATE branch has already migrated UI or Hermes consumers.
+
 ## 3. Predecessor import and cutover
 
 - Legacy localStorage keys, thread IDs, active pointers, campaign-like
@@ -211,8 +247,10 @@ family.
    World, stable IDs, turn and draft CAS/idempotency, typed provenance, and the
    verified legacy transcript import. Use the existing UoW/DSN/migration
    authority. Prove the contract at real PostgreSQL through the owning service:
-   World isolation, active switching/archive/reactivation, late retries of an
-   earlier `New conversation` and reopen after a newer activation, concurrent
+   World isolation, active switching/archive/reactivation; both a delayed
+   first delivery of distinct `New conversation` commands against one
+   expected pointer and a late retry of a committed earlier command after a
+   newer activation; reopen late retry after newer activation; concurrent
    writes,
    duplicate/uncertain turn and draft submission, import conflicts, restart
    recovery through a fresh service instance, and DB-unavailable fail-closed
@@ -235,18 +273,21 @@ Keep these serial unless PRIME later verifies independent path/runtime
 ownership. Do not dispatch steps 2–3 before the predecessor gate and explicit
 owner leases resolve.
 
-## 6. Proposed APP-STATE implementation write set — not yet leased
+## 6. ACTIVE APP-STATE implementation write set
 
-The following exact candidate paths are for PRIME's later lease decision only.
-They are **not** an ACTIVE write lease:
+PRIME's serial implementation lease is based on
+`main@16d5e549b34593d68c447ef18f1428128c3f46ba` and grants these exact paths:
 
-- `src/application_state/migrations/versions/<next_revision>_agent_conversation.py`
+- `src/application_state/migrations/versions/20261001_0010_agent_conversation.py`
 - `src/application_state/agent_conversation/__init__.py`
 - `src/application_state/agent_conversation/types.py`
 - `src/application_state/agent_conversation/repository.py`
 - `src/application_state/agent_conversation/service.py`
 - `tests/application_state/test_agent_conversation_service.py`
 - `tests/application_state/test_agent_conversation_postgres.py`
+- `Docs/Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md`
+- `Docs/Plans/STEWARDS-ANCHOR-application-state.md`
+- `Docs/Roadmaps/ROADMAP-application-state.md`
 
 If actual persistence cannot be proven at these owning-service paths, return to
 PRIME with the exact boundary/path gap. Do not silently expand into Agent
