@@ -3,9 +3,9 @@ document_id: dmb-architecture-application-state-layer
 title: Application State Layer — Architecture Authority
 document_class: architecture_authority
 status: active
-version: 1.2
+version: 1.3
 created_at: "2026-08-24"
-updated_at: "2026-09-07"
+updated_at: "2026-10-01"
 workstream: APP-STATE
 as0_merge: "4c90df353bfb5d0f6857357e00eb8b2b6e142257"
 as0_accepted_head: "605445b3b839b494a82218758c465edbfe59bad9"
@@ -20,6 +20,8 @@ companion_authorities:
   campaign_supergraph: "ARCHITECTURE-campaign-supergraph.md"
   cutover_anchor: "../Plans/STEWARDS-ANCHOR-cutover.md"
   con_ready_anchor: "../Plans/STEWARDS-ANCHOR-con-ready.md"
+  agent_context_compilation: "DECISION-agent-context-compilation.md"
+  agent_conversation: "../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md"
 ---
 
 # Application State Layer — Architecture Authority
@@ -75,7 +77,8 @@ source_artifact_id = <stable id>
     Plan / Runbook / Play Run / Combat Runtime
     SourceArtifact (Source-owned) / IngestRun (Ingest-owned) / reviewed processing state
     generated Statblock / Location / NPC / Shop / Encounter drafts
-    CardProject / agent proposals / other user-relied-on product objects
+    CardProject / World-scoped Agent conversations and composer drafts
+    other user-relied-on product objects
         → durable domain identity + lifecycle + relationships
         → Buddy Application State PostgreSQL
 
@@ -128,6 +131,8 @@ For a candidate state/object, ask in order:
 | generated statblock draft | Buddy durable Mechanics/generated-artifact state; not World truth (World may reference mechanics identity) |
 | location/NPC/shop draft | Buddy durable generated/authored state; only reviewed World-bearing facts may publish to DungeonMind |
 | card project/specification | Buddy durable owning-domain state; not World truth |
+| World-scoped Agent conversation and composer draft | Buddy durable Agent Interaction state with a World-scoped active conversation; visible turns and source-bound drafts are distinct records, not WorkObjects or World truth |
+| Agent tool/action receipt | owning action domain; Agent conversation may hold a typed operation reference and safe visible summary, not a generic receipt authority |
 | rendered card PNG/PDF | Asset or derived render linked to exact project revision |
 | projection/search index/thumbnail | Derived/cache unless product says otherwise |
 
@@ -260,7 +265,8 @@ one-table-per-row.
 | Combat current encounter | Combat | `combat/current_combat.json` under `session_dir()` (`combat_state.py`) | Combat surface; Play may link later | single-file replace via `live_store.write_json` | No (backups are separate files) | Future `combat.*` schema. Session-dir locality is a product defect, not a model to preserve. |
 | Combat save slots | Combat | `combat/saves/<save_id>.json` + `combat/backups/` (`combat_saves.py`) | Combat roster load/unload | destructive transitions snapshot first | Backup files, not a revision API | Combat-owned tables later; not Play progress |
 | Browser workspace drafts | Content UI | `localStorage` keyed by document id (`useWorkspaceDocumentAuthoring.ts`) | Plan/Build editor recovery | browser semantics | No | After a kind switches, **server WorkingCopy is authority**. localStorage may cache, never be the only recoverable draft. |
-| Hermes / Plan thread UI | Agent interaction | localStorage thread index/active thread | Plan agent bar | browser | No | Not product-correctness durability. Defer. Do not migrate in AS1–AS5. |
+| World-scoped Agent conversations and composer drafts | Agent Interaction | localStorage turns/indexes; ephemeral composer draft; Plan-specific Hermes profile/pointer | Index and World Plan Agent surfaces | browser plus server-local Plan Hermes profile | No | **Selected durable family.** Buddy `agent.*` conversation, turn, and typed composer-draft records; see the APP-STATE handoff. The localStorage deferral was valid for AS1–AS5 and is superseded for this product requirement. |
+| Plan edit proposals and action outcomes | Plan / owning action domain | proposal Markdown and `applied` flag inside local Agent thread storage | legacy Plan Agent editor proposal flow | browser/editor draft | No server receipt | Remain Plan/Content-owned. “Applied to editor draft” is not a committed save; do not place proposal payloads or generic action receipts in Agent Conversation. |
 | Build last-campaign convenience | Build UI | localStorage | Build entry | browser | No | Remains client convenience. |
 | Recap / Ingest run lifecycle | Ingest | path-keyed staged raw, normalized recap, frontmatter seed, candidate graph, preview manifests (`recap_ingest.py`, pipeline helpers) | Ingest UI, graph preview, publication proposals | path + digest coordination | Run identity tied to corpus paths today | future `ingest.*` IngestRun identity; paths become locators, not terminal IDs |
 | Source artifact identity | Source | path-keyed corpus trees, `_dungeonbuddy/sources/`, eval fixtures, ingest staging paths used as IDs | ingest, Hermes, worldbuilding | path + digest | Artifact identity tied to paths today | future Source-owned SourceArtifact identity; Asset reference for large bytes; paths become locators |
@@ -458,7 +464,8 @@ combat.*     Combat runtime when migrated
 | SourceArtifact | identity/provenance/asset reference, not document revisions | future Source-owned schema; not `ingest.*` |
 | Generated statblock / location / NPC / shop draft | domain lifecycle + review state | future domain schema; not WorkObject |
 | Card project / rendered PNG | project state + asset link | future domain + `assets.*` |
-| Hermes chat threads | UI session, not Buddy durable product state yet | remains client until a later justified slice |
+| World Agent conversation and composer draft | not document revision content; has World identity, active/archive, ordered turn, and source-bound draft lifecycles | selected Buddy-owned `agent.*` domain service in the existing Application State PostgreSQL database |
+| Plan edit proposal/action receipt | not generic Agent state; target revision and mutation outcome belong to Plan/owning action domain | Plan/Content-owned service; Agent Conversation may retain a typed operation reference |
 
 ### Kind is not an ontology
 

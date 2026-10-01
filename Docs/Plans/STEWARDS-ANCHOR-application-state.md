@@ -1,9 +1,9 @@
 # STEWARD'S ANCHOR — APPLICATION STATE
 
-**Status:** ACTIVE ARCHITECTURE PICKUP — PLAY-FIRST SEQUENCE COMPLETE; NO PRE-AUTHORIZED AS6  
+**Status:** ACTIVE ARCHITECTURE PICKUP — PLAY-FIRST COMPLETE; WORLD AGENT CONVERSATION SELECTED (DESIGN ONLY)
 **Line of work / flow:** `APP-STATE`  
 **Created:** 2026-08-24  
-**Updated:** 2026-08-26  
+**Updated:** 2026-10-01
 **Repository:** `Drakosfire/DungeonMindBuddy`  
 **Current completion anchor:** PR #650 merge `cc016661f80416e0816f56349217cf33c53a195f`  
 **Architecture:** [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md)  
@@ -25,7 +25,8 @@ AS2   PLAYABLE               DONE
 AS3   PLAY RUNTIME           DONE
 AS4   PLAY CONTINUITY        DONE
 AS5   PLAY DEMOLITION        DONE
-AS6+  UNSELECTED
+NEXT   WORLD AGENT CONVERSATION   SELECTED DESIGN; IMPLEMENTATION LEASE NOT ACTIVE
+OTHER  CANDIDATE FAMILIES         UNSELECTED
 ```
 
 AS5 / PR #650:
@@ -149,11 +150,16 @@ A persistence concern discovered during BF2/BF3 should be treated as a new concr
 
 Combat remains separate and may later be selected as an APP-STATE family. Play's completion does not imply Combat durability.
 
+Product evidence now selects one separate family: **World-scoped Agent
+conversation continuity**. This does not reopen AS1–AS5 or make Play behavior
+part of APP-STATE. Its design reconciliation is under review; no implementation
+or runtime lease is active.
+
 ---
 
 ## 6. Selecting a future APP-STATE family
 
-A future steward may select a candidate only when all are true:
+A future steward may select an additional candidate only when all are true:
 
 1. a concrete user-relied-on durable state currently depends on unsafe/local topology;
 2. migration creates one independently useful product outcome;
@@ -163,7 +169,14 @@ A future steward may select a candidate only when all are true:
 6. the slice has owning-boundary evidence and fail-closed behavior;
 7. storage identity is distinct from product identity.
 
-Candidate families currently include:
+The selected Agent Conversation family is limited to a stable Buddy-owned
+conversation ID, one active conversation per verified World, ordered visible
+turns, typed source-bound composer drafts, and turn idempotency/provenance.
+Hermes/Pi provider state is not product identity. Plan edit proposals and action
+receipts remain with their owning action domains; this family will not add a
+generic action store.
+
+The following candidates remain unselected:
 
 - Combat;
 - Ingest processing/review;
@@ -171,7 +184,6 @@ Candidate families currently include:
 - generated-artifact project/draft lifecycles;
 - Asset metadata + DungeonMindServer bytes;
 - remaining `worldbuilding_source` / content;
-- optional Agent task/proposal durability only if product correctness requires it;
 - explicit Plan publish-to-corpus;
 - optional Run mutation history.
 
@@ -200,10 +212,14 @@ Exact-head formal review and distinct-head review-cycle counting remain mandator
 
 ## 8. What remains false
 
-- no AS6 has been selected;
+- no migration number has been assigned to the selected Agent Conversation family;
+- implementation is not authorized until this design reconciliation lands and
+  PRIME grants a bounded path/runtime lease;
 - Combat durability is not implied by Play completion;
 - Ingest/SourceArtifact/Asset/generated-artifact application-state families are not implemented merely because the substrate can support them;
 - CUTOVER graph-engine demolition remains a separate lane;
 - global product durability/CR-U17 is not complete merely because Play is durable.
 
-The correct next APP-STATE action is therefore **wait for evidence**, not invent another migration slice.
+The next APP-STATE action is to land the design reconciliation, then request a
+separate exact implementation lease. Do not begin schema/runtime work before
+that gate resolves.

@@ -3,9 +3,9 @@ document_id: dmb-decision-agent-context-compilation
 title: Agent Context Compilation — Product Context, Retrieval, and Model-Facing Budget
 document_class: design_decision
 status: active_direction
-version: 1.1
+version: 1.2
 created_at: "2026-08-29"
-updated_at: "2026-09-22"
+updated_at: "2026-10-01"
 workstream: AGENT-INTERACTION
 architecture_authorities:
   - "ARCHITECTURE-surface-interaction-layer.md"
@@ -14,6 +14,7 @@ architecture_authorities:
 companion_targets:
   - "DESIGN-magic-moment-contextual-source-to-world-graph.md"
   - "DECISION-agent-runtime-and-semantic-adjudication.md"
+  - "HANDOFF-APP-STATE-world-agent-conversation-v1.md"
 implementation_successor:
   - "HANDOFF-AGENT-INTERACTION-context-assembler-v1.md"
 ---
@@ -652,6 +653,10 @@ This decision does not select:
 
 Those require separate evidence and capability slices.
 
+The non-goal above is **semantic Interaction Memory**, not the user's visible
+conversation transcript. A selected Buddy-owned Agent Conversation record is
+not a persisted WorldContext, retrieval packet, or memory summary.
+
 ---
 
 # 18. Acceptance questions for future context work
@@ -672,3 +677,30 @@ For each new context producer, ask:
 Core invariant:
 
 > **Rich typed state in; sparse relevant semantics out.**
+
+---
+
+# 19. Durable conversation continuity, separate from compiled context
+
+The product now requires one active Agent conversation per verified World
+across Buddy surfaces. Buddy Application State owns the provider-neutral
+conversation ID, ordered visible turns, active/archive lifecycle, and typed
+source-bound composer drafts. The owning AGENT-INTERACTION service resolves
+the World and current surface/work scope on every operation. See
+[`HANDOFF-APP-STATE-world-agent-conversation-v1.md`](../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md)
+for identity, lifecycle, idempotency, import, and migration details.
+
+The canonical transcript contains only user-visible user/assistant messages
+and honest per-turn lifecycle results. The context compiler may select a
+bounded recent portion for pronoun/follow-up continuity. That history helps
+resolve intent; it is not World truth and does not stand in for current
+retrieval or domain resolution. For every turn, Buddy re-verifies World,
+resolves the current surface/work/revision/selection, and recompiles the
+available tools and model context. Historical typed identity fields explain
+the old turn but are never replayed as current permissions or context.
+
+Unsent composer drafts are separate durable records bound to their World,
+conversation, and source context. They are not turns and are never sent to the
+model until explicit submission. Tool arguments/results, hidden reasoning,
+provider-native session history, and action receipts remain outside transcript
+and context persistence; action receipts belong to the owning action domain.
