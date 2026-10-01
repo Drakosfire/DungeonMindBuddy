@@ -212,15 +212,19 @@ The C1+C2 graph must be available together. Buddy `scope_mode=world` maps to
 MIND V2 `WORLD_CROSS_CAMPAIGN` with GM admissibility; the older prescription to
 query `campaign` with `campaign_id=longmont-c2` would hide C1 and must not be
 used. C2 Session 29 is Buddy Agent narrative focus (`campaign_id=longmont-c2`,
-`session_id=session-29`), not a native graph entity ID or scope filter; the C2
-question must use facts already in the adopted graph, and the current direct
-adapter does not forward that focus. Resolve the native head
+`session_id=session-29`) carried through a separate Buddy context/ranking path.
+These labels never populate native V2 query scope, `campaign_id`, `focus`, or a
+graph entity ID. The C2 question must use facts already in the adopted graph;
+the current direct adapter does not forward that focus. Resolve the native head
 once per turn and pin search, multi-hop, evidence, and source reads to it. Return
 a compact receipt with managed World/native Graph identity, active binding
-version, scope, GM admissibility, C2/session focus, revision/head IDs, `is_head`,
-and evidence/source refs. Before provider dispatch, show the configured provider
-destination and bounded graph evidence/source excerpts sent for that turn; never
-send the full graph or include Plan text/full graph payload in receipts or logs.
+version, scope, GM admissibility, separate Buddy narrative focus, pinned
+revision/head ID, head-at-resolution, current `is_head` observations, and
+evidence/source refs. Before provider dispatch, show the configured provider
+destination and that bounded graph evidence/source excerpts may be sent; after
+the turn, identify the exact evidence references/excerpts actually included.
+Never send a full graph or include Plan text/full graph payload in receipts
+or logs.
 
 Buddy's managed-World owner must persist an explicit, active/versioned mapping
 from the distinct managed World ID to existing MIND V2 Graph `world_id=eldyrwild`.
@@ -230,9 +234,12 @@ slug, campaign ID, or graph contents. Use the existing non-empty native graph;
 #826's empty-space provisioning does not satisfy this binding, and this gate
 must not create/import a new KnowledgeSpace. Buddy must derive GM authority from
 trusted server-side surface/session state; a non-GM request must fail closed.
-The static audit of the sealed Eldyrwild V6 adoption bundle reports 469 objects,
-323 relationships, 83 source artifacts, and 93 contributions. These package counts do not prove live
-queryability. A prior PRIME read-only observation recorded native head
+Current Buddy has no demonstrated in-process authentication middleware on
+`/api/live`, so identifying or building the trusted GM principal/role boundary
+is an explicit BLOCKED activation gate. If absent, do not dispatch
+graph/provider requests. The static audit of the sealed Eldyrwild V6 adoption bundle reports 469 objects,
+323 relationships, 83 source artifacts, and 93 contributions. These package
+counts do not prove live queryability. A prior PRIME read-only observation recorded native head
 `rev:680c246047d67f9fe0293ee90526f670`, parent adoption
 `rev:34b1f8e2625d5ba693fc726a2a1a4720`, and 95 native contributions; that is
 historical evidence, not the successor's live witness. The older local Buddy
@@ -246,8 +253,9 @@ The successor's BLOCKED contract and acceptance witness are recorded in
 It remains BLOCKED after the #833 predecessor merge. Before an implementation
 lease, re-anchor on current `origin/main`, reconcile the #826 empty-space versus
 existing-Graph binding ownership, obtain ARCHITECTURE exact-head acceptance of
-the corrected contract, and confirm the read-only `eldyrwild` witness plus an
-isolated native fixture for R1→R2 restart proof. The #833 configured-provider
+the corrected contract, establish trusted server-side GM authority for
+`/api/live`, and confirm the read-only `eldyrwild` witness plus isolated native
+fixtures for concurrent-head and R1→R2 restart proofs. The #833 configured-provider
 witness is also outstanding and remains separate product evidence. This does
 not close the Session 28 recap-ingestion gate or J1–J6 acceptance.
 
