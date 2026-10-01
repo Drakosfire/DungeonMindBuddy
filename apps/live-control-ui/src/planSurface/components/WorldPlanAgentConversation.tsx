@@ -1,10 +1,11 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
-import { postWorldPlanAgentTurn } from "../../api/liveApi";
+import { postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
+  WorldPlanDocumentEditProposalRequest,
   WorldPlanAgentTurnRequestV1,
   WorldPlanAgentTurnResolvedSummary,
 } from "../../api/types";
@@ -13,6 +14,13 @@ import { useAskPluginSlotOptional, useRegisterAskPluginPresence } from "../../ag
 import { usePublishAgentSurfaceContext } from "../../agentInteraction/usePublishAgentSurfaceContext";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
 import { useSelectedWorld } from "../../selectedWorld/SelectedWorldContext";
+import {
+  admitWorldPlanEditProposal,
+  type AdmittedWorldPlanEditProposal,
+  type CapturedWorldPlanEditTarget,
+  type ExpectedWorldPlanEditAgentBinding,
+  type WorldPlanEditBridge,
+} from "../agentEdit/planAgentEditProposal";
 import {
   AGENT_TURN_HISTORY_CAP,
   createAgentInteractionThread,
@@ -27,6 +35,9 @@ interface WorldPlanAgentConversationProps {
   documentId: string | null;
   surfaceInstanceId: string;
   revision: number | null;
+  editBridge: WorldPlanEditBridge | null;
+  draftGeneration: number;
+  selectionGeneration: number;
   savedDirty: boolean;
   pageReady: boolean;
   saveInFlight: boolean;
@@ -36,6 +47,15 @@ interface ValidatedWorldPlanResponse {
   answer: string;
   trace: Record<string, unknown>;
   summary: WorldPlanAgentTurnResolvedSummary;
+}
+
+interface WorldPlanEditReview {
+  captured: CapturedWorldPlanEditTarget;
+  admitted: AdmittedWorldPlanEditProposal;
+  expectedAgentBinding: ExpectedWorldPlanEditAgentBinding;
+  threadId: string;
+  turnId: string;
+  fenceKey: string;
 }
 
 type ValidationResult =
@@ -207,6 +227,9 @@ export function WorldPlanAgentConversation({
   documentId,
   surfaceInstanceId,
   revision,
+  editBridge,
+  draftGeneration,
+  selectionGeneration,
   savedDirty,
   pageReady,
   saveInFlight,
@@ -252,20 +275,68 @@ export function WorldPlanAgentConversation({
     planReady,
     saveInFlight,
   });
+  const proposalFenceKey = JSON.stringify({
+    requestFenceKey,
+    draftGeneration,
+    selectionGeneration,
+    savedDirty,
+    paneOpen: agent.paneState.isOpen,
+    hasAskHost: Boolean(askSlot?.hostElement),
+    agentScope: agent.scope ? {
+      campaignId: agent.scope.campaignId,
+      surfaceId: agent.scope.surfaceId ?? null,
+      sessionNumber: agent.scope.sessionNumber,
+      documentId: agent.scope.documentId ?? null,
+    } : null,
+  });
   const [question, setQuestion] = useState("");
+  const [editInstruction, setEditInstruction] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [composing, setComposing] = useState(false);
+  const [editReview, setEditReview] = useState<WorldPlanEditReview | null>(null);
   const requestRef = useRef<{ token: symbol; threadId: string; fenceKey: string } | null>(null);
+  const proposalRequestRef = useRef<{ token: symbol; threadId: string; fenceKey: string; providerThreadId: string | null } | null>(null);
+  const editReviewRef = useRef<WorldPlanEditReview | null>(null);
   const sanitizedPointerRef = useRef<string | null>(null);
-  const latestRef = useRef({ fenceKey: requestFenceKey, threadId: activeThread?.threadId ?? null, mounted: false });
+  const latestRef = useRef({
+    fenceKey: requestFenceKey,
+    proposalFenceKey,
+    threadId: activeThread?.threadId ?? null,
+    providerThreadId: agent.activeThread?.threadId ?? null,
+    scopeMatches,
+    verifiedWorldId,
+    scope: agent.scope ? {
+      campaignId: agent.scope.campaignId,
+      surfaceId: agent.scope.surfaceId ?? null,
+      sessionNumber: agent.scope.sessionNumber,
+      documentId: agent.scope.documentId ?? null,
+    } : null,
+    askVisible: Boolean(askSlot?.hostElement && agent.paneState.isOpen),
+    mounted: false,
+  });
   latestRef.current.fenceKey = requestFenceKey;
-  latestRef.current.threadId = activeThread?.threadId ?? requestRef.current?.threadId ?? null;
+  latestRef.current.proposalFenceKey = proposalFenceKey;
+  latestRef.current.threadId = activeThread?.threadId ?? null;
+  latestRef.current.providerThreadId = agent.activeThread?.threadId ?? null;
+  latestRef.current.scopeMatches = scopeMatches;
+  latestRef.current.verifiedWorldId = verifiedWorldId;
+  latestRef.current.scope = agent.scope ? {
+    campaignId: agent.scope.campaignId,
+    surfaceId: agent.scope.surfaceId ?? null,
+    sessionNumber: agent.scope.sessionNumber,
+    documentId: agent.scope.documentId ?? null,
+  } : null;
+  latestRef.current.askVisible = Boolean(askSlot?.hostElement && agent.paneState.isOpen);
 
   useLayoutEffect(() => {
     latestRef.current.mounted = true;
     return () => {
       latestRef.current.mounted = false;
       requestRef.current = null;
+      proposalRequestRef.current = null;
+      editReviewRef.current = null;
     };
   }, []);
 
@@ -275,12 +346,33 @@ export function WorldPlanAgentConversation({
   }, [requestFenceKey]);
 
   useLayoutEffect(() => {
+    proposalRequestRef.current = null;
+    editReviewRef.current = null;
+    setComposing(false);
+    setEditReview(null);
+    setEditError(null);
+  }, [proposalFenceKey]);
+
+  useLayoutEffect(() => {
     const pending = requestRef.current;
-    if (pending && activeThread?.threadId && pending.threadId !== activeThread.threadId) {
+    if (pending && latestRef.current.providerThreadId !== pending.threadId) {
       requestRef.current = null;
       setSending(false);
     }
-  }, [activeThread?.threadId]);
+  }, [agent.activeThread?.threadId]);
+
+  useLayoutEffect(() => {
+    const pending = proposalRequestRef.current;
+    if (pending && latestRef.current.providerThreadId !== pending.providerThreadId) {
+      proposalRequestRef.current = null;
+      setComposing(false);
+    }
+    const review = editReviewRef.current;
+    if (review && activeThread?.threadId !== review.threadId) {
+      editReviewRef.current = null;
+      setEditReview(null);
+    }
+  }, [activeThread?.threadId, agent.activeThread?.threadId]);
 
   useLayoutEffect(() => {
     setQuestion("");
@@ -302,15 +394,20 @@ export function WorldPlanAgentConversation({
   function startNewConversation() {
     if (!scopeMatches) return;
     requestRef.current = null;
+    proposalRequestRef.current = null;
+    editReviewRef.current = null;
+    setEditReview(null);
+    setComposing(false);
     const next = agent.createThread("New World Plan conversation");
     latestRef.current.threadId = next.threadId;
     setQuestion("");
     setError(null);
+    setEditError(null);
     setSending(false);
   }
 
   function toggleTraceVisibility() {
-    if (!scopeMatches || sending || requestRef.current) return;
+    if (!scopeMatches || sending || composing || requestRef.current || proposalRequestRef.current) return;
     const thread = activeThread ?? agent.createThread("New World Plan conversation");
     agent.updateThread({
       ...thread,
@@ -337,7 +434,7 @@ export function WorldPlanAgentConversation({
       threadTitleFromQuestion(message),
       documentId,
     );
-    latestRef.current.threadId = currentThread.threadId;
+    const providerThreadId = agent.activeThread?.threadId ?? null;
     const request: WorldPlanAgentTurnRequestV1 = {
       schema: "dmb_agent_turn_request_v1",
       client_thread_id: currentThread.threadId,
@@ -356,7 +453,9 @@ export function WorldPlanAgentConversation({
     setError(null);
     const isCurrent = () => latestRef.current.mounted
       && latestRef.current.fenceKey === requestFenceKey
-      && latestRef.current.threadId === currentThread.threadId
+      && latestRef.current.scopeMatches
+      && latestRef.current.providerThreadId === providerThreadId
+      && (providerThreadId === null || latestRef.current.threadId === currentThread.threadId)
       && requestRef.current?.token === token;
 
     try {
@@ -365,6 +464,8 @@ export function WorldPlanAgentConversation({
       const validation = validateWorldPlanResponse(response, request);
       if (!validation.ok) throw new Error(validation.message);
 
+      requestRef.current = null;
+      setSending(false);
       const now = new Date().toISOString();
       const turn: AgentInteractionTurn = {
         turnId: request.turn_id,
@@ -400,11 +501,178 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  function getLiveEditAgentBinding() {
+    return {
+      mounted: latestRef.current.mounted && latestRef.current.askVisible,
+      verifiedWorldId: latestRef.current.verifiedWorldId,
+      activeThreadId: latestRef.current.providerThreadId,
+      scope: latestRef.current.scope,
+    };
+  }
+
+  function isProposalRequestCurrent(
+    token: symbol,
+    fenceKey: string,
+    providerThreadId: string | null,
+  ) {
+    return latestRef.current.mounted
+      && latestRef.current.askVisible
+      && latestRef.current.scopeMatches
+      && latestRef.current.proposalFenceKey === fenceKey
+      && latestRef.current.providerThreadId === providerThreadId
+      && proposalRequestRef.current?.token === token;
+  }
+
+  async function composeEdit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const instruction = editInstruction.trim();
+    if (!planReady || !scopeMatches || !namespace || !documentId || !editBridge
+      || !isPositiveRevision(revision) || saveInFlight || !instruction
+      || composing || sending || requestRef.current || proposalRequestRef.current) return;
+
+    const providerThreadId = agent.activeThread?.threadId ?? null;
+    const currentThread = activeThread ?? createAgentInteractionThread(
+      namespace,
+      null,
+      "plan",
+      "hermes",
+      threadTitleFromQuestion(instruction),
+      documentId,
+    );
+    const token = Symbol("world-plan-edit-proposal");
+    const fenceKey = proposalFenceKey;
+    proposalRequestRef.current = { token, threadId: currentThread.threadId, fenceKey, providerThreadId };
+    setComposing(true);
+    setEditError(null);
+    setEditReview(null);
+    editReviewRef.current = null;
+
+    const isCurrent = () => isProposalRequestCurrent(token, fenceKey, providerThreadId);
+    try {
+      const captured = await editBridge.capture();
+      if (!isCurrent()) return;
+      const conversationHistory = currentThread.turns.slice(0, 6).reverse().flatMap((turn) => [
+        { role: "user" as const, content: turn.question.slice(0, 4000) },
+        { role: "assistant" as const, content: turn.answer.slice(0, 4000) },
+      ]);
+      const request: WorldPlanDocumentEditProposalRequest = {
+        ...captured.request,
+        instruction,
+        conversation_history: conversationHistory,
+      };
+      const response = await postWorldPlanDocumentEditProposal(request);
+      if (!isCurrent()) return;
+      const admitted = await admitWorldPlanEditProposal(captured, response);
+      if (!isCurrent()) return;
+
+      const now = new Date().toISOString();
+      const turnId = crypto.randomUUID();
+      const turn: AgentInteractionTurn = {
+        turnId,
+        askedAt: now,
+        completedAt: now,
+        question: instruction,
+        answer: response.summary,
+        backend: "plan_edit",
+        status: "ok",
+        planEdit: {
+          proposalSummary: response.summary,
+          replacementMarkdown: admitted.canonicalMarkdown,
+          applied: false,
+          targetKind: captured.request.target_kind,
+        },
+      };
+      proposalRequestRef.current = null;
+      setComposing(false);
+      agent.updateThread({
+        ...currentThread,
+        campaignId: namespace,
+        session: null,
+        documentId,
+        surfaceId: "plan",
+        hermesSession: null,
+        title: currentThread.turns.length ? currentThread.title : threadTitleFromQuestion(instruction),
+        updatedAt: now,
+        turns: [turn, ...currentThread.turns].slice(0, AGENT_TURN_HISTORY_CAP),
+      });
+      const expectedAgentBinding: ExpectedWorldPlanEditAgentBinding = {
+        worldId,
+        documentId,
+        threadId: currentThread.threadId,
+        namespace,
+      };
+      const nextReview: WorldPlanEditReview = {
+        captured,
+        admitted,
+        expectedAgentBinding,
+        threadId: currentThread.threadId,
+        turnId,
+        fenceKey: latestRef.current.proposalFenceKey,
+      };
+      editReviewRef.current = nextReview;
+      setEditReview(nextReview);
+      setEditInstruction("");
+    } catch (reason) {
+      if (isCurrent()) setEditError(reason instanceof Error ? reason.message : "The Plan edit proposal failed. Try again.");
+    } finally {
+      if (isCurrent()) {
+        proposalRequestRef.current = null;
+        setComposing(false);
+      }
+    }
+  }
+
+  function discardEditReview() {
+    editReviewRef.current = null;
+    setEditReview(null);
+    setEditError(null);
+  }
+
+  async function applyEditReview(review: WorldPlanEditReview) {
+    if (!editBridge || editReviewRef.current !== review
+      || latestRef.current.proposalFenceKey !== review.fenceKey
+      || !latestRef.current.scopeMatches
+      || latestRef.current.threadId !== review.threadId) {
+      discardEditReview();
+      setEditError("World Plan or Agent thread changed. Compose the proposal again.");
+      return;
+    }
+    try {
+      await editBridge.apply(
+        review.captured,
+        review.admitted,
+        review.expectedAgentBinding,
+        getLiveEditAgentBinding,
+      );
+      const currentThread = agent.activeThread;
+      if (!currentThread || currentThread.threadId !== review.threadId) {
+        throw new Error("The Agent thread changed before the proposal could be recorded.");
+      }
+      const now = new Date().toISOString();
+      agent.updateThread({
+        ...currentThread,
+        updatedAt: now,
+        turns: currentThread.turns.map((turn) => turn.turnId === review.turnId && turn.planEdit
+          ? { ...turn, planEdit: { ...turn.planEdit, applied: true } }
+          : turn),
+      });
+      discardEditReview();
+    } catch (reason) {
+      setEditError(reason instanceof Error ? reason.message : "The proposal could not be applied to this mounted Plan.");
+    }
+  }
+
   if (!pageReady) return null;
   if (!documentId) {
     return <p className="world-plan-agent-draft-note" role="status">Save this Plan to start an Agent conversation.</p>;
   }
   if (!planReady || !askSlot?.hostElement || !agent.paneState.isOpen || !scopeMatches) return null;
+
+  const currentReview = editReview
+    && editReview.fenceKey === proposalFenceKey
+    && editReview.threadId === activeThread?.threadId
+    ? editReview
+    : null;
 
   return createPortal(
     <section className="world-plan-agent-conversation" aria-label="Saved World Plan conversation">
@@ -417,25 +685,75 @@ export function WorldPlanAgentConversation({
           <button
             type="button"
             aria-pressed={traceVisible}
-            disabled={sending || requestRef.current !== null}
+            disabled={sending || composing || requestRef.current !== null || proposalRequestRef.current !== null}
             onClick={toggleTraceVisibility}
           >
             {traceVisible ? "Advanced diagnostics: On" : "Advanced diagnostics: Off"}
           </button>
-          <button type="button" onClick={startNewConversation}>New conversation</button>
+          <button type="button" onClick={startNewConversation} disabled={sending || composing}>New conversation</button>
         </div>
       </header>
       <p className="world-plan-agent-conversation__notice" role="note">
-        DungeonBuddy sees this Plan’s title and revision, but does not read its text. It cannot answer from or edit the saved prose.
+        Ask sends your question with this Plan’s title and revision only; it does not send Plan text. Compose or Revise below explicitly sends the current mounted draft and selection to the configured model. Nothing changes until you review and apply a proposal.
       </p>
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
+      ) : null}
+      {editBridge ? (
+        <section className="world-plan-agent-conversation__compose" aria-label="Compose or revise Plan text">
+          <h3>Compose or revise Plan text</h3>
+          <form onSubmit={(event) => { void composeEdit(event); }}>
+            <label htmlFor="world-plan-agent-edit-instruction">What should DungeonBuddy change?</label>
+            <textarea
+              id="world-plan-agent-edit-instruction"
+              value={editInstruction}
+              onChange={(event) => setEditInstruction(event.currentTarget.value)}
+              maxLength={4000}
+              disabled={composing || sending || saveInFlight || !scopeMatches || currentReview !== null}
+            />
+            {editError ? <p role="alert">{editError}</p> : null}
+            <button
+              type="submit"
+              disabled={composing || sending || saveInFlight || !scopeMatches || !editInstruction.trim() || currentReview !== null}
+            >
+              {composing ? "Composing…" : "Compose proposal"}
+            </button>
+          </form>
+          {currentReview ? (
+            <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
+              <h4>Review proposal</h4>
+              <p>{currentReview.admitted.response.summary}</p>
+              {currentReview.admitted.response.assumptions.length ? (
+                <ul>{currentReview.admitted.response.assumptions.map((assumption, index) => <li key={`${index}:${assumption}`}>{assumption}</li>)}</ul>
+              ) : null}
+              <div className="world-plan-agent-conversation__preview">
+                <div>
+                  <h5>Before</h5>
+                  <pre>{currentReview.captured.request.selected_text || "Nothing selected · proposal will insert at the captured caret."}</pre>
+                </div>
+                <div>
+                  <h5>After</h5>
+                  <pre>{currentReview.admitted.canonicalMarkdown}</pre>
+                </div>
+              </div>
+              <div className="world-plan-agent-conversation__review-actions">
+                <button type="button" onClick={discardEditReview}>Discard</button>
+                <button type="button" onClick={() => { void applyEditReview(currentReview); }}>Apply to mounted draft</button>
+              </div>
+            </section>
+          ) : null}
+        </section>
       ) : null}
       <div className="world-plan-agent-conversation__turns" aria-live="polite">
         {activeThread?.turns.length ? [...activeThread.turns].reverse().map((turn) => (
           <article key={turn.turnId}>
             <p><strong>You:</strong> {turn.question}</p>
-            <p><strong>DungeonBuddy:</strong> {turn.answer}</p>
+            <p><strong>DungeonBuddy{turn.planEdit ? " · Plan proposal" : ""}:</strong> {turn.answer}</p>
+            {turn.planEdit ? (
+              <p className="world-plan-agent-conversation__context">
+                Plan proposal · {turn.planEdit.applied ? "Applied to the local draft" : "Not applied"}
+              </p>
+            ) : null}
             {turn.agentTurnResolved?.surfaceId === "plan" ? (
               <p className="world-plan-agent-conversation__context">
                 {turn.agentTurnResolved.workStatus === "changed_since_expected"
@@ -457,10 +775,10 @@ export function WorldPlanAgentConversation({
           value={question}
           onChange={(event) => setQuestion(event.currentTarget.value)}
           maxLength={8000}
-          disabled={sending || saveInFlight || !scopeMatches}
+          disabled={sending || composing || saveInFlight || !scopeMatches}
         />
         {error ? <p role="alert">{error}</p> : null}
-        <button type="submit" disabled={sending || saveInFlight || !scopeMatches || !question.trim()}>
+        <button type="submit" disabled={sending || composing || saveInFlight || !scopeMatches || !question.trim()}>
           {sending ? "Asking…" : saveInFlight ? "Saving…" : "Ask"}
         </button>
       </form>

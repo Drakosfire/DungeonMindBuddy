@@ -1,7 +1,7 @@
 # HANDOFF — DEMO: route the saved Plan Agent through Hermes Responses mode
 
-**Status:** IMPLEMENTATION MERGED — Buddy #812 complete;
-separately leased two-turn live witness pending
+**Status:** IMPLEMENTATION MERGED — Buddy #812 complete; PRIME adjudicated the
+current-policy live Responses gate PASS; two-turn continuity witness complete
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -231,6 +231,22 @@ The UI process stopped with the expected Ctrl-C exit code 130.
 This is bounded post-merge conversation evidence. It does not establish J1/J2,
 the complete connected DEMO, or operator acceptance.
 
+### Subsequent PRIME adjudication — current-policy gate PASS
+
+PRIME later inspected the saved current-policy live trace for the #812 gate and
+adjudicated the Responses requirement **PASS**. It records the configured
+`gpt-6-luna` call with `api_mode=codex_responses`, status `ok`, one model call,
+and zero graph tools. Usage was 569 input / 52 output / 621 total tokens (43
+reasoning tokens); the trace-estimated cost was USD 0.0000829. This estimate is
+not a billing receipt. Opening the saved trace made no Agent request.
+
+The earlier HOLD above records the initial witness checkpoint when its trace
+did not expose the selected mode; it is superseded for the current gate
+disposition by PRIME's later trace adjudication. The separate page-bootstrap
+World Graph projection 503 and malformed-looking inventory document ID remain
+separate observations; neither is a Plan turn failure. This PASS does not
+establish J2, full DEMO completion, or operator acceptance.
+
 ## Implementation verification record
 
 On `codex/demo-plan-agent-responses-mode` at base
@@ -248,8 +264,8 @@ while inspecting Hermes’ selected mode; no conversation was run.
 The RTK wrapper could not spawn `pytest` because it is absent from its command
 path; the same targeted test was then run successfully with the exact project
 virtualenv’s pytest executable. This was a test-runner lookup issue, not a test
-failure. PR #812 is merged. The post-merge witness ran as recorded above; its
-conversation continuity passed, while actual live transport remains unverified.
+failure. PR #812 is merged. The post-merge witness and PRIME's later current-
+policy trace adjudication are recorded above.
 The current roadmap also records inherited, unmodified Plan/UI failures outside
 this lease: the `ThreatPublicationPanel.tsx` JSX namespace
 typecheck error and the legacy `PlanAgentInteractionBar.test.tsx` fixture’s
@@ -260,8 +276,8 @@ as part of this backend adapter slice.
 
 PRIME reviewed the exact cumulative PR #812 head
 `3e006ca17aa2d3bc5ac2db45e84d33a4e972cb6e` and merged it at
-`3494b8f4561b2ec465af42bf4fb55bac3f42ee3c`. The live witness report is recorded above. Conversation continuity and
-reload persistence passed, but the required actual `codex_responses` mode is
-not evidenced; missing request IDs and post-second-turn usage/cost remain
-unknown. PRIME must resolve this evidence gate before the Plan transport repair
-is reported accepted. This does not close the appearance gate or accept J1–J6.
+`3494b8f4561b2ec465af42bf4fb55bac3f42ee3c`. Conversation continuity and reload
+persistence passed. PRIME's later saved-trace adjudication establishes the
+current-policy `codex_responses` gate PASS; unavailable request IDs and
+post-second-turn usage/cost remain unknown. This does not close the appearance
+gate or accept J1–J6.

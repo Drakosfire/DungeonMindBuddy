@@ -148,22 +148,55 @@ bridge checks World/document/revision/body/selection, but its caller checks the
 thread before awaiting Apply and only after mutation; switching threads during
 that await can still apply the old proposal. A delayed proposal can also show
 stale Review after draft/selection changes, and #805's pending-thread fallback
-may accept a completion after active scope becomes null/foreign. Existing tests
-do not cover these races on the World-only route or a pending completion after
-unmount. J2's owning-boundary witness must include a World-only Apply→ordinary
-Save/reload success, stale World/Plan/revision/draft-generation/save/selection
-cases, a deferred Apply with thread switch, and a deferred completion after
-unmount; each stale case must leave the draft and saved document unchanged.
-**Next action:** return the #812 live trace gap to PRIME, RAKE DUTY and
-ARCHITECTURE for a read-only telemetry/contract decision. The two-turn
-conversation and reload witness passed, but the actual live Hermes mode was not
-captured, so #812's `codex_responses` acceptance gate remains on HOLD. After
-PRIME resolves that gate, re-anchor and prepare the bounded J2 Plan-Apply
-handoff for owner review and a new lease. No J2 implementation lease is active.
-RAKE made no code changes, provider calls, or runtime operations for the
-separate J2 diagnostic.
-Keep the J3 work below as downstream diagnosis until this transition is
-repaired and accepted.
+may accept a completion after active scope becomes null/foreign. The active
+World-only slice addresses these races with an authoritative live thread/scope
+getter immediately before the synchronous editor transaction, stale-review
+invalidation, fail-closed null/foreign handling, and late-response cancellation
+on unmount. Fixture-backed route, mounted-editor, and focused race regressions
+are part of its acceptance evidence.
+
+PR #825 merged this bounded handoff at
+`5b7e1e4543c94708e11687feb60093d98d6db93f`. The DEMO World-only Apply
+implementation is ACTIVE on isolated branch
+`codex/demo-world-plan-agent-apply-impl`, based on that fresh main, with the
+exact 17-path write lease in
+[`HANDOFF-DEMO-world-plan-agent-apply-v1.md`](../Plans/HANDOFF-DEMO-world-plan-agent-apply-v1.md).
+The implementation uses fixtures only; no live runtime or provider lease is
+active. It must finish through its reviewed implementation PR, then obtain a
+fresh PRIME runtime lease for the two configured-policy proposal/Save/reload
+witness.
+
+Current code-test checkpoint: focused backend admission/real-route tests pass
+22/22 using a disposable local PostgreSQL fixture, stopped after the run.
+Focused UI/API, mounted-page, proposal-bridge and integration suites pass
+159/159, including Save/reload, deferred thread-switch, and late-unmount
+regressions. Scoped Ruff and `git diff --check` pass. UI typecheck reports only
+the inherited `ThreatPublicationPanel.tsx:553` JSX namespace diagnostic; the
+test-only database did not access product state, and no live provider was used.
+
+PRIME has since adjudicated the current-policy #812 live Responses gate PASS;
+the earlier evidence checkpoint and its separate bootstrap 503 are recorded
+below. After J2 Apply merges and its runtime witness completes, the next
+game-prep slice is content-aware saved/draft Plan Ask and an explicitly
+authorized read of the existing governed Eldyrwild graph. PRIME verified that
+this durable graph has 93 local contribution files and a head of 472 nodes / 376
+edges with C1/C2; it is separate from the absent new Buddy World-container
+record in the primary checkout and does not depend on J3 native-space
+provisioning or re-ingest. Never alias `campaign_id == world_id`. Do not start
+that successor until the current Apply slice is complete. Saturday game-prep
+context: Eldyrwild C2 Session 29 follows the ongoing Mireward Reach siege; the
+Session 28 recap is expected to be governed-ingested into the existing
+Eldyrwild graph. Track that
+recap/graph dependency separately from J2, and do not assume a new managed World
+identity equals `eldyrwild` or `longmont-c2`. ARCHITECTURE ruled that any next
+Plan Agent graph context must use an explicit World-owned binding to native
+MIND `space_id=eldyrwild`; local Buddy graph JSON and recap registries are not
+live graph authority. C2 Session 28/29 retrieval must query with native scope
+`campaign`, `world_id=eldyrwild`, and `campaign_id=longmont-c2`, because native
+`world` scope excludes campaign assertions. A future content-aware Plan read
+also needs the exact saved Plan body, revision, and SHA; editor-draft metadata
+is not enough. Keep these dependencies visible without expanding this J2 edit
+lease.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
@@ -218,8 +251,8 @@ amended the lease to Vite on `127.0.0.1:5202`. The app-state schema reached
 `0012_vnext_space_provisioning`, with only the migration-owned epoch-0
 authority singleton before the synthetic World/Plan was created.
 
-**Witness result — conversation continuity PASS; transport acceptance HOLD
-(2026-10-01):** ordinary Plan UI turns on synthetic World
+**Initial witness checkpoint — conversation continuity PASS; transport
+acceptance HOLD (2026-10-01):** ordinary Plan UI turns on synthetic World
 `demo-plan-witness-2026-10-01`, saved Plan
 `517a69c3-3c07-4a3d-8960-e2036bfc20b3`, correctly recalled the distinctive
 color `ultramarine` on turn two. Both turn routes returned HTTP 200. After a
@@ -237,7 +270,18 @@ were not captured. Current-base exact-pin offline tests passed 2/2 and resolved
 the same model/provider/base to `codex_responses`, but the live trace did not
 record the selected mode. No provider error was observed, and no third UI turn
 was submitted. Return the exact trace gap to PRIME; do not call the live
-transport gate a PASS or claim J1/J2/operator acceptance.
+transport gate a PASS or claim J1/J2/operator acceptance at that checkpoint.
+PRIME's later disposition below resolved that current-policy gate.
+
+PRIME later inspected the saved current-policy live trace and adjudicated the
+#812 Responses gate **PASS**. It records `gpt-6-luna`,
+`api_mode=codex_responses`, status `ok`, one model call, zero graph tools, 569
+input / 52 output / 621 total tokens (43 reasoning), and trace-estimated USD
+0.0000829. This estimate is not a billing receipt. Opening the trace made no
+Agent request. This later evidence supersedes the initial HOLD for the current
+transport gate only. The graph-projection 503 and malformed-looking inventory
+document ID remain separate observations; neither is a Plan turn failure, and
+this does not claim J2 or operator acceptance.
 
 **Plan Agent continuity witness — PASS (2026-10-01):** the isolated
 World Plan witness used the same saved World/Plan and visible conversation on

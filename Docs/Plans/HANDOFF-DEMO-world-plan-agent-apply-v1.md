@@ -1,7 +1,8 @@
 # HANDOFF — DEMO: World-only reviewed Agent-to-Plan Apply
 
-**Status:** BLOCKED — bounded design proposal only; implementation and runtime
-write leases are not active.
+**Status:** ACTIVE — PRIME activated the bounded implementation lease after
+reviewing and merging this handoff; a separate post-merge runtime lease remains
+required.
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -11,28 +12,27 @@ World Plan conversation contract in
 accepted reviewed-edit behavior in
 [HANDOFF-DEMO-plan-agent-reviewed-edit-v1.md](HANDOFF-DEMO-plan-agent-reviewed-edit-v1.md),
 ARCHITECTURE's World-only Apply ruling, RAKE DUTY's J2 race audit, PRIME's
-explicit request to prepare this proposal, and PRIME's disposition that the
-current policy-selected `gpt-6-luna` witness passes the #812 Responses gate.
+explicit activation, and PRIME's disposition that the current policy-selected
+`gpt-6-luna` witness passes the #812 Responses gate.
 
-**Proposal branch/base:** `codex/demo-world-plan-agent-apply`, based on Buddy
-`main@0e49c4d708d3e16c8068384549adb50e863bf64a`, refreshed and supplied by
-PRIME on 2026-10-01. This checkout's `git fetch` could not update `FETCH_HEAD`
-because its linked common Git directory is read-only, and its GitHub API call
-could not connect. Re-anchor from the remote before implementation activation;
-do not treat this local ref as a current-main guarantee.
+**Implementation branch/base:** `codex/demo-world-plan-agent-apply-impl`, based
+on fresh `origin/main@5b7e1e4543c94708e11687feb60093d98d6db93f` after the
+handoff PR #825 merged. Isolated checkout:
+`/home/drakosfire/.codex/worktrees/demo-world-plan-trace-inspector/DungeonMindBuddy`.
+The implementation uses fixture-backed tests only: no product database,
+service, model/provider call, port, or corpus is leased or used.
 
-**Topology:** serial within DEMO: one J2 implementation PR after this handoff
-is reviewed and PRIME explicitly activates an exact implementation lease. The
-implementation branch starts from the then-current main after this handoff PR
-merges. If PRIME activates against an unmerged pinned handoff head, PRIME must
-name that exact parent and merge/rebase order as a stacked topology. Do not
-begin Plan-path edits on the strength of this proposal alone.
+**Topology:** serial within DEMO: one J2 implementation PR on the active branch;
+do not merge it. The next Plan slice stays blocked until this implementation
+merges and its separate runtime witness completes.
 
-**Runtime/state ownership:** No service, provider, product database, demo
-World, port, or corpus is used by this handoff PR or fixture-based code tests.
-The eventual post-merge product witness requires a fresh, explicit PRIME
-runtime lease. Do not reuse the still-running database pair from the 2026-10-01
-#812 witness; it remains under PRIME's runtime ownership.
+**Runtime/state ownership:** No live product service, provider, product
+database, demo World, or corpus is used by this implementation. The real-route
+code test used only a disposable PostgreSQL fixture container on localhost port
+54329; it was stopped after the tests. No app runtime port or external product
+state is leased. The eventual post-merge product witness requires a fresh,
+explicit PRIME runtime lease. Do not reuse the still-running database pair from
+the 2026-10-01 #812 witness; it remains under PRIME's runtime ownership.
 
 ## 1. Broken transition and one capability
 
@@ -91,10 +91,13 @@ graph behavior, or provider policy.
    generation/content, save state, and selection. Invalidate/hide Review as
    soon as any captured editor binding changes. After any awaited capture,
    hashing, or proposal work, recheck the complete fence at the synchronous
-   editor transaction boundary; no await may occur between the final current
-   thread/scope check and dispatching that transaction. If the bridge cannot
-   provide that ordering within the leased paths, stop and return the exact
-   path/API need to PRIME before editing outside the lease.
+   editor transaction boundary. The final guard must call an authoritative
+   live getter for current Agent thread and scope, require the exact active
+   thread and World Plan namespace, and fail closed on null or foreign scope.
+   No await may occur between that final getter/check and dispatching the
+   editor transaction. Never fall back to a captured thread or scope. If the
+   bridge cannot provide that ordering within the leased paths, stop and return
+   the exact path/API need to PRIME before editing outside the lease.
 7. Do not accept a late proposal after the component unmounts. Do not use a
    pending-thread fallback when active scope is null or foreign. A stale World,
    document, revision, draft, save, selection, thread, scope, or mounted-editor
@@ -104,15 +107,17 @@ The observed RAKE audit found that the legacy bridge checks World/document/
 revision/body/selection but the caller checks the active thread before awaiting
 Apply and only after mutation; a thread switch during that await can apply the
 old proposal. Review can also remain stale after editor changes, and a pending
-thread fallback can accept completion after scope becomes null/foreign. The
-existing tests do not establish these races on the World-only route or a
-completion after unmount. All four gaps are in scope here.
+thread fallback can accept completion after scope becomes null/foreign. Those
+baseline gaps motivate the active slice: its World bridge requires the live
+thread/scope getter immediately before editor mutation, invalidates Review on
+binding changes, and drops late responses after unmount. Focused World route
+and mounted-editor regressions are required before PR handback.
 
-## 3. Proposed exclusive implementation path lease
+## 3. Active exclusive implementation path lease
 
-This is the exact expected write set proposed for PRIME activation. It is not
-an ACTIVE lease today. No other path is authorized by this handoff. If the
-contract needs another path, return the exact need to PRIME before editing it.
+This is the exact ACTIVE implementation write lease PRIME approved. No other
+path is authorized by this handoff. If the contract needs another path, return
+the exact need to PRIME before editing it.
 
 1. `Docs/Plans/HANDOFF-DEMO-world-plan-agent-apply-v1.md` — activation,
    bounded acceptance evidence, and truthful completion state.
@@ -239,19 +244,41 @@ Do not claim usage cost is a billing receipt, use the projection 503 as a Plan
 turn failure, pre-mark this implementation complete, invent a merge SHA or
 review count, or claim full J2/operator acceptance before those gates pass.
 
-## 6. Activation gate and completion boundary
+## Current implementation checkpoint
 
-Before any implementation-path edit, PRIME must explicitly activate this exact
-proposed write set and runtime plan after reviewing this pinned handoff. At
-activation, refresh remote main and open PRs, reconcile exact active leases,
-confirm the ARCHITECTURE and RAKE constraints below, and choose serial or a
-fully specified stacked topology. The active lane must name its branch/base,
-isolated checkout, ports/databases/output directories, model/provider use,
-and every mutable external resource. If any need exceeds §3, stop before
-editing and return the exact gap to PRIME.
+The implementation worktree is based on the recorded fresh `origin/main` and
+stays within the 17-path lease. Focused backend admission and real-route tests
+passed `22/22`; the real World-owned Plan route witness used a disposable
+PostgreSQL fixture on localhost port 54329, and its test container was stopped
+afterward. No product database, live provider, or app runtime was used.
 
-This proposal completes only when the approved World-only Apply capability
-passes its owning-boundary tests, cumulative diff review, implementation PR
-review/merge, and its separately leased live witness. It does not close the
+Focused UI/API verification passed `159/159` across the World Plan page, API,
+proposal bridge, and new mounted-route integration suites. The integration
+suite covers Compose → Review → Apply → existing Save → reload, late proposal
+completion after unmount, and a deferred Apply interrupted by an Agent-thread
+switch. Bridge regressions also cover stale World/document/revision/digest/
+draft/selection/save state and null/foreign scope/thread. Scoped Ruff and
+`git diff --check` passed.
+
+The scoped UI typecheck reports only the inherited
+`ThreatPublicationPanel.tsx:553` `JSX` namespace diagnostic. The normal build
+also cannot write its TypeScript build-info file under the read-only dependency
+mount; verification redirected that file to `/tmp` and confirmed there are no
+additional production-source diagnostics. The live configured-policy proposal
+rehearsal remains pending the separate PRIME runtime lease after merge.
+
+## 6. Completion boundary
+
+PRIME already activated the exact §3 implementation lease against fresh
+`origin/main@5b7e1e4543c94708e11687feb60093d98d6db93f` on the isolated branch
+and checkout recorded above. Continue implementation through focused tests,
+cumulative diff review, commit, push, and the assigned PR handback. Do not
+merge. The implementation has no live runtime lease; after merge, request a
+fresh PRIME runtime lease for the product witness. If any required path or
+contract exceeds §3, stop before editing it and return the exact gap to PRIME.
+
+This implementation completes only when the approved World-only Apply
+capability passes its owning-boundary tests, cumulative diff review,
+implementation PR review/merge, and its separately leased live witness. It does not close the
 remaining J2 multi-turn acceptance, full demo journey, or human product
 acceptance by itself.

@@ -20,10 +20,13 @@ from apps.live_control_server.services.workspace_document_registry import (
 from apps.live_control_server.models.plan_document_edit_proposal import (
     PlanDocumentEditProposalRequest,
     PlanDocumentEditProposalResponse,
+    WorldPlanDocumentEditProposalRequest,
+    WorldPlanDocumentEditProposalResponse,
 )
 from apps.live_control_server.services.plan_document_edit_proposal import (
     PlanDocumentEditProposalError,
     propose_plan_document_edit,
+    propose_world_plan_document_edit,
 )
 from apps.live_control_server.schema_validation import LiveRowValidationError
 from apps.live_control_server.services.agent_surface_context import (
@@ -1060,6 +1063,22 @@ def post_plan_document_edit_proposal(
 ) -> PlanDocumentEditProposalResponse:
     try:
         return propose_plan_document_edit(root=repo_root(), request=body)
+    except PlanDocumentEditProposalError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+
+
+@router.post(
+    "/world-plan-edit/propose",
+    response_model=WorldPlanDocumentEditProposalResponse,
+)
+def post_world_plan_document_edit_proposal(
+    body: WorldPlanDocumentEditProposalRequest,
+) -> WorldPlanDocumentEditProposalResponse:
+    try:
+        return propose_world_plan_document_edit(root=repo_root(), request=body)
     except PlanDocumentEditProposalError as exc:
         raise HTTPException(
             status_code=exc.status_code,

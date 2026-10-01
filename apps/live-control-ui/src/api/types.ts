@@ -839,6 +839,38 @@ export interface PlanDocumentEditProposalResponse {
   usage: Record<string, number> | null;
 }
 
+export interface WorldPlanDocumentEditProposalRequest {
+  document_id: string;
+  world_id: string;
+  base_revision: number;
+  base_content_sha256: string;
+  draft_markdown: string;
+  draft_sha256: string;
+  target_kind: "replace_selection" | "insert_at_caret";
+  selected_text: string;
+  instruction: string;
+  conversation_history: { role: "user" | "assistant"; content: string }[];
+}
+
+export interface WorldPlanDocumentEditProposalResponse {
+  schema_version: "dmb_world_plan_document_edit_proposal_v1";
+  document_id: string;
+  world_id: string;
+  base_revision: number;
+  base_content_sha256: string;
+  draft_sha256: string;
+  target_kind: "replace_selection" | "insert_at_caret";
+  selected_text_sha256: string;
+  replacement_markdown: string;
+  summary: string;
+  assumptions: string[];
+  model: string;
+  model_observed: boolean;
+  model_latency_ms: number;
+  wall_latency_ms: number;
+  usage: Record<string, number> | null;
+}
+
 export interface AgentInteractionThread {
   threadId: string;
   title: string;
