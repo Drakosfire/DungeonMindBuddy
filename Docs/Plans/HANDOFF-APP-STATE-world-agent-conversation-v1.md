@@ -63,7 +63,14 @@ Memory, or persistence of provider/tool internals.
   second conversation. Archive is recoverable. Archiving the active
   conversation clears the active pointer; the next submitted turn creates a
   fresh conversation. Reopening an archived conversation preserves its
-  ID/history and atomically archives the former active conversation.
+  ID/history and atomically archives the former active conversation. Archive
+  and reopen also carry stable command IDs and expected World active-pointer
+  revision/target bindings. Replaying the same command returns its original
+  receipt without applying the transition again; reusing the ID with a
+  different binding conflicts. A new command with a stale expected pointer
+  conflicts and must refresh before the user retries. This prevents a delayed
+  retry of an old reopen from switching away from a conversation activated by
+  a later command.
 - Archived conversations have no automatic TTL. This slice exposes no delete
   or purge operation; it must not delete data when a World is unavailable or
   removed. Unverified/removed Worlds fail closed while Buddy records remain
@@ -196,7 +203,8 @@ family.
    World, stable IDs, turn and draft CAS/idempotency, typed provenance, and the
    verified legacy transcript import. Use the existing UoW/DSN/migration
    authority. Prove the contract at real PostgreSQL through the owning service:
-   World isolation, active switching/archive/reactivation, concurrent writes,
+   World isolation, active switching/archive/reactivation including a late
+   retry after a newer conversation activation, concurrent writes,
    duplicate/uncertain turn and draft submission, import conflicts, restart
    recovery through a fresh service instance, and DB-unavailable fail-closed
    behavior. No UI, Play, provider-profile, WorldGraph, or live provider work.
