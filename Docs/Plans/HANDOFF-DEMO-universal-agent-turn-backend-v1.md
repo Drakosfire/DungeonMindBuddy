@@ -10,18 +10,18 @@ pr_body_template: |
 
   ## Verification pointer
   - Dispatch base: `ed1bf1ba0531bf9018f2397863825fa20c781bfe`
-  - Review authority: pinned contract plus this ACTIVE handoff
+  - Review authority: pinned contract plus this implementation handoff (closed at #791 merge)
   - Evidence: §7 owning service/route, full-route-table, no-packet, and compatibility proofs
 ---
 
 # HANDOFF — DEMO: implement the universal Agent backend turn
 
 **Created:** 2026-09-29
-**Status:** ACTIVE — one bounded backend implementation capability
+**Status:** COMPLETE — Buddy PR #791 merged at `6501bfa5143592cec8d7a3f521e3f34d929a5a95`
 **Conversation/workstream:** LOCAL DEMO ACCEPTED / DEMO J2 universal Agent
 **Flow / owner:** DEMO / Buddy Agent interaction
 **Direction:** PRIME activation → CODE → PRIME
-**Design authority:** Buddy PR #790, exact accepted design head `3fcc60de6159add04fe9455f5aee0a58816bfece`, based on `ed1bf1ba0531bf9018f2397863825fa20c781bfe`; PRIME Cycle 4 DESIGN PASS and ARCHITECTURE focused exact-head PASS. PR #790 remains a separate open design-only PR and is not merged by this handoff.
+**Design authority:** Buddy PR #790, exact accepted design head `3fcc60de6159add04fe9455f5aee0a58816bfece`, merged at `bab345d64b6de1075f7a5fa44dc6af87d30d9afa`; PRIME Cycle 4 DESIGN PASS and ARCHITECTURE focused exact-head PASS.
 **Activation gate:** PRIME explicitly accepted and dispatched this bounded baseline on 2026-09-29; current `origin/main` was fetched and verified at `ed1bf1ba0531bf9018f2397863825fa20c781bfe`; all-open PR paths were refreshed before worktree creation.
 **Dispatch base:** `ed1bf1ba0531bf9018f2397863825fa20c781bfe`
 **PR topology:** `serial` within DEMO Agent implementation. This is the one assigned backend PR; shared six-surface adoption is a required successor, not part of this lease.
@@ -86,11 +86,11 @@ Runtime/state ownership: deterministic injected runtime and temporary isolated f
 | Provider continuity | Reuse only exact structured owner/work/thread key; changed binding starts fresh. Legacy keys remain unchanged and inaccessible to new generic namespace. | Store tests plus live-route compatibility regression. |
 | Route integration | Exactly one generic route in full app; `/api/live/query` stays one route with unchanged method/path and packet binding. | Full application route-table test and legacy regression. |
 
-## §4 Files in scope — ACTIVE write lease
+## §4 Files in scope — implementation lease (closed at #791 merge)
 
 | Action | Path | Purpose |
 |---|---|---|
-| Create | `Docs/Plans/HANDOFF-DEMO-universal-agent-turn-backend-v1.md` | This ACTIVE implementation authority, PR contract, evidence, and exact post-dispatch base. |
+| Create | `Docs/Plans/HANDOFF-DEMO-universal-agent-turn-backend-v1.md` | This implementation authority, PR contract, evidence, and exact post-dispatch base. |
 | Create | `apps/live_control_server/routes/agent.py` | Generic additive Agent turn route. |
 | Modify | `apps/live_control_server/routes/live.py` | Include the Agent child router only; preserve `/api/live/query`; do not edit `main.py`. |
 | Create | `apps/live_control_server/models/agent_turn.py` | Strict request/result and explicit typed resolution/status objects. |
@@ -221,6 +221,19 @@ git diff --check
 The two full-application route tests assert exactly one `POST /api/live/agent/turn` and one legacy `POST /api/live/query`; one sends a no-graph request through the complete HTTP route, and the other publishes an in-memory DungeonMind revision and verifies the returned World projection reaches the injected runtime. The prior TestClient attempt stalled because AnyIO's sync worker threads cannot run in the restricted sandbox (a minimal FastAPI route reproduced the same issue); the ASGITransport HTTP proof passed outside that sandbox. The exact candidate also passes the unchanged 65-test legacy route suite. No provider call, live database write, persistent state mutation, or UI edit was used.
 
 No paid/live smoke: deterministic fake runtime and isolated temp files are sufficient for this backend baseline. No model calls, live DB writes, or browser UI changes.
+
+## Predecessor settlement — Buddy PR #791
+
+Buddy PR #791 merged the universal Agent backend baseline at
+`6501bfa5143592cec8d7a3f521e3f34d929a5a95`. This implementation handoff is
+complete; its recorded acceptance evidence above remains the evidence for that
+baseline. Six-surface UI adoption and operator/J2 acceptance remain separate
+work.
+
+The serial DEMO C1 World Play context bridge adds an explicit V2 nested
+request carrying `world_id`, `run_id`, and `run_revision`. It preserves this
+baseline's `dmb_agent_surface_context_request_v1` contract and does not extend
+this handoff's generic `/api/live/agent/turn` route, provider, or turn behavior.
 
 ## §8 Required review handback
 

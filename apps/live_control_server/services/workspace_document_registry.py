@@ -67,10 +67,12 @@ def _record_from_work_object(
     world_id = getattr(obj, "world_id", None)
     campaign_id = getattr(obj, "campaign_id", None)
     if obj.kind == "runbook" and world_id is not None:
-        raise WorkspaceDocumentRegistryError(
-            "World-owned Runbooks are not available through campaign V1",
-            status_code=422,
-        )
+        if campaign_id is not None or obj.target_session is not None:
+            raise WorkspaceDocumentRegistryError(
+                "World-owned Runbooks require an explicit World-only owner",
+                status_code=500,
+            )
+        return WorldOwnedRunbookRecordV2(world_id=world_id, **values)
     if obj.kind == "plan" and world_id is not None and campaign_id is None:
         return WorldOwnedPlanRecordV2(world_id=world_id, **values)
     return WorkspaceDocumentRecord(
@@ -185,8 +187,31 @@ class WorldOwnedPlanRecordV2(BaseModel):
     updated_at: str
 
 
+class WorldOwnedRunbookRecordV2(BaseModel):
+    schema_version: Literal["dmb_world_owned_runbook_record_v2"] = (
+        "dmb_world_owned_runbook_record_v2"
+    )
+    scope_mode: Literal["world"] = "world"
+    document_id: str
+    title: str
+    campaign_id: None = None
+    world_id: str
+    target_session: None = None
+    kind: Literal["runbook"] = "runbook"
+    target_relpath: str | None = None
+    status: Literal["active", "discarded"] = "active"
+    content_status: Literal["draft", "committed"] = "draft"
+    revision: int = 1
+    created_at: str
+    updated_at: str
+
+
 WorkspaceDocumentRecordAny = Annotated[
-    Union[WorkspaceDocumentRecord, WorldOwnedPlanRecordV2],
+    Union[
+        WorkspaceDocumentRecord,
+        WorldOwnedPlanRecordV2,
+        WorldOwnedRunbookRecordV2,
+    ],
     Field(discriminator="schema_version"),
 ]
 
@@ -210,6 +235,15 @@ class WorldOwnedPlansResponseV2(BaseModel):
     records: list[WorldOwnedPlanRecordV2] = Field(default_factory=list)
 
 
+class WorldOwnedRunbooksResponseV2(BaseModel):
+    schema_version: Literal["dmb_world_owned_runbooks_list_v2"] = (
+        "dmb_world_owned_runbooks_list_v2"
+    )
+    scope_mode: Literal["world"] = "world"
+    world_id: str
+    records: list[WorldOwnedRunbookRecordV2] = Field(default_factory=list)
+
+
 class CreateWorkspaceDocumentRequest(BaseModel):
     title: str
     campaign_id: str
@@ -224,6 +258,17 @@ class CreateWorkspaceDocumentRequest(BaseModel):
 
 
 class CreateWorldOwnedPlanRequestV2(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: Literal["dmb_workspace_document_create_v2"] = (
+        "dmb_workspace_document_create_v2"
+    )
+    scope_mode: Literal["world"] = "world"
+    world_id: str = Field(min_length=1)
+    title: str = Field(min_length=1)
+
+
+class CreateWorldOwnedRunbookRequestV2(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: Literal["dmb_workspace_document_create_v2"] = (
@@ -274,8 +319,24 @@ class WorldOwnedPlanSnapshotV2(BaseModel):
     loaded_revision: int
 
 
+class WorldOwnedRunbookSnapshotV2(BaseModel):
+    schema_version: Literal["dmb_workspace_runbook_snapshot_v2"] = (
+        "dmb_workspace_runbook_snapshot_v2"
+    )
+    record: WorldOwnedRunbookRecordV2
+    markdown: str
+    content_sha256: str
+    file_fingerprint: str
+    file_exists: bool
+    loaded_revision: int
+
+
 WorkspaceDocumentSnapshotAny = Annotated[
-    Union[WorkspaceDocumentSnapshot, WorldOwnedPlanSnapshotV2],
+    Union[
+        WorkspaceDocumentSnapshot,
+        WorldOwnedPlanSnapshotV2,
+        WorldOwnedRunbookSnapshotV2,
+    ],
     Field(discriminator="schema_version"),
 ]
 
@@ -307,7 +368,7 @@ class WorldOwnedCommittedRevisionV2(BaseModel):
     scope_mode: Literal["world"] = "world"
     world_id: str
     document_id: str
-    kind: Literal["plan"] = "plan"
+    kind: Literal["plan", "runbook"]
     campaign_id: None = None
     title: str
     status: Literal["active", "discarded"]
@@ -475,6 +536,7 @@ def list_workspace_documents(
                 records.extend(
                     _record_from_work_object(obj)
                     for obj in list_runbooks(campaign_id=campaign_id, status=status)
+                    if obj.world_id is None
                 )
         except (
             ApplicationStateUnavailableError,
@@ -824,6 +886,139 @@ def list_world_owned_plans_v2(
     return WorldOwnedPlansResponseV2(world_id=cleaned_world, records=records)
 
 
+def create_world_owned_runbook_v2(
+    root: Path, *, world_id: str, title: str
+) -> WorldOwnedRunbookRecordV2:
+    cleaned_world = _validate_world_id(world_id)
+    cleaned_title = _validate_title(title)
+    from apps.live_control_server.services.world_container_registry import (
+        WorldContainerRegistryError,
+        get_world_container,
+    )
+    from application_state.content.service import create_world_runbook
+    from application_state.errors import ApplicationStateError
+
+    try:
+        world = get_world_container(root, cleaned_world)
+        if world.world_id != cleaned_world:
+            raise WorkspaceDocumentRegistryError(
+                "selected World identity does not match the managed World record",
+                status_code=409,
+            )
+        obj = create_world_runbook(title=cleaned_title, world_id=cleaned_world)
+    except WorldContainerRegistryError as exc:
+        raise WorkspaceDocumentRegistryError(
+            str(exc), status_code=exc.status_code
+        ) from exc
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    record = _record_from_work_object(obj)
+    if not isinstance(record, WorldOwnedRunbookRecordV2):
+        raise WorkspaceDocumentRegistryError(
+            "World-owned Runbook creation returned an incompatible Content scope",
+            status_code=500,
+        )
+    return record
+
+
+def list_world_owned_runbooks_v2(
+    root: Path, *, world_id: str, status: str | None = "active"
+) -> WorldOwnedRunbooksResponseV2:
+    cleaned_world = _validate_world_id(world_id)
+    from apps.live_control_server.services.world_container_registry import (
+        WorldContainerRegistryError,
+        get_world_container,
+    )
+    from application_state.cli import assert_at_head
+    from application_state.config import load_runtime_dsn
+    from application_state.content import repository as content_repository
+    from application_state.errors import ApplicationStateError
+    from application_state.unit_of_work import unit_of_work
+
+    try:
+        world = get_world_container(root, cleaned_world)
+        if world.world_id != cleaned_world:
+            raise WorkspaceDocumentRegistryError(
+                "selected World identity does not match the managed World record",
+                status_code=409,
+            )
+        # Content's V1 list_runbooks intentionally returns campaign-owned rows
+        # only. Read this World scope through the same owning repository with an
+        # explicit world_id predicate rather than broadening V1 inventory.
+        dsn = load_runtime_dsn()
+        assert_at_head(dsn=dsn)
+        with unit_of_work(dsn) as conn:
+            objects = content_repository.list_work_objects(
+                conn,
+                kind="runbook",
+                world_id=cleaned_world,
+                status=status,
+            )
+        records = [_record_from_work_object(obj) for obj in objects]
+    except WorldContainerRegistryError as exc:
+        raise WorkspaceDocumentRegistryError(
+            str(exc), status_code=exc.status_code
+        ) from exc
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
+    if any(not isinstance(record, WorldOwnedRunbookRecordV2) for record in records):
+        raise WorkspaceDocumentRegistryError(
+            "World Runbook inventory returned a non-World-owned document",
+            status_code=500,
+        )
+    return WorldOwnedRunbooksResponseV2(world_id=cleaned_world, records=records)
+
+
+def get_world_owned_runbook_v2(
+    root: Path, *, world_id: str, document_id: str
+) -> WorldOwnedRunbookRecordV2:
+    cleaned_world = _validate_world_id(world_id)
+    from apps.live_control_server.services.world_container_registry import (
+        WorldContainerRegistryError,
+        get_world_container,
+    )
+
+    try:
+        world = get_world_container(root, cleaned_world)
+        if world.world_id != cleaned_world:
+            raise WorkspaceDocumentRegistryError(
+                "selected World identity does not match the managed World record",
+                status_code=409,
+            )
+    except WorldContainerRegistryError as exc:
+        raise WorkspaceDocumentRegistryError(
+            str(exc), status_code=exc.status_code
+        ) from exc
+    record = get_workspace_document(root, document_id)
+    if not isinstance(record, WorldOwnedRunbookRecordV2):
+        raise WorkspaceDocumentRegistryError(
+            "Runbook is not owned by the selected World", status_code=404
+        )
+    if record.world_id != cleaned_world:
+        raise WorkspaceDocumentRegistryError(
+            "Runbook is not owned by the selected World", status_code=404
+        )
+    return record
+
+
+def get_world_owned_runbook_snapshot_v2(
+    root: Path, *, world_id: str, document_id: str
+) -> WorldOwnedRunbookSnapshotV2:
+    # Verify scope before reading Markdown bytes; the generic snapshot route has
+    # no World authority and cannot serve World-owned Runbooks.
+    get_world_owned_runbook_v2(root, world_id=world_id, document_id=document_id)
+    snapshot = get_workspace_document_snapshot(root, document_id)
+    if not isinstance(snapshot, WorldOwnedRunbookSnapshotV2):
+        raise WorkspaceDocumentRegistryError(
+            "Runbook snapshot is not World-owned", status_code=409
+        )
+    if snapshot.record.world_id != _validate_world_id(world_id):
+        raise WorkspaceDocumentRegistryError(
+            "Runbook is not owned by the selected World", status_code=404
+        )
+    return snapshot
+
+
 def get_workspace_document(root: Path, document_id: str) -> WorkspaceDocumentRecordAny:
     file_record = unswitched_workspace_record(root, document_id)
     if file_record is not None:
@@ -889,7 +1084,11 @@ def _postgres_plan_snapshot(document_id: str) -> WorkspaceDocumentSnapshotAny:
     snapshot_model = (
         WorldOwnedPlanSnapshotV2
         if isinstance(record, WorldOwnedPlanRecordV2)
-        else WorkspaceDocumentSnapshot
+        else (
+            WorldOwnedRunbookSnapshotV2
+            if isinstance(record, WorldOwnedRunbookRecordV2)
+            else WorkspaceDocumentSnapshot
+        )
     )
     return snapshot_model(
         record=record,
@@ -907,6 +1106,7 @@ def get_committed_playable_revision(
     revision_n: int | None = None,
     expected_sha256: str | None = None,
     kind: Literal["plan", "runbook"] | None = "runbook",
+    expected_world_id: str | None = None,
 ) -> WorkspaceCommittedRevision | WorldOwnedCommittedRevisionV2:
     from application_state.content.service import (
         current_committed_revision,
@@ -925,18 +1125,30 @@ def get_committed_playable_revision(
             raise WorkspaceDocumentRegistryError(
                 f"workspace document not found: {canonical_id}", status_code=404
             )
-        is_world_plan = obj.world_id is not None
-        if obj.kind == "runbook" and is_world_plan:
+        is_world_content = obj.world_id is not None
+        if is_world_content and (
+            obj.kind not in ("plan", "runbook") or obj.campaign_id is not None
+        ):
             raise WorkspaceDocumentRegistryError(
-                "World-owned Runbooks are not available through campaign V1",
+                "World-owned committed revisions require a World-owned Plan or Runbook",
                 status_code=422,
             )
-        if is_world_plan and (obj.kind != "plan" or obj.campaign_id is not None):
+        if obj.kind == "runbook" and is_world_content:
+            if expected_world_id is None or obj.world_id != _validate_world_id(
+                expected_world_id
+            ):
+                raise WorkspaceDocumentRegistryError(
+                    "World-owned Runbooks require the matching World-scoped V2 route",
+                    status_code=404,
+                )
+        elif expected_world_id is not None and obj.world_id != _validate_world_id(
+            expected_world_id
+        ):
             raise WorkspaceDocumentRegistryError(
-                "World-owned committed revisions are only valid for World Plans",
-                status_code=422,
+                "committed document is not owned by the selected World",
+                status_code=404,
             )
-        resolved_kind = "plan" if is_world_plan else kind
+        resolved_kind = obj.kind if is_world_content else kind
         if revision_n is None:
             committed = current_committed_revision(canonical_id, kind=resolved_kind)
         else:
@@ -952,6 +1164,17 @@ def get_committed_playable_revision(
         raise _map_application_state_error(exc) from exc
     obj = committed.work_object
     revision = committed.work_revision
+    if expected_world_id is not None and obj.world_id != _validate_world_id(
+        expected_world_id
+    ):
+        raise WorkspaceDocumentRegistryError(
+            "committed revision is not owned by the selected World", status_code=404
+        )
+    if obj.world_id is not None and obj.campaign_id is not None:
+        raise WorkspaceDocumentRegistryError(
+            "World-owned committed revision also has a Campaign owner",
+            status_code=409,
+        )
     values = dict(
         document_id=str(obj.work_object_id),
         kind=obj.kind,

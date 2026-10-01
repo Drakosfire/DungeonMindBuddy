@@ -1,19 +1,19 @@
 # HANDOFF — DEMO: World PlayRun V2 backend
 
-**Status:** ACTIVE — PRIME explicitly activated this serial Phase B lease
+**Status:** COMPLETE — Buddy PR #809 merged at `a8b0d5c29feaf451b4a7b562302272bc02fdad2a`
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Base:** Buddy `main@6c6a8ab48d568c2827fca4ce019d701beb473166`, merge of Phase A PR #808
 **Predecessor:** Phase A code head `cbab140772c37e4cc71401ffe174e06887943d4a`, final evidence head `ed09199b56206a0d3b7a6262380a1352ea567849`, merged as `6c6a8ab48d568c2827fca4ce019d701beb473166`
 **Implementation branch:** `codex/demo-world-playruns-v2`
-**Topology:** Serial, one Phase B implementation PR; Phase C is blocked until this PR merges and its owning witness passes
+**Topology:** Serial. Phase B is complete; Phase C1 is ACTIVE under `HANDOFF-DEMO-world-play-surface-v2.md`; C2 remains BLOCKED until C1 merges.
 **PR title:** `DEMO: add World-owned PlayRun V2 backend`
 
 PRIME explicitly activated this bounded Phase B lane after reviewing the
-storage-reader audit and current open PR paths. The branch starts from the
-exact authorized main commit above. The 16 paths listed below are an exclusive
-write lease. If implementation needs another path, stop and return to PRIME
-before editing it.
+storage-reader audit and current open PR paths. The branch started from the
+exact authorized main commit above. The 16 paths listed below were the
+exclusive Phase B write lease; it ended when PR #809 merged. A later phase
+must name any needed path in its own active lease.
 
 ## Capability and owner invariant
 
@@ -187,7 +187,7 @@ after-discard regression and V2 revision-ID response assertions. PRIME's review
 HOLD on prior head `5756c5da` identified both gaps; the implementation now
 resolves retained pins separately from new-Run admission and includes the
 canonical WorkRevision UUID in V2 records. Campaign V1 response models remain
-unchanged. The revised head awaits PRIME's exact-head review. The `uv run`
+unchanged. The `uv run`
 invocation shown above could not resolve dependencies from PyPI in this
 environment, so the same test paths were executed as `rtk pytest
 -p no:cacheprovider` with the existing project environment and without
@@ -199,10 +199,12 @@ parameter. Existing Pydantic `schema`-shadow warnings appeared during app
 construction. The earlier Phase A 53/53 result remains a separate predecessor
 witness and does not substitute for these Phase B tests.
 
-The implementation/test changes are committed at
+The implementation/test changes were committed at
 `40a8bbc9` (`DEMO: add World-owned PlayRun V2 backend`) on the authorized
-branch. This passing witness does not mean Phase B is merged; Phase C remains
-blocked until the Phase B PR merges and its owning witness is accepted.
+branch and merged in Buddy PR #809 at
+`a8b0d5c29feaf451b4a7b562302272bc02fdad2a`. The 76-test PostgreSQL witness
+above is Phase B's recorded owning-boundary evidence. This supersedes the
+pre-merge review/status notes below.
 
 ## Collision, predecessor, and handback
 
@@ -213,10 +215,11 @@ World-owned Runbook revision identity only; it did not create a Run or change
 PlayRun storage. The Phase B PR updates the roadmap and this design handoff to
 record that predecessor truthfully.
 
-Phase B is one serial PR from this exact base. Inspect the cumulative
-base-to-head diff and the required owner checks before requesting PRIME review.
-Do not start Phase C until Phase B is merged and its owning witness passes. The
-later Phase C handoff migrates Play/context consumers and proves managed-World
-Run create/list/select/reload/resume/progress/rebase; generic Agent Run
-resolution remains a separate successor. This backend PR does not close J1–J6,
-the rejected visual acceptance gate, J3 retrieval, or operator acceptance.
+Phase B was one serial PR from this exact base and is complete at #809. Phase
+C1 now adds the typed World Runbook and specialized read-only Play context V2
+bridge under
+[`HANDOFF-DEMO-world-play-surface-v2.md`](HANDOFF-DEMO-world-play-surface-v2.md).
+The mounted Play lifecycle is a separately blocked C2 successor. Generic Agent
+Run resolution remains a separate successor. This backend PR does not close
+J1–J6, the rejected visual acceptance gate, J3 retrieval, or operator
+acceptance.

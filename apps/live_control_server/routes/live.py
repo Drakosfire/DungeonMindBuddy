@@ -26,7 +26,10 @@ from apps.live_control_server.services.plan_document_edit_proposal import (
     propose_plan_document_edit,
 )
 from apps.live_control_server.schema_validation import LiveRowValidationError
-from apps.live_control_server.services.agent_surface_context import AgentSurfaceContextRequest
+from apps.live_control_server.services.agent_surface_context import (
+    AgentSurfaceContextRequestAny,
+    AgentWorldPlaySurfaceContextRequestV2,
+)
 from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextError,
     AgentWorldGraphQueryContextRequest,
@@ -198,7 +201,7 @@ class LiveQueryRequest(BaseModel):
     trace_requested: bool | None = None
     world_graph_context: AgentWorldGraphQueryContextRequest | None = None
     conversation_history: Any | None = None
-    surface_context: AgentSurfaceContextRequest | None = None
+    surface_context: AgentSurfaceContextRequestAny | None = None
 
 
 def _history_is_absent(value: Any) -> bool:
@@ -929,6 +932,14 @@ def post_live_query(body: LiveQueryRequest) -> Any:
         except WorldContainerRegistryError as exc:
             if exc.status_code != 404:
                 raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if (
+        isinstance(body.surface_context, AgentWorldPlaySurfaceContextRequestV2)
+        and managed_world is None
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="World Play context V2 requires a selected managed World",
+        )
     if managed_world is not None:
         if body.query_backend != "hermes":
             raise HTTPException(status_code=422, detail="managed World Ask requires Hermes")
@@ -940,20 +951,50 @@ def post_live_query(body: LiveQueryRequest) -> Any:
             raise HTTPException(status_code=422, detail="managed World graph context mismatch")
         if body.hermes_session_pointer is not None:
             raise HTTPException(status_code=422, detail="managed World session pointer is not supported")
-        if body.surface_context is None or body.surface_context.document_id is None:
+        if body.surface_context is None:
             raise HTTPException(status_code=422, detail="managed World Ask requires an exact Plan document")
-        try:
-            document = get_workspace_document(repo_root(), body.surface_context.document_id)
-        except WorkspaceDocumentRegistryError as exc:
-            raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
-        if (
-            document.kind != "plan"
-            or document.campaign_id != managed_world.world_id
-            or document.target_session != body.session
-            or body.surface_context.campaign_id != managed_world.world_id
-            or body.surface_context.session_number != body.session
-        ):
-            raise HTTPException(status_code=422, detail="managed World Plan document scope mismatch")
+        if isinstance(body.surface_context, AgentWorldPlaySurfaceContextRequestV2):
+            if body.surface_context.world_id != managed_world.world_id:
+                raise HTTPException(
+                    status_code=422,
+                    detail="managed World Play context scope mismatch",
+                )
+            from apps.live_control_server.services.agent_play_surface_context import (
+                WorldPlaySurfaceContextError,
+                validate_agent_play_world_surface_context_v2,
+            )
+
+            try:
+                validate_agent_play_world_surface_context_v2(
+                    body.surface_context,
+                    root=repo_root(),
+                    outer_world_id=managed_world.world_id,
+                )
+            except WorldPlaySurfaceContextError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+        else:
+            if body.surface_context.document_id is None:
+                raise HTTPException(
+                    status_code=422,
+                    detail="managed World Ask requires an exact Plan document",
+                )
+            try:
+                document = get_workspace_document(
+                    repo_root(), body.surface_context.document_id
+                )
+            except WorkspaceDocumentRegistryError as exc:
+                raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+            if (
+                document.kind != "plan"
+                or document.campaign_id != managed_world.world_id
+                or document.target_session != body.session
+                or body.surface_context.campaign_id != managed_world.world_id
+                or body.surface_context.session_number != body.session
+            ):
+                raise HTTPException(
+                    status_code=422,
+                    detail="managed World Plan document scope mismatch",
+                )
         managed_packet = {"campaign_id": managed_world.world_id, "session": body.session}
 
     if managed_packet is None:

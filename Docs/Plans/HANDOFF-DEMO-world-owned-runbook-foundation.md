@@ -1,6 +1,6 @@
 # HANDOFF — DEMO: World-owned Runbook foundation
 
-**Status:** ACTIVE — PRIME explicitly activated the Phase A lease
+**Status:** COMPLETE — Phase A PR #808 merged at `6c6a8ab48d568c2827fca4ce019d701beb473166`
 **Steward:** DEMO task 01a0efc8-f3a8-7be2-a556-33eb338338e8
 **Repository:** Drakosfire/DungeonMindBuddy
 **Pinned proposal base:** Buddy main at 36deec27e8a963cdb75bdb67609e15547786b446, the merge of #806
@@ -8,13 +8,13 @@
 **Architecture ruling:** ARCHITECTURE task 01a086f2-c457-7b10-b753-df6063cab1ce, 2026-09-30
 **PRIME activation:** after #807 merged; explicit activation pins main at f59395a9c5677b1beb46402b7de6c148a5ef6e8d
 **Implementation branch:** codex/demo-world-runbook-foundation in /home/drakosfire/.codex/worktrees/8b2b/DungeonMindBuddy
-**Topology:** Serial Phase A predecessor to Phase B in HANDOFF-DEMO-world-owned-play-runs.md; one open implementation PR for this workstream
+**Topology:** Serial Phase A predecessor to Phase B; Phase A is complete and implementation PR #808 is merged.
 
 PRIME explicitly activated this bounded Phase A lane after reviewing #807.
 The implementation branch was created from the exact authorized main base
-f59395a9c5677b1beb46402b7de6c148a5ef6e8d. The path allowlist below is now an
-exclusive write lease. If a required path falls outside it, stop before editing
-and return to PRIME for an explicit transfer or split.
+f59395a9c5677b1beb46402b7de6c148a5ef6e8d. The path allowlist below was the
+exclusive Phase A write lease; it ended when PR #808 merged. A later phase
+must name any needed path in its own active lease.
 
 ## Capability and owner invariant
 
@@ -149,9 +149,13 @@ imported campaign ownership, existing World Plan ownership, migration backfill
 without campaign-ID inference, and V1 no-persistence behavior. The five-suite
 PostgreSQL witness above passes. Python compilation, scoped Ruff 0.15.7,
 `git diff --check`, and Alembic offline upgrade/downgrade rendering also pass;
-Alembic reports single head `20260929_0008`. Draft implementation PR [#808](https://github.com/Drakosfire/DungeonMindBuddy/pull/808)
-was opened from code commit `77293a3f`; it remains draft pending PRIME's final
-exact-head review.
+Alembic reports single head `20260929_0008`. Phase A PR
+[#808](https://github.com/Drakosfire/DungeonMindBuddy/pull/808) merged at
+`6c6a8ab48d568c2827fca4ce019d701beb473166`. Final evidence head
+`ed09199b56206a0d3b7a6262380a1352ea567849` passed the five-suite PostgreSQL
+owning-boundary witness (53 passed, 11 Pydantic `schema`-field shadow warnings,
+35.18 seconds). This supersedes the draft/pending-review status recorded when
+the implementation was first opened.
 
 ## Collision and predecessor audit
 
@@ -162,13 +166,13 @@ design handoffs. None overlaps this Phase A lease. This collision check is a
 snapshot; recheck exact PR files and active leases before any transfer or
 successor slice.
 
-Phase A follows the merged #806 design and is serial. Do not dispatch Phase B
-until the Phase A PR is merged and its exact owning-boundary witness passes.
-Phase B still needs a separate ACTIVE handoff for the World PlayRun V2 backend,
-its independently audited storage strategy, and campaign V1 compatibility.
-Phase C remains a later separate lease for typed Play/context consumers and the
-mounted World Run create/list/resume witness. Generic Agent Run resolution and
-Play conversation remain a later successor.
+Phase A followed the merged #806 design and is complete. Its serial successor,
+Phase B Buddy PR #809, merged at `a8b0d5c29feaf451b4a7b562302272bc02fdad2a`
+after the independently audited storage strategy and campaign V1 compatibility
+witness. Phase C1 is now active under
+[`HANDOFF-DEMO-world-play-surface-v2.md`](HANDOFF-DEMO-world-play-surface-v2.md);
+the UI enablement C2 remains blocked until C1 merges. Generic Agent Run
+resolution and Play conversation remain later work.
 
 ## Activation and handback
 

@@ -46,7 +46,7 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
 
-**Current DEMO lane (2026-09-28):** three bounded predecessors are now merged.
+**Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
 `f8b923875f9444a1addfb2472a2b8fab35eceb4c`, reviewed code head
 `471a967d11e315b24fd5cfe5541f447753fb81f4` (three distinct review-head cycles,
@@ -120,6 +120,47 @@ appearance gate.
 The visual theme remains parked on the preserved #793 branch for a separate
 appearance decision. #789 stays historical; J2 and operator acceptance remain open.
 
+**Fresh World J2 rehearsal (2026-09-30):** in World
+`demo-of-conks-fresh-journey-20260930-c`, Plan
+`bd5a57e0-b091-488c-9d73-bf4a59b0ad97` was created in the fresh World and saved
+before source import, then survived reload with its prep prose and conversation
+turns. The current shared Plan Agent identifies itself as
+`Conversation only`; after a request to add registered Read Aloud and
+Decision/Consequence blocks, it returned copy-ready prose and said it could not
+trigger Review/Apply. The editor stayed unchanged at saved Plan revision 3.
+This reproduces a broken J2 transition on the current World Plan route; the
+historical #784 editor bridge does not establish that this route uses it.
+ARCHITECTURE's read-only ruling at Buddy `origin/main@9a8e0a7782252e297467cfe63826e40a85fd9b23`
+selects reuse of #784's inert proposal and local editor-apply safeguards through
+a distinct typed World-only admission path. Keep the existing campaign/session
+branch unchanged; never alias World ID as campaign ID or invent a session. A
+World proposal may use only the explicitly selected mounted editor draft as
+untrusted model context, with exact World/document/base revision and saved-base
+digest validation; disclose that draft, selection and instruction go to the
+configured model. The server must not add committed Plan Markdown to the prompt.
+The ordinary Plan Ask remains metadata-only and graph:none. `WorldOwnedPlanPage`
+owns editor/document/dirty/save state; Apply changes only the same mounted draft
+and the existing Plan writer remains the Save authority.
+RAKE's read-only audit at Buddy `origin/main@9a8e0a7782252e297467cfe63826e40a85fd9b23`,
+#805 `f23d43d714b7aba68d940bbcb4cceb027f3c63e1`, and #784
+`b6c63a56f784be5cc2fc7de5bb6d167e32520bb8` found that the legacy proposal
+bridge checks World/document/revision/body/selection, but its caller checks the
+thread before awaiting Apply and only after mutation; switching threads during
+that await can still apply the old proposal. A delayed proposal can also show
+stale Review after draft/selection changes, and #805's pending-thread fallback
+may accept a completion after active scope becomes null/foreign. Existing tests
+do not cover these races on the World-only route or a pending completion after
+unmount. J2's owning-boundary witness must include a World-only Apply→ordinary
+Save/reload success, stale World/Plan/revision/draft-generation/save/selection
+cases, a deferred Apply with thread switch, and a deferred completion after
+unmount; each stale case must leave the draft and saved document unchanged.
+**Next action:** after the serial #810 gate clears and Buddy is re-anchored, write
+a bounded J2 implementation handoff and obtain its owner review/lease. No J2
+implementation lease is active. RAKE made no code changes, provider calls, or
+runtime operations for this diagnostic.
+Keep the J3 work below as downstream diagnosis until this transition is
+repaired and accepted.
+
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
 and Combat). Its reusable backend contract is accepted in PR #790 at exact
@@ -159,8 +200,8 @@ must not claim document QA, retrieval, quotation, citation or editing.
 Content-aware Plan assistance needs a separate owner-reviewed server-side
 content-access contract.
 
-**Next Play prerequisite — Phase B ACTIVE; Play Agent adoption remains
-BLOCKED:** ARCHITECTURE's 2026-09-30 owner ruling makes `world_id` on the exact
+**Next Play prerequisite — Phase C1 ACTIVE; C2 BLOCKED; Agent adoption remains
+open:** ARCHITECTURE's 2026-09-30 owner ruling makes `world_id` on the exact
 World-owned Runbook revision canonical and derives a Run's World through its
 pinned artifact/revision. Never use campaign equality, synthesize a Campaign,
 or bind legacy Runs by ID match. The accepted design preserves strict campaign
@@ -171,44 +212,93 @@ owning-boundary witness on 2026-09-30: 53 passed, 11 Pydantic `schema`-field
 shadow warnings, 35.18 seconds. This establishes World-owned Runbook revision
 identity; it did not create Runs or change PlayRun storage.
 
-PRIME explicitly activated one serial Phase B implementation PR from
-`main@6c6a8ab48d568c2827fca4ce019d701beb473166`, branch
-`codex/demo-world-playruns-v2`, under
-[`HANDOFF-DEMO-world-play-run-v2-backend.md`](../Plans/HANDOFF-DEMO-world-play-run-v2-backend.md).
-The exact 16-path lease adds nullable `play.run.world_id`, makes
-`campaign_id` nullable, enforces exactly one owner, and indexes World queries.
-Legacy ownership is never inferred; the stored World ID is only a checked hint,
-the exact Runbook revision is canonical, unfiltered V1/product-continuity
-inventory remains campaign-only, and downgrade refuses while World Runs exist.
-V2 list/detail/create/progress/rebase/manifest operations must validate the
-exact pin. V1 remains campaign-only, including its active-Run setter. PRIME's
-refreshed open PR inventory (#798, #781, #760–#761, #763–#765) has no overlap
-with this lease; shared `main.py` route registration is excluded. The
-implementation began at `40a8bbc9` on the authorized branch. PRIME held that
-exact head because existing World Runs stopped resolving after their source
-Runbook was discarded, and the V2 response omitted the immutable WorkRevision
-UUID. The repair separates exact retained-pin verification from new-Run
-admission and adds the canonical revision UUID to V2 records without changing
-V1. The 76-test PostgreSQL owning-boundary suite now passes against PRIME's
-disposable PostgreSQL 16 tmpfs target, including create → advance → discard →
-V2 reads/progress/manifest and idempotent replay, while a new Run or rebase
-from the discarded source still fails closed. The regression changes Runbook
-status through the Content owner service because the existing campaign discard
-wrapper rejects World-owned documents; that wrapper remains outside this
-lease. Scoped Ruff, in-memory Python compilation, and cumulative diff checks
-pass; the migration is unchanged from its previously verified upgrade,
-downgrade, and single-head evidence. PRIME's exact-head re-review is pending.
-No product server, persistent database, provider, or corpus is part of this
-backend slice.
+Phase B Buddy #809 merged at `a8b0d5c29feaf451b4a7b562302272bc02fdad2a`.
+Its nullable-owner migration, exact pin validation, no ownership backfill,
+campaign-only V1, and World V2 route family are complete. The PostgreSQL
+owning-boundary suite passed 76 tests against PRIME's disposable PostgreSQL 16
+tmpfs target. It includes create → advance → discard → V2 reads/progress/
+manifest and idempotent replay; new Run creation or rebase from the discarded
+source still fails closed. Scoped Ruff, in-memory Python compilation,
+cumulative diff checks, and migration upgrade/guarded downgrade evidence passed.
+No product server, persistent database, provider, or corpus was used.
 
-Phase C, which migrates audited Play/context consumers and proves World
-create/list/select/reload/resume, remains blocked until Phase B merges; the
-Phase B owning witness now passes. Generic Agent Run resolution remains a later
-successor.
-Build, Ingest and Combat Agent adoption remain open after Play.
-Campaign-owner/campaign-lens stays fail-closed. The visual rejection remains
-open and is not waived by Agent work. J1–J6 remain unaccepted until connected
-product witnesses pass.
+PRIME explicitly activated one serial Phase C1 implementation PR from
+`main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, branch
+`codex/demo-world-play-c1`, under
+[`HANDOFF-DEMO-world-play-surface-v2.md`](../Plans/HANDOFF-DEMO-world-play-surface-v2.md).
+Its exact path list is the exclusive write lease. C1 exposes typed World-owned
+Runbook list/create/read/snapshot and TipTap prepare/commit through existing
+Content support, then adds specialized read-only World Play context V2 to the
+nested `/api/live/query` contract. `dmb_agent_surface_context_request_v1` and
+campaign behavior stay unchanged; V2 carries `world_id`, `run_id`, and
+`run_revision`, not `campaign_id`, and is admitted only after World V2 detail
+and exact pinned Runbook revision/SHA validation. The generic Agent backend
+baseline in #791 remains unchanged. PRIME's refreshed open PR inventory (#798,
+#781, #760–#761, #763–#765) has no overlap with C1 paths. The previous C1 target
+`prime-demo-phase-c1-pg-20260930` at `127.0.0.1:32768` is retired. PRIME designated fresh disposable PostgreSQL 16
+tmpfs container `prime-demo-c1-pg-20260930-b` at `127.0.0.1:55454`; PRIME owns
+the container and DEMO owns only test-fixture databases. The exact DSN and
+ownership are recorded in the C1 handoff. The UI lifecycle remains blocked as
+serial C2 until C1 merges; its witness now passes. Do not start or modify other
+containers, or use a product server, provider, or corpus.
+
+The pre-fix seven-suite C1 PostgreSQL invocation collected 242 tests: 240 passed
+and two Hermes trace-capture assertions failed in the combined run because the
+expected `dmb.agent.turn_trace` records were absent. PRIME traced this to
+`src/application_state/migrations/env.py:15` calling
+`logging.config.fileConfig` without `disable_existing_loggers=False`, which
+disables the trace logger when the migration environment loads. PRIME activated
+RAKE DUTY's separate repair lane on
+`main@a8b0d5c29feaf451b4a7b562302272bc02fdad2a`, branch
+`codex/rake-alembic-preserve-loggers`, under
+`Docs/Plans/HANDOFF-RAKE-alembic-preserve-loggers.md`. Its exclusive paths are
+that new handoff, `src/application_state/migrations/env.py`, and
+`tests/test_application_state_migration_logging.py`; RAKE was authorized to
+open one PR to `main`, with PRIME retaining review and merge. Buddy
+[PR #811](https://github.com/Drakosfire/DungeonMindBuddy/pull/811) opened at
+head `619c11998a7bc17bc0fd740791352e1b275cdf84`, a fast-forward from
+`ae1e3aaff746aee8ad630ffa58f7e22d79d3997e`, and later merged at
+`2da16c35e1902468451910a44550ff2db20a5bbe`. Its offline regression is at
+`tests/test_application_state_migration_logging.py`, outside the nested
+PostgreSQL fixture selector. RAKE reports the standalone regression passed 1/1 and the ordered regression plus two C1 Hermes trace tests passed 3/3 in 8.48 seconds. The run used the exact pinned DungeonMind commit `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc` from a temporary source archive to correct a stale installed package; no dependency sync or database access occurred. Eleven existing Pydantic `schema` shadowing warnings were emitted. Scoped Ruff and `git diff --check origin/main...HEAD` passed against current `main@efadc41019e39ca53d19bca85cd7e2a560763049`; the cumulative PR diff contains only RAKE's three leased paths.
+
+PRIME independently reviewed RAKE's exact head and merged Buddy #811 at
+`2da16c35e1902468451910a44550ff2db20a5bbe` from reviewed head
+`619c11998a7bc17bc0fd740791352e1b275cdf84`. C1 was rebased onto that main; the
+implementation code head at the fresh witness was
+`561513a8a2ca2099380e4f891ec1012f37e1f21d`. Its seven-suite PostgreSQL witness
+passed 242 tests with 11 existing Pydantic `schema`-field shadow warnings in
+106.39 seconds against PRIME's disposable target
+`prime-demo-c1-pg-20260930-b` at `127.0.0.1:55454`. A post-run query found no
+`dungeonbuddy_app_state_test_*` databases. Scoped Ruff, Python `compileall`,
+and cumulative/worktree `git diff --check` passed. ARCHITECTURE confirmed no
+contract or witness change was needed. The earlier 240-pass, 2-failure run is
+historical and superseded by this green witness; focused logger checks remain
+separate predecessor evidence, and C1 did not absorb RAKE's repair. PRIME owns
+review and merge of #810; C2 stays blocked pending C1 merge and accepted owner
+witness. All C1-specific focused World Runbook, context, ownership, and
+pin-boundary tests also passed (29 passed).
+
+**Build Agent adoption — contract resolved, implementation still blocked:**
+ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
+`document_id` plus its committed registry revision as primary work. A Canvas
+session is only a secondary locator and must be server-verified against that
+document and revision. Owner scope comes only from the authoritative record;
+stale revisions conflict, and campaign/world ID equality never grants scope.
+PRIME's 2026-09-30 reconciliation found that the old Build composition
+implementation merged in Buddy #507 at
+`19752690ee7a573141925aabcf352043da15bbe0`; its named outputs exist on current
+main. The old handoff's ACTIVE label is stale, not a live code lease. PRIME
+will route that status cleanup separately after RAKE's logger repair review.
+Build Agent adoption stays blocked pending a new exact-document/revision
+state-sync/admission slice and its own future resolver/request lease. PR #781
+covers semantic-action UI only. No Build implementation lease is active, and
+no overlapping Build Agent implementation is dispatched.
+
+Generic Agent Run resolution remains a separate successor. Ingest and Combat
+Agent adoption remain open after Play. Campaign-owner/campaign-lens stays
+fail-closed. The visual rejection remains open and is not waived by Agent work.
+J1–J6 remain unaccepted until connected product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
 entry point is the first-customer path:
@@ -834,7 +924,7 @@ that their foundations are absent. Historical slices retain their IDs.
   acceptance, image selection/reopen, Plan association, or graph/product
   read-after-write was proven. The UI reported World Graph unavailable; the
   World-only publication guard was proven by tests only. J4 remains open.
-- **DEMO-J1 input-pin recheck:** the local purchased
+- **DEMO-J1 input-pin and full-source browser witness:** the local purchased
   `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
   is still 48,778 bytes / 565 lines, SHA-256
   `7a379fc9025635b1862b6af7eb5a43dd1ee9387b51cf63ba505491fffe7e68f1`.
@@ -843,8 +933,16 @@ that their foundations are absent. Historical slices retain their IDs.
   `playable/hempholm-prep.md` remains at the already recorded `c473329d…`
   rather than its stale local manifest pin. Do not use either manufactured
   target as real-generation evidence. Browser Import source currently exposes
-  a Markdown paste field, not a file chooser. No new full-source import was
-  submitted in this checkpoint, so the long-file browser witness remains open.
+  a Markdown paste field, not a file chooser. In the fresh World above, the
+  ordinary Build paste flow imported the full pinned source as
+  `Of Conks & Cons v2.1 (parsed Markdown)`, saved document
+  `18910774-fe8d-4e07-b861-05760ee805f1` at revision 2, and read it back with
+  the same SHA-256, 48,453 Markdown characters and 48,778 bytes. This passes
+  the full-source paste/readback witness for the agreed normalized Markdown
+  input; it does not prove PDF parsing or J3. It also does not prove MIND #96
+  provisioning: Build selected the source with `campaign=<world_id>`, and the
+  current Buddy adapter requires `campaign_id == world_id` then initializes
+  `space_id` as `world_id` through `initialize_empty_knowledge_space`.
 - **Shared lease:** #773 released `pyproject.toml`/`uv.lock` by merging first.
   Rules #763 still owns its open PR and must re-anchor against the new main;
   ARCHITECTURE confirmed E5Q is BLOCKED and has no active Buddy dependency-file
@@ -865,28 +963,56 @@ native genesis/source authority. If the fresh-native route requires an absent
 contract, return that precise gap to MIND rather than reintroducing migration,
 fixture seeding or a parallel authority as an implementation shortcut.
 
-### First-customer native source prerequisites — satisfied; J3 remains open
+### First-customer native source foundations — accepted; fresh-World J3 remains open
 
-- **State:** MIND #83/#85 and Buddy #787 are merged; no active MIND prerequisite
-  lease and no J3 implementation lease.
+- **State:** MIND #83/#85/#96 and Buddy #787 are merged; no active MIND or
+  WorldKeeper prerequisite lease and no J3 implementation lease. Buddy PR #810
+  remains open after C1's seven-suite PostgreSQL witness passed on PRIME's fresh
+  disposable target; #811 merged at `2da16c35`. PRIME review and C1 merge remain
+  pending, so C2 remains blocked.
 - **Accepted foundation:** MIND #83 provides public empty native initialization
   at `031b6650d0a506cf40f0189fc5cfac055ac37308`; MIND #85 provides native source
   and evidence admission at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`.
+  MIND #96 adds server-minted native spaces and durable source-admission
+  receipts at `619329c2c8586572ffd04558a79b3555c2ca3764`.
 - **Buddy product seam:** #787 merged at
   `f7ce9b99b8e9b73129c6f474989cdb30875a31c8` and proves ordinary Build import,
   exact saved-source admission, reload, and fresh-process readback for the
-  48,777-byte admitted snapshot. It is source authority only; it does not prove
-  extraction, accepted assertions, graph publication, retrieval, or J3.
-- **Next J3 definition:** after the World-owned Plan lane, re-anchor and define
-  the source-selection → governed assertion preparation/confirmation → ordinary
-  Agent read/citation path, including exact identity/scope and durable
-  read-after-write. If a concrete MIND/WorldKeeper contract gap appears, route
-  that specific gap to its owner; do not assume an external blocker or create a
-  parallel authority.
+  48,777-byte admitted snapshot. Its current adapter still sets the native
+  `space_id` equal to `world_id` via caller-selected
+  `initialize_empty_knowledge_space`; the source handoff does not use MIND #96's
+  server-minted `create_empty_space`. The fresh-world browser witness above
+  proves whole-source paste/readback for the 48,778-byte pin, not #96
+  provisioning. Neither proves accepted assertions, graph publication,
+  retrieval, or J3.
+- **Fresh-world extraction checkpoint (2026-09-30):** normal Build Extract on
+  source document `18910774-fe8d-4e07-b861-05760ee805f1` revision 2 created
+  reviewable run `1a0d5bc4-ae35-4ef7-99a4-c298c5eddf84` and source artifact
+  `artifact:worldbuilding:18910774-fe8d-4e07-b861-05760ee805f1:r2:7a379fc90256`.
+  Graph Review found three nonliteral evidence quotes. More fundamentally,
+  `apps/live_control_server/services/extract_promote.py` makes this
+  `worldbuilding` ExtractionRun inspect-only: `worldbuilding_draft` assertions
+  cannot reach World Graph prepare/confirm under the current contract. No
+  correction child, confirmation, native graph write, retrieval or restart
+  read-after-write was attempted or proven; the World projection also remained
+  unavailable (503). This run is downstream inspection on the existing
+  caller-selected `space_id=world_id` path, not evidence for MIND #96. Quote
+  correction alone cannot clear either boundary.
+- **Next J3 definition:** after the serial #810 gate and current J2 transition
+  clear, define the Buddy product path from selected source
+  spans through MIND #96 provisioning/admission and WorldKeeper prepare/commit
+  to ordinary Agent citation and restart read-after-write. Buddy must persist
+  the server-minted `world_id` → `space_id` binding, remove the current
+  `campaign_id == world_id` admission assumption, and compose the accepted
+  admission/change services in its authenticated server path. WorldKeeper's
+  `confirmed_by` value is not authentication, so Buddy must derive it from the
+  server-side session. Owner audits identify these as Buddy integration duties;
+  no external contract gap or J3 implementation lease is currently active.
 - **Human witness still required:** New World → blank Plan before import →
-  author/import bounded Of Conks material → inspect inert preparation →
-  explicit confirmation → ordinary Agent retrieval/citation → restart. No
-  console/SQL/manual-ID repair, forced campaign or synthetic source/graph.
+  import bounded Of Conks material → select/admit exact source evidence →
+  inspect inert preparation → authenticated confirmation → ordinary Agent
+  retrieval/citation → restart. No console/SQL/manual-ID repair, forced
+  campaign or synthetic source/graph.
 - **Exclusions:** deleting previous demo state, importing legacy graph IDs,
   bridge migration, new DB per World, production C1/C2 changes, and expanding
   completed #785.

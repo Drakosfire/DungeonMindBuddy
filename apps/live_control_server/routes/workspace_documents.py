@@ -25,6 +25,9 @@ from apps.live_control_server.services.workspace_document_registry import (
     CreateWorldOwnedPlanRequestV2,
     WorldOwnedPlanRecordV2,
     WorldOwnedPlansResponseV2,
+    CreateWorldOwnedRunbookRequestV2,
+    WorldOwnedRunbookRecordV2,
+    WorldOwnedRunbooksResponseV2,
     WorkspaceCommittedRevisionAny,
     WorkspaceDocumentsListResponse,
     _UNSET,
@@ -36,8 +39,21 @@ from apps.live_control_server.services.workspace_document_registry import (
     list_workspace_documents,
     list_world_owned_plans_v2,
     create_world_owned_plan_v2,
+    create_world_owned_runbook_v2,
+    get_world_owned_runbook_v2,
+    get_world_owned_runbook_snapshot_v2,
+    list_world_owned_runbooks_v2,
     restore_workspace_document,
     update_workspace_document_metadata,
+)
+from apps.live_control_server.services.tiptap_markdown_write import (
+    TiptapMarkdownWriteCommitRequest,
+    TiptapMarkdownWriteCommitResponse,
+    TiptapMarkdownWriteError,
+    TiptapMarkdownWritePrepareRequest,
+    TiptapMarkdownWritePrepareResponse,
+    commit_tiptap_markdown_write,
+    prepare_tiptap_markdown_write,
 )
 
 router = APIRouter(prefix="/api/live", tags=["workspace-documents"])
@@ -128,6 +144,230 @@ def post_world_owned_plan(body: CreateWorldOwnedPlanRequestV2) -> dict[str, Any]
 
 
 @router.get(
+    "/workspace-documents/world-runbooks",
+    response_model=WorldOwnedRunbooksResponseV2,
+)
+def get_world_owned_runbooks(
+    world_id: Annotated[str, Query(min_length=1)],
+    request: Request,
+) -> dict[str, Any]:
+    unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
+    if unsupported:
+        raise HTTPException(
+            status_code=422,
+            detail=f"World Runbook inventory accepts only world_id; unsupported selectors: {', '.join(unsupported)}",
+        )
+    try:
+        return list_world_owned_runbooks_v2(
+            repo_root(), world_id=world_id
+        ).model_dump(mode="json")
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+
+
+@router.post(
+    "/workspace-documents/world-runbooks",
+    response_model=WorldOwnedRunbookRecordV2,
+)
+def post_world_owned_runbook(
+    body: CreateWorldOwnedRunbookRequestV2,
+) -> dict[str, Any]:
+    try:
+        record = create_world_owned_runbook_v2(
+            repo_root(), world_id=body.world_id, title=body.title
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return record.model_dump(mode="json")
+
+
+@router.get(
+    "/workspace-documents/world-runbooks/{document_id}",
+    response_model=WorldOwnedRunbookRecordV2,
+)
+def get_world_owned_runbook(
+    document_id: str,
+    world_id: Annotated[str, Query(min_length=1)],
+    request: Request,
+) -> dict[str, Any]:
+    unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
+    if unsupported:
+        raise HTTPException(
+            status_code=422,
+            detail=f"World Runbook read accepts only world_id; unsupported selectors: {', '.join(unsupported)}",
+        )
+    try:
+        record = get_world_owned_runbook_v2(
+            repo_root(), world_id=world_id, document_id=document_id
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return record.model_dump(mode="json")
+
+
+@router.get(
+    "/workspace-documents/world-runbooks/{document_id}/snapshot",
+    response_model=WorkspaceDocumentSnapshotAny,
+)
+def get_world_owned_runbook_snapshot(
+    document_id: str,
+    world_id: Annotated[str, Query(min_length=1)],
+    request: Request,
+) -> dict[str, Any]:
+    unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
+    if unsupported:
+        raise HTTPException(
+            status_code=422,
+            detail=f"World Runbook snapshot accepts only world_id; unsupported selectors: {', '.join(unsupported)}",
+        )
+    try:
+        snapshot = get_world_owned_runbook_snapshot_v2(
+            repo_root(), world_id=world_id, document_id=document_id
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return snapshot.model_dump(mode="json")
+
+
+@router.post(
+    "/workspace-documents/world-runbooks/{document_id}/tiptap/prepare",
+    response_model=TiptapMarkdownWritePrepareResponse,
+)
+def post_world_owned_runbook_tiptap_prepare(
+    document_id: str,
+    world_id: Annotated[str, Query(min_length=1)],
+    body: TiptapMarkdownWritePrepareRequest,
+) -> dict[str, Any]:
+    if (
+        body.document_id != document_id
+        or body.schema_version != "dmb_tiptap_markdown_write_prepare_v2"
+        or body.scope_mode != "world"
+        or body.world_id != world_id
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="World Runbook prepare requires matching V2 World scope and document identity",
+        )
+    try:
+        get_world_owned_runbook_v2(
+            repo_root(), world_id=world_id, document_id=document_id
+        )
+        response = prepare_tiptap_markdown_write(root=repo_root(), request=body)
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except TiptapMarkdownWriteError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.post(
+    "/workspace-documents/world-runbooks/{document_id}/tiptap/commit",
+    response_model=TiptapMarkdownWriteCommitResponse,
+)
+def post_world_owned_runbook_tiptap_commit(
+    document_id: str,
+    world_id: Annotated[str, Query(min_length=1)],
+    body: TiptapMarkdownWriteCommitRequest,
+) -> dict[str, Any]:
+    if (
+        body.document_id != document_id
+        or body.schema_version != "dmb_tiptap_markdown_write_commit_v2"
+        or body.scope_mode != "world"
+        or body.world_id != world_id
+    ):
+        raise HTTPException(
+            status_code=422,
+            detail="World Runbook commit requires matching V2 World scope and document identity",
+        )
+    try:
+        get_world_owned_runbook_v2(
+            repo_root(), world_id=world_id, document_id=document_id
+        )
+        response = commit_tiptap_markdown_write(root=repo_root(), request=body)
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    except TiptapMarkdownWriteError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return response.model_dump(mode="json")
+
+
+@router.get(
+    "/workspace-documents/world-runbooks/{document_id}/committed-revision",
+    response_model=WorkspaceCommittedRevisionAny,
+)
+def get_world_owned_runbook_current_revision(
+    document_id: str,
+    world_id: Annotated[str, Query(min_length=1)],
+    request: Request,
+) -> dict[str, Any]:
+    unsupported = sorted(set(request.query_params.keys()) - {"world_id"})
+    if unsupported:
+        raise HTTPException(
+            status_code=422,
+            detail=f"World Runbook revision read accepts only world_id; unsupported selectors: {', '.join(unsupported)}",
+        )
+    try:
+        get_world_owned_runbook_v2(
+            repo_root(), world_id=world_id, document_id=document_id
+        )
+        committed = get_committed_playable_revision(
+            document_id, expected_world_id=world_id, kind="runbook"
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return committed.model_dump(mode="json")
+
+
+@router.get(
+    "/workspace-documents/world-runbooks/{document_id}/committed-revision/{revision_n}",
+    response_model=WorkspaceCommittedRevisionAny,
+)
+def get_world_owned_runbook_exact_revision(
+    document_id: str,
+    revision_n: int,
+    world_id: Annotated[str, Query(min_length=1)],
+    expected_sha256: Annotated[
+        str, Query(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
+    ],
+    request: Request,
+) -> dict[str, Any]:
+    unsupported = sorted(
+        set(request.query_params.keys()) - {"world_id", "expected_sha256"}
+    )
+    if unsupported:
+        raise HTTPException(
+            status_code=422,
+            detail=f"World Runbook revision read accepts only world_id and expected_sha256; unsupported selectors: {', '.join(unsupported)}",
+        )
+    try:
+        get_world_owned_runbook_v2(
+            repo_root(), world_id=world_id, document_id=document_id
+        )
+        committed = get_committed_playable_revision(
+            document_id,
+            revision_n=revision_n,
+            expected_sha256=expected_sha256,
+            expected_world_id=world_id,
+            kind="runbook",
+        )
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    return committed.model_dump(mode="json")
+
+
+def _require_campaign_workspace_document(document_id: str) -> None:
+    try:
+        record = get_workspace_document(repo_root(), document_id)
+    except WorkspaceDocumentRegistryError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if isinstance(record, WorldOwnedRunbookRecordV2):
+        raise HTTPException(
+            status_code=404,
+            detail="World-owned Runbooks require the World-scoped V2 route",
+        )
+
+
+@router.get(
     "/workspace-documents/{document_id}", response_model=WorkspaceDocumentRecordAny
 )
 def get_workspace_document_route(document_id: str) -> dict[str, Any]:
@@ -135,6 +375,11 @@ def get_workspace_document_route(document_id: str) -> dict[str, Any]:
         record = get_workspace_document(repo_root(), document_id)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if isinstance(record, WorldOwnedRunbookRecordV2):
+        raise HTTPException(
+            status_code=404,
+            detail="World-owned Runbooks require the World-scoped V2 route",
+        )
     return _record_response(record)
 
 
@@ -147,6 +392,11 @@ def get_workspace_document_snapshot_route(document_id: str) -> dict[str, Any]:
         snapshot = get_workspace_document_snapshot(repo_root(), document_id)
     except WorkspaceDocumentRegistryError as exc:
         raise HTTPException(status_code=exc.status_code, detail=str(exc)) from exc
+    if isinstance(snapshot.record, WorldOwnedRunbookRecordV2):
+        raise HTTPException(
+            status_code=404,
+            detail="World-owned Runbooks require the World-scoped V2 route",
+        )
     return snapshot.model_dump(mode="json")
 
 
@@ -185,6 +435,7 @@ def patch_workspace_document_metadata(
     document_id: str,
     body: UpdateWorkspaceDocumentMetadataRequest,
 ) -> dict[str, Any]:
+    _require_campaign_workspace_document(document_id)
     fields_set = body.model_fields_set
     try:
         record = update_workspace_document_metadata(
@@ -220,6 +471,7 @@ def post_workspace_document_discard(
     document_id: str,
     body: WorkspaceDocumentRevisionRequest | None = None,
 ) -> dict[str, Any]:
+    _require_campaign_workspace_document(document_id)
     try:
         record = discard_workspace_document(
             repo_root(),
@@ -238,6 +490,7 @@ def post_workspace_document_restore(
     document_id: str,
     body: WorkspaceDocumentRevisionRequest | None = None,
 ) -> dict[str, Any]:
+    _require_campaign_workspace_document(document_id)
     try:
         record = restore_workspace_document(
             repo_root(),

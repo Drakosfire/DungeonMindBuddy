@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -14,9 +15,12 @@ from apps.live_control_server.services.agent_play_surface_context import (
     PLAY_BEAT_BODY_MAX_CHARS,
     PLAY_MODEL_BLOCK_MAX_CHARS,
     PLAY_SCENE_BODY_MAX_CHARS,
+    WorldPlaySurfaceContextError,
     extract_v2_play_authored_slices,
     render_agent_play_surface_context,
+    resolve_agent_play_world_surface_context_v2,
     resolve_agent_play_surface_context,
+    validate_agent_play_world_surface_context_v2,
 )
 from apps.live_control_server.services.agent_runtime import (
     AgentPlayCurrentElementContext,
@@ -27,6 +31,7 @@ from apps.live_control_server.services.agent_surface_context import (
     SURFACE_CONTEXT_REQUEST_SCHEMA,
     SURFACE_SUMMARY_KEYS,
     AgentSurfaceContextRequest,
+    AgentWorldPlaySurfaceContextRequestV2,
     render_agent_surface_context,
     resolve_agent_surface_context,
 )
@@ -34,6 +39,7 @@ from apps.live_control_server.services.play_run_registry import (
     PlayRunProgress,
     PlayRunRecord,
     PlayRunRegistryError,
+    WorldPlayRunRecord,
 )
 from apps.live_control_server.services.play_run_reference_manifest import (
     derive_sealed_manifest,
@@ -41,6 +47,7 @@ from apps.live_control_server.services.play_run_reference_manifest import (
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceCommittedRevision,
     WorkspaceDocumentRegistryError,
+    WorldOwnedCommittedRevisionV2,
 )
 from tests.test_play_run_reference_manifest import C2S27_SHAPED_V2_MARKDOWN
 
@@ -123,6 +130,65 @@ def _committed() -> WorkspaceCommittedRevision:
         has_divergent_working_copy=False,
         target_relpath="runbooks/session-27.md",
     )
+
+
+def _world_play_request(**overrides: Any) -> AgentWorldPlaySurfaceContextRequestV2:
+    payload: dict[str, Any] = {
+        "schema": "dmb_agent_world_play_surface_context_request_v2",
+        "surface_id": "play",
+        "world_id": "world-a",
+        "run_id": RUN_ID,
+        "run_revision": 7,
+    }
+    payload.update(overrides)
+    return AgentWorldPlaySurfaceContextRequestV2.model_validate(payload)
+
+
+def _world_play_record(**overrides: Any) -> WorldPlayRunRecord:
+    payload: dict[str, Any] = {
+        "schema_version": "dmb_world_play_run_record_v2",
+        "run_id": RUN_ID,
+        "world_id": "world-a",
+        "playable_artifact_id": DOC_ID,
+        "playable_revision": 1,
+        "playable_work_revision_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "playable_content_sha256": SHA256,
+        "run_revision": 7,
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+        "progress": PlayRunProgress(
+            current_beat_id="beat:hold-the-gate",
+            current_scene_id="scene:gate-line",
+            resolved_beat_ids=[],
+            selections={},
+            notes_by_element_id={},
+        ),
+        "rebased_from_run_revision": None,
+    }
+    payload.update(overrides)
+    return WorldPlayRunRecord.model_validate(payload)
+
+
+def _world_committed(**overrides: Any) -> WorldOwnedCommittedRevisionV2:
+    payload: dict[str, Any] = {
+        "schema_version": "dmb_workspace_committed_revision_v2",
+        "scope_mode": "world",
+        "world_id": "world-a",
+        "document_id": DOC_ID,
+        "kind": "runbook",
+        "campaign_id": None,
+        "title": "World Play Runbook",
+        "status": "active",
+        "object_revision": 2,
+        "work_revision_id": "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        "revision_n": 1,
+        "markdown": C2S27_SHAPED_V2_MARKDOWN,
+        "content_sha256": SHA256,
+        "has_divergent_working_copy": False,
+        "target_relpath": None,
+    }
+    payload.update(overrides)
+    return WorldOwnedCommittedRevisionV2.model_validate(payload)
 
 
 def _assert_trace_privacy(summary: dict[str, Any], *secrets: str) -> None:
@@ -505,3 +571,146 @@ def test_renderer_bounds_long_play_material() -> None:
     assert "B" * 161 not in rendered
     assert "b" * (PLAY_BEAT_BODY_MAX_CHARS + 5) not in rendered
     assert "s" * (PLAY_SCENE_BODY_MAX_CHARS + 5) not in rendered
+
+
+def test_world_play_context_v2_resolves_exact_world_run_revision_and_pin(
+    tmp_path: Path,
+) -> None:
+    record = _world_play_record()
+    committed = _world_committed()
+    with (
+        patch(
+            "apps.live_control_server.services.world_container_registry.get_world_container",
+            return_value=SimpleNamespace(world_id="world-a", name="World A"),
+        ),
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_world_play_run",
+            return_value=record,
+        ) as get_run,
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_committed_playable_revision",
+            return_value=committed,
+        ) as get_revision,
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_world_play_run_reference_manifest",
+            return_value=_manifest(),
+        ),
+    ):
+        resolution = resolve_agent_play_world_surface_context_v2(
+            _world_play_request(),
+            root=tmp_path,
+            outer_world_id="world-a",
+        )
+
+    assert resolution.context is not None
+    assert resolution.trace_summary["resolution_status"] == "resolved"
+    assert resolution.context.current_owner is not None
+    assert resolution.context.current_owner.owner_id == "world-a"
+    assert resolution.context.current_play is not None
+    assert resolution.context.current_play.run_id == RUN_ID
+    assert resolution.context.current_play.current_beat.element_id == "beat:hold-the-gate"
+    assert resolution.context.current_play.current_scene is not None
+    assert resolution.context.current_play.current_scene.element_id == "scene:gate-line"
+    rendered = render_agent_surface_context(resolution.context)
+    assert rendered is not None and "Current World: \"World A\"" in rendered
+    get_run.assert_called_once_with(tmp_path, world_id="world-a", run_id=RUN_ID)
+    get_revision.assert_called_once_with(
+        DOC_ID,
+        revision_n=1,
+        expected_sha256=SHA256,
+        kind="runbook",
+        expected_world_id="world-a",
+    )
+
+
+def test_world_play_context_v2_rejects_stale_run_revision_and_pin_mismatch(
+    tmp_path: Path,
+) -> None:
+    with (
+        patch(
+            "apps.live_control_server.services.world_container_registry.get_world_container",
+            return_value=SimpleNamespace(world_id="world-a", name="World A"),
+        ),
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_world_play_run",
+            return_value=_world_play_record(),
+        ),
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_committed_playable_revision",
+            return_value=_world_committed(
+                work_revision_id="dddddddd-dddd-4ddd-8ddd-dddddddddddd"
+            ),
+        ),
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_world_play_run_reference_manifest",
+            return_value=_manifest(),
+        ),
+    ):
+        with pytest.raises(WorldPlaySurfaceContextError, match="run_revision is stale"):
+            validate_agent_play_world_surface_context_v2(
+                _world_play_request(run_revision=6),
+                root=tmp_path,
+                outer_world_id="world-a",
+            )
+
+        resolution = resolve_agent_play_world_surface_context_v2(
+            _world_play_request(),
+            root=tmp_path,
+            outer_world_id="world-a",
+        )
+
+    assert resolution.context is None
+    assert resolution.trace_summary["resolution_status"] == "rejected_surface"
+
+
+@pytest.mark.parametrize(
+    "committed_overrides",
+    [
+        {"document_id": "dddddddd-dddd-4ddd-8ddd-dddddddddddd"},
+        {"revision_n": 2},
+        {"content_sha256": "f" * 64},
+    ],
+    ids=("artifact", "revision", "sha"),
+)
+def test_world_play_context_v2_rejects_each_committed_pin_mismatch(
+    tmp_path: Path,
+    committed_overrides: dict[str, Any],
+) -> None:
+    with (
+        patch(
+            "apps.live_control_server.services.world_container_registry.get_world_container",
+            return_value=SimpleNamespace(world_id="world-a", name="World A"),
+        ),
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_world_play_run",
+            return_value=_world_play_record(),
+        ),
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_committed_playable_revision",
+            return_value=_world_committed(**committed_overrides),
+        ),
+    ):
+        with pytest.raises(WorldPlaySurfaceContextError, match="exact pin"):
+            validate_agent_play_world_surface_context_v2(
+                _world_play_request(), root=tmp_path, outer_world_id="world-a"
+            )
+
+
+def test_world_play_context_v2_rejects_campaign_run_even_when_ids_match(
+    tmp_path: Path,
+) -> None:
+    with (
+        patch(
+            "apps.live_control_server.services.world_container_registry.get_world_container",
+            return_value=SimpleNamespace(world_id="world-a", name="World A"),
+        ),
+        patch(
+            "apps.live_control_server.services.agent_play_surface_context.get_world_play_run",
+            side_effect=PlayRunRegistryError("World Play Run not found", status_code=404),
+        ) as get_run,
+    ):
+        with pytest.raises(WorldPlaySurfaceContextError):
+            validate_agent_play_world_surface_context_v2(
+                _world_play_request(), root=tmp_path, outer_world_id="world-a"
+            )
+    get_run.assert_called_once_with(tmp_path, world_id="world-a", run_id=RUN_ID)
