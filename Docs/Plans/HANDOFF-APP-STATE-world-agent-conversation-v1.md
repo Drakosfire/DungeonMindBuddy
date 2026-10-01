@@ -55,12 +55,15 @@ Memory, or persistence of provider/tool internals.
   foreign key or copied World truth. In the current single-operator product
   scope, each World has zero or one active conversation; a future account or
   multi-operator model requires a separately approved identity dimension.
-- `New conversation` is an idempotent command. It creates a fresh server ID,
-  atomically activates it, and archives the previous active conversation.
-  Archive is recoverable. Archiving the active conversation clears the active
-  pointer; the next submitted turn creates a fresh conversation. Reopening an
-  archived conversation preserves its ID/history and atomically archives the
-  former active conversation.
+- `New conversation` carries a stable caller-generated command ID. Repeating
+  that ID with the same World and command returns the same server-generated
+  conversation ID; reusing it with a different binding conflicts. Creation,
+  activation, command receipt, and archival of the previous active conversation
+  commit atomically, so a lost response can be reconciled without creating a
+  second conversation. Archive is recoverable. Archiving the active
+  conversation clears the active pointer; the next submitted turn creates a
+  fresh conversation. Reopening an archived conversation preserves its
+  ID/history and atomically archives the former active conversation.
 - Archived conversations have no automatic TTL. This slice exposes no delete
   or purge operation; it must not delete data when a World is unavailable or
   removed. Unverified/removed Worlds fail closed while Buddy records remain
