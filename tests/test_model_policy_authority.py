@@ -56,8 +56,8 @@ def test_active_runtime_does_not_construct_external_model_policy_paths() -> None
     )
 
 
-def test_active_consumer_model_parity_with_e1b_baseline(monkeypatch) -> None:
-    """Preserve Phase-0 effective models after localizing policy authority."""
+def test_agent_model_selection_preserves_other_e1b_consumer_models(monkeypatch) -> None:
+    """Select the Agent model without changing other Buddy model actions."""
     monkeypatch.delenv("DUNGEONMIND_HERMES_GRAPH_MODEL", raising=False)
     monkeypatch.delenv("LIVE_TURN_CLASSIFIER_MODEL", raising=False)
     monkeypatch.delenv("NPC_INTENT_CLASSIFIER_MODEL", raising=False)
@@ -87,7 +87,7 @@ def test_active_consumer_model_parity_with_e1b_baseline(monkeypatch) -> None:
     provider, model, base_url = resolve_agent_graph_openai_inference(require_api_key=False)
     assert (provider, model, base_url) == (
         "openai-api",
-        "gpt-5.3-codex",
+        "gpt-6-luna",
         "https://api.openai.com/v1",
     )
     assert _resolve_model(None) == "gpt-5.3-chat-latest"

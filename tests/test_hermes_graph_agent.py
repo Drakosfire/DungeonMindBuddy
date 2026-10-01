@@ -439,7 +439,7 @@ def test_pinned_hermes_auto_selects_responses_for_policy_model(
     resolved = resolve_agent_graph_openai_inference(require_api_key=False)
     assert resolved == (
         "openai-api",
-        "gpt-5.3-codex",
+        "gpt-6-luna",
         "https://api.openai.com/v1",
     )
     provider, model, base_url = resolved
