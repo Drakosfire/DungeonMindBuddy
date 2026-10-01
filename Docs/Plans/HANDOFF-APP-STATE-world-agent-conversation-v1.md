@@ -89,9 +89,14 @@ Memory, or persistence of provider/tool internals.
   of reordering them. Exactly-once provider invocation across crashes is not
   promised; durable turn recording and honest pending/failed/retry states are.
 - Store typed server-resolved historical provenance only: `world_id`,
-  `surface_id`/instance, work kind/ID and exact work/source revision when
-  applicable, and selected-object ID when applicable. Explicit absence is
-  distinguishable from unavailable/unresolved. These IDs explain the old turn;
+  `surface_id`/instance, a role-labeled primary work reference, zero or more
+  supporting work/source references, and selected-object ID when applicable.
+  Each reference records its own kind/ID and exact revision when applicable;
+  immutable supporting artifacts also record their content digest when the
+  owning domain exposes one. Explicit absence is distinguishable from
+  unavailable/unresolved. For example, an active World Run is primary work;
+  its pinned Runbook artifact/revision/digest and current Beat or optional
+  Scene are separate supporting references. These IDs explain the old turn;
   they are not a context snapshot, permission, or input to later resolution.
 - Canonical history is provider-neutral visible user/assistant text. The Agent
   owner chooses a bounded recent-history window for Hermes/Pi replay. Each new
@@ -109,8 +114,9 @@ Memory, or persistence of provider/tool internals.
 
 - A composer draft is a separate typed durable record, not an ordered turn.
   It has a stable draft ID and CAS revision and is bound to the verified World,
-  conversation, and typed source context (surface plus work/source IDs and exact
-  revision when present; absence is explicit).
+  conversation, and typed source context (surface plus role-labeled primary
+  work and supporting work/source references, each with its own exact revision
+  and exposed content digest when applicable; absence is explicit).
 - Recover it only under that same binding after reload, process/host restart,
   or returning to its World. Switching World/source never transfers it. A
   changed or unavailable source leaves the text recoverable but stale; it must
@@ -231,7 +237,7 @@ owner leases resolve.
 The following exact candidate paths are for PRIME's later lease decision only.
 They are **not** an ACTIVE write lease:
 
-- `src/application_state/migrations/versions/20261001_0010_agent_conversation.py`
+- `src/application_state/migrations/versions/<next_revision>_agent_conversation.py`
 - `src/application_state/agent_conversation/__init__.py`
 - `src/application_state/agent_conversation/types.py`
 - `src/application_state/agent_conversation/repository.py`
