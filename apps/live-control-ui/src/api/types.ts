@@ -722,6 +722,30 @@ export interface IndexAgentTurnResolvedSummary {
   pointerStatus: "absent" | "accepted" | "recovered" | "rejected" | "reused";
 }
 
+/** Exact source-free basis selected by the atomic current World Plan read. */
+export interface WorldPlanAgentContentBasisV1 {
+  world_id: string;
+  document_id: string;
+  object_revision: number;
+  work_revision_id: string;
+  revision_n: number;
+  content_sha256: string;
+  committed_status: "committed";
+  has_divergent_working_copy: boolean;
+}
+
+/** Camel-case bounded receipt stored with one browser-local World Plan turn. */
+export interface WorldPlanAgentContentBasisSummary {
+  worldId: string;
+  documentId: string;
+  objectRevision: number;
+  workRevisionId: string;
+  revisionN: number;
+  contentSha256: string;
+  committedStatus: "committed";
+  hasDivergentWorkingCopy: boolean;
+}
+
 /** Bounded source-free facts kept with one browser-local World Plan turn. */
 export interface WorldPlanAgentTurnResolvedSummary {
   surfaceId: "plan";
@@ -734,6 +758,7 @@ export interface WorldPlanAgentTurnResolvedSummary {
   workStatus: "resolved" | "changed_since_expected";
   expectedRevision: number;
   revisionUsed: number;
+  contentBasis?: WorldPlanAgentContentBasisSummary;
   clientWorkState: "saved_clean" | "saved_dirty";
   graphStatus: "not_requested";
   pointerStatus: "absent" | "accepted" | "recovered" | "rejected" | "reused";
@@ -746,7 +771,13 @@ export interface WorldPlanAgentTurnRequestV1 {
   turn_id: string;
   surface: { surface_id: "plan"; instance_id: string };
   owner_scope: { kind: "world"; world_id: string };
-  primary_work: { kind: "plan"; object_id: string; expected_revision: number };
+  primary_work: {
+    kind: "plan";
+    object_id: string;
+    expected_revision: number;
+    expected_revision_n: number;
+    expected_content_sha256: string;
+  };
   client_work_state: "saved_clean" | "saved_dirty";
   graph_request: { mode: "none" };
   graph_selection: null;
@@ -775,6 +806,7 @@ export interface WorldPlanAgentTurnResponseV1 {
     object_id: string | null;
     revision_used: string | number | null;
     expected_revision: number | null;
+    content_basis: WorldPlanAgentContentBasisV1 | null;
   };
   client_work_state_reported: "none" | "saved_clean" | "saved_dirty" | "new_unsaved";
   graph: {
