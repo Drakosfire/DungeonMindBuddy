@@ -35,6 +35,7 @@ class CurrentWorldPlanRead(BaseModel):
 
     world_id: str
     document_id: UUID
+    object_revision: int
     work_revision_id: UUID
     revision_n: int
     markdown: str
@@ -699,8 +700,9 @@ def read_current_world_plan_revision(
     document_id: str,
     *,
     expected_world_id: str,
+    expected_revision: int,
     expected_revision_n: int,
-    expected_sha256: str,
+    expected_content_sha256: str,
 ) -> CurrentWorldPlanRead:
     """Read the exact pinned current revision of an active World-owned Plan.
 
@@ -709,6 +711,14 @@ def read_current_world_plan_revision(
     copy divergence all describe one serialized observation.
     """
 
+    if (
+        not isinstance(expected_revision, int)
+        or isinstance(expected_revision, bool)
+        or expected_revision <= 0
+    ):
+        raise ApplicationStateValidationError(
+            "expected_revision must be a positive integer"
+        )
     if (
         not isinstance(expected_revision_n, int)
         or isinstance(expected_revision_n, bool)
@@ -720,10 +730,10 @@ def read_current_world_plan_revision(
     expected_world = expected_world_id.strip()
     if not expected_world:
         raise ApplicationStateValidationError("expected_world_id is required")
-    expected_digest = expected_sha256.strip().lower()
+    expected_digest = expected_content_sha256.strip().lower()
     if re.fullmatch(r"[0-9a-f]{64}", expected_digest) is None:
         raise ApplicationStateValidationError(
-            "expected_sha256 must be a full SHA-256 digest"
+            "expected_content_sha256 must be a full SHA-256 digest"
         )
 
     work_object_id = _require_uuid(document_id)
@@ -734,6 +744,10 @@ def read_current_world_plan_revision(
         if obj is None:
             raise ApplicationStateNotFoundError(
                 f"workspace document not found: {document_id}"
+            )
+        if obj.object_revision != expected_revision:
+            raise ApplicationStateConflictError(
+                "World Plan object revision does not match the requested pin"
             )
         _require_kind(obj, "plan")
         if obj.world_id != expected_world:
@@ -766,12 +780,12 @@ def read_current_world_plan_revision(
 
         working = repo.get_working_copy(conn, work_object_id)
         divergent = (
-            working is not None
-            and working.content_sha256 != committed.content_sha256
+            working is not None and working.content_sha256 != committed.content_sha256
         )
         return CurrentWorldPlanRead(
             world_id=expected_world,
             document_id=obj.work_object_id,
+            object_revision=obj.object_revision,
             work_revision_id=committed.work_revision_id,
             revision_n=committed.revision_n,
             markdown=committed.markdown,
