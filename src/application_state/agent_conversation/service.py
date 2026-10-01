@@ -26,6 +26,7 @@ from application_state.agent_conversation.types import (
     TurnSubmission,
     WorldPointer,
     request_fingerprint,
+    turn_idempotency_fingerprint,
 )
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
@@ -297,14 +298,17 @@ class AgentConversationService:
         dsn = _ready_dsn()
         now = _now()
         fingerprint = request_fingerprint(submission)
+        stable_fingerprint = turn_idempotency_fingerprint(
+            world_id, submission.user_text, submission.provenance
+        )
         with unit_of_work(dsn) as conn:
             pointer = _lock_pointer(conn, world_id)
-            existing = repo.get_turn_by_key(
-                conn, world_id, submission.conversation_id, submission.idempotency_key
+            existing = repo.get_turn_by_world_key(
+                conn, world_id, submission.idempotency_key
             )
             if existing is not None:
-                turn, old_fingerprint = existing
-                if old_fingerprint != fingerprint:
+                turn, _old_request_fingerprint, old_idempotency_fingerprint = existing
+                if old_idempotency_fingerprint != stable_fingerprint:
                     raise ApplicationStateConflictError(
                         "turn idempotency key was already used with different content or provenance"
                     )
@@ -330,6 +334,7 @@ class AgentConversationService:
                 conn,
                 turn_id=uuid4(),
                 request_fingerprint=fingerprint,
+                idempotency_fingerprint=stable_fingerprint,
                 submission=submission,
                 sequence=sequence,
                 now=now,
@@ -507,11 +512,11 @@ class AgentConversationService:
                     "provenance": submit.provenance.model_dump(mode="json"),
                 }
             )
-            existing = repo.get_turn_by_key(
-                conn, world_id, submit.conversation_id, submit.idempotency_key
+            existing = repo.get_turn_by_world_key(
+                conn, world_id, submit.idempotency_key
             )
             if existing is not None:
-                turn, old_fingerprint = existing
+                turn, old_fingerprint, _old_idempotency_fingerprint = existing
                 if old_fingerprint != fingerprint:
                     raise ApplicationStateConflictError(
                         "turn idempotency key was already used with different draft submission"
@@ -552,6 +557,9 @@ class AgentConversationService:
                 conn,
                 turn_id=uuid4(),
                 request_fingerprint=fingerprint,
+                idempotency_fingerprint=turn_idempotency_fingerprint(
+                    world_id, draft.body, submit.provenance
+                ),
                 submission=submission,
                 sequence=sequence,
                 now=now,

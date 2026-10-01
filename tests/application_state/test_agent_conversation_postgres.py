@@ -50,7 +50,7 @@ def _new(service: AgentConversationService, world_id: str):
 
 def test_agent_conversation_migration_is_single_current_head(application_state_dsn: str) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261001_0010"
+    assert current == head == "20261001_0011"
 
 
 def test_fresh_service_instance_reads_committed_world_conversation(application_state_dsn: str) -> None:

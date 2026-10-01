@@ -27,6 +27,20 @@ def request_fingerprint(value: BaseModel) -> str:
     return _fingerprint(value.model_dump(mode="json", exclude={"command_id", "idempotency_key"}))
 
 
+def turn_idempotency_fingerprint(
+    world_id: str, user_text: str, provenance: "TurnProvenance"
+) -> str:
+    """Fingerprint turn meaning, independent of conversation routing and CAS revision."""
+
+    return _fingerprint(
+        {
+            "world_id": world_id,
+            "user_text": user_text,
+            "provenance": provenance.model_dump(mode="json"),
+        }
+    )
+
+
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=False)
 

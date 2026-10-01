@@ -19,6 +19,7 @@ from application_state.agent_conversation.types import (
     TurnProvenance,
     WorldPointer,
     request_fingerprint as model_fingerprint,
+    turn_idempotency_fingerprint,
 )
 from application_state.errors import ApplicationStateIntegrityError
 
@@ -416,22 +417,25 @@ def get_active_conversation(conn: psycopg.Connection, world_id: str) -> Conversa
     return None if row is None else Conversation.model_validate(row)
 
 
-def get_turn_by_key(
-    conn: psycopg.Connection, world_id: str, conversation_id: UUID, idempotency_key: UUID
-) -> tuple[Turn, str] | None:
+def get_turn_by_world_key(
+    conn: psycopg.Connection, world_id: str, idempotency_key: UUID
+) -> tuple[Turn, str, str] | None:
+    """Find the durable turn receipt in a World, regardless of its conversation."""
+
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT {_TURN_COLS}, request_fingerprint
-            FROM agent.turn WHERE world_id = %s AND conversation_id = %s AND idempotency_key = %s
+            SELECT {_TURN_COLS}, request_fingerprint, idempotency_fingerprint
+            FROM agent.turn WHERE world_id = %s AND idempotency_key = %s
             """,
-            (world_id, conversation_id, idempotency_key),
+            (world_id, idempotency_key),
         )
         row = cur.fetchone()
     if row is None:
         return None
-    fingerprint = row.pop("request_fingerprint")
-    return _turn_from_row(conn, row), fingerprint
+    request_hash = row.pop("request_fingerprint")
+    idempotency_hash = row.pop("idempotency_fingerprint")
+    return _turn_from_row(conn, row), request_hash, idempotency_hash
 
 
 def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | None:
@@ -480,6 +484,7 @@ def insert_turn(
     *,
     turn_id: UUID,
     request_fingerprint: str,
+    idempotency_fingerprint: str,
     submission: Any,
     sequence: int,
     now: datetime,
@@ -493,12 +498,12 @@ def insert_turn(
         cur.execute(
             f"""
             INSERT INTO agent.turn (
-                turn_id, conversation_id, world_id, idempotency_key, sequence,
+                turn_id, conversation_id, world_id, idempotency_key, idempotency_fingerprint, sequence,
                 revision, status, request_fingerprint, user_text, assistant_text,
                 failure_code, surface_resolution, surface_id, attempt, accepted_at,
                 completed_at, updated_at
-            ) VALUES (%s, %s, %s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                      %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s,
+                      %s, %s, %s)
             RETURNING {_TURN_COLS}
             """,
             (
@@ -506,6 +511,7 @@ def insert_turn(
                 submission.conversation_id,
                 submission.world_id,
                 submission.idempotency_key,
+                idempotency_fingerprint,
                 sequence,
                 status,
                 request_fingerprint,
@@ -845,6 +851,9 @@ def insert_legacy_turn(
         conn,
         turn_id=turn_id,
         request_fingerprint=request_fingerprint,
+        idempotency_fingerprint=turn_idempotency_fingerprint(
+            world_id, legacy_turn.user_text, provenance
+        ),
         submission=submission,
         sequence=sequence,
         now=now,
