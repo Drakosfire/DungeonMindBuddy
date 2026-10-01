@@ -1,9 +1,9 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE ARCHITECTURE / PLAY-FIRST SEQUENCE COMPLETE — AS0 through AS5 merged; AS6+ deliberately unselected  
+**Status:** ACTIVE ARCHITECTURE / PLAY-FIRST COMPLETE — AS0 through AS5 merged; World Agent Conversation selected for design reconciliation only
 **Line of work / flow:** `APP-STATE`  
 **Created:** 2026-08-24  
-**Updated:** 2026-08-26  
+**Updated:** 2026-10-01
 **Architecture authority:** [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md)  
 **Parent pickup:** [`../Plans/STEWARDS-ANCHOR-application-state.md`](../Plans/STEWARDS-ANCHOR-application-state.md)
 
@@ -19,7 +19,8 @@ AS2   PLAYABLE               DONE — PR #643 merge b4d63daab3eeb8150ca73fe9492d
 AS3   PLAY RUNTIME           DONE — PR #646 merge 9c946cd8c24effccec8d06cfc1cb5e310c9edc5e
 AS4   PLAY CONTINUITY        DONE — PR #649 merge 993f837b6f2fc601acf2ae3a4b7926af1858ac6c
 AS5   PLAY DEMOLITION        DONE — PR #650 merge cc016661f80416e0816f56349217cf33c53a195f
-AS6+  CANDIDATE FAMILIES     UNSELECTED — evidence-driven only
+NEXT   WORLD AGENT CONVERSATION  SELECTED DESIGN — no migration number or implementation lease assigned
+OTHER  CANDIDATE FAMILIES        UNSELECTED — evidence-driven only
 ```
 
 AS5 accepted head: `3477d1c581bbcf4898a66aec43a82cdc3bb84b8f`  
@@ -108,11 +109,19 @@ Combat remains a separate domain and is still a candidate APP-STATE family; its 
 
 ---
 
-## 3. AS6+ candidate families
+## 3. Selected design and remaining candidate families
 
-These are migration families, **not pre-authorized PRs, schemas, or table names**.
+The evidence now selects one bounded family without assigning it an AS number:
+**World-scoped Agent conversation continuity**. The rationale, lifecycle,
+records, import/cutover rules, and serial implementation sequence are in
+[`../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md`](../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md).
+The docs-only reconciliation is under review. No schema, implementation, or
+runtime lease is active.
 
-Re-anchor from current product evidence before selecting any one:
+The remaining candidates are migration families, **not pre-authorized PRs,
+schemas, or table names**.
+
+Re-anchor from current product evidence before selecting any additional family:
 
 | Family | Independently useful outcome when selected | Boundary |
 |---|---|---|
@@ -122,11 +131,12 @@ Re-anchor from current product evidence before selecting any one:
 | Generated artifact lifecycles | statblock/location/NPC/shop/encounter/card drafts/projects gain stable product identity | domain-owned; do not force into WorkObject when not document-like |
 | Asset metadata + DungeonMindServer bytes | consumers use stable `asset_id`; CDN/storage URL is delivery, not identity | large binary bytes stay outside PostgreSQL rows |
 | Remaining content / `worldbuilding_source` | durable Build content without becoming World truth | explicit publish/corpus policy |
-| Agent proposal/task durability | only if reload correctness requires it | do not migrate local state merely because it exists |
+| Agent proposal/action durability | owning domain must prove the user-relied-on operation | no generic Agent action or receipt store; separate from the selected conversation family |
 | Plan publish-to-corpus | explicit WorkRevision export | never silent publication |
 | Run mutation history | optional audit history if independently useful | not event sourcing by default |
 
-No family is “AS6” until steward/product evidence selects it.
+Do not assign an implementation migration number until its design decision and
+PRIME's implementation lease are settled.
 
 ---
 
@@ -165,7 +175,7 @@ AS4 active-Run evidence measured PostgreSQL resume around `121 ms` p95. Treat fu
 
 - CUTOVER may proceed in parallel when write leases are disjoint.
 - PLAY-SURFACE BF2/BF3 may proceed; APP-STATE has no active Play migration slice.
-- An AS6+ family may begin only after re-anchor and independently useful product justification.
+- A newly selected family may begin only after re-anchor and independently useful product justification.
 - If a selected family shares bootstrap/root dependency files with another active lane, serialize that overlap explicitly.
 - No successor may reopen old Play filesystem authority as a convenience fallback.
 
