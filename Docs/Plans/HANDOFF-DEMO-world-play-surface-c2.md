@@ -103,8 +103,32 @@ eight leased UI/API suites now pass 223 tests. The UI typecheck still reports
 only the inherited unrelated
 `ThreatPublicationPanel.tsx(553,77): Cannot find namespace 'JSX'` diagnostic.
 `git diff --check` passes. No server, database, provider, or corpus was used.
-PRIME re-review of the correction is pending; C2 remains ACTIVE and neither
-this correction nor its tests claim merge or operator acceptance.
+The first correction was awaiting PRIME's re-review at this point; C2 remains
+ACTIVE. Neither that correction nor its tests claim merge or operator
+acceptance.
+
+### PRIME second re-review — same-World selection ABA, 2026-10-01
+
+At PR #820 head `2429543d733a0c031341d81d3f8ce427205eff10`, PRIME's mounted
+probe selected Runbook A, started a Run, selected B, returned to A, and then
+resolved the original A create and manifest. The document-ID-only completion
+check allowed navigation from that abandoned action because A was selected
+again. The same ABA could let a deferred blank-Runbook completion replace the
+current selection.
+
+The correction tracks a selection generation separately from World/route
+scope, advances it on actual Runbook selection changes and scope resets, and
+captures it for Start Run and blank-create actions. A stale completion cannot
+adopt Run state or selection or navigate; an exact World write already issued
+still completes and remains discoverable/reconcilable. Code commit
+`269973feca4761ddfffab1c7a3843b7392168e5c` contains the fence and two
+mounted deferred A→B→A regressions.
+
+All eight focused C2 UI/API suites now pass 225 tests. Cumulative and working
+diff checks pass. UI typecheck retains only the inherited unrelated
+`ThreatPublicationPanel.tsx(553,77): Cannot find namespace 'JSX'` error. No
+server, database, provider, or corpus was used. PR #820 remains open for
+PRIME's re-review; this evidence claims neither merge nor operator acceptance.
 
 ## Predecessor settlement
 

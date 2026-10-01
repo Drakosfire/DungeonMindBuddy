@@ -322,8 +322,17 @@ including rediscovery of the committed World A blank Runbook after returning
 to World A; no stale completion changes World B's inventory, selection, or
 route. `git diff --check` passes; UI typecheck retains
 only the inherited unrelated JSX namespace error at
-`ThreatPublicationPanel.tsx:553`. PRIME re-review is pending. C2 remains ACTIVE;
-no merge or operator acceptance is claimed.
+`ThreatPublicationPanel.tsx:553`. PRIME's next review at head
+`2429543d733a0c031341d81d3f8ce427205eff10` found a same-World selection ABA:
+after A→B→A, the delayed A Start Run could still navigate. The same ID-only
+fence affected blank Runbook selection. Commit
+`269973feca4761ddfffab1c7a3843b7392168e5c` adds a per-selection generation
+fence and two mounted deferred A→B→A regressions; the exact World writes still
+finish and reconcile without stale selection adoption. The eight focused UI/API
+suites now pass 225 tests and cumulative diff checks pass. The inherited JSX
+namespace typecheck error remains the only diagnostic. PR #820 is open at the
+updated C2 branch for PRIME's re-review; no merge or operator acceptance is
+claimed.
 
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
