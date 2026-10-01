@@ -8,6 +8,7 @@ import type {
   WorldPlanAgentTurnRequestV1,
   WorldPlanAgentTurnResolvedSummary,
 } from "../../api/types";
+import { AgentTraceInspector } from "../../agentInteraction/trace/AgentTraceInspector";
 import { useAskPluginSlotOptional, useRegisterAskPluginPresence } from "../../agentInteraction/AskPluginSlot";
 import { usePublishAgentSurfaceContext } from "../../agentInteraction/usePublishAgentSurfaceContext";
 import { useAgentInteraction } from "../../agentInteraction/useAgentInteraction";
@@ -241,6 +242,7 @@ export function WorldPlanAgentConversation({
   const activeThread = isScopedPlanThread(agent.activeThread, namespace ?? "", documentId ?? "")
     ? agent.activeThread
     : null;
+  const traceVisible = activeThread?.uiState?.traceVisible ?? false;
   const scopeKey = `${worldId}\u001f${documentId ?? ""}`;
   const requestFenceKey = JSON.stringify({
     worldId: verifiedWorldId,
@@ -305,6 +307,18 @@ export function WorldPlanAgentConversation({
     setQuestion("");
     setError(null);
     setSending(false);
+  }
+
+  function toggleTraceVisibility() {
+    if (!scopeMatches || sending || requestRef.current) return;
+    const thread = activeThread ?? agent.createThread("New World Plan conversation");
+    agent.updateThread({
+      ...thread,
+      uiState: {
+        ...thread.uiState,
+        traceVisible: !traceVisible,
+      },
+    });
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -399,7 +413,17 @@ export function WorldPlanAgentConversation({
           <h2>Ask DungeonBuddy</h2>
           <p>World: {worldName} · Saved Plan · Conversation only</p>
         </div>
-        <button type="button" onClick={startNewConversation}>New conversation</button>
+        <div className="world-plan-agent-conversation__actions">
+          <button
+            type="button"
+            aria-pressed={traceVisible}
+            disabled={sending || requestRef.current !== null}
+            onClick={toggleTraceVisibility}
+          >
+            {traceVisible ? "Advanced diagnostics: On" : "Advanced diagnostics: Off"}
+          </button>
+          <button type="button" onClick={startNewConversation}>New conversation</button>
+        </div>
       </header>
       <p className="world-plan-agent-conversation__notice" role="note">
         DungeonBuddy sees this Plan’s title and revision, but does not read its text. It cannot answer from or edit the saved prose.
@@ -420,6 +444,7 @@ export function WorldPlanAgentConversation({
                 {" "}Editor was {turn.agentTurnResolved.clientWorkState === "saved_dirty" ? "edited since save" : "unchanged"} when asked.
               </p>
             ) : null}
+            {turn.trace && traceVisible ? <AgentTraceInspector trace={turn.trace} /> : null}
           </article>
         )) : (
           <p>Ask a general question to start a conversation associated with this Plan.</p>

@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
-import type { WorldOwnedPlanRecordV2 } from "../api/types";
+import type { AgentInteractionTrace, WorldOwnedPlanRecordV2 } from "../api/types";
 import { PlanSurfacePage } from "./PlanSurfacePage";
 import { AgentInteractionProvider, useAgentInteraction } from "../agentInteraction/AgentInteractionProvider";
 import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChrome";
@@ -432,6 +432,165 @@ it("persists bounded Plan Agent trace receipts through reload without prompt dat
     }],
   });
   expect(JSON.stringify(reloaded)).not.toContain("RAW_PROMPT_SECRET");
+});
+
+it("lets a saved World Plan opt into diagnostics before its first Agent turn", async () => {
+  mockSavedPlanForAgent();
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  const conversation = await screen.findByRole("region", { name: "Saved World Plan conversation" });
+  const offButton = within(conversation).getByRole("button", { name: "Advanced diagnostics: Off" });
+  expect(offButton).toHaveAttribute("aria-pressed", "false");
+  expect(localStorage.getItem(activeThreadStorageKey(planAgentNamespace(), "plan", savedAgentPlanId))).toBeNull();
+
+  fireEvent.click(offButton);
+  expect(within(conversation).getByRole("button", { name: "Advanced diagnostics: On" })).toHaveAttribute("aria-pressed", "true");
+  const threadId = localStorage.getItem(activeThreadStorageKey(planAgentNamespace(), "plan", savedAgentPlanId));
+  expect(threadId).toBeTruthy();
+  expect(loadAgentThreadById(planAgentNamespace(), threadId!)?.turns).toHaveLength(0);
+  expect(loadAgentThreadById(planAgentNamespace(), threadId!)?.uiState?.traceVisible).toBe(true);
+  expect(postTurn).not.toHaveBeenCalled();
+});
+
+it("keeps the trace toggle disabled while the first World Plan Agent turn is pending", async () => {
+  mockSavedPlanForAgent();
+  let finishTurn: ((response: WorldPlanAgentTurnResponseV1) => void) | undefined;
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation((request) => (
+    new Promise((resolve) => {
+      finishTurn = resolve;
+    })
+  ));
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  const conversation = await screen.findByRole("region", { name: "Saved World Plan conversation" });
+  fireEvent.change(within(conversation).getByLabelText("Your question"), { target: { value: "What metadata is available?" } });
+  fireEvent.click(within(conversation).getByRole("button", { name: "Ask" }));
+  await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(1));
+
+  expect(within(conversation).getByRole("button", { name: "Advanced diagnostics: Off" })).toBeDisabled();
+  act(() => finishTurn?.(worldPlanAgentResponse(postTurn.mock.calls[0][0])));
+  expect(await screen.findByText("I can see the saved Plan title and revision metadata, but not its prose.")).toBeInTheDocument();
+  expect(within(conversation).getByRole("button", { name: "Advanced diagnostics: Off" })).toBeEnabled();
+  expect(postTurn).toHaveBeenCalledTimes(1);
+});
+
+it("reveals a stored World Plan call mode after rehydrate only when diagnostics are enabled", async () => {
+  mockSavedPlanForAgent();
+  const thread = createAgentInteractionThread(
+    planAgentNamespace(),
+    null,
+    "plan",
+    "hermes",
+    "Continuity witness",
+    savedAgentPlanId,
+  );
+  const storedTurnId = "stored-continuity-witness-turn";
+  const trace: AgentInteractionTrace = {
+    schema: "dmb_agent_turn_trace_v1",
+    trace_id: "stored-continuity-witness-trace",
+    agent_thread_id: thread.threadId,
+    turn_id: storedTurnId,
+    runtime: "process_isolated",
+    backend: "hermes",
+    mode: "hermes_graph_agent",
+    provider: "openai-api",
+    model: "gpt-6-luna",
+    started_at: "2026-10-01T00:00:00.000Z",
+    completed_at: "2026-10-01T00:00:01.000Z",
+    elapsed_ms: 1000,
+    status: "ok",
+    usage: {
+      available: true,
+      status: "reported",
+      input_tokens: 528,
+      output_tokens: 78,
+      total_tokens: 606,
+    },
+    cost: { status: "unavailable", usd: null },
+    model_calls: [{
+      call_id: "stored-continuity-witness-call",
+      sequence: 1,
+      status: "ok",
+      provider: "openai-api",
+      requested_model: "gpt-6-luna",
+      response_model: "gpt-6-luna",
+      api_mode: "codex_responses",
+      usage: {
+        available: true,
+        status: "reported",
+        input_tokens: 528,
+        output_tokens: 78,
+        total_tokens: 606,
+      },
+      cost: { status: "unavailable", usd: null },
+    }],
+    spans: [],
+    steps: [],
+    context_summary: {},
+    artifact_refs: [],
+    warnings: [],
+  };
+  thread.turns = [{
+    turnId: storedTurnId,
+    askedAt: "2026-10-01T00:00:00.000Z",
+    completedAt: "2026-10-01T00:00:01.000Z",
+    question: "For continuity, remember the silver fox chose periwinkle.",
+    answer: "Periwinkle",
+    backend: "hermes",
+    status: "ok",
+    trace,
+  }];
+  persistAgentThread(thread);
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+  const mountPlan = () => render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const firstMount = mountPlan();
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  const firstConversation = await screen.findByRole("region", { name: "Saved World Plan conversation" });
+  const offButton = within(firstConversation).getByRole("button", { name: "Advanced diagnostics: Off" });
+  expect(offButton).toHaveAttribute("aria-pressed", "false");
+  expect(within(firstConversation).queryByTestId("agent-trace-model-calls")).not.toBeInTheDocument();
+
+  fireEvent.click(offButton);
+  const firstCalls = await within(firstConversation).findByTestId("agent-trace-model-calls");
+  const firstInspector = firstCalls.closest("details");
+  expect(firstInspector).not.toHaveAttribute("open");
+  fireEvent.click(within(firstInspector!).getByText("Advanced diagnostics"));
+  expect(within(firstInspector!).getByText("API mode")).toBeInTheDocument();
+  expect(within(firstInspector!).getByText("codex_responses")).toBeInTheDocument();
+  expect(loadAgentThreadById(planAgentNamespace(), thread.threadId)?.uiState?.traceVisible).toBe(true);
+  expect(postTurn).not.toHaveBeenCalled();
+
+  firstMount.unmount();
+  mountPlan();
+  expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  const reloadedConversation = await screen.findByRole("region", { name: "Saved World Plan conversation" });
+  expect(within(reloadedConversation).getByRole("button", { name: "Advanced diagnostics: On" })).toHaveAttribute("aria-pressed", "true");
+  const reloadedCalls = await within(reloadedConversation).findByTestId("agent-trace-model-calls");
+  const reloadedInspector = reloadedCalls.closest("details");
+  expect(reloadedInspector).not.toHaveAttribute("open");
+  fireEvent.click(within(reloadedInspector!).getByText("Advanced diagnostics"));
+  expect(within(reloadedInspector!).getByText("codex_responses")).toBeInTheDocument();
+  expect(postTurn).not.toHaveBeenCalled();
 });
 
 it("keeps Ask disabled for an unresolved pending write", async () => {
