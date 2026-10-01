@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
@@ -23,6 +23,12 @@ import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { WorldPlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
 import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
+import {
+  applyWorldPlanEditProposal,
+  captureWorldPlanEditTarget,
+  type WorldPlanEditBridge,
+  type WorldPlanEditEditorState,
+} from "./agentEdit/planAgentEditProposal";
 import { toAppChromeToolsGeneration, type MarkdownEditorToolbarModel } from "../tiptap/MarkdownEditorToolbar";
 import { CALLOUT_KINDS, defaultCalloutLabel } from "../tiptap/markdown/calloutMarkdown";
 import { SemanticMarkdownPaste } from "../tiptap/extensions/SemanticMarkdownPaste";
@@ -263,8 +269,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [createUncertain, setCreateUncertain] = useState(localDraft?.create_uncertain ?? false);
   const [uncertainCreateDraft, setUncertainCreateDraft] = useState(localDraft?.uncertain_create_draft ?? null);
   const [recoveryConflict, setRecoveryConflict] = useState(false);
-  const [serverDraft, setServerDraft] = useState<{ title: string; markdown: string; revision: number } | null>(null);
+  const [serverDraft, setServerDraft] = useState<{
+    title: string;
+    markdown: string;
+    revision: number;
+    contentSha256: string;
+  } | null>(null);
   const [editorGeneration, setEditorGeneration] = useState(0);
+  const [selectionGeneration, setSelectionGeneration] = useState(0);
   const [editor, setEditor] = useState<Editor | null>(null);
   const editorContent = useMemo(() => markdownToTiptapDoc(markdown).doc, [markdown]);
   const [status, setStatus] = useState<LoadStatus>("loading");
@@ -278,7 +290,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const revisionRef = useRef<number | null>(localDraft?.revision ?? null);
   const titleRef = useRef(localDraft?.title ?? "Plan");
   const markdownRef = useRef(localDraft?.markdown ?? "");
+  const serverDigestRef = useRef<string | null>(null);
   const editGenerationRef = useRef(localDraft?.edit_generation ?? 0);
+  const selectionGenerationRef = useRef(0);
   const pendingWriteRef = useRef(localDraft?.pending_write ?? null);
   const uncertainCreateDraftRef = useRef(localDraft?.uncertain_create_draft ?? null);
   const savingRef = useRef(false);
@@ -334,6 +348,60 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     editorRef.current = next;
     setEditor(next);
   };
+
+  useLayoutEffect(() => {
+    if (!editor) return;
+    const onSelectionUpdate = () => {
+      selectionGenerationRef.current += 1;
+      setSelectionGeneration(selectionGenerationRef.current);
+    };
+    editor.on("selectionUpdate", onSelectionUpdate);
+    return () => { editor.off("selectionUpdate", onSelectionUpdate); };
+  }, [editor]);
+
+  const worldEditStateGetterRef = useRef<() => WorldPlanEditEditorState>(() => ({
+    editor: null,
+    documentId: null,
+    worldId,
+    baseRevision: null,
+    baseContentSha256: null,
+    sourceMarkdown: "",
+    draftGeneration: 0,
+    selectionGeneration: 0,
+    canEdit: false,
+  }));
+  worldEditStateGetterRef.current = () => ({
+    editor: editorRef.current,
+    documentId: documentIdRef.current,
+    worldId,
+    baseRevision: revisionRef.current,
+    baseContentSha256: serverDigestRef.current,
+    sourceMarkdown: markdownRef.current,
+    draftGeneration: editGenerationRef.current,
+    selectionGeneration: selectionGenerationRef.current,
+    canEdit: Boolean(
+      documentIdRef.current
+      && serverDigestRef.current
+      && isCurrentEditTarget()
+      && !savingRef.current
+      && !createUncertain
+      && !recoveryConflict
+      && pendingWriteRef.current === null
+    ),
+  });
+  const worldPlanEditBridge = useMemo<WorldPlanEditBridge>(() => ({
+    capture: () => captureWorldPlanEditTarget(
+      worldEditStateGetterRef.current(),
+      () => worldEditStateGetterRef.current(),
+    ),
+    apply: (captured, admitted, expectedAgentBinding, getAgentBinding) => applyWorldPlanEditProposal({
+      captured,
+      admitted,
+      getCurrent: () => worldEditStateGetterRef.current(),
+      expectedAgentBinding,
+      getAgentBinding,
+    }),
+  }), []);
 
   const toolbarModel = useMemo<MarkdownEditorToolbarModel>(() => {
     const action = (id: string, label: string, invoke: (active: Editor) => void, disabled = false) => ({
@@ -404,6 +472,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           markdownRef.current = nextMarkdown;
           serverTitleRef.current = snapshot.record.title;
           serverMarkdownRef.current = snapshot.markdown;
+          serverDigestRef.current = snapshot.content_sha256;
           pendingWriteRef.current = recoverLocal ? localDraft.pending_write ?? null : null;
           setTitle(nextTitle);
           setMarkdown(nextMarkdown);
@@ -414,6 +483,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               title: snapshot.record.title,
               markdown: snapshot.markdown,
               revision: snapshot.loaded_revision,
+              contentSha256: snapshot.content_sha256,
             });
             setError("The saved Plan changed since this local draft. Your draft is preserved; choose which version to keep before saving.");
           }
@@ -436,6 +506,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         else if (localDraft?.document_id === null) {
           documentIdRef.current = null;
           revisionRef.current = null;
+          serverDigestRef.current = null;
           persistWorldPlanLocalDraft(worldId, localDraft);
         }
         if (!cancelled) setStatus("ready");
@@ -479,6 +550,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       markdownRef.current = snapshot.markdown;
       serverTitleRef.current = snapshot.record.title;
       serverMarkdownRef.current = snapshot.markdown;
+      serverDigestRef.current = snapshot.content_sha256;
       pendingWriteRef.current = null;
       uncertainCreateDraftRef.current = preservedUncertainDraft;
       setUncertainCreateDraft(preservedUncertainDraft);
@@ -524,6 +596,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     markdownRef.current = "";
     serverTitleRef.current = "";
     serverMarkdownRef.current = "";
+    serverDigestRef.current = null;
     pendingWriteRef.current = null;
     setRecoveryConflict(false);
     setServerDraft(null);
@@ -667,6 +740,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           markdownRef.current = submittedMarkdown;
           serverTitleRef.current = created.title;
           serverMarkdownRef.current = "";
+          serverDigestRef.current = null;
           setCreateUncertain(false);
           setUncertainCreateDraft(null);
           setDocumentId(exactId);
@@ -727,6 +801,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               title: snapshot.record.title,
               markdown: snapshot.markdown,
               revision: snapshot.loaded_revision,
+              contentSha256: snapshot.content_sha256,
             });
             setError("The previous save outcome cannot be proven against the current World revision. Your local draft is preserved and saving is blocked until you choose a version.");
           }
@@ -736,6 +811,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         revisionRef.current = currentRevision;
         serverTitleRef.current = snapshot.record.title;
         serverMarkdownRef.current = committed ? committedMarkdown ?? snapshot.markdown : snapshot.markdown;
+        serverDigestRef.current = snapshot.content_sha256;
         pendingWriteRef.current = null;
         const latest = readWorldPlanLocalDraft(worldId);
         const preserveLatest = latest?.document_id === exactId
@@ -852,6 +928,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       revisionRef.current = currentRevision;
       serverTitleRef.current = committed.title;
       serverMarkdownRef.current = submittedMarkdown;
+      serverDigestRef.current = committed.normalized_content_sha256;
       pendingWriteRef.current = null;
       const latest = readWorldPlanLocalDraft(worldId);
       const preserveLatest = latest?.document_id === exactId
@@ -923,6 +1000,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     markdownRef.current = serverDraft.markdown;
     serverTitleRef.current = serverDraft.title;
     serverMarkdownRef.current = serverDraft.markdown;
+    serverDigestRef.current = serverDraft.contentSha256;
     revisionRef.current = serverDraft.revision;
     pendingWriteRef.current = null;
     const generation = ++editGenerationRef.current;
@@ -1145,6 +1223,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         documentId={documentId}
         surfaceInstanceId={surfaceIdentity.instanceKey}
         revision={revisionRef.current}
+        editBridge={documentId ? worldPlanEditBridge : null}
+        draftGeneration={editGenerationRef.current}
+        selectionGeneration={selectionGeneration}
         savedDirty={Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current))}
         pageReady={status === "ready"}
         saveInFlight={saving || pendingWriteRef.current !== null}

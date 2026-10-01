@@ -286,7 +286,7 @@ it("uses only the exact saved World Plan identity and metadata in its conversati
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByRole("region", { name: "Saved World Plan conversation" })).toBeInTheDocument();
-  expect(screen.getByText(/does not read its text/)).toBeInTheDocument();
+  expect(screen.getByText(/Ask sends your question with this Plan’s title and revision only/)).toBeInTheDocument();
 
   act(() => capturedPlanControls().changeTitle({ target: { value: "Unsaved local title" } }));
   fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "What Plan metadata can you see?" } });

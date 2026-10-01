@@ -15,9 +15,13 @@ from apps.live_control_server.models.plan_document_edit_proposal import (
     GeneratedPlanEditProposal,
     PlanDocumentEditProposalRequest,
     PlanDocumentEditProposalResponse,
+    WorldPlanDocumentEditProposalRequest,
+    WorldPlanDocumentEditProposalResponse,
 )
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
+    WorldOwnedPlanRecordV2,
+    WorldOwnedPlanSnapshotV2,
     get_workspace_document_snapshot,
 )
 from apps.live_control_server.services.world_container_registry import (
@@ -115,7 +119,71 @@ def _validate_authority(root: Path, request: PlanDocumentEditProposalRequest) ->
         )
 
 
+def _validate_world_authority(
+    root: Path, request: WorldPlanDocumentEditProposalRequest
+) -> None:
+    try:
+        world = get_world_container(root, request.world_id)
+        snapshot = get_workspace_document_snapshot(root, request.document_id)
+    except (WorldContainerRegistryError, WorkspaceDocumentRegistryError) as exc:
+        raise PlanDocumentEditProposalError(
+            "plan_target_unavailable", "Selected Plan or World is unavailable.", status_code=404
+        ) from exc
+    if world.world_id != request.world_id:
+        raise PlanDocumentEditProposalError(
+            "plan_target_mismatch", "Selected World identity does not match its managed World record."
+        )
+    if not isinstance(snapshot, WorldOwnedPlanSnapshotV2) or not isinstance(
+        snapshot.record, WorldOwnedPlanRecordV2
+    ):
+        raise PlanDocumentEditProposalError(
+            "plan_target_mismatch", "Selected document is not a World-owned Plan."
+        )
+    record = snapshot.record
+    if (
+        record.kind != "plan"
+        or record.status != "active"
+        or record.world_id != request.world_id
+        or record.campaign_id is not None
+    ):
+        raise PlanDocumentEditProposalError(
+            "plan_target_mismatch", "Selected Plan does not belong to this managed World."
+        )
+    if (
+        snapshot.loaded_revision != request.base_revision
+        or snapshot.content_sha256 != request.base_content_sha256
+    ):
+        raise PlanDocumentEditProposalError(
+            "plan_base_stale", "Plan changed since this editor draft was loaded.", status_code=409
+        )
+    if _digest(request.draft_markdown) != request.draft_sha256:
+        raise PlanDocumentEditProposalError(
+            "draft_digest_mismatch", "Current editor draft digest does not match its bytes."
+        )
+    if request.target_kind == "replace_selection" and not request.selected_text.strip():
+        raise PlanDocumentEditProposalError(
+            "plan_target_missing", "Select Plan content before asking to revise it."
+        )
+    if request.target_kind == "insert_at_caret" and request.selected_text:
+        raise PlanDocumentEditProposalError(
+            "plan_target_invalid", "Caret insertion cannot include a selected range."
+        )
+
+
 def _prompt(request: PlanDocumentEditProposalRequest) -> str:
+    context = {
+        "gm_instruction": request.instruction,
+        "target_kind": request.target_kind,
+        "selected_text": request.selected_text,
+        "current_plan_markdown": request.draft_markdown,
+        "conversation_history": [item.model_dump() for item in request.conversation_history],
+    }
+    return json.dumps(context, ensure_ascii=False, separators=(",", ":"))
+
+
+def _world_prompt(request: WorldPlanDocumentEditProposalRequest) -> str:
+    # This body is exclusively the client's explicit mounted-draft context.
+    # The committed snapshot is read only for authority/digest validation.
     context = {
         "gm_instruction": request.instruction,
         "target_kind": request.target_kind,
@@ -215,6 +283,91 @@ def propose_plan_document_edit(
         document_id=request.document_id,
         world_id=request.world_id,
         session=request.session,
+        base_revision=request.base_revision,
+        base_content_sha256=request.base_content_sha256,
+        draft_sha256=request.draft_sha256,
+        target_kind=request.target_kind,
+        selected_text_sha256=_digest(request.selected_text),
+        replacement_markdown=fragment,
+        summary=generated.summary.strip()[:500],
+        assumptions=[item.strip() for item in generated.assumptions if item.strip()],
+        model=actual_model.strip(),
+        model_observed=bool(response_model),
+        model_latency_ms=observation.latency_ms,
+        wall_latency_ms=elapsed_ms,
+        usage=_numeric_usage(observation),
+    )
+
+
+def propose_world_plan_document_edit(
+    *,
+    root: Path,
+    request: WorldPlanDocumentEditProposalRequest,
+    generation_client: Any | None = None,
+    model: str | None = None,
+) -> WorldPlanDocumentEditProposalResponse:
+    """Validate a World-owned Plan, then return an inert proposal with no write effects."""
+    _validate_world_authority(root, request)
+    resolved_model = model or _resolve_model()
+    text_request = TextRequest(
+        user_prompt=_world_prompt(request),
+        system_prompt=_SYSTEM_PROMPT,
+        provider="openai",
+        model=resolved_model,
+        temperature=None,
+        max_output_tokens=4000,
+        json_schema=GeneratedPlanEditProposal.model_json_schema(),
+        schema_name="world_plan_document_edit_proposal",
+    )
+
+    async def _generate() -> Any:
+        if generation_client is not None:
+            return await generation_client.generate_structured(text_request)
+        load_dungeonmindbuddy_dotenv()
+        return await GenerationClient.from_env().generate_structured(text_request)
+
+    started = time.perf_counter()
+    try:
+        result = run_awaitable_sync(_generate)
+    except Exception as exc:
+        raise PlanDocumentEditProposalError(
+            "proposal_generation_failed", "Agent could not produce an edit proposal.", status_code=502
+        ) from exc
+    elapsed_ms = max(0, int((time.perf_counter() - started) * 1000))
+    try:
+        generated = GeneratedPlanEditProposal.model_validate(getattr(result, "parsed", None))
+    except ValidationError as exc:
+        raise PlanDocumentEditProposalError(
+            "proposal_output_invalid", "Agent returned no valid structured edit proposal.", status_code=502
+        ) from exc
+    if generated.cannot_complete_reason:
+        raise PlanDocumentEditProposalError(
+            "proposal_refused", generated.cannot_complete_reason[:500], status_code=422
+        )
+    fragment = generated.replacement_markdown.strip()
+    if not fragment or len(fragment) > 12_000 or not generated.summary.strip():
+        raise PlanDocumentEditProposalError(
+            "proposal_output_invalid", "Agent returned an empty or oversized edit proposal.", status_code=502
+        )
+    if len(generated.assumptions) > 8 or any(len(item) > 500 for item in generated.assumptions):
+        raise PlanDocumentEditProposalError(
+            "proposal_output_invalid", "Agent returned oversized assumptions.", status_code=502
+        )
+    observation = getattr(result, "observation", None)
+    if observation is None or not isinstance(getattr(observation, "latency_ms", None), int):
+        raise PlanDocumentEditProposalError(
+            "proposal_observation_missing", "Agent proposal has no execution observation.", status_code=502
+        )
+    response_model = getattr(observation, "response_model", None)
+    observed_model = getattr(observation, "resolved_model", None)
+    actual_model = response_model or observed_model
+    if not isinstance(actual_model, str) or not actual_model.strip():
+        raise PlanDocumentEditProposalError(
+            "proposal_model_unproven", "Agent proposal model identity is unavailable.", status_code=502
+        )
+    return WorldPlanDocumentEditProposalResponse(
+        document_id=request.document_id,
+        world_id=request.world_id,
         base_revision=request.base_revision,
         base_content_sha256=request.base_content_sha256,
         draft_sha256=request.draft_sha256,

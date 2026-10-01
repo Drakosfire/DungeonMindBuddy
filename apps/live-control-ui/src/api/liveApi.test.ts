@@ -45,6 +45,7 @@ import {
   prepareWorldRunbookMarkdownWrite,
   postLiveQuery,
   postIndexAgentTurn,
+  postWorldPlanDocumentEditProposal,
   postWorldPlanAgentTurn,
   postThreatQueryHydration,
   postWorldGraphProjection,
@@ -85,6 +86,7 @@ import type {
   StoreStatblockDraftRequest,
   TiptapMarkdownWritePrepareResponse,
   WorldPlanAgentTurnRequestV1,
+  WorldPlanDocumentEditProposalRequest,
   WorkspaceDocumentRecord,
 } from "./types";
 
@@ -157,6 +159,35 @@ describe("World Plan Agent turn transport", () => {
     expect(fetchSpy.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
     expect(JSON.stringify(request)).not.toContain("local-plan:");
+  });
+});
+
+describe("World Plan edit proposal transport", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("posts the exact session-free World proposal contract to its separate endpoint", async () => {
+    const request: WorldPlanDocumentEditProposalRequest = {
+      document_id: "document-1",
+      world_id: "world-a",
+      base_revision: 3,
+      base_content_sha256: "a".repeat(64),
+      draft_markdown: "# Local draft",
+      draft_sha256: "b".repeat(64),
+      target_kind: "replace_selection",
+      selected_text: "Local draft",
+      instruction: "Make it more tense.",
+      conversation_history: [],
+    };
+    const response = { schema_version: "dmb_world_plan_document_edit_proposal_v1" };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(response));
+
+    await expect(postWorldPlanDocumentEditProposal(request)).resolves.toEqual(response);
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/world-plan-edit/propose");
+    expect(fetchSpy.mock.calls[0]?.[1]?.method).toBe("POST");
+    expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
+    expect(JSON.stringify(request)).not.toContain("session");
+    expect(JSON.stringify(request)).not.toContain("campaign_id");
   });
 });
 

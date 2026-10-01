@@ -6,10 +6,16 @@ import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorC
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
 import {
+  admitWorldPlanEditProposal,
   admitPlanEditProposal,
+  applyWorldPlanEditProposal,
   applyPlanEditProposal,
   capturePlanEditTarget,
+  captureWorldPlanEditTarget,
+  type ExpectedWorldPlanEditAgentBinding,
   type PlanEditEditorState,
+  type WorldPlanEditAgentBinding,
+  type WorldPlanEditEditorState,
 } from "./planAgentEditProposal";
 
 const BASE_SHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
@@ -63,6 +69,72 @@ function responseFor(
     model_latency_ms: 1,
     wall_latency_ms: 1,
     usage: null,
+  };
+}
+
+function worldState(state: PlanEditEditorState): WorldPlanEditEditorState {
+  return {
+    editor: state.editor,
+    documentId: state.documentId,
+    worldId: state.worldId,
+    baseRevision: state.baseRevision,
+    baseContentSha256: state.baseContentSha256,
+    sourceMarkdown: state.sourceMarkdown,
+    draftGeneration: 0,
+    selectionGeneration: 0,
+    canEdit: state.canEdit,
+  };
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function worldResponseFor(
+  captured: Awaited<ReturnType<typeof captureWorldPlanEditTarget>>,
+  replacement_markdown: string,
+) {
+  return {
+    schema_version: "dmb_world_plan_document_edit_proposal_v1" as const,
+    document_id: captured.request.document_id,
+    world_id: captured.request.world_id,
+    base_revision: captured.request.base_revision,
+    base_content_sha256: captured.request.base_content_sha256,
+    draft_sha256: captured.request.draft_sha256,
+    target_kind: captured.request.target_kind,
+    selected_text_sha256: await sha256Hex(captured.request.selected_text),
+    replacement_markdown,
+    summary: "Opening scene",
+    assumptions: [],
+    model: "test-model",
+    model_observed: true,
+    model_latency_ms: 1,
+    wall_latency_ms: 1,
+    usage: null,
+  };
+}
+
+function matchingAgentBinding(): WorldPlanEditAgentBinding {
+  return {
+    mounted: true,
+    verifiedWorldId: "world-1",
+    activeThreadId: "thread-1",
+    scope: {
+      campaignId: "world-plan-agent:world:world-1:document:plan-1",
+      surfaceId: "plan",
+      sessionNumber: null,
+      documentId: "plan-1",
+    },
+  };
+}
+
+function expectedAgentBinding(): ExpectedWorldPlanEditAgentBinding {
+  return {
+    worldId: "world-1",
+    documentId: "plan-1",
+    threadId: "thread-1",
+    namespace: "world-plan-agent:world:world-1:document:plan-1",
   };
 }
 
@@ -255,5 +327,146 @@ describe("reviewed Plan edit admission", () => {
       ...responseFor(captured, "Valid prose"),
       draft_sha256: BASE_SHA,
     })).rejects.toThrow(/captured Plan target/);
+  });
+});
+
+describe("reviewed World-only Plan edit admission and Apply", () => {
+  it("captures a session-free World target and applies only to the same mounted editor", async () => {
+    const { editor, state } = mountedState();
+    editor.commands.setTextSelection(1);
+    const current = worldState(state);
+    const captured = await captureWorldPlanEditTarget(current, () => current);
+    expect(captured.request).not.toHaveProperty("session");
+    expect(captured.request).toMatchObject({
+      world_id: "world-1",
+      document_id: "plan-1",
+      base_revision: 2,
+      target_kind: "insert_at_caret",
+    });
+    const admitted = await admitWorldPlanEditProposal(
+      captured,
+      await worldResponseFor(captured, "A new World-owned opening."),
+    );
+    const binding = matchingAgentBinding();
+    await applyWorldPlanEditProposal({
+      captured,
+      admitted,
+      getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(),
+      getAgentBinding: () => binding,
+    });
+    expect(editor.getText()).toContain("A new World-owned opening.");
+  });
+
+  it("rejects a thread switch during deferred Apply at the final synchronous guard", async () => {
+    const { editor, state } = mountedState();
+    editor.commands.setTextSelection({ from: 7, to: 14 });
+    const current = worldState(state);
+    const captured = await captureWorldPlanEditTarget(current, () => current);
+    const admitted = await admitWorldPlanEditProposal(
+      captured,
+      await worldResponseFor(captured, "Agent text"),
+    );
+    const binding = matchingAgentBinding();
+    const originalDigest = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    vi.spyOn(crypto.subtle, "digest").mockImplementationOnce(async (...args) => {
+      await gate;
+      return originalDigest(...args);
+    });
+    const before = editor.getJSON();
+    const apply = applyWorldPlanEditProposal({
+      captured,
+      admitted,
+      getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(),
+      getAgentBinding: () => binding,
+    });
+    binding.activeThreadId = "thread-2";
+    release();
+    await expect(apply).rejects.toThrow(/thread or scope changed/);
+    expect(editor.getJSON()).toEqual(before);
+  });
+
+  it.each([
+    ["null scope", (binding: WorldPlanEditAgentBinding) => { binding.scope = null; }],
+    ["foreign scope", (binding: WorldPlanEditAgentBinding) => {
+      binding.scope = { ...binding.scope!, campaignId: "foreign-world-plan" };
+    }],
+    ["null thread", (binding: WorldPlanEditAgentBinding) => { binding.activeThreadId = null; }],
+    ["foreign World", (binding: WorldPlanEditAgentBinding) => { binding.verifiedWorldId = "world-2"; }],
+  ] as const)("fails closed on %s after awaited Apply preparation", async (_label, replaceBinding) => {
+    const { editor, state } = mountedState();
+    editor.commands.setTextSelection({ from: 7, to: 14 });
+    const current = worldState(state);
+    const captured = await captureWorldPlanEditTarget(current, () => current);
+    const admitted = await admitWorldPlanEditProposal(
+      captured,
+      await worldResponseFor(captured, "Agent text"),
+    );
+    const binding = matchingAgentBinding();
+    const originalDigest = crypto.subtle.digest.bind(crypto.subtle);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => { release = resolve; });
+    vi.spyOn(crypto.subtle, "digest").mockImplementationOnce(async (...args) => {
+      await gate;
+      return originalDigest(...args);
+    });
+    const before = editor.getJSON();
+    const apply = applyWorldPlanEditProposal({
+      captured,
+      admitted,
+      getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(),
+      getAgentBinding: () => binding,
+    });
+    replaceBinding(binding);
+    release();
+    await expect(apply).rejects.toThrow(/thread or scope changed/);
+    expect(editor.getJSON()).toEqual(before);
+  });
+
+  it("rejects a response for another World Plan revision or draft", async () => {
+    const { state } = mountedState();
+    const current = worldState(state);
+    const captured = await captureWorldPlanEditTarget(current, () => current);
+    const response = await worldResponseFor(captured, "Valid prose");
+    await expect(admitWorldPlanEditProposal(captured, { ...response, world_id: "world-2" })).rejects.toThrow(/captured World Plan/);
+    await expect(admitWorldPlanEditProposal(captured, { ...response, base_revision: 3 })).rejects.toThrow(/captured World Plan/);
+    await expect(admitWorldPlanEditProposal(captured, { ...response, draft_sha256: BASE_SHA })).rejects.toThrow(/captured World Plan/);
+  });
+
+  it.each([
+    ["World identity", (current: WorldPlanEditEditorState) => { current.worldId = "world-2"; }],
+    ["document identity", (current: WorldPlanEditEditorState) => { current.documentId = "plan-2"; }],
+    ["saved revision", (current: WorldPlanEditEditorState) => { current.baseRevision = 3; }],
+    ["saved digest", (current: WorldPlanEditEditorState) => { current.baseContentSha256 = "f".repeat(64); }],
+    ["draft bytes", (current: WorldPlanEditEditorState) => { current.sourceMarkdown += "\nA new local sentence."; current.draftGeneration += 1; }],
+    ["draft generation", (current: WorldPlanEditEditorState) => { current.draftGeneration += 1; }],
+    ["selection generation", (current: WorldPlanEditEditorState) => { current.selectionGeneration += 1; }],
+    ["save state", (current: WorldPlanEditEditorState) => { current.canEdit = false; }],
+    ["editor selection", (_current: WorldPlanEditEditorState, editor: Editor) => { editor.commands.setTextSelection({ from: 8, to: 14 }); }],
+    ["editor body", (current: WorldPlanEditEditorState, editor: Editor) => { editor.commands.insertContentAt(2, "Changed "); current.draftGeneration += 1; }],
+  ] as const)("rejects stale %s without applying a proposal", async (_label, drift) => {
+    const { editor, state } = mountedState();
+    editor.commands.setTextSelection({ from: 7, to: 14 });
+    const initial = worldState(state);
+    const captured = await captureWorldPlanEditTarget(initial, () => initial);
+    const admitted = await admitWorldPlanEditProposal(
+      captured,
+      await worldResponseFor(captured, "Agent text"),
+    );
+    const current = { ...initial };
+    drift(current, editor);
+    const before = editor.getJSON();
+    await expect(applyWorldPlanEditProposal({
+      captured,
+      admitted,
+      getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(),
+      getAgentBinding: matchingAgentBinding,
+    })).rejects.toThrow();
+    expect(editor.getJSON()).toEqual(before);
   });
 });
