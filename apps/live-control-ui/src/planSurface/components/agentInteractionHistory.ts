@@ -701,6 +701,37 @@ function safeIndexAgentTurnResolved(value: unknown): IndexAgentTurnResolvedSumma
   };
 }
 
+function safeWorldPlanContentBasis(
+  value: unknown,
+): NonNullable<WorldPlanAgentTurnResolvedSummary["contentBasis"]> | null {
+  if (!isRecord(value)
+    || value.committedStatus !== "committed"
+    || typeof value.hasDivergentWorkingCopy !== "boolean"
+    || typeof value.objectRevision !== "number"
+    || !Number.isSafeInteger(value.objectRevision)
+    || value.objectRevision < 1
+    || typeof value.revisionN !== "number"
+    || !Number.isSafeInteger(value.revisionN)
+    || value.revisionN < 1
+    || typeof value.contentSha256 !== "string"
+    || !/^[0-9a-f]{64}$/.test(value.contentSha256)) return null;
+
+  const worldId = truncatePersistedString(value.worldId);
+  const documentId = truncatePersistedString(value.documentId);
+  const workRevisionId = truncatePersistedString(value.workRevisionId);
+  if (!worldId || !documentId || !workRevisionId) return null;
+  return {
+    worldId,
+    documentId,
+    objectRevision: value.objectRevision,
+    workRevisionId,
+    revisionN: value.revisionN,
+    contentSha256: value.contentSha256,
+    committedStatus: "committed",
+    hasDivergentWorkingCopy: value.hasDivergentWorkingCopy,
+  };
+}
+
 function safeWorldPlanAgentTurnResolved(value: unknown): WorldPlanAgentTurnResolvedSummary | null {
   if (!isRecord(value)) return null;
   if (value.surfaceId !== "plan"
@@ -721,7 +752,17 @@ function safeWorldPlanAgentTurnResolved(value: unknown): WorldPlanAgentTurnResol
   const instanceId = truncatePersistedString(value.instanceId);
   const ownerId = truncatePersistedString(value.ownerId);
   const workObjectId = truncatePersistedString(value.workObjectId);
-  if (!instanceId || !ownerId || !workObjectId) return null;
+  const contentBasis = value.contentBasis === undefined
+    ? undefined
+    : safeWorldPlanContentBasis(value.contentBasis);
+  if (!instanceId || !ownerId || !workObjectId
+    || (value.contentBasis !== undefined && !contentBasis)
+    || (contentBasis && (
+      value.workStatus !== "resolved"
+      || contentBasis.worldId !== ownerId
+      || contentBasis.documentId !== workObjectId
+      || contentBasis.objectRevision !== value.revisionUsed
+    ))) return null;
 
   return {
     surfaceId: "plan",
@@ -733,6 +774,7 @@ function safeWorldPlanAgentTurnResolved(value: unknown): WorldPlanAgentTurnResol
     workStatus: value.workStatus as WorldPlanAgentTurnResolvedSummary["workStatus"],
     expectedRevision: value.expectedRevision,
     revisionUsed: value.revisionUsed,
+    ...(contentBasis ? { contentBasis } : {}),
     clientWorkState: value.clientWorkState as WorldPlanAgentTurnResolvedSummary["clientWorkState"],
     graphStatus: "not_requested",
     pointerStatus: value.pointerStatus as WorldPlanAgentTurnResolvedSummary["pointerStatus"],

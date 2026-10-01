@@ -1,11 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
-import { postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal } from "../../api/liveApi";
+import { getWorldOwnedPlanCommittedRevision, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
   WorldPlanDocumentEditProposalRequest,
+  WorldPlanAgentContentBasisV1,
   WorldPlanAgentTurnRequestV1,
   WorldPlanAgentTurnResolvedSummary,
 } from "../../api/types";
@@ -83,6 +84,67 @@ function isPositiveRevision(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
 }
 
+function readCommittedPlanBasis(
+  value: unknown,
+  worldId: string,
+  documentId: string,
+  expectedObjectRevision: number,
+): WorldPlanAgentContentBasisV1 | null {
+  if (!isRecord(value)
+    || value.schema_version !== "dmb_workspace_committed_revision_v2"
+    || value.scope_mode !== "world"
+    || value.world_id !== worldId
+    || value.campaign_id !== null
+    || value.document_id !== documentId
+    || value.kind !== "plan"
+    || value.status !== "active"
+    || value.object_revision !== expectedObjectRevision
+    || !isPositiveRevision(value.object_revision)
+    || !isPositiveRevision(value.revision_n)
+    || typeof value.work_revision_id !== "string"
+    || !value.work_revision_id.trim()
+    || typeof value.markdown !== "string"
+    || typeof value.content_sha256 !== "string"
+    || !/^[0-9a-f]{64}$/.test(value.content_sha256)
+    || typeof value.has_divergent_working_copy !== "boolean") return null;
+
+  return {
+    world_id: value.world_id,
+    document_id: value.document_id,
+    object_revision: value.object_revision,
+    work_revision_id: value.work_revision_id,
+    revision_n: value.revision_n,
+    content_sha256: value.content_sha256,
+    committed_status: "committed",
+    has_divergent_working_copy: value.has_divergent_working_copy,
+  };
+}
+
+function matchesCommittedPlanBasis(
+  value: unknown,
+  request: WorldPlanAgentTurnRequestV1,
+): value is WorldPlanAgentContentBasisV1 {
+  return hasExactKeys(value, [
+    "world_id",
+    "document_id",
+    "object_revision",
+    "work_revision_id",
+    "revision_n",
+    "content_sha256",
+    "committed_status",
+    "has_divergent_working_copy",
+  ])
+    && value.world_id === request.owner_scope.world_id
+    && value.document_id === request.primary_work.object_id
+    && value.object_revision === request.primary_work.expected_revision
+    && value.revision_n === request.primary_work.expected_revision_n
+    && value.content_sha256 === request.primary_work.expected_content_sha256
+    && value.committed_status === "committed"
+    && typeof value.work_revision_id === "string"
+    && Boolean(value.work_revision_id.trim())
+    && typeof value.has_divergent_working_copy === "boolean";
+}
+
 function planThreadNamespace(worldId: string, documentId: string): string {
   return `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
 }
@@ -128,14 +190,15 @@ function validateWorldPlanResponse(
   }
 
   const work = value.primary_work;
-  if (!hasExactKeys(work, ["status", "kind", "object_id", "revision_used", "expected_revision"])
+  if (!hasExactKeys(work, ["status", "kind", "object_id", "revision_used", "expected_revision", "content_basis"])
     || work.kind !== "plan"
     || work.object_id !== request.primary_work.object_id
     || work.expected_revision !== request.primary_work.expected_revision
+    || work.status !== "resolved"
+    || work.revision_used !== request.primary_work.expected_revision
     || !isPositiveRevision(work.revision_used)
-    || !["resolved", "changed_since_expected"].includes(String(work.status))
-    || (work.status === "resolved") !== (work.revision_used === request.primary_work.expected_revision)) {
-    return { ok: false, message: "The saved Plan identity or revision could not be verified. Reopen the Plan and try again." };
+    || !matchesCommittedPlanBasis(work.content_basis, request)) {
+    return { ok: false, message: "The saved Plan identity or committed revision could not be verified. Reopen the Plan and try again." };
   }
 
   if (value.client_work_state_reported !== request.client_work_state) {
@@ -202,6 +265,16 @@ function validateWorldPlanResponse(
     workStatus: work.status as WorldPlanAgentTurnResolvedSummary["workStatus"],
     expectedRevision: request.primary_work.expected_revision,
     revisionUsed: work.revision_used,
+    contentBasis: {
+      worldId: work.content_basis.world_id,
+      documentId: work.content_basis.document_id,
+      objectRevision: work.content_basis.object_revision,
+      workRevisionId: work.content_basis.work_revision_id,
+      revisionN: work.content_basis.revision_n,
+      contentSha256: work.content_basis.content_sha256,
+      committedStatus: "committed",
+      hasDivergentWorkingCopy: work.content_basis.has_divergent_working_copy,
+    },
     clientWorkState: request.client_work_state,
     graphStatus: "not_requested",
     pointerStatus: conversation.pointer_status as WorldPlanAgentTurnResolvedSummary["pointerStatus"],
@@ -250,7 +323,7 @@ export function WorldPlanAgentConversation({
     campaignId: namespace,
     documentId,
     sessionNumber: null,
-    ambientSummary: "Conversation only · saved Plan text is not read",
+    ambientSummary: "Plan Ask uses the exact committed revision; unsaved draft text is excluded",
     sourceEnvelope: null,
   }) : null, [documentId, namespace]);
   usePublishAgentSurfaceContext(surfaceContext);
@@ -435,18 +508,6 @@ export function WorldPlanAgentConversation({
       documentId,
     );
     const providerThreadId = agent.activeThread?.threadId ?? null;
-    const request: WorldPlanAgentTurnRequestV1 = {
-      schema: "dmb_agent_turn_request_v1",
-      client_thread_id: currentThread.threadId,
-      turn_id: crypto.randomUUID(),
-      surface: { surface_id: "plan", instance_id: surfaceInstanceId },
-      owner_scope: { kind: "world", world_id: worldId },
-      primary_work: { kind: "plan", object_id: documentId, expected_revision: revision },
-      client_work_state: savedDirty ? "saved_dirty" : "saved_clean",
-      graph_request: { mode: "none" },
-      graph_selection: null,
-      message,
-    };
     const token = Symbol("world-plan-agent-turn");
     requestRef.current = { token, threadId: currentThread.threadId, fenceKey: requestFenceKey };
     setSending(true);
@@ -459,6 +520,30 @@ export function WorldPlanAgentConversation({
       && requestRef.current?.token === token;
 
     try {
+      const committedRevision: unknown = await getWorldOwnedPlanCommittedRevision(documentId);
+      if (!isCurrent()) return;
+      const contentBasis = readCommittedPlanBasis(committedRevision, worldId, documentId, revision);
+      if (!contentBasis) {
+        throw new Error("The committed Plan changed or could not be verified. Refresh the Plan before asking.");
+      }
+      const request: WorldPlanAgentTurnRequestV1 = {
+        schema: "dmb_agent_turn_request_v1",
+        client_thread_id: currentThread.threadId,
+        turn_id: crypto.randomUUID(),
+        surface: { surface_id: "plan", instance_id: surfaceInstanceId },
+        owner_scope: { kind: "world", world_id: worldId },
+        primary_work: {
+          kind: "plan",
+          object_id: documentId,
+          expected_revision: revision,
+          expected_revision_n: contentBasis.revision_n,
+          expected_content_sha256: contentBasis.content_sha256,
+        },
+        client_work_state: savedDirty ? "saved_dirty" : "saved_clean",
+        graph_request: { mode: "none" },
+        graph_selection: null,
+        message,
+      };
       const response: unknown = await postWorldPlanAgentTurn(request);
       if (!isCurrent()) return;
       const validation = validateWorldPlanResponse(response, request);
@@ -694,7 +779,7 @@ export function WorldPlanAgentConversation({
         </div>
       </header>
       <p className="world-plan-agent-conversation__notice" role="note">
-        Ask sends your question with this Plan’s title and revision only; it does not send Plan text. Compose or Revise below explicitly sends the current mounted draft and selection to the configured model. Nothing changes until you review and apply a proposal.
+        Ask sends this Plan’s exact committed text and your question to the configured model. Unsaved editor changes are excluded; the turn records which committed revision it used and whether a divergent working copy existed. Compose or Revise below sends the selected text and current mounted draft to the configured model. Nothing changes until you review and apply a proposal.
       </p>
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
@@ -755,12 +840,28 @@ export function WorldPlanAgentConversation({
               </p>
             ) : null}
             {turn.agentTurnResolved?.surfaceId === "plan" ? (
-              <p className="world-plan-agent-conversation__context">
-                {turn.agentTurnResolved.workStatus === "changed_since_expected"
-                  ? `Expected revision ${turn.agentTurnResolved.expectedRevision}; answered from revision ${turn.agentTurnResolved.revisionUsed}.`
-                  : `Saved Plan revision ${turn.agentTurnResolved.revisionUsed}.`}
-                {" "}Editor was {turn.agentTurnResolved.clientWorkState === "saved_dirty" ? "edited since save" : "unchanged"} when asked.
-              </p>
+              <>
+                <p className="world-plan-agent-conversation__context">
+                  {turn.agentTurnResolved.contentBasis
+                    ? `Answered from committed Plan revision ${turn.agentTurnResolved.contentBasis.revisionN} (object revision ${turn.agentTurnResolved.contentBasis.objectRevision}).`
+                    : `Saved Plan revision ${turn.agentTurnResolved.revisionUsed}.`}
+                  {" "}Editor was {turn.agentTurnResolved.clientWorkState === "saved_dirty" ? "edited since save" : "unchanged"} when asked.
+                </p>
+                {turn.agentTurnResolved.contentBasis ? (
+                  <details className="world-plan-agent-conversation__context-basis">
+                    <summary>Exact committed content basis</summary>
+                    <dl>
+                      <dt>World</dt><dd>{turn.agentTurnResolved.contentBasis.worldId}</dd>
+                      <dt>Plan</dt><dd>{turn.agentTurnResolved.contentBasis.documentId}</dd>
+                      <dt>WorkRevision</dt><dd>{turn.agentTurnResolved.contentBasis.workRevisionId}</dd>
+                      <dt>Revision number</dt><dd>{turn.agentTurnResolved.contentBasis.revisionN}</dd>
+                      <dt>Content SHA-256</dt><dd><code>{turn.agentTurnResolved.contentBasis.contentSha256}</code></dd>
+                      <dt>Status</dt><dd>{turn.agentTurnResolved.contentBasis.committedStatus}</dd>
+                      <dt>Divergent working copy</dt><dd>{turn.agentTurnResolved.contentBasis.hasDivergentWorkingCopy ? "Present · excluded" : "None"}</dd>
+                    </dl>
+                  </details>
+                ) : null}
+              </>
             ) : null}
             {turn.trace && traceVisible ? <AgentTraceInspector trace={turn.trace} /> : null}
           </article>

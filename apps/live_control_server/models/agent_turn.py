@@ -64,6 +64,8 @@ class AgentTurnPrimaryWork(BaseModel):
     kind: Literal["plan", "build", "run", "combat"]
     object_id: str = Field(min_length=1, max_length=128)
     expected_revision: int = Field(strict=True, ge=1)
+    expected_revision_n: int | None = Field(default=None, strict=True, ge=1)
+    expected_content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
     @field_validator("object_id")
     @classmethod
@@ -72,6 +74,18 @@ class AgentTurnPrimaryWork(BaseModel):
         if not cleaned:
             raise ValueError("object_id must be non-blank")
         return cleaned
+
+    @model_validator(mode="after")
+    def validate_plan_content_pin(self) -> AgentTurnPrimaryWork:
+        has_revision_n = self.expected_revision_n is not None
+        has_content_sha256 = self.expected_content_sha256 is not None
+        if has_revision_n != has_content_sha256:
+            raise ValueError(
+                "committed Plan revision number and digest must be pinned together"
+            )
+        if self.kind != "plan" and (has_revision_n or has_content_sha256):
+            raise ValueError("committed Plan pins are only valid for Plan work")
+        return self
 
 
 class AgentTurnGraphNone(BaseModel):
@@ -89,11 +103,19 @@ class AgentTurnGraphFocus(BaseModel):
 
     @model_validator(mode="after")
     def validate_focus(self) -> AgentTurnGraphFocus:
-        if self.kind == "none" and (self.session_id is not None or self.campaign_id is not None):
-            raise ValueError("none graph focus cannot carry session or campaign identity")
+        if self.kind == "none" and (
+            self.session_id is not None or self.campaign_id is not None
+        ):
+            raise ValueError(
+                "none graph focus cannot carry session or campaign identity"
+            )
         if self.kind == "session" and not self.session_id:
             raise ValueError("session focus requires an exact session_id")
-        if self.kind == "session" and self.session_id is not None and not self.session_id.strip():
+        if (
+            self.kind == "session"
+            and self.session_id is not None
+            and not self.session_id.strip()
+        ):
             raise ValueError("session focus requires a non-blank session_id")
         if self.campaign_id is not None and not self.campaign_id.strip():
             raise ValueError("focus campaign_id must be null or non-blank")
@@ -195,13 +217,30 @@ class AgentTurnRequest(BaseModel):
 
     @model_validator(mode="after")
     def reject_contradictory_unsaved_work(self) -> AgentTurnRequest:
-        if self.client_work_state in {"saved_clean", "saved_dirty"} and self.primary_work is None:
+        if (
+            self.client_work_state in {"saved_clean", "saved_dirty"}
+            and self.primary_work is None
+        ):
             raise ValueError("saved work state requires a primary_work locator")
         if self.primary_work is not None and self.client_work_state not in {
             "saved_clean",
             "saved_dirty",
         }:
             raise ValueError("primary_work requires saved_clean or saved_dirty state")
+        if (
+            self.surface.surface_id == "plan"
+            and self.primary_work is not None
+            and self.primary_work.kind == "plan"
+        ):
+            if (
+                self.primary_work.expected_revision_n is None
+                or self.primary_work.expected_content_sha256 is None
+            ):
+                raise ValueError(
+                    "Plan Agent turns require the exact committed content pin"
+                )
+            if self.graph_request.mode != "none":
+                raise ValueError("Plan content turns require graph_request.mode=none")
         if self.graph_request.mode == "none":
             if self.graph_selection is not None:
                 raise ValueError("graph selection requires an explicit graph request")
@@ -225,16 +264,35 @@ class AgentTurnOwnerResult(BaseModel):
     name: str | None
 
 
+class AgentTurnContentBasis(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    world_id: str = Field(min_length=1, max_length=128)
+    document_id: str = Field(min_length=1, max_length=128)
+    object_revision: int = Field(strict=True, ge=1)
+    work_revision_id: str = Field(min_length=1, max_length=128)
+    revision_n: int = Field(strict=True, ge=1)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    committed_status: Literal["committed"]
+    has_divergent_working_copy: bool
+
+
 class AgentTurnWorkResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     status: Literal[
-        "absent", "resolved", "changed_since_expected", "foreign", "removed", "unavailable"
+        "absent",
+        "resolved",
+        "changed_since_expected",
+        "foreign",
+        "removed",
+        "unavailable",
     ]
     kind: str | None
     object_id: str | None
     revision_used: str | int | None
     expected_revision: int | None
+    content_basis: AgentTurnContentBasis | None = None
 
 
 class AgentTurnGraphResult(BaseModel):
@@ -283,7 +341,9 @@ class AgentTurnResponse(BaseModel):
     surface: AgentTurnSurfaceResult
     owner_scope: AgentTurnOwnerResult
     primary_work: AgentTurnWorkResult
-    client_work_state_reported: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
+    client_work_state_reported: Literal[
+        "none", "saved_clean", "saved_dirty", "new_unsaved"
+    ]
     graph: AgentTurnGraphResult
     conversation: AgentTurnConversationResult
     answer: AgentTurnAnswerResult

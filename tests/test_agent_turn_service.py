@@ -7,7 +7,10 @@ from typing import Any
 
 import pytest
 
-from apps.live_control_server.models.agent_turn import AgentTurnRequest
+from apps.live_control_server.models.agent_turn import (
+    AgentTurnContentBasis,
+    AgentTurnRequest,
+)
 from apps.live_control_server.services.agent_runtime import (
     CONVERSATION_ONLY_POLICY_ID,
     AgentRuntimeDescriptor,
@@ -18,7 +21,9 @@ from apps.live_control_server.services.agent_turn_service import (
     AgentTurnServiceError,
     execute_agent_turn,
 )
-from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+from apps.live_control_server.services.hermes_session_store import (
+    HermesSessionPointerStore,
+)
 
 
 def _request(**updates: Any) -> AgentTurnRequest:
@@ -40,7 +45,10 @@ def _request(**updates: Any) -> AgentTurnRequest:
 
 class FakeRuntime:
     descriptor = AgentRuntimeDescriptor(
-        runtime_id="fake", trace_backend="fake", trace_runtime="test", trace_mode="conversation"
+        runtime_id="fake",
+        trace_backend="fake",
+        trace_runtime="test",
+        trace_mode="conversation",
     )
 
     def __init__(self) -> None:
@@ -71,6 +79,110 @@ def _plan_work(_request: Any, _owner: Any) -> AgentTurnResolvedWork:
 
 def _plan_request() -> AgentTurnRequest:
     return _request(surface={"surface_id": "plan", "instance_id": "plan-main"})
+
+
+def _pinned_plan_request() -> AgentTurnRequest:
+    return _request(
+        surface={"surface_id": "plan", "instance_id": "plan-main"},
+        owner_scope={"kind": "world", "world_id": "world:one"},
+        primary_work={
+            "kind": "plan",
+            "object_id": "plan:one",
+            "expected_revision": 7,
+            "expected_revision_n": 4,
+            "expected_content_sha256": "b" * 64,
+        },
+        client_work_state="saved_dirty",
+        message="What is beneath the black arch?",
+    )
+
+
+def _pinned_plan_work(markdown: str) -> AgentTurnResolvedWork:
+    return AgentTurnResolvedWork(
+        kind="plan",
+        object_id="plan:one",
+        revision=7,
+        changed_since_expected=False,
+        owner_kind="world",
+        owner_id="world:one",
+        world_id="world:one",
+        content_basis=AgentTurnContentBasis(
+            world_id="world:one",
+            document_id="plan:one",
+            object_revision=7,
+            work_revision_id="work-revision-4",
+            revision_n=4,
+            content_sha256="b" * 64,
+            committed_status="committed",
+            has_divergent_working_copy=True,
+        ),
+        plan_markdown=markdown,
+    )
+
+
+def test_plan_turn_sends_exact_committed_markdown_and_returns_source_free_basis(
+    tmp_path: Path,
+) -> None:
+    markdown = "# Saved Plan\n\nThe keeper waits below the black arch.\n"
+    runtime = FakeRuntime()
+    response = execute_agent_turn(
+        _pinned_plan_request(),
+        root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+        owner_resolver=lambda _request: {
+            "kind": "world",
+            "id": "world:one",
+            "name": "The Glass Orchard",
+        },
+        work_resolver=lambda _request, _owner: _pinned_plan_work(markdown),
+        graph_resolver=lambda *_args: pytest.fail(
+            "Plan content turn must not resolve graph"
+        ),
+        runtime=runtime,
+    )
+
+    assert len(runtime.invocations) == 1
+    prefix, payload = runtime.invocations[0].message.split("\n", maxsplit=1)
+    assert prefix.startswith("Answer the user's question using the committed Plan")
+    assert json.loads(payload) == {
+        "committed_plan_markdown": markdown,
+        "user_question": "What is beneath the black arch?",
+    }
+    assert response.graph.status == "not_requested"
+    assert (
+        response.primary_work.content_basis == _pinned_plan_work(markdown).content_basis
+    )
+    assert markdown not in response.model_dump_json(by_alias=True)
+    assert response.answer.trace.get("context_summary", {}).get("content_basis") is None
+
+
+def test_over_budget_committed_plan_stops_before_pointer_or_runtime_dispatch(
+    tmp_path: Path,
+) -> None:
+    runtime = FakeRuntime()
+    pointer_dir = tmp_path / "pointers"
+
+    with pytest.raises(AgentTurnServiceError) as exc_info:
+        execute_agent_turn(
+            _pinned_plan_request(),
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(pointer_dir),
+            owner_resolver=lambda _request: {
+                "kind": "world",
+                "id": "world:one",
+                "name": "The Glass Orchard",
+            },
+            work_resolver=lambda _request, _owner: _pinned_plan_work("x" * 8_000),
+            graph_resolver=lambda *_args: pytest.fail(
+                "Plan content turn must not resolve graph"
+            ),
+            runtime=runtime,
+        )
+
+    assert exc_info.value.code == "plan_content_over_budget"
+    assert exc_info.value.status_code == 413
+    assert runtime.invocations == []
+    assert not (pointer_dir / "hermes_thread_pointers.json").exists()
 
 
 def test_no_graph_turn_uses_no_scope_runtime_and_only_structured_pointer_store(
@@ -145,7 +257,9 @@ def test_no_work_turn_carries_surface_and_verified_world_through_real_adapters(
             "name": "The Glass Orchard",
         },
         work_resolver=lambda _request, _owner: None,
-        graph_resolver=lambda *_args: pytest.fail("no-graph turn resolved graph authority"),
+        graph_resolver=lambda *_args: pytest.fail(
+            "no-graph turn resolved graph authority"
+        ),
         runtime=runtime,
     )
 
@@ -217,6 +331,7 @@ def test_graphless_followup_reuses_same_binding_without_current_graph_authority(
 
     runtime = FakeRuntime()
     pointer_store = HermesSessionPointerStore(tmp_path / "pointers")
+
     def owner(_request):
         return {
             "kind": "world",
@@ -279,7 +394,9 @@ def test_graphless_followup_reuses_same_binding_without_current_graph_authority(
         pointer_store=pointer_store,
         owner_resolver=owner,
         work_resolver=lambda _request, _owner: None,
-        graph_resolver=lambda *_args: pytest.fail("graphless follow-up must not retrieve"),
+        graph_resolver=lambda *_args: pytest.fail(
+            "graphless follow-up must not retrieve"
+        ),
         runtime=runtime,
     )
 
@@ -370,9 +487,7 @@ def test_rejected_plan_pointer_does_not_change_other_agent_surface_behavior(
     ).strftime("%Y-%m-%dT%H:%M:%SZ")
     store_path.write_text(json.dumps(payload), encoding="utf-8")
     runtime = FakeRuntime()
-    request = _request(
-        surface={"surface_id": "build", "instance_id": "plan-main"}
-    )
+    request = _request(surface={"surface_id": "build", "instance_id": "plan-main"})
 
     response = execute_agent_turn(
         request,
@@ -562,7 +677,9 @@ def test_unresolvable_requested_graph_fails_before_runtime(tmp_path: Path) -> No
     )
 
     def reject_graph(*_args: Any) -> Any:
-        raise AgentTurnServiceError("foreign graph", code="graph_scope_rejected", status_code=403)
+        raise AgentTurnServiceError(
+            "foreign graph", code="graph_scope_rejected", status_code=403
+        )
 
     with pytest.raises(AgentTurnServiceError, match="foreign graph"):
         execute_agent_turn(

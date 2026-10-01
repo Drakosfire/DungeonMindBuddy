@@ -92,7 +92,9 @@ def test_list_filters_by_campaign_kind_and_status(root: Path) -> None:
     assert {r.document_id for r in discarded} == {runbook_a.document_id}
 
 
-def test_update_bumps_revision_and_stale_expected_revision_conflicts(root: Path) -> None:
+def test_update_bumps_revision_and_stale_expected_revision_conflicts(
+    root: Path,
+) -> None:
     created = create_workspace_document(
         root,
         title="Original",
@@ -287,7 +289,9 @@ def test_mark_committed_stale_expected_revision_conflicts(root: Path) -> None:
         )
 
 
-def _worldbuilding_source(root: Path, *, title: str = "Shepherd Cult Lore") -> WorkspaceDocumentRecord:
+def _worldbuilding_source(
+    root: Path, *, title: str = "Shepherd Cult Lore"
+) -> WorkspaceDocumentRecord:
     return create_workspace_document(
         root,
         title=title,
@@ -313,7 +317,9 @@ def _inject_leftover_twin(
         _save_cas,
         _utc_now_iso,
     )
-    from apps.live_control_server.services.registry_file_lock import registry_mutation_lock
+    from apps.live_control_server.services.registry_file_lock import (
+        registry_mutation_lock,
+    )
 
     twin_id = str(uuid.uuid4())
     now = _utc_now_iso()
@@ -359,7 +365,10 @@ def test_worldbuilding_source_issues_uuid_and_registry_owned_target(root: Path) 
     assert created.document_class == "faction"
     assert created.authority_state == "draft"
     assert created.visibility_state == "internal"
-    assert created.target_relpath == f"out/workspace/worldbuilding/{created.document_id}.md"
+    assert (
+        created.target_relpath
+        == f"out/workspace/worldbuilding/{created.document_id}.md"
+    )
     assert created.target_session is None
 
     loaded = get_workspace_document(root, created.document_id)
@@ -370,7 +379,9 @@ def _ensure_eldyrwild_world_root(root: Path) -> None:
     (root / "corpus" / "eldyrwild-markdown").mkdir(parents=True)
 
 
-def test_worldbuilding_source_with_world_id_derives_managed_corpus_target(root: Path) -> None:
+def test_worldbuilding_source_with_world_id_derives_managed_corpus_target(
+    root: Path,
+) -> None:
     _ensure_eldyrwild_world_root(root)
     created = create_workspace_document(
         root,
@@ -410,7 +421,9 @@ def test_worldbuilding_source_rejects_unsafe_world_id(root: Path) -> None:
     assert "world_id" in str(exc_info.value)
 
 
-def test_worldbuilding_source_rejects_missing_world_root_without_registry_row(root: Path) -> None:
+def test_worldbuilding_source_rejects_missing_world_root_without_registry_row(
+    root: Path,
+) -> None:
     with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
         create_workspace_document(
             root,
@@ -544,9 +557,13 @@ def test_worldbuilding_metadata_update_and_discard_restore(root: Path) -> None:
         )
     assert exc_info.value.status_code == 422
 
-    discarded = discard_workspace_document(root, created.document_id, expected_revision=2)
+    discarded = discard_workspace_document(
+        root, created.document_id, expected_revision=2
+    )
     assert discarded.status == "discarded"
-    restored = restore_workspace_document(root, created.document_id, expected_revision=3)
+    restored = restore_workspace_document(
+        root, created.document_id, expected_revision=3
+    )
     assert restored.status == "active"
 
 
@@ -666,9 +683,9 @@ def test_concurrent_commits_to_distinct_documents_preserve_both(root: Path) -> N
     assert not errors
     assert len(results) == 2
     records = {
-        get_workspace_document(root, doc.document_id).document_id: get_workspace_document(
+        get_workspace_document(
             root, doc.document_id
-        )
+        ).document_id: get_workspace_document(root, doc.document_id)
         for doc in docs
     }
     assert len(records) == 2
@@ -679,7 +696,9 @@ def test_concurrent_commits_to_distinct_documents_preserve_both(root: Path) -> N
         assert loaded.status == "active"
         target = root / loaded.target_relpath
         assert target.read_text(encoding="utf-8") == markdowns[idx]
-    payload = (root / "out/registries/workspace_documents.json").read_text(encoding="utf-8")
+    payload = (root / "out/registries/workspace_documents.json").read_text(
+        encoding="utf-8"
+    )
     assert docs[0].document_id in payload
     assert docs[1].document_id in payload
 
@@ -728,7 +747,9 @@ def test_snapshot_committed_missing_file_is_integrity_failure(root: Path) -> Non
         get_workspace_document_snapshot(root, created.document_id)
 
 
-def test_snapshot_api_returns_committed_markdown(client: TestClient, root: Path) -> None:
+def test_snapshot_api_returns_committed_markdown(
+    client: TestClient, root: Path
+) -> None:
     created = create_workspace_document(
         root,
         title="WB with file",
@@ -746,7 +767,9 @@ def test_snapshot_api_returns_committed_markdown(client: TestClient, root: Path)
     target.write_text(body, encoding="utf-8")
     mark_workspace_document_committed(root, created.document_id)
 
-    response = client.get(f"/api/live/workspace-documents/{created.document_id}/snapshot")
+    response = client.get(
+        f"/api/live/workspace-documents/{created.document_id}/snapshot"
+    )
     assert response.status_code == 200, response.text
     payload = response.json()
     assert payload["markdown"] == body.replace("\r\n", "\n").replace("\r", "\n")
@@ -833,7 +856,9 @@ def test_snapshot_and_commit_never_mix_revisions(
 
     def snapshot_worker() -> None:
         try:
-            snapshot_result.append(get_workspace_document_snapshot(root, created.document_id))
+            snapshot_result.append(
+                get_workspace_document_snapshot(root, created.document_id)
+            )
         except BaseException as exc:  # noqa: BLE001 - surface to main thread
             snapshot_errors.append(exc)
 
@@ -883,7 +908,10 @@ def test_snapshot_and_commit_never_mix_revisions(
 
     committed = commit_result[0]
     assert committed.committed_revision == prior_revision + 1
-    assert committed.normalized_content_sha256 == hashlib.sha256(v2.encode("utf-8")).hexdigest()
+    assert (
+        committed.normalized_content_sha256
+        == hashlib.sha256(v2.encode("utf-8")).hexdigest()
+    )
     assert committed.committed_record.revision == committed.committed_revision
 
     after = get_workspace_document_snapshot(root, created.document_id)
@@ -940,7 +968,9 @@ def test_commit_receipt_matches_snapshot_fingerprint(root: Path) -> None:
 
 
 def test_create_rejects_duplicate_non_null_target_relpath(root: Path) -> None:
-    from apps.live_control_server.services.workspace_document_registry import _load_registry_document
+    from apps.live_control_server.services.workspace_document_registry import (
+        _load_registry_document,
+    )
 
     target = "corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 28 Prep.md"
     first = create_workspace_document(
@@ -1064,7 +1094,10 @@ def test_release_target_relpath_from_discarded_duplicate_keeps_survivor_path(
     assert released.document_id == twin_id
     assert released.target_relpath is None
     assert released.status == "discarded"
-    assert get_workspace_document(root, survivor.document_id).target_relpath == survivor.target_relpath
+    assert (
+        get_workspace_document(root, survivor.document_id).target_relpath
+        == survivor.target_relpath
+    )
     assert find_duplicate_target_relpath_ownership(root) == []
 
 
@@ -1099,7 +1132,9 @@ def test_reinstate_workspace_document_record_restores_identity_without_path_coll
     assert find_duplicate_target_relpath_ownership(root) == []
 
 
-def test_update_metadata_rejects_target_relpath_owned_by_active_document(root: Path) -> None:
+def test_update_metadata_rejects_target_relpath_owned_by_active_document(
+    root: Path,
+) -> None:
     """Runbook still allows path rebinding; uniqueness must reject a taken path."""
     path_a = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-owner-a.md"
     path_b = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-owner-b.md"
@@ -1137,7 +1172,9 @@ def test_update_metadata_rejects_target_relpath_owned_by_active_document(root: P
     assert after.updated_at == before.updated_at
 
 
-def test_update_metadata_rejects_target_relpath_owned_by_discarded_document(root: Path) -> None:
+def test_update_metadata_rejects_target_relpath_owned_by_discarded_document(
+    root: Path,
+) -> None:
     path_a = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-discarded-a.md"
     path_b = "evals/c2_live_prep/mireward-prep/content/tiptap/unique-discarded-b.md"
     owner = create_workspace_document(
@@ -1405,3 +1442,71 @@ def test_api_patch_rejects_duplicate_target_relpath_including_discarded_owner(
     after = get_workspace_document(root, other.document_id)
     assert after.model_dump() == before.model_dump()
     assert find_duplicate_target_relpath_ownership(root) == []
+
+
+def test_current_world_plan_revision_delegates_all_pins_to_content_atomically(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from types import SimpleNamespace
+
+    from application_state.content import service as content_service
+    from apps.live_control_server.services import (
+        workspace_document_registry as registry,
+    )
+
+    document_id = str(uuid.uuid4())
+    expected = SimpleNamespace(markdown="# committed\n")
+    observed: dict[str, object] = {}
+
+    def read_current(document: str, **kwargs: object) -> SimpleNamespace:
+        observed["document_id"] = document
+        observed.update(kwargs)
+        return expected
+
+    monkeypatch.setattr(
+        content_service, "read_current_world_plan_revision", read_current
+    )
+
+    result = registry.get_current_world_plan_revision(
+        document_id,
+        expected_world_id="world-1",
+        expected_revision=7,
+        expected_revision_n=4,
+        expected_content_sha256="b" * 64,
+    )
+
+    assert result is expected
+    assert observed == {
+        "document_id": document_id,
+        "expected_world_id": "world-1",
+        "expected_revision": 7,
+        "expected_revision_n": 4,
+        "expected_content_sha256": "b" * 64,
+    }
+
+
+def test_current_world_plan_revision_maps_content_conflict_to_registry_conflict(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from application_state.content import service as content_service
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services import (
+        workspace_document_registry as registry,
+    )
+
+    def reject(*_args: object, **_kwargs: object) -> None:
+        raise ApplicationStateConflictError("World Plan digest changed")
+
+    monkeypatch.setattr(content_service, "read_current_world_plan_revision", reject)
+
+    with pytest.raises(WorkspaceDocumentRegistryError) as exc_info:
+        registry.get_current_world_plan_revision(
+            str(uuid.uuid4()),
+            expected_world_id="world-1",
+            expected_revision=7,
+            expected_revision_n=4,
+            expected_content_sha256="b" * 64,
+        )
+
+    assert exc_info.value.status_code == 409
+    assert "digest changed" in str(exc_info.value)

@@ -230,6 +230,98 @@ describe("agentInteractionHistory", () => {
     expect(loadAgentThreadById(thread.campaignId, thread.threadId)?.turns[0].agentTurnResolved).toBeNull();
   });
 
+  it("persists the exact bounded committed Plan basis through reload without Plan Markdown", () => {
+    const thread = createAgentInteractionThread(
+      "world-plan-agent:world-a:document-1",
+      null,
+      "plan",
+      "hermes",
+      "World Plan chat",
+      "document-1",
+    );
+    const contentBasis = {
+      worldId: "world-a",
+      documentId: "document-1",
+      objectRevision: 7,
+      workRevisionId: "work-revision-4",
+      revisionN: 4,
+      contentSha256: "a".repeat(64),
+      committedStatus: "committed" as const,
+      hasDivergentWorkingCopy: true,
+    };
+    thread.turns = [{
+      turnId: "world-plan-turn-basis",
+      askedAt: "2026-10-01T00:00:00Z",
+      question: "What is beneath the black arch?",
+      answer: "The keeper waits there.",
+      backend: "hermes",
+      status: "ok",
+      agentTurnResolved: {
+        surfaceId: "plan",
+        instanceId: "world-plan-instance",
+        ownerStatus: "resolved",
+        ownerId: "world-a",
+        workKind: "plan",
+        workObjectId: "document-1",
+        workStatus: "resolved",
+        expectedRevision: 7,
+        revisionUsed: 7,
+        contentBasis,
+        clientWorkState: "saved_dirty",
+        graphStatus: "not_requested",
+        pointerStatus: "absent",
+        sourceProse: "RAW_PLAN_MARKDOWN_SECRET",
+      } as AgentInteractionThread["turns"][number]["agentTurnResolved"],
+    }];
+
+    persistAgentThread(thread);
+
+    const stored = localStorage.getItem(threadStorageKey(thread.campaignId, thread.threadId)) ?? "";
+    expect(stored).not.toContain("RAW_PLAN_MARKDOWN_SECRET");
+    expect(loadAgentThreadById(thread.campaignId, thread.threadId)?.turns[0].agentTurnResolved)
+      .toMatchObject({ contentBasis });
+  });
+
+  it("drops a World Plan basis that contradicts its resolved identity or revision", () => {
+    const thread = createAgentInteractionThread("world-plan-agent:world-a:document-1", null, "plan");
+    thread.turns = [{
+      turnId: "world-plan-turn-bad-basis",
+      askedAt: "2026-10-01T00:00:00Z",
+      question: "Question",
+      answer: "Answer",
+      backend: "hermes",
+      status: "ok",
+      agentTurnResolved: {
+        surfaceId: "plan",
+        instanceId: "world-plan-instance",
+        ownerStatus: "resolved",
+        ownerId: "world-a",
+        workKind: "plan",
+        workObjectId: "document-1",
+        workStatus: "resolved",
+        expectedRevision: 7,
+        revisionUsed: 7,
+        contentBasis: {
+          worldId: "world-a",
+          documentId: "another-document",
+          objectRevision: 7,
+          workRevisionId: "work-revision-4",
+          revisionN: 4,
+          contentSha256: "a".repeat(64),
+          committedStatus: "committed",
+          hasDivergentWorkingCopy: false,
+        },
+        clientWorkState: "saved_clean",
+        graphStatus: "not_requested",
+        pointerStatus: "absent",
+      },
+    }];
+
+    persistAgentThread(thread);
+
+    expect(loadAgentThreadById(thread.campaignId, thread.threadId)?.turns[0].agentTurnResolved).toBeNull();
+  });
+
   it("keeps bounded reviewed Plan proposal turns in the existing thread", () => {
     const thread = makeThread();
     thread.turns[0].backend = "plan_edit";
