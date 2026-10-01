@@ -77,7 +77,7 @@ WorkRevision-number, and SHA pins. It remains one serial consumer PR.
 
 ## 4. Acceptance witness and owning-boundary checks
 
-After PRIME transfers the held server paths and both path leases are active:
+With the UI and server path leases active:
 
 - In disposable APP-STATE state, create an active World-owned Plan, commit a
   distinctive body, and capture its current revision number and SHA.
@@ -106,6 +106,7 @@ After PRIME transfers the held server paths and both path leases are active:
 
 - PR #831 merged as `5b7721c580e1478f5d00008bf9512252fd35d1b6`.
 - PR #832 merged as `d75df0949c67dc7cf336df3886dc4159e70e59da`.
+- PR #827 merged as `c48abb9fa5857df90af0b086ab78294445fd252a`, completing World-wide Agent conversation receipts. Its migration and tests are settled on `main`.
 - The Content operation is `read_current_world_plan_revision(document_id, *, expected_world_id, expected_revision, expected_revision_n, expected_content_sha256)`. It validates World ownership, active `kind=plan`, WorkObject `object_revision`, current WorkRevision number, and full SHA in one transaction.
 - Its result contains exact committed Markdown and `(world_id, document_id, object_revision, work_revision_id, revision_n, content_sha256, committed_status, has_divergent_working_copy)`. Never persist the Markdown in the receipt.
 
@@ -120,9 +121,9 @@ After PRIME transfers the held server paths and both path leases are active:
 
 This sublease implements early current-revision pinning, request/receipt typing, strict response validation, and local receipt persistence. It must not send editor draft text or persist saved Plan Markdown. The whole Buddy consumer remains one PR; do not open a UI-only PR.
 
-### Server consumer sublease — withheld pending path release
+### Current DEMO server consumer sublease — active
 
-The server portion needs these candidate paths:
+The server consumer's exclusive write allowlist is:
 
 - `apps/live_control_server/models/agent_turn.py`
 - `apps/live_control_server/routes/agent.py`
@@ -136,20 +137,29 @@ The server portion needs these candidate paths:
 - `tests/test_agent_runtime.py`
 - `tests/test_pydantic_ai_agent_runtime.py`
 
-The worktree `/home/drakosfire/.codex/worktrees/agent-world-conversation-backend/DungeonMindBuddy`, branch `codex/agent-world-conversation-backend`, currently has uncommitted changes in `routes/agent.py`, `services/agent_turn_service.py`, `tests/test_agent_turn_route.py`, `tests/test_agent_turn_service.py`, and `tests/application_state/test_agent_conversation_postgres.py`. ARCHITECTURE and PRIME identify it as the paused AGENT-INTERACTION lane. DEMO must not edit or discard those paths until PRIME records a release/transfer and expands this handoff's active allowlist.
+PRIME explicitly transfers the four overlapping paths below to DEMO's isolated `codex/demo-saved-plan-ask-consumer` lane for this saved-content Ask slice:
 
-When activated, the server must perform the atomic Content read before provider dispatch, reject stale or foreign pins before the model call, inject only the committed body into the existing Plan turn, keep `graph_request.mode=none`, and return the exact basis receipt.
+- `apps/live_control_server/routes/agent.py`
+- `apps/live_control_server/services/agent_turn_service.py`
+- `tests/test_agent_turn_route.py`
+- `tests/test_agent_turn_service.py`
+
+The other paths in the server allowlist are active for this consumer. `tests/application_state/test_agent_conversation_postgres.py` is explicitly excluded and must remain untouched.
+
+The suspended, recoverable worktree `/home/drakosfire/.codex/worktrees/agent-world-conversation-backend/DungeonMindBuddy`, branch `codex/agent-world-conversation-backend`, is preserved at `0e49c4d7` with its dirty diff intact. PRIME and ARCHITECTURE found no live owner task. Do not edit, transplant, or delete that checkout or its uncommitted work. The paused AGENT-INTERACTION lane must not resume edits to transferred paths until this DEMO consumer PR merges; afterward it must re-anchor and reconcile against #827 and the DEMO merge before resuming its separate conversation-persistence work.
+
+The server must perform the atomic Content read before provider dispatch, reject stale or foreign pins before the model call, inject only the committed body into the existing Plan turn, keep `graph_request.mode=none`, and return the exact basis receipt.
 
 ### Current collision census
 
-- Open PR #827 owns `src/application_state/agent_conversation/{repository,service,types}.py`, its migration, and tests. It does not overlap this UI sublease.
+- PR #827's `src/application_state/agent_conversation/{repository,service,types}.py`, migration, and tests are merged at `c48abb9fa5857df90af0b086ab78294445fd252a`.
 - Open PR #826 owns World-space provisioning/binding, its tests, and dependency files. It does not overlap this graph:none slice.
 - Open PRs #798, #781, #765, #764, #763, #761, and #760 were checked; none overlaps the active UI sublease. #763's dependency paths remain excluded.
 
-Topology is serial: APP-STATE #831/#832, then one Buddy consumer PR. PRIME owns review and merge coordination; DEMO owns Buddy integration and final verification.
+Topology is serial: APP-STATE #831/#832 and #827 are settled predecessors, followed by one Buddy consumer PR. PRIME owns review and merge coordination; DEMO owns Buddy integration and final verification.
 
 ## 6. Activation boundary
 
-The operator authorized this as DEMO's next user-visible capability. DEMO re-anchored at `origin/main@d75df0949c67dc7cf336df3886dc4159e70e59da` after both atomic-read prerequisites merged. The UI/test sublease is ACTIVE on the allowlist in §5. The server sublease remains withheld until PRIME resolves the AGENT-INTERACTION path collision; no file in that held set may be edited before the transfer is recorded.
+The operator authorized this as DEMO's next user-visible capability. DEMO re-anchored at `origin/main@c48abb9fa5857df90af0b086ab78294445fd252a` after fetching current `origin/main`. The UI/test and server consumer subleases are ACTIVE on the allowlist in §5 following PRIME's explicit transfer of four overlapping paths. The suspended AGENT-INTERACTION checkout remains intact and must not be resumed until after the DEMO consumer PR merges and that lane re-anchors and reconciles its recoverable work.
 
 This is one serial consumer PR; do not split or publish a partial UI PR. Keep the J2 Apply witness, native V6 graph binding, Sessions 26/27/28 evidence, and Session 28 recap ingestion as separate roadmap gates.
