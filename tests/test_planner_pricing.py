@@ -17,6 +17,11 @@ def test_gpt56_luna_does_not_fall_through_to_gpt5() -> None:
     assert r["output"] == 1.20
 
 
+def test_gpt6_luna_pricing() -> None:
+    r = pricing_rates_for_model("gpt-6-luna")
+    assert r == {"input": 0.10, "cached_input": 0.01, "output": 0.50}
+
+
 def test_usage_cost_splits_cached_input() -> None:
     c = usage_cost_usd(
         model_id="gpt-5.3-chat-latest",

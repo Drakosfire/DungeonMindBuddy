@@ -2,11 +2,13 @@
   "version": 1,
   "status": "buddy_owned_transition_policy",
   "models": {
+    "agent_conversation": "gpt-6-luna",
     "fast_smart": "gpt-5.3-codex",
     "fast_smart_mini": "gpt-5.4-mini",
     "retrieval_synthesis": "gpt-5.3-chat-latest"
   },
   "actions": {
+    "hermes_graph_agent": "agent_conversation",
     "default_text_generation": "fast_smart",
     "structured_generation": "fast_smart",
     "ruleslawyer_response_synthesis": "retrieval_synthesis"

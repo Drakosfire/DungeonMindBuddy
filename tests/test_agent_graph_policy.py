@@ -90,7 +90,7 @@ def test_resolver_missing_key_and_require_flag(monkeypatch) -> None:
     )
     assert provider == "openai-api"
     assert base_url == "https://api.openai.com/v1"
-    assert model == "gpt-5.3-codex"
+    assert model == "gpt-6-luna"
 
 
 def test_resolver_env_override_and_provider(monkeypatch) -> None:
@@ -132,9 +132,10 @@ def test_resolver_uses_buddy_owned_policy_not_parent_workspace(monkeypatch) -> N
     actions = policy.get("actions") if isinstance(policy.get("actions"), dict) else {}
     models = policy.get("models") if isinstance(policy.get("models"), dict) else {}
     assert "default_text_generation" in actions
+    assert models.get(actions["hermes_graph_agent"]) == "gpt-6-luna"
     assert models.get(actions["default_text_generation"]) == "gpt-5.3-codex"
 
     provider, model, base_url = resolve_agent_graph_openai_inference(require_api_key=True)
     assert provider == "openai-api"
-    assert model == "gpt-5.3-codex"
+    assert model == "gpt-6-luna"
     assert base_url == "https://api.openai.com/v1"

@@ -215,6 +215,7 @@ def _build_escalation_decision(
 # Per-1M-token USD (fallback when model not in OpenAI public pricing table).
 # Keep aligned with ``src/agent/planner_pricing._PRICING_PER_1M``.
 _PRICING_PER_1M: dict[str, dict[str, float]] = {
+    "gpt-6-luna": {"input": 0.10, "cached_input": 0.01, "output": 0.50},
     "gpt-5.6-luna": {"input": 0.20, "cached_input": 0.02, "output": 1.20},
     "gpt-5.6-terra": {"input": 2.00, "cached_input": 0.20, "output": 12.00},
     "gpt-5.6-sol": {"input": 5.00, "cached_input": 0.50, "output": 30.00},
