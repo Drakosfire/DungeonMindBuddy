@@ -138,7 +138,7 @@ World proposal may use only the explicitly selected mounted editor draft as
 untrusted model context, with exact World/document/base revision and saved-base
 digest validation; disclose that draft, selection and instruction go to the
 configured model. The server must not add committed Plan Markdown to the prompt.
-The ordinary Plan Ask remains metadata-only and graph:none. `WorldOwnedPlanPage`
+At this witness checkpoint, ordinary Plan Ask remained metadata-only and graph:none. `WorldOwnedPlanPage`
 owns editor/document/dirty/save state; Apply changes only the same mounted draft
 and the existing Plan writer remains the Save authority.
 RAKE's read-only audit at Buddy `origin/main@9a8e0a7782252e297467cfe63826e40a85fd9b23`,
@@ -195,36 +195,50 @@ full J2/J1–J6/operator acceptance.
 
 PRIME has since adjudicated the current-policy #812 live Responses gate PASS;
 the earlier evidence checkpoint and its separate bootstrap 503 are recorded
-below. The bounded Apply slice and its witness are complete. The proposed next
-game-prep work remains content-aware saved/draft Plan Ask; the explicit
-governed-Eldyrwild graph read is a separate gate, and Session 28 recap ingestion
-is separate from both. The earlier local Buddy graph snapshot
-(`rev:0c644…`) has 472 nodes, 376 edges, and 93 local contribution files; it
-is not the current native head. PRIME separately verified the native V6
-authority read-only in `dungeonmind_cutover_live`: head
+below. The bounded J2 Apply slice and its post-fix witness are complete. The
+saved-content Plan Ask is in the separate Buddy consumer PR #833 (open at head
+`86c1ea2552a6f035f4b172ce83a694f57628f9b1` as of 2026-10-01). That slice pins
+the current WorkObject revision, committed WorkRevision number, and SHA, then
+uses Content's atomic current-World-Plan read before Agent dispatch. It discloses
+that committed Plan text and the question go to the configured model, excludes
+the editor draft, returns and persists only a compact receipt, and forces
+`graph_request.mode=none`. The PR does not implement native graph retrieval or
+citations, and its configured-provider live witness has not been run.
+
+The next game-prep graph goal is a serial successor: make the existing, already
+populated Elderwyld native graph queryable from that same Plan conversation.
+The C1+C2 graph must be available together. Buddy `scope_mode=world` maps to
+MIND V2 `WORLD_CROSS_CAMPAIGN` with GM admissibility; the older prescription to
+query `campaign` with `campaign_id=longmont-c2` would hide C1 and must not be
+used. C2 Session 29 is Buddy Agent narrative focus, not a native scope filter;
+the current direct adapter does not forward that focus. Resolve the native head
+once per turn and pin search, multi-hop, evidence, and source reads to it. Return
+a compact receipt with managed/native identity, active binding version, scope,
+GM admissibility, C2/session focus, revision/head IDs, and evidence/source refs;
+never include Plan text or a graph dump.
+
+Buddy's managed-World owner must persist an explicit, active/versioned mapping
+from the distinct managed World ID to native `space_id=eldyrwild`. Do not infer
+the mapping from a name, slug, campaign ID, or graph contents. Use the existing
+non-empty native space; do not substitute #826's empty-space provisioning or
+create/import a new KnowledgeSpace for this gate. The static audit of the sealed
+Eldyrwild V6 adoption bundle reports 469 objects, 323 relationships, 83 source
+artifacts, and 93 contributions. These package counts do not prove live
+queryability. A prior PRIME read-only observation recorded native head
 `rev:680c246047d67f9fe0293ee90526f670`, parent adoption
-`rev:34b1f8e2625d5ba693fc726a2a1a4720`, and 95 native contributions. The
-explicit C2 source artifacts currently cover only Sessions 22–25, with
-`0007_reviewed_world_init` as the Alembic revision. A new empty KnowledgeSpace
-created through VNext/J3 does not import this graph. Sessions 26, 27, and 28
-remain unproved in native authority; Session 28 recap ingestion and graph
-read-after-write remain separate open gates. Never alias
-`campaign_id == world_id`. This
-separation does not authorize a new Plan content-access contract or graph
-context path by itself. Saturday game-prep context: Eldyrwild C2 Session 29
-follows the ongoing Mireward Reach siege; the
-Session 28 recap is expected to be governed-ingested into the existing
-Eldyrwild graph. Track that
-recap/graph dependency separately from J2, and do not assume a new managed World
-identity equals `eldyrwild` or `longmont-c2`. ARCHITECTURE ruled that any next
-Plan Agent graph context must use an explicit World-owned binding to native
-MIND `space_id=eldyrwild`; local Buddy graph JSON and recap registries are not
-live graph authority. C2 Session 28/29 retrieval must query with native scope
-`campaign`, `world_id=eldyrwild`, and `campaign_id=longmont-c2`, because native
-`world` scope excludes campaign assertions. A future content-aware Plan read
-also needs the exact saved Plan body, revision, and SHA; editor-draft metadata
-is not enough. Keep these dependencies visible without expanding this J2 edit
-lease.
+`rev:34b1f8e2625d5ba693fc726a2a1a4720`, and 95 native contributions; that is
+historical evidence, not the successor's live witness. The older local Buddy
+graph snapshot (`rev:0c644…`, 472 nodes, 376 edges, 93 local contribution files)
+is not native authority. The prior audit found C2 source artifacts for Sessions
+22–25 only; Sessions 26–28 and Session 28 recap ingestion remain separate,
+unproved gates. Never alias `campaign_id == world_id`.
+
+The successor's BLOCKED contract and acceptance witness are recorded in
+[`HANDOFF-DEMO-session29-elderwyld-graph.md`](../Plans/HANDOFF-DEMO-session29-elderwyld-graph.md).
+It cannot receive an implementation lease until PR #833 merges, the steward
+re-anchors, the #826 binding overlap is reconciled, and the read-only native
+runtime/head/evidence witness is available. This does not close the separate
+Session 28 recap-ingestion gate or J1–J6 acceptance.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
