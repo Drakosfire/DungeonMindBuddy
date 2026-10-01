@@ -154,11 +154,14 @@ unmount. J2's owning-boundary witness must include a World-only Apply→ordinary
 Save/reload success, stale World/Plan/revision/draft-generation/save/selection
 cases, a deferred Apply with thread switch, and a deferred completion after
 unmount; each stale case must leave the draft and saved document unchanged.
-**Next action:** finish the separately assigned #812 live Plan witness
-first. Then re-anchor and prepare a bounded J2 Plan-Apply implementation
+**Next action:** return the #812 live trace gap to PRIME, RAKE DUTY and
+ARCHITECTURE for a read-only telemetry/contract decision. The two-turn
+conversation and reload witness passed, but the actual live Hermes mode was not
+captured, so #812's `codex_responses` acceptance gate remains on HOLD. After
+PRIME resolves that gate, re-anchor and prepare the bounded J2 Plan-Apply
 handoff for owner review and a new lease. No J2 implementation lease is active.
-RAKE made no code changes, provider calls, or runtime operations for this
-diagnostic.
+RAKE made no code changes, provider calls, or runtime operations for the
+separate J2 diagnostic.
 Keep the J3 work below as downstream diagnosis until this transition is
 repaired and accepted.
 
@@ -200,25 +203,41 @@ The #805 write lease ended at merge. No provider or live runtime was used.
 Buddy's explicit Hermes `api_mode` override; the pinned Hermes runtime selects
 transport. Its focused Hermes, Agent turn and trace suites passed 74/74, with
 no provider, database or product runtime used. PR #819 subsequently made
-`gpt-6-luna` the current `hermes_graph_agent` policy model; the #812 offline
-transport probe used the then-configured `gpt-5.3-codex` inputs and does not
-establish the live Luna transport.
+`gpt-6-luna` the current `hermes_graph_agent` policy model. The original
+#812 offline implementation probe used historical `gpt-5.3-codex` inputs; the
+current-base exact-pin selector test resolves the current Luna tuple to
+`codex_responses`. Neither offline result establishes a live request's mode.
 
-PRIME assigned a separate disposable localhost witness target: Buddy
-application-state DB `prime-demo-agent-buddy-pg-20261001` at
-`127.0.0.1:55457/dungeonbuddy_application_state`, DungeonMind World DB
-`prime-demo-agent-mind-pg-20261001` at `127.0.0.1:55458/dungeonmind`, API
-`127.0.0.1:7866`, and UI `127.0.0.1:5178`. As of this update, no migrations,
-bootstrap, API/UI service, or provider turn has started. The next bounded
-witness is two consecutive Plan UI turns with
-`graph_request={"mode":"none"}` on one new synthetic
-managed World and saved Plan, using policy-selected GPT-6 Luna. Record actual
-model/transport, same-conversation continuity, saved editor state after reload,
-and no-graph evidence. A PASS requires actual `codex_responses`; if Luna
-resolves otherwise or transport cannot be identified, return the exact evidence
-to PRIME without forcing a mode/model. Stop at the first provider error, six
-total OpenAI HTTP attempts, or the authorized $0.50 cap. It is separate from
-the earlier continuity PASS and does not certify J1/J2 or operator acceptance.
+PRIME assigned the isolated database pair
+`prime-demo-agent-buddy-pg-20261001` at
+`127.0.0.1:55457/dungeonbuddy_application_state` and
+`prime-demo-agent-mind-pg-20261001` at `127.0.0.1:55458/dungeonmind`, with
+API `127.0.0.1:7866`. The assigned UI port 5178 was blocked by CUA; PRIME
+amended the lease to Vite on `127.0.0.1:5202`. The app-state schema reached
+`20260930_0009`; DungeonMind reached Alembic head
+`0012_vnext_space_provisioning`, with only the migration-owned epoch-0
+authority singleton before the synthetic World/Plan was created.
+
+**Witness result — conversation continuity PASS; transport acceptance HOLD
+(2026-10-01):** ordinary Plan UI turns on synthetic World
+`demo-plan-witness-2026-10-01`, saved Plan
+`517a69c3-3c07-4a3d-8960-e2036bfc20b3`, correctly recalled the distinctive
+color `ultramarine` on turn two. Both turn routes returned HTTP 200. After a
+normal reload, the saved Plan note, revision 3, and both visible turns were
+restored. Hermes pointer `hptr-fd69c2574a544527a9ac413c` tied the same agent
+thread and Hermes session to that World/Plan. The Plan request path used
+`graph_request={"mode":"none"}`; the first ledger snapshot showed zero tool
+calls. A separate page-bootstrap graph-projection POST returned 503 due to the
+World's absent adoption receipt and was not part of either Plan turn.
+
+The captured first-turn ledger identified `openai-api`, `gpt-6-luna`, base
+`https://api.openai.com/v1`, 528 input tokens and 78 output tokens; cost,
+provider request IDs, per-turn IDs, and the post-second-turn aggregate ledger
+were not captured. Current-base exact-pin offline tests passed 2/2 and resolved
+the same model/provider/base to `codex_responses`, but the live trace did not
+record the selected mode. No provider error was observed, and no third UI turn
+was submitted. Return the exact trace gap to PRIME; do not call the live
+transport gate a PASS or claim J1/J2/operator acceptance.
 
 **Plan Agent continuity witness — PASS (2026-10-01):** the isolated
 World Plan witness used the same saved World/Plan and visible conversation on

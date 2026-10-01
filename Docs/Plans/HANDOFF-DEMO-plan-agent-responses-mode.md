@@ -123,8 +123,11 @@ leased paths. Report inherited failures without broadening this slice.
 
 ## Post-merge live witness — assigned isolated runtime
 
-**Status at 2026-10-01:** assigned and pending; the API/UI services have not
-started and the empty databases have not been migrated or bootstrapped.
+**Witness result (2026-10-01): conversation continuity PASS; Responses-mode
+acceptance HOLD.** Two ordinary Plan UI turns and reload verification completed on
+the assigned isolated runtime. Conversation continuity and saved-editor reload
+passed. The live request's selected Hermes transport was not recorded, so the
+required `codex_responses` condition remains unresolved.
 
 PRIME assigned this fresh disposable, localhost-only pair exclusively to DEMO
 for this witness:
@@ -135,40 +138,98 @@ for this witness:
 - DungeonMind World graph PostgreSQL: container
   `prime-demo-agent-mind-pg-20261001`, `127.0.0.1:55458`, database
   `dungeonmind`.
-- Buddy API: `127.0.0.1:7866`; UI: `127.0.0.1:5178`.
+- Buddy API: `127.0.0.1:7866`; initially assigned UI: `127.0.0.1:5178`.
 
-Both databases are empty and require explicit owner migrations/bootstrap. Before
-using them, verify the API resolves both configured database URLs to these
-assigned endpoints. Keep this witness isolated from persistent ports
-`54330/54331` and existing Plan services `7865/5177`. Start/stop only the
-API/UI processes on the assigned ports. Database access was delivered through
-an operator-approved mode-0600 local credential file; do not print, log, commit,
-or copy its values into this handoff, and remove the temporary file after the
-witness.
+CUA blocked the assigned UI origin on port 5178 with `ERR_BLOCKED_BY_CLIENT`.
+PRIME explicitly amended the runtime lease to use Vite on `127.0.0.1:5202`;
+the API remained on port 7866. Browser security policy was not changed.
+
+Before the witness, application-state was bootstrapped through
+`20260930_0009`; DungeonMind reached Alembic head
+`0012_vnext_space_provisioning` with only its migration-owned epoch-0
+authority singleton. No preexisting user content was present. The API resolved both configured
+database URLs to those assigned endpoints. Persistent ports `54330/54331` and
+existing Plan services `7865/5177` were left untouched. Only the API at 7866
+and amended UI at 5202 were started and stopped; PRIME's database containers
+remain under PRIME's ownership. The mode-0600 credential file was removed after
+the witness without printing or copying its values.
 
 Use current Buddy policy from the merged #819 model-policy change:
 `hermes_graph_agent` selects `gpt-6-luna`. Do not force the historical
 `gpt-5.3-codex` model. Record the model and actual transport resolved by the
-live request; the #812 offline selector test used its historical
-`gpt-5.3-codex` input and does not establish the live Luna transport. Because
+live request; the original #812 implementation probe used historical `gpt-5.3-codex`
+inputs. A current-base exact-pin selector test resolves the current
+`gpt-6-luna` tuple to `codex_responses`, but does not establish a live request's
+mode. Because
 this handoff proves the Responses-mode repair, a PASS requires actual transport
 `codex_responses`. If policy-selected Luna resolves otherwise or the transport
 cannot be identified, stop and report exact evidence to PRIME. Do not override
 the model or transport to make the witness pass.
 
-Create one synthetic managed World and saved Plan through the ordinary UI. Run
-two consecutive ordinary Plan UI turns on that same World/Plan with
-`graph_request={"mode":"none"}`. Record the World/Plan, client-thread and turn
-IDs, provider request IDs where available, actual model/transport/base,
-conversation continuity, usage/cost when returned, saved editor state after
-reload, and evidence that no graph request occurred. Stop on the first provider
-error, six total OpenAI HTTP attempts, or the previously authorized additional
-spend cap of $0.50. Unknown usage/cost stays unknown, not zero. A successful
-single turn does not prove continuity. If an assigned prerequisite fails,
-return its exact failure to PRIME without switching targets.
+The assigned run used one synthetic managed World and saved Plan through
+the ordinary UI, with two consecutive turns on that same World/Plan and
+`graph_request={"mode":"none"}`. The recorded evidence and unavailable fields
+follow. No third UI turn was sent. No provider error was observed. Exact live
+transport, post-second-turn usage, provider request IDs, outbound attempt
+count, and cost remain unknown; do not infer zero cost or certify the spend
+cap from missing receipts. The bounded run is stopped pending PRIME's
+telemetry/contract disposition. Do not retry, change model, or force transport
+to fill the evidence gap.
 
-This is bounded post-merge transport/conversation evidence. It does not establish
-J1/J2, the complete connected DEMO, or operator acceptance.
+### Observed run and disposition
+
+The ordinary UI created World `demo-plan-witness-2026-10-01` and saved Plan
+`517a69c3-3c07-4a3d-8960-e2036bfc20b3`, titled `Witness Plan`, at revision 3.
+The saved body was a synthetic note and stayed unchanged during both turns.
+
+The first turn requested a one-sentence greeting for Veyr and a distinctive
+color. DungeonBuddy named **ultramarine**. The second turn asked for that color
+and an encouraging visitor note; the answer correctly recalled **ultramarine**.
+Both UI results said the saved Plan remained at revision 3 and the editor was
+unchanged.
+
+The structured Hermes pointer bound agent thread
+`agent-thread-3c97b428-c2d5-43e0-8175-37998931273d` to session
+`7a9f69e9-bc7c-4914-844e-78640c61bfc5`, pointer
+`hptr-fd69c2574a544527a9ac413c`, and the same World/Plan. After a normal
+browser reload, the Plan title and exact saved note were restored; reopening
+the conversation showed both turns and answers. The UI/API log exposed no
+separate client-thread ID or per-turn IDs; the structured agent-thread binding
+is recorded above.
+
+API access logs show both `POST /api/live/agent/turn` requests returned HTTP
+200. The Plan turn caller sends `graph_request={"mode":"none"}` and a null
+graph selection. The first read-only Hermes ledger snapshot recorded zero tool
+calls. A separate page-bootstrap `POST /api/live/world-graph/projection`
+returned 503 because this synthetic World had no adoption receipt; that request
+was not part of either Plan turn.
+
+The first-turn Hermes ledger snapshot recorded model `gpt-6-luna`, provider
+`openai-api`, base `https://api.openai.com/v1`, one API call, 528 input
+tokens, 78 output tokens, and no tool calls. Cost status/source were unknown.
+No provider request ID was captured, and the post-second-turn ledger snapshot,
+aggregate usage, exact outbound attempt count, and cost were unavailable. No
+provider error was observed; only the two authorized ordinary UI turns were
+submitted.
+
+On current merged Buddy main, the exact-pin tests
+`test_agent_receives_exact_lockdown_configuration` and
+`test_pinned_hermes_auto_selects_responses_for_policy_model` passed 2/2. The
+latter confirms the pinned Hermes version selects `codex_responses` for the
+current `openai-api` / `gpt-6-luna` / OpenAI base inputs. That offline
+selection does not establish the mode actually used by the live requests. Since
+the live trace did not expose that mode, the Responses acceptance gate remains
+on HOLD and the exact evidence is returned to PRIME for a telemetry/contract
+decision. Do not report this witness as a transport PASS.
+
+During post-evidence shutdown, the idle Hermes worker blocked in
+`hermes_graph_agent_host.py:232` (`request_queue.get()`) logged
+`KeyboardInterrupt` after Ctrl-C. The API then reported application shutdown
+complete and exited 0; this is a teardown trace, not a provider-turn failure.
+The UI process stopped with the expected Ctrl-C exit code 130.
+
+This is bounded post-merge conversation evidence. It does not establish J1/J2,
+the complete connected DEMO, or operator acceptance.
 
 ## Implementation verification record
 
@@ -187,10 +248,10 @@ while inspecting Hermes’ selected mode; no conversation was run.
 The RTK wrapper could not spawn `pytest` because it is absent from its command
 path; the same targeted test was then run successfully with the exact project
 virtualenv’s pytest executable. This was a test-runner lookup issue, not a test
-failure. PR #812 is merged; the assigned post-merge two-turn witness remains
-pending and has not started as of this handoff update. The current roadmap also
-records inherited, unmodified Plan/UI
-failures outside this lease: the `ThreatPublicationPanel.tsx` JSX namespace
+failure. PR #812 is merged. The post-merge witness ran as recorded above; its
+conversation continuity passed, while actual live transport remains unverified.
+The current roadmap also records inherited, unmodified Plan/UI failures outside
+this lease: the `ThreatPublicationPanel.tsx` JSX namespace
 typecheck error and the legacy `PlanAgentInteractionBar.test.tsx` fixture’s
 3/8 result against its retired `getWorkspaceDocument` mock. They were not rerun
 as part of this backend adapter slice.
@@ -199,8 +260,8 @@ as part of this backend adapter slice.
 
 PRIME reviewed the exact cumulative PR #812 head
 `3e006ca17aa2d3bc5ac2db45e84d33a4e972cb6e` and merged it at
-`3494b8f4561b2ec465af42bf4fb55bac3f42ee3c`. The remaining
-handback is the assigned live witness result: report its exact evidence,
-inherited failures, unknown cost/usage where applicable, remaining gates, and
-next roadmap action. Until that witness passes, this does not accept the Plan
-conversation, close the appearance gate, or accept J1–J6.
+`3494b8f4561b2ec465af42bf4fb55bac3f42ee3c`. The live witness report is recorded above. Conversation continuity and
+reload persistence passed, but the required actual `codex_responses` mode is
+not evidenced; missing request IDs and post-second-turn usage/cost remain
+unknown. PRIME must resolve this evidence gate before the Plan transport repair
+is reported accepted. This does not close the appearance gate or accept J1–J6.
