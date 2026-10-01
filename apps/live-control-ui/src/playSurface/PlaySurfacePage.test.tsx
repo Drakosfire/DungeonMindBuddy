@@ -1,6 +1,5 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
@@ -18,6 +17,8 @@ import {
 import type { WorldOwnedRunbookCommittedRevisionV2, WorldPlayRunRecordV2 } from "../api/types";
 import { PlaySurfacePage } from "./PlaySurfacePage";
 
+const selectedWorldHarness = vi.hoisted(() => ({ worldId: "world-b" }));
+
 vi.mock("../api/liveApi", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../api/liveApi")>()),
   getPlayActiveRun: vi.fn(),
@@ -33,7 +34,12 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   putPlayActiveRun: vi.fn(),
 }));
 vi.mock("../selectedWorld/SelectedWorldContext", () => ({
-  useSelectedWorld: () => ({ kind: "managed", worldId: "world-b", name: "World B", documentId: null }),
+  useSelectedWorld: () => ({
+    kind: "managed",
+    worldId: selectedWorldHarness.worldId,
+    name: `World ${selectedWorldHarness.worldId}`,
+    documentId: null,
+  }),
 }));
 vi.mock("../chrome/AppChrome", () => ({ AppChrome: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: () => undefined }));
@@ -47,6 +53,16 @@ const workRevisionId = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const newerWorkRevisionId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 const shaA = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const shaB = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
 
 function worldRun(overrides: Partial<WorldPlayRunRecordV2> = {}): WorldPlayRunRecordV2 {
   return {
@@ -110,6 +126,7 @@ const worldPlayableMarkdown = [
 describe("Play selected-World admission", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    selectedWorldHarness.worldId = "world-b";
     vi.mocked(listPlayRuns).mockResolvedValue({ records: [] } as Awaited<ReturnType<typeof listPlayRuns>>);
     vi.mocked(listWorldPlayRuns).mockResolvedValue({
       schema_version: "dmb_world_play_runs_list_v2",
@@ -260,5 +277,136 @@ describe("Play selected-World admission", () => {
     expect(getPlayRun).not.toHaveBeenCalled();
     expect(getCommittedWorkspaceRevision).not.toHaveBeenCalled();
     expect(getWorldPlayRun).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not adopt a completed World B rebase after the route switches to World A", async () => {
+    const exact = worldCommitted();
+    const current = worldCommitted({
+      object_revision: 2,
+      work_revision_id: newerWorkRevisionId,
+      revision_n: 2,
+      content_sha256: shaB,
+      markdown: "# New Gate\n",
+    });
+    const pendingRebase = deferred<WorldPlayRunRecordV2>();
+    vi.mocked(getWorldPlayRun).mockResolvedValueOnce(worldRun());
+    vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: runId,
+      playable_artifact_id: artifactId,
+      playable_revision: 1,
+      playable_content_sha256: shaA,
+      elements: [],
+      sealed_at: "2026-09-30T00:00:00Z",
+    });
+    vi.mocked(getWorldOwnedRunbookCommittedRevision)
+      .mockResolvedValueOnce(exact)
+      .mockResolvedValueOnce(current)
+      .mockResolvedValueOnce(current);
+    vi.mocked(putWorldPlayRunRebase).mockReturnValueOnce(pendingRebase.promise);
+
+    const user = userEvent.setup();
+    const view = render(<PlaySurfacePage />);
+    await user.click(await screen.findByTestId("play-world-run-rebase"));
+    await waitFor(() => expect(putWorldPlayRunRebase).toHaveBeenCalledWith(runId, "world-b", {
+      expected_run_revision: 1,
+      target_playable_revision: 2,
+      target_playable_content_sha256: shaB,
+    }));
+
+    await act(async () => {
+      selectedWorldHarness.worldId = "world-a";
+      window.history.replaceState({}, "", "/play?world=world-a&choose=1");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      view.rerender(<PlaySurfacePage />);
+    });
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    await waitFor(() => expect(listWorldPlayRuns).toHaveBeenCalledWith("world-a"));
+
+    await act(async () => {
+      pendingRebase.resolve(worldRun({
+        playable_revision: 2,
+        playable_work_revision_id: newerWorkRevisionId,
+        playable_content_sha256: shaB,
+        run_revision: 2,
+        rebased_from_run_revision: 1,
+      }));
+      await pendingRebase.promise;
+    });
+
+    expect(screen.getByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(window.location.search).toBe("?world=world-a&choose=1");
+    expect(getWorldPlayRun).toHaveBeenCalledExactlyOnceWith(runId, "world-b");
+    expect(getPlayRun).not.toHaveBeenCalled();
+    expect(listPlayRuns).not.toHaveBeenCalled();
+  });
+
+  it("does not adopt World B after an uncertain rebase is confirmed by exact reconciliation", async () => {
+    const exact = worldCommitted();
+    const current = worldCommitted({
+      object_revision: 2,
+      work_revision_id: newerWorkRevisionId,
+      revision_n: 2,
+      content_sha256: shaB,
+      markdown: "# New Gate\n",
+    });
+    const pendingRebase = deferred<WorldPlayRunRecordV2>();
+    const pendingReconciliation = deferred<WorldPlayRunRecordV2>();
+    vi.mocked(getWorldPlayRun)
+      .mockResolvedValueOnce(worldRun())
+      .mockReturnValueOnce(pendingReconciliation.promise);
+    vi.mocked(getWorldPlayRunReferenceManifest).mockResolvedValue({
+      schema_version: "dmb_play_run_reference_manifest_v1",
+      run_id: runId,
+      playable_artifact_id: artifactId,
+      playable_revision: 1,
+      playable_content_sha256: shaA,
+      elements: [],
+      sealed_at: "2026-09-30T00:00:00Z",
+    });
+    vi.mocked(getWorldOwnedRunbookCommittedRevision)
+      .mockResolvedValueOnce(exact)
+      .mockResolvedValueOnce(current)
+      .mockResolvedValueOnce(current);
+    vi.mocked(putWorldPlayRunRebase).mockReturnValueOnce(pendingRebase.promise);
+
+    const user = userEvent.setup();
+    const view = render(<PlaySurfacePage />);
+    await user.click(await screen.findByTestId("play-world-run-rebase"));
+    await waitFor(() => expect(putWorldPlayRunRebase).toHaveBeenCalledWith(runId, "world-b", {
+      expected_run_revision: 1,
+      target_playable_revision: 2,
+      target_playable_content_sha256: shaB,
+    }));
+
+    await act(async () => {
+      selectedWorldHarness.worldId = "world-a";
+      window.history.replaceState({}, "", "/play?world=world-a&choose=1");
+      window.dispatchEvent(new PopStateEvent("popstate"));
+      view.rerender(<PlaySurfacePage />);
+    });
+    expect(await screen.findByTestId("play-run-chooser")).toBeInTheDocument();
+    await waitFor(() => expect(listWorldPlayRuns).toHaveBeenCalledWith("world-a"));
+
+    await act(async () => {
+      pendingRebase.reject(new Error("rebase response lost"));
+    });
+    await waitFor(() => expect(getWorldPlayRun).toHaveBeenCalledTimes(2));
+    await act(async () => {
+      pendingReconciliation.resolve(worldRun({
+        playable_revision: 2,
+        playable_work_revision_id: newerWorkRevisionId,
+        playable_content_sha256: shaB,
+        run_revision: 2,
+        rebased_from_run_revision: 1,
+      }));
+      await pendingReconciliation.promise;
+    });
+
+    expect(screen.getByTestId("play-run-chooser")).toBeInTheDocument();
+    expect(window.location.search).toBe("?world=world-a&choose=1");
+    expect(getWorldPlayRun).toHaveBeenCalledTimes(2);
+    expect(getPlayRun).not.toHaveBeenCalled();
+    expect(listPlayRuns).not.toHaveBeenCalled();
   });
 });

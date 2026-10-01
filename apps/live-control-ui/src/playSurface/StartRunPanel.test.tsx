@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -49,6 +49,16 @@ const DOC_B = "cccccccc-cccc-4ccc-8ccc-cccccccccccc";
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
 const WORLD_ID = "longmont-c2";
 const WORLD_WORK_REVISION_ID = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise;
+    reject = rejectPromise;
+  });
+  return { promise, resolve, reject };
+}
 
 function runbook(documentId: string, title: string): WorkspaceDocumentRecord {
   return {
@@ -119,14 +129,14 @@ function playManifest(): PlayRunReferenceManifest {
   };
 }
 
-function worldRunbook(documentId: string = DOC_A): WorldOwnedRunbookRecordV2 {
+function worldRunbook(documentId: string = DOC_A, worldId: string = WORLD_ID): WorldOwnedRunbookRecordV2 {
   return {
     schema_version: "dmb_world_owned_runbook_record_v2",
     scope_mode: "world",
     document_id: documentId,
     title: "World North Gate",
     campaign_id: null,
-    world_id: WORLD_ID,
+    world_id: worldId,
     target_session: null,
     kind: "runbook",
     target_relpath: null,
@@ -138,11 +148,11 @@ function worldRunbook(documentId: string = DOC_A): WorldOwnedRunbookRecordV2 {
   };
 }
 
-function worldCommittedFor(documentId: string): WorldOwnedRunbookCommittedRevisionV2 {
+function worldCommittedFor(documentId: string, worldId: string = WORLD_ID): WorldOwnedRunbookCommittedRevisionV2 {
   return {
     schema_version: "dmb_workspace_committed_revision_v2",
     scope_mode: "world",
-    world_id: WORLD_ID,
+    world_id: worldId,
     document_id: documentId,
     kind: "runbook",
     campaign_id: null,
@@ -158,11 +168,11 @@ function worldCommittedFor(documentId: string): WorldOwnedRunbookCommittedRevisi
   };
 }
 
-function worldPlayRun(): WorldPlayRunRecordV2 {
+function worldPlayRun(worldId: string = WORLD_ID): WorldPlayRunRecordV2 {
   return {
     schema_version: "dmb_world_play_run_record_v2",
     run_id: RUN_ID,
-    world_id: WORLD_ID,
+    world_id: worldId,
     playable_artifact_id: DOC_A,
     playable_revision: 7,
     playable_work_revision_id: WORLD_WORK_REVISION_ID,
@@ -209,7 +219,7 @@ describe("StartRunPanel", () => {
       records: [],
     });
     vi.mocked(liveApi.getWorldOwnedRunbookCommittedRevision).mockImplementation(
-      async (documentId) => worldCommittedFor(documentId),
+      async (documentId, worldId = WORLD_ID) => worldCommittedFor(documentId, worldId),
     );
     vi.mocked(liveApi.putWorldPlayRun).mockResolvedValue(worldPlayRun());
     vi.mocked(liveApi.getWorldPlayRun).mockResolvedValue(worldPlayRun());
@@ -219,6 +229,172 @@ describe("StartRunPanel", () => {
     vi.mocked(liveApi.putPlayRunReferenceManifest).mockResolvedValue(playManifest());
     vi.mocked(liveApi.getPlayRun).mockResolvedValue(playRun());
     vi.mocked(liveApi.getPlayRunReferenceManifest).mockResolvedValue(playManifest());
+  });
+
+  it("ignores a late World A Runbook list after the selected World changes to B", async () => {
+    type WorldList = Awaited<ReturnType<typeof liveApi.listWorldOwnedRunbooks>>;
+    const worldAList = deferred<WorldList>();
+    vi.mocked(liveApi.listWorldOwnedRunbooks).mockImplementation(async (worldId) => {
+      if (worldId === "world-a") return worldAList.promise;
+      return {
+        schema_version: "dmb_world_owned_runbooks_list_v2",
+        scope_mode: "world",
+        world_id: "world-b",
+        records: [worldRunbook(DOC_B, "world-b")],
+      };
+    });
+    const view = render(<StartRunPanel onStarted={vi.fn()} verifiedWorldId="world-a" />);
+    await waitFor(() => expect(liveApi.listWorldOwnedRunbooks).toHaveBeenCalledWith("world-a"));
+
+    view.rerender(<StartRunPanel onStarted={vi.fn()} verifiedWorldId="world-b" />);
+    expect(await screen.findByTestId(`play-start-runbook-${DOC_B}`)).toBeInTheDocument();
+    await act(async () => {
+      worldAList.resolve({
+        schema_version: "dmb_world_owned_runbooks_list_v2",
+        scope_mode: "world",
+        world_id: "world-a",
+        records: [worldRunbook(DOC_A, "world-a")],
+      });
+      await worldAList.promise;
+    });
+
+    expect(screen.getByTestId(`play-start-runbook-${DOC_B}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`play-start-runbook-${DOC_A}`)).not.toBeInTheDocument();
+    expect(liveApi.listWorkspaceDocuments).not.toHaveBeenCalled();
+  });
+
+  it("does not navigate to a World A Run when its create and seal finish after switching to B", async () => {
+    const pendingWorldCreate = deferred<WorldPlayRunRecordV2>();
+    const pendingWorldManifest = deferred<PlayRunReferenceManifest>();
+    vi.mocked(liveApi.listWorldOwnedRunbooks).mockImplementation(async (worldId) => ({
+      schema_version: "dmb_world_owned_runbooks_list_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      records: [worldRunbook(worldId === "world-a" ? DOC_A : DOC_B, worldId)],
+    }));
+    vi.mocked(liveApi.getWorldOwnedRunbookCommittedRevision).mockImplementation(
+      async (documentId, worldId = WORLD_ID) => worldCommittedFor(documentId, worldId),
+    );
+    vi.mocked(liveApi.putWorldPlayRun).mockReturnValueOnce(pendingWorldCreate.promise);
+    vi.mocked(liveApi.putWorldPlayRunReferenceManifest).mockReturnValueOnce(pendingWorldManifest.promise);
+    const onStarted = vi.fn();
+    const user = userEvent.setup();
+    const view = render(<StartRunPanel onStarted={onStarted} verifiedWorldId="world-a" />);
+
+    await user.click(await screen.findByTestId(`play-start-runbook-${DOC_A}`));
+    await user.click(screen.getByTestId("play-start-run-submit"));
+    await waitFor(() => expect(liveApi.putWorldPlayRun).toHaveBeenCalledWith(
+      RUN_ID,
+      "world-a",
+      expect.objectContaining({ playable_artifact_id: DOC_A }),
+    ));
+
+    view.rerender(<StartRunPanel onStarted={onStarted} verifiedWorldId="world-b" />);
+    await user.click(await screen.findByTestId(`play-start-runbook-${DOC_B}`));
+    await act(async () => {
+      pendingWorldCreate.resolve(worldPlayRun("world-a"));
+      await pendingWorldCreate.promise;
+    });
+    await waitFor(() => expect(liveApi.putWorldPlayRunReferenceManifest).toHaveBeenCalledWith(RUN_ID, "world-a"));
+    await act(async () => {
+      pendingWorldManifest.resolve(worldPlayManifest());
+      await pendingWorldManifest.promise;
+    });
+
+    expect(screen.getByTestId(`play-start-runbook-${DOC_B}`)).toHaveAttribute("aria-pressed", "true");
+    expect(onStarted).not.toHaveBeenCalled();
+    expect(liveApi.putPlayRun).not.toHaveBeenCalled();
+  });
+
+  it("keeps a World B selection when a World A blank Runbook create finishes late", async () => {
+    const pendingWorldCreate = deferred<WorldOwnedRunbookRecordV2>();
+    const blank = worldRunbook(DOC_A, "world-a");
+    const committedBlank = { ...blank, content_status: "committed" as const };
+    let worldAListReads = 0;
+    let committedWorldA: WorldOwnedRunbookRecordV2 | null = null;
+    vi.mocked(liveApi.listWorldOwnedRunbooks).mockImplementation(async (worldId) => {
+      const records = worldId === "world-a"
+        ? (worldAListReads++ > 0 && committedWorldA ? [committedWorldA] : [])
+        : [worldRunbook(DOC_B, "world-b")];
+      return {
+        schema_version: "dmb_world_owned_runbooks_list_v2",
+        scope_mode: "world",
+        world_id: worldId,
+        records,
+      };
+    });
+    vi.mocked(liveApi.createWorldOwnedRunbook).mockReturnValueOnce(pendingWorldCreate.promise);
+    vi.mocked(liveApi.prepareWorldRunbookMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+      scope_mode: "world",
+      world_id: "world-a",
+      document_id: DOC_A,
+      title: blank.title,
+      target_relpath: `runbook:${DOC_A}`,
+      target_display_path: `runbook:${DOC_A}`,
+      registry_revision: 1,
+      file_exists: false,
+      writer_ok: true,
+      writer_confirm_token: "world-a-token",
+      warnings: [],
+      diagnostics: [],
+    });
+    vi.mocked(liveApi.commitWorldRunbookMarkdownWrite).mockResolvedValue({
+      schema_version: "dmb_tiptap_markdown_write_commit_v2",
+      scope_mode: "world",
+      world_id: "world-a",
+      document_id: DOC_A,
+      title: blank.title,
+      target_relpath: `runbook:${DOC_A}`,
+      target_display_path: `runbook:${DOC_A}`,
+      registry_revision: 2,
+      committed_revision: 1,
+      committed_record: committedBlank,
+      normalized_content_sha256: SHA_A,
+      writer_ok: true,
+      diagnostics: [],
+    });
+    const user = userEvent.setup();
+    const view = render(<StartRunPanel onStarted={vi.fn()} verifiedWorldId="world-a" />);
+    await screen.findByTestId("play-start-run-empty");
+    await user.click(screen.getByTestId("play-create-blank-runbook-submit"));
+    await waitFor(() => expect(liveApi.createWorldOwnedRunbook).toHaveBeenCalledWith({
+      world_id: "world-a",
+      title: "Blank Runbook",
+    }));
+
+    view.rerender(<StartRunPanel onStarted={vi.fn()} verifiedWorldId="world-b" />);
+    await user.click(await screen.findByTestId(`play-start-runbook-${DOC_B}`));
+    await act(async () => {
+      pendingWorldCreate.resolve(blank);
+      await pendingWorldCreate.promise;
+    });
+    await waitFor(() => expect(liveApi.commitWorldRunbookMarkdownWrite).toHaveBeenCalledWith(
+      "world-a",
+      expect.objectContaining({ document_id: DOC_A }),
+    ));
+    committedWorldA = committedBlank;
+
+    expect(await screen.findByTestId(`play-start-runbook-${DOC_B}`)).toHaveAttribute("aria-pressed", "true");
+    expect(screen.queryByTestId(`play-start-runbook-${DOC_A}`)).not.toBeInTheDocument();
+    expect(liveApi.listWorldOwnedRunbooks.mock.calls.map(([worldId]) => worldId)).toEqual([
+      "world-a",
+      "world-b",
+    ]);
+    expect(liveApi.createWorldOwnedRunbook).toHaveBeenCalledWith({ world_id: "world-a", title: "Blank Runbook" });
+    expect(liveApi.prepareWorldRunbookMarkdownWrite).toHaveBeenCalledWith(
+      "world-a",
+      expect.objectContaining({ document_id: DOC_A }),
+    );
+    expect(liveApi.listWorkspaceDocuments).not.toHaveBeenCalled();
+
+    view.rerender(<StartRunPanel onStarted={vi.fn()} verifiedWorldId="world-a" />);
+    expect(await screen.findByTestId(`play-start-runbook-${DOC_A}`)).toBeInTheDocument();
+    expect(liveApi.listWorldOwnedRunbooks.mock.calls.map(([worldId]) => worldId)).toEqual([
+      "world-a",
+      "world-b",
+      "world-a",
+    ]);
   });
 
   it("does not write until an explicit Runbook is chosen and started", async () => {

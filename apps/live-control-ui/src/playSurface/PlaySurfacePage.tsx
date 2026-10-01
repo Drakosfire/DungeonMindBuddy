@@ -138,6 +138,14 @@ type PlayPublicationAuthority = {
   instanceId: string;
 };
 
+type PlayRouteIdentity = {
+  worldId: string | null;
+  runId: string | null;
+  chooser: boolean;
+  search: string;
+  generation: number;
+};
+
 function playPublicationAuthority(input: {
   admittedRun: AnyPlayRunRecord | null;
   runQuery: string | null;
@@ -337,6 +345,28 @@ export function PlaySurfacePage() {
   const locationSearch = useSyncExternalStore(subscribeLocation, playLocationSearch, () => "");
   const runQuery = playRunQuery(locationSearch);
   const chooserQuery = playChooserQuery(locationSearch);
+  const routeIdentityRef = useRef<PlayRouteIdentity>({
+    worldId: selectedWorldId,
+    runId: runQuery,
+    chooser: chooserQuery,
+    search: locationSearch,
+    generation: 0,
+  });
+  if (
+    routeIdentityRef.current.worldId !== selectedWorldId
+    || routeIdentityRef.current.runId !== runQuery
+    || routeIdentityRef.current.chooser !== chooserQuery
+    || routeIdentityRef.current.search !== locationSearch
+  ) {
+    routeIdentityRef.current = {
+      worldId: selectedWorldId,
+      runId: runQuery,
+      chooser: chooserQuery,
+      search: locationSearch,
+      generation: routeIdentityRef.current.generation + 1,
+    };
+  }
+  const renderedRoute = routeIdentityRef.current;
   const [loadStatus, setLoadStatus] = useState<PlayLoadStatus>(() => (
     playChooserQuery(window.location.search) ? "chooser" : "loading"
   ));
@@ -348,8 +378,12 @@ export function PlaySurfacePage() {
   } | null>(null);
   const [mutationStatus, setMutationStatus] = useState<RunbookMutationStatus>("idle");
   const loadSerialRef = useRef(0);
+  const rebaseRequestRef = useRef(0);
   const activeWriteRunRef = useRef<string | null>(null);
   const activeWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const isCurrentRoute = useCallback((route: PlayRouteIdentity) => (
+    routeIdentityRef.current.generation === route.generation
+  ), []);
 
   const loadExactRun = useCallback(async (runId: string) => {
     const serial = loadSerialRef.current + 1;
@@ -495,28 +529,42 @@ export function PlaySurfacePage() {
   }, [selectedWorldId]);
 
   const rebaseWorldRun = useCallback(async () => {
+    const route = renderedRoute;
+    const request = rebaseRequestRef.current + 1;
+    rebaseRequestRef.current = request;
+    const isCurrentRequest = () => (
+      isCurrentRoute(route) && rebaseRequestRef.current === request
+    );
     const pending = pendingWorldRebase;
-    if (!pending || !selectedWorldId || pending.run.world_id !== selectedWorldId) return;
+    const worldId = route.worldId;
+    if (
+      !pending
+      || !worldId
+      || route.runId !== pending.run.run_id
+      || pending.run.world_id !== worldId
+      || !isCurrentRequest()
+    ) return;
     let target: WorldOwnedRunbookCommittedRevisionV2 | null = null;
     setMutationStatus("saving");
     setDetail(null);
     try {
       target = await getWorldOwnedRunbookCommittedRevision(
         pending.run.playable_artifact_id,
-        selectedWorldId,
+        worldId,
       );
+      if (!isCurrentRequest()) return;
       if (target.status !== "active") throw new Error("The selected World's Runbook is discarded.");
       if (target.revision_n <= pending.run.playable_revision) {
         await loadExactRun(pending.run.run_id);
         return;
       }
-      const rebased = await putWorldPlayRunRebase(pending.run.run_id, selectedWorldId, {
+      const rebased = await putWorldPlayRunRebase(pending.run.run_id, worldId, {
         expected_run_revision: pending.run.run_revision,
         target_playable_revision: target.revision_n,
         target_playable_content_sha256: target.content_sha256,
       });
       if (
-        rebased.world_id !== selectedWorldId
+        rebased.world_id !== worldId
         || rebased.playable_artifact_id !== pending.run.playable_artifact_id
         || rebased.playable_revision !== target.revision_n
         || rebased.playable_work_revision_id !== target.work_revision_id
@@ -525,20 +573,22 @@ export function PlaySurfacePage() {
       ) {
         throw new TypeError("World rebase response does not match the requested Runbook revision and Run revision.");
       }
+      if (!isCurrentRequest()) return;
       setPendingWorldRebase(null);
       await loadExactRun(rebased.run_id);
     } catch (error) {
       let observed: WorldPlayRunRecordV2 | null = null;
       try {
-        observed = await getWorldPlayRun(pending.run.run_id, selectedWorldId);
+        observed = await getWorldPlayRun(pending.run.run_id, worldId);
       } catch {
         observed = null;
       }
+      if (!isCurrentRequest()) return;
       if (
         observed
         && target
         && observed.run_revision > pending.run.run_revision
-        && observed.world_id === selectedWorldId
+        && observed.world_id === worldId
         && observed.playable_artifact_id === pending.run.playable_artifact_id
         && observed.playable_revision === target.revision_n
         && observed.playable_work_revision_id === target.work_revision_id
@@ -555,7 +605,7 @@ export function PlaySurfacePage() {
         `${error instanceof Error ? error.message : "World Run rebase failed."} The exact Run was reread; no progress retry was made. Choose again or reload the Run.`,
       );
     }
-  }, [loadExactRun, pendingWorldRebase, selectedWorldId]);
+  }, [isCurrentRoute, loadExactRun, pendingWorldRebase, renderedRoute]);
 
   useEffect(() => {
     if (chooserQuery) {

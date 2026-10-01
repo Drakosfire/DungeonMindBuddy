@@ -65,7 +65,7 @@ Owning-boundary evidence is the mounted Play route and Start Run flow with mocke
 
 Run the focused API and Play test files named in the lease, UI typecheck (record inherited failures against this exact base), and `git diff --check`. Compare the exact cumulative `f34cc2a32b2abc9a4548d0750f911e154c39b54c..HEAD` diff against this path list; inspect campaign V1 compatibility, World V2 route arguments, error-state behavior, and the no-World-as-Campaign invariant. Commit intended changes, push the assigned branch, open or update one PR titled above, and hand its exact head plus test results and unresolved limitations to PRIME. Do not merge.
 
-### Pre-PR verification — 2026-09-30
+### Initial pre-PR verification — 2026-09-30
 
 The eight focused UI/API suites in this lease passed 218 tests, including mounted
 managed-World list/select/resume, Start Run, blank Runbook creation, exact-pin
@@ -77,6 +77,34 @@ namespace 'JSX'` diagnostic on this exact base; no C2 path is named. No product
 server, database, provider, or corpus was started or modified. C2 remains ACTIVE
 until PRIME reviews and merges the assigned PR; this evidence is not merge or
 product acceptance.
+
+### PRIME review correction — 2026-10-01
+
+PRIME's first review held PR #820 at head
+`f57b5d7f2f3b282d34b85f129f48e72ddbe3a153` for late World A completion races
+after switching to World B. The finding covered Runbook list refresh, Start Run
+create/seal completion, blank Runbook create/selection, and explicit Play Run
+rebase after route/World change. A cancelled effect alone was insufficient
+because list state was written inside its awaited helper and the other callers
+continued into state adoption or navigation after their await.
+
+The correction fences list requests by scope and request generation, Start Run
+completion by current World and selected Runbook, and blank-create UI writes by
+World generation. A backend-created World A Runbook remains under World A and
+can be found again after returning to that World; a completed World A Run is
+sealed under World A but cannot navigate from the current World B selection.
+Play rebase captures the exact route/World and request generation; it still
+validates the server receipt and performs exact-World reconciliation, but a
+stale result cannot load or replace the newly selected route.
+
+Five mounted deferred A→B regressions cover the late list, Start Run, blank
+Runbook, successful rebase, and rebase-response-loss exact reconciliation. The
+eight leased UI/API suites now pass 223 tests. The UI typecheck still reports
+only the inherited unrelated
+`ThreatPublicationPanel.tsx(553,77): Cannot find namespace 'JSX'` diagnostic.
+`git diff --check` passes. No server, database, provider, or corpus was used.
+PRIME re-review of the correction is pending; C2 remains ACTIVE and neither
+this correction nor its tests claim merge or operator acceptance.
 
 ## Predecessor settlement
 

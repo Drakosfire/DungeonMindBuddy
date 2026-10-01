@@ -312,13 +312,18 @@ with its exclusive path/runtime lease in
 It moves managed-World Runbook and Run lifecycle consumers onto C1's typed V2
 routes without mapping World IDs into campaign V1. Play Agent conversation and
 generic Agent Run resolution remain later work; shared Agent V1 publisher and
-provider contracts stay untouched. The current pre-PR UI/API witness passes 218
-focused tests across eight leased suites, including mounted World list/select,
-exact resume, Start Run, blank Runbook creation, progress CAS reconciliation,
-rebase conflict, and late-route cancellation. `git diff --check` passes; UI
-typecheck retains only the inherited unrelated JSX namespace error at
-`ThreatPublicationPanel.tsx:553`. This evidence does not close C2; PRIME review,
-merge, and the mounted route witness remain pending.
+provider contracts stay untouched. Buddy PR #820 opened at head
+`f57b5d7f2f3b282d34b85f129f48e72ddbe3a153`. PRIME's first review held on late
+World A responses adopting into World B in Start Run list/create/seal, blank
+Runbook creation, and Play rebase. DEMO added scope/request generation fences
+and five mounted deferred A→B regressions, including exact reconciliation after
+a lost rebase response. The updated eight-suite UI/API witness passes 223 tests,
+including rediscovery of the committed World A blank Runbook after returning
+to World A; no stale completion changes World B's inventory, selection, or
+route. `git diff --check` passes; UI typecheck retains
+only the inherited unrelated JSX namespace error at
+`ThreatPublicationPanel.tsx:553`. PRIME re-review is pending. C2 remains ACTIVE;
+no merge or operator acceptance is claimed.
 
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
