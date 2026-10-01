@@ -1,10 +1,10 @@
 # HANDOFF — DEMO: ask from saved Plan content
 
 **Status:** ACTIVE — one serial Buddy consumer PR. The UI/test preparation
-sublease is active on the exact paths below. The server route/service sublease
-remains withheld until PRIME resolves the overlapping AGENT-INTERACTION lease.
+and server consumer subleases are active on the exact paths below.
 
-**Activation base:** `origin/main@d75df0949c67dc7cf336df3886dc4159e70e59da` after APP-STATE PRs #831 and #832 merged.
+**Activation base:** `origin/main@c48abb9fa5857df90af0b086ab78294445fd252a`
+after APP-STATE PRs #831, #832, and #827 merged.
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -12,7 +12,7 @@ remains withheld until PRIME resolves the overlapping AGENT-INTERACTION lease.
 refreshed after PR #830 merged. The latest DEMO status is in
 [ROADMAP-demo.md](../Roadmaps/ROADMAP-demo.md).
 
-**Proposed Buddy PR title after activation:** `DEMO: answer from saved Plan content`
+**Buddy PR title:** `DEMO: ask from saved Plan content`
 
 ## 1. One user-visible capability
 
@@ -154,7 +154,7 @@ The server must perform the atomic Content read before provider dispatch, reject
 
 - PR #827's `src/application_state/agent_conversation/{repository,service,types}.py`, migration, and tests are merged at `c48abb9fa5857df90af0b086ab78294445fd252a`.
 - Open PR #826 owns World-space provisioning/binding, its tests, and dependency files. It does not overlap this graph:none slice.
-- Open PRs #798, #781, #765, #764, #763, #761, and #760 were checked; none overlaps the active UI sublease. #763's dependency paths remain excluded.
+- Open PRs #798, #781, #765, #764, #763, #761, and #760 were checked; none overlaps either active sublease. #763's dependency paths remain excluded.
 
 Topology is serial: APP-STATE #831/#832 and #827 are settled predecessors, followed by one Buddy consumer PR. PRIME owns review and merge coordination; DEMO owns Buddy integration and final verification.
 

@@ -8,7 +8,10 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import ValidationError
 
 from apps.live_control_server.config import repo_root, session_dir, world_graph_root
-from apps.live_control_server.models.agent_turn import AgentTurnRequest
+from apps.live_control_server.models.agent_turn import (
+    AgentTurnContentBasis,
+    AgentTurnRequest,
+)
 from apps.live_control_server.services.agent_runtime import (
     AgentCurrentWorkContext,
     AgentSurfaceContext,
@@ -19,11 +22,14 @@ from apps.live_control_server.services.agent_turn_service import (
     build_existing_graph_context,
     execute_agent_turn,
 )
-from apps.live_control_server.services.hermes_session_store import HermesSessionPointerStore
+from apps.live_control_server.services.hermes_session_store import (
+    HermesSessionPointerStore,
+)
 from apps.live_control_server.services.recap_artifacts import normalize_session_id
 from apps.live_control_server.services.workspace_document_registry import (
     WorkspaceDocumentRegistryError,
     get_committed_playable_revision,
+    get_current_world_plan_revision,
     get_workspace_document,
 )
 from apps.live_control_server.services.world_container_registry import (
@@ -71,6 +77,72 @@ def _work_resolver(
             code="work_kind_unresolved",
             status_code=422,
         )
+    if body.surface.surface_id == "plan":
+        if owner is None or owner.get("kind") != "world" or not owner.get("id"):
+            raise AgentTurnServiceError(
+                "A saved Plan question requires a verified managed World.",
+                code="plan_owner_required",
+                status_code=422,
+            )
+        if (
+            locator.expected_revision_n is None
+            or locator.expected_content_sha256 is None
+        ):
+            raise AgentTurnServiceError(
+                "A saved Plan question requires an exact committed revision pin.",
+                code="plan_content_pin_required",
+                status_code=422,
+            )
+        try:
+            committed = get_current_world_plan_revision(
+                locator.object_id,
+                expected_world_id=str(owner["id"]),
+                expected_revision=locator.expected_revision,
+                expected_revision_n=locator.expected_revision_n,
+                expected_content_sha256=locator.expected_content_sha256,
+            )
+        except WorkspaceDocumentRegistryError as exc:
+            code = (
+                "plan_revision_changed"
+                if exc.status_code == 409
+                else "work_unavailable"
+            )
+            raise AgentTurnServiceError(
+                str(exc),
+                code=code,
+                status_code=exc.status_code,
+            ) from exc
+
+        content_basis = AgentTurnContentBasis(
+            world_id=committed.world_id,
+            document_id=str(committed.document_id),
+            object_revision=committed.object_revision,
+            work_revision_id=str(committed.work_revision_id),
+            revision_n=committed.revision_n,
+            content_sha256=committed.content_sha256,
+            committed_status=committed.committed_status,
+            has_divergent_working_copy=committed.has_divergent_working_copy,
+        )
+        return AgentTurnResolvedWork(
+            kind="plan",
+            object_id=str(committed.document_id),
+            revision=committed.object_revision,
+            changed_since_expected=False,
+            owner_kind="world",
+            owner_id=committed.world_id,
+            surface_context=AgentSurfaceContext(
+                surface_id=body.surface.surface_id,
+                current_work=AgentCurrentWorkContext(
+                    kind="plan",
+                    work_object_id=str(committed.document_id),
+                    title="Saved Plan",
+                    object_revision=committed.object_revision,
+                ),
+            ),
+            world_id=committed.world_id,
+            content_basis=content_basis,
+            plan_markdown=committed.markdown,
+        )
     try:
         record = get_workspace_document(repo_root(), locator.object_id)
         committed = get_committed_playable_revision(
@@ -83,7 +155,11 @@ def _work_resolver(
             code="work_unavailable",
             status_code=exc.status_code,
         ) from exc
-    if record.kind != "plan" or record.status != "active" or committed.status != "active":
+    if (
+        record.kind != "plan"
+        or record.status != "active"
+        or committed.status != "active"
+    ):
         raise AgentTurnServiceError(
             "The requested saved Plan is not active.",
             code="work_removed",
@@ -118,7 +194,9 @@ def _work_resolver(
         object_id=committed.document_id,
         revision=committed.object_revision,
         changed_since_expected=(committed.object_revision != expected_revision),
-        owner_kind="world" if record_world_id else ("campaign" if record_campaign_id else None),
+        owner_kind="world"
+        if record_world_id
+        else ("campaign" if record_campaign_id else None),
         owner_id=record_world_id or record_campaign_id,
         surface_context=surface_context,
         campaign_id=record_campaign_id,
@@ -139,10 +217,14 @@ def _graph_resolver(
 ) -> tuple[dict[str, Any], Any]:
     graph = body.graph_request
     if graph.mode == "none":
-        raise AgentTurnServiceError("Graph was not requested.", code="graph_not_requested")
+        raise AgentTurnServiceError(
+            "Graph was not requested.", code="graph_not_requested"
+        )
     if graph.mode == "world":
         requested_world_id = graph.world_id
-        if owner is not None and (owner.get("kind") != "world" or owner.get("id") != requested_world_id):
+        if owner is not None and (
+            owner.get("kind") != "world" or owner.get("id") != requested_world_id
+        ):
             raise AgentTurnServiceError(
                 "The requested World graph is outside the resolved owner scope.",
                 code="graph_scope_rejected",
@@ -233,7 +315,10 @@ def _graph_resolver(
                 code="graph_focus_rejected",
                 status_code=422,
             )
-        if graph.focus.kind == "session" and graph.focus.campaign_id != graph.campaign_id:
+        if (
+            graph.focus.kind == "session"
+            and graph.focus.campaign_id != graph.campaign_id
+        ):
             raise AgentTurnServiceError(
                 "Campaign graph focus must match the exact campaign scope.",
                 code="graph_focus_rejected",

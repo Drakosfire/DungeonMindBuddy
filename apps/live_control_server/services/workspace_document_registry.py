@@ -6,7 +6,7 @@ import re
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Annotated, Any, Literal, Union
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -16,6 +16,9 @@ from apps.live_control_server.services.registry_file_lock import (
     workspace_document_mutation_lock,
 )
 from src.live_play.live_store import load_json, write_json
+
+if TYPE_CHECKING:
+    from application_state.content.service import CurrentWorldPlanRead
 
 DEFAULT_REGISTRY_REL = "out/registries/workspace_documents.json"
 REGISTRY_SCHEMA = "dmb_workspace_document_registry_v1"
@@ -1196,6 +1199,31 @@ def get_committed_playable_revision(
             **values,
         )
     return WorkspaceCommittedRevision(**values)
+
+
+def get_current_world_plan_revision(
+    document_id: str,
+    *,
+    expected_world_id: str,
+    expected_revision: int,
+    expected_revision_n: int,
+    expected_content_sha256: str,
+) -> CurrentWorldPlanRead:
+    """Read one exact, current World Plan revision through Content's atomic boundary."""
+    from application_state.content.service import read_current_world_plan_revision
+    from application_state.errors import ApplicationStateError
+
+    canonical_id = _validate_document_id(document_id)
+    try:
+        return read_current_world_plan_revision(
+            canonical_id,
+            expected_world_id=expected_world_id,
+            expected_revision=expected_revision,
+            expected_revision_n=expected_revision_n,
+            expected_content_sha256=expected_content_sha256,
+        )
+    except ApplicationStateError as exc:
+        raise _map_application_state_error(exc) from exc
 
 
 def get_workspace_document_snapshot_unlocked(
