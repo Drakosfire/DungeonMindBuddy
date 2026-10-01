@@ -44,19 +44,26 @@ were rejected by the same guard: `Agent proposal would not round-trip in this
 Plan location.` No edit was applied and the saved Plan stayed unchanged. The
 configured model was `gpt-5.3-codex`; exact observed model, retries, token usage,
 and cost are unknown because the client did not retain an attributable receipt.
+The reviewed proposals described placement immediately after the first sentence.
+Reproducing that collapsed mid-paragraph caret in the helper and mounted UI
+identified the failing boundary.
 
 The owning code is `applyWorldPlanEditProposal` in
 `apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.ts`. It
 simulates the mounted editor insertion, serializes to semantic Markdown,
 reimports, and rejects warnings or a non-round-tripping result. Keep that
-loss-prevention invariant. Fix the end-caret/paragraph case so both supported
-plain-prose and canonical READ-ALOUD proposals can apply without changing the
-existing Plan content or producing lossy Markdown. Preserve stale editor,
+loss-prevention invariant. At a collapsed caret after the first sentence, block
+insertion splits the paragraph and leaves its existing separator whitespace at
+the start of the following paragraph. Markdown import normalizes that edge
+whitespace, so the guard rejects the simulated result. Consume only whitespace
+adjacent to that paragraph split in both simulation and mounted Apply; preserve
+all surrounding words and keep the round-trip guard. Preserve stale editor,
 selection, World, document, revision, Agent-thread, and scope rejection.
 
-The existing focused helper suite passes 33/33 with its current fixtures; that
-is not evidence for the live one-paragraph/end-caret case. The new regression
-must exercise the exact live body and end-caret target for both proposal shapes.
+The existing focused helper suite passed 33/33 before the exact witness
+regression; that did not cover the live one-paragraph/mid-paragraph caret. The
+new regression exercises the exact body with a collapsed caret immediately
+after the first sentence for both proposal shapes.
 
 ## 2. Exclusive write lease
 
@@ -74,8 +81,8 @@ changing a contract.
 4. `apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.ts`
    — repair the round-trip-safe Apply seam.
 5. `apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.test.ts`
-   — add the exact one-paragraph/end-caret helper regression for plain prose
-   and canonical READ-ALOUD content.
+   — add the exact one-paragraph/after-first-sentence helper regression for
+   plain prose and canonical READ-ALOUD content.
 6. `apps/live-control-ui/src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx`
    — prove the two proposal shapes apply through the mounted World Plan
    editor and retain ordinary Save/reload behavior.
@@ -97,10 +104,10 @@ suite use no app port, service, provider, database, World, or corpus.
 
 ## 4. Owning-boundary acceptance
 
-1. A helper regression starts from the exact witness paragraph, places a caret
-   at its end, and applies each of the two proposal shapes. Both preserve the
-   full original prose and produce a stable semantic Markdown serialize/reimport
-   result. Add a counterexample only if it protects the same invariant.
+1. A helper regression starts from the exact witness paragraph, places a
+   collapsed caret immediately after its first sentence, and applies each of
+   the two proposal shapes. Both preserve the full original prose and produce a
+   stable semantic Markdown serialize/reimport result.
 2. A mounted World Plan integration regression exercises review → Apply for
    both shapes, then the existing Save, reload, and saved-action history path.
    Rejected stale-target/thread/scope cases remain unchanged and fail closed.
@@ -111,8 +118,20 @@ suite use no app port, service, provider, database, World, or corpus.
 4. Commit and push this bounded fix, open/update its PR for PRIME, and do not
    merge. Report exact head, tests, remaining limits, and PR #826 topology.
 
+**Fix checkpoint (2026-10-01):** The helper and mounted regressions now cover
+plain prose and canonical READ-ALOUD insertion at the witnessed paragraph
+boundary. Focused tests passed 39/39 (35 helper and 4 mounted integration cases),
+including ordinary Save/reload/action history and existing stale-target,
+thread, and scope guards. Redirecting TypeScript build-info to `/tmp` isolated
+the inherited app diagnostic at `ThreatPublicationPanel.tsx:553` (`Cannot find
+namespace 'JSX'`); the UI node config passed. The normal `tsc -b` command also
+reports read-only `node_modules/.tmp` build-info writes. `git diff --check`
+passed. This is local fixture evidence only; no provider or witness runtime was
+used by the code lane. J2 remains open pending merge and the separately
+authorized two-call live rerun.
+
 PRIME authorized exactly two fresh logical `gpt-5.3-codex` proposal submissions
-only after this fix is integrated. Use them on the same isolated synthetic
+only after this fix is merged. Use them on the same isolated synthetic
 World/Plan to rerun Review → Apply → ordinary Save/reload and local history/scope
 verification. Preserve the first two failed attempts as evidence. Report exact
 observed model, retries, token usage, latency, and attributable cost only when
