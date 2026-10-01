@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import re
+from typing import Literal
 from uuid import UUID, uuid4
+
+from pydantic import BaseModel
 
 from application_state.cli import assert_at_head
 from application_state.config import load_runtime_dsn
@@ -24,6 +28,19 @@ from application_state.errors import (
     ApplicationStateValidationError,
 )
 from application_state.unit_of_work import unit_of_work
+
+
+class CurrentWorldPlanRead(BaseModel):
+    """Immutable current Plan bytes and the complete Content basis that selected them."""
+
+    world_id: str
+    document_id: UUID
+    work_revision_id: UUID
+    revision_n: int
+    markdown: str
+    content_sha256: str
+    committed_status: Literal["committed"] = "committed"
+    has_divergent_working_copy: bool
 
 
 def _require_uuid(document_id: str) -> UUID:
@@ -674,6 +691,91 @@ def exact_committed_revision(
         return CommittedPlayableRevision(
             work_object=obj,
             work_revision=revision,
+            has_divergent_working_copy=divergent,
+        )
+
+
+def read_current_world_plan_revision(
+    document_id: str,
+    *,
+    expected_world_id: str,
+    expected_revision_n: int,
+    expected_sha256: str,
+) -> CurrentWorldPlanRead:
+    """Read the exact pinned current revision of an active World-owned Plan.
+
+    The WorkObject row is locked for the duration of the Content transaction, so
+    the ownership, active status, current revision, immutable bytes, and working
+    copy divergence all describe one serialized observation.
+    """
+
+    if (
+        not isinstance(expected_revision_n, int)
+        or isinstance(expected_revision_n, bool)
+        or expected_revision_n <= 0
+    ):
+        raise ApplicationStateValidationError(
+            "expected_revision_n must be a positive integer"
+        )
+    expected_world = expected_world_id.strip()
+    if not expected_world:
+        raise ApplicationStateValidationError("expected_world_id is required")
+    expected_digest = expected_sha256.strip().lower()
+    if re.fullmatch(r"[0-9a-f]{64}", expected_digest) is None:
+        raise ApplicationStateValidationError(
+            "expected_sha256 must be a full SHA-256 digest"
+        )
+
+    work_object_id = _require_uuid(document_id)
+    dsn = load_runtime_dsn()
+    assert_at_head(dsn=dsn)
+    with unit_of_work(dsn) as conn:
+        obj = repo.lock_work_object(conn, work_object_id)
+        if obj is None:
+            raise ApplicationStateNotFoundError(
+                f"workspace document not found: {document_id}"
+            )
+        _require_kind(obj, "plan")
+        if obj.world_id != expected_world:
+            raise ApplicationStateConflictError(
+                f"workspace Plan is not owned by selected World {expected_world}"
+            )
+        if obj.status != "active":
+            raise ApplicationStateConflictError(
+                f"workspace Plan is not active: {document_id}"
+            )
+        if obj.current_revision_id is None:
+            raise ApplicationStateConflictError(
+                "World Plan has no current committed revision"
+            )
+
+        committed = repo.get_work_revision(conn, obj.current_revision_id)
+        if committed is None:
+            raise ApplicationStateConflictError(
+                "current committed World Plan revision is missing"
+            )
+        _require_revision_owner(obj, committed)
+        if committed.revision_n != expected_revision_n:
+            raise ApplicationStateConflictError(
+                "World Plan current revision number does not match the requested pin"
+            )
+        if committed.content_sha256 != expected_digest:
+            raise ApplicationStateConflictError(
+                "World Plan current revision SHA does not match the requested pin"
+            )
+
+        working = repo.get_working_copy(conn, work_object_id)
+        divergent = (
+            working is not None
+            and working.content_sha256 != committed.content_sha256
+        )
+        return CurrentWorldPlanRead(
+            world_id=expected_world,
+            document_id=obj.work_object_id,
+            work_revision_id=committed.work_revision_id,
+            revision_n=committed.revision_n,
+            markdown=committed.markdown,
+            content_sha256=committed.content_sha256,
             has_divergent_working_copy=divergent,
         )
 
