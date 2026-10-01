@@ -156,35 +156,63 @@ on unmount. Fixture-backed route, mounted-editor, and focused race regressions
 are part of its acceptance evidence.
 
 PR #825 merged this bounded handoff at
-`5b7e1e4543c94708e11687feb60093d98d6db93f`. The DEMO World-only Apply
-implementation is ACTIVE on isolated branch
-`codex/demo-world-plan-agent-apply-impl`, based on that fresh main, with the
-exact 17-path write lease in
-[`HANDOFF-DEMO-world-plan-agent-apply-v1.md`](../Plans/HANDOFF-DEMO-world-plan-agent-apply-v1.md).
-The implementation uses fixtures only; no live runtime or provider lease is
-active. It must finish through its reviewed implementation PR, then obtain a
-fresh PRIME runtime lease for the two configured-policy proposal/Save/reload
-witness.
+`5b7e1e4543c94708e11687feb60093d98d6db93f`. The World-only Apply implementation
+completed in PR #828, then its post-merge witness exposed a paragraph-boundary
+round-trip guard failure. The bounded helper/mounted-editor repair completed in
+PR #829, merged at `a393eee9ae6ca26dfa67f65bfdde2a83037bc485` from reviewed
+code head `07cb2b7d2ab5fb655cbf51f16efb96ca40f7415a`. The repair retained the
+Markdown round-trip guard and consumes only separator whitespace adjacent to
+the split. Its 39/39 focused helper and mounted integration tests passed,
+including ordinary Save/reload and stale-target/thread/scope checks. Scoped UI
+typecheck retained only the inherited `ThreatPublicationPanel.tsx:553` JSX
+namespace error; the UI node config passed. The TypeScript build-info write
+limitation under read-only `node_modules/.tmp` was avoided by redirecting the
+build-info file to `/tmp`. No provider or product runtime was used by the code
+lane.
 
-Current code-test checkpoint: focused backend admission/real-route tests pass
-22/22 using a disposable local PostgreSQL fixture, stopped after the run.
-Focused UI/API, mounted-page, proposal-bridge and integration suites pass
-159/159, including Save/reload, deferred thread-switch, and late-unmount
-regressions. Scoped Ruff and `git diff --check` pass. UI typecheck reports only
-the inherited `ThreatPublicationPanel.tsx:553` JSX namespace diagnostic; the
-test-only database did not access product state, and no live provider was used.
+**Post-fix J2 Apply witness — PASS (2026-10-01):** the original APP-STATE
+witness database/container had been auto-removed, so the same synthetic World
+`demo-j2-plan-apply-witness-2026-10-01` and Plan
+`46e2e8fe-6d91-4552-be31-e69c818e77c6` were reconstituted in a fresh isolated
+database and revision chain. The two earlier failed proposals remain separate
+browser-local historical evidence. Before each of exactly two new submissions,
+the current Plan snapshot and committed revision were checked. A canonical
+READ-ALOUD proposal and the plain-prose sentence “A lone watcher keeps vigil
+above the marsh.” each passed Review → Apply → ordinary Save → reload on the
+same Plan. The final snapshot and committed-revision read agreed at object
+revision 6 / content revision 3, body SHA-256
+`86e10d0283d650573170b241da529f9b57a560484514d3f9ef673dfe1b6222ef`, with no
+divergent working copy. Both calls observed `gpt-5.3-codex`, one provider
+attempt, zero transport/conformance retries, and unknown attributable cost.
+The first used 422 input / 151 output tokens at 5,818 ms model / 5,825 ms
+request; the second used 554 input / 106 output tokens at 4,238 ms model /
+4,251 ms request. API/UI processes and the dedicated PostgreSQL container are
+stopped; the container and persistent volume remain. During page loads the
+background World Graph projection separately returned 503. No graph write or
+read-after-write occurred. This witness does not prove managed-World graph
+awareness, Session 28/native graph read, recap ingestion, visual acceptance, or
+full J2/J1–J6/operator acceptance.
 
 PRIME has since adjudicated the current-policy #812 live Responses gate PASS;
 the earlier evidence checkpoint and its separate bootstrap 503 are recorded
-below. After J2 Apply merges and its runtime witness completes, the next
-game-prep slice is content-aware saved/draft Plan Ask and an explicitly
-authorized read of the existing governed Eldyrwild graph. PRIME verified that
-this durable graph has 93 local contribution files and a head of 472 nodes / 376
-edges with C1/C2; it is separate from the absent new Buddy World-container
-record in the primary checkout and does not depend on J3 native-space
-provisioning or re-ingest. Never alias `campaign_id == world_id`. Do not start
-that successor until the current Apply slice is complete. Saturday game-prep
-context: Eldyrwild C2 Session 29 follows the ongoing Mireward Reach siege; the
+below. The bounded Apply slice and its witness are complete. The proposed next
+game-prep work remains content-aware saved/draft Plan Ask; the explicit
+governed-Eldyrwild graph read is a separate gate, and Session 28 recap ingestion
+is separate from both. The earlier local Buddy graph snapshot
+(`rev:0c644…`) has 472 nodes, 376 edges, and 93 local contribution files; it
+is not the current native head. PRIME separately verified the native V6
+authority read-only in `dungeonmind_cutover_live`: head
+`rev:680c246047d67f9fe0293ee90526f670`, parent adoption
+`rev:34b1f8e2625d5ba693fc726a2a1a4720`, and 95 native contributions. The
+explicit C2 source artifacts currently cover only Sessions 22–25, with
+`0007_reviewed_world_init` as the Alembic revision. A new empty KnowledgeSpace
+created through VNext/J3 does not import this graph. Sessions 26, 27, and 28
+remain unproved in native authority; Session 28 recap ingestion and graph
+read-after-write remain separate open gates. Never alias
+`campaign_id == world_id`. This
+separation does not authorize a new Plan content-access contract or graph
+context path by itself. Saturday game-prep context: Eldyrwild C2 Session 29
+follows the ongoing Mireward Reach siege; the
 Session 28 recap is expected to be governed-ingested into the existing
 Eldyrwild graph. Track that
 recap/graph dependency separately from J2, and do not assume a new managed World

@@ -1,9 +1,8 @@
 # HANDOFF — DEMO: World-only reviewed Agent-to-Plan Apply
 
-**Status:** COMPLETE — implementation PR #828 merged and its historical write
-lease is released. The separate post-merge J2 witness reproduced an Apply
-failure; the active successor fix is tracked in
-[HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md](HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md).
+**Status:** COMPLETE — implementation PR #828 and the bounded successor repair
+in PR #829 are merged. The post-fix two-proposal Apply/Save/reload witness
+passed; broader J2, graph, visual, and operator-acceptance gates remain open.
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -25,16 +24,20 @@ service, model/provider call, port, or corpus is leased or used.
 
 **Topology:** The historical implementation was one serial PR, #828, and is
 merged. Its implementation lease is released. The separately authorized
-round-trip repair is the active successor in
-[HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md](HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md); PRIME retains merge authority.
+round-trip repair completed in PR #829 and is recorded in
+[HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md](HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md).
+PRIME retained merge authority for both PRs.
 
 **Runtime/state ownership:** No live product service, provider, product
 database, demo World, or corpus is used by this implementation. The real-route
 code test used only a disposable PostgreSQL fixture container on localhost port
-54329; it was stopped after the tests. No app runtime port or external product
-state is leased. The eventual post-merge product witness requires a fresh,
-explicit PRIME runtime lease. Do not reuse the still-running database pair from
-the 2026-10-01 #812 witness; it remains under PRIME's runtime ownership.
+54329; it was stopped after the tests. The later, separately authorized
+post-merge witness used its own isolated UI/API and a dedicated PostgreSQL
+container/volume on port 55460. The API/UI processes and container are stopped;
+the container and volume are retained. The original APP-STATE witness database
+had been auto-removed before that rerun, so the same synthetic World/Plan IDs
+were reconstituted in a fresh revision chain. No Eldyrwild data or shared
+#812 runtime database was used.
 
 ## 1. Broken transition and one capability
 
@@ -243,8 +246,9 @@ The implementation PR must record only established predecessor facts:
   rake only; it neither proves nor negates J2.
 
 Do not claim usage cost is a billing receipt, use the projection 503 as a Plan
-turn failure, call the post-merge Apply witness a pass, invent a merge SHA or
-review count, or claim full J2/operator acceptance before those gates pass.
+turn failure, conflate the failed pre-fix witness with the successful post-fix
+witness, invent a merge SHA or review count, or claim full J2/operator
+acceptance before those gates pass.
 
 ## Merged implementation checkpoint
 
@@ -269,15 +273,28 @@ dependency mount; verification redirected that file to `/tmp` and confirmed
 there were no additional production-source diagnostics.
 
 After PR #828 merged at `dc30a7379b927edd8d9bfb510019f0fccbc3c5c5`, the
-separately leased synthetic World witness submitted two configured-policy
-proposals against Plan `46e2e8fe-6d91-4552-be31-e69c818e77c6`, revision 3. A
-canonical READ-ALOUD proposal and a plain-prose proposal were both reviewable,
-but both Apply actions hit `Agent proposal would not round-trip in this Plan
-location.` No edit or Save occurred; the saved body stayed unchanged. The
-configured model was `gpt-5.3-codex`; observed model, retries, token usage, and
-cost were not retained and remain unknown. This is a failed J2 gate, not
-acceptance. The implementation lease closed at #828; the bounded successor
-handoff now owns the Apply repair and post-merge rerun.
+pre-fix synthetic World witness submitted two proposals against Plan
+`46e2e8fe-6d91-4552-be31-e69c818e77c6`, revision 3. Both Apply actions hit
+`Agent proposal would not round-trip in this Plan location.` That failure
+remains historical and was repaired by PR #829, merged at
+`a393eee9ae6ca26dfa67f65bfdde2a83037bc485` from head
+`07cb2b7d2ab5fb655cbf51f16efb96ca40f7415a`.
+
+The post-fix witness submitted exactly two new configured-policy proposals
+against the same synthetic World/Plan identities after reconstituting them in a
+fresh isolated database. Both reviewed, applied to the mounted draft, used
+ordinary Save, and survived reload. The old failed proposals were preserved in
+separate browser-local history. The final snapshot and committed-revision read
+agreed at object revision 6 / content revision 3 and SHA-256
+`86e10d0283d650573170b241da529f9b57a560484514d3f9ef673dfe1b6222ef`, with no
+divergent working copy. Both observed calls used `gpt-5.3-codex`: the first
+used 422 input / 151 output tokens at 5,818 ms model / 5,825 ms request; the
+second used 554 input / 106 output tokens at 4,238 ms model / 4,251 ms request.
+There was one provider attempt and zero transport/conformance retries per call.
+Attributable cost was not returned and remains unknown. A separate background
+World Graph projection returned 503; no graph read/write or graph-awareness
+claim is included. Full J2, graph-read, visual, and operator acceptance remain
+open. See the successor handoff for the complete bounded evidence.
 
 ## 6. Completion boundary
 
@@ -287,8 +304,10 @@ PR #828 and is merged. Its post-merge witness found the Apply failure recorded
 above. The original lease is closed. Continue under the exact path lease and
 runtime gates in [HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md](HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md).
 
-PR #828 completed the World-only Apply implementation slice, but its Apply
-witness failed. The successor must pass its owning-boundary tests, cumulative
-diff review, PRIME review/merge, and separately authorized live rerun. Neither
-slice closes remaining J2 multi-turn acceptance, the full demo journey, or
-human product acceptance by itself.
+PR #828 completed the World-only Apply implementation slice. The pre-fix
+witness failed; PR #829 repaired the owning editor/Markdown round-trip seam,
+passed its focused tests and review, and merged at the recorded exact head. The
+separately authorized post-fix live witness then passed the two-proposal
+Review → Apply → Save/reload path. This closes the bounded Apply capability
+only; remaining J2 multi-turn acceptance, graph read-after-write, visual
+acceptance, the full connected demo, and human product acceptance remain open.

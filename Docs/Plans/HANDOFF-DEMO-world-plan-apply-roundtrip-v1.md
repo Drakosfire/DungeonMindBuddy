@@ -1,7 +1,9 @@
 # HANDOFF — DEMO: repair World Plan Apply round-trip validation
 
-**Status:** ACTIVE — PRIME authorized one bounded successor fix after the
-post-merge J2 witness reproduced an Apply failure.
+**Status:** COMPLETE — the bounded Apply repair merged in PR #829 at
+`a393eee9ae6ca26dfa67f65bfdde2a83037bc485`, and its separately authorized
+two-proposal J2 witness passed. This completes the Apply round-trip gate only;
+broader J2, graph-readiness, visual, and operator-acceptance gates remain open.
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -65,19 +67,20 @@ regression; that did not cover the live one-paragraph/mid-paragraph caret. The
 new regression exercises the exact body with a collapsed caret immediately
 after the first sentence for both proposal shapes.
 
-## 2. Exclusive write lease
+## 2. Historical exclusive write lease — released
 
-Only these paths are authorized. Return to PRIME before editing another path or
-changing a contract.
+This was the exact write allowlist for the ACTIVE implementation. It closed
+after PR #829 merged and the separately authorized witness passed. No code path
+remains leased by this completed handoff. While the lane was active, changes
+outside these paths required a return to PRIME.
 
 1. `Docs/Plans/HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md` — this bounded
-   authority and acceptance record.
-2. `Docs/Plans/HANDOFF-DEMO-world-plan-agent-apply-v1.md` — record that PR #828
-   merged and its runtime witness found the Apply guard failure; release its
-   historical implementation lease without claiming J2 acceptance.
-3. `Docs/Roadmaps/ROADMAP-demo.md` — record the two failed Apply attempts and
-   this ACTIVE follow-up; keep J2, graph readiness, and operator acceptance
-   open.
+   authority and acceptance record; the lease is now released.
+2. `Docs/Plans/HANDOFF-DEMO-world-plan-agent-apply-v1.md` — record the #828
+   failure, #829 repair, and bounded runtime witness; do not claim broader J2
+   acceptance.
+3. `Docs/Roadmaps/ROADMAP-demo.md` — record the two failed pre-fix attempts and
+   the later bounded pass; keep graph readiness and operator acceptance open.
 4. `apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.ts`
    — repair the round-trip-safe Apply seam.
 5. `apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.test.ts`
@@ -94,13 +97,15 @@ Database, demo World, or corpus is used by this code lane.
 
 ## 3. Runtime-state boundary
 
-The separate completed two-call witness still has its own isolated app runtime
-in `/home/drakosfire/.codex/worktrees/demo-world-plan-trace-inspector/DungeonMindBuddy`:
-UI port 5202, API port 7868, and disposable PostgreSQL port 55460. Its synthetic
-World, saved Plan, and local conversation history are not this implementation
-lane's state. Do not use or stop those services/database until the witness
-result is recorded and its owner cleans them up. This code lane and its fixture
-suite use no app port, service, provider, database, World, or corpus.
+The completed post-merge witness used an isolated app runtime in
+`/home/drakosfire/.codex/worktrees/demo-world-plan-trace-inspector/DungeonMindBuddy`:
+UI port 5202, API port 7868, and a dedicated PostgreSQL container on port 55460.
+The API and UI processes are stopped. The container is stopped but retained,
+and its persistent volume remains. The earlier APP-STATE witness database had
+been auto-removed before this rerun; the witness reconstituted the same
+synthetic World/Plan identities in a fresh revision chain. The old failed
+proposals remain in their original browser-local history, separate from the
+fresh conversation used for the successful rerun.
 
 ## 4. Owning-boundary acceptance
 
@@ -115,8 +120,9 @@ suite use no app port, service, provider, database, World, or corpus.
    typecheck, and `git diff --check`; report the inherited
    `ThreatPublicationPanel.tsx:553` JSX namespace diagnostic if it remains.
    Inspect the exact cumulative `origin/main`→head diff.
-4. Commit and push this bounded fix, open/update its PR for PRIME, and do not
-   merge. Report exact head, tests, remaining limits, and PR #826 topology.
+4. Commit/push the bounded fix and open its implementation PR for PRIME. PRIME
+   retains merge authority. This requirement completed as PR #829; the
+   separate runtime witness is recorded below.
 
 **Fix checkpoint (2026-10-01):** The helper and mounted regressions now cover
 plain prose and canonical READ-ALOUD insertion at the witnessed paragraph
@@ -127,15 +133,47 @@ the inherited app diagnostic at `ThreatPublicationPanel.tsx:553` (`Cannot find
 namespace 'JSX'`); the UI node config passed. The normal `tsc -b` command also
 reports read-only `node_modules/.tmp` build-info writes. `git diff --check`
 passed. This is local fixture evidence only; no provider or witness runtime was
-used by the code lane. J2 remains open pending merge and the separately
-authorized two-call live rerun.
+used by the code lane. PR #829 merged at
+`a393eee9ae6ca26dfa67f65bfdde2a83037bc485` from code head
+`07cb2b7d2ab5fb655cbf51f16efb96ca40f7415a`.
 
-PRIME authorized exactly two fresh logical `gpt-5.3-codex` proposal submissions
-only after this fix is merged. Use them on the same isolated synthetic
-World/Plan to rerun Review → Apply → ordinary Save/reload and local history/scope
-verification. Preserve the first two failed attempts as evidence. Report exact
-observed model, retries, token usage, latency, and attributable cost only when
-an attributable receipt is available; otherwise record unknown. Do not use
-status or elapsed time to infer receipts. This witness remains bounded J2
-evidence and does not certify graph readiness, J1–J6, visual acceptance, or the
-operator's full demo.
+## 5. Post-merge J2 Apply witness — PASS (2026-10-01)
+
+The original APP-STATE witness database/container had been auto-removed. That
+loss is preserved as a limitation; no continuity with its revision chain is
+claimed. A dedicated PostgreSQL container and volume were created on
+`127.0.0.1:55460`, then the same synthetic World
+`demo-j2-plan-apply-witness-2026-10-01`, Plan
+`46e2e8fe-6d91-4552-be31-e69c818e77c6`, title, and opening body were
+reconstituted. Before the first proposal, the fresh database showed object
+revision 2 / content revision 1 and opening-body SHA-256
+`ada07dfb03c0f81d54bda66bc73dda8b0a460c743d630ce9ec5f21f50282d09d`. This is
+a new synthetic revision chain. The two earlier failed proposals remained
+separate historical browser-local evidence; neither was reapplied.
+
+Exactly two new logical proposals were submitted in a fresh conversation. Both
+were reviewed, applied to the same mounted Plan draft, saved through the normal
+prepare/commit routes, and verified after reload:
+
+- The canonical READ-ALOUD proposal: observed `gpt-5.3-codex`; 422 input / 151
+  output tokens; one provider attempt; zero transport retries and zero
+  conformance retries; 5,818 ms model latency / 5,825 ms request wall time.
+- The plain-prose proposal “A lone watcher keeps vigil above the marsh.”:
+  observed `gpt-5.3-codex`; 554 input / 106 output tokens; one provider
+  attempt; zero transport retries and zero conformance retries; 4,238 ms model
+  latency / 4,251 ms request wall time.
+
+No attributable `cost_usd` was returned for either call; cost is unknown, not
+zero. After the second ordinary Save and page reload, the database snapshot
+and committed-revision endpoint agreed at object revision 6 / content revision
+3, SHA-256
+`86e10d0283d650573170b241da529f9b57a560484514d3f9ef673dfe1b6222ef`, with no
+divergent working copy. The saved body retained all original prose, the
+READ-ALOUD block, and the new plain-prose sentence. Browser action history
+showed both new turns applied to the local draft.
+
+Page loads also emitted a separate `POST /api/live/world-graph/projection`
+503. No graph write or graph read-after-write was attempted or proved. This
+Apply witness does not establish managed-World graph awareness, Session 28
+native graph read, recap ingestion, visual acceptance, or full DEMO/J1–J6
+acceptance.
