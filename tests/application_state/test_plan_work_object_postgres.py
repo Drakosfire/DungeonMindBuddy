@@ -172,6 +172,134 @@ def test_divergent_working_copy_is_not_presented_as_committed(
     assert snapshot.record.content_status == "draft"
 
 
+def test_current_world_plan_read_returns_immutable_basis_and_divergence(
+    application_state_dsn: str,
+) -> None:
+    from application_state.content.service import (
+        autosave_plan,
+        commit_plan,
+        create_world_plan,
+        read_current_world_plan_revision,
+    )
+
+    world_id = "world-current-plan-read"
+    created = create_world_plan(title="Current Plan", world_id=world_id)
+    body = "# Committed fact\n\nThe sealed phrase is amber lantern.\n"
+    committed_obj, committed = commit_plan(
+        str(created.work_object_id), body, expected_world_id=world_id
+    )
+    autosave_plan(
+        str(created.work_object_id),
+        "# Uncommitted draft\n\nThis is not sent.\n",
+        expected_world_id=world_id,
+    )
+
+    result = read_current_world_plan_revision(
+        str(created.work_object_id),
+        expected_world_id=world_id,
+        expected_revision_n=committed.revision_n,
+        expected_sha256=committed.content_sha256,
+    )
+
+    assert result.markdown == body
+    assert result.world_id == world_id
+    assert result.document_id == created.work_object_id
+    assert result.work_revision_id == committed.work_revision_id
+    assert result.revision_n == committed.revision_n
+    assert result.content_sha256 == committed.content_sha256
+    assert result.committed_status == "committed"
+    assert result.has_divergent_working_copy is True
+    assert committed_obj.current_revision_id == result.work_revision_id
+
+
+def test_current_world_plan_read_rejects_wrong_owner_kind_and_status(
+    application_state_dsn: str,
+) -> None:
+    from application_state.content.service import (
+        commit_plan,
+        create_world_plan,
+        create_world_runbook,
+        read_current_world_plan_revision,
+        update_plan_metadata,
+    )
+    from application_state.errors import (
+        ApplicationStateConflictError,
+        ApplicationStateNotFoundError,
+    )
+
+    world_id = "world-current-plan-owner-check"
+    created = create_world_plan(title="Owned Plan", world_id=world_id)
+    _, committed = commit_plan(
+        str(created.work_object_id), "# Current\n", expected_world_id=world_id
+    )
+    pin = {
+        "expected_revision_n": committed.revision_n,
+        "expected_sha256": committed.content_sha256,
+    }
+    with pytest.raises(ApplicationStateConflictError, match="not owned"):
+        read_current_world_plan_revision(
+            str(created.work_object_id), expected_world_id="another-world", **pin
+        )
+
+    runbook = create_world_runbook(title="Not a Plan", world_id=world_id)
+    with pytest.raises(ApplicationStateNotFoundError, match="workspace document not found"):
+        read_current_world_plan_revision(
+            str(runbook.work_object_id), expected_world_id=world_id, **pin
+        )
+
+    discarded = update_plan_metadata(
+        str(created.work_object_id), status="discarded"
+    )
+    assert discarded.status == "discarded"
+    with pytest.raises(ApplicationStateConflictError, match="not active"):
+        read_current_world_plan_revision(
+            str(created.work_object_id), expected_world_id=world_id, **pin
+        )
+
+
+def test_current_world_plan_read_requires_current_pinned_commit(
+    application_state_dsn: str,
+) -> None:
+    from application_state.content.service import (
+        commit_plan,
+        create_world_plan,
+        read_current_world_plan_revision,
+    )
+    from application_state.errors import ApplicationStateConflictError
+
+    world_id = "world-current-plan-pin-check"
+    uncommitted = create_world_plan(title="No commit", world_id=world_id)
+    with pytest.raises(ApplicationStateConflictError, match="no current committed"):
+        read_current_world_plan_revision(
+            str(uncommitted.work_object_id),
+            expected_world_id=world_id,
+            expected_revision_n=1,
+            expected_sha256="a" * 64,
+        )
+
+    created = create_world_plan(title="Revisioned", world_id=world_id)
+    _, first = commit_plan(
+        str(created.work_object_id), "# First\n", expected_world_id=world_id
+    )
+    _, second = commit_plan(
+        str(created.work_object_id), "# Second\n", expected_world_id=world_id
+    )
+    with pytest.raises(ApplicationStateConflictError, match="revision number"):
+        read_current_world_plan_revision(
+            str(created.work_object_id),
+            expected_world_id=world_id,
+            expected_revision_n=first.revision_n,
+            expected_sha256=first.content_sha256,
+        )
+    with pytest.raises(ApplicationStateConflictError, match="SHA"):
+        read_current_world_plan_revision(
+            str(created.work_object_id),
+            expected_world_id=world_id,
+            expected_revision_n=second.revision_n,
+            expected_sha256="0" * 64,
+        )
+
+
 def test_cas_conflict_one_success(
     tmp_path: Path, application_state_dsn: str
 ) -> None:
