@@ -3,7 +3,7 @@
 **Status:** BLOCKED — refreshed design ready for PRIME activation review; no implementation lease
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Design anchor:** Buddy `main@c3904bc1e08df689b92d5a0b710b546f77af4600`
+**Design anchor:** Buddy `main@4466c77ad9db716aaa266d672e8faa860255f3b0`
 **Topology:** serial. #836 and #839 are settled; #848's additive trace-instrumentation PR is merged. PR #826 is still the unresolved prior implementation PR, so this Play handoff remains BLOCKED and cannot be dispatched until #826 is resolved/closed or PRIME explicitly records a superseding disposition/topology. No implementation or runtime lease is active.
 
 ## User transition
@@ -16,7 +16,7 @@ This is one Buddy product capability: adopt the generic Agent turn contract on P
 
 Buddy #820 completed the World PlayRun C2 UI migration at `bfa741261e715eadb48d873f87fccc1764417da8`; its lease ended at merge. The generic POST /api/live/agent/turn request permits Play and Run locators, but the current work resolver accepts only Plan and returns work_kind_unresolved for a Run. Play has no Ask plugin. Its PlaySurfacePublisher builds legacy A7 publication context from campaign V1 records only, so that publication is not authority for a World V2 Agent turn.
 
-This handoff is re-anchored at Buddy `main@c3904bc1e08df689b92d5a0b710b546f77af4600`.
+This handoff is re-anchored at Buddy `main@4466c77ad9db716aaa266d672e8faa860255f3b0`.
 PR #836 merged at `6de8d831ab82308086677fb3038122936ab9a756` from
 `cf226c24da4973f88bbfb904889b45e857ffef31`; it adds the managed-World to
 native-Graph binding but does not change the generic Agent resolver or Play
@@ -33,6 +33,10 @@ of #848 with this Play design found no resolver or receipt dependency. Play
 must tolerate additive trace names, keep its Run/Runbook receipt distinct from
 trace telemetry, and never put Run identity or authored Play prose in timing
 spans.
+
+PR #851 merged at Buddy main `4466c77ad9db716aaa266d672e8faa860255f3b0`. Its one-file diff settles
+`Docs/Plans/HANDOFF-HERMES-prose-pairs.md`; it changes no Play implementation
+path, runtime, or test contract.
 
 PR #826 remains OPEN/paused and unmergeable at head
 `4fa28e586783f0e63edb85fa664afa53521367f6`, based on stale
@@ -233,8 +237,8 @@ This is a proposed set only, not an active allowlist. PR #836 released the Roadm
 ## Activation checklist
 
 Re-anchor Buddy remote main before any activation decision. At this handoff
-revision, main is `c3904bc1e08df689b92d5a0b710b546f77af4600`; #836 and #839 are
-merged, #848 is merged, #826 remains paused and unmergeable at its stale head,
+revision, main is `4466c77ad9db716aaa266d672e8faa860255f3b0`; #836, #839, #848, and #851 are merged;
+#826 remains paused and unmergeable at its stale head,
 and #843/#844 remain BLOCKED. RAKE DUTY's audit identifies unresolved v2
 registry, authorization, and zero-skip PostgreSQL gates for #826. The proposed
 Play paths have no current open-PR code-path collision, but serial workstream

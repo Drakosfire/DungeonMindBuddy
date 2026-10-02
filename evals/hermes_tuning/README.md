@@ -1,5 +1,35 @@
 # Hermes tuning experiment
 
+## Synthetic co-GM style pairs
+
+Run the fixed 12-case matched cohort after validating it offline:
+
+```bash
+uv run pytest -q tests/test_hermes_tuning_style_pairs.py
+uv run ruff check evals/hermes_tuning/run_style_pairs.py tests/test_hermes_tuning_style_pairs.py
+uv run python evals/hermes_tuning/run_style_pairs.py --output /tmp/hermes-style-cohort.json --stop-after 2
+uv run python evals/hermes_tuning/run_style_pairs.py --resume --output /tmp/hermes-style-cohort.json --stop-after 12 --blind-output /tmp/hermes-style-blind.json
+```
+
+The harness requires policy-resolved `openai-api` / `gpt-6-luna`, a key in the established environment, and exactly twelve checked-in synthetic cases. Each pair uses the same evidence, task request, conversation-only policy, and system prompt. The treatment appends only the fixed `voice_variation` sentence from `scenario.json` to the user request. Arm order is randomized by a saved seed. Each turn uses a fresh session and one Hermes call; no direct API arm or Graph tool is enabled. Raw answers, safe call telemetry, evidence, prompt hashes, gates, and order are stored in the raw cohort. The separate blind packet contains A/B answers and scoring keys only, with no condition mapping, timing, or token/cost measures. Have reviewers score that packet before consulting the raw mapping.
+
+The deterministic screen checks successful nonempty output, a 100-word cap, no headings/bullets, at least one explicit uncertainty marker, exactly one model call, and zero tool events. These checks do not establish full factual grounding. In particular, the lexical uncertainty check can conservatively reject an answer that conveys uncertainty without one of its listed terms. Evidence-keyed grounding, uncertainty preservation, task fit, naturalness, clarity, concision, and A/B/tie preference require blinded human scoring. A failed hard screen cannot win on prose; exclude that pair from the primary prose preference summary unless blind review identifies a gate-classification defect before unblinding.
+
+The completed cohort is documented in [`artifacts/style-pairs-20261002T085003Z.json`](artifacts/style-pairs-20261002T085003Z.json). All 24 turns returned `ok`, each made one observed model call, and no tools were called. The deterministic lexical screen initially passed 22/24 answers: both `council-bell` answers failed only because their explicit uncertainty used wording outside the screen's marker list. Both blinded reviewers independently judged both answers to preserve uncertainty, so this is a recorded false negative; the original gate fields remain unchanged. Both reviewers also independently rejected the control answer for `northfield-well` (invented resident attribution) and the voice-sentence answer for `gloam-orchard` (invented unaffected comparison row). Those two pairs are excluded from the primary comparison, leaving ten pairs where both answers passed human grounding/uncertainty/format/actionability gates.
+
+Each reviewer scored ten eligible pairs while blind to condition, using 1–5 scales in this order: task fit/actionability, clarity, natural co-GM voice, concision. PRIME's A/B/tie preferences mapped to control/voice were 4/5/1; the independent reviewer's were 4/6/0. Mean scores by arm were:
+
+| Reviewer | Arm | Task fit/actionability | Clarity | Natural co-GM voice | Concision |
+|---|---|---:|---:|---:|---:|
+| PRIME | Control | 4.6 | 4.6 | 4.2 | 4.3 |
+| PRIME | Voice sentence | 4.4 | 4.4 | 4.2 | 4.0 |
+| Independent | Control | 4.5 | 4.6 | 4.0 | 4.4 |
+| Independent | Voice sentence | 4.5 | 4.4 | 3.9 | 4.0 |
+
+Both reviewers show a small preference lean toward the voice sentence, while its naturalness means are tied or slightly lower and its clarity/concision means are lower. This mixed, small-sample result does not establish a prose-quality improvement or justify a product prompt change. Estimated cost was $0.0045904 using the checked-in pricing table, with 21,344 reported total tokens. Wall time varied across matched arms and is descriptive only. Twelve pairs are exploratory. Non-streaming calls leave TTFT unknown. The two locked blinded score files' hashes, mapped case-level ratings, and post-score gate adjudication are preserved in the result artifact; raw answers and original automated gates are unchanged.
+
+The process emitted ignored provider-plugin registration compatibility warnings and asynchronous `FileNotFoundError` logging traces for generated temporary Hermes home directories during cleanup. All 24 typed turn results and observed model calls completed successfully. These logger diagnostics were not included in the raw answer artifact; timings remain descriptive and may include setup/logging work.
+
 This experiment separates prose from tool use. Every supplied fact is synthetic; no campaign corpus content is used. The paired prose cases send the same effective user prompt and system policy through a direct Luna Responses call and Buddy's embedded Hermes conversation-only route. The Graph cases run Hermes with the normal read-only Graph tool definitions while an in-process fake dispatcher returns a deterministic synthetic fixture.
 
 ## Run it
