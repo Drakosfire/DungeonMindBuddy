@@ -557,14 +557,20 @@ six-item dialogue behavior. Since the current local window includes `plan_edit`
 turns without exact committed-basis provenance, the separate Plan-owned typed
 [action-dialogue projection capability](../Plans/HANDOFF-DEMO-plan-action-dialogue-projection.md)
 and its own PR must precede this consumer cutover.
-The projection may expose only the instruction and visible assistant summary
-with exact World/Plan/committed-basis provenance and stable order; no proposal
-bytes or Apply/Save receipts. The cutover combines eligible APP-STATE Ask turns
-and that Plan projection under the same exact Plan/basis filter and six-turn
-server-side cap. No Ask-only narrowing or client-supplied history is authorized.
-The runtime and action-projection prerequisites must be accepted, then PRIME
-must grant the exact consumer lease before implementation; no Plan
-UI/runtime/provider lease is active.
+The projection exposes only typed action type, exact World/Plan/committed-basis
+references, stable server order, truthful `pending`/`completed`/`failed`/
+`indeterminate` status, the instruction, and a visible assistant summary for
+completed actions. Only completed instruction/summary pairs enter model
+context; unresolved status items are not assistant turns. Proposal bytes and
+Apply/Save receipts stay out of this capability. The Plan-owned ledger uses
+Buddy's existing Application State database and Alembic chain; APP-STATE must
+review its migration. The cutover combines eligible APP-STATE Ask turns and
+that Plan projection under the same exact Plan/basis filter and six-turn
+server-side cap. Ask-only narrowing and client-supplied history remain
+unauthorized. The runtime and
+action-projection prerequisites must be accepted, then PRIME must grant the
+exact consumer lease before implementation. This remains separate from any
+AGENT-INTERACTION runtime lease; no Plan consumer UI/provider lease is active.
 The consumer design merged in Buddy #857 at
 `41fe2944468327da852a987685992fc50f91f059` from reviewed head
 `de08a3cc2f24406d1440b771f047ba0b8398a6e8`; the separate action-projection
