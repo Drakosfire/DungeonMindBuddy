@@ -1,0 +1,12 @@
+{
+  "scenario_id": "alderwatch-pressure-synthetic-v1",
+  "source": "fully synthetic; created for this experiment, not derived from user corpus",
+  "evidence": [
+    "Alderwatch has one bridge across the river; it closes at dusk.",
+    "Three nights ago, the east watchtower's blue lantern went dark. Its keeper, Nera, is missing.",
+    "A dry trail of silver dust runs from the tower toward the old quarry; nobody has followed it.",
+    "The mayor says the north road is passable. The ferryman reports hearing bells beneath the river."
+  ],
+  "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list.",
+  "voice_variation": "Write as a calm, practical co-GM: direct, warm, and specific; avoid generic dramatic flourishes."
+}
