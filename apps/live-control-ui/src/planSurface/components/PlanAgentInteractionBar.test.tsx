@@ -74,12 +74,57 @@ function wrapper({ children }: { children: ReactNode }) {
   );
 }
 
+function fallbackWrapper({ children }: { children: ReactNode }) {
+  function OpenPane() {
+    const { setPaneOpen } = useAgentInteraction();
+    return createElement("button", { type: "button", onClick: () => setPaneOpen(true) }, "Open fallback");
+  }
+
+  return createElement(
+    AgentInteractionProvider,
+    null,
+    createElement(
+      PlanGraphLensProvider,
+      { planCampaignId: sessionDescriptor.campaignId },
+      createElement(
+        PlanGraphReferenceResolverProvider,
+        { sessionDescriptor },
+        createElement(OpenPane),
+        children,
+      ),
+    ),
+  );
+}
+
 describe("PlanAgentInteractionBar graph lens", () => {
   beforeEach(() => {
     Object.defineProperty(globalThis, "crypto", { configurable: true, value: webcrypto });
     vi.restoreAllMocks();
     window.localStorage.clear();
     window.history.replaceState({}, "", "/plan");
+  });
+
+  it("can close the open Plan Ask fallback when shared chrome has no host", async () => {
+    const user = userEvent.setup();
+    render(
+      createElement(
+        SelectedWorldProvider,
+        { locationSnapshot: window.location.href },
+        createElement(PlanAgentInteractionBar, {
+          planView,
+          sessionDescriptor,
+          askCorpus: vi.fn(),
+        }),
+      ),
+      { wrapper: fallbackWrapper },
+    );
+
+    await user.click(screen.getByRole("button", { name: "Open fallback" }));
+    expect(await screen.findByTestId("plan-ask-fallback-shell")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close chat" }));
+    await waitFor(() => {
+      expect(screen.queryByTestId("plan-ask-fallback-shell")).not.toBeInTheDocument();
+    });
   });
 
   function renderManagedCompose(options: { proposalGate?: Promise<void>; askGate?: Promise<void> } = {}) {

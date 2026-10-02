@@ -33,6 +33,14 @@ export function AgentInteractionChrome() {
     >
       {open ? (
         <>
+          <button
+            type="button"
+            className="agent-interaction-exit"
+            onClick={() => setPaneOpen(false)}
+            aria-label="Close chat"
+          >
+            Close
+          </button>
           <div
             className="agent-interaction-ask-host"
             data-testid="agent-interaction-ask-host"

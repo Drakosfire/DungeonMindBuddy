@@ -143,6 +143,16 @@ it("uses no owner without a selected World and does not invent work or graph con
   expect(screen.getByText(/No World · No work object · No graph requested/)).toBeInTheDocument();
 });
 
+it("closes the Index chat and restores the same conversation when reopened", async () => {
+  render(<Harness location="/" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  expect(await screen.findByLabelText("Index conversation")).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Close chat" }));
+  expect(screen.queryByLabelText("Index conversation")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  expect(await screen.findByLabelText("Index conversation")).toBeInTheDocument();
+});
+
 it("does not turn an unverified World lookup failure into a no-owner conversation", async () => {
   vi.spyOn(liveApi, "listWorldContainers").mockRejectedValue(new Error("World registry unavailable"));
   const post = vi.spyOn(liveApi, "postIndexAgentTurn");
