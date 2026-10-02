@@ -3,6 +3,7 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 import hashlib
 import json
+from threading import Barrier
 from uuid import uuid4
 
 import pytest
@@ -18,16 +19,23 @@ from application_state.agent_conversation.types import (
     LegacyImport,
     LegacyTurn,
     ReopenCommand,
+    SubmittedGraphFocusIntentV1,
+    SubmittedGraphRequestIntentV1,
+    SubmittedGraphSelectionIntentV1,
+    SubmittedPrimaryWorkIntentV1,
+    SubmittedTurnIntentV1,
     TurnFailure,
     TurnProvenance,
     TurnResult,
     TurnSubmission,
+    submitted_turn_intent_fingerprint_v1,
 )
 from application_state.config import APPLICATION_STATE_DSN_ENV
 from application_state.errors import (
     ApplicationStateConflictError,
     ApplicationStateNotFoundError,
     ApplicationStateUnavailableError,
+    ApplicationStateValidationError,
 )
 
 
@@ -56,6 +64,32 @@ def _provenance(
             _ref("beat", "beat-2", "beat-rev-3"),
         ],
         selected_object=_ref("scene", "scene-9", "scene-rev-2"),
+    )
+
+
+def _submitted_intent(
+    world_id: str,
+    message: str,
+    *,
+    client_thread_id: str = "client-thread-1",
+    surface_id: str = "play",
+    surface_instance_id: str = "play-main",
+    graph_selection: str | None = None,
+) -> SubmittedTurnIntentV1:
+    return SubmittedTurnIntentV1(
+        world_id=world_id,
+        client_thread_id=client_thread_id,
+        message=message,
+        surface_id=surface_id,
+        surface_instance_id=surface_instance_id,
+        client_work_state="none",
+        primary_work=None,
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=(
+            None
+            if graph_selection is None
+            else SubmittedGraphSelectionIntentV1(node_id=graph_selection)
+        ),
     )
 
 
@@ -192,6 +226,496 @@ def test_content_reference_requires_complete_typed_revision_and_resolved_identit
     ):
         with pytest.raises(ValidationError):
             HistoricalReference.model_validate(invalid)
+
+
+def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> None:
+    intent = _submitted_intent("intent-world", "Where is the caravan?")
+    fingerprint = submitted_turn_intent_fingerprint_v1(intent)
+
+    assert len(fingerprint) == 64
+    assert submitted_turn_intent_fingerprint_v1(intent) == fingerprint
+    assert submitted_turn_intent_fingerprint_v1(
+        intent.model_copy(update={"message": "Where is the caravan now?"})
+    ) != fingerprint
+    assert submitted_turn_intent_fingerprint_v1(
+        intent.model_copy(update={"surface_instance_id": "play-side-panel"})
+    ) != fingerprint
+    assert submitted_turn_intent_fingerprint_v1(
+        intent.model_copy(update={"client_thread_id": "client-thread-2"})
+    ) != fingerprint
+    assert submitted_turn_intent_fingerprint_v1(
+        intent.model_copy(
+            update={
+                "graph_selection": SubmittedGraphSelectionIntentV1(
+                    node_id="node-17"
+                )
+            }
+        )
+    ) != fingerprint
+    plan_intent = intent.model_copy(
+        update={
+            "client_work_state": "saved_clean",
+            "primary_work": SubmittedPrimaryWorkIntentV1(
+                kind="plan",
+                object_id="plan-4",
+                expected_revision=9,
+                expected_revision_n=3,
+                expected_content_sha256="a" * 64,
+            ),
+        }
+    )
+    plan_fingerprint = submitted_turn_intent_fingerprint_v1(plan_intent)
+    assert submitted_turn_intent_fingerprint_v1(
+        plan_intent.model_copy(
+            update={
+                "primary_work": plan_intent.primary_work.model_copy(
+                    update={"expected_revision_n": 4}
+                )
+            }
+        )
+    ) != plan_fingerprint
+    graph_intent = intent.model_copy(
+        update={
+            "graph_request": SubmittedGraphRequestIntentV1(
+                mode="world",
+                world_id="intent-world",
+                revision_pin="graph-revision-8",
+                focus=SubmittedGraphFocusIntentV1(kind="none"),
+            )
+        }
+    )
+    graph_fingerprint = submitted_turn_intent_fingerprint_v1(graph_intent)
+    assert submitted_turn_intent_fingerprint_v1(
+        graph_intent.model_copy(
+            update={
+                "graph_request": graph_intent.graph_request.model_copy(
+                    update={"revision_pin": "graph-revision-9"}
+                )
+            }
+        )
+    ) != graph_fingerprint
+
+
+def test_submitted_turn_intent_rejects_incomplete_plan_or_mismatched_graph_scope() -> None:
+    with pytest.raises(ValidationError, match="exact committed content pin"):
+        SubmittedTurnIntentV1(
+            world_id="intent-world",
+            client_thread_id="client-thread-1",
+            message="Question?",
+            surface_id="plan",
+            surface_instance_id="plan-main",
+            client_work_state="saved_clean",
+            primary_work=SubmittedPrimaryWorkIntentV1(
+                kind="plan", object_id="plan-1", expected_revision=2
+            ),
+            graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+            graph_selection=None,
+        )
+    with pytest.raises(ValidationError, match="must match submitted turn World"):
+        SubmittedTurnIntentV1.model_validate(
+            {
+                **_submitted_intent("intent-world", "Question?").model_dump(
+                    by_alias=True
+                ),
+                "graph_request": SubmittedGraphRequestIntentV1(
+                    mode="world",
+                    world_id="another-world",
+                    focus=SubmittedGraphFocusIntentV1(kind="none"),
+                ),
+            }
+        )
+    with pytest.raises(ValidationError, match="requires a graph request"):
+        SubmittedTurnIntentV1(
+            world_id="intent-world",
+            client_thread_id="client-thread-1",
+            message="Question?",
+            surface_id="play",
+            surface_instance_id="play-main",
+            client_work_state="none",
+            primary_work=None,
+            graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+            graph_selection=SubmittedGraphSelectionIntentV1(node_id="node-1"),
+        )
+
+
+def test_turn_receipt_reconciliation_survives_pointer_rotation_and_fails_closed(
+    application_state_dsn: str,
+) -> None:
+    service = AgentConversationService()
+    first = _new(service, "receipt-first-world", expected_revision=0)
+    intent = _submitted_intent("receipt-first-world", "Original user question.")
+    submission = TurnSubmission(
+        world_id="receipt-first-world",
+        conversation_id=first.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text=intent.message,
+        provenance=_provenance("receipt-first-world"),
+        submitted_intent_v1=intent,
+    )
+
+    assert service.reconcile_turn(
+        "receipt-first-world", submission.idempotency_key, intent
+    ) is None
+    accepted = service.accept_turn(submission)
+    next_conversation = _new(
+        service,
+        "receipt-first-world",
+        expected_revision=first.pointer_revision,
+        active_id=first.conversation_id,
+    )
+
+    replay = service.reconcile_turn(
+        "receipt-first-world", submission.idempotency_key, intent
+    )
+    assert replay == accepted
+    assert replay.conversation_id == first.conversation_id
+    assert replay.conversation_id != next_conversation.conversation_id
+
+    stale_route_submission = TurnSubmission(
+        world_id="receipt-first-world",
+        conversation_id=next_conversation.conversation_id,
+        idempotency_key=submission.idempotency_key,
+        expected_conversation_revision=1,
+        user_text=intent.message,
+        provenance=_provenance("receipt-first-world", run_id="new-current-run"),
+        submitted_intent_v1=intent,
+    )
+    assert service.accept_turn(stale_route_submission) == accepted
+
+    changed_intent = intent.model_copy(update={"surface_instance_id": "other-pane"})
+    with pytest.raises(ApplicationStateConflictError, match="different submitted intent"):
+        service.reconcile_turn(
+            "receipt-first-world", submission.idempotency_key, changed_intent
+        )
+    with pytest.raises(ApplicationStateConflictError, match="different submitted intent"):
+        service.accept_turn(
+            stale_route_submission.model_copy(update={"submitted_intent_v1": changed_intent})
+        )
+
+
+def test_legacy_turn_receipt_is_not_reconciled_from_resolved_provenance(
+    application_state_dsn: str,
+) -> None:
+    service = AgentConversationService()
+    conversation = _new(service, "legacy-receipt-world", expected_revision=0)
+    key = uuid4()
+    legacy_submission = TurnSubmission(
+        world_id="legacy-receipt-world",
+        conversation_id=conversation.conversation_id,
+        idempotency_key=key,
+        expected_conversation_revision=1,
+        user_text="A historical turn without submitted intent.",
+        provenance=_provenance("legacy-receipt-world"),
+    )
+    accepted = service.accept_turn(legacy_submission)
+    intent = _submitted_intent(
+        "legacy-receipt-world", legacy_submission.user_text
+    )
+
+    with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
+        service.reconcile_turn("legacy-receipt-world", key, intent)
+    with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
+        service.accept_turn(
+            TurnSubmission(
+                world_id="legacy-receipt-world",
+                conversation_id=conversation.conversation_id,
+                idempotency_key=key,
+                expected_conversation_revision=2,
+                user_text=intent.message,
+                provenance=accepted.provenance,
+                submitted_intent_v1=intent,
+            )
+        )
+
+
+def test_v1_accept_race_keeps_one_receipt_and_rejects_conflicting_intent(
+    application_state_dsn: str,
+) -> None:
+    service = AgentConversationService()
+
+    def race(first: TurnSubmission, second: TurnSubmission):
+        barrier = Barrier(2)
+
+        def submit(value: TurnSubmission):
+            barrier.wait()
+            try:
+                return service.accept_turn(value)
+            except ApplicationStateConflictError as error:
+                return error
+
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            return list(pool.map(submit, (first, second)))
+
+    same_conversation = _new(service, "same-intent-race-world", expected_revision=0)
+    same_intent = _submitted_intent(
+        "same-intent-race-world", "One exact racing request."
+    )
+    same_key = uuid4()
+    same_submission = TurnSubmission(
+        world_id="same-intent-race-world",
+        conversation_id=same_conversation.conversation_id,
+        idempotency_key=same_key,
+        expected_conversation_revision=1,
+        user_text=same_intent.message,
+        provenance=_provenance("same-intent-race-world"),
+        submitted_intent_v1=same_intent,
+    )
+    same_results = race(same_submission, same_submission)
+    assert all(not isinstance(value, Exception) for value in same_results)
+    assert same_results[0] == same_results[1]
+    assert len(
+        service.list_turns("same-intent-race-world", same_conversation.conversation_id)
+    ) == 1
+
+    conflict_conversation = _new(
+        service, "conflicting-intent-race-world", expected_revision=0
+    )
+    first_intent = _submitted_intent(
+        "conflicting-intent-race-world", "First racing request."
+    )
+    second_intent = _submitted_intent(
+        "conflicting-intent-race-world", "Different racing request."
+    )
+    conflict_key = uuid4()
+    first_submission = TurnSubmission(
+        world_id="conflicting-intent-race-world",
+        conversation_id=conflict_conversation.conversation_id,
+        idempotency_key=conflict_key,
+        expected_conversation_revision=1,
+        user_text=first_intent.message,
+        provenance=_provenance("conflicting-intent-race-world"),
+        submitted_intent_v1=first_intent,
+    )
+    second_submission = first_submission.model_copy(
+        update={
+            "user_text": second_intent.message,
+            "submitted_intent_v1": second_intent,
+        }
+    )
+    conflict_results = race(first_submission, second_submission)
+    assert sum(not isinstance(value, Exception) for value in conflict_results) == 1
+    conflicts = [
+        value for value in conflict_results if isinstance(value, ApplicationStateConflictError)
+    ]
+    assert len(conflicts) == 1
+    assert "different submitted intent" in str(conflicts[0])
+    assert len(
+        service.list_turns(
+            "conflicting-intent-race-world", conflict_conversation.conversation_id
+        )
+    ) == 1
+
+
+def test_turn_claim_expiry_fences_old_worker_and_terminal_retries(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+
+    service = AgentConversationService()
+    conversation = _new(service, "turn-claim-world", expected_revision=0)
+    submission = TurnSubmission(
+        world_id="turn-claim-world",
+        conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text="Recover this claimed turn.",
+        provenance=_provenance("turn-claim-world"),
+    )
+    accepted = service.accept_turn(submission)
+    first = service.claim_turn(
+        "turn-claim-world",
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+        lease_seconds=60,
+    )
+    assert first.disposition == "claimed"
+    assert first.turn.status == "running"
+    assert first.turn.attempt == 1
+    assert first.turn.claim_expires_at is not None
+
+    live_retry = service.claim_turn(
+        "turn-claim-world",
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=first.turn.revision,
+        lease_seconds=60,
+    )
+    assert live_retry.disposition == "pending"
+    assert live_retry.turn.revision == first.turn.revision
+    assert live_retry.turn.attempt == first.turn.attempt
+
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE agent.turn SET claim_expires_at = clock_timestamp() - interval '1 second' WHERE turn_id = %s",
+            (accepted.turn_id,),
+        )
+
+    old_result = TurnResult(
+        world_id="turn-claim-world",
+        conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id,
+        expected_revision=first.turn.revision,
+        assistant_text="Same provider output.",
+    )
+    old_failure = TurnFailure(
+        world_id="turn-claim-world",
+        conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id,
+        expected_revision=first.turn.revision,
+        failure_code="provider_timeout",
+    )
+    with pytest.raises(ApplicationStateConflictError, match="claim expired"):
+        service.complete_turn(old_result)
+    with pytest.raises(ApplicationStateConflictError, match="claim expired"):
+        service.fail_turn(old_failure)
+    with pytest.raises(ApplicationStateConflictError, match="expired or fenced"):
+        service.renew_turn_claim(
+            "turn-claim-world",
+            conversation.conversation_id,
+            accepted.turn_id,
+            expected_revision=first.turn.revision,
+        )
+
+    recovered_service = AgentConversationService()
+    recovered = recovered_service.claim_turn(
+        "turn-claim-world",
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=first.turn.revision,
+        lease_seconds=60,
+    )
+    assert recovered.disposition == "claimed"
+    assert recovered.turn.attempt == first.turn.attempt + 1
+    assert recovered.turn.revision == first.turn.revision + 1
+
+    with pytest.raises(ApplicationStateConflictError, match="revision or lifecycle"):
+        recovered_service.complete_turn(old_result)
+    with pytest.raises(ApplicationStateConflictError, match="revision or lifecycle"):
+        recovered_service.fail_turn(old_failure)
+    renewed = recovered_service.renew_turn_claim(
+        "turn-claim-world",
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=recovered.turn.revision,
+        lease_seconds=60,
+    )
+    assert renewed.revision == recovered.turn.revision + 1
+    assert renewed.attempt == recovered.turn.attempt
+    assert renewed.claim_expires_at > recovered.turn.claim_expires_at
+
+    renewed_result = old_result.model_copy(update={"expected_revision": renewed.revision})
+    completed = recovered_service.complete_turn(renewed_result)
+    assert completed.status == "completed"
+    assert completed.revision == renewed.revision + 1
+    assert completed.claim_expires_at is None
+    assert recovered_service.complete_turn(renewed_result) == completed
+    with pytest.raises(
+        ApplicationStateConflictError,
+        match="different recorded result or a different claim fence",
+    ):
+        recovered_service.complete_turn(
+            renewed_result.model_copy(update={"assistant_text": "Different output."})
+        )
+    completed_claim = recovered_service.claim_turn(
+        "turn-claim-world",
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=completed.revision,
+    )
+    assert completed_claim.disposition == "completed"
+
+
+def test_turn_claim_lease_bounds_are_validated_before_database_access() -> None:
+    service = AgentConversationService()
+    with pytest.raises(ApplicationStateValidationError, match="between 1 and"):
+        service.claim_turn(
+            "lease-validation-world",
+            uuid4(),
+            uuid4(),
+            expected_revision=1,
+            lease_seconds=0,
+        )
+    with pytest.raises(ApplicationStateValidationError, match="between 1 and"):
+        service.renew_turn_claim(
+            "lease-validation-world",
+            uuid4(),
+            uuid4(),
+            expected_revision=1,
+            lease_seconds=301,
+        )
+
+
+def test_claim_recovery_migration_preserves_completed_legacy_turn(
+    application_state_dsn: str,
+) -> None:
+    import psycopg
+    from alembic import command
+
+    from application_state.cli import _current_and_head, alembic_config
+
+    service = AgentConversationService()
+    conversation = _new(service, "turn-claim-migration-world", expected_revision=0)
+    submission = TurnSubmission(
+        world_id="turn-claim-migration-world",
+        conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text="Preserve this pre-recovery receipt.",
+        provenance=_provenance("turn-claim-migration-world"),
+    )
+    accepted = service.accept_turn(submission)
+    claimed = service.claim_turn(
+        "turn-claim-migration-world",
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+    )
+    completed = service.complete_turn(
+        TurnResult(
+            world_id="turn-claim-migration-world",
+            conversation_id=conversation.conversation_id,
+            turn_id=accepted.turn_id,
+            expected_revision=claimed.turn.revision,
+            assistant_text="This completed result must survive migration.",
+        )
+    )
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        fingerprints_before = conn.execute(
+            "SELECT request_fingerprint, idempotency_fingerprint FROM agent.turn WHERE turn_id = %s",
+            (accepted.turn_id,),
+        ).fetchone()
+
+    command.downgrade(alembic_config(), "20261002_0012")
+    command.upgrade(alembic_config(), "head")
+    assert _current_and_head(application_state_dsn) == (
+        "20261002_0013",
+        "20261002_0013",
+    )
+
+    loaded = AgentConversationService().list_turns(
+        "turn-claim-migration-world", conversation.conversation_id
+    )[0]
+    assert loaded.turn_id == completed.turn_id
+    assert loaded.sequence == completed.sequence
+    assert loaded.revision == completed.revision
+    assert loaded.status == "completed"
+    assert loaded.user_text == completed.user_text
+    assert loaded.assistant_text == completed.assistant_text
+    assert loaded.failure_code is None
+    assert loaded.provenance == completed.provenance
+    assert loaded.attempt == completed.attempt
+    assert loaded.submitted_intent_fingerprint_v1 is None
+    assert loaded.claim_expires_at is None
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        assert (
+            conn.execute(
+                "SELECT request_fingerprint, idempotency_fingerprint FROM agent.turn WHERE turn_id = %s",
+                (accepted.turn_id,),
+            ).fetchone()
+            == fingerprints_before
+        )
 
 
 def test_absent_surface_cannot_carry_instance_identity() -> None:
@@ -435,16 +959,16 @@ def test_turn_idempotency_order_provenance_and_truthful_lifecycle(
         accepted_second.turn_id,
         expected_revision=1,
     )
-    failed = service.fail_turn(
-        TurnFailure(
-            world_id="turn-world",
-            conversation_id=created.conversation_id,
-            turn_id=accepted_second.turn_id,
-            expected_revision=running_second.revision,
-            failure_code="provider_timeout",
-        )
+    failure = TurnFailure(
+        world_id="turn-world",
+        conversation_id=created.conversation_id,
+        turn_id=accepted_second.turn_id,
+        expected_revision=running_second.revision,
+        failure_code="provider_timeout",
     )
+    failed = service.fail_turn(failure)
     assert failed.status == "failed" and failed.assistant_text is None
+    assert service.fail_turn(failure) == failed
     retried = service.begin_turn(
         "turn-world",
         created.conversation_id,
@@ -452,6 +976,8 @@ def test_turn_idempotency_order_provenance_and_truthful_lifecycle(
         expected_revision=failed.revision,
     )
     assert retried.attempt == 2 and retried.status == "running"
+    with pytest.raises(ApplicationStateConflictError, match="revision or lifecycle"):
+        service.fail_turn(failure)
 
 
 def test_concurrent_turn_writers_use_conversation_revision_cas(

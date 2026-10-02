@@ -1,6 +1,6 @@
 # HANDOFF — APP-STATE: Agent turn claim and receipt recovery v1
 
-**Status:** PREPARED / BLOCKED — design authority only; no implementation lease.
+**Status:** ACTIVE — PRIME released the implementation lease on 2026-10-02; activation record below.
 **Repository:** Drakosfire/DungeonMindBuddy
 **Steward:** DEMO
 **Owning flow/domain:** APP-STATE
@@ -98,6 +98,7 @@ src/application_state/agent_conversation/service.py
 tests/application_state/test_agent_conversation_service.py
 tests/application_state/test_agent_conversation_postgres.py
 Docs/Roadmaps/ROADMAP-application-state.md
+Docs/Plans/HANDOFF-APP-STATE-agent-turn-claim-recovery-v1.md (status/activation record only)
 ~~~
 
 The candidate migration follows 20261002_0012 (down-revision `20261002_0012`). It adds only the lease/recovery fields and a nullable versioned submitted-intent fingerprint needed for new turns; the existing World-wide key index is retained. If the migration head or required shared paths change, return to PRIME before editing. Do not modify apps/live_control_server runtime routes, #865 leased files, UI code, MIND, Graph adapters, provider code, Docker/runtime configuration, or production data.
@@ -145,13 +146,24 @@ DEMO #857 Plan World-conversation cutover
 
 PR #865 remains frozen at the cited head until the recovery prerequisite lands. It must then be rebased/reviewed on the recovered Buddy main; the cited #865 head is not accepted authority. No #859 or #857 implementation lane is active. There is one serial implementation PR per step and no parallel migration/runtime lease.
 
-This handoff remains BLOCKED until PRIME:
+The prepared-state gates below were the conditions for activation. PRIME's 2026-10-02 release supersedes the prepared/blocked status above:
 
 1. Reviews and accepts this design and the exact receipt/legacy-compatibility and claim/fencing semantics.
 2. Re-anchors to freshly fetched Buddy main, checks PRs and worktrees again, confirms the Alembic head/path lease, and assigns the APP-STATE implementation owner and isolated branch/worktree.
 3. Confirms no overlapping APP-STATE schema or service lane and grants the exact candidate write set.
 4. Preserves #865 as frozen until this prerequisite merges; after merge, re-anchors and activates/rebases #865 with its own exact route/provider/test lease.
 5. Keeps the Graph snapshot requirement as a separate #865 runtime acceptance gate; no MIND or Graph schema change is authorized here.
+
+### Activation record — 2026-10-02
+
+- **Accepted authority:** this handoff at Buddy main `61f76f567bce672bf88248bd17e5bb44feb77ba2`; exact document blob `1f125bc4a97fa57973f36aa8c41614d54a8c9ce3`.
+- **Implementation base:** freshly fetched `origin/main` at `61f76f567bce672bf88248bd17e5bb44feb77ba2`.
+- **Implementation branch:** `codex/app-state-turn-claim-recovery-implementation`.
+- **Owner and topology:** APP-STATE; one serial implementation PR before frozen #865.
+- **Exclusive write lease:** exactly the candidate implementation write set listed above. The Graph runtime successor gate remains outside this lease.
+- **Verification resources:** PRIME-owned PostgreSQL 16 disposable service at `127.0.0.1:55457`; fixture-created unique `dungeonbuddy_app_state_test_*` databases only, using the private DSN file specified in the handoff. PRIME owns container lifecycle.
+- **Runtime boundary:** no configured or live provider, product runtime, production database, real DB `54331`, or cutover rehearsal DBs.
+- **Frozen successor:** #865 remains frozen at `b8aa42c3b4b6b5201d39b19aa62c2bef364cc94c` until recovery merges and PRIME re-anchors/releases its successor lease.
 
 The implementation return must provide exact base/head and cumulative diff, migration upgrade evidence, real-PostgreSQL results, receipt/fingerprint compatibility behavior, lease-expiry and fencing witnesses, preserved failures, and remaining runtime gates. A green unit-only test is not evidence for PostgreSQL recovery.
 
