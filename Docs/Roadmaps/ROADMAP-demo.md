@@ -520,6 +520,19 @@ Runbook alone does not represent an active Run. These are per-turn context
 fields, not the durable conversation key, which remains the server-verified
 World. No implementation lease for Play Agent adoption is active.
 
+The APP-STATE World-scoped conversation storage/domain service and World-wide
+turn receipts are complete: Buddy #822 merged at
+`0e49c4d708d3e16c8068384549adb50e863bf64a` and #827 at
+`c48abb9fa5857df90af0b086ab78294445fd252a`. #822's assigned service/PostgreSQL
+tests passed 14/14; its full Application State suite had three inherited stale
+migration-head assertions confirmed on the exact base. #827's retry/PostgreSQL
+tests passed 9/9 and conversation service tests passed 10/10. The next serial
+gate is AGENT-INTERACTION production runtime adoption; A2's harness boundary
+and A3's challenger experiment do not complete it. DEMO Play surface cutover
+follows after that runtime contract and lease are pinned. See the BLOCKED
+[Play conversation handoff](../Plans/HANDOFF-DEMO-play-agent-adoption.md).
+#826 retains its independent KnowledgeSpace holds and is not a Play predecessor.
+
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
 `document_id` plus its committed registry revision as primary work. A Canvas
@@ -536,8 +549,9 @@ state-sync/admission slice and its own future resolver/request lease. PR #781
 covers semantic-action UI only. No Build implementation lease is active, and
 no overlapping Build Agent implementation is dispatched.
 
-Generic Agent Run resolution remains a separate successor. Ingest and Combat
-Agent adoption remain open after Play. Campaign-owner/campaign-lens stays
+The next Play-specific owner gate is AGENT-INTERACTION's production shared-
+conversation runtime adoption; DEMO surface cutover follows it. Ingest and
+Combat Agent adoption remain open after Play. Campaign-owner/campaign-lens stays
 fail-closed. The visual rejection remains open and is not waived by Agent work.
 J1–J6 remain unaccepted until connected product witnesses pass.
 
