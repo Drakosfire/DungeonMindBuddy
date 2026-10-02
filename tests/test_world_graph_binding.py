@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -512,3 +513,71 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
         "status": "inactive",
         "binding_version": 2,
     }
+
+
+@pytest.mark.parametrize("malformation", ["oversized_native_id", "missing_timestamp"])
+def test_malformed_registry_bind_error_does_not_echo_private_graph_identity(
+    root: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    malformation: str,
+) -> None:
+    from apps.live_control_server.routes import world_containers
+
+    _enable_local_auth(monkeypatch)
+    monkeypatch.setattr(world_containers, "repo_root", lambda: root)
+    monkeypatch.setattr(
+        "apps.live_control_server.services.world_graph_binding._validate_with_mind",
+        lambda _world_id: pytest.fail("malformed registry must fail before MIND access"),
+    )
+    native_id = "native-leak-marker-" + "x" * 300
+    if malformation == "missing_timestamp":
+        native_id = "private-native-id"
+    path = world_containers_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    binding = {
+        "schema_version": "dmb_managed_world_native_graph_binding_v1",
+        "provider": "dungeonmind_v2",
+        "native_world_id": native_id,
+        "status": "active",
+        "binding_version": 1,
+        "validated_at": "2026-01-01T00:00:00Z",
+        "validated_head_revision_id": "private-head-marker",
+    }
+    if malformation == "missing_timestamp":
+        binding.pop("validated_at")
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "dmb_world_container_registry_v2",
+                "records": [
+                    {
+                        "schema_version": "dmb_world_container_record_v2",
+                        "world_id": "managed-world",
+                        "name": "Managed World",
+                        "source_root_relpath": "corpus/managed-world-markdown",
+                        "created_at": "2026-01-01T00:00:00Z",
+                        "native_graph_binding": binding,
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        world_containers.put_native_graph_binding(
+            managed_world_id="managed-world",
+            body=BindNativeGraphRequest(
+                native_world_id=NATIVE_ID,
+                expected_binding_version=1,
+            ),
+            request=_valid_request(
+                "/api/live/world-containers/managed-world/native-graph-binding"
+            ),
+        )
+
+    assert exc_info.value.status_code == 500
+    assert exc_info.value.detail == "malformed world container registry"
+    assert "native-leak-marker" not in str(exc_info.value.detail)
+    assert "private-head-marker" not in str(exc_info.value.detail)
+    assert "private-native-id" not in str(exc_info.value.detail)

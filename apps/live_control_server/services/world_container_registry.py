@@ -248,7 +248,7 @@ def _load_unlocked(root: Path) -> tuple[WorldContainerRegistryDocument, str]:
             raise ValueError("v2 registry contains a non-v2 WorldContainerRecord")
     except (TypeError, ValueError) as exc:
         raise WorldContainerRegistryError(
-            f"malformed world container registry: {exc}",
+            "malformed world container registry",
             status_code=500,
         ) from exc
     return document, token
