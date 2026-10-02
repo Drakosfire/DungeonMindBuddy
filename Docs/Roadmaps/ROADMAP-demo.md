@@ -1148,27 +1148,36 @@ that their foundations are absent. Historical slices retain their IDs.
 - **DEMO-J2 World-only reviewed Apply:** Buddy #828 merged at
   `dc30a7379b927edd8d9bfb510019f0fccbc3c5c5`, adding the managed-World
   Compose → Review → Apply bridge while leaving ordinary Ask metadata-only.
-  The separate post-merge witness used synthetic World
+  The initial post-merge witness used synthetic World
   `demo-j2-plan-apply-witness-2026-10-01` and Plan
   `46e2e8fe-6d91-4552-be31-e69c818e77c6`, revision 3. Two configured-policy
   proposal submissions returned reviewable content: canonical READ-ALOUD and
-  plain prose. Both Apply actions hit
+  plain prose. Both Apply actions initially hit
   `Agent proposal would not round-trip in this Plan location.` No edit was
   applied and the saved body stayed unchanged. The configured model was
-  `gpt-5.3-codex`; exact observed model, retries, token usage, latency, and cost
-  are unknown because the client did not retain attributable receipts. The
-  reviewed proposals described insertion immediately after the first sentence;
-  the focused regression now reproduces that collapsed caret inside the
-  paragraph. Block insertion splits the paragraph, and Markdown import
-  normalizes the existing separator whitespace at the new edge. The bounded
-  repair consumes only adjacent whitespace while preserving the round-trip
-  guard. Its active lane is
-  [`HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md`](../Plans/HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md).
-  Its fixture tests pass, but the fix is not merged and J2 remains open. The
-  two failed proposals remain evidence; PRIME authorized exactly two fresh
-  configured-policy proposals only after the repair merges. Proposal
-  generation metadata display/storage is a separate bounded follow-up and is
-  not a blocker for this witness. The World Graph 503 remains a separate issue.
+  `gpt-5.3-codex`; exact receipts for those failed attempts were not captured.
+  The proposals targeted a collapsed caret after the first sentence; block
+  insertion split the paragraph, and Markdown import normalized separator
+  whitespace at the new edge.
+
+  The bounded repair in PR #829 merged at
+  `a393eee9ae6ca26dfa67f65bfdde2a83037bc485` from reviewed code head
+  `07cb2b7d2ab5fb655cbf51f16efb96ca40f7415a`. It consumes only whitespace
+  adjacent to the paragraph split and preserves the round-trip guard. The
+  focused helper and mounted-editor suites passed 39/39. Under PRIME's
+  authorization, exactly two fresh proposals were then reviewed, applied,
+  saved through the ordinary routes and verified after reload: one canonical
+  READ-ALOUD block and one plain-prose sentence. The final database snapshot
+  and committed-revision endpoint agreed at object revision 6 / content
+  revision 3, with no divergent working copy. Exact per-call receipts are in
+  [`HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md`](../Plans/HANDOFF-DEMO-world-plan-apply-roundtrip-v1.md);
+  no attributable provider cost was returned. The two pre-fix failures remain
+  historical evidence and were not reapplied. This completes the bounded Apply
+  round-trip gate only; broader J2 and operator acceptance remain open.
+  Proposal-generation metadata is a separate follow-up, not a blocker for this
+  witness. A separate page-bootstrap World Graph projection still returned
+  503; no graph write or read-after-write was attempted, and graph readiness
+  remains unproven.
 - **DEMO-J3 post-#784 product checkpoint:** read-only rehearsal on integrated
   `main@c19a6c2bf51ae01337b2ad8a3188d45ad6f0fd64`, same isolated World
   and disposable saved Plan. Unlocking and selecting Stacy in the mounted
