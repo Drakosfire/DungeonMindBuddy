@@ -20,12 +20,15 @@ from application_state.agent_conversation.types import (
     LegacyImport,
     LegacyImportReceipt,
     ReopenCommand,
+    SubmittedTurnIntentV1,
     Turn,
+    TurnClaimReceipt,
     TurnFailure,
     TurnResult,
     TurnSubmission,
     WorldPointer,
     request_fingerprint,
+    submitted_turn_intent_fingerprint_v1,
     turn_idempotency_fingerprint,
 )
 from application_state.cli import assert_at_head
@@ -38,6 +41,9 @@ from application_state.errors import (
 )
 from application_state.unit_of_work import unit_of_work
 
+DEFAULT_TURN_CLAIM_LEASE_SECONDS = 60
+MAX_TURN_CLAIM_LEASE_SECONDS = 300
+
 
 def _now() -> datetime:
     return datetime.now(UTC)
@@ -49,6 +55,17 @@ def _world_id(world_id: str) -> str:
     if world_id != world_id.strip():
         raise ApplicationStateValidationError("world_id must not contain surrounding whitespace")
     return world_id
+
+
+def _validate_turn_claim_lease(lease_seconds: int) -> None:
+    if (
+        isinstance(lease_seconds, bool)
+        or not isinstance(lease_seconds, int)
+        or not 1 <= lease_seconds <= MAX_TURN_CLAIM_LEASE_SECONDS
+    ):
+        raise ApplicationStateValidationError(
+            f"turn claim lease must be between 1 and {MAX_TURN_CLAIM_LEASE_SECONDS} seconds"
+        )
 
 
 def _fingerprint_payload(payload: object) -> str:
@@ -295,24 +312,64 @@ class AgentConversationService:
         world_id = _world_id(submission.world_id)
         if submission.provenance.world_id != world_id:
             raise ApplicationStateValidationError("turn provenance must match verified World")
+        submitted_intent = submission.submitted_intent_v1
+        if submitted_intent is not None and (
+            submitted_intent.world_id != world_id
+            or submitted_intent.message != submission.user_text
+        ):
+            raise ApplicationStateValidationError(
+                "submitted intent World/message must match the turn"
+            )
         dsn = _ready_dsn()
         now = _now()
         fingerprint = request_fingerprint(submission)
         stable_fingerprint = turn_idempotency_fingerprint(
             world_id, submission.user_text, submission.provenance
         )
+        submitted_intent_fingerprint = (
+            None if submitted_intent is None else submitted_turn_intent_fingerprint_v1(submitted_intent)
+        )
+
+        def matching_receipt(existing) -> Turn:
+            (
+                turn,
+                _old_request_fingerprint,
+                _old_idempotency_fingerprint,
+                old_submitted_intent_fingerprint,
+            ) = existing
+            if old_submitted_intent_fingerprint is None:
+                raise ApplicationStateConflictError(
+                    "legacy-receipt-unverifiable: the stored turn has no submitted-intent fingerprint"
+                )
+            if submitted_intent_fingerprint is None:
+                raise ApplicationStateConflictError(
+                    "turn idempotency key requires its submitted-intent fingerprint"
+                )
+            if old_submitted_intent_fingerprint != submitted_intent_fingerprint:
+                raise ApplicationStateConflictError(
+                    "turn idempotency key was already used with different submitted intent"
+                )
+            return turn
+
         with unit_of_work(dsn) as conn:
+            # Read the receipt before touching mutable pointer/CAS state. The
+            # second read under the World pointer lock closes a concurrent
+            # first-delivery race before any conversation revision advances.
+            existing = repo.get_turn_by_world_key(
+                conn, world_id, submission.idempotency_key
+            )
+            if existing is not None:
+                return matching_receipt(existing)
+            if submitted_intent_fingerprint is None:
+                raise ApplicationStateValidationError(
+                    "submitted intent v1 is required for ordinary turn acceptance"
+                )
             pointer = _lock_pointer(conn, world_id)
             existing = repo.get_turn_by_world_key(
                 conn, world_id, submission.idempotency_key
             )
             if existing is not None:
-                turn, _old_request_fingerprint, old_idempotency_fingerprint = existing
-                if old_idempotency_fingerprint != stable_fingerprint:
-                    raise ApplicationStateConflictError(
-                        "turn idempotency key was already used with different content or provenance"
-                    )
-                return turn
+                return matching_receipt(existing)
             if pointer.active_conversation_id != submission.conversation_id:
                 raise ApplicationStateConflictError("conversation is no longer active in this World")
             conversation = repo.lock_conversation(conn, world_id, submission.conversation_id)
@@ -335,10 +392,44 @@ class AgentConversationService:
                 turn_id=uuid4(),
                 request_fingerprint=fingerprint,
                 idempotency_fingerprint=stable_fingerprint,
+                submitted_intent_fingerprint_v1=submitted_intent_fingerprint,
                 submission=submission,
                 sequence=sequence,
                 now=now,
             )
+
+    def reconcile_turn(
+        self,
+        world_id: str,
+        idempotency_key: UUID,
+        submitted_intent: SubmittedTurnIntentV1,
+    ) -> Turn | None:
+        """Find an exact World receipt before resolving mutable current context.
+
+        A legacy receipt has no lossless submitted-intent identity and therefore
+        fails closed. A missing receipt remains a normal new-turn path.
+        """
+        world_id = _world_id(world_id)
+        if submitted_intent.world_id != world_id:
+            raise ApplicationStateValidationError(
+                "submitted intent World does not match verified World"
+            )
+        digest = submitted_turn_intent_fingerprint_v1(submitted_intent)
+        dsn = _ready_dsn()
+        with unit_of_work(dsn) as conn:
+            existing = repo.get_turn_by_world_key(conn, world_id, idempotency_key)
+        if existing is None:
+            return None
+        turn, _request_hash, _idempotency_hash, stored_digest = existing
+        if stored_digest is None:
+            raise ApplicationStateConflictError(
+                "legacy-receipt-unverifiable: the stored turn has no submitted-intent fingerprint"
+            )
+        if stored_digest != digest:
+            raise ApplicationStateConflictError(
+                "turn idempotency key was already used with different submitted intent"
+            )
+        return turn
 
     def list_turns(
         self,
@@ -366,73 +457,159 @@ class AgentConversationService:
             )
 
     def begin_turn(self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int) -> Turn:
-        return self._transition_turn(
+        receipt = self.claim_turn(
             world_id,
             conversation_id,
             turn_id,
             expected_revision=expected_revision,
-            status="running",
         )
+        if receipt.disposition != "claimed":
+            raise ApplicationStateConflictError(
+                "turn claim is already pending or the turn is complete"
+            )
+        return receipt.turn
+
+    def claim_turn(
+        self,
+        world_id: str,
+        conversation_id: UUID,
+        turn_id: UUID,
+        *,
+        expected_revision: int,
+        lease_seconds: int = DEFAULT_TURN_CLAIM_LEASE_SECONDS,
+    ) -> TurnClaimReceipt:
+        world_id = _world_id(world_id)
+        _validate_turn_claim_lease(lease_seconds)
+        dsn = _ready_dsn()
+        with unit_of_work(dsn) as conn:
+            turn = repo.lock_turn(conn, world_id, turn_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError(
+                    "turn not found in verified World conversation"
+                )
+            if turn.status == "completed":
+                return TurnClaimReceipt(disposition="completed", turn=turn)
+            now = repo.database_clock(conn)
+            if (
+                turn.status == "running"
+                and turn.claim_expires_at is not None
+                and turn.claim_expires_at > now
+            ):
+                return TurnClaimReceipt(disposition="pending", turn=turn)
+            if turn.revision != expected_revision:
+                raise ApplicationStateConflictError(
+                    "turn claim fence changed before it could be acquired"
+                )
+            if turn.status not in {"accepted", "failed", "interrupted", "running"}:
+                raise ApplicationStateConflictError(
+                    "turn is not eligible for a runtime claim"
+                )
+            claimed = repo.claim_turn(
+                conn,
+                world_id=world_id,
+                turn_id=turn_id,
+                expected_revision=expected_revision,
+                lease_seconds=lease_seconds,
+            )
+            if claimed is None:
+                raise ApplicationStateConflictError(
+                    "turn claim expired or changed while it was being acquired"
+                )
+            return TurnClaimReceipt(disposition="claimed", turn=claimed)
+
+    def renew_turn_claim(
+        self,
+        world_id: str,
+        conversation_id: UUID,
+        turn_id: UUID,
+        *,
+        expected_revision: int,
+        lease_seconds: int = DEFAULT_TURN_CLAIM_LEASE_SECONDS,
+    ) -> Turn:
+        world_id = _world_id(world_id)
+        _validate_turn_claim_lease(lease_seconds)
+        dsn = _ready_dsn()
+        with unit_of_work(dsn) as conn:
+            turn = repo.lock_turn(conn, world_id, turn_id)
+            if turn is None or turn.conversation_id != conversation_id:
+                raise ApplicationStateNotFoundError(
+                    "turn not found in verified World conversation"
+                )
+            renewed = repo.renew_turn_claim(
+                conn,
+                world_id=world_id,
+                turn_id=turn_id,
+                expected_revision=expected_revision,
+                lease_seconds=lease_seconds,
+            )
+        if renewed is None:
+            raise ApplicationStateConflictError(
+                "turn claim is expired or fenced by a newer attempt"
+            )
+        return renewed
 
     def complete_turn(self, result: TurnResult) -> Turn:
         world_id = _world_id(result.world_id)
         dsn = _ready_dsn()
-        now = _now()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, result.turn_id)
             if turn is None or turn.conversation_id != result.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             if turn.status == "completed":
-                if turn.assistant_text == result.assistant_text:
+                if (
+                    turn.assistant_text == result.assistant_text
+                    and turn.revision == result.expected_revision + 1
+                ):
                     return turn
-                raise ApplicationStateConflictError("completed turn has a different recorded result")
+                raise ApplicationStateConflictError(
+                    "completed turn has a different recorded result or a different claim fence"
+                )
             if turn.revision != result.expected_revision or turn.status != "running":
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
-            updated = repo.update_turn_state(
+            updated = repo.complete_claimed_turn(
                 conn,
-                turn_id=turn.turn_id,
                 world_id=world_id,
-                expected_revision=turn.revision,
-                status="completed",
+                turn_id=turn.turn_id,
+                expected_revision=result.expected_revision,
                 assistant_text=result.assistant_text,
-                failure_code=None,
-                attempt=turn.attempt,
-                completed_at=now,
-                updated_at=now,
             )
         if updated is None:
-            raise ApplicationStateConflictError("turn revision mismatch")
+            raise ApplicationStateConflictError(
+                "turn claim expired or was fenced before completion"
+            )
         return updated
 
     def fail_turn(self, failure: TurnFailure, *, interrupted: bool = False) -> Turn:
         world_id = _world_id(failure.world_id)
         status = "interrupted" if interrupted else "failed"
         dsn = _ready_dsn()
-        now = _now()
         with unit_of_work(dsn) as conn:
             turn = repo.lock_turn(conn, world_id, failure.turn_id)
             if turn is None or turn.conversation_id != failure.conversation_id:
                 raise ApplicationStateNotFoundError("turn not found in verified World conversation")
             if turn.status == status:
-                if turn.failure_code == failure.failure_code:
+                if (
+                    turn.failure_code == failure.failure_code
+                    and turn.revision == failure.expected_revision + 1
+                ):
                     return turn
-                raise ApplicationStateConflictError("turn has a different recorded failure")
+                raise ApplicationStateConflictError(
+                    "turn failure is fenced by a different claim or failure"
+                )
             if turn.revision != failure.expected_revision or turn.status != "running":
                 raise ApplicationStateConflictError("turn revision or lifecycle state changed")
-            updated = repo.update_turn_state(
+            updated = repo.fail_claimed_turn(
                 conn,
-                turn_id=turn.turn_id,
                 world_id=world_id,
-                expected_revision=turn.revision,
+                turn_id=turn.turn_id,
+                expected_revision=failure.expected_revision,
                 status=status,
-                assistant_text=None,
                 failure_code=failure.failure_code,
-                attempt=turn.attempt,
-                completed_at=now,
-                updated_at=now,
             )
         if updated is None:
-            raise ApplicationStateConflictError("turn revision mismatch")
+            raise ApplicationStateConflictError(
+                "turn claim expired or was fenced before failure was recorded"
+            )
         return updated
 
     def get_draft(self, world_id: str, conversation_id: UUID, draft_id: UUID) -> Draft:
@@ -516,7 +693,16 @@ class AgentConversationService:
                 conn, world_id, submit.idempotency_key
             )
             if existing is not None:
-                turn, old_fingerprint, _old_idempotency_fingerprint = existing
+                (
+                    turn,
+                    old_fingerprint,
+                    _old_idempotency_fingerprint,
+                    old_submitted_intent_fingerprint,
+                ) = existing
+                if old_submitted_intent_fingerprint is not None:
+                    raise ApplicationStateConflictError(
+                        "turn idempotency key was already used by an Agent turn"
+                    )
                 if old_fingerprint != fingerprint:
                     raise ApplicationStateConflictError(
                         "turn idempotency key was already used with different draft submission"
@@ -652,45 +838,3 @@ class AgentConversationService:
                 imported_turn_count=len(request.turns),
                 recorded_at=now,
             )
-
-    def _transition_turn(
-        self,
-        world_id: str,
-        conversation_id: UUID,
-        turn_id: UUID,
-        *,
-        expected_revision: int,
-        status: str,
-    ) -> Turn:
-        world_id = _world_id(world_id)
-        dsn = _ready_dsn()
-        now = _now()
-        with unit_of_work(dsn) as conn:
-            turn = repo.lock_turn(conn, world_id, turn_id)
-            if turn is None or turn.conversation_id != conversation_id:
-                raise ApplicationStateNotFoundError("turn not found in verified World conversation")
-            if turn.revision != expected_revision:
-                raise ApplicationStateConflictError("turn revision mismatch")
-            if status == "running":
-                if turn.status not in {"accepted", "failed", "interrupted"}:
-                    raise ApplicationStateConflictError("turn is not eligible for another runtime attempt")
-                failure_code = None
-                attempt = turn.attempt + 1
-                completed_at = None
-            else:
-                raise ApplicationStateValidationError("unsupported turn lifecycle transition")
-            updated = repo.update_turn_state(
-                conn,
-                turn_id=turn.turn_id,
-                world_id=world_id,
-                expected_revision=turn.revision,
-                status=status,
-                assistant_text=None,
-                failure_code=failure_code,
-                attempt=attempt,
-                completed_at=completed_at,
-                updated_at=now,
-            )
-        if updated is None:
-            raise ApplicationStateConflictError("turn revision mismatch")
-        return updated

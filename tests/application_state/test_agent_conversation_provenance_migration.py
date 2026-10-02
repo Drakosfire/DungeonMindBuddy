@@ -11,13 +11,17 @@ from application_state.agent_conversation.types import (
     ConversationCommand,
     DraftSave,
     HistoricalReference,
+    SubmittedGraphRequestIntentV1,
+    SubmittedPrimaryWorkIntentV1,
+    SubmittedTurnIntentV1,
     TurnProvenance,
     TurnSubmission,
 )
 from application_state.cli import alembic_config
+from application_state.errors import ApplicationStateConflictError
 
 
-def test_0011_receipts_survive_additive_typed_provenance_migration(
+def test_0011_receipts_survive_additive_typed_provenance_migration_and_fail_closed(
     application_state_dsn: str,
 ) -> None:
     service = AgentConversationService()
@@ -50,6 +54,17 @@ def test_0011_receipts_survive_additive_typed_provenance_migration(
         expected_conversation_revision=1,
         user_text="Preserve this legacy receipt.",
         provenance=provenance,
+        submitted_intent_v1=SubmittedTurnIntentV1(
+            world_id=world_id,
+            client_thread_id="legacy-provenance-thread",
+            message="Preserve this legacy receipt.",
+            surface_id="plan",
+            surface_instance_id="plan-main",
+            client_work_state="none",
+            primary_work=None,
+            graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+            graph_selection=None,
+        ),
     )
     turn = service.accept_turn(submission)
     draft_save = DraftSave(
@@ -95,7 +110,10 @@ def test_0011_receipts_survive_additive_typed_provenance_migration(
     assert loaded_turn.provenance.primary_work.object_revision is None
     assert loaded_turn.provenance.primary_work.work_revision_id is None
     assert loaded_turn.provenance.primary_work.revision_n is None
-    assert recovered.accept_turn(submission) == loaded_turn
+    with pytest.raises(
+        ApplicationStateConflictError, match="legacy-receipt-unverifiable"
+    ):
+        recovered.accept_turn(submission)
 
     loaded_draft = recovered.get_draft(
         world_id, conversation_receipt.conversation_id, draft.draft_id
@@ -168,6 +186,23 @@ def test_downgrade_refuses_to_discard_typed_provenance(
             expected_conversation_revision=1,
             user_text="Keep typed provenance through rollback attempts.",
             provenance=provenance,
+            submitted_intent_v1=SubmittedTurnIntentV1(
+                world_id=world_id,
+                client_thread_id="typed-provenance-thread",
+                message="Keep typed provenance through rollback attempts.",
+                surface_id="plan",
+                surface_instance_id="plan-pane-9",
+                client_work_state="saved_clean",
+                primary_work=SubmittedPrimaryWorkIntentV1(
+                    kind="plan",
+                    object_id="plan-9",
+                    expected_revision=7,
+                    expected_revision_n=3,
+                    expected_content_sha256="b" * 64,
+                ),
+                graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+                graph_selection=None,
+            ),
         )
     )
 

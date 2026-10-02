@@ -1,9 +1,9 @@
 # ROADMAP — Application State
 
-**Status:** ACTIVE APP-STATE IMPLEMENTATION — AS0 through AS5 merged; Agent Conversation storage/service slice in progress
+**Status:** ACTIVE APP-STATE IMPLEMENTATION — AS0 through AS5 and Agent Conversation storage/service (#822/#827) merged; Agent turn claim/receipt recovery in progress
 **Line of work / flow:** `APP-STATE`  
 **Created:** 2026-08-24  
-**Updated:** 2026-10-01
+**Updated:** 2026-10-02
 **Architecture authority:** [`../Design/ARCHITECTURE-application-state-layer.md`](../Design/ARCHITECTURE-application-state-layer.md)  
 **Parent pickup:** [`../Plans/STEWARDS-ANCHOR-application-state.md`](../Plans/STEWARDS-ANCHOR-application-state.md)
 
@@ -19,7 +19,8 @@ AS2   PLAYABLE               DONE — PR #643 merge b4d63daab3eeb8150ca73fe9492d
 AS3   PLAY RUNTIME           DONE — PR #646 merge 9c946cd8c24effccec8d06cfc1cb5e310c9edc5e
 AS4   PLAY CONTINUITY        DONE — PR #649 merge 993f837b6f2fc601acf2ae3a4b7926af1858ac6c
 AS5   PLAY DEMOLITION        DONE — PR #650 merge cc016661f80416e0816f56349217cf33c53a195f
-NEXT   WORLD AGENT CONVERSATION  STORAGE/SERVICE ACTIVE — migration 20261001_0010
+DONE   WORLD AGENT CONVERSATION  STORAGE/SERVICE + WORLD RECEIPTS — PRs #822/#827 merged
+NEXT   APP-STATE TURN RECOVERY    CLAIM / RECEIPT RECOVERY ACTIVE — migration 20261002_0013
 OTHER  CANDIDATE FAMILIES        UNSELECTED — evidence-driven only
 ```
 
@@ -111,15 +112,17 @@ Combat remains a separate domain and is still a candidate APP-STATE family; its 
 
 ## 3. Selected design and remaining candidate families
 
-The evidence now selects one bounded family without assigning it an AS number:
-**World-scoped Agent conversation continuity**. The rationale, lifecycle,
-records, import/cutover rules, and serial implementation sequence are in
-[`../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md`](../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md).
-Design PR #821 merged at
-`16d5e549b34593d68c447ef18f1428128c3f46ba`. PRIME granted the serial APP-STATE
-storage/domain-service lease from that base; the implementation and owning
-PostgreSQL evidence are in progress. No Agent runtime or UI successor lease is
-active.
+The evidence selected **World-scoped Agent conversation continuity** as one
+bounded family without assigning it an AS number. The rationale, lifecycle,
+records, import/cutover rules, and initial serial implementation sequence are
+in [`../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md`](../Plans/HANDOFF-APP-STATE-world-agent-conversation-v1.md).
+Design PR #821 merged at `16d5e549b34593d68c447ef18f1428128c3f46ba`; the initial
+storage/service and World-wide receipt slices merged in PRs #822 and #827.
+
+The active successor is the bounded Agent turn claim/receipt recovery in
+[`../Plans/HANDOFF-APP-STATE-agent-turn-claim-recovery-v1.md`](../Plans/HANDOFF-APP-STATE-agent-turn-claim-recovery-v1.md).
+Its exact implementation lease and PostgreSQL evidence are still in progress.
+No Agent runtime or UI successor lease is active.
 
 The remaining candidates are migration families, **not pre-authorized PRs,
 schemas, or table names**.
@@ -138,9 +141,10 @@ Re-anchor from current product evidence before selecting any additional family:
 | Plan publish-to-corpus | explicit WorkRevision export | never silent publication |
 | Run mutation history | optional audit history if independently useful | not event sourcing by default |
 
-Migration `20261001_0010` is assigned to this selected family under the active
-lease. Do not treat it as complete until its owning-service PostgreSQL evidence
-passes and the implementation PR merges.
+Migrations `20261001_0010` through `20261002_0012` are the completed initial
+storage/provenance sequence. Recovery migration `20261002_0013` is active under
+the claim/receipt recovery handoff. Do not mark recovery complete until its
+owning-service PostgreSQL evidence passes and the implementation PR merges.
 
 ---
 

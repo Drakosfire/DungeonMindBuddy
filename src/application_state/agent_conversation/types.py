@@ -14,6 +14,7 @@ Resolution = Literal["resolved", "absent", "unresolved", "unavailable"]
 ConversationStatus = Literal["active", "archived"]
 TurnStatus = Literal["accepted", "running", "completed", "failed", "interrupted"]
 CommandKind = Literal["new", "archive", "reopen"]
+TurnClaimDisposition = Literal["claimed", "pending", "completed"]
 
 
 def _fingerprint(value: object) -> str:
@@ -57,7 +58,10 @@ def _fingerprint_compatible_payload(value: object) -> object:
 
 def request_fingerprint(value: BaseModel) -> str:
     """Hash a typed request for idempotency; request JSON is never persisted."""
-    payload = value.model_dump(mode="json", exclude={"command_id", "idempotency_key"})
+    payload = value.model_dump(
+        mode="json",
+        exclude={"command_id", "idempotency_key", "submitted_intent_v1"},
+    )
     return _fingerprint(_fingerprint_compatible_payload(payload))
 
 
@@ -177,6 +181,115 @@ class TurnProvenance(StrictModel):
         return self
 
 
+class SubmittedPrimaryWorkIntentV1(StrictModel):
+    kind: Literal["plan", "build", "run", "combat"]
+    object_id: str = Field(min_length=1, max_length=128)
+    expected_revision: int = Field(strict=True, ge=1)
+    expected_revision_n: int | None = Field(default=None, strict=True, ge=1)
+    expected_content_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
+
+    @model_validator(mode="after")
+    def validate_plan_basis(self) -> "SubmittedPrimaryWorkIntentV1":
+        has_revision_n = self.expected_revision_n is not None
+        has_digest = self.expected_content_sha256 is not None
+        if has_revision_n != has_digest:
+            raise ValueError("submitted Plan revision and digest must be supplied together")
+        if self.kind != "plan" and (has_revision_n or has_digest):
+            raise ValueError("submitted Plan basis is only valid for Plan work")
+        return self
+
+
+class SubmittedGraphFocusIntentV1(StrictModel):
+    kind: Literal["none", "session"]
+    session_id: str | None = Field(default=None, max_length=128)
+    campaign_id: str | None = Field(default=None, max_length=128)
+
+    @model_validator(mode="after")
+    def validate_focus(self) -> "SubmittedGraphFocusIntentV1":
+        if self.kind == "none" and (
+            self.session_id is not None or self.campaign_id is not None
+        ):
+            raise ValueError("none submitted graph focus cannot carry identities")
+        if self.kind == "session" and not self.session_id:
+            raise ValueError("session submitted graph focus requires session_id")
+        return self
+
+
+class SubmittedGraphRequestIntentV1(StrictModel):
+    mode: Literal["none", "world", "campaign"]
+    world_id: str | None = Field(default=None, max_length=128)
+    campaign_id: str | None = Field(default=None, max_length=128)
+    revision_pin: str | None = Field(default=None, max_length=256)
+    focus: SubmittedGraphFocusIntentV1 | None = None
+
+    @model_validator(mode="after")
+    def validate_scope(self) -> "SubmittedGraphRequestIntentV1":
+        if self.mode == "none" and any(
+            value is not None
+            for value in (self.world_id, self.campaign_id, self.revision_pin, self.focus)
+        ):
+            raise ValueError("none submitted graph request cannot carry scope or focus")
+        if self.mode == "world" and (not self.world_id or self.focus is None):
+            raise ValueError("world submitted graph request requires World and focus")
+        if self.mode == "campaign" and (not self.campaign_id or self.focus is None):
+            raise ValueError("campaign submitted graph request requires campaign and focus")
+        return self
+
+
+class SubmittedGraphSelectionIntentV1(StrictModel):
+    node_id: str = Field(min_length=1, max_length=256)
+
+
+class SubmittedTurnIntentV1(StrictModel):
+    """Stable, normalized caller intent; excludes resolver output and routing CAS."""
+
+    schema_: Literal["dmb_agent_submitted_turn_intent_v1"] = Field(
+        default="dmb_agent_submitted_turn_intent_v1", alias="schema"
+    )
+    world_id: str = Field(min_length=1, max_length=128)
+    client_thread_id: str = Field(min_length=1, max_length=128)
+    message: str = Field(min_length=1, max_length=8000)
+    surface_id: str = Field(min_length=1, max_length=64)
+    surface_instance_id: str = Field(min_length=1, max_length=128)
+    client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
+    primary_work: SubmittedPrimaryWorkIntentV1 | None
+    graph_request: SubmittedGraphRequestIntentV1
+    graph_selection: SubmittedGraphSelectionIntentV1 | None
+
+    @model_validator(mode="after")
+    def validate_identity(self) -> "SubmittedTurnIntentV1":
+        if not self.world_id.strip() or not self.client_thread_id.strip() or not self.message.strip():
+            raise ValueError("submitted World, client thread, and message must be non-blank")
+        if not self.surface_id.strip() or not self.surface_instance_id.strip():
+            raise ValueError("submitted surface identities must be non-blank")
+        if (
+            self.surface_id == "plan"
+            and self.primary_work is not None
+            and self.primary_work.kind == "plan"
+            and self.primary_work.expected_revision_n is None
+        ):
+            raise ValueError("Plan content turns require the exact committed content pin")
+        if (
+            self.graph_request.mode == "world"
+            and self.graph_request.world_id != self.world_id
+        ):
+            raise ValueError("submitted graph World must match submitted turn World")
+        if self.graph_selection is not None and self.graph_request.mode == "none":
+            raise ValueError("submitted graph selection requires a graph request")
+        return self
+
+
+def submitted_turn_intent_fingerprint_v1(intent: SubmittedTurnIntentV1) -> str:
+    """Hash canonical submitted semantics, never current resolver output."""
+    return _fingerprint(
+        intent.model_dump(
+            mode="json", by_alias=True, exclude={"client_thread_id"}
+        )
+    )
+
+
 class WorldPointer(StrictModel):
     world_id: str
     active_conversation_id: UUID | None
@@ -232,6 +345,7 @@ class TurnSubmission(StrictModel):
     expected_conversation_revision: int = Field(ge=1)
     user_text: str
     provenance: TurnProvenance
+    submitted_intent_v1: SubmittedTurnIntentV1 | None = None
 
     @model_validator(mode="after")
     def validate_submission(self) -> "TurnSubmission":
@@ -241,6 +355,11 @@ class TurnSubmission(StrictModel):
             raise ValueError("user_text is required")
         if self.provenance.world_id != self.world_id:
             raise ValueError("turn provenance World does not match request World")
+        if self.submitted_intent_v1 is not None and (
+            self.submitted_intent_v1.world_id != self.world_id
+            or self.submitted_intent_v1.message != self.user_text
+        ):
+            raise ValueError("submitted intent World/message must match the turn")
         return self
 
 
@@ -256,10 +375,20 @@ class Turn(StrictModel):
     assistant_text: str | None
     failure_code: str | None
     provenance: TurnProvenance
+    submitted_intent_fingerprint_v1: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
     attempt: int = Field(ge=0)
+    claim_expires_at: datetime | None = None
     accepted_at: datetime
     completed_at: datetime | None
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def validate_claim_expiry(self) -> "Turn":
+        if self.status != "running" and self.claim_expires_at is not None:
+            raise ValueError("only a running turn can carry an active claim expiry")
+        return self
 
 
 class TurnResult(StrictModel):
@@ -288,6 +417,11 @@ class TurnFailure(StrictModel):
         if not self.failure_code.strip():
             raise ValueError("failure_code is required")
         return self
+
+
+class TurnClaimReceipt(StrictModel):
+    disposition: TurnClaimDisposition
+    turn: Turn
 
 
 class DraftSave(StrictModel):

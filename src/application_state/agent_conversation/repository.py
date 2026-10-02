@@ -31,7 +31,8 @@ _WORLD_COLS = "world_id, active_conversation_id, pointer_revision AS revision"
 _TURN_COLS = """
     turn_id, conversation_id, world_id, idempotency_key, sequence, revision,
     status, user_text, assistant_text, failure_code, surface_resolution,
-    surface_id, surface_instance_id, attempt, accepted_at, completed_at, updated_at
+    surface_id, surface_instance_id, submitted_intent_fingerprint_v1, attempt,
+    claim_expires_at, accepted_at, completed_at, updated_at
 """
 _DRAFT_COLS = """
     world_id, conversation_id, draft_id, revision, body, request_fingerprint,
@@ -472,7 +473,7 @@ def get_active_conversation(
 
 def get_turn_by_world_key(
     conn: psycopg.Connection, world_id: str, idempotency_key: UUID
-) -> tuple[Turn, str, str] | None:
+) -> tuple[Turn, str, str, str | None] | None:
     """Find the durable turn receipt in a World, regardless of its conversation."""
 
     with conn.cursor(row_factory=dict_row) as cur:
@@ -488,7 +489,12 @@ def get_turn_by_world_key(
         return None
     request_hash = row.pop("request_fingerprint")
     idempotency_hash = row.pop("idempotency_fingerprint")
-    return _turn_from_row(conn, row), request_hash, idempotency_hash
+    return (
+        _turn_from_row(conn, row),
+        request_hash,
+        idempotency_hash,
+        row["submitted_intent_fingerprint_v1"],
+    )
 
 
 def get_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | None:
@@ -543,6 +549,7 @@ def insert_turn(
     turn_id: UUID,
     request_fingerprint: str,
     idempotency_fingerprint: str,
+    submitted_intent_fingerprint_v1: str | None = None,
     submission: Any,
     sequence: int,
     now: datetime,
@@ -559,10 +566,10 @@ def insert_turn(
                 turn_id, conversation_id, world_id, idempotency_key, idempotency_fingerprint, sequence,
                 revision, status, request_fingerprint, user_text, assistant_text,
                 failure_code, surface_resolution, surface_id, surface_instance_id,
-                attempt, accepted_at,
+                submitted_intent_fingerprint_v1, attempt, claim_expires_at, accepted_at,
                 completed_at, updated_at
             ) VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s,
-                      %s, %s, %s, %s)
+                      %s, %s, NULL, %s, %s, %s)
             RETURNING {_TURN_COLS}
             """,
             (
@@ -580,6 +587,7 @@ def insert_turn(
                 provenance.surface_resolution,
                 provenance.surface_id,
                 provenance.surface_instance_id,
+                submitted_intent_fingerprint_v1,
                 attempt,
                 now,
                 now if status in {"completed", "failed", "interrupted"} else None,
@@ -614,39 +622,123 @@ def _insert_turn_reference(
     )
 
 
-def update_turn_state(
+def database_clock(conn: psycopg.Connection) -> datetime:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute("SELECT clock_timestamp() AS now")
+        row = cur.fetchone()
+    if row is None:
+        raise ApplicationStateIntegrityError("database clock returned no value")
+    return row["now"]
+
+
+def claim_turn(
     conn: psycopg.Connection,
     *,
-    turn_id: UUID,
     world_id: str,
+    turn_id: UUID,
     expected_revision: int,
-    status: str,
-    assistant_text: str | None,
-    failure_code: str | None,
-    attempt: int,
-    completed_at: datetime | None,
-    updated_at: datetime,
+    lease_seconds: int,
 ) -> Turn | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
             UPDATE agent.turn
-            SET status = %s, revision = revision + 1, assistant_text = %s,
-                failure_code = %s, attempt = %s, completed_at = %s, updated_at = %s
+            SET status = 'running', revision = revision + 1,
+                assistant_text = NULL, failure_code = NULL,
+                attempt = attempt + 1,
+                claim_expires_at = clock_timestamp() + make_interval(secs => %s),
+                completed_at = NULL, updated_at = clock_timestamp()
             WHERE world_id = %s AND turn_id = %s AND revision = %s
+              AND (
+                    status IN ('accepted', 'failed', 'interrupted')
+                    OR (
+                        status = 'running'
+                        AND (claim_expires_at IS NULL OR claim_expires_at <= clock_timestamp())
+                    )
+              )
             RETURNING {_TURN_COLS}
             """,
-            (
-                status,
-                assistant_text,
-                failure_code,
-                attempt,
-                completed_at,
-                updated_at,
-                world_id,
-                turn_id,
-                expected_revision,
-            ),
+            (lease_seconds, world_id, turn_id, expected_revision),
+        )
+        row = cur.fetchone()
+    return None if row is None else _turn_from_row(conn, row)
+
+
+def renew_turn_claim(
+    conn: psycopg.Connection,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    expected_revision: int,
+    lease_seconds: int,
+) -> Turn | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE agent.turn
+            SET revision = revision + 1,
+                claim_expires_at = clock_timestamp() + make_interval(secs => %s),
+                updated_at = clock_timestamp()
+            WHERE world_id = %s AND turn_id = %s AND status = 'running'
+              AND revision = %s AND claim_expires_at > clock_timestamp()
+            RETURNING {_TURN_COLS}
+            """,
+            (lease_seconds, world_id, turn_id, expected_revision),
+        )
+        row = cur.fetchone()
+    return None if row is None else _turn_from_row(conn, row)
+
+
+def complete_claimed_turn(
+    conn: psycopg.Connection,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    expected_revision: int,
+    assistant_text: str,
+) -> Turn | None:
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE agent.turn
+            SET status = 'completed', revision = revision + 1,
+                assistant_text = %s, failure_code = NULL,
+                claim_expires_at = NULL,
+                completed_at = clock_timestamp(), updated_at = clock_timestamp()
+            WHERE world_id = %s AND turn_id = %s AND status = 'running'
+              AND revision = %s AND claim_expires_at > clock_timestamp()
+            RETURNING {_TURN_COLS}
+            """,
+            (assistant_text, world_id, turn_id, expected_revision),
+        )
+        row = cur.fetchone()
+    return None if row is None else _turn_from_row(conn, row)
+
+
+def fail_claimed_turn(
+    conn: psycopg.Connection,
+    *,
+    world_id: str,
+    turn_id: UUID,
+    expected_revision: int,
+    status: str,
+    failure_code: str,
+) -> Turn | None:
+    if status not in {"failed", "interrupted"}:
+        raise ValueError("claim failure status must be failed or interrupted")
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            f"""
+            UPDATE agent.turn
+            SET status = %s, revision = revision + 1,
+                assistant_text = NULL, failure_code = %s,
+                claim_expires_at = NULL,
+                completed_at = clock_timestamp(), updated_at = clock_timestamp()
+            WHERE world_id = %s AND turn_id = %s AND status = 'running'
+              AND revision = %s AND claim_expires_at > clock_timestamp()
+            RETURNING {_TURN_COLS}
+            """,
+            (status, failure_code, world_id, turn_id, expected_revision),
         )
         row = cur.fetchone()
     return None if row is None else _turn_from_row(conn, row)

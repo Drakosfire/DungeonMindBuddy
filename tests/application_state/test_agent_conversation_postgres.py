@@ -10,6 +10,9 @@ from application_state.agent_conversation.types import (
     ConversationCommand,
     DraftSave,
     HistoricalReference,
+    SubmittedGraphRequestIntentV1,
+    SubmittedPrimaryWorkIntentV1,
+    SubmittedTurnIntentV1,
     TurnProvenance,
     TurnSubmission,
 )
@@ -94,7 +97,7 @@ def test_agent_conversation_migration_is_single_current_head(
     application_state_dsn: str,
 ) -> None:
     current, head = _current_and_head(application_state_dsn)
-    assert current == head == "20261002_0012"
+    assert current == head == "20261002_0013"
 
 
 def test_turn_and_draft_round_trip_exact_typed_provenance(
@@ -104,6 +107,23 @@ def test_turn_and_draft_round_trip_exact_typed_provenance(
     world_id = "typed-provenance-world"
     conversation = _new(writer, world_id)
     provenance = _typed_provenance(world_id)
+    intent = SubmittedTurnIntentV1(
+        world_id=world_id,
+        client_thread_id="typed-provenance-thread",
+        message="Ask about the pinned plan.",
+        surface_id="plan",
+        surface_instance_id="plan-pane-7",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id=provenance.primary_work.object_id,
+            expected_revision=provenance.primary_work.object_revision,
+            expected_revision_n=provenance.primary_work.revision_n,
+            expected_content_sha256=provenance.primary_work.content_sha256,
+        ),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
     submission = TurnSubmission(
         world_id=world_id,
         conversation_id=conversation.conversation_id,
@@ -111,6 +131,7 @@ def test_turn_and_draft_round_trip_exact_typed_provenance(
         expected_conversation_revision=1,
         user_text="Ask about the pinned plan.",
         provenance=provenance,
+        submitted_intent_v1=intent,
     )
 
     accepted = writer.accept_turn(submission)
@@ -130,30 +151,28 @@ def test_turn_and_draft_round_trip_exact_typed_provenance(
     different_instance = provenance.model_copy(
         update={"surface_instance_id": "plan-pane-8"}
     )
-    with pytest.raises(
-        ApplicationStateConflictError, match="different content or provenance"
-    ):
-        recovered.accept_turn(
-            submission.model_copy(update={"provenance": different_instance})
-        )
+    assert recovered.accept_turn(
+        submission.model_copy(update={"provenance": different_instance})
+    ) == accepted
 
-    changed_revisions = (
-        ("object_revision", provenance.primary_work.object_revision + 1),
-        ("work_revision_id", uuid4()),
-        ("revision_n", provenance.primary_work.revision_n + 1),
+    changed_submitted_basis = (
+        {"expected_revision": intent.primary_work.expected_revision + 1},
+        {"expected_revision_n": intent.primary_work.expected_revision_n + 1},
+        {"expected_content_sha256": "b" * 64},
     )
-    for field, value in changed_revisions:
-        different_plan_revision = provenance.primary_work.model_copy(
-            update={field: value}
-        )
-        different_basis = provenance.model_copy(
-            update={"primary_work": different_plan_revision}
+    for changed_fields in changed_submitted_basis:
+        different_intent = intent.model_copy(
+            update={
+                "primary_work": intent.primary_work.model_copy(
+                    update=changed_fields
+                )
+            }
         )
         with pytest.raises(
-            ApplicationStateConflictError, match="different content or provenance"
+            ApplicationStateConflictError, match="different submitted intent"
         ):
             recovered.accept_turn(
-                submission.model_copy(update={"provenance": different_basis})
+                submission.model_copy(update={"submitted_intent_v1": different_intent})
             )
 
     save = DraftSave(
@@ -185,6 +204,17 @@ def test_fresh_service_instance_reads_committed_world_conversation(
         expected_conversation_revision=1,
         user_text="Keep this after process restart.",
         provenance=_provenance("restart-recovery-world"),
+        submitted_intent_v1=SubmittedTurnIntentV1(
+            world_id="restart-recovery-world",
+            client_thread_id="restart-thread",
+            message="Keep this after process restart.",
+            surface_id="index",
+            surface_instance_id="index-main",
+            client_work_state="none",
+            primary_work=None,
+            graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+            graph_selection=None,
+        ),
     )
     accepted = writer.accept_turn(submission)
 
@@ -244,6 +274,17 @@ def test_duplicate_turn_submission_concurrent_replay_returns_one_turn(
         expected_conversation_revision=1,
         user_text="The same accepted submission.",
         provenance=_provenance("concurrent-turn-replay-world"),
+        submitted_intent_v1=SubmittedTurnIntentV1(
+            world_id="concurrent-turn-replay-world",
+            client_thread_id="concurrent-turn-replay-thread",
+            message="The same accepted submission.",
+            surface_id="index",
+            surface_instance_id="index-main",
+            client_work_state="none",
+            primary_work=None,
+            graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+            graph_selection=None,
+        ),
     )
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(service.accept_turn, [request, request]))
