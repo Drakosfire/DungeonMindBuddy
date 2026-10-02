@@ -1,4 +1,4 @@
-# HERMES synthetic co-GM prose pairs — REVIEW
+# HERMES synthetic co-GM prose pairs — COMPLETE
 
 Authority: the operator's provisional Hermes-tuning program, with PRIME controlling bounded leases, independent review, and merge. The worker-phase experiment closed at Buddy main `364dc98534208c3fc2f40dad0f3e3f80da032377`; this slice was pinned at `origin/main@6de8d831ab82308086677fb3038122936ab9a756` and rebased onto `origin/main@c3904bc1e08df689b92d5a0b710b546f77af4600` before final review. It grants no permanent steward mandate and changes no product inference policy.
 
@@ -23,6 +23,6 @@ The deterministic uncertainty-marker screen rejected both `council-bell` answers
 
 After blind scoring was locked, arm mapping was joined by exact answer text. PRIME's preferences across ten eligible pairs were control 4, voice-sentence 5, tie 1. The independent reviewer's were control 4, voice-sentence 6, tie 0. Mean natural co-GM voice scores were 4.2/4.2 (PRIME) and 4.0/3.9 (independent) for control/voice sentence; results are mixed and do not establish a quality improvement. The artifact records SHA-256 `c25badfd47ec695d22a92ad689632edd70cc56c98dab0e4f522e7e4a79188e4e` for PRIME's locked blind scores and `09d310ddc897fc11b57d2f6697d16ccc6f71a01c59a3e9d6f454e093ed135762` for the independent reviewer. Non-streaming output leaves TTFT unknown. No private C2 packet or live Graph was used.
 
-Offline tests: `uv run pytest -q tests/test_hermes_tuning_style_pairs.py` (3 passed); Ruff check and format checks passed. PR link and exact pushed head will be recorded after the draft PR is opened. Do not merge; PRIME owns review and merge decisions.
+Offline tests: `uv run pytest -q tests/test_hermes_tuning_style_pairs.py` (3 passed); Ruff check and format checks passed. Draft PR [#850](https://github.com/Drakosfire/DungeonMindBuddy/pull/850) is open for PRIME review. The experiment implementation is complete; do not merge. PRIME owns review and merge decisions. The PR head after this settlement update will be recorded in the task report.
 
 During the provider run, Hermes emitted plugin-registration compatibility warnings and asynchronous `FileNotFoundError` logging traces as generated temporary Hermes home directories were cleaned up. All 24 typed turn results and observed calls succeeded; timings remain descriptive and may include setup/logging work. The artifact records this limitation without raw logger output.
