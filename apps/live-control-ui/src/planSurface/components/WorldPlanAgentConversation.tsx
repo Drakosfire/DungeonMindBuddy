@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
-import { getWorldOwnedPlanCommittedRevision, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal } from "../../api/liveApi";
+import { getWorldOwnedPlanCommittedRevision, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, setNativeGraphAccessToken } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -363,6 +363,8 @@ export function WorldPlanAgentConversation({
     } : null,
   });
   const [question, setQuestion] = useState("");
+  const [graphCredential, setGraphCredential] = useState("");
+  const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
   const [editInstruction, setEditInstruction] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -477,6 +479,22 @@ export function WorldPlanAgentConversation({
     setError(null);
     setEditError(null);
     setSending(false);
+  }
+
+  function saveGraphCredential(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const credential = graphCredential.trim();
+    setNativeGraphAccessToken(credential || null);
+    setGraphCredential("");
+    setGraphCredentialStatus(credential
+      ? "Credential is held in this tab's memory and checked by the server on native Graph requests."
+      : "Native Graph credential cleared.");
+  }
+
+  function clearGraphCredential() {
+    setNativeGraphAccessToken(null);
+    setGraphCredential("");
+    setGraphCredentialStatus("Native Graph credential cleared.");
   }
 
   function toggleTraceVisibility() {
@@ -778,6 +796,23 @@ export function WorldPlanAgentConversation({
           <button type="button" onClick={startNewConversation} disabled={sending || composing}>New conversation</button>
         </div>
       </header>
+      <section aria-label="Native Graph access">
+        <form onSubmit={(event) => { void saveGraphCredential(event); }}>
+          <label htmlFor="world-plan-agent-graph-credential">Local operator Graph credential</label>
+          <input
+            id="world-plan-agent-graph-credential"
+            type="password"
+            autoComplete="off"
+            value={graphCredential}
+            onChange={(event) => setGraphCredential(event.currentTarget.value)}
+            maxLength={4096}
+          />
+          <button type="submit">Set Graph access</button>
+          <button type="button" onClick={clearGraphCredential}>Clear Graph access</button>
+        </form>
+        <p role="note">The credential stays in memory only. It is sent only with native Graph reads and graph-enabled Agent turns; ordinary Plan Ask remains graphless.</p>
+        {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
+      </section>
       <p className="world-plan-agent-conversation__notice" role="note">
         Ask sends this Plan’s exact committed text and your question to the configured model. Unsaved editor changes are excluded; the turn records which committed revision it used and whether a divergent working copy existed. Compose or Revise below sends the selected text and current mounted draft to the configured model. Nothing changes until you review and apply a proposal.
       </p>

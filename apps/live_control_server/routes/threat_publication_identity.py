@@ -1,7 +1,8 @@
 """SBW09b: Threat publication identity-resolution API (handoff §9.1, §9.11)."""
+
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 
 from apps.live_control_server.config import repo_root, world_graph_root
@@ -19,6 +20,7 @@ from apps.live_control_server.services.threat_publication_identity import (
     prepare_identity_candidates,
     read_identity_resolution,
 )
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 
 router = APIRouter(prefix="/api/live/threat-drafts", tags=["threat-publication-identity"])
 
@@ -109,7 +111,9 @@ def post_prepare_identity_candidates(
     draft_id: str,
     operation_id: str,
     body: PrepareThreatIdentityCandidatesRequestV1,
+    request: Request,
 ) -> JSONResponse:
+    enforce_native_graph_gm(request)
     safe_draft = _validated_draft_id(draft_id)
     safe_op = _validated_operation_id(operation_id)
     outcome = prepare_identity_candidates(

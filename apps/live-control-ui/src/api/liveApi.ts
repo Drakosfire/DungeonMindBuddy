@@ -168,6 +168,66 @@ import { normalizeHermesOutboundConversationHistory } from "../agentInteraction/
 import { withProjectionRequestCache } from "../planSurface/reference/projectionRequestCache";
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
+let nativeGraphAccessToken: string | null = null;
+
+/** Keep the local operator credential in this module's memory only. */
+export function setNativeGraphAccessToken(token: string | null): void {
+  const normalized = token?.trim() ?? "";
+  nativeGraphAccessToken = normalized || null;
+}
+
+function requestBodyRecord(body: BodyInit | null | undefined): Record<string, unknown> | null {
+  if (typeof body !== "string") return null;
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)
+      ? parsed as Record<string, unknown>
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | undefined): boolean {
+  const pathname = path.split("?", 1)[0];
+  if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
+    return true;
+  }
+  if (pathname === "/api/live/world-graph/projection"
+    || pathname === "/api/live/world-graph/recap-projection"
+    || pathname.startsWith("/api/live/world-graph/retrieval/")
+    || pathname === "/api/live/threats/query-hydration") return true;
+
+  const payload = requestBodyRecord(body);
+  if (pathname === "/api/live/agent/turn") {
+    const graphRequest = payload?.graph_request;
+    return typeof graphRequest === "object" && graphRequest !== null
+      && (graphRequest as Record<string, unknown>).mode !== "none";
+  }
+  return pathname === "/api/live/query" && payload?.world_graph_context != null;
+}
+
+function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
+  if (!headers) return {};
+  if (headers instanceof Headers) return Object.fromEntries(headers.entries());
+  if (Array.isArray(headers)) return Object.fromEntries(headers);
+  return { ...headers };
+}
+
+function nativeGraphHeaders(
+  path: string,
+  body: BodyInit | null | undefined,
+  headers: Record<string, string>,
+): Record<string, string> {
+  if (!requiresNativeGraphAuthorization(path, body)) return headers;
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() === "authorization") delete headers[key];
+  }
+  if (nativeGraphAccessToken) {
+    headers.Authorization = `Bearer ${nativeGraphAccessToken}`;
+  }
+  return headers;
+}
 const defaultUnionSupergraphPreviewSource =
   (import.meta.env.VITE_UNION_SUPERGRAPH_PREVIEW_SOURCE as string | undefined)?.trim() ||
   "s22-anchor-quote-n3-s23-gold";
@@ -264,12 +324,13 @@ function parseWorldGraphErrorFields(body: {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = nativeGraphHeaders(path, init?.body, {
+    "Content-Type": "application/json",
+    ...headerRecord(init?.headers),
+  });
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    headers,
   });
   if (!response.ok) {
     let detail = response.statusText;
@@ -728,10 +789,10 @@ async function publicationFetch<T extends { schema: string; result_label: string
 ): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
     ...init,
-    headers: {
+    headers: nativeGraphHeaders(path, init?.body, {
       "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+      ...headerRecord(init?.headers),
+    }),
   });
 
   let body: unknown;

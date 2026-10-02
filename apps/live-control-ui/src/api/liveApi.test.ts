@@ -51,6 +51,7 @@ import {
   postWorldGraphProjection,
   postWorldGraphCompleteObject,
   postWorldGraphSourceAnchorRead,
+  setNativeGraphAccessToken,
   getCurrentCombat,
   getGeneratedStatblock,
   getStatblockWorkbenchDraft,
@@ -67,6 +68,7 @@ import {
   getThreatPublicationCommit,
   reconcileAcceptanceOperation,
   reviseThreatDraftCandidate,
+  prepareThreatIdentityCandidates,
   listGeneratedStatblocks,
   listStatblockWorkbenchDrafts,
   patchCombatEntity,
@@ -89,6 +91,8 @@ import type {
   WorldPlanDocumentEditProposalRequest,
   WorkspaceDocumentRecord,
 } from "./types";
+
+afterEach(() => setNativeGraphAccessToken(null));
 
 describe("Index Agent turn transport", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -132,12 +136,43 @@ describe("Index Agent turn transport", () => {
       message: "Hello",
     })).rejects.toMatchObject({ name: "LiveApiError", status: 409 });
   });
+
+  it("sends the in-memory credential on graph-enabled Agent requests", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema: "dmb_agent_turn_response_v1" }),
+    );
+    const request = {
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: "thread-graph-auth",
+      turn_id: "turn-graph-auth",
+      surface: { surface_id: "index", instance_id: "index-instance" },
+      owner_scope: { kind: "world", world_id: "world-a" },
+      primary_work: null,
+      client_work_state: "none",
+      graph_request: {
+        mode: "world",
+        world_id: "world-a",
+        campaign_id: null,
+        revision_pin: null,
+        focus: { kind: "none", session_id: null, campaign_id: null },
+      },
+      graph_selection: null,
+      message: "Read the graph.",
+    } as unknown as IndexAgentTurnRequestV1;
+
+    await postIndexAgentTurn(request);
+    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBe(
+      "Bearer test-only-local-operator-credential-value",
+    );
+  });
 });
 
 describe("World Plan Agent turn transport", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it("posts the exact saved-Plan no-graph request to the accepted endpoint", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const request: WorldPlanAgentTurnRequestV1 = {
       schema: "dmb_agent_turn_request_v1",
       client_thread_id: "thread-world-plan",
@@ -158,6 +193,7 @@ describe("World Plan Agent turn transport", () => {
     expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/turn");
     expect(fetchSpy.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
+    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBeNull();
     expect(JSON.stringify(request)).not.toContain("local-plan:");
   });
 });
@@ -317,6 +353,38 @@ describe("Threat publication API", () => {
     expect(fetchSpy.mock.calls[1][0]).toBe(
       `/api/live/threat-drafts/${draftId}/publication-operations`,
     );
+  });
+
+  it("sends the in-memory credential on the identity-candidate graph read", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const response = {
+      schema: "dmb_threat_publication_identity_response_v1",
+      draft_id: draftId,
+      operation_id: operationId,
+      result_label: "publication_identity_candidates_ready",
+      candidate_set: {
+        schema: "dmb_threat_identity_candidate_set_v1",
+        draft_id: draftId,
+        operation_id: operationId,
+        candidates: [],
+        candidate_set_digest: "sha256:" + "b".repeat(64),
+      },
+      predecessor_usable: true,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse(response),
+    );
+
+    await prepareThreatIdentityCandidates(draftId, operationId);
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe(
+      `/api/live/threat-drafts/${draftId}/publication-operations/${operationId}/identity-candidates/prepare`,
+    );
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer test-only-local-operator-credential-value",
+    );
+    expect(String(init?.body)).not.toContain("test-only-local-operator-credential-value");
   });
 
   it("begin 409 with valid publication envelope returns envelope (does not throw)", async () => {
@@ -936,6 +1004,7 @@ describe("liveApi artifact/capability helpers", () => {
   });
 
   it("postWorldGraphProjection posts only the World Graph request contract", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const request = {
       schema: "dmb_world_graph_projection_request_v1" as const,
       worldId: "eldyrwild",
@@ -963,6 +1032,9 @@ describe("liveApi artifact/capability helpers", () => {
     expect(String(url)).toBe("/api/live/world-graph/projection");
     expect(String(url)).not.toContain("?");
     expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer test-only-local-operator-credential-value",
+    );
     expect(JSON.parse(String(init?.body))).toEqual(request);
     expect(Object.keys(JSON.parse(String(init?.body)))).toEqual([
       "schema",
@@ -1052,6 +1124,7 @@ describe("liveApi artifact/capability helpers", () => {
   });
 
   it("postThreatQueryHydration posts exact SBW10a request body", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       mockJsonResponse({
         schema: "dmb_threat_query_hydration_response_v1",
@@ -1083,6 +1156,9 @@ describe("liveApi artifact/capability helpers", () => {
     const [url, init] = fetchSpy.mock.calls[0];
     expect(String(url)).toBe("/api/live/threats/query-hydration");
     expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer test-only-local-operator-credential-value",
+    );
     expect(JSON.parse(String(init?.body))).toEqual({
       schema: "dmb_threat_query_hydration_request_v1",
       worldId: "eldyrwild",
@@ -1750,6 +1826,32 @@ describe("liveApi postLiveQuery Hermes serializer", () => {
       trace_requested: true,
       hermes_session_pointer: "hptr-should-send",
     });
+  });
+
+  it("sends the in-memory credential only when legacy query includes graph context", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ answer: "ok", classification: {} }),
+    );
+
+    await postLiveQuery("Read the graph.", "longmont-c2", 29, "hermes", {
+      worldGraphContext: {
+        schema: "dmb_agent_world_graph_query_context_request_v1",
+        world_id: "eldyrwild",
+        campaign_id: "longmont-c2",
+        focus: { kind: "none", session_id: null, campaign_id: null },
+        admissibility: "gm",
+        revision_pin: null,
+        scope_mode: "world",
+      },
+    });
+    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBe(
+      "Bearer test-only-local-operator-credential-value",
+    );
+
+    fetchSpy.mockClear();
+    await postLiveQuery("Graphless question.", "longmont-c2", 29, "hermes");
+    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBeNull();
   });
 
   it("includes manifest_path and hermes_session_id for live requests", async () => {

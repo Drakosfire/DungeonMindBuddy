@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -12,6 +12,9 @@ from fastapi.routing import APIRoute
 from apps.live_control_server.services.world_graph_object_projection import (
     WorldGraphObjectProjectionServiceError,
     project_complete_world_object,
+)
+from apps.live_control_server.services.agent_graph_auth import (
+    native_graph_gm_dependency,
 )
 from apps.live_control_server.models.world_graph_object_projection import (
     WorldGraphObjectProjectionRequest,
@@ -76,6 +79,7 @@ router = APIRouter(
     prefix="/api/live/world-graph/retrieval",
     tags=["world-graph-retrieval"],
     route_class=_RetrievalAPIRoute,
+    dependencies=[Depends(native_graph_gm_dependency)],
 )
 
 

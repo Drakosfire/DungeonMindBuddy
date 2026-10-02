@@ -1,0 +1,140 @@
+# HANDOFF — DEMO: authenticate Agent graph turns
+
+**Status:** ACTIVE — one serial local-operator authentication prerequisite is authorized.
+
+**Steward:** DEMO
+
+**Base:** Buddy `origin/main@5b8686829a8f734d99dca59e4998611aee5df5cb`.
+
+**Branch:** `codex/demo-agent-graph-auth`
+
+**PR title:** `DEMO: authenticate Agent graph turns`
+
+**Topology:** Serial. This is the only open implementation PR in this slice. The
+Session 29 full-graph implementation remains BLOCKED and cannot start until this
+prerequisite merges and its independent graph gates are re-anchored.
+
+## Capability and trust boundary
+
+Establish one trusted local GM gate for Buddy public live API responses that
+return native World Graph read data. The server accepts a high-entropy, out-of-band
+local-operator bearer only when all of these are explicitly configured:
+
+- `DMB_AGENT_GRAPH_AUTH_MODE=local_operator`
+- `DMB_AGENT_GRAPH_AUTH_ENVIRONMENT=local`, `development`, or `dev`
+- `DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN` contains at least 32 non-whitespace
+  characters; generate it from a cryptographically secure random source.
+
+There is no production default. Unknown, unset, or production environment
+configuration fails closed with 503. The server accepts requests only from an
+IP loopback peer; forwarded identity headers are ignored. Do not claim LAN,
+remote, multi-user, tenant, or durable user identity support. The capability
+authenticates the local operator; native MIND GM admissibility remains a
+separate read policy.
+
+Missing or invalid bearer credentials return 401. An authenticated typed
+non-GM principal returns 403. An authenticated request from a non-loopback peer
+returns 403. Error responses never include the credential. Compare the bearer
+using a constant-time comparison.
+
+Guard before runtime initialization, World/work resolution, session or packet
+resolution, native reads, and provider dispatch on:
+
+- `POST /api/live/agent/turn` when `graph_request.mode` is not `none`;
+- `POST /api/live/query` when `world_graph_context` is present;
+- both projection routes: `/api/live/world-graph/projection` and
+  `/api/live/world-graph/recap-projection`;
+- every retrieval route: `/api/live/world-graph/retrieval/{search,object,complete-object,neighborhood,evidence,source-anchor/read}`;
+- `POST /api/live/threats/query-hydration`, which returns graph-derived Threat
+  query and projection data;
+- `POST /api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/identity-candidates/prepare`, which returns native Threat object details.
+
+Graphless Agent turns and `/api/live/query` without graph context keep their
+existing behavior. The retired `/api/live/world-graph-bootstrap/*` routes
+already return 410. `/api/live/citation-source` reads allowlisted repository
+files, not native Graph data. Except for the identity-candidates response listed
+above, this PR does not gate internal revision/context reads performed by
+ThreatDraft validation or Graph Review/Threat publication prepare/commit
+workflows. Those remaining operations need a separate workflow access review;
+they are not asserted secure by this capability.
+
+The Plan Agent asks for the credential in a password field, keeps it only in
+module memory, and clears the input after setting or clearing the value. The
+shared API client sends it only as an Authorization bearer on the listed native
+Graph read responses and graph-enabled Agent/query calls. Do not put it in
+local/session storage, URLs, request bodies, application state persistence,
+logs, traces, receipts, or the repository. Same-origin scripts/extensions with page access can use an
+in-memory bearer; the supported deployment is a local single-operator session.
+
+This slice does not change existing graph binding, graph query semantics,
+citations, the Plan Agent graph:none request, MIND contracts, or the Session 29
+acceptance gate.
+
+## Exclusive write lease
+
+Only this serial lane may edit these paths during implementation:
+
+- `apps/live_control_server/services/agent_graph_auth.py` (new)
+- `apps/live_control_server/routes/agent.py`
+- `apps/live_control_server/routes/live.py`
+- `apps/live_control_server/routes/world_graph_retrieval.py`
+- `apps/live_control_server/routes/world_graph_projection.py`
+- `apps/live_control_server/routes/threat_query_hydration.py`
+- `apps/live_control_server/routes/threat_publication_identity.py`
+- `apps/live-control-ui/src/api/liveApi.ts`
+- `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
+- `tests/test_agent_turn_route.py`
+- `tests/test_agent_graph_auth.py` (new)
+- `tests/test_threat_query_hydration_api.py`
+- `tests/test_threat_publication_identity_routes.py`
+- `apps/live-control-ui/src/api/liveApi.test.ts`
+- `apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx`
+- `Docs/Plans/HANDOFF-DEMO-agent-graph-auth.md` (new)
+- `Docs/Plans/HANDOFF-DEMO-session29-elderwyld-graph.md`
+- `Docs/Roadmaps/ROADMAP-demo.md`
+
+The preserved `codex/agent-world-conversation-backend` checkout is suspended
+and recoverable, not an active lease. Leave it untouched. No other active PR
+overlaps were present at activation. Recheck PRs and leases before any added
+path or contract is considered.
+
+## Runtime and verification ownership
+
+This implementation uses no provider, database, MIND graph, external service,
+or shared runtime. Keep all checks local and deterministic. Prove:
+
+- every listed read-response route uses the shared guard and all request bodies validate;
+- missing configuration, absent/invalid bearer, non-GM principal, and
+  non-loopback peer fail closed;
+- forged body roles or forwarded/authenticated-user headers cannot grant GM;
+- denied graph requests invoke zero runtime, model, session-resolution, or
+  native Graph functions;
+- graphless Plan Agent requests omit Authorization even when a credential is
+  held in memory, while graph retrieval/projection/query, Threat
+  query-hydration, and identity-candidate calls attach it;
+- query-hydration denial invokes no native query helper; an authorized request
+  reaches that helper;
+- identity-candidate denial invokes no native projection helper; an authorized
+  request returns the exact candidate set;
+- the UI credential is a password field, clears after use, is not persisted,
+  and can be cleared explicitly.
+
+Suggested focused checks:
+
+```bash
+uv run pytest tests/test_agent_graph_auth.py tests/test_agent_turn_route.py tests/test_threat_query_hydration_api.py tests/test_threat_publication_identity_routes.py
+npm --prefix apps/live-control-ui test -- src/api/liveApi.test.ts src/planSurface/PlanSurfacePage.test.tsx
+```
+
+Inspect the exact cumulative base-to-head diff, commit the intended changes,
+push the branch, open the assigned single PR, and return its exact head and
+check evidence to PRIME for independent review. Do not merge.
+
+## Backward-looking authority sync
+
+PR #833 is merged and its configured-provider saved-Plan witness passed on
+2026-10-01. PR #834 is merged at `5b8686829a8f734d99dca59e4998611aee5df5cb`
+and keeps Session 29 full-graph querying BLOCKED pending this auth prerequisite,
+the existing-Graph binding, and the remaining live acceptance evidence. This
+handoff is a prerequisite only; it does not claim Graph queryability or close
+the full DEMO mission.

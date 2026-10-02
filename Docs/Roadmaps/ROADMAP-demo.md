@@ -203,8 +203,19 @@ atomic current-World-Plan read before Agent dispatch. It discloses that committe
 Plan text and the question go to the configured model, excludes the editor
 draft, returns and persists only a compact receipt, and forces
 `graph_request.mode=none`. It does not implement native graph retrieval or
-citations. PRIME has not yet reported the configured-provider live witness, so
-connected Plan Ask acceptance remains unclaimed.
+citations.
+
+**#833 configured-provider witness — PASS (2026-10-01):** in synthetic World
+`demo-saved-plan-ask-witness-2026-10-01`, Plan
+`d901c4ad-5d74-4430-ab6e-45f622086b0e`, committed WorkRevision
+`65352d85-0871-483f-8e59-e145f7e86791` (revision 1, SHA
+`3277078c8b2778896805bc7165aec43942c9da25ae74d97c481839356c56ddad`), one
+bounded question used the saved seven-rings-at-dusk fact and excluded an
+unsaved nine-rings-at-dawn editor draft. Reload restored the turn and exact
+basis tuple. Trace `agent-trace-a66bdf5dd035` recorded OpenAI `gpt-6-luna`, one
+model call, no tools or graph, 611 input / 48 output / 13 reasoning tokens and
+trace-estimated `$0.0000851`; the provider request ID was not separately
+surfaced. This witness closes only the connected saved-Plan Ask gate.
 
 The next game-prep graph goal is a serial successor: make the existing, already
 populated Elderwyld native graph queryable from that same Plan conversation.
@@ -250,14 +261,21 @@ unproved gates. Never alias `campaign_id == world_id`.
 
 The successor's BLOCKED contract and acceptance witness are recorded in
 [`HANDOFF-DEMO-session29-elderwyld-graph.md`](../Plans/HANDOFF-DEMO-session29-elderwyld-graph.md).
-It remains BLOCKED after the #833 predecessor merge. Before an implementation
-lease, re-anchor on current `origin/main`, reconcile the #826 empty-space versus
-existing-Graph binding ownership, obtain ARCHITECTURE exact-head acceptance of
-the corrected contract, establish trusted server-side GM authority for
-`/api/live`, and confirm the read-only `eldyrwild` witness plus isolated native
-fixtures for concurrent-head and R1→R2 restart proofs. The #833 configured-provider
-witness is also outstanding and remains separate product evidence. This does
-not close the Session 28 recap-ingestion gate or J1–J6 acceptance.
+It remains BLOCKED after Buddy PR #834 merged the corrected gate at
+`5b8686829a8f734d99dca59e4998611aee5df5cb`. The #833 configured-provider
+saved-Plan witness passed as recorded above. The serial prerequisite to protect
+the listed public native Graph read responses is ACTIVE under
+[`HANDOFF-DEMO-agent-graph-auth.md`](../Plans/HANDOFF-DEMO-agent-graph-auth.md);
+it covers Agent/query, projection/retrieval, Threat query-hydration, and Threat
+identity-candidate data. Internal validation reads in remaining write workflows
+are outside this PR and are not asserted secured. It does not implement World
+binding or graph querying. Before any full-graph implementation lease, re-anchor
+on current `origin/main`, reconcile the #826
+empty-space versus existing-Graph binding ownership, obtain ARCHITECTURE
+exact-head acceptance of the corrected contract, land and review the auth
+prerequisite, and confirm the read-only `eldyrwild` witness plus isolated native
+fixtures for concurrent-head and R1→R2 restart proofs. This does not close the
+Session 28 recap-ingestion gate or J1–J6 acceptance.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
