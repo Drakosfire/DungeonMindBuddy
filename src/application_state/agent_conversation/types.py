@@ -283,7 +283,11 @@ class SubmittedTurnIntentV1(StrictModel):
 
 def submitted_turn_intent_fingerprint_v1(intent: SubmittedTurnIntentV1) -> str:
     """Hash canonical submitted semantics, never current resolver output."""
-    return _fingerprint(intent.model_dump(mode="json", by_alias=True))
+    return _fingerprint(
+        intent.model_dump(
+            mode="json", by_alias=True, exclude={"client_thread_id"}
+        )
+    )
 
 
 class WorldPointer(StrictModel):

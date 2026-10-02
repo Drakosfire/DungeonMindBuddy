@@ -242,7 +242,7 @@ def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> N
     ) != fingerprint
     assert submitted_turn_intent_fingerprint_v1(
         intent.model_copy(update={"client_thread_id": "client-thread-2"})
-    ) != fingerprint
+    ) == fingerprint
     assert submitted_turn_intent_fingerprint_v1(
         intent.model_copy(
             update={
@@ -372,6 +372,15 @@ def test_turn_receipt_reconciliation_survives_pointer_rotation_and_fails_closed(
     assert replay.conversation_id == first.conversation_id
     assert replay.conversation_id != next_conversation.conversation_id
 
+    changed_client_thread_intent = intent.model_copy(
+        update={"client_thread_id": "reloaded-browser-thread"}
+    )
+    assert service.reconcile_turn(
+        "receipt-first-world",
+        submission.idempotency_key,
+        changed_client_thread_intent,
+    ) == accepted
+
     stale_route_submission = TurnSubmission(
         world_id="receipt-first-world",
         conversation_id=next_conversation.conversation_id,
@@ -379,7 +388,7 @@ def test_turn_receipt_reconciliation_survives_pointer_rotation_and_fails_closed(
         expected_conversation_revision=1,
         user_text=intent.message,
         provenance=_provenance("receipt-first-world", run_id="new-current-run"),
-        submitted_intent_v1=intent,
+        submitted_intent_v1=changed_client_thread_intent,
     )
     assert service.accept_turn(stale_route_submission) == accepted
 
