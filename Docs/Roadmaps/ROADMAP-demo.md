@@ -543,6 +543,24 @@ separate BLOCKED [conversation handoff](../Plans/HANDOFF-DEMO-play-agent-adoptio
 Neither consumer has an implementation lease. #826 retains its independent
 KnowledgeSpace holds and is not a Play predecessor.
 
+**Plan World-conversation cutover — design BLOCKED:** the next DEMO consumer
+contract is pinned in
+[HANDOFF-DEMO-plan-world-conversation-cutover.md](../Plans/HANDOFF-DEMO-plan-world-conversation-cutover.md).
+It adopts the APP-STATE World transcript for saved Plan Ask while preserving
+the committed-content-only #833 request and Plan-owned Compose/Revise/Apply/
+Save behavior. PRIME ruled that Compose/Revise must retain its existing
+six-item dialogue behavior. Since the current local window includes `plan_edit`
+turns without exact committed-basis provenance, a separate Plan-owned typed
+action-dialogue projection capability/PR must precede this consumer cutover.
+The projection may expose only the instruction and visible assistant summary
+with exact World/Plan/committed-basis provenance and stable order; no proposal
+bytes or Apply/Save receipts. The cutover combines eligible APP-STATE Ask turns
+and that Plan projection under the same exact Plan/basis filter and six-turn
+server-side cap. No Ask-only narrowing or client-supplied history is authorized.
+The runtime and action-projection prerequisites must be accepted, then PRIME
+must grant the exact consumer lease before implementation; no Plan
+UI/runtime/provider lease is active.
+
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
 `document_id` plus its committed registry revision as primary work. A Canvas
