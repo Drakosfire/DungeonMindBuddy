@@ -607,7 +607,26 @@ describe("PlanSurfaceShell", () => {
     expect(screen.getByText("Union · C1+C2 · no session focus")).toBeInTheDocument();
     expect(screen.getByLabelText("Question")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ask DungeonBuddy" })).toBeInTheDocument();
-    expect(screen.getByText("Memory coverage diagnostics")).toBeInTheDocument();
+    expect(screen.getByText("Source-bundle diagnostics")).toBeInTheDocument();
+    await user.click(screen.getByText("Source-bundle diagnostics"));
+    const sourceBundleLayers = await screen.findByRole("region", {
+      name: "Source-bundle layers",
+    });
+    expect(
+      within(sourceBundleLayers).getByRole("heading", {
+        name: /Live Session 22 is missing \d+ source-bundle ingest layers/,
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Source-bundle scan session: Live Session 22.")).toBeInTheDocument();
+    expect(screen.getByText("Plan target: Session 23")).toBeInTheDocument();
+    expect(
+      screen.getByText("World Graph focus: World graph (all sessions)."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /does not report native World Graph evidence or recap admission/i,
+      ),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Advanced source metadata")).not.toBeInTheDocument();
     expect(screen.queryByText(/future Agent Interaction contract/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "New prep thread" })).toBeInTheDocument();
@@ -2390,7 +2409,9 @@ describe("PlanSurfaceShell", () => {
     await user.click(await screen.findByRole("button", { name: /Advanced diagnostics: Off/i }));
 
     expect(await screen.findByRole("region", { name: "Hermes reply" })).toBeInTheDocument();
-    await user.click(screen.getByText("Memory coverage diagnostics"));
+    await user.click(screen.getByText("Source-bundle diagnostics"));
+    expect(screen.getByText("Source-bundle scan session: Live Session 22.")).toBeInTheDocument();
+    expect(screen.getByText("Plan target: Session 23")).toBeInTheDocument();
     expect(await screen.findByText(/bundle failed/i)).toBeInTheDocument();
     expect(document.querySelector(".plan-agent-diagnostics-drawer .plan-agent-error")).toBeTruthy();
     expect(vi.mocked(globalThis.fetch).mock.calls.some(([url]) => String(url).includes("/api/live/query"))).toBe(true);
