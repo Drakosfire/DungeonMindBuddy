@@ -303,10 +303,18 @@ def hard_gates(
             abstention_ok = any(
                 s in text
                 for s in (
-                    "ambiguous",
-                    "two",
-                    "multiple",
                     "which tavi",
+                    "which of the two",
+                    "can't identify which",
+                    "cannot identify which",
+                    "can't tell which",
+                    "cannot tell which",
+                    "can't determine which",
+                    "cannot determine which",
+                    "no further details to distinguish",
+                    "records do not distinguish",
+                    "records don't distinguish",
+                    "unable to distinguish",
                     "cannot tell",
                     "can't tell",
                     "unclear",
@@ -323,6 +331,9 @@ def hard_gates(
                     "couldn't find",
                     "could not find",
                     "no relationship",
+                    "does not establish a connection",
+                    "doesn't establish a connection",
+                    "did not establish a connection",
                     "records do not show",
                     "records don't show",
                 )
@@ -331,6 +342,7 @@ def hard_gates(
                 s in text
                 for s in (
                     "bounded lookup",
+                    "the lookup",
                     "this lookup",
                     "these results",
                     "retrieved records",
@@ -601,6 +613,39 @@ def blinded_packet(
         "randomization_seed": seed,
         "items": packet,
     }
+
+
+def map_blinded_answer_hashes(
+    raw_cases: list[dict[str, Any]], blinded_items: list[dict[str, Any]]
+) -> dict[str, dict[str, str]]:
+    """Join locked A/B answers to raw arms by exact unchanged-answer SHA-256."""
+    raw_by_case = {case["case_id"]: case for case in raw_cases}
+    if len(raw_by_case) != len(raw_cases):
+        raise ValueError("raw case IDs must be unique")
+    mapped: dict[str, dict[str, str]] = {}
+    for item in blinded_items:
+        case_id = item["case_id"]
+        if case_id in mapped or case_id not in raw_by_case:
+            raise ValueError("blind packet case IDs must map uniquely to raw cases")
+        raw_arms = raw_by_case[case_id]["arms"]
+        row: dict[str, str] = {}
+        for label in ("A", "B"):
+            answer_hash = item[f"answer_{label}_sha256"]
+            matches = [
+                arm
+                for arm, result in raw_arms.items()
+                if hashlib.sha256(result["answer"].encode("utf-8")).hexdigest()
+                == answer_hash
+            ]
+            if len(matches) != 1 or matches[0] in row.values():
+                raise ValueError(
+                    f"blind answer {case_id}/{label} must match exactly one unique raw arm"
+                )
+            row[label] = matches[0]
+        mapped[case_id] = row
+    if set(mapped) != set(raw_by_case):
+        raise ValueError("blind packet must include every raw case exactly once")
+    return mapped
 
 
 def pilot_rows_sha256(rows: list[dict[str, Any]]) -> str:

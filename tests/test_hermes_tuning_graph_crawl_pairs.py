@@ -245,6 +245,33 @@ def test_blind_packet_has_answers_evidence_and_no_arm_mapping_or_trace() -> None
     assert all("expected_answer_key" in item for item in packet["items"])
 
 
+def test_blind_answer_hashes_map_to_exactly_one_raw_arm() -> None:
+    raw_cases = [
+        {
+            "case_id": "case-1",
+            "arms": {
+                "control": {"answer": "Control answer."},
+                "treatment": {"answer": "Treatment answer."},
+            },
+        }
+    ]
+    packet = {
+        "items": [
+            {
+                "case_id": "case-1",
+                "answer_A_sha256": crawl.sha("Treatment answer."),
+                "answer_B_sha256": crawl.sha("Control answer."),
+            }
+        ]
+    }
+    assert crawl.map_blinded_answer_hashes(raw_cases, packet["items"]) == {
+        "case-1": {"A": "treatment", "B": "control"}
+    }
+    packet["items"][0]["answer_A_sha256"] = crawl.sha("different answer")
+    with pytest.raises(ValueError, match="exactly one unique raw arm"):
+        crawl.map_blinded_answer_hashes(raw_cases, packet["items"])
+
+
 def test_blind_packet_reports_only_evidence_returned_to_each_answer() -> None:
     case = next(c for c in crawl.load_cases() if c["case_id"] == "supplied-two-hop")
     rows = []
@@ -340,6 +367,23 @@ def test_no_path_gate_requires_lookup_scope_and_ambiguity_gate_rejects_asserted_
         "ok",
         amb_fake,
     )["required_abstention_explicit"]
+    assert crawl.hard_gates(
+        ambiguous,
+        "The graph has two distinct records named Tavi. One is linked to the Ember Gate; "
+        "the records provide no further details to distinguish the two Tavis, so I can't "
+        "identify which one that is.",
+        "ok",
+        amb_fake,
+    )["required_abstention_explicit"]
+    assert not crawl.hard_gates(
+        ambiguous,
+        "The records distinguish two people named Tavi. One Tavi (person:tavi-a) is "
+        "connected to the Ember Gate by an approaches relationship. The retrieved "
+        "neighborhood shows no connection for the other Tavi, so I can't attribute "
+        "that relationship to them.",
+        "ok",
+        amb_fake,
+    )["required_abstention_explicit"]
     assert not crawl.hard_gates(
         ambiguous, "Tavi approaches the Ember Gate.", "ok", amb_fake
     )["required_abstention_explicit"]
@@ -369,6 +413,28 @@ def test_no_path_requires_successful_empty_neighborhood() -> None:
     assert passed["successful_no_path_neighborhood"]
     assert passed["required_abstention_explicit"]
     assert passed["traversal_success"]
+
+
+def test_no_path_gate_accepts_bounded_failure_to_establish_connection() -> None:
+    no_path = next(c for c in crawl.load_cases() if c["case_id"] == "supplied-no-path")
+    fake = crawl.StatefulFakeDispatcher(no_path)
+    execute_fake(
+        fake,
+        {
+            "operation": "neighborhood",
+            "targets": [{"kind": "node", "id": "person:pella"}],
+            "depth": 2,
+        },
+    )
+    gates = crawl.hard_gates(
+        no_path,
+        "The lookup matched Pella as a Person, but returned no relationships or attributes. "
+        "It does not establish a connection between Pella and the Moss Archive.",
+        "ok",
+        fake,
+    )
+    assert gates["required_abstention_explicit"]
+    assert gates["answer_gate_pass"]
 
 
 def test_fresh_sessions_normalize_to_same_system_policy_hash() -> None:
