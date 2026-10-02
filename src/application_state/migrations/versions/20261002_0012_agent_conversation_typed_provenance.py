@@ -74,8 +74,10 @@ def upgrade() -> None:
             (object_revision IS NULL AND work_revision_id IS NULL AND revision_n IS NULL)
             OR (
                 resolution = 'resolved'
+                AND object_revision IS NOT NULL
                 AND object_revision > 0
                 AND work_revision_id IS NOT NULL
+                AND revision_n IS NOT NULL
                 AND revision_n > 0
                 AND content_sha256 IS NOT NULL
             )
@@ -131,6 +133,39 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    connection = op.get_bind()
+    has_new_provenance = connection.exec_driver_sql(
+        """
+        SELECT EXISTS (
+            SELECT 1 FROM agent.turn WHERE surface_instance_id IS NOT NULL
+            UNION ALL
+            SELECT 1 FROM agent.turn_reference
+             WHERE object_revision IS NOT NULL
+                OR work_revision_id IS NOT NULL
+                OR revision_n IS NOT NULL
+            UNION ALL
+            SELECT 1 FROM agent.composer_draft
+             WHERE surface_instance_id IS NOT NULL
+                OR primary_object_revision IS NOT NULL
+                OR primary_work_revision_id IS NOT NULL
+                OR primary_revision_n IS NOT NULL
+                OR selected_object_revision IS NOT NULL
+                OR selected_work_revision_id IS NOT NULL
+                OR selected_revision_n IS NOT NULL
+            UNION ALL
+            SELECT 1 FROM agent.draft_reference
+             WHERE object_revision IS NOT NULL
+                OR work_revision_id IS NOT NULL
+                OR revision_n IS NOT NULL
+        )
+        """
+    ).scalar_one()
+    if has_new_provenance:
+        raise RuntimeError(
+            "cannot downgrade while typed Agent provenance exists; preserve the "
+            "new provenance fields before retrying"
+        )
+
     op.execute(
         "ALTER TABLE agent.composer_draft "
         "DROP CONSTRAINT IF EXISTS agent_draft_selected_content_revision_check, "

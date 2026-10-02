@@ -3,6 +3,7 @@ from __future__ import annotations
 from uuid import uuid4
 
 import psycopg
+import pytest
 from alembic import command
 
 from application_state.agent_conversation import AgentConversationService
@@ -128,3 +129,54 @@ def test_0011_receipts_survive_additive_typed_provenance_migration(
         )
 
     assert service.save_draft(draft_save) == draft
+
+
+def test_downgrade_refuses_to_discard_typed_provenance(
+    application_state_dsn: str,
+) -> None:
+    service = AgentConversationService()
+    world_id = "provenance-downgrade-world"
+    conversation = service.new_conversation(
+        ConversationCommand(
+            world_id=world_id,
+            command_id=uuid4(),
+            expected_pointer_revision=0,
+            expected_active_conversation_id=None,
+        )
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-pane-9",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="plan-9",
+            content_sha256="b" * 64,
+            object_revision=7,
+            work_revision_id=uuid4(),
+            revision_n=3,
+        ),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    accepted = service.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text="Keep typed provenance through rollback attempts.",
+            provenance=provenance,
+        )
+    )
+
+    with pytest.raises(
+        RuntimeError, match="cannot downgrade while typed Agent provenance exists"
+    ):
+        command.downgrade(alembic_config(), "20261001_0011")
+
+    loaded = service.list_turns(world_id, conversation.conversation_id)[0]
+    assert loaded == accepted
+    assert loaded.provenance.surface_instance_id == "plan-pane-9"
+    assert loaded.provenance.primary_work.revision_n == 3

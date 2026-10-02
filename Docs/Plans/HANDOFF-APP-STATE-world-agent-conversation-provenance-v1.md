@@ -96,6 +96,9 @@ promote old revision strings/digests into Content revision IDs or numbers.
 Legacy imports remain caller-supplied typed history and gain no ownership
 inference.
 
+Downgrade refuses while any new typed provenance value is present so rollback
+cannot silently discard surface-instance or Content revision identity.
+
 Fingerprint serialization must preserve the pre-0012 serialized shape exactly
 by omitting **only** the newly introduced fields when they are null. Do not
 omit all null fields. Non-null instance and Content revision values participate
