@@ -11,6 +11,7 @@ uv sync --locked
 uv run python evals/hermes_tuning/run_pair.py --variant control
 uv run python evals/hermes_tuning/run_pair.py --variant voice
 uv run python evals/hermes_tuning/run_synthetic_graph.py
+uv run python evals/hermes_tuning/run_host_latency.py --samples 5
 ```
 
 These commands make live calls to the policy-resolved OpenAI model using `OPENAI_API_KEY`. The harness prints only identifiers and measurement summaries; its JSON artifact stores the synthetic prompt, answers, token traces, and model/tool-event counts. The key is neither copied nor printed. The fixed fixture and rubric live in this directory; model outputs go under `artifacts/`.
@@ -55,5 +56,23 @@ A response that fails a hard gate cannot win on prose. The four prose answers pa
 ## Limits and next evidence gate
 
 This is a Luna/Hermes harness comparison, not a campaign evaluation. It does not establish better prose, lower latency at scale, TTFT, or real Graph-crawling quality. It demonstrates one successful target-seeded neighborhood request against an in-process fixture only. No cross-model challenger was tested. The cost estimates use Buddy's checked-in pricing table; unknown provider-side fees are outside these traces.
+
+## Process-isolated host latency
+
+The successor harness calls `HermesGraphAgentHost` directly from one parent process (spawn start method). It records `start()` through worker-ready separately, then executes one turn on that fresh worker followed by four turns on the same worker. Each host turn is paired with a direct Responses call using the same effective synthetic prompt, system policy, and policy-resolved model. The direct call precedes each host turn. Artifact: [`host-latency-20261002T051413Z.json`](artifacts/host-latency-20261002T051413Z.json).
+
+Provider/model were `openai-api` / `gpt-6-luna`. Worker-ready took 1,728.9 ms; the cold host turn took 9,112.5 ms, with a 5,007.8 ms observed model call and 4,104.6 ms unallocated residual. Adding the separately measured ready span gives 10,841.4 ms from host start through the cold result. The four subsequent outer turns had a median wall time of 6,216.3 ms and median residual of 1,970.8 ms. All five used worker PID 1351768; the four later turns therefore reused the same process. Each turn made one model call and zero tool calls.
+
+| Sample | Phase | Direct wall | Host wall | Model call | Residual | Direct tokens / cost | Hermes tokens / cost |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 1 | Cold worker | 5,070.8 ms | 9,112.5 ms | 5,007.8 ms | 4,104.6 ms | 246 / 365 · $0.0002071 | 633 / 367 · $0.0002468 |
+| 2 | Reused worker | 4,568.5 ms | 6,488.4 ms | 4,098.8 ms | 2,389.6 ms | 246 / 332 · $0.0001906 | 633 / 290 · $0.0002083 |
+| 3 | Reused worker | 4,003.1 ms | 6,148.9 ms | 4,496.3 ms | 1,652.7 ms | 246 / 301 · $0.0001751 | 633 / 304 · $0.0002153 |
+| 4 | Reused worker | 4,062.9 ms | 6,283.7 ms | 5,032.7 ms | 1,251.0 ms | 246 / 318 · $0.0001836 | 633 / 363 · $0.0002448 |
+| 5 | Reused worker | 3,014.0 ms | 6,096.9 ms | 3,808.1 ms | 2,288.8 ms | 246 / 249 · $0.0001491 | 633 / 233 · $0.0001798 |
+
+The warm median residual is 52% below the cold residual in this five-turn run. Direct control wall times also varied (3,014.0–5,070.8 ms), while Hermes provider-call durations overlapped (cold 5,007.8 ms; warm 3,808.1–5,032.7 ms). Treat this as an observed association with a reused worker, not proof of a warm-up cause or a production speedup. Host-ready, outer turn, and model-call spans are directly timed; import, plugin discovery, scheduling, projection, and IPC are not isolated. Neither route streams useful answer text to this harness, so TTFT is unknown.
+
+All five host answers passed the experiment's deterministic screening gates: status `ok`, nonempty response, at most 100 whitespace-delimited words, bridge-and-dusk pressure, Nera marked missing/disappeared/vanished, and at least one explicit uncertainty marker. This screening is not a grounding proof; inspect the stored synthetic answers for semantic correctness. After the run, the gate was corrected to accept “Nera vanished,” and the gate fields were recomputed offline. Raw model answers, provider timings, tokens, costs, and PIDs were unchanged; the artifact marks this post-run gate-only correction.
 
 A requested real-corpus follow-up remains blocked: automatic review rejected sending private C2 Session 23 evidence and its prompt to OpenAI, with the stated reason that tuning approval did not specifically authorize exporting that payload to the external destination. Do not reroute that payload through another client. Resume that cohort only after explicit approval for the particular content and destination. A permitted native-Graph witness is also still needed before making any claim about real Graph crawling.
