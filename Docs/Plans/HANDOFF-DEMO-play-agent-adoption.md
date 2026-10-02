@@ -4,7 +4,7 @@
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Design anchor:** Buddy `main@c3904bc1e08df689b92d5a0b710b546f77af4600`
-**Topology:** serial successor. #836 and #839 are settled; #848's additive trace-instrumentation PR is merged. This design remains BLOCKED until PRIME accepts the refreshed handoff and activates a fresh implementation lease. No implementation or runtime lease is active.
+**Topology:** serial. #836 and #839 are settled; #848's additive trace-instrumentation PR is merged. PR #826 is still the unresolved prior implementation PR, so this Play handoff remains BLOCKED and cannot be dispatched until #826 is resolved/closed or PRIME explicitly records a superseding disposition/topology. No implementation or runtime lease is active.
 
 ## User transition
 
@@ -34,15 +34,46 @@ must tolerate additive trace names, keep its Run/Runbook receipt distinct from
 trace telemetry, and never put Run identity or authored Play prose in timing
 spans.
 
-PR #826 remains OPEN/paused at
-`4fa28e586783f0e63edb85fa664afa53521367f6`. Its exact changed paths are
-`apps/live_control_server/integrations/dungeonmind/world_space_provisioning.py`,
-`apps/live_control_server/routes/world_containers.py`,
-`apps/live_control_server/services/world_container_registry.py`,
-`apps/live_control_server/services/world_space_binding.py`, `pyproject.toml`,
-`uv.lock`, and its KnowledgeSpace tests. None overlaps the proposed Play
-implementation code paths; #826 holds no active lease and must redesign against
-the merged v2 World registry before its own future activation.
+PR #826 remains OPEN/paused and unmergeable at head
+`4fa28e586783f0e63edb85fa664afa53521367f6`, based on stale
+`5b7e1e4543c94708e11687feb60093d98d6db93f`. RAKE DUTY's read-only rework audit
+against Buddy main `c3904bc1e08df689b92d5a0b710b546f77af4600` and merged #836
+found that #826's v1 contract cannot be resumed unchanged:
+
+- #826 adds flat `space_*` fields to v1 registry records, while current main
+  stores v2 records with nested `native_graph_binding` and forbids extras. The
+  v1 reader cannot consume those added fields, and #826's v1-only model cannot
+  consume v2 records. Redesign on v2 with a distinct typed
+  `knowledge_space_binding`; preserve the existing native Graph relation and
+  current read-only v1 compatibility. Adapt writes to v2 CAS and preserve both
+  relations when committing after the external MIND call.
+- #826 and #836 both change `world_containers.py`; keep #836's guarded
+  Graph bind/deactivate routes and redacted DTO. #826's KnowledgeSpace POST
+  currently has no auth guard. The #836 guard is a local-operator bearer for
+  loopback local/development use, not named remote-user or per-World ownership.
+  The owner/auth model must be explicit; a local-only route must guard before
+  repository, registry, or MIND provisioning work.
+- #826 upgrades `pyproject.toml` and `uv.lock` from MIND #85 to accepted MIND
+  #96 merge `619329c2c8586572ffd04558a79b3555c2ca3764`; preserve that pin and
+  regenerate the lock consistently. MIND's allocation receipt proves an
+  idempotent allocation, not Buddy World ownership or user authorization.
+- #826's submitted PostgreSQL integration test was skipped. Its reported
+  focused tests are not a zero-skip owning-boundary witness. Activation requires
+  the supplied `DMB_J3_PG_ADMIN_DSN`, a clean
+  `DMB_J3_DUNGEONMIND_SOURCE` checkout at that MIND #96 merge, and Buddy's
+  matching `dungeonmind[postgres]` pin; run
+  `tests/integration/test_world_space_binding_postgres.py` with one passed,
+  zero skipped. Extend it to prove provisioning preserves an existing v2 Graph
+  relation and add route tests proving unauthorized requests have no registry
+  or MIND side effects. RAKE accessed no database and ran no tests.
+
+The #826 diff has eight files; its remaining provisioning adapter/service and
+tests also assume v1 records and need v2 updates. The refreshed path census found
+no Play code-path overlap, but the shared workstream topology is serial:
+#826 remains the unresolved prior implementation PR, with no active lease.
+The Play implementation cannot dispatch until #826's rework/evidence gates are
+resolved and PRIME records its disposition, or PRIME explicitly supersedes it
+and updates the topology. Do not run the two implementation slices in parallel.
 
 The refreshed open-PR census at this anchor found #842, #843, and #844 are
 one-file BLOCKED handoff PRs; they are design artifacts, not implementation
@@ -50,9 +81,10 @@ leases. #842's own one-file PR is the handoff being refreshed here. #843 and
 #844 touch only their separate handoff files. #798 is backlog documentation,
 #781 is the Build projection-action helper, #763–#765 are Rules work, and
 #760–#761 are Canvas handoffs. Their exact changed-file lists do not overlap
-the proposed Play implementation code paths. The Play handoff is the next
-serial implementation candidate; #843 Build and #844 Ingest remain BLOCKED and
-are not dispatched in parallel.
+the proposed Play implementation code paths. #843 Build and #844 Ingest remain
+BLOCKED design handoffs and are not dispatched in parallel. The Play handoff is
+a later serial successor only; #826's unresolved predecessor gate still
+controls implementation dispatch.
 
 RAKE DUTY's read-only Play audit remains applicable: generic Play turns must
 fail before pointer/provider work unless a server-verified World and the exact
@@ -173,17 +205,20 @@ This is a proposed set only, not an active allowlist. PR #836 released the Roadm
 
 ## Activation checklist
 
-Re-anchor Buddy remote main before activation. At this handoff revision, main
-is `c3904bc1e08df689b92d5a0b710b546f77af4600`; #836 and #839 are merged, #848
-is merged, #826 remains paused, and #843/#844 remain BLOCKED. The exact
-changed-file census above found no active code-path collision for the Play
-candidate.
+Re-anchor Buddy remote main before any activation decision. At this handoff
+revision, main is `c3904bc1e08df689b92d5a0b710b546f77af4600`; #836 and #839 are
+merged, #848 is merged, #826 remains paused and unmergeable at its stale head,
+and #843/#844 remain BLOCKED. RAKE DUTY's audit identifies unresolved v2
+registry, authorization, and zero-skip PostgreSQL gates for #826. The proposed
+Play paths have no current open-PR code-path collision, but serial workstream
+topology still blocks dispatch behind #826.
 
-PRIME must review this exact BLOCKED handoff and decide whether to activate one
-serial implementation PR. Activation must pin the current base, exact final
-write allowlist, inherited failures, verification commands, and concurrency
-topology/lock boundary. Runtime use during the implementation tests is not
-required; any configured-provider post-merge witness still needs PRIME's
-designated isolated environment and exact pin. Any changed owner boundary or
-contract returns to PRIME before editing. This BLOCKED document grants no
-implementation or runtime authority.
+PRIME may review this BLOCKED handoff. Before Play can activate, record #826's
+resolution/closure or PRIME's explicit superseding disposition/topology; do not
+dispatch two implementation slices in parallel. Then PRIME must pin the current
+base, exact final write allowlist, inherited failures, verification commands,
+and concurrency topology/lock boundary. Runtime use during implementation
+tests is not required; any configured-provider post-merge witness still needs
+PRIME's designated isolated environment and exact pin. Any changed owner
+boundary or contract returns to PRIME before editing. This BLOCKED document
+grants no implementation or runtime authority.
