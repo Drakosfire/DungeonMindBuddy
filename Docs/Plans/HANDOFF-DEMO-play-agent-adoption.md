@@ -58,30 +58,41 @@ found that #826's v1 contract cannot be resumed unchanged:
   `knowledge_space_binding`; preserve the existing native Graph relation and
   current read-only v1 compatibility. Adapt writes to v2 CAS and preserve both
   relations when committing after the external MIND call.
+- Compose only KnowledgeSpace `status` and its relation-specific version into
+  the existing redacted public WorldContainer DTO alongside Graph status and
+  version. Never expose `space_id`, allocation ID, MIND receipt, database
+  configuration, or the internal storage record.
 - #826 and #836 both change `world_containers.py`; keep #836's guarded Graph
   bind/deactivate routes and redacted DTO. #826's KnowledgeSpace POST currently
   has no auth guard. ARCHITECTURE ruled on 2026-10-02 that current provisioning
-  must remain local-only and use the loopback local-operator bearer guard before
-  repository, registry, PostgreSQL, or MIND side effects; fail closed unless
-  the local-operator request is proven. This guard does not establish named
+  must remain local-only and use the loopback local-operator bearer. Call
+  `enforce_native_graph_gm` before `repo_root()`, registry reads/writes,
+  database setup, or MIND calls; fail closed unless the local-operator request
+  is proven. Route tests must prove denied requests perform none of those
+  accesses and a successful authorized loopback request provisions only against
+  the exact server-verified World. This guard does not establish named
   remote-user or per-World authorization, so do not expose the route remotely.
-  Before any remote exposure, a separate contract must authenticate the actor
-  and authorize provisioning against this exact managed World server-side
-  before side effects. Do not infer authority from UI selection, campaign
-  identity, or the MIND allocation receipt.
+  Before remote exposure, a separate contract must authenticate the actor and
+  authorize provisioning against this exact managed World server-side before
+  side effects. Do not infer authority from UI selection, campaign identity, or
+  the MIND allocation receipt.
 - #826 upgrades `pyproject.toml` and `uv.lock` from MIND #85 to accepted MIND
   #96 merge `619329c2c8586572ffd04558a79b3555c2ca3764`; preserve that pin and
   regenerate the lock consistently. MIND's allocation receipt proves an
   idempotent allocation, not Buddy World ownership or user authorization.
 - #826's submitted PostgreSQL integration test was skipped. Its reported
   focused tests are not a zero-skip owning-boundary witness. Activation requires
-  the supplied `DMB_J3_PG_ADMIN_DSN`, a clean
-  `DMB_J3_DUNGEONMIND_SOURCE` checkout at that MIND #96 merge, and Buddy's
-  matching `dungeonmind[postgres]` pin; run
-  `tests/integration/test_world_space_binding_postgres.py` with one passed,
+  `DMB_J3_PG_ADMIN_DSN` targeting `postgres` or `template1`, with no query
+  or fragment and no alias to a configured live authority database. Set
+  `DMB_J3_DUNGEONMIND_SOURCE` to the exact MIND #96 merge
+  `619329c2c8586572ffd04558a79b3555c2ca3764`; install Buddy's matching
+  `dungeonmind[postgres]` pin. The fixture checks exact MIND HEAD and clean
+  `alembic.ini`/`migrations` paths, not cleanliness of the whole checkout.
+  Run `tests/integration/test_world_space_binding_postgres.py` with one passed,
   zero skipped. Extend it to prove provisioning preserves an existing v2 Graph
-  relation and add route tests proving unauthorized requests have no registry
-  or MIND side effects. RAKE accessed no database and ran no tests.
+  relation and add route tests proving unauthorized requests perform no
+  repository, registry, database, or MIND access. RAKE accessed no database and
+  ran no tests.
 
 The #826 diff has eight files; its remaining provisioning adapter/service and
 tests also assume v1 records and need v2 updates. The refreshed path census found
