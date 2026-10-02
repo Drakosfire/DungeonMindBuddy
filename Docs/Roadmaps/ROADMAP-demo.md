@@ -218,7 +218,7 @@ trace-estimated `$0.0000851`; the provider request ID was not separately
 surfaced. This witness closes only the connected saved-Plan Ask gate.
 
 The next game-prep graph capability is an explicit Buddy managed-World to
-existing MIND V2 Graph binding for native `world_id=eldyrwyld`. This is the first
+existing MIND V2 Graph binding for native `world_id=eldyrwild`. This is the first
 standalone capability; it does not add Graph retrieval to the saved-Plan Agent.
 The mapping is versioned and persisted on the Buddy managed World. Buddy owns
 the relationship and its status. MIND owns native Graph identity and head
@@ -242,15 +242,16 @@ and prepare/commit internal revision reads also remain outside this gate.
 These are not all native MIND projections. Classify and gate those routes
 before any full-graph query activation.
 
-The proposed binding handoff is
+The active binding handoff is
 [`HANDOFF-DEMO-existing-graph-binding.md`](../Plans/HANDOFF-DEMO-existing-graph-binding.md).
-It is BLOCKED pending PRIME's exact allowlist/topology acceptance, so the
-registry write lease has not transferred yet. Buddy PR #826 remains OPEN/CLEAN
-at `4fa28e586783f0e63edb85fa664afa53521367f6` and paused with its existing
-worktree/head preserved. It may not edit or merge its managed-World registry
-changes while the binding slice owns that path. After the binding PR merges,
-#826 must rebase or redesign against the new record contract before its next
-implementation or merge.
+PRIME accepted its exact 11-path allowlist and serial topology at design head
+`80ab7490878b297eba14602130fe867a5d3e47c2`, activating the implementation lane
+from Buddy main `1ccfe7f2af69684e1d02276f66b875ef336b82a0`. Buddy PR #826 remains
+OPEN/CLEAN at `4fa28e586783f0e63edb85fa664afa53521367f6` and paused with its
+existing worktree/head preserved. It may not edit or merge its managed-World
+registry changes while this binding slice owns that path. After the binding PR
+merges, #826 must rebase or redesign against the new record contract before its
+next implementation or merge.
 
 The saved-Plan query remains a separate BLOCKED successor under
 [`HANDOFF-DEMO-session29-elderwyld-graph.md`](../Plans/HANDOFF-DEMO-session29-elderwyld-graph.md).
@@ -265,7 +266,7 @@ must cite native evidence/source references, disclose the configured provider
 destination and bounded excerpts before dispatch, and show the exact excerpts
 actually sent after the turn.
 
-No current live read proves that `eldyrwyld` is populated at its present head.
+No current live read proves that `eldyrwild` is populated at its present head.
 The bundle's 469 objects, 323 relationships, 83 source artifacts, and 93
 contributions are static package counts. The prior native observation of head
 `rev:680c246047d67f9fe0293ee90526f670`, parent adoption

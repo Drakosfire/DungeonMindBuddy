@@ -1,7 +1,8 @@
 # HANDOFF — DEMO: bind a managed World to an existing native Graph
 
-**Status:** BLOCKED — bounded proposal pinned for PRIME review; no implementation
-lease is active until PRIME accepts the exact path list and topology.
+**Status:** ACTIVE — PRIME accepted the exact 11-path allowlist and serial
+topology at design head `80ab7490878b297eba14602130fe867a5d3e47c2`. The registry
+lease has transferred from paused PR #826 to this implementation lane.
 
 **Steward:** DEMO
 
@@ -9,7 +10,7 @@ lease is active until PRIME accepts the exact path list and topology.
 
 **Consumed contract:** MIND `origin/main@619329c2c8586572ffd04558a79b3555c2ca3764`.
 
-**PR title when activated:** `DEMO: bind managed Worlds to existing native Graphs`
+**Implementation PR title:** `DEMO: bind managed Worlds to existing native Graphs`
 
 ## 1. One capability
 
@@ -50,17 +51,19 @@ separate blocked successor.
   `validated_head_revision_id` records the head observed when the relation was
   activated; it is not a query pin. Each future Graph turn resolves its own
   current head.
-- Legacy registry records load as unbound. Bump the registry/record schema with
-  an explicit v1-to-v2 load migration and preserve existing World IDs, names,
-  and source roots.
+- Legacy registry v1 GET/list is read-only: interpret records as unbound in
+  memory and do not rewrite the file as a side effect of reading. Persist the v2
+  schema only as part of an authorized, locked compare-and-swap mutation, while
+  preserving existing World IDs, names, and source roots.
 - Initial activation is persisted only after a read-only MIND identity/head
   validation succeeds. Re-activation validates again. Deactivation is a
   Buddy-local transition that remains available while MIND is down; it keeps
   the native identity and validation observation, changes status to inactive,
   and increments the binding version.
 - Rebinding to a different native ID requires an explicit inactive state and
-  expected-version compare-and-swap. At most one active Buddy World may claim a
-  native Graph until a separately reviewed sharing policy exists.
+  expected-version compare-and-swap. Check the at-most-one-active-Buddy-World
+  claim for a native Graph inside that same mutation lock before persistence,
+  until a separately reviewed sharing policy exists.
 - Perform MIND validation outside the registry file lock, then reacquire the
   lock and compare the exact registry token and expected binding version before
   writing. A concurrent World/binding change fails with a conflict; it must not
@@ -69,14 +72,24 @@ separate blocked successor.
 ## 3. Local operator boundary
 
 Use the merged #835 guard, `enforce_native_graph_gm`, before calling `repo_root`,
-reading or mutating the registry, or contacting MIND. Its supported claim is
-limited to a configured local-operator bearer on a loopback request; Buddy grants
-that local operator a fixed local GM capability. It does not establish a named
-user, remote/LAN access, campaign membership, or tabletop identity. MIND
-`Admissibility.GM` remains an independent Graph visibility filter, not an
-authentication proof.
+reading or mutating the registry, or contacting MIND on the new binding and
+deactivation operations. Its supported claim is limited to a configured
+local-operator bearer on a loopback request; Buddy grants that local operator a
+fixed local GM capability. It does not establish a named user, remote/LAN
+access, campaign membership, or tabletop identity. MIND `Admissibility.GM`
+remains an independent Graph visibility filter, not an authentication proof.
+The existing WorldContainer list/create routes remain on their current auth
+boundary and change only to use the redacted response DTO; this slice does not
+add a UI-wide auth migration.
 
-Expose an explicit local configuration operation, for example:
+Use the existing WorldContainer list GET as the binding inspection surface. Its
+per-record DTO reports `native_graph_binding.status` and
+`native_graph_binding.binding_version`; an unbound World reports `unbound` and
+version `0`. It returns no native ID, validation head, receipt, or DSN. This GET
+performs only a read-only registry lookup: it does not call MIND or change
+registry bytes/token, including when it reads a legacy v1 registry.
+
+Expose explicit local configuration operations, for example:
 
 - `PUT /api/live/world-containers/{managed_world_id}/native-graph-binding`
   accepts `native_world_id` and the expected binding version. This is the only
@@ -92,8 +105,9 @@ Buddy state and the stored binding.
 
 Missing/invalid auth configuration fails closed with 503, missing or invalid
 bearer with 401, and non-loopback requests with 403. Denial occurs before any
-registry lookup or MIND call. Missing, unavailable, contradictory, wrong-world,
-or headless MIND authority never produces an active binding.
+registry lookup or MIND call on the new bind/deactivate operations. Missing,
+unavailable, contradictory, wrong-world, or headless MIND authority never
+produces an active binding.
 
 ## 4. Public response shape
 
@@ -113,33 +127,43 @@ already exposes `direct_services_from_config(native_world_id)`. Its
 identity and observes the authoritative current head. Use this read-only path to
 validate activation and capture the audit head. Require the returned binding's
 `world_id` to exactly equal the requested native ID and require a non-empty head.
-No MIND code or new MIND mapping/API is authorized by this handoff. If the
-existing adapter cannot provide these facts, stop and return the exact missing
-contract to PRIME before expanding the lease.
+Then read-only-load that exact head revision through the returned MIND
+repository with `services.bundle.world_graph.get_revision(native_world_id,
+head_revision_id)` and verify the revision's world ID and revision ID before
+persisting ACTIVE. No MIND code or new MIND mapping/API is authorized by this
+handoff. If the existing adapter/repository cannot provide that exact revision
+read, stop and return the missing contract to PRIME before expanding the lease.
 
 The local registry is `out/registries/world_containers.json`; code tests use a
-temporary root and must not touch the configured demo registry. This slice has
-no provider calls, server starts, shared ports, MIND writes, or real Graph
-mutation. A live binding action against `eldyrwild` is a later read-only MIND
-validation plus a Buddy registry write and must be coordinated with PRIME and
-the designated runtime owner.
+temporary root and must not touch the configured demo registry. No real
+`eldyrwild` binding action is allowed until PRIME confirms the exact target
+managed World and runtime owner. This slice has no provider calls, server
+starts, shared ports, MIND writes, or real Graph mutation. A live binding action
+is a later read-only MIND validation plus a Buddy registry write and must be
+coordinated with PRIME and the designated runtime owner.
 
 ## 6. Verification and acceptance
 
 At the owning Buddy registry/route boundary, prove:
 
-- v1 registry files load as unbound and survive the explicit v2 migration;
+- v1 list reads load records as unbound without changing registry bytes/token;
+  an authorized locked CAS mutation writes v2 while preserving existing World
+  IDs, names, and source roots;
 - a validated initial bind persists active version 1 and survives reload;
 - invalid/missing/unavailable native identity or head never persists active;
 - deactivation preserves the relation and works with MIND unavailable;
 - reactivation and rebinding require exact expected versions and revalidate;
 - concurrent changes fail closed, and duplicate active claims for one native
-  Graph are rejected;
-- missing configuration, absent/invalid bearer, and non-loopback requests are
-  rejected before registry or MIND access;
+  Graph are rejected by a uniqueness check inside the locked mutation;
+- missing configuration, absent/invalid bearer, and non-loopback bind/deactivate
+  requests are rejected before registry or MIND access, with denial tests
+  proving neither dependency is called;
 - an authorized operation validates the exact native Graph identity and head;
-- public list/create/bind/deactivate responses expose status/version only and
-  never expose native IDs, validation head IDs, MIND receipts, or DSNs.
+- list GET leaves a legacy v1 registry byte-for-byte unchanged and makes no MIND
+  call;
+- public list/create/bind/deactivate responses expose the managed World fields
+  plus native binding status/version only and never expose native IDs,
+  validation head IDs, MIND receipts, or DSNs.
 
 Suggested focused checks:
 
@@ -151,14 +175,14 @@ git diff --check
 
 Use deterministic temporary registries and an injected read-only MIND service
 for local route tests. Do not target the configured demo registry or a shared
-database. Before a live `eldyrwyld` bind, record its exact non-empty current MIND
-head through the read-only adapter and confirm the Buddy target World ID; never
-initialize, write, or advance that Graph.
+database. Before any separately authorized live `eldyrwild` bind, record its
+exact non-empty current MIND head through the read-only adapter and confirm the
+Buddy target World ID; never initialize, write, or advance that Graph.
 
-## 7. Proposed exclusive write lease
+## 7. Exclusive write lease
 
-The following exact paths are proposed for the implementation PR and become an
-exclusive lease only after PRIME accepts this handoff:
+PRIME accepted the following exact paths as the exclusive implementation lease
+at design head `80ab7490878b297eba14602130fe867a5d3e47c2`:
 
 - `apps/live_control_server/services/world_container_registry.py`
 - `apps/live_control_server/services/world_graph_binding.py` (new)
@@ -174,21 +198,22 @@ exclusive lease only after PRIME accepts this handoff:
 
 Do not edit the leased #826 branch or any MIND path. Its PR remains OPEN and
 paused at `4fa28e586783f0e63edb85fa664afa53521367f6`; preserve its worktree and
-head. PRIME's explicit ownership ruling transfers the shared managed-World
-registry path to this successor only after accepting this exact allowlist.
+head. PRIME's explicit ownership ruling transferred the shared managed-World
+registry path to this successor when it accepted this exact allowlist.
 
 ## 8. Topology and successors
 
-**Topology:** serial. This is the sole active implementation PR after PRIME
-accepts the handoff. PR #826 is a preserved paused branch, not a concurrent
-writer or merge candidate. The graph-binding PR merges first. Then rebase or
-redesign #826 against the new registry contract, preserve its KnowledgeSpace
-binding as a distinct value, and return its exact tests and PR state to PRIME
-before any further implementation or merge on that branch.
+**Topology:** serial. PRIME activated this as the sole implementation lane from
+Buddy main `1ccfe7f2af69684e1d02276f66b875ef336b82a0`; open its one PR when the
+slice is implemented and verified. PR #826 is a preserved paused branch, not a
+concurrent writer or merge candidate. The graph-binding PR merges first. Then
+rebase or redesign #826 against the new registry contract, preserve its
+KnowledgeSpace binding as a distinct value, and return its exact tests and PR
+state to PRIME before any further implementation or merge on that branch.
 
 The saved-Plan query remains a separate BLOCKED successor. It needs fresh Buddy
 and MIND refs, a completed route/access audit, the read-only populated
-`eldyrwyld` witness, and its own disposable native fixture for R1-to-R2
+`eldyrwild` witness, and its own disposable native fixture for R1-to-R2
 concurrent publication and restart re-resolution. Its contract must pin every
 search, hop, evidence lookup, and source-anchor read to one resolved head,
 preserve MIND citation identities, keep C2 narrative focus separate from native
