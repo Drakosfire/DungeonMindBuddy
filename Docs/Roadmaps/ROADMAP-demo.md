@@ -1271,14 +1271,25 @@ that their foundations are absent. Historical slices retain their IDs.
   only this roadmap, and the three UI files are byte-identical. The two
   owning Vitest files pass **150/150**; cumulative diff check passes. UI
   typecheck still reports only the inherited `ThreatPublicationPanel.tsx:553`
-  `TS2503` JSX namespace error. PRIME allocated a fresh disposable J4 lane;
-  SERVER owns DMS/PostgreSQL/runtime setup and is preparing the exact healthy
-  resource packet. Buddy API/UI ports 17861/15202 are reserved, but no Buddy
-  process, provider call, or database write has started. A real isolated DMS
-  preview → save → reload witness remains pending that packet. The retained
-  candidate body is not in checked-in evidence, so a synthetic same-schema
-  witness cannot be called its repair or full J4 acceptance. This checkpoint
-  does not close J4.
+  `TS2503` JSX namespace error. PRIME allocated a fresh disposable J4 lane at
+  `/tmp/j4-dms-buddy-pr869-20261002`. SERVER's isolated DMS/PostgreSQL packet is
+  live: DMS main `a79a52123c1d72caa87be3eec10b6b9a6da7df22`, PostgreSQL migrated
+  through Alembic head `20261002_0012`, and the Firestore emulator health check
+  passed. DMS authenticated readiness returned `ready` with read routes enabled,
+  generation disabled, and no readiness errors. No provider call or candidate/
+  revision write occurred. The Buddy API and UI were started from PR head
+  `2f47b3e6816094367ae53e6a9dd399ce826edb4a` on the reserved lane ports 17861 and
+  15202; `syntheticWorld` was registered and the Workbench layout survived save
+  and reload in the isolated DB. The surrounding legacy surface still reports
+  graph authentication unavailable, so this does not prove graph behavior.
+  At the DMS validator boundary, a synthetic `swim` reference with no matching
+  local movement mode returned `UNKNOWN_MOVEMENT_REFERENCE`; changing only the
+  reference to existing local key `hover` returned no issues. This is validator
+  evidence only: a real Buddy UI preview → explicit edit → preview → save → reload
+  witness, including the saved revision/readback, remains pending. Generation is
+  disabled under PRIME's current runtime direction. The retained candidate body
+  is not in checked-in evidence, so a synthetic same-schema witness cannot be
+  called its repair or full J4 acceptance. This checkpoint does not close J4.
 - **DEMO-J1 input-pin and full-source browser witness:** the local purchased
   `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
   is still 48,778 bytes / 565 lines, SHA-256
