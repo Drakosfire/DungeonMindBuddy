@@ -699,6 +699,25 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
 ) -> None:
     prompt_secret = "plan-prompt-secret-6d3b"
     runtime = FakeRuntime()
+    runtime.result = AgentRuntimeResult(
+        status="ok",
+        final_text="ANSWER_SENTINEL synthetic answer",
+        runtime_metadata={
+            "host_phase_spans": [
+                {
+                    "span_id": "host-group:1",
+                    "parent_span_id": None,
+                    "kind": "phase",
+                    "name": "host_worker_result_wait",
+                    "status": "ok",
+                    "started_at": "2026-10-02T00:00:00Z",
+                    "completed_at": "2026-10-02T00:00:00Z",
+                    "duration_ms": 9,
+                    "attributes": {"host_phase_group_id": "host-group"},
+                }
+            ]
+        },
+    )
     request = _request(
         message=prompt_secret,
         surface={"surface_id": "plan", "instance_id": "plan-main"},
@@ -735,4 +754,14 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
     assert len(trace_events) == 1
     logged_trace = json.loads(trace_events[0].removeprefix("dmb_agent_turn_trace "))
     assert logged_trace["trace_id"] == trace["trace_id"]
+    runtime_span = next(
+        span for span in trace["spans"] if span["name"] == "runtime_dispatch"
+    )
+    host_span = next(
+        span for span in trace["spans"] if span["name"] == "host_worker_result_wait"
+    )
+    assert host_span["parent_span_id"] == runtime_span["span_id"]
+    assert prompt_secret not in json.dumps(trace["spans"])
+    assert "ANSWER_SENTINEL" not in json.dumps(trace)
     assert prompt_secret not in trace_events[0]
+    assert "ANSWER_SENTINEL" not in trace_events[0]

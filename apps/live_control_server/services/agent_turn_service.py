@@ -299,9 +299,23 @@ def execute_agent_turn(
         mode=descriptor.trace_mode,
     )
     trace.context_summary = dict(assembly.trace_summary)
-    with trace.phase("runtime_dispatch"):
+    runtime_dispatch_span_id = trace.start_phase("runtime_dispatch")
+    try:
         invocation = replace(assembly.invocation, plan_continuity_turn=plan_continuity)
         result = selected_runtime.run(invocation)
+    except Exception:
+        trace.complete_phase(runtime_dispatch_span_id, status="error")
+        raise
+    else:
+        trace.complete_phase(runtime_dispatch_span_id)
+    host_phase_spans = result.runtime_metadata.get("host_phase_spans", [])
+    if isinstance(host_phase_spans, list):
+        for span in host_phase_spans[:24]:
+            if not isinstance(span, Mapping):
+                continue
+            safe_span = dict(span)
+            safe_span["parent_span_id"] = runtime_dispatch_span_id
+            trace.spans.append(safe_span)
     final_trace = trace.finalize_and_log(
         status="ok" if result.status == "ok" else "error",
         model_calls=result.model_calls,

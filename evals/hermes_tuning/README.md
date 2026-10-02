@@ -12,6 +12,7 @@ uv run python evals/hermes_tuning/run_pair.py --variant control
 uv run python evals/hermes_tuning/run_pair.py --variant voice
 uv run python evals/hermes_tuning/run_synthetic_graph.py
 uv run python evals/hermes_tuning/run_host_latency.py --samples 5
+uv run python evals/hermes_tuning/run_host_phases.py --samples 5
 ```
 
 These commands make live calls to the policy-resolved OpenAI model using `OPENAI_API_KEY`. The harness prints only identifiers and measurement summaries; its JSON artifact stores the synthetic prompt, answers, token traces, and model/tool-event counts. The key is neither copied nor printed. The fixed fixture and rubric live in this directory; model outputs go under `artifacts/`.
@@ -76,3 +77,19 @@ The warm median residual is 52% below the cold residual in this five-turn run. D
 All five host answers passed the experiment's deterministic screening gates: status `ok`, nonempty response, at most 100 whitespace-delimited words, bridge-and-dusk pressure, Nera marked missing/disappeared/vanished, and at least one explicit uncertainty marker. This screening is not a grounding proof; inspect the stored synthetic answers for semantic correctness. After the run, the gate was corrected to accept “Nera vanished,” and the gate fields were recomputed offline. Raw model answers, provider timings, tokens, costs, and PIDs were unchanged; the artifact marks this post-run gate-only correction.
 
 A requested real-corpus follow-up remains blocked: automatic review rejected sending private C2 Session 23 evidence and its prompt to OpenAI, with the stated reason that tuning approval did not specifically authorize exporting that payload to the external destination. Do not reroute that payload through another client. Resume that cohort only after explicit approval for the particular content and destination. A permitted native-Graph witness is also still needed before making any claim about real Graph crawling.
+
+## Host phase timings
+
+The phase successor uses the same synthetic scenario and direct Luna control, but leaves worker startup lazy so the first `execute()` measures acquisition/readiness at the actual parent/worker boundary. Four subsequent turns reuse the same worker. The artifact [`host-phases-20261002T064329Z.json`](artifacts/host-phases-20261002T064329Z.json) contains five direct/host pairs and bounded phase spans; the harness writes each sample before reporting progress.
+
+| Sample | Worker | Direct wall | Host wall | Provider call | Host residual | Acquire/ready | Worker result wait |
+|---|---|---:|---:|---:|---:|---:|---:|
+| 1 | Cold | 4,962.2 ms | 11,570.5 ms | 3,705.6 ms | 7,864.9 ms | 2,638 ms | 8,930 ms |
+| 2 | Reused | 3,448.7 ms | 4,999.8 ms | 3,050.5 ms | 1,949.3 ms | 0 ms | 4,998 ms |
+| 3 | Reused | 3,504.1 ms | 5,052.5 ms | 3,072.8 ms | 1,979.8 ms | 0 ms | 5,050 ms |
+| 4 | Reused | 3,494.4 ms | 7,349.7 ms | 3,979.4 ms | 3,370.2 ms | 0 ms | 7,348 ms |
+| 5 | Reused | 3,751.7 ms | 6,383.5 ms | 4,231.0 ms | 2,152.6 ms | 0 ms | 6,381 ms |
+
+The same worker PID (1433786) served all five turns. Each host turn passed the deterministic answer gates, made one provider call, and made zero tool calls. Direct estimated costs were $0.0001281, $0.0001391, $0.0001401, $0.0001536, and $0.0001481; host estimated costs were $0.0001538, $0.0001473, $0.0002008, $0.0001908, and $0.0001933. Host inputs were 633 tokens per call versus 246 for each direct control.
+
+Serialization, wire encoding, queue puts, acceptance, and decoding measured 0–1 ms per phase. Cold worker acquisition/readiness accounts for 2,638 ms of the cold turn. `host_worker_result_wait` encloses the entire worker execution, including the observed provider duration, so it must not be added to provider time. After subtracting model-call duration, the remaining cold gap is about 5.2 seconds inside worker execution; warm residuals are 1.9–3.4 seconds. The host instrumentation localizes that time to the worker interval but does not separate imports, plugin discovery, provider setup, response projection, or other worker work. These five calls describe one run and do not prove a production speedup. No private corpus or live Graph was used; non-streaming API output leaves TTFT unknown.

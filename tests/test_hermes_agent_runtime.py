@@ -27,7 +27,10 @@ from apps.live_control_server.services.hermes_graph_agent_contract import (
     HermesGraphAgentTurnResult,
     HermesGraphToolEvent,
 )
-from graph_memory.hermes_graph_plugin import ORDERED_MODEL_VISIBLE_TOOL_NAMES, TOOLSET_NAME
+from graph_memory.hermes_graph_plugin import (
+    ORDERED_MODEL_VISIBLE_TOOL_NAMES,
+    TOOLSET_NAME,
+)
 
 
 class _FakeHost:
@@ -45,8 +48,24 @@ class _FakeHost:
         request: HermesGraphAgentTurnRequest,
         *,
         timeout_s: float | None = None,
+        on_host_phase: Any = None,
     ) -> HermesGraphAgentTurnResult:
+        del timeout_s
         self.calls.append(request)
+        if on_host_phase is not None:
+            on_host_phase(
+                {
+                    "span_id": "group:1",
+                    "parent_span_id": None,
+                    "kind": "phase",
+                    "name": "host_worker_result_wait",
+                    "status": "ok",
+                    "started_at": "2026-10-02T00:00:00Z",
+                    "completed_at": "2026-10-02T00:00:00Z",
+                    "duration_ms": 1,
+                    "attributes": {"host_phase_group_id": "group"},
+                }
+            )
         return self.result
 
 
@@ -55,18 +74,28 @@ def _invocation(**overrides: Any) -> AgentRuntimeInvocation:
         "thread_id": "agent-thread-1",
         "turn_id": "turn-1",
         "message": "Where is Tripod?",
-        "conversation_history": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}],
+        "conversation_history": [
+            {"role": "user", "content": "hi"},
+            {"role": "assistant", "content": "hello"},
+        ],
         "context_packet": AgentContextPacket(
             world_scope=AgentWorldScope(
                 world_id="world:eldyrwild",
                 campaign_id="campaign:c1",
-                focus={"kind": "session", "session_id": "session-21", "campaign_id": None},
+                focus={
+                    "kind": "session",
+                    "session_id": "session-21",
+                    "campaign_id": None,
+                },
                 admissibility="gm",
                 revision_id="revision:resolved-server",
             ),
             retrieval_session=AgentRetrievalSession(
                 session_id="retrieval-sess-1",
-                packet={"schema": "dmb_graph_retrieval_session_v1", "id": "retrieval-sess-1"},
+                packet={
+                    "schema": "dmb_graph_retrieval_session_v1",
+                    "id": "retrieval-sess-1",
+                },
             ),
         ),
         "capability_policy": WORLD_GRAPH_READ_POLICY,
@@ -138,7 +167,10 @@ def _hermes_ok_result() -> HermesGraphAgentTurnResult:
         ],
         process_isolation="process_exclusive",
         retrieval_session_id="retrieval-sess-1",
-        retrieval_session={"schema": "dmb_graph_retrieval_session_v1", "id": "retrieval-sess-1"},
+        retrieval_session={
+            "schema": "dmb_graph_retrieval_session_v1",
+            "id": "retrieval-sess-1",
+        },
         answer_scope=None,
         model_calls=[retry, success],
         telemetry_warnings=["observer_retry"],
@@ -149,10 +181,12 @@ def _hermes_ok_result() -> HermesGraphAgentTurnResult:
 def test_adapter_maps_invocation_onto_existing_host(tmp_path: Path) -> None:
     host = _FakeHost(_hermes_ok_result())
     adapter = HermesAgentRuntimeAdapter(host_factory=lambda: host)
-    invocation = _invocation(run_options=AgentRunOptions(
-        runtime_session_id="runtime-continue",
-        execution_root=tmp_path,
-    ))
+    invocation = _invocation(
+        run_options=AgentRunOptions(
+            runtime_session_id="runtime-continue",
+            execution_root=tmp_path,
+        )
+    )
     result = adapter.run(invocation)
     assert adapter.descriptor == HERMES_RUNTIME_DESCRIPTOR
     assert len(host.calls) == 1
@@ -180,7 +214,9 @@ def test_adapter_maps_invocation_onto_existing_host(tmp_path: Path) -> None:
     }
     assert request.capability_policy is not None
     assert request.capability_policy.enabled_toolsets == (TOOLSET_NAME,)
-    assert request.capability_policy.enabled_tool_names == ORDERED_MODEL_VISIBLE_TOOL_NAMES
+    assert (
+        request.capability_policy.enabled_tool_names == ORDERED_MODEL_VISIBLE_TOOL_NAMES
+    )
     assert all(
         "write" not in rule.allowed_effects
         for rule in request.capability_policy.tool_rules
@@ -190,6 +226,10 @@ def test_adapter_maps_invocation_onto_existing_host(tmp_path: Path) -> None:
     assert result.runtime_session_id == "hermes-internal-s1"
     assert result.runtime_metadata["worker_pid"] == 4242
     assert result.runtime_metadata["process_isolation"] == "process_exclusive"
+    assert (
+        result.runtime_metadata["host_phase_spans"][0]["name"]
+        == "host_worker_result_wait"
+    )
 
 
 def test_unsupported_capability_fails_closed_before_host() -> None:
@@ -215,7 +255,9 @@ def test_adapter_preserves_model_calls_without_recompute() -> None:
     assert mapped.observed_model_call_count == 2
     assert mapped.context_updates["retrieval_session_id"] == "retrieval-sess-1"
     assert mapped.tool_events[0].state == "start"
-    assert mapped.tool_events[1].attributes["matched_node_ids"] == ["threat:tripod-null-calf"]
+    assert mapped.tool_events[1].attributes["matched_node_ids"] == [
+        "threat:tripod-null-calf"
+    ]
     assert mapped.tool_events[1].attributes["source_anchor_ids"] == ["anchor:a1"]
     assert mapped.runtime_session_id == "hermes-internal-s1"
     assert "hermes_session_id" not in mapped.__dataclass_fields__
@@ -227,7 +269,9 @@ def test_map_invocation_does_not_infer_missing_scope() -> None:
     assert request.revision_pin == invocation.context_packet.world_scope.revision_id
     assert request.world_id == invocation.context_packet.world_scope.world_id
     assert request.capability_policy is not None
-    assert request.capability_policy.graph_scope.revision_pin == "revision:resolved-server"
+    assert (
+        request.capability_policy.graph_scope.revision_pin == "revision:resolved-server"
+    )
 
 
 def test_adapter_preserves_managed_world_scope_without_campaign() -> None:
@@ -299,7 +343,12 @@ def test_error_host_result_keeps_partial_telemetry() -> None:
         "status": "ok",
         "provider": "openai-api",
         "model": "gpt-5.4",
-        "usage": {"status": "reported", "input_tokens": 10, "output_tokens": 2, "total_tokens": 12},
+        "usage": {
+            "status": "reported",
+            "input_tokens": 10,
+            "output_tokens": 2,
+            "total_tokens": 12,
+        },
         "cost": {"status": "estimated", "usd": 0.0001, "currency": "USD"},
     }
     host = _FakeHost(
@@ -327,7 +376,9 @@ def test_error_host_result_keeps_partial_telemetry() -> None:
     assert result.runtime_metadata["process_isolation"] == "process_exclusive"
 
 
-def test_map_invocation_carries_surface_context_block_without_mutating_question() -> None:
+def test_map_invocation_carries_surface_context_block_without_mutating_question() -> (
+    None
+):
     from apps.live_control_server.services.agent_runtime import (
         AgentCurrentWorkContext,
         AgentSurfaceContext,
@@ -341,7 +392,7 @@ def test_map_invocation_carries_surface_context_block_without_mutating_question(
         current_work=AgentCurrentWorkContext(
             kind="plan",
             work_object_id="aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
-            title='C2 Session 27 Prep',
+            title="C2 Session 27 Prep",
             object_revision=4,
             target_session=27,
         ),
@@ -362,13 +413,21 @@ def test_map_invocation_carries_surface_context_block_without_mutating_question(
     expected = render_agent_surface_context(surface)
     assert request.surface_context_block == expected
     assert without.surface_context_block is None
-    assert request.question == without.question == "What does Lysandra know about the swarm?"
+    assert (
+        request.question
+        == without.question
+        == "What does Lysandra know about the swarm?"
+    )
     assert request.conversation_history == without.conversation_history
-    assert "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" not in (request.surface_context_block or "")
+    assert "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee" not in (
+        request.surface_context_block or ""
+    )
     assert "revision" not in (request.surface_context_block or "").lower()
 
 
-def test_map_invocation_carries_play_surface_context_block_without_mutating_question() -> None:
+def test_map_invocation_carries_play_surface_context_block_without_mutating_question() -> (
+    None
+):
     from apps.live_control_server.services.agent_runtime import (
         AgentPlayCurrentElementContext,
         AgentPlayCurrentMomentContext,
@@ -419,5 +478,7 @@ def test_map_invocation_carries_play_surface_context_block_without_mutating_ques
         == without.question
         == "What happens if they collapse the tunnel?"
     )
-    assert "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" not in (request.surface_context_block or "")
+    assert "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" not in (
+        request.surface_context_block or ""
+    )
     assert "beat:hold-the-gate" not in (request.surface_context_block or "")

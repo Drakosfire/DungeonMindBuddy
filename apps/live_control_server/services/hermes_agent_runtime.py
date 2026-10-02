@@ -21,7 +21,9 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRuntimeResult,
     AgentRuntimeToolEvent,
 )
-from apps.live_control_server.services.agent_surface_context import render_agent_surface_context
+from apps.live_control_server.services.agent_surface_context import (
+    render_agent_surface_context,
+)
 from apps.live_control_server.services.hermes_graph_agent_contract import (
     HermesGraphAgentTurnRequest,
     HermesGraphAgentTurnResult,
@@ -106,7 +108,9 @@ def map_invocation_to_hermes_request(
             invocation.capability_policy.policy_id != CONVERSATION_ONLY_POLICY_ID
             or invocation.context_packet.retrieval_session is not None
         ):
-            raise ValueError("no-scope turn requires conversation-only policy and no retrieval session")
+            raise ValueError(
+                "no-scope turn requires conversation-only policy and no retrieval session"
+            )
         host_focus = None
         capability_policy = default_conversation_only_capability_policy()
         world_id = campaign_id = scope_mode = admissibility = revision_pin = None
@@ -130,12 +134,17 @@ def map_invocation_to_hermes_request(
         revision_pin = world_scope.revision_id
     retrieval = invocation.context_packet.retrieval_session
     history = (
-        [{"role": item["role"], "content": item["content"]} for item in invocation.conversation_history]
+        [
+            {"role": item["role"], "content": item["content"]}
+            for item in invocation.conversation_history
+        ]
         if invocation.conversation_history
         else None
     )
     execution_root = invocation.run_options.execution_root
-    root = execution_root.resolve() if isinstance(execution_root, Path) else execution_root
+    root = (
+        execution_root.resolve() if isinstance(execution_root, Path) else execution_root
+    )
     surface_context_block = render_agent_surface_context(
         invocation.context_packet.surface_context
     )
@@ -202,17 +211,28 @@ class HermesAgentRuntimeAdapter:
         policy_id = invocation.capability_policy.policy_id
         world_scope = invocation.context_packet.world_scope
         expected_policy = (
-            CONVERSATION_ONLY_POLICY_ID if world_scope is None else WORLD_GRAPH_READ_POLICY_ID
+            CONVERSATION_ONLY_POLICY_ID
+            if world_scope is None
+            else WORLD_GRAPH_READ_POLICY_ID
         )
         if policy_id != expected_policy:
             return _unsupported_policy_result(policy_id)
         request = map_invocation_to_hermes_request(invocation)
         host = self._host_factory()
-        result = host.execute(request)
-        return map_hermes_result_to_runtime_result(
+        host_phase_spans: list[dict[str, Any]] = []
+
+        def on_host_phase(span: dict[str, Any]) -> None:
+            if len(host_phase_spans) < 24:
+                host_phase_spans.append(dict(span))
+
+        result = host.execute(request, on_host_phase=on_host_phase)
+        runtime_result = map_hermes_result_to_runtime_result(
             result,
             worker_pid=_host_worker_pid(host),
         )
+        if host_phase_spans:
+            runtime_result.runtime_metadata["host_phase_spans"] = host_phase_spans
+        return runtime_result
 
 
 def default_hermes_agent_runtime() -> HermesAgentRuntimeAdapter:
