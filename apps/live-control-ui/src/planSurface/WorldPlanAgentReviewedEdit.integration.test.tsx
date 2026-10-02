@@ -237,7 +237,7 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
   fireEvent.mouseUp(proseMirror);
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByRole("region", { name: "Saved World Plan conversation" })).toBeInTheDocument();
-  expect(screen.getByText(/Ask sends your question.*does not send Plan text/)).toBeInTheDocument();
+  expect(screen.getByText(/Ask sends this Plan’s exact committed text and your question to the configured model/)).toBeInTheDocument();
 
   fireEvent.change(screen.getByLabelText("What should DungeonBuddy change?"), {
     target: { value: "Add a warm light source to the opening." },
