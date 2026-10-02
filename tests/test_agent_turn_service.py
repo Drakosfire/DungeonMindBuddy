@@ -699,6 +699,60 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
 ) -> None:
     prompt_secret = "plan-prompt-secret-6d3b"
     runtime = FakeRuntime()
+    runtime.result = AgentRuntimeResult(
+        status="ok",
+        final_text="ANSWER_SENTINEL synthetic answer",
+        runtime_metadata={
+            "host_phase_spans": [
+                {
+                    "span_id": "0123456789abcdef0123456789abcdef:1",
+                    "parent_span_id": None,
+                    "kind": "phase",
+                    "name": "host_worker_result_wait",
+                    "status": "ok",
+                    "started_at": "2026-10-01T23:59:59.991Z",
+                    "completed_at": "2026-10-02T00:00:00Z",
+                    "duration_ms": 9,
+                    "attributes": {
+                        "host_phase_group_id": "0123456789abcdef0123456789abcdef",
+                        "request_summary": "TRACE_LEAK_SENTINEL from innocuous field",
+                    },
+                    "extra_context": "TRACE_LEAK_SENTINEL from arbitrary field",
+                },
+                {
+                    "span_id": "0123456789abcdef0123456789abcdef:2",
+                    "name": "host_worker_result_wait",
+                    "status": "ok",
+                    "started_at": "2026-10-02T00:00:00Z",
+                    "completed_at": "2026-10-02T00:00:00Z",
+                    "duration_ms": -1,
+                    "attributes": {
+                        "host_phase_group_id": "0123456789abcdef0123456789abcdef"
+                    },
+                },
+                {
+                    "span_id": "abcdef0123456789abcdef0123456789:1",
+                    "name": "rung3_bootstrap_logger_home_setup",
+                    "status": "ok",
+                    "started_at": "2026-10-01T23:59:59.991Z",
+                    "completed_at": "2026-10-02T00:00:00Z",
+                    "duration_ms": 9,
+                    "attributes": {
+                        "host_phase_group_id": "abcdef0123456789abcdef0123456789"
+                    },
+                },
+                {
+                    "span_id": "TRACE_LEAK_SENTINEL",
+                    "name": "unapproved_phase_name",
+                    "status": "ok",
+                    "started_at": "2026-10-02T00:00:00Z",
+                    "completed_at": "2026-10-02T00:00:00Z",
+                    "duration_ms": 9,
+                    "attributes": {},
+                },
+            ]
+        },
+    )
     request = _request(
         message=prompt_secret,
         surface={"surface_id": "plan", "instance_id": "plan-main"},
@@ -735,4 +789,24 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
     assert len(trace_events) == 1
     logged_trace = json.loads(trace_events[0].removeprefix("dmb_agent_turn_trace "))
     assert logged_trace["trace_id"] == trace["trace_id"]
+    runtime_span = next(
+        span for span in trace["spans"] if span["name"] == "runtime_dispatch"
+    )
+    host_span = next(
+        span for span in trace["spans"] if span["name"] == "host_worker_result_wait"
+    )
+    worker_span = next(
+        span
+        for span in trace["spans"]
+        if span["name"] == "rung3_bootstrap_logger_home_setup"
+    )
+    assert sum(span.get("name", "").startswith("host_") for span in trace["spans"]) == 1
+    assert sum(span.get("name", "").startswith("rung3_") for span in trace["spans"]) == 1
+    assert host_span["parent_span_id"] == runtime_span["span_id"]
+    assert worker_span["parent_span_id"] == runtime_span["span_id"]
+    assert prompt_secret not in json.dumps(trace["spans"])
+    assert "ANSWER_SENTINEL" not in json.dumps(trace)
+    assert "TRACE_LEAK_SENTINEL" not in json.dumps(trace)
     assert prompt_secret not in trace_events[0]
+    assert "ANSWER_SENTINEL" not in trace_events[0]
+    assert "TRACE_LEAK_SENTINEL" not in trace_events[0]

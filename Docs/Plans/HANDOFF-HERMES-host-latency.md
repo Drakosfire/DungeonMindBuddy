@@ -1,4 +1,4 @@
-# HERMES host latency experiment — ACTIVE
+# HERMES host latency experiment — COMPLETE
 
 Authority: operator's request on 2026-10-01 for a provisional Hermes-tuning subagent to iterate on response quality, speed, and Graph use with evidence check-ins to PRIME. Buddy PR #840 was independently reviewed and merged at `92d5ff9c35778a97527546aa9aa15ca8fb7290af`; it established a synthetic prose/Graph baseline. This successor starts from that exact `origin/main` revision. It does not appoint a permanent steward or change production inference policy.
 
@@ -15,3 +15,5 @@ Compare the cold turn with the warm distribution descriptively; five turns do no
 Topology: parallel-independent from Buddy open #836/#839 and paused #826. Branch `codex/hermes-host-latency` from merged Buddy main above, in the isolated Hermes worktree. Exclusive expected write set: this handoff and `evals/hermes_tuning/**`. Product runtime, routes, UI, model policy, Graph authority, and user-facing Plan state are read-only. No live service/Graph or private corpus is part of this slice. Prior automatic approval review rejected exporting a private C2 Session 23 packet to OpenAI; do not retry or reroute it without specific approval. Synthetic provider calls with the already configured key are authorized for this experiment; never emit credentials.
 
 Verify the harness at its host/process boundary, inspect cumulative base→head diff and generated artifacts, commit/push, and open one Buddy PR. Do not merge. PRIME reviews the evidence and decides whether to allocate a runtime instrumentation/optimization slice, a Graph witness, or a model/prose challenger. Continue the provisional experimental loop only under a newly pinned bounded handoff after each review.
+
+Settlement: Buddy PR #841 merged at `3608663a950cde7472ea942628170f083e533b14`. Its descriptive result and next measurement are carried forward by `HANDOFF-HERMES-host-phases.md`.

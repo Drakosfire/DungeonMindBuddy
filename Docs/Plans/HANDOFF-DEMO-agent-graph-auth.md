@@ -1,18 +1,29 @@
 # HANDOFF — DEMO: authenticate Agent graph turns
 
-**Status:** ACTIVE — one serial local-operator authentication prerequisite is authorized.
+**Status:** COMPLETE — PR #835 merged at Buddy main `1ccfe7f2af69684e1d02276f66b875ef336b82a0` from corrected code head `3a1a12b05be8e00581dce45da2b1b5efa53f123a`.
 
 **Steward:** DEMO
 
 **Base:** Buddy `origin/main@5b8686829a8f734d99dca59e4998611aee5df5cb`.
 
+This handoff records the completed local-operator gate only. Its claim remains
+limited to the guarded local Graph read responses listed here; it does not
+provide named-user identity or implement the Session 29 binding/query. A
+follow-up route audit found additional unguarded data responses: Graph Preview
+recap projection, existing-object candidates, and latest preview; extract/promote
+review-package and prepare; and Threat publication identity-resolution responses.
+These return recap/source prose, candidate/source evidence, preview excerpts, or
+stored candidate snapshots. They are not all native MIND projections. ThreatDraft
+revision checks and other prepare/commit reads also remain outside this gate.
+None is asserted secured by #835.
+
 **Branch:** `codex/demo-agent-graph-auth`
 
 **PR title:** `DEMO: authenticate Agent graph turns`
 
-**Topology:** Serial. This is the only open implementation PR in this slice. The
-Session 29 full-graph implementation remains BLOCKED and cannot start until this
-prerequisite merges and its independent graph gates are re-anchored.
+**Topology at activation:** Serial. This was the only open implementation PR in
+the authentication slice. Session 29 full-graph querying remained BLOCKED on
+binding and graph acceptance gates after this prerequisite merged.
 
 ## Capability and trust boundary
 
@@ -95,8 +106,8 @@ Only this serial lane may edit these paths during implementation:
 
 The preserved `codex/agent-world-conversation-backend` checkout is suspended
 and recoverable, not an active lease. Leave it untouched. No other active PR
-overlaps were present at activation. Recheck PRs and leases before any added
-path or contract is considered.
+overlaps were present at activation. The exclusive write lease ended when #835
+merged. Recheck PRs and leases before any added path or contract is considered.
 
 ## Runtime and verification ownership
 
@@ -126,15 +137,26 @@ uv run pytest tests/test_agent_graph_auth.py tests/test_agent_turn_route.py test
 npm --prefix apps/live-control-ui test -- src/api/liveApi.test.ts src/planSurface/PlanSurfacePage.test.tsx
 ```
 
-Inspect the exact cumulative base-to-head diff, commit the intended changes,
-push the branch, open the assigned single PR, and return its exact head and
-check evidence to PRIME for independent review. Do not merge.
+At completion, the corrected code head was reviewed and merged as PR #835 at
+`1ccfe7f2af69684e1d02276f66b875ef336b82a0`. Nine focused Python tests and 140
+focused UI tests passed; the Node TypeScript project passed. The app TypeScript
+check retains the inherited JSX namespace error at
+`ThreatPublicationPanel.tsx:553`, and the combined synchronous ASGI/TestClient
+run stalled in this environment. These limits do not broaden or weaken the
+merged route boundary.
 
 ## Backward-looking authority sync
 
 PR #833 is merged and its configured-provider saved-Plan witness passed on
-2026-10-01. PR #834 is merged at `5b8686829a8f734d99dca59e4998611aee5df5cb`
-and keeps Session 29 full-graph querying BLOCKED pending this auth prerequisite,
-the existing-Graph binding, and the remaining live acceptance evidence. This
-handoff is a prerequisite only; it does not claim Graph queryability or close
-the full DEMO mission.
+2026-10-01. PR #834 is merged at `5b8686829a8f734d99dca59e4998611aee5df5cb`.
+PR #835 is merged at `1ccfe7f2af69684e1d02276f66b875ef336b82a0` from corrected
+code head `3a1a12b05be8e00581dce45da2b1b5efa53f123a`. It gates only the named
+local-operator Graph read responses in this handoff. ThreatDraft, Graph Review,
+and remaining publication-workflow reads still require a separate access audit.
+The subsequent route audit found unguarded Graph Preview recap-projection,
+existing-object candidates, and latest-preview responses; extract/promote
+review-package and prepare responses; and Threat publication identity-resolution
+responses. These include source prose, evidence, or stored candidate snapshots.
+ThreatDraft and other write-workflow reads also remain outside the gate. The
+existing-Graph binding and Plan query remain incomplete; this handoff does not
+claim graph queryability or close the full DEMO mission.
