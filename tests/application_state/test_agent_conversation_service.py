@@ -406,21 +406,29 @@ def test_turn_receipt_reconciliation_survives_pointer_rotation_and_fails_closed(
 def test_legacy_turn_receipt_is_not_reconciled_from_resolved_provenance(
     application_state_dsn: str,
 ) -> None:
+    import psycopg
+
     service = AgentConversationService()
     conversation = _new(service, "legacy-receipt-world", expected_revision=0)
     key = uuid4()
+    intent = _submitted_intent(
+        "legacy-receipt-world", "A historical turn without submitted intent."
+    )
     legacy_submission = TurnSubmission(
         world_id="legacy-receipt-world",
         conversation_id=conversation.conversation_id,
         idempotency_key=key,
         expected_conversation_revision=1,
-        user_text="A historical turn without submitted intent.",
+        user_text=intent.message,
         provenance=_provenance("legacy-receipt-world"),
+        submitted_intent_v1=intent,
     )
     accepted = service.accept_turn(legacy_submission)
-    intent = _submitted_intent(
-        "legacy-receipt-world", legacy_submission.user_text
-    )
+    with psycopg.connect(application_state_dsn, autocommit=True) as conn:
+        conn.execute(
+            "UPDATE agent.turn SET submitted_intent_fingerprint_v1 = NULL WHERE turn_id = %s",
+            (accepted.turn_id,),
+        )
 
     with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
         service.reconcile_turn("legacy-receipt-world", key, intent)
@@ -436,6 +444,36 @@ def test_legacy_turn_receipt_is_not_reconciled_from_resolved_provenance(
                 submitted_intent_v1=intent,
             )
         )
+    with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
+        service.accept_turn(
+            TurnSubmission(
+                world_id="legacy-receipt-world",
+                conversation_id=conversation.conversation_id,
+                idempotency_key=key,
+                expected_conversation_revision=2,
+                user_text=intent.message,
+                provenance=accepted.provenance,
+            )
+        )
+
+
+def test_ordinary_accept_requires_submitted_intent_for_new_turns(
+    application_state_dsn: str,
+) -> None:
+    service = AgentConversationService()
+    conversation = _new(service, "intent-required-world", expected_revision=0)
+    submission = TurnSubmission(
+        world_id="intent-required-world",
+        conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text="Intent must precede ordinary acceptance.",
+        provenance=_provenance("intent-required-world"),
+    )
+
+    with pytest.raises(ApplicationStateValidationError, match="submitted intent v1 is required"):
+        service.accept_turn(submission)
+    assert service.list_turns("intent-required-world", conversation.conversation_id) == []
 
 
 def test_v1_accept_race_keeps_one_receipt_and_rejects_conflicting_intent(
@@ -530,6 +568,9 @@ def test_turn_claim_expiry_fences_old_worker_and_terminal_retries(
         expected_conversation_revision=1,
         user_text="Recover this claimed turn.",
         provenance=_provenance("turn-claim-world"),
+        submitted_intent_v1=_submitted_intent(
+            "turn-claim-world", "Recover this claimed turn."
+        ),
     )
     accepted = service.accept_turn(submission)
     first = service.claim_turn(
@@ -673,6 +714,9 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
         expected_conversation_revision=1,
         user_text="Preserve this pre-recovery receipt.",
         provenance=_provenance("turn-claim-migration-world"),
+        submitted_intent_v1=_submitted_intent(
+            "turn-claim-migration-world", "Preserve this pre-recovery receipt."
+        ),
     )
     accepted = service.accept_turn(submission)
     claimed = service.claim_turn(
@@ -901,6 +945,7 @@ def test_turn_idempotency_order_provenance_and_truthful_lifecycle(
         expected_conversation_revision=1,
         user_text="Where is the caravan?",
         provenance=_provenance("turn-world"),
+        submitted_intent_v1=_submitted_intent("turn-world", "Where is the caravan?"),
     )
     accepted = service.accept_turn(submission)
     assert accepted.sequence == 1
@@ -910,9 +955,16 @@ def test_turn_idempotency_order_provenance_and_truthful_lifecycle(
     assert accepted.provenance.supporting_work[0].content_sha256 == "a" * 64
     assert accepted.provenance.supporting_work[1].kind == "beat"
 
-    with pytest.raises(ApplicationStateConflictError, match="different content"):
+    with pytest.raises(ApplicationStateConflictError, match="different submitted intent"):
         service.accept_turn(
-            submission.model_copy(update={"user_text": "Different text"})
+            submission.model_copy(
+                update={
+                    "user_text": "Different text",
+                    "submitted_intent_v1": _submitted_intent(
+                        "turn-world", "Different text"
+                    ),
+                }
+            )
         )
     running = service.begin_turn(
         "turn-world", created.conversation_id, accepted.turn_id, expected_revision=1
@@ -960,6 +1012,7 @@ def test_turn_idempotency_order_provenance_and_truthful_lifecycle(
         expected_conversation_revision=2,
         user_text="What did you find?",
         provenance=_provenance("turn-world"),
+        submitted_intent_v1=_submitted_intent("turn-world", "What did you find?"),
     )
     accepted_second = service.accept_turn(second)
     running_second = service.begin_turn(
@@ -1002,6 +1055,9 @@ def test_concurrent_turn_writers_use_conversation_revision_cas(
             expected_conversation_revision=1,
             user_text=f"question {index}",
             provenance=_provenance("concurrent-turn-world"),
+            submitted_intent_v1=_submitted_intent(
+                "concurrent-turn-world", f"question {index}"
+            ),
         )
         for index in range(2)
     ]
