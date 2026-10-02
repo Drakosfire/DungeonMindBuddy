@@ -489,8 +489,18 @@ def test_successful_bind_route_returns_redacted_status_and_deactivation_skips_mi
 
     monkeypatch.setattr(
         "apps.live_control_server.services.world_graph_binding._validate_with_mind",
-        lambda _world_id: pytest.fail("deactivation must not contact MIND"),
+        lambda _world_id: pytest.fail("list/deactivation must not contact MIND"),
     )
+    list_result = world_containers.get_world_containers()
+    assert list_result["records"][0]["native_graph_binding"] == {
+        "status": "active",
+        "binding_version": 1,
+    }
+    list_text = repr(list_result)
+    assert NATIVE_ID not in list_text
+    assert "rev:head-1" not in list_text
+    assert "validated_head_revision_id" not in list_text
+
     deactivate_result = world_containers.post_deactivate_native_graph_binding(
         managed_world_id=managed.world_id,
         body=DeactivateNativeGraphBindingRequest(expected_binding_version=1),
