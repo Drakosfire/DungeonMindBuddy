@@ -731,6 +731,17 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
                     },
                 },
                 {
+                    "span_id": "abcdef0123456789abcdef0123456789:1",
+                    "name": "rung3_bootstrap_logger_home_setup",
+                    "status": "ok",
+                    "started_at": "2026-10-01T23:59:59.991Z",
+                    "completed_at": "2026-10-02T00:00:00Z",
+                    "duration_ms": 9,
+                    "attributes": {
+                        "host_phase_group_id": "abcdef0123456789abcdef0123456789"
+                    },
+                },
+                {
                     "span_id": "TRACE_LEAK_SENTINEL",
                     "name": "unapproved_phase_name",
                     "status": "ok",
@@ -784,8 +795,15 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
     host_span = next(
         span for span in trace["spans"] if span["name"] == "host_worker_result_wait"
     )
+    worker_span = next(
+        span
+        for span in trace["spans"]
+        if span["name"] == "rung3_bootstrap_logger_home_setup"
+    )
     assert sum(span.get("name", "").startswith("host_") for span in trace["spans"]) == 1
+    assert sum(span.get("name", "").startswith("rung3_") for span in trace["spans"]) == 1
     assert host_span["parent_span_id"] == runtime_span["span_id"]
+    assert worker_span["parent_span_id"] == runtime_span["span_id"]
     assert prompt_secret not in json.dumps(trace["spans"])
     assert "ANSWER_SENTINEL" not in json.dumps(trace)
     assert "TRACE_LEAK_SENTINEL" not in json.dumps(trace)

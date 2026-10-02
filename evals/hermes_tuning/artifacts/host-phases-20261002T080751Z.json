@@ -1,0 +1,1591 @@
+{
+  "schema": "hermes_tuning_host_phases_v1",
+  "created_at": "2026-10-02T08:07:45.976304+00:00",
+  "source": "fully synthetic evidence; no private corpus or Graph reads",
+  "scenario_id": "alderwatch-pressure-synthetic-v1",
+  "provider": "openai-api",
+  "model": "gpt-6-luna",
+  "api_base_url": "https://api.openai.com/v1",
+  "sample_count_requested": 5,
+  "parent_pid": 1513886,
+  "input_sha256": "566f50e5db8973e8dff5b154f55b8ff32c5fc0efc1f9d5098722ba51f962b3b5",
+  "effective_question": "Evidence packet (fully synthetic):\n- Alderwatch has one bridge across the river; it closes at dusk.\n- Three nights ago, the east watchtower's blue lantern went dark. Its keeper, Nera, is missing.\n- A dry trail of silver dust runs from the tower toward the old quarry; nobody has followed it.\n- The mayor says the north road is passable. The ferryman reports hearing bells beneath the river.\n\nRequest: Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list.",
+  "system_instruction": "You are DungeonBuddy's conversational assistant. Respond using only the conversation context and descriptive current-surface context provided. No graph retrieval is performed on this turn. Earlier conversation may contain historical graph-derived statements; they are not revalidated as current graph evidence. Do not claim a fresh lookup or current verification from those statements. Identify them as prior conversation and request an explicit graph-retrieval turn when current confirmation is needed. You have no graph tools or external action tools on this turn.",
+  "answer_gate_rule": {
+    "version": "synthetic-co-gm-screen-v2",
+    "checks": [
+      "turn status is ok and answer is nonempty",
+      "at most 100 whitespace-delimited words",
+      "mentions the bridge and dusk",
+      "mentions Nera with missing, disappeared, or vanished",
+      "contains an explicit unresolved-fact marker"
+    ],
+    "post_run_gate_fields_recomputed": false
+  },
+  "host_start_ready_ms": null,
+  "worker_start_pid": 1514024,
+  "host_start_method": "spawn",
+  "samples": [
+    {
+      "sample_id": "sample-1",
+      "phase": "cold_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 5836.7,
+        "response_id": "resp_0f9562dfb4fe6b7e006abf665373c087d1b8c0ca0210b10cfe",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 274,
+          "output_tokens_details": {
+            "reasoning_tokens": 169
+          },
+          "total_tokens": 520
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0001616,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "The bridge closes at dusk, creating an immediate choice: cross before then or risk losing that route. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, disappeared; a trail of silver dust leads toward the old quarry, but no one has followed it. The mayor says the north road is passable; the ferryman reports bells beneath the river. What happened to Nera, where the trail leads, and whether the bells are connected remain unknown.",
+        "hard_gate_check": {
+          "word_count": 79,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 10244.7,
+        "phase_spans": [
+          {
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_serialize",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:51.814423+00:00",
+            "completed_at": "2026-10-02T08:07:51.814423+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
+            }
+          },
+          {
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_turn_gate_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:51.814476+00:00",
+            "completed_at": "2026-10-02T08:07:51.814476+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
+            }
+          },
+          {
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_acquire_ready",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:51.814871+00:00",
+            "completed_at": "2026-10-02T08:07:53.692871+00:00",
+            "duration_ms": 1878,
+            "attributes": {
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
+            }
+          },
+          {
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_wire_encode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:53.693086+00:00",
+            "completed_at": "2026-10-02T08:07:53.693086+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
+            }
+          },
+          {
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:53.692654+00:00",
+            "completed_at": "2026-10-02T08:07:53.693654+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
+            }
+          },
+          {
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_accept_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:53.693423+00:00",
+            "completed_at": "2026-10-02T08:07:53.694423+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
+            }
+          },
+          {
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:7",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_proceed_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:53.694540+00:00",
+            "completed_at": "2026-10-02T08:07:53.694540+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
+            }
+          },
+          {
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:8",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_result_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:53.694753+00:00",
+            "completed_at": "2026-10-02T08:08:02.058753+00:00",
+            "duration_ms": 8364,
+            "attributes": {
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
+            }
+          },
+          {
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_bootstrap_logger_home_setup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:53.697426+00:00",
+            "completed_at": "2026-10-02T08:07:54.913426+00:00",
+            "duration_ms": 1216,
+            "attributes": {
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
+            }
+          },
+          {
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_cached_agent_factory_lookup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:54.913305+00:00",
+            "completed_at": "2026-10-02T08:07:54.914305+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
+            }
+          },
+          {
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_plugin_discovery",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:54.914838+00:00",
+            "completed_at": "2026-10-02T08:07:55.374838+00:00",
+            "duration_ms": 460,
+            "attributes": {
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
+            }
+          },
+          {
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_agent_construction",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:55.376024+00:00",
+            "completed_at": "2026-10-02T08:07:55.766024+00:00",
+            "duration_ms": 390,
+            "attributes": {
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
+            }
+          },
+          {
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_provider_conversation",
+            "status": "ok",
+            "started_at": "2026-10-02T08:07:55.767767+00:00",
+            "completed_at": "2026-10-02T08:08:02.050767+00:00",
+            "duration_ms": 6283,
+            "attributes": {
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
+            }
+          },
+          {
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_response_normalization_projection",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:02.051558+00:00",
+            "completed_at": "2026-10-02T08:08:02.051558+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
+            }
+          },
+          {
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:15",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_result_decode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:02.058945+00:00",
+            "completed_at": "2026-10-02T08:08:02.058945+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
+            }
+          }
+        ],
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 4551.333427429199,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 763,
+              "request_char_count": 3051,
+              "assistant_content_chars": 451,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 306,
+              "total_tokens": 939,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 205
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.0002163,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 4551.3,
+        "unallocated_residual_ms": 5693.3,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": null,
+        "worker_pid_after": 1514024,
+        "worker_pid_matches_cold_worker": true,
+        "worker_reused_from_previous_sample": false,
+        "answer": "Make the bridge’s dusk closure the immediate pressure: Alderwatch has only one crossing, so the party must decide whether to cross before it shuts. Established: the east tower’s blue lantern went dark three nights ago, Nera is missing, and silver dust leads toward the quarry, uninvestigated. The mayor says the north road is passable; the ferryman reports bells beneath the river. Whether these leads connect—or what happened to Nera—remains unknown.",
+        "hard_gate_check": {
+          "word_count": 70,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    },
+    {
+      "sample_id": "sample-2",
+      "phase": "warm_reused_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 5511.0,
+        "response_id": "resp_004b4a76a1bea477006abf66622dfc87d199a6f9b176b3a1eb",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 333,
+          "output_tokens_details": {
+            "reasoning_tokens": 221
+          },
+          "total_tokens": 579
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0001911,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "The key pressure is the only bridge: it closes at dusk, so decide whether to cross before then or risk being stranded. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, went missing. A dry trail of silver dust leads toward the old quarry; nobody has followed it. The mayor says the north road is passable, while the ferryman reports bells beneath the river. What happened to Nera, where the trail leads, and whether the bells are connected remain unknown.",
+        "hard_gate_check": {
+          "word_count": 85,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 6863.5,
+        "phase_spans": [
+          {
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_serialize",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.571657+00:00",
+            "completed_at": "2026-10-02T08:08:07.571657+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
+            }
+          },
+          {
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_turn_gate_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.571758+00:00",
+            "completed_at": "2026-10-02T08:08:07.571758+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
+            }
+          },
+          {
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_acquire_ready",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.571853+00:00",
+            "completed_at": "2026-10-02T08:08:07.571853+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
+            }
+          },
+          {
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_wire_encode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.572150+00:00",
+            "completed_at": "2026-10-02T08:08:07.572150+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
+            }
+          },
+          {
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.572285+00:00",
+            "completed_at": "2026-10-02T08:08:07.572285+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
+            }
+          },
+          {
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_accept_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.572613+00:00",
+            "completed_at": "2026-10-02T08:08:07.574613+00:00",
+            "duration_ms": 2,
+            "attributes": {
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
+            }
+          },
+          {
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:7",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_proceed_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.574838+00:00",
+            "completed_at": "2026-10-02T08:08:07.574838+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
+            }
+          },
+          {
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:8",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_result_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.575372+00:00",
+            "completed_at": "2026-10-02T08:08:14.434372+00:00",
+            "duration_ms": 6859,
+            "attributes": {
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
+            }
+          },
+          {
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_bootstrap_logger_home_setup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.576894+00:00",
+            "completed_at": "2026-10-02T08:08:07.579894+00:00",
+            "duration_ms": 3,
+            "attributes": {
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
+            }
+          },
+          {
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_cached_agent_factory_lookup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.580300+00:00",
+            "completed_at": "2026-10-02T08:08:07.581300+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
+            }
+          },
+          {
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_plugin_discovery",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:07.581558+00:00",
+            "completed_at": "2026-10-02T08:08:08.004558+00:00",
+            "duration_ms": 423,
+            "attributes": {
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
+            }
+          },
+          {
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_agent_construction",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:08.005763+00:00",
+            "completed_at": "2026-10-02T08:08:08.490763+00:00",
+            "duration_ms": 485,
+            "attributes": {
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
+            }
+          },
+          {
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_provider_conversation",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:08.492938+00:00",
+            "completed_at": "2026-10-02T08:08:14.421938+00:00",
+            "duration_ms": 5929,
+            "attributes": {
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
+            }
+          },
+          {
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_response_normalization_projection",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:14.422932+00:00",
+            "completed_at": "2026-10-02T08:08:14.422932+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
+            }
+          },
+          {
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:15",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_result_decode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:14.434777+00:00",
+            "completed_at": "2026-10-02T08:08:14.434777+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
+            }
+          }
+        ],
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 4871.821165084839,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 763,
+              "request_char_count": 3051,
+              "assistant_content_chars": 496,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 354,
+              "total_tokens": 987,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 242
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.00024029999999999999,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 4871.8,
+        "unallocated_residual_ms": 1991.7,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": 1514024,
+        "worker_pid_after": 1514024,
+        "worker_pid_matches_cold_worker": true,
+        "worker_reused_from_previous_sample": true,
+        "answer": "Alderwatch’s only bridge closes at dusk, creating an immediate choice: take the north road, which the mayor says is passable, or investigate before the crossing shuts. Three nights ago, the east tower’s blue lantern went dark and its keeper, Nera, disappeared. A dry silver-dust trail points toward the old quarry; nobody has followed it. The ferryman reports hearing bells beneath the river. Nera’s fate, the trail’s destination, and the cause or meaning of the lantern and bells remain unknown.",
+        "hard_gate_check": {
+          "word_count": 79,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    },
+    {
+      "sample_id": "sample-3",
+      "phase": "warm_reused_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 4883.1,
+        "response_id": "resp_0c0cef6a3517aa2d006abf666e8fa887d1908cc56c01944170",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 392,
+          "output_tokens_details": {
+            "reasoning_tokens": 290
+          },
+          "total_tokens": 638
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0002206,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "Alderwatch’s only bridge closes at dusk, so put the party’s route choice on the clock. Three nights ago, the east watchtower’s blue lantern went dark and keeper Nera went missing; a dry trail of silver dust leads toward the old quarry, still untracked. The mayor says the north road is passable; the ferryman reports bells beneath the river. What happened to Nera, where the trail leads, and whether the bells are connected remain unknown.",
+        "hard_gate_check": {
+          "word_count": 74,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 8220.5,
+        "phase_spans": [
+          {
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_serialize",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.320740+00:00",
+            "completed_at": "2026-10-02T08:08:19.320740+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
+            }
+          },
+          {
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_turn_gate_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.320783+00:00",
+            "completed_at": "2026-10-02T08:08:19.320783+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
+            }
+          },
+          {
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_acquire_ready",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.320817+00:00",
+            "completed_at": "2026-10-02T08:08:19.320817+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
+            }
+          },
+          {
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_wire_encode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.320921+00:00",
+            "completed_at": "2026-10-02T08:08:19.320921+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
+            }
+          },
+          {
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.320954+00:00",
+            "completed_at": "2026-10-02T08:08:19.320954+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
+            }
+          },
+          {
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_accept_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.320829+00:00",
+            "completed_at": "2026-10-02T08:08:19.321829+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
+            }
+          },
+          {
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:7",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_proceed_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.321919+00:00",
+            "completed_at": "2026-10-02T08:08:19.321919+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
+            }
+          },
+          {
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:8",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_result_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.321871+00:00",
+            "completed_at": "2026-10-02T08:08:27.540871+00:00",
+            "duration_ms": 8219,
+            "attributes": {
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
+            }
+          },
+          {
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_bootstrap_logger_home_setup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.323491+00:00",
+            "completed_at": "2026-10-02T08:08:19.325491+00:00",
+            "duration_ms": 2,
+            "attributes": {
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
+            }
+          },
+          {
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_cached_agent_factory_lookup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.326188+00:00",
+            "completed_at": "2026-10-02T08:08:19.327188+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
+            }
+          },
+          {
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_plugin_discovery",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.327801+00:00",
+            "completed_at": "2026-10-02T08:08:19.729801+00:00",
+            "duration_ms": 402,
+            "attributes": {
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
+            }
+          },
+          {
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_agent_construction",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:19.731018+00:00",
+            "completed_at": "2026-10-02T08:08:20.027018+00:00",
+            "duration_ms": 296,
+            "attributes": {
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
+            }
+          },
+          {
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_provider_conversation",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:20.028014+00:00",
+            "completed_at": "2026-10-02T08:08:27.533014+00:00",
+            "duration_ms": 7505,
+            "attributes": {
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
+            }
+          },
+          {
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_response_normalization_projection",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:27.533807+00:00",
+            "completed_at": "2026-10-02T08:08:27.533807+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
+            }
+          },
+          {
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:15",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_result_decode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:27.541077+00:00",
+            "completed_at": "2026-10-02T08:08:27.541077+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
+            }
+          }
+        ],
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 6433.598041534424,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 763,
+              "request_char_count": 3051,
+              "assistant_content_chars": 469,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 383,
+              "total_tokens": 1016,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 269
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.0002548,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 6433.6,
+        "unallocated_residual_ms": 1786.9,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": 1514024,
+        "worker_pid_after": 1514024,
+        "worker_pid_matches_cold_worker": true,
+        "worker_reused_from_previous_sample": true,
+        "answer": "The bridge closes at dusk, so make the party choose a route before time runs out; the mayor says the north road is passable, but that remains a report, not a guarantee. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, is missing. A dry trail of silver dust leads toward the old quarry, still uninvestigated. The ferryman reports bells beneath the river. Who took Nera, where the trail leads, and what the bells mean are all unknown.",
+        "hard_gate_check": {
+          "word_count": 83,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    },
+    {
+      "sample_id": "sample-4",
+      "phase": "warm_reused_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 3068.6,
+        "response_id": "resp_075e40fa168c1a33006abf667baccc87d197c737b31eaa69c8",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 222,
+          "output_tokens_details": {
+            "reasoning_tokens": 116
+          },
+          "total_tokens": 468
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0001356,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "Alderwatch’s only bridge closes at dusk: choose a route or risk losing the crossing. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, went missing. A dry trail of silver dust leads toward the old quarry, but no one has followed it. The mayor says the north road is passable; the ferryman reports hearing bells beneath the river. Nera’s whereabouts, the trail’s source, and the bells’ meaning remain unknown.",
+        "hard_gate_check": {
+          "word_count": 74,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 5022.4,
+        "phase_spans": [
+          {
+            "span_id": "710334a2eedb44a68303663cfcc2b058:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_serialize",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.611938+00:00",
+            "completed_at": "2026-10-02T08:08:30.611938+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
+            }
+          },
+          {
+            "span_id": "710334a2eedb44a68303663cfcc2b058:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_turn_gate_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.611979+00:00",
+            "completed_at": "2026-10-02T08:08:30.611979+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
+            }
+          },
+          {
+            "span_id": "710334a2eedb44a68303663cfcc2b058:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_acquire_ready",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.612009+00:00",
+            "completed_at": "2026-10-02T08:08:30.612009+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
+            }
+          },
+          {
+            "span_id": "710334a2eedb44a68303663cfcc2b058:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_wire_encode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.612111+00:00",
+            "completed_at": "2026-10-02T08:08:30.612111+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
+            }
+          },
+          {
+            "span_id": "710334a2eedb44a68303663cfcc2b058:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.612149+00:00",
+            "completed_at": "2026-10-02T08:08:30.612149+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
+            }
+          },
+          {
+            "span_id": "710334a2eedb44a68303663cfcc2b058:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_accept_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.612295+00:00",
+            "completed_at": "2026-10-02T08:08:30.613295+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
+            }
+          },
+          {
+            "span_id": "710334a2eedb44a68303663cfcc2b058:7",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_proceed_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.613424+00:00",
+            "completed_at": "2026-10-02T08:08:30.613424+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
+            }
+          },
+          {
+            "span_id": "710334a2eedb44a68303663cfcc2b058:8",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_result_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.613832+00:00",
+            "completed_at": "2026-10-02T08:08:35.633832+00:00",
+            "duration_ms": 5020,
+            "attributes": {
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
+            }
+          },
+          {
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_bootstrap_logger_home_setup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.614775+00:00",
+            "completed_at": "2026-10-02T08:08:30.617775+00:00",
+            "duration_ms": 3,
+            "attributes": {
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
+            }
+          },
+          {
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_cached_agent_factory_lookup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.617763+00:00",
+            "completed_at": "2026-10-02T08:08:30.618763+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
+            }
+          },
+          {
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_plugin_discovery",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:30.619705+00:00",
+            "completed_at": "2026-10-02T08:08:31.076705+00:00",
+            "duration_ms": 457,
+            "attributes": {
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
+            }
+          },
+          {
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_agent_construction",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:31.077337+00:00",
+            "completed_at": "2026-10-02T08:08:31.404337+00:00",
+            "duration_ms": 327,
+            "attributes": {
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
+            }
+          },
+          {
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_provider_conversation",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:31.406396+00:00",
+            "completed_at": "2026-10-02T08:08:35.624396+00:00",
+            "duration_ms": 4218,
+            "attributes": {
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
+            }
+          },
+          {
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_response_normalization_projection",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:35.625177+00:00",
+            "completed_at": "2026-10-02T08:08:35.625177+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
+            }
+          },
+          {
+            "span_id": "710334a2eedb44a68303663cfcc2b058:15",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_result_decode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:35.634139+00:00",
+            "completed_at": "2026-10-02T08:08:35.634139+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
+            }
+          }
+        ],
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 3023.5555171966553,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 763,
+              "request_char_count": 3051,
+              "assistant_content_chars": 463,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 279,
+              "total_tokens": 912,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 173
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.0002028,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 3023.6,
+        "unallocated_residual_ms": 1998.8,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": 1514024,
+        "worker_pid_after": 1514024,
+        "worker_pid_matches_cold_worker": true,
+        "worker_reused_from_previous_sample": true,
+        "answer": "The only bridge closes at dusk, making the party’s crossing time the immediate pressure. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, disappeared; a trail of silver dust leads toward the old quarry, but no one has followed it. Nera’s whereabouts, the trail’s destination, and the bells the ferryman says he heard beneath the river remain unknown. The mayor says the north road is passable, but that has not been confirmed.",
+        "hard_gate_check": {
+          "word_count": 77,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    },
+    {
+      "sample_id": "sample-5",
+      "phase": "warm_reused_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 3960.2,
+        "response_id": "resp_09b3c62394b38302006abf6683cd6c87d1992fa223c1e426f3",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 317,
+          "output_tokens_details": {
+            "reasoning_tokens": 209
+          },
+          "total_tokens": 563
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0001831,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "The bridge is Alderwatch’s only river crossing and closes at dusk, putting a hard clock on any crossing. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, disappeared. A dry silver-dust trail leads toward the old quarry, but no one has followed it. The mayor says the north road is passable; the ferryman reports hearing bells beneath the river. Nera’s whereabouts, the trail’s source, and whether the bells are connected remain unknown.",
+        "hard_gate_check": {
+          "word_count": 77,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 5064.8,
+        "phase_spans": [
+          {
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_serialize",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.597228+00:00",
+            "completed_at": "2026-10-02T08:08:39.597228+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
+            }
+          },
+          {
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_turn_gate_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.597281+00:00",
+            "completed_at": "2026-10-02T08:08:39.597281+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
+            }
+          },
+          {
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_acquire_ready",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.597319+00:00",
+            "completed_at": "2026-10-02T08:08:39.597319+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
+            }
+          },
+          {
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_wire_encode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.597447+00:00",
+            "completed_at": "2026-10-02T08:08:39.597447+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
+            }
+          },
+          {
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_request_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.597489+00:00",
+            "completed_at": "2026-10-02T08:08:39.597489+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
+            }
+          },
+          {
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_accept_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.597647+00:00",
+            "completed_at": "2026-10-02T08:08:39.598647+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
+            }
+          },
+          {
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:7",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_proceed_queue_put",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.598756+00:00",
+            "completed_at": "2026-10-02T08:08:39.598756+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
+            }
+          },
+          {
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:8",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_worker_result_wait",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.598316+00:00",
+            "completed_at": "2026-10-02T08:08:44.661316+00:00",
+            "duration_ms": 5063,
+            "attributes": {
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
+            }
+          },
+          {
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:1",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_bootstrap_logger_home_setup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.600622+00:00",
+            "completed_at": "2026-10-02T08:08:39.603622+00:00",
+            "duration_ms": 3,
+            "attributes": {
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
+            }
+          },
+          {
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:2",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_cached_agent_factory_lookup",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.603861+00:00",
+            "completed_at": "2026-10-02T08:08:39.604861+00:00",
+            "duration_ms": 1,
+            "attributes": {
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
+            }
+          },
+          {
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:3",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_plugin_discovery",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:39.605165+00:00",
+            "completed_at": "2026-10-02T08:08:40.001165+00:00",
+            "duration_ms": 396,
+            "attributes": {
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
+            }
+          },
+          {
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:4",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_agent_construction",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:40.002275+00:00",
+            "completed_at": "2026-10-02T08:08:40.306275+00:00",
+            "duration_ms": 304,
+            "attributes": {
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
+            }
+          },
+          {
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:5",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_provider_conversation",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:40.308038+00:00",
+            "completed_at": "2026-10-02T08:08:44.643038+00:00",
+            "duration_ms": 4335,
+            "attributes": {
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
+            }
+          },
+          {
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:6",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "rung3_response_normalization_projection",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:44.644110+00:00",
+            "completed_at": "2026-10-02T08:08:44.644110+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
+            }
+          },
+          {
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:15",
+            "parent_span_id": null,
+            "kind": "phase",
+            "name": "host_result_decode",
+            "status": "ok",
+            "started_at": "2026-10-02T08:08:44.661831+00:00",
+            "completed_at": "2026-10-02T08:08:44.661831+00:00",
+            "duration_ms": 0,
+            "attributes": {
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
+            }
+          }
+        ],
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 3894.740343093872,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 763,
+              "request_char_count": 3051,
+              "assistant_content_chars": 385,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 216,
+              "total_tokens": 849,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 125
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.0001713,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 3894.7,
+        "unallocated_residual_ms": 1170.1,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": 1514024,
+        "worker_pid_after": 1514024,
+        "worker_pid_matches_cold_worker": true,
+        "worker_reused_from_previous_sample": true,
+        "answer": "Put the bridge’s dusk closure in front of the party as an immediate travel clock. Nera is missing, the east tower’s blue lantern went dark three nights ago, and an untraced silver-dust trail leads toward the old quarry. The mayor says the north road is passable; the ferryman reports bells beneath the river. Whether either lead offers a safe route—and where Nera went—remains unknown.",
+        "hard_gate_check": {
+          "word_count": 64,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    }
+  ],
+  "limits": [
+    "Five turns are descriptive evidence, not a stable latency distribution or production speedup.",
+    "Host-owned serialization, worker acquisition/readiness, queue/acceptance, result wait, and result decoding are timed. Time inside worker execution remains residual after observed model-call duration.",
+    "Responses are non-streaming through this host API; first useful visible text and TTFT are unknown.",
+    "The direct route is a same-process Responses API control; it does not measure host startup or IPC.",
+    "The answer checks are deterministic heuristics for status, length, key facts, and an uncertainty marker; they do not prove full grounding."
+  ],
+  "host_shutdown": {
+    "confirmed": true,
+    "elapsed_ms": 831.4
+  }
+}

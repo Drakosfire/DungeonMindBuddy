@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -57,6 +58,79 @@ _WORKER_HOME_ENV = "DMB_HERMES_GRAPH_AGENT_WORKER_HOME"
 _SESSION_PROFILES_ENV = "DMB_HERMES_GRAPH_AGENT_SESSION_PROFILES_ROOT"
 _WORKER_HOME_PREFIX = "dmb-hermes-graph-worker-home-"
 _LOGGING_DRAINED_MARKER = ".dmb-hermes-logging-drained"
+_MAX_WORKER_PHASES = 8
+_WORKER_PHASE_NAMES = frozenset(
+    {
+        "rung3_bootstrap_logger_home_setup",
+        "rung3_cached_agent_factory_lookup",
+        "rung3_plugin_discovery",
+        "rung3_agent_construction",
+        "rung3_provider_conversation",
+        "rung3_response_normalization_projection",
+    }
+)
+_WORKER_PHASE_ID_RE = re.compile(r"(?P<group>[0-9a-f]{32}):(?P<sequence>[1-9][0-9]?)\Z")
+_WORKER_PHASE_GROUP_RE = re.compile(r"[0-9a-f]{32}\Z")
+
+
+def _sanitize_worker_phase(value: Any) -> dict[str, Any] | None:
+    if not isinstance(value, Mapping):
+        return None
+    span_id = value.get("span_id")
+    name = value.get("name")
+    status = value.get("status")
+    duration_ms = value.get("duration_ms")
+    started_at = value.get("started_at")
+    completed_at = value.get("completed_at")
+    attributes = value.get("attributes")
+    if (
+        not isinstance(span_id, str)
+        or len(span_id) > 35
+        or not isinstance(name, str)
+        or name not in _WORKER_PHASE_NAMES
+        or not isinstance(status, str)
+        or status not in {"ok", "error"}
+        or isinstance(duration_ms, bool)
+        or not isinstance(duration_ms, int)
+        or not 0 <= duration_ms <= 120_000
+        or not isinstance(started_at, str)
+        or not isinstance(completed_at, str)
+        or len(started_at) > 40
+        or len(completed_at) > 40
+        or not isinstance(attributes, Mapping)
+    ):
+        return None
+    group_id = attributes.get("host_phase_group_id")
+    id_match = _WORKER_PHASE_ID_RE.fullmatch(span_id)
+    if (
+        not isinstance(group_id, str)
+        or _WORKER_PHASE_GROUP_RE.fullmatch(group_id) is None
+        or id_match is None
+        or id_match.group("group") != group_id
+        or int(id_match.group("sequence")) > _MAX_WORKER_PHASES
+    ):
+        return None
+    try:
+        started = datetime.fromisoformat(started_at.replace("Z", "+00:00"))
+        completed = datetime.fromisoformat(completed_at.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if started.tzinfo is None or completed.tzinfo is None:
+        return None
+    elapsed_ms = (completed - started).total_seconds() * 1000
+    if elapsed_ms < 0 or abs(elapsed_ms - duration_ms) > 2:
+        return None
+    return {
+        "span_id": span_id,
+        "parent_span_id": None,
+        "kind": "phase",
+        "name": name,
+        "status": status,
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "duration_ms": duration_ms,
+        "attributes": {"host_phase_group_id": group_id},
+    }
 
 
 def _run_worker_in_private_hermes_home(
@@ -122,8 +196,9 @@ def _ingest_streamed_telemetry(
     request_id: str | None,
     telemetry_calls: list[dict[str, Any]] | None,
     telemetry_warnings: list[str] | None,
+    telemetry_worker_phases: list[dict[str, Any]] | None = None,
 ) -> None:
-    if telemetry_calls is None:
+    if telemetry_calls is None and telemetry_worker_phases is None:
         return
     if request_id is not None and str(message.get("requestId") or "") != request_id:
         return
@@ -135,6 +210,7 @@ def _ingest_streamed_telemetry(
         ):
             telemetry_warnings.append("observer_payload_malformed")
         return
+
     raw_calls = payload.get("modelCalls") or []
     if not isinstance(raw_calls, list):
         if (
@@ -142,8 +218,10 @@ def _ingest_streamed_telemetry(
             and "observer_payload_malformed" not in telemetry_warnings
         ):
             telemetry_warnings.append("observer_payload_malformed")
-        return
+        raw_calls = []
     for item in raw_calls:
+        if telemetry_calls is None:
+            break
         if len(telemetry_calls) >= MAX_MODEL_CALLS:
             if (
                 telemetry_warnings is not None
@@ -167,6 +245,29 @@ def _ingest_streamed_telemetry(
             ):
                 telemetry_warnings.append("observer_payload_malformed")
 
+    raw_phases = payload.get("workerPhases", [])
+    if not isinstance(raw_phases, list):
+        if (
+            telemetry_warnings is not None
+            and "worker_phases_malformed" not in telemetry_warnings
+        ):
+            telemetry_warnings.append("worker_phases_malformed")
+        return
+    if telemetry_worker_phases is None:
+        return
+    for item in raw_phases:
+        if len(telemetry_worker_phases) >= _MAX_WORKER_PHASES:
+            break
+        phase = _sanitize_worker_phase(item)
+        if phase is None:
+            if (
+                telemetry_warnings is not None
+                and "worker_phases_malformed" not in telemetry_warnings
+            ):
+                telemetry_warnings.append("worker_phases_malformed")
+            continue
+        telemetry_worker_phases.append(phase)
+
 
 def _drain_streamed_telemetry(
     response_queue: Queue[bytes],
@@ -174,8 +275,9 @@ def _drain_streamed_telemetry(
     request_id: str | None,
     telemetry_calls: list[dict[str, Any]] | None,
     telemetry_warnings: list[str] | None,
+    telemetry_worker_phases: list[dict[str, Any]] | None = None,
 ) -> None:
-    if telemetry_calls is None:
+    if telemetry_calls is None and telemetry_worker_phases is None:
         return
     while True:
         try:
@@ -191,6 +293,7 @@ def _drain_streamed_telemetry(
                 message,
                 request_id=request_id,
                 telemetry_calls=telemetry_calls,
+                telemetry_worker_phases=telemetry_worker_phases,
                 telemetry_warnings=telemetry_warnings,
             )
 
@@ -310,9 +413,28 @@ def hermes_graph_agent_worker_main(
                 except Exception:
                     return
 
+            def on_worker_phase(phase: Mapping[str, Any]) -> None:
+                try:
+                    safe_phase = _sanitize_worker_phase(phase)
+                    if safe_phase is None:
+                        return
+                    response_queue.put(
+                        encode_json_wire(
+                            {
+                                "type": "telemetry",
+                                "requestId": request_id,
+                                "pid": os.getpid(),
+                                "payload": {"workerPhases": [safe_phase]},
+                            }
+                        )
+                    )
+                except Exception:
+                    return
+
             result = run_hermes_graph_agent_turn(
                 request,
                 on_model_call=on_model_call,
+                on_worker_phase=on_worker_phase,
             )
             response_queue.put(
                 encode_json_wire(
@@ -467,6 +589,16 @@ class HermesGraphAgentHost:
                 # Observability must never change turn behavior.
                 pass
 
+        def emit_worker_phase(span: dict[str, Any]) -> None:
+            nonlocal phase_count
+            if on_host_phase is None or phase_count >= 24:
+                return
+            phase_count += 1
+            try:
+                on_host_phase(span)
+            except Exception:
+                pass
+
         started = time.monotonic()
         try:
             wire_payload = serialize_hermes_graph_agent_turn_request(request)
@@ -484,6 +616,7 @@ class HermesGraphAgentHost:
                 wire_payload,
                 turn_timeout_s=turn_timeout,
                 emit_phase=emit_phase,
+                emit_worker_phase=emit_worker_phase,
             )
 
     def _execute_turn(
@@ -492,6 +625,7 @@ class HermesGraphAgentHost:
         *,
         turn_timeout_s: float,
         emit_phase: Callable[[str, float, str], None],
+        emit_worker_phase: Callable[[dict[str, Any]], None],
     ) -> HermesGraphAgentTurnResult:
         self._started = True
         # Retry only covers pre-enqueue / start failures. After enqueue, two-phase
@@ -587,6 +721,7 @@ class HermesGraphAgentHost:
 
             # Acceptance observed — authorize execution. No further automatic retry.
             streamed_calls: list[dict[str, Any]] = []
+            streamed_worker_phases: list[dict[str, Any]] = []
             streamed_warnings: list[str] = []
             phase_started = time.monotonic()
             try:
@@ -615,6 +750,7 @@ class HermesGraphAgentHost:
                 timeout_s=turn_timeout_s,
                 telemetry_calls=streamed_calls,
                 telemetry_warnings=streamed_warnings,
+                telemetry_worker_phases=streamed_worker_phases,
             )
             emit_phase(
                 "host_worker_result_wait",
@@ -623,6 +759,8 @@ class HermesGraphAgentHost:
                 if result_message is not None and result_message.get("type") == "result"
                 else "error",
             )
+            for span in streamed_worker_phases:
+                emit_worker_phase(span)
             if result_message is None:
                 alive = local_worker.process.is_alive()
                 with self._worker_lock:
@@ -856,6 +994,7 @@ class HermesGraphAgentHost:
         timeout_s: float,
         telemetry_calls: list[dict[str, Any]] | None = None,
         telemetry_warnings: list[str] | None = None,
+        telemetry_worker_phases: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any] | None:
         deadline = time.monotonic() + timeout_s
         while True:
@@ -866,6 +1005,7 @@ class HermesGraphAgentHost:
                     request_id=request_id,
                     telemetry_calls=telemetry_calls,
                     telemetry_warnings=telemetry_warnings,
+                    telemetry_worker_phases=telemetry_worker_phases,
                 )
                 return None
             try:
@@ -877,6 +1017,7 @@ class HermesGraphAgentHost:
                         request_id=request_id,
                         telemetry_calls=telemetry_calls,
                         telemetry_warnings=telemetry_warnings,
+                        telemetry_worker_phases=telemetry_worker_phases,
                     )
                     return None
                 continue
@@ -889,6 +1030,7 @@ class HermesGraphAgentHost:
                         request_id=request_id,
                         telemetry_calls=telemetry_calls,
                         telemetry_warnings=telemetry_warnings,
+                        telemetry_worker_phases=telemetry_worker_phases,
                     )
                     return None
                 continue
@@ -899,6 +1041,7 @@ class HermesGraphAgentHost:
                     request_id=request_id,
                     telemetry_calls=telemetry_calls,
                     telemetry_warnings=telemetry_warnings,
+                    telemetry_worker_phases=telemetry_worker_phases,
                 )
                 continue
             if msg_type not in expected_types:
@@ -908,6 +1051,7 @@ class HermesGraphAgentHost:
                         request_id=request_id,
                         telemetry_calls=telemetry_calls,
                         telemetry_warnings=telemetry_warnings,
+                        telemetry_worker_phases=telemetry_worker_phases,
                     )
                     return None
                 continue
