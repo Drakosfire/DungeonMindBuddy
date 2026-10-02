@@ -1264,15 +1264,21 @@ that their foundations are absent. Historical slices retain their IDs.
   passive, phase-transition, attack hit/miss and save success/failure). The
   exact-head ARCHITECTURE review initially held code head
   `7ad826d144b3116dbfc460b01d1073ce26e53ad6` because the attack/save arrays
-  were protected; those typed controls and editor/mounted regressions are now
-  on code head `fa7b27e6cf1682bfbdbffd1e9abc792c845366f3`, with re-review
-  pending. The two owning Vitest files pass **150/150**; cumulative diff check
-  passes. UI typecheck still reports only the inherited
-  `ThreatPublicationPanel.tsx:553` `TS2503` JSX namespace error. A real isolated
-  DMS preview → save → reload witness remains pending runtime-owner allocation;
-  no live process, provider, or database was used. The retained candidate body
-  is not in checked-in evidence, so a synthetic same-schema witness cannot be
-  called its repair or full J4 acceptance. This checkpoint does not close J4.
+  were protected; those typed controls and editor/mounted regressions are on
+  code head `fa7b27e6cf1682bfbdbffd1e9abc792c845366f3`, which ARCHITECTURE
+  reviewed PASS. ARCHITECTURE confirmed that PASS also carries to cumulative PR
+  head `9e7647053df6dbf51a842c0b6b914d2f2af18d45`: that later commit changed
+  only this roadmap, and the three UI files are byte-identical. The two
+  owning Vitest files pass **150/150**; cumulative diff check passes. UI
+  typecheck still reports only the inherited `ThreatPublicationPanel.tsx:553`
+  `TS2503` JSX namespace error. PRIME allocated a fresh disposable J4 lane;
+  SERVER owns DMS/PostgreSQL/runtime setup and is preparing the exact healthy
+  resource packet. Buddy API/UI ports 17861/15202 are reserved, but no Buddy
+  process, provider call, or database write has started. A real isolated DMS
+  preview → save → reload witness remains pending that packet. The retained
+  candidate body is not in checked-in evidence, so a synthetic same-schema
+  witness cannot be called its repair or full J4 acceptance. This checkpoint
+  does not close J4.
 - **DEMO-J1 input-pin and full-source browser witness:** the local purchased
   `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
   is still 48,778 bytes / 565 lines, SHA-256
