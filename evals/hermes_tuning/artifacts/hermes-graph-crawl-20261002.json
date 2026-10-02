@@ -1,0 +1,3627 @@
+{
+  "schema": "hermes_synthetic_graph_crawl_final_evidence_v1",
+  "created_at": "2026-10-02",
+  "authority": {
+    "implementation_commit": "c3d862c6336df681d5c23d10a881f399a8be2e18",
+    "pilot_approval_reference": "PRIME-2026-10-02-bbbd01f6-edf21077",
+    "cohort": "one six-case synthetic cohort; no additional provider calls",
+    "provider_model": {
+      "provider": "openai-api",
+      "model": "gpt-6-luna"
+    }
+  },
+  "inputs": {
+    "raw_paid_run_path": "/tmp/hermes-graph-crawl-pilot-20261002T143000Z.json",
+    "raw_paid_run_sha256": "c8229737a265735878efd7caa258830e9d80a78b0854ea1ce25bb01da0be56c6",
+    "blinded_packet_path": "/tmp/hermes-graph-crawl-pilot-blind-20261002T143000Z.json",
+    "blinded_packet_sha256": "bc8cac9c9502ad398cf3fd67df85ad953b48f50e38c9ba719cce273ba5a0d040",
+    "prime_locked_scores_path": "/tmp/hermes-graph-crawl-prime-blind-scores.json",
+    "prime_locked_scores_sha256": "6149d565b3067244601633e66e36aeda5aa30eced281582d4bcbe4e4550a0c6e",
+    "independent_locked_scores_path": "/tmp/hermes-graph-crawl-pilot-blind-scores.json",
+    "independent_locked_scores_sha256": "db6f4683f6e8919ca8908a8ccce96634f2f4956a5227bf5f2e890b3697b34d7b",
+    "discarded_attempt_path": "/tmp/hermes-graph-crawl-aborted-attempt.json",
+    "discarded_attempt_sha256": "e01da115a9219c10a05d8b96ff4401b5c17ca589b8a25f811102ba01b8f090be"
+  },
+  "paid_run_raw_preserved_verbatim": {
+    "schema": "hermes_synthetic_graph_crawl_pairs_v1",
+    "created_at": "2026-10-02T10:47:36.005081+00:00",
+    "source": "fully synthetic; no user corpus, private data, live Graph, or DB",
+    "provider": "openai-api",
+    "model": "gpt-6-luna",
+    "api_base_url": "https://api.openai.com/v1",
+    "fixture_sha256": "50916280e9dd68261f3bf10c26fb01a6405375dce1a834359aa903e9f68dac67",
+    "instruction_sha256": "4523a5d71566b0a42bacb7bc98e689a5fd8ee415164f5b4c87acb0e936dfc12c",
+    "randomization_seed": 91073,
+    "blind_randomization_seed": 47029,
+    "instruction": "When the initial Graph result leaves a requested relationship unsupported or ambiguous, make up to two bounded follow-up Graph reads: use `object` on an accepted candidate only if needed to resolve its identity, then `neighborhood` with an accepted node target and depth 1 or 2. Stop when the path is supported; if the bounded reads leave no path or multiple candidates, state that clearly without inferring a connection.",
+    "cases": [
+      {
+        "case_id": "supplied-two-hop",
+        "candidate_mode": "supplied",
+        "arm_order": [
+          "control",
+          "treatment"
+        ],
+        "arms": {
+          "control": {
+            "arm": "control",
+            "answer": "Mira **visits the Lantern Yard**, which **opens toward the Brass Observatory**. That’s the supported connection chain; no direct Mira–Observatory relationship is shown.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 14270.2,
+            "system_prompt_sha256": "66a745bf92722350aa8b610a22679f20975906c09a824a2fcbaaa43709c277b4",
+            "normalized_system_prompt_sha256": "44fa0270dfc8e648d32ec5d3b44231eb811d842986fc9e605a1abbbaab240c2e",
+            "question_sha256": "9787637b696312031191a3badefa866d73a1ab637fd84665fe01e22fa99aeeba",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2855.1225662231445,
+                "usage": {
+                  "input_tokens": 4385,
+                  "output_tokens": 70,
+                  "total_tokens": 4455,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.0004735,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2944.9005126953125,
+                "usage": {
+                  "input_tokens": 4531,
+                  "output_tokens": 126,
+                  "total_tokens": 4657,
+                  "cached_input_tokens": 4382
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00012172,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2340.735673904419,
+                "usage": {
+                  "input_tokens": 4936,
+                  "output_tokens": 39,
+                  "total_tokens": 4975,
+                  "cached_input_tokens": 4528
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00010558,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 3,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 5.45752901234664,
+                "outcome": "partial",
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 1.2151760165579617,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:mira",
+                  "place:brass-observatory",
+                  "place:lantern-yard"
+                ],
+                "relationship_ids": [
+                  "edge:mira-yard",
+                  "edge:yard-observatory"
+                ]
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:mira"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:mira"
+                  }
+                ],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:mira",
+                  "place:brass-observatory",
+                  "place:lantern-yard"
+                ],
+                "returned_edge_ids": [
+                  "edge:mira-yard",
+                  "edge:yard-observatory"
+                ],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": true
+            }
+          },
+          "treatment": {
+            "arm": "treatment",
+            "answer": "Mira **visits the Lantern Yard**, which **opens toward the Brass Observatory**. That two-link path connects Mira to the Observatory; the graph supports those relationships, but not a direct Mira–Observatory relationship.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 9519.6,
+            "system_prompt_sha256": "fff11263e86424e3e11c39022718d6b5305209ba85494fd0c54775c9a6291466",
+            "normalized_system_prompt_sha256": "44fa0270dfc8e648d32ec5d3b44231eb811d842986fc9e605a1abbbaab240c2e",
+            "question_sha256": "d94e609e7d03e417ebbb2ffe158b187ff581634ce4e052a6ea051b7d4b70a1d7",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1316.5462017059326,
+                "usage": {
+                  "input_tokens": 4470,
+                  "output_tokens": 72,
+                  "total_tokens": 4542,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00048300000000000003,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2237.521171569824,
+                "usage": {
+                  "input_tokens": 4618,
+                  "output_tokens": 158,
+                  "total_tokens": 4776,
+                  "cached_input_tokens": 4467
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00013877,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1504.4920444488525,
+                "usage": {
+                  "input_tokens": 4886,
+                  "output_tokens": 69,
+                  "total_tokens": 4955,
+                  "cached_input_tokens": 4615
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00010775,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1652.8925895690918,
+                "usage": {
+                  "input_tokens": 5227,
+                  "output_tokens": 48,
+                  "total_tokens": 5275,
+                  "cached_input_tokens": 4883
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00010723,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 4,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 3.4475720021873713,
+                "outcome": "partial",
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 0.655237992759794,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:mira"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 1.0406210203655064,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:mira",
+                  "place:brass-observatory",
+                  "place:lantern-yard"
+                ],
+                "relationship_ids": [
+                  "edge:mira-yard",
+                  "edge:yard-observatory"
+                ]
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:mira"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "object",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:mira"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:mira"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:mira"
+                  }
+                ],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:mira",
+                  "place:brass-observatory",
+                  "place:lantern-yard"
+                ],
+                "returned_edge_ids": [
+                  "edge:mira-yard",
+                  "edge:yard-observatory"
+                ],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": true
+            }
+          }
+        }
+      },
+      {
+        "case_id": "discovered-two-hop",
+        "candidate_mode": "discovered",
+        "arm_order": [
+          "control",
+          "treatment"
+        ],
+        "arms": {
+          "control": {
+            "arm": "control",
+            "answer": "Sella is connected to the Glass Orchard through **Reed Bridge**: Sella **guards** the bridge, and Reed Bridge **leads to** the Glass Orchard. The graph supports that route, but doesn’t establish that Sella guards the orchard itself or has a direct relationship with it.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 8426.2,
+            "system_prompt_sha256": "cb025cf880fef6323beb6342380ac95a9d5fc17b8b271822d7789dc5053973a7",
+            "normalized_system_prompt_sha256": "aa3c2124a3ed540b910ee59d612a079961a4e73d5923d8e52914353d0abb4799",
+            "question_sha256": "73b924e9c0cbe227d73ece9ab90017c9b51ca8023e7d9566cb37d67de14cac55",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1435.9793663024902,
+                "usage": {
+                  "input_tokens": 4370,
+                  "output_tokens": 63,
+                  "total_tokens": 4433,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.0004685,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 3353.986978530884,
+                "usage": {
+                  "input_tokens": 4535,
+                  "output_tokens": 118,
+                  "total_tokens": 4653,
+                  "cached_input_tokens": 4367
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00011946999999999999,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1537.811517715454,
+                "usage": {
+                  "input_tokens": 4927,
+                  "output_tokens": 64,
+                  "total_tokens": 4991,
+                  "cached_input_tokens": 4532
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00011682000000000001,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 3,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 4.114593000849709,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:sella"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 0.9894680115394294,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "place:reed-bridge",
+                  "place:glass-orchard",
+                  "person:sella"
+                ],
+                "relationship_ids": [
+                  "edge:sella-bridge",
+                  "edge:bridge-orchard"
+                ]
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:sella"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:sella"
+                  }
+                ],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "place:reed-bridge",
+                  "place:glass-orchard",
+                  "person:sella"
+                ],
+                "returned_edge_ids": [
+                  "edge:sella-bridge",
+                  "edge:bridge-orchard"
+                ],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": true
+            }
+          },
+          "treatment": {
+            "arm": "treatment",
+            "answer": "Sella is connected to the Glass Orchard through **Reed Bridge**: Sella **guards** Reed Bridge, and Reed Bridge **leads to** the Glass Orchard. The graph supports that two-step relationship chain.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 6516.8,
+            "system_prompt_sha256": "90afd8b97270091998c92bfabd2c3caf7aff81f7edfec89d3861827d6e60c097",
+            "normalized_system_prompt_sha256": "aa3c2124a3ed540b910ee59d612a079961a4e73d5923d8e52914353d0abb4799",
+            "question_sha256": "a452533885926d3c69db074629d9136b6462ae4ce4cc733286f008d4f34b4ba9",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1424.2091178894043,
+                "usage": {
+                  "input_tokens": 4457,
+                  "output_tokens": 66,
+                  "total_tokens": 4523,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00047870000000000003,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1513.6704444885254,
+                "usage": {
+                  "input_tokens": 4625,
+                  "output_tokens": 73,
+                  "total_tokens": 4698,
+                  "cached_input_tokens": 4454
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 9.814e-05,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1419.9390411376953,
+                "usage": {
+                  "input_tokens": 4965,
+                  "output_tokens": 48,
+                  "total_tokens": 5013,
+                  "cached_input_tokens": 4622
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00010452,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 3,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 3.0701950017828494,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:sella"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 1.230583991855383,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "place:reed-bridge",
+                  "place:glass-orchard",
+                  "person:sella"
+                ],
+                "relationship_ids": [
+                  "edge:sella-bridge",
+                  "edge:bridge-orchard"
+                ]
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:sella"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:sella"
+                  }
+                ],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "place:reed-bridge",
+                  "place:glass-orchard",
+                  "person:sella"
+                ],
+                "returned_edge_ids": [
+                  "edge:sella-bridge",
+                  "edge:bridge-orchard"
+                ],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": true
+            }
+          }
+        }
+      },
+      {
+        "case_id": "supplied-object-disambiguation",
+        "candidate_mode": "supplied",
+        "arm_order": [
+          "control",
+          "treatment"
+        ],
+        "arms": {
+          "control": {
+            "arm": "control",
+            "answer": "**Oren `person:oren-b`** is connected to the Blue Kiln directly: **Oren supplies the Blue Kiln**. The records distinguish this from `person:oren-a`, for whom no connection to the kiln was returned.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 9693.2,
+            "system_prompt_sha256": "2f928adce4cf721efc9465c699188ac12a49e094d81263db6f6b0e055b56dc45",
+            "normalized_system_prompt_sha256": "8bc95af12b47a26718eb527108c9eecd426855467859fadd7fe7297ce97c6752",
+            "question_sha256": "7d656f643ed724429fec8f1aa5920426b48be566e2d28e9df97515684f285063",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2423.6130714416504,
+                "usage": {
+                  "input_tokens": 4410,
+                  "output_tokens": 75,
+                  "total_tokens": 4485,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.0004785,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1522.876501083374,
+                "usage": {
+                  "input_tokens": 4705,
+                  "output_tokens": 54,
+                  "total_tokens": 4759,
+                  "cached_input_tokens": 4407
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00010087,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 2,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 4.7635250084567815,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:oren-b",
+                  "person:oren-a",
+                  "place:blue-kiln"
+                ],
+                "relationship_ids": [
+                  "edge:oren-b-kiln"
+                ]
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:oren-a"
+                  },
+                  {
+                    "kind": "node",
+                    "id": "person:oren-b"
+                  }
+                ],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:oren-b",
+                  "person:oren-a",
+                  "place:blue-kiln"
+                ],
+                "returned_edge_ids": [
+                  "edge:oren-b-kiln"
+                ],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": false,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": false
+            }
+          },
+          "treatment": {
+            "arm": "treatment",
+            "answer": "Oren **person:oren-b** is connected to the Blue Kiln: the graph records that Oren **supplies** it directly. The other Oren, **person:oren-a**, has no connection to the Blue Kiln in the retrieved records.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 6445.5,
+            "system_prompt_sha256": "34fdfa947a54c70e1023d0d3ab3032bd14f5b2e4ed9979ab9c4a0d374d1f5f4d",
+            "normalized_system_prompt_sha256": "8bc95af12b47a26718eb527108c9eecd426855467859fadd7fe7297ce97c6752",
+            "question_sha256": "8adfeb15190eeaadf56964447a8a3341ab2d78e025ec7284b19b7f1ca04183c1",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1488.3825778961182,
+                "usage": {
+                  "input_tokens": 4493,
+                  "output_tokens": 82,
+                  "total_tokens": 4575,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.0004902999999999999,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2936.1746311187744,
+                "usage": {
+                  "input_tokens": 4795,
+                  "output_tokens": 154,
+                  "total_tokens": 4949,
+                  "cached_input_tokens": 4490
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00015240000000000002,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 2,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 4.589471995132044,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:oren-b",
+                  "person:oren-a",
+                  "place:blue-kiln"
+                ],
+                "relationship_ids": [
+                  "edge:oren-b-kiln"
+                ]
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:oren-a"
+                  },
+                  {
+                    "kind": "node",
+                    "id": "person:oren-b"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:oren-b",
+                  "person:oren-a",
+                  "place:blue-kiln"
+                ],
+                "returned_edge_ids": [
+                  "edge:oren-b-kiln"
+                ],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": false,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": false
+            }
+          }
+        }
+      },
+      {
+        "case_id": "discovered-ambiguous-label",
+        "candidate_mode": "discovered",
+        "arm_order": [
+          "treatment",
+          "control"
+        ],
+        "arms": {
+          "treatment": {
+            "arm": "treatment",
+            "answer": "The records distinguish two people named Tavi. **One Tavi (`person:tavi-a`) is connected to the Ember Gate by an “approaches” relationship.** The retrieved neighborhood shows no Ember Gate connection for the other Tavi (`person:tavi-b`), so I can’t attribute that relationship to them.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 12069.4,
+            "system_prompt_sha256": "ea27be9671c593a0b8ec6c8db53b0a1b13b664701ad6b27e2c064fdac7a7ee17",
+            "normalized_system_prompt_sha256": "aa3c2124a3ed540b910ee59d612a079961a4e73d5923d8e52914353d0abb4799",
+            "question_sha256": "746d6479289a4c6a1b969886f5db3304e9fae833d496863ce4231bc6a78f57a1",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2707.2622776031494,
+                "usage": {
+                  "input_tokens": 4461,
+                  "output_tokens": 114,
+                  "total_tokens": 4575,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.0005031,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 5007.693290710449,
+                "usage": {
+                  "input_tokens": 4715,
+                  "output_tokens": 440,
+                  "total_tokens": 5155,
+                  "cached_input_tokens": 4458
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00029028,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2549.6129989624023,
+                "usage": {
+                  "input_tokens": 5378,
+                  "output_tokens": 129,
+                  "total_tokens": 5507,
+                  "cached_input_tokens": 4712
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00017822,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 3,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 2.3073339834809303,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:tavi-a",
+                  "person:tavi-b"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 0.7795309938956052,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:tavi-a",
+                  "person:tavi-b",
+                  "place:ember-gate"
+                ],
+                "relationship_ids": [
+                  "edge:tavi-a-gate"
+                ]
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:tavi-a",
+                  "person:tavi-b"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:tavi-a"
+                  },
+                  {
+                    "kind": "node",
+                    "id": "person:tavi-b"
+                  }
+                ],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:tavi-a",
+                  "person:tavi-b",
+                  "place:ember-gate"
+                ],
+                "returned_edge_ids": [
+                  "edge:tavi-a-gate"
+                ],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": true
+            }
+          },
+          "control": {
+            "arm": "control",
+            "answer": "The graph has **two distinct records named Tavi**. One is linked to the Ember Gate by an **“approaches”** relationship; the other has no Gate connection shown. The records provide no further details to distinguish the two Tavis, so I can’t identify which one that is.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 10744.1,
+            "system_prompt_sha256": "b5890adab275758fb8173eda39b1fb6c46cbc2e09863330f66ac2ed7a20c1865",
+            "normalized_system_prompt_sha256": "aa3c2124a3ed540b910ee59d612a079961a4e73d5923d8e52914353d0abb4799",
+            "question_sha256": "bb5d5cceb06902cdb8b3307b360254e7dcfd3ae819d416fbdaf36918a44f8e71",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1337.085247039795,
+                "usage": {
+                  "input_tokens": 4375,
+                  "output_tokens": 64,
+                  "total_tokens": 4439,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.0004695000000000001,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2081.5577507019043,
+                "usage": {
+                  "input_tokens": 4572,
+                  "output_tokens": 113,
+                  "total_tokens": 4685,
+                  "cached_input_tokens": 4372
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00012022000000000001,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2103.6460399627686,
+                "usage": {
+                  "input_tokens": 4908,
+                  "output_tokens": 207,
+                  "total_tokens": 5115,
+                  "cached_input_tokens": 4569
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00018309,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2050.097703933716,
+                "usage": {
+                  "input_tokens": 5330,
+                  "output_tokens": 135,
+                  "total_tokens": 5465,
+                  "cached_input_tokens": 4905
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00015905,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 4,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 2.653684001415968,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:tavi-a",
+                  "person:tavi-b"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 1.2657309998758137,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:tavi-a",
+                  "person:tavi-b",
+                  "place:ember-gate"
+                ],
+                "relationship_ids": [
+                  "edge:tavi-a-gate"
+                ]
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 0.7976719934958965,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:tavi-a"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 0.7728020136710256,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:tavi-b"
+                ],
+                "relationship_ids": []
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:tavi-a",
+                  "person:tavi-b"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:tavi-a"
+                  },
+                  {
+                    "kind": "node",
+                    "id": "person:tavi-b"
+                  }
+                ],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:tavi-a",
+                  "person:tavi-b",
+                  "place:ember-gate"
+                ],
+                "returned_edge_ids": [
+                  "edge:tavi-a-gate"
+                ],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "object",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:tavi-a"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:tavi-a"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "object",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:tavi-b"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:tavi-b"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": true
+            }
+          }
+        }
+      },
+      {
+        "case_id": "supplied-no-path",
+        "candidate_mode": "supplied",
+        "arm_order": [
+          "control",
+          "treatment"
+        ],
+        "arms": {
+          "control": {
+            "arm": "control",
+            "answer": "The lookup matched Pella as a Person, but returned no relationships or attributes. It does not establish a connection between Pella and the Moss Archive.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 7159.1,
+            "system_prompt_sha256": "ca8a2832b1c596a64a45a94678cda6ddac43c622c48ed182a1314ca78f4fdcc6",
+            "normalized_system_prompt_sha256": "025fccfabdae96380c09d3690280da276febcffa0bf16e7e526a47a71a1b158c",
+            "question_sha256": "ce8c92744d58dea7a0c30f83af368b7b41089a1293c031bfd64a844c06503e6d",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1320.5840587615967,
+                "usage": {
+                  "input_tokens": 4389,
+                  "output_tokens": 74,
+                  "total_tokens": 4463,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00047589999999999997,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 3680.1435947418213,
+                "usage": {
+                  "input_tokens": 4566,
+                  "output_tokens": 127,
+                  "total_tokens": 4693,
+                  "cached_input_tokens": 4386
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00012536,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 2,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 2.414085000054911,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:pella"
+                ],
+                "relationship_ids": []
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:pella"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:pella"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": false,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": false
+            }
+          },
+          "treatment": {
+            "arm": "treatment",
+            "answer": "The bounded lookup supports no connection between Pella and the Moss Archive: it found no relationships from Pella, and no Moss Archive node or path. I can’t infer a connection from these results.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 7475.4,
+            "system_prompt_sha256": "868c2c1f4206550868803c01b601b03643827e699beb99a235148ad6156b6a13",
+            "normalized_system_prompt_sha256": "025fccfabdae96380c09d3690280da276febcffa0bf16e7e526a47a71a1b158c",
+            "question_sha256": "ca7f955c5d7976d3e6b1992f992071b6beb52f642fa6579e0818d7aa9193a7ce",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1186.8643760681152,
+                "usage": {
+                  "input_tokens": 4472,
+                  "output_tokens": 79,
+                  "total_tokens": 4551,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.0004867,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 2033.7650775909424,
+                "usage": {
+                  "input_tokens": 4627,
+                  "output_tokens": 141,
+                  "total_tokens": 4768,
+                  "cached_input_tokens": 4469
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00013099,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1292.0286655426025,
+                "usage": {
+                  "input_tokens": 4878,
+                  "output_tokens": 89,
+                  "total_tokens": 4967,
+                  "cached_input_tokens": 4624
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00011614,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1118.3726787567139,
+                "usage": {
+                  "input_tokens": 5077,
+                  "output_tokens": 44,
+                  "total_tokens": 5121,
+                  "cached_input_tokens": 4875
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 9.094999999999999e-05,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 4,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 3.6403389822226018,
+                "outcome": "partial",
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 1.0768100037239492,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:pella"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 1.1357979965396225,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:pella"
+                ],
+                "relationship_ids": []
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:pella"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "object",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:pella"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:pella"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:pella"
+                  }
+                ],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:pella"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": true
+            }
+          }
+        }
+      },
+      {
+        "case_id": "discovered-no-path",
+        "candidate_mode": "discovered",
+        "arm_order": [
+          "control",
+          "treatment"
+        ],
+        "arms": {
+          "control": {
+            "arm": "control",
+            "answer": "The bounded lookup found Edda, but it returned no relationships for her. It did not find a Copper Fen node, so this lookup doesn’t support a connection between Edda and the Copper Fen.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 11645.1,
+            "system_prompt_sha256": "d8290113b10a201e0639580bdb4f9a72eeae680e8dd92c6233d163c348282b08",
+            "normalized_system_prompt_sha256": "aa3c2124a3ed540b910ee59d612a079961a4e73d5923d8e52914353d0abb4799",
+            "question_sha256": "76aecf06d0433b658a962b76826622938af004a1370fc92404204ee69d06c25b",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1150.2060890197754,
+                "usage": {
+                  "input_tokens": 4369,
+                  "output_tokens": 63,
+                  "total_tokens": 4432,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.0004684,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 3374.972105026245,
+                "usage": {
+                  "input_tokens": 4536,
+                  "output_tokens": 109,
+                  "total_tokens": 4645,
+                  "cached_input_tokens": 4366
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00011516,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 3770.9734439849854,
+                "usage": {
+                  "input_tokens": 4757,
+                  "output_tokens": 119,
+                  "total_tokens": 4876,
+                  "cached_input_tokens": 4533
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00012723,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1324.9199390411377,
+                "usage": {
+                  "input_tokens": 4959,
+                  "output_tokens": 44,
+                  "total_tokens": 5003,
+                  "cached_input_tokens": 4754
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 9.004e-05,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 4,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 2.8318960103206336,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:edda"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 0.8735620067454875,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:edda"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 0.883956003235653,
+                "outcome": "partial",
+                "matched_node_ids": [],
+                "relationship_ids": []
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:edda"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:edda"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:edda"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": true
+            }
+          },
+          "treatment": {
+            "arm": "treatment",
+            "answer": "The bounded lookup found Edda, but no relationship path connecting her to the Copper Fen. It doesn’t support a connection between them.",
+            "status": "ok",
+            "error_code": null,
+            "wall_ms": 9212.9,
+            "system_prompt_sha256": "7d217a99d7cea1bd2115de052c93f9b0e9c30423ee0d5c45e2783b37fdb09d05",
+            "normalized_system_prompt_sha256": "aa3c2124a3ed540b910ee59d612a079961a4e73d5923d8e52914353d0abb4799",
+            "question_sha256": "22b82d07fd4a12c75414d2b11a1acd62f58fa5b2b9a30f521b332da381f7d999",
+            "model_calls": [
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1262.9449367523193,
+                "usage": {
+                  "input_tokens": 4448,
+                  "output_tokens": 62,
+                  "total_tokens": 4510,
+                  "cached_input_tokens": 0
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00047579999999999996,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 3061.3298416137695,
+                "usage": {
+                  "input_tokens": 4614,
+                  "output_tokens": 112,
+                  "total_tokens": 4726,
+                  "cached_input_tokens": 4445
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00011735,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1627.436637878418,
+                "usage": {
+                  "input_tokens": 4838,
+                  "output_tokens": 70,
+                  "total_tokens": 4908,
+                  "cached_input_tokens": 4611
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 0.00010381,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              },
+              {
+                "status": "ok",
+                "provider": "openai-api",
+                "requested_model": "gpt-6-luna",
+                "response_model": "gpt-6-luna",
+                "duration_ms": 1424.0431785583496,
+                "usage": {
+                  "input_tokens": 5013,
+                  "output_tokens": 31,
+                  "total_tokens": 5044,
+                  "cached_input_tokens": 4835
+                },
+                "cost": {
+                  "status": "estimated",
+                  "usd": 8.165e-05,
+                  "currency": "USD",
+                  "pricing_table_matched": true
+                }
+              }
+            ],
+            "model_call_count": 4,
+            "tool_events": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 2.2894080029800534,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:edda"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 1.0408000089228153,
+                "outcome": "enough",
+                "matched_node_ids": [
+                  "person:edda"
+                ],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "start",
+                "duration_ms": null,
+                "outcome": null,
+                "matched_node_ids": [],
+                "relationship_ids": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "state": "completion",
+                "duration_ms": 0.815009989310056,
+                "outcome": "partial",
+                "matched_node_ids": [
+                  "person:edda"
+                ],
+                "relationship_ids": []
+              }
+            ],
+            "fake_trace": [
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "search",
+                "targets": [],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:edda"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "object",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:edda"
+                  }
+                ],
+                "depth": 1,
+                "result_status": "ok",
+                "outcome": "enough",
+                "returned_node_ids": [
+                  "person:edda"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              },
+              {
+                "tool_name": "expand_graph_retrieval",
+                "operation": "neighborhood",
+                "targets": [
+                  {
+                    "kind": "node",
+                    "id": "person:edda"
+                  }
+                ],
+                "depth": 2,
+                "result_status": "ok",
+                "outcome": "partial",
+                "returned_node_ids": [
+                  "person:edda"
+                ],
+                "returned_edge_ids": [],
+                "returned_attributes": []
+              }
+            ],
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "no_failed_graph_operations": true,
+              "all_expected_edges_returned_before_answer": true,
+              "expected_chain_named_in_answer": true,
+              "identity_disambiguation_resolved": true,
+              "required_abstention_explicit": true,
+              "no_unbounded_absence_claim": true,
+              "traversal_success": true,
+              "successful_no_path_neighborhood": true,
+              "answer_gate_pass": true
+            }
+          }
+        }
+      }
+    ],
+    "limits": [
+      "Six synthetic pairs are exploratory only.",
+      "Fake proves behavior against a deterministic in-process state machine, not native Graph retrieval or source authority.",
+      "Operation choice is measured only over this permitted fake response path; model/server process and session admission remain outside the evidence.",
+      "Non-streaming TTFT is unknown."
+    ],
+    "cohort_status": "complete",
+    "checkpoint_sha256": "30df62b2d8e2b495fdb9fdda59c7219df8af9bb54988ede4afdb1a71276e3b86",
+    "checkpoint_completed_at": "2026-10-02T10:51:19.268230+00:00",
+    "blind_packet": {
+      "schema": "hermes_graph_crawl_blinded_packet_v1",
+      "randomization_seed": 47029,
+      "items": [
+        {
+          "case_id": "supplied-two-hop",
+          "question": "What connects Mira to the Brass Observatory? Give the supported relationship chain, or say what remains unverified.",
+          "shared_candidate_context": "Synthetic candidate IDs accepted for lookup (no relationships provided): Mira [Person, person:mira]",
+          "answer_A": "Mira **visits the Lantern Yard**, which **opens toward the Brass Observatory**. That’s the supported connection chain; no direct Mira–Observatory relationship is shown.",
+          "answer_A_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:mira",
+                "label": "Mira",
+                "kind": "Person"
+              },
+              {
+                "id": "place:brass-observatory",
+                "label": "Brass Observatory",
+                "kind": "Place"
+              },
+              {
+                "id": "place:lantern-yard",
+                "label": "Lantern Yard",
+                "kind": "Place"
+              }
+            ],
+            "relationships": [
+              {
+                "id": "edge:mira-yard",
+                "source": "person:mira",
+                "target": "place:lantern-yard",
+                "predicate": "visits",
+                "label": "visits"
+              },
+              {
+                "id": "edge:yard-observatory",
+                "source": "place:lantern-yard",
+                "target": "place:brass-observatory",
+                "predicate": "opens_toward",
+                "label": "opens toward"
+              }
+            ],
+            "identity_attributes": []
+          },
+          "answer_A_sha256": "2b1727d0b45392e6e579b70ff0dc1db6392af8bea86f67a3f430f161d5f5b9ce",
+          "answer_B": "Mira **visits the Lantern Yard**, which **opens toward the Brass Observatory**. That two-link path connects Mira to the Observatory; the graph supports those relationships, but not a direct Mira–Observatory relationship.",
+          "answer_B_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:mira",
+                "label": "Mira",
+                "kind": "Person"
+              },
+              {
+                "id": "place:brass-observatory",
+                "label": "Brass Observatory",
+                "kind": "Place"
+              },
+              {
+                "id": "place:lantern-yard",
+                "label": "Lantern Yard",
+                "kind": "Place"
+              }
+            ],
+            "relationships": [
+              {
+                "id": "edge:mira-yard",
+                "source": "person:mira",
+                "target": "place:lantern-yard",
+                "predicate": "visits",
+                "label": "visits"
+              },
+              {
+                "id": "edge:yard-observatory",
+                "source": "place:lantern-yard",
+                "target": "place:brass-observatory",
+                "predicate": "opens_toward",
+                "label": "opens toward"
+              }
+            ],
+            "identity_attributes": []
+          },
+          "answer_B_sha256": "c6621fef41a0d1c6aab8b5640c43620b76f6cffcd17c21a308efddd711410c8a",
+          "expected_answer_key": {
+            "supported_relationships": [
+              {
+                "id": "edge:mira-yard",
+                "source": "person:mira",
+                "target": "place:lantern-yard",
+                "predicate": "visits",
+                "label": "visits"
+              },
+              {
+                "id": "edge:yard-observatory",
+                "source": "place:lantern-yard",
+                "target": "place:brass-observatory",
+                "predicate": "opens_toward",
+                "label": "opens toward"
+              }
+            ],
+            "expected_abstention": null,
+            "required_identity_value": null
+          },
+          "human_score": "pending"
+        },
+        {
+          "case_id": "discovered-two-hop",
+          "question": "How is Sella connected to the Glass Orchard? Give a supported relationship chain, or say what remains unverified.",
+          "shared_candidate_context": null,
+          "answer_A": "Sella is connected to the Glass Orchard through **Reed Bridge**: Sella **guards** the bridge, and Reed Bridge **leads to** the Glass Orchard. The graph supports that route, but doesn’t establish that Sella guards the orchard itself or has a direct relationship with it.",
+          "answer_A_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:sella",
+                "label": "Sella",
+                "kind": "Person"
+              },
+              {
+                "id": "place:glass-orchard",
+                "label": "Glass Orchard",
+                "kind": "Place"
+              },
+              {
+                "id": "place:reed-bridge",
+                "label": "Reed Bridge",
+                "kind": "Place"
+              }
+            ],
+            "relationships": [
+              {
+                "id": "edge:bridge-orchard",
+                "source": "place:reed-bridge",
+                "target": "place:glass-orchard",
+                "predicate": "leads_to",
+                "label": "leads to"
+              },
+              {
+                "id": "edge:sella-bridge",
+                "source": "person:sella",
+                "target": "place:reed-bridge",
+                "predicate": "guards",
+                "label": "guards"
+              }
+            ],
+            "identity_attributes": []
+          },
+          "answer_A_sha256": "e0188a28092e9a3d7067bb2156a39cf9af7ddbcbcff160dd7bb04037beccdab8",
+          "answer_B": "Sella is connected to the Glass Orchard through **Reed Bridge**: Sella **guards** Reed Bridge, and Reed Bridge **leads to** the Glass Orchard. The graph supports that two-step relationship chain.",
+          "answer_B_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:sella",
+                "label": "Sella",
+                "kind": "Person"
+              },
+              {
+                "id": "place:glass-orchard",
+                "label": "Glass Orchard",
+                "kind": "Place"
+              },
+              {
+                "id": "place:reed-bridge",
+                "label": "Reed Bridge",
+                "kind": "Place"
+              }
+            ],
+            "relationships": [
+              {
+                "id": "edge:bridge-orchard",
+                "source": "place:reed-bridge",
+                "target": "place:glass-orchard",
+                "predicate": "leads_to",
+                "label": "leads to"
+              },
+              {
+                "id": "edge:sella-bridge",
+                "source": "person:sella",
+                "target": "place:reed-bridge",
+                "predicate": "guards",
+                "label": "guards"
+              }
+            ],
+            "identity_attributes": []
+          },
+          "answer_B_sha256": "78ffc5ecc9b420dee96a42cb5abfaface1fc02c3869a8253e780b156b7f52cea",
+          "expected_answer_key": {
+            "supported_relationships": [
+              {
+                "id": "edge:sella-bridge",
+                "source": "person:sella",
+                "target": "place:reed-bridge",
+                "predicate": "guards",
+                "label": "guards"
+              },
+              {
+                "id": "edge:bridge-orchard",
+                "source": "place:reed-bridge",
+                "target": "place:glass-orchard",
+                "predicate": "leads_to",
+                "label": "leads to"
+              }
+            ],
+            "expected_abstention": null,
+            "required_identity_value": null
+          },
+          "human_score": "pending"
+        },
+        {
+          "case_id": "supplied-object-disambiguation",
+          "question": "Which of the two people called Oren is connected to the Blue Kiln, and through what chain? State uncertainty if the records do not distinguish them.",
+          "shared_candidate_context": "Synthetic candidate IDs accepted for lookup (no relationships provided): Oren [Person, person:oren-a]; Oren [Person, person:oren-b]",
+          "answer_A": "Oren **person:oren-b** is connected to the Blue Kiln: the graph records that Oren **supplies** it directly. The other Oren, **person:oren-a**, has no connection to the Blue Kiln in the retrieved records.",
+          "answer_A_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:oren-a",
+                "label": "Oren",
+                "kind": "Person"
+              },
+              {
+                "id": "person:oren-b",
+                "label": "Oren",
+                "kind": "Person"
+              },
+              {
+                "id": "place:blue-kiln",
+                "label": "Blue Kiln",
+                "kind": "Place"
+              }
+            ],
+            "relationships": [
+              {
+                "id": "edge:oren-b-kiln",
+                "source": "person:oren-b",
+                "target": "place:blue-kiln",
+                "predicate": "supplies",
+                "label": "supplies"
+              }
+            ],
+            "identity_attributes": []
+          },
+          "answer_A_sha256": "d56d424f98ce57d0b20e25be790723ac41ea9170d7f6a58b22e1ec635a5bdf0a",
+          "answer_B": "**Oren `person:oren-b`** is connected to the Blue Kiln directly: **Oren supplies the Blue Kiln**. The records distinguish this from `person:oren-a`, for whom no connection to the kiln was returned.",
+          "answer_B_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:oren-a",
+                "label": "Oren",
+                "kind": "Person"
+              },
+              {
+                "id": "person:oren-b",
+                "label": "Oren",
+                "kind": "Person"
+              },
+              {
+                "id": "place:blue-kiln",
+                "label": "Blue Kiln",
+                "kind": "Place"
+              }
+            ],
+            "relationships": [
+              {
+                "id": "edge:oren-b-kiln",
+                "source": "person:oren-b",
+                "target": "place:blue-kiln",
+                "predicate": "supplies",
+                "label": "supplies"
+              }
+            ],
+            "identity_attributes": []
+          },
+          "answer_B_sha256": "3ce55c6aecf92dda0ccd227a0a866792cb18cff559f013aa4bcadbdb0240d173",
+          "expected_answer_key": {
+            "supported_relationships": [
+              {
+                "id": "edge:oren-b-kiln",
+                "source": "person:oren-b",
+                "target": "place:blue-kiln",
+                "predicate": "supplies",
+                "label": "supplies"
+              }
+            ],
+            "expected_abstention": null,
+            "required_identity_value": "potter"
+          },
+          "human_score": "pending"
+        },
+        {
+          "case_id": "discovered-ambiguous-label",
+          "question": "How is Tavi connected to the Ember Gate? The records may contain more than one Tavi; do not choose without distinguishing evidence.",
+          "shared_candidate_context": null,
+          "answer_A": "The graph has **two distinct records named Tavi**. One is linked to the Ember Gate by an **“approaches”** relationship; the other has no Gate connection shown. The records provide no further details to distinguish the two Tavis, so I can’t identify which one that is.",
+          "answer_A_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:tavi-a",
+                "label": "Tavi",
+                "kind": "Person"
+              },
+              {
+                "id": "person:tavi-b",
+                "label": "Tavi",
+                "kind": "Person"
+              },
+              {
+                "id": "place:ember-gate",
+                "label": "Ember Gate",
+                "kind": "Place"
+              }
+            ],
+            "relationships": [
+              {
+                "id": "edge:tavi-a-gate",
+                "source": "person:tavi-a",
+                "target": "place:ember-gate",
+                "predicate": "approaches",
+                "label": "approaches"
+              }
+            ],
+            "identity_attributes": []
+          },
+          "answer_A_sha256": "e8eaf57ff1abf24fc81937fa74bfec02b5092008180b1b62c00f5a927dcf4216",
+          "answer_B": "The records distinguish two people named Tavi. **One Tavi (`person:tavi-a`) is connected to the Ember Gate by an “approaches” relationship.** The retrieved neighborhood shows no Ember Gate connection for the other Tavi (`person:tavi-b`), so I can’t attribute that relationship to them.",
+          "answer_B_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:tavi-a",
+                "label": "Tavi",
+                "kind": "Person"
+              },
+              {
+                "id": "person:tavi-b",
+                "label": "Tavi",
+                "kind": "Person"
+              },
+              {
+                "id": "place:ember-gate",
+                "label": "Ember Gate",
+                "kind": "Place"
+              }
+            ],
+            "relationships": [
+              {
+                "id": "edge:tavi-a-gate",
+                "source": "person:tavi-a",
+                "target": "place:ember-gate",
+                "predicate": "approaches",
+                "label": "approaches"
+              }
+            ],
+            "identity_attributes": []
+          },
+          "answer_B_sha256": "1215931e2a20ef18efc043334da829111f6240112a07ab712168fb12b40d8a39",
+          "expected_answer_key": {
+            "supported_relationships": [],
+            "expected_abstention": "ambiguous",
+            "required_identity_value": null
+          },
+          "human_score": "pending"
+        },
+        {
+          "case_id": "supplied-no-path",
+          "question": "How is Pella connected to the Moss Archive? Report only what this bounded lookup supports.",
+          "shared_candidate_context": "Synthetic candidate IDs accepted for lookup (no relationships provided): Pella [Person, person:pella]",
+          "answer_A": "The bounded lookup supports no connection between Pella and the Moss Archive: it found no relationships from Pella, and no Moss Archive node or path. I can’t infer a connection from these results.",
+          "answer_A_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:pella",
+                "label": "Pella",
+                "kind": "Person"
+              }
+            ],
+            "relationships": [],
+            "identity_attributes": []
+          },
+          "answer_A_sha256": "1cb72be8f82b2092d21c05ad093f65bc9c89fd3b6c9c4adddc2f201dc6efa840",
+          "answer_B": "The lookup matched Pella as a Person, but returned no relationships or attributes. It does not establish a connection between Pella and the Moss Archive.",
+          "answer_B_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:pella",
+                "label": "Pella",
+                "kind": "Person"
+              }
+            ],
+            "relationships": [],
+            "identity_attributes": []
+          },
+          "answer_B_sha256": "4ab2747604a192ad50879fd17b0fe5522d7bc03a9a7752c5a070c205a1126e97",
+          "expected_answer_key": {
+            "supported_relationships": [],
+            "expected_abstention": "no_path",
+            "required_identity_value": null
+          },
+          "human_score": "pending"
+        },
+        {
+          "case_id": "discovered-no-path",
+          "question": "How is Edda connected to the Copper Fen? Report only what this bounded lookup supports.",
+          "shared_candidate_context": null,
+          "answer_A": "The bounded lookup found Edda, but it returned no relationships for her. It did not find a Copper Fen node, so this lookup doesn’t support a connection between Edda and the Copper Fen.",
+          "answer_A_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:edda",
+                "label": "Edda",
+                "kind": "Person"
+              }
+            ],
+            "relationships": [],
+            "identity_attributes": []
+          },
+          "answer_A_sha256": "87f471a3717e228dba11b09c79bfa49fbe36806b9283c9b3abe3ce052a846b6e",
+          "answer_B": "The bounded lookup found Edda, but no relationship path connecting her to the Copper Fen. It doesn’t support a connection between them.",
+          "answer_B_evidence_seen": {
+            "nodes": [
+              {
+                "id": "person:edda",
+                "label": "Edda",
+                "kind": "Person"
+              }
+            ],
+            "relationships": [],
+            "identity_attributes": []
+          },
+          "answer_B_sha256": "4d337f1fc864b0120064e01d094dd4338ae4d0e2dc1592d23ef0f6feb78a3cd9",
+          "expected_answer_key": {
+            "supported_relationships": [],
+            "expected_abstention": "no_path",
+            "required_identity_value": null
+          },
+          "human_score": "pending"
+        }
+      ]
+    },
+    "updated_at": "2026-10-02T10:51:19.276529+00:00",
+    "pilot_cases_sha256": "edf2107784c7886c92d885ebed9e90f42af9ce1b7f6f9a697fd7570187572b31",
+    "continuation_approval_reference": "PRIME-2026-10-02-bbbd01f6-edf21077",
+    "continuation_started_at": "2026-10-02T10:50:04.762650+00:00"
+  },
+  "arm_mapping_after_score_lock": {
+    "supplied-two-hop": {
+      "answer_A_sha256": "2b1727d0b45392e6e579b70ff0dc1db6392af8bea86f67a3f430f161d5f5b9ce",
+      "answer_A_arm": "control",
+      "answer_B_sha256": "c6621fef41a0d1c6aab8b5640c43620b76f6cffcd17c21a308efddd711410c8a",
+      "answer_B_arm": "treatment"
+    },
+    "discovered-two-hop": {
+      "answer_A_sha256": "e0188a28092e9a3d7067bb2156a39cf9af7ddbcbcff160dd7bb04037beccdab8",
+      "answer_A_arm": "control",
+      "answer_B_sha256": "78ffc5ecc9b420dee96a42cb5abfaface1fc02c3869a8253e780b156b7f52cea",
+      "answer_B_arm": "treatment"
+    },
+    "supplied-object-disambiguation": {
+      "answer_A_sha256": "d56d424f98ce57d0b20e25be790723ac41ea9170d7f6a58b22e1ec635a5bdf0a",
+      "answer_A_arm": "treatment",
+      "answer_B_sha256": "3ce55c6aecf92dda0ccd227a0a866792cb18cff559f013aa4bcadbdb0240d173",
+      "answer_B_arm": "control"
+    },
+    "discovered-ambiguous-label": {
+      "answer_A_sha256": "e8eaf57ff1abf24fc81937fa74bfec02b5092008180b1b62c00f5a927dcf4216",
+      "answer_A_arm": "control",
+      "answer_B_sha256": "1215931e2a20ef18efc043334da829111f6240112a07ab712168fb12b40d8a39",
+      "answer_B_arm": "treatment"
+    },
+    "supplied-no-path": {
+      "answer_A_sha256": "1cb72be8f82b2092d21c05ad093f65bc9c89fd3b6c9c4adddc2f201dc6efa840",
+      "answer_A_arm": "treatment",
+      "answer_B_sha256": "4ab2747604a192ad50879fd17b0fe5522d7bc03a9a7752c5a070c205a1126e97",
+      "answer_B_arm": "control"
+    },
+    "discovered-no-path": {
+      "answer_A_sha256": "87f471a3717e228dba11b09c79bfa49fbe36806b9283c9b3abe3ce052a846b6e",
+      "answer_A_arm": "control",
+      "answer_B_sha256": "4d337f1fc864b0120064e01d094dd4338ae4d0e2dc1592d23ef0f6feb78a3cd9",
+      "answer_B_arm": "treatment"
+    }
+  },
+  "human_adjudication": {
+    "independent_reviewer": {
+      "scope": "all six cases, scored from blinded packet before arm mapping",
+      "locked_score_file": {
+        "schema": "hermes_graph_crawl_blind_review_v1",
+        "source": "scored only from blinded packet expected keys, per-answer evidence_seen, and paired answers",
+        "score_scale": "1-5; higher is better",
+        "dimensions": [
+          "factual_grounding",
+          "uncertainty_abstention",
+          "usefulness"
+        ],
+        "cases": [
+          {
+            "case_id": "supplied-two-hop",
+            "A": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Both edges and their direction/predicates match the returned evidence; correctly says there is no direct edge."
+            },
+            "B": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 5
+              },
+              "hard_gate": "pass",
+              "reason": "Accurate two-edge chain and explicit boundary around the absent direct relationship."
+            },
+            "preference": "B",
+            "preference_reason": "Names the two-link path clearly while preserving the direct-edge limitation."
+          },
+          {
+            "case_id": "discovered-two-hop",
+            "A": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 5
+              },
+              "hard_gate": "pass",
+              "reason": "Both supported relationships are accurate; explicitly avoids converting Sella's bridge relationship into a direct orchard relationship."
+            },
+            "B": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 4,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Accurate chain, though it does not explicitly warn against reading a direct Sella-orchard edge into it."
+            },
+            "preference": "A",
+            "preference_reason": "The extra boundary statement reduces a plausible overreading without adding unsupported facts."
+          },
+          {
+            "case_id": "supplied-object-disambiguation",
+            "A": {
+              "scores": {
+                "factual_grounding": 4,
+                "uncertainty_abstention": 2,
+                "usefulness": 3
+              },
+              "hard_gate": "fail",
+              "reason": "The person:oren-b supplies edge is present, but the expected key requires identity value 'potter' and the returned evidence has no identity attributes. It does not state that the human identity remains unresolved."
+            },
+            "B": {
+              "scores": {
+                "factual_grounding": 4,
+                "uncertainty_abstention": 2,
+                "usefulness": 3
+              },
+              "hard_gate": "fail",
+              "reason": "Same omission: the edge identifies a graph record, but the expected human identity value is not in evidence and the answer does not abstain on that identity."
+            },
+            "preference": null,
+            "preference_reason": "Both fail the keyed identity/abstention gate; the evidence_seen block lacks the required identity attribute, so neither establishes which human Oren is the potter."
+          },
+          {
+            "case_id": "discovered-ambiguous-label",
+            "A": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Reports the observed edge while preserving that the two same-name people cannot be matched to an external identity."
+            },
+            "B": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 3,
+                "usefulness": 4
+              },
+              "hard_gate": "fail",
+              "reason": "It selects person:tavi-a despite the expected key requiring abstention for ambiguous identity; no identity attributes distinguish the people."
+            },
+            "preference": "A",
+            "preference_reason": "Only A passes the keyed ambiguity gate."
+          },
+          {
+            "case_id": "supplied-no-path",
+            "A": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 5
+              },
+              "hard_gate": "pass",
+              "reason": "Limits the conclusion to the bounded lookup and accurately states no relationships or target/path were returned."
+            },
+            "B": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Carefully reports that the lookup did not establish a connection."
+            },
+            "preference": "A",
+            "preference_reason": "More directly reports the absence of both relationships and target node in the bounded result."
+          },
+          {
+            "case_id": "discovered-no-path",
+            "A": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 5
+              },
+              "hard_gate": "pass",
+              "reason": "Accurately states Edda was found, no relationships were returned, and Copper Fen was not found."
+            },
+            "B": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Accurately confines its conclusion to the bounded lookup, but gives less detail about what was returned."
+            },
+            "preference": "A",
+            "preference_reason": "The additional observed-result detail is useful and remains bounded."
+          }
+        ],
+        "summary": {
+          "hard_gate_pass_counts": {
+            "A": 5,
+            "B": 4
+          },
+          "pair_preferences": {
+            "A": 4,
+            "B": 1,
+            "tie": 0,
+            "no_eligible_preference_both_fail": 1
+          },
+          "evidence_key_caveat": "supplied-object-disambiguation expects identity value 'potter', but both evidence_seen blocks have empty identity_attributes; neither answer can substantiate that value from the supplied evidence."
+        }
+      },
+      "mapped_case_scores": [
+        {
+          "case_id": "supplied-two-hop",
+          "score_by_arm": {
+            "control": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Both edges and their direction/predicates match the returned evidence; correctly says there is no direct edge."
+            },
+            "treatment": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 5
+              },
+              "hard_gate": "pass",
+              "reason": "Accurate two-edge chain and explicit boundary around the absent direct relationship."
+            }
+          },
+          "preference_arm": "treatment",
+          "preference_label": "B",
+          "reviewer_reason": "Names the two-link path clearly while preserving the direct-edge limitation."
+        },
+        {
+          "case_id": "discovered-two-hop",
+          "score_by_arm": {
+            "control": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 5
+              },
+              "hard_gate": "pass",
+              "reason": "Both supported relationships are accurate; explicitly avoids converting Sella's bridge relationship into a direct orchard relationship."
+            },
+            "treatment": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 4,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Accurate chain, though it does not explicitly warn against reading a direct Sella-orchard edge into it."
+            }
+          },
+          "preference_arm": "control",
+          "preference_label": "A",
+          "reviewer_reason": "The extra boundary statement reduces a plausible overreading without adding unsupported facts."
+        },
+        {
+          "case_id": "supplied-object-disambiguation",
+          "score_by_arm": {
+            "treatment": {
+              "scores": {
+                "factual_grounding": 4,
+                "uncertainty_abstention": 2,
+                "usefulness": 3
+              },
+              "hard_gate": "fail",
+              "reason": "The person:oren-b supplies edge is present, but the expected key requires identity value 'potter' and the returned evidence has no identity attributes. It does not state that the human identity remains unresolved."
+            },
+            "control": {
+              "scores": {
+                "factual_grounding": 4,
+                "uncertainty_abstention": 2,
+                "usefulness": 3
+              },
+              "hard_gate": "fail",
+              "reason": "Same omission: the edge identifies a graph record, but the expected human identity value is not in evidence and the answer does not abstain on that identity."
+            }
+          },
+          "preference_arm": null,
+          "preference_label": null,
+          "reviewer_reason": "Both fail the keyed identity/abstention gate; the evidence_seen block lacks the required identity attribute, so neither establishes which human Oren is the potter."
+        },
+        {
+          "case_id": "discovered-ambiguous-label",
+          "score_by_arm": {
+            "control": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Reports the observed edge while preserving that the two same-name people cannot be matched to an external identity."
+            },
+            "treatment": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 3,
+                "usefulness": 4
+              },
+              "hard_gate": "fail",
+              "reason": "It selects person:tavi-a despite the expected key requiring abstention for ambiguous identity; no identity attributes distinguish the people."
+            }
+          },
+          "preference_arm": "control",
+          "preference_label": "A",
+          "reviewer_reason": "Only A passes the keyed ambiguity gate."
+        },
+        {
+          "case_id": "supplied-no-path",
+          "score_by_arm": {
+            "treatment": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 5
+              },
+              "hard_gate": "pass",
+              "reason": "Limits the conclusion to the bounded lookup and accurately states no relationships or target/path were returned."
+            },
+            "control": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Carefully reports that the lookup did not establish a connection."
+            }
+          },
+          "preference_arm": "treatment",
+          "preference_label": "A",
+          "reviewer_reason": "More directly reports the absence of both relationships and target node in the bounded result."
+        },
+        {
+          "case_id": "discovered-no-path",
+          "score_by_arm": {
+            "control": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 5
+              },
+              "hard_gate": "pass",
+              "reason": "Accurately states Edda was found, no relationships were returned, and Copper Fen was not found."
+            },
+            "treatment": {
+              "scores": {
+                "factual_grounding": 5,
+                "uncertainty_abstention": 5,
+                "usefulness": 4
+              },
+              "hard_gate": "pass",
+              "reason": "Accurately confines its conclusion to the bounded lookup, but gives less detail about what was returned."
+            }
+          },
+          "preference_arm": "control",
+          "preference_label": "A",
+          "reviewer_reason": "The additional observed-result detail is useful and remains bounded."
+        }
+      ],
+      "summary": {
+        "preferences": {
+          "treatment": 2,
+          "control": 3,
+          "no_eligible_preference": 1
+        },
+        "by_arm": {
+          "control": {
+            "answers_scored": 6,
+            "hard_gate_passes": 5,
+            "hard_gate_failures": 1,
+            "mean_dimension_scores": {
+              "factual_grounding": 4.833,
+              "uncertainty_abstention": 4.5,
+              "usefulness": 4.167
+            }
+          },
+          "treatment": {
+            "answers_scored": 6,
+            "hard_gate_passes": 4,
+            "hard_gate_failures": 2,
+            "mean_dimension_scores": {
+              "factual_grounding": 4.833,
+              "uncertainty_abstention": 4,
+              "usefulness": 4.167
+            }
+          }
+        }
+      }
+    },
+    "PRIME": {
+      "scope": "cases 3-6 only; PRIME had already seen raw arm mapping and answers for pilot cases 1-2 during technical review",
+      "locked_score_file": {
+        "reviewer": "PRIME",
+        "packet": "/tmp/hermes-graph-crawl-pilot-blind-20261002T143000Z.json",
+        "scope": "Cases 3-6 only; PRIME saw raw arm mapping for pilot cases 1-2 during technical review",
+        "scale": "grounding, uncertainty, usefulness: 0=poor, 1=partial, 2=good; answer_hard_gate is answer-only",
+        "scores": [
+          {
+            "case_id": "supplied-object-disambiguation",
+            "A": {
+              "grounding": 1,
+              "uncertainty": 1,
+              "usefulness": 1,
+              "answer_hard_gate": false
+            },
+            "B": {
+              "grounding": 1,
+              "uncertainty": 1,
+              "usefulness": 1,
+              "answer_hard_gate": false
+            },
+            "preference": "tie",
+            "reason": "Both name the graph ID with a returned supplies edge, but neither observed the required potter identity attribute. The two people remain indistinguishable as people; a graph ID alone is not identity resolution."
+          },
+          {
+            "case_id": "discovered-ambiguous-label",
+            "A": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            },
+            "B": {
+              "grounding": 1,
+              "uncertainty": 1,
+              "usefulness": 1,
+              "answer_hard_gate": false
+            },
+            "preference": "A",
+            "reason": "A states the supported record edge and keeps the human identity unresolved. B selects person:tavi-a by opaque graph ID as though that distinguishes the person, despite no distinguishing attributes."
+          },
+          {
+            "case_id": "supplied-no-path",
+            "A": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            },
+            "B": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            },
+            "preference": "B",
+            "reason": "Both limit the conclusion to retrieved evidence. B states the absence of a supported connection more directly and avoids excess diagnostics."
+          },
+          {
+            "case_id": "discovered-no-path",
+            "A": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            },
+            "B": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            },
+            "preference": "B",
+            "reason": "Both keep the no-path claim bounded. B answers the user's question with less metadata."
+          }
+        ]
+      },
+      "mapped_case_scores": [
+        {
+          "case_id": "supplied-object-disambiguation",
+          "score_by_arm": {
+            "treatment": {
+              "grounding": 1,
+              "uncertainty": 1,
+              "usefulness": 1,
+              "answer_hard_gate": false
+            },
+            "control": {
+              "grounding": 1,
+              "uncertainty": 1,
+              "usefulness": 1,
+              "answer_hard_gate": false
+            }
+          },
+          "preference_arm": null,
+          "preference_label": "tie",
+          "reviewer_reason": "Both name the graph ID with a returned supplies edge, but neither observed the required potter identity attribute. The two people remain indistinguishable as people; a graph ID alone is not identity resolution."
+        },
+        {
+          "case_id": "discovered-ambiguous-label",
+          "score_by_arm": {
+            "control": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            },
+            "treatment": {
+              "grounding": 1,
+              "uncertainty": 1,
+              "usefulness": 1,
+              "answer_hard_gate": false
+            }
+          },
+          "preference_arm": "control",
+          "preference_label": "A",
+          "reviewer_reason": "A states the supported record edge and keeps the human identity unresolved. B selects person:tavi-a by opaque graph ID as though that distinguishes the person, despite no distinguishing attributes."
+        },
+        {
+          "case_id": "supplied-no-path",
+          "score_by_arm": {
+            "treatment": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            },
+            "control": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            }
+          },
+          "preference_arm": "control",
+          "preference_label": "B",
+          "reviewer_reason": "Both limit the conclusion to retrieved evidence. B states the absence of a supported connection more directly and avoids excess diagnostics."
+        },
+        {
+          "case_id": "discovered-no-path",
+          "score_by_arm": {
+            "control": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            },
+            "treatment": {
+              "grounding": 2,
+              "uncertainty": 2,
+              "usefulness": 2,
+              "answer_hard_gate": true
+            }
+          },
+          "preference_arm": "treatment",
+          "preference_label": "B",
+          "reviewer_reason": "Both keep the no-path claim bounded. B answers the user's question with less metadata."
+        }
+      ],
+      "summary": {
+        "preferences": {
+          "tie_both_fail_or_equivalent": 1,
+          "control": 2,
+          "treatment": 1
+        },
+        "by_arm": {
+          "treatment": {
+            "answers_scored": 4,
+            "hard_gate_passes": 2,
+            "hard_gate_failures": 2,
+            "mean_dimension_scores": {
+              "grounding": 1.5,
+              "uncertainty": 1.5,
+              "usefulness": 1.5
+            }
+          },
+          "control": {
+            "answers_scored": 4,
+            "hard_gate_passes": 3,
+            "hard_gate_failures": 1,
+            "mean_dimension_scores": {
+              "grounding": 1.75,
+              "uncertainty": 1.75,
+              "usefulness": 1.75
+            }
+          }
+        }
+      }
+    },
+    "pilot_blinding_limitation": "PRIME scores for cases 1-2 are not represented as blinded scores. The independent reviewer scored all six from the locked randomized packet before mapping."
+  },
+  "gate_reconciliation": {
+    "original_paid_run_gates_changed": false,
+    "note": "Every original raw gate remains unchanged under paid_run_raw_preserved_verbatim. corrected_diagnostic_gates are a separate post-run re-evaluation with the revised lexical heuristic.",
+    "diagnostic_version_commit": "c3d862c6336df681d5c23d10a881f399a8be2e18",
+    "case_arm_diagnostic_results": [
+      {
+        "case_id": "supplied-two-hop",
+        "arm": "control",
+        "paid_run_answer_gate_pass": true,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": true
+        },
+        "corrected_diagnostic_answer_gate_pass": true,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "supplied-two-hop",
+        "arm": "treatment",
+        "paid_run_answer_gate_pass": true,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": true
+        },
+        "corrected_diagnostic_answer_gate_pass": true,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "discovered-two-hop",
+        "arm": "control",
+        "paid_run_answer_gate_pass": true,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": true
+        },
+        "corrected_diagnostic_answer_gate_pass": true,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "discovered-two-hop",
+        "arm": "treatment",
+        "paid_run_answer_gate_pass": true,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": true
+        },
+        "corrected_diagnostic_answer_gate_pass": true,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "supplied-object-disambiguation",
+        "arm": "control",
+        "paid_run_answer_gate_pass": false,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": false,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": false
+        },
+        "corrected_diagnostic_answer_gate_pass": false,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "supplied-object-disambiguation",
+        "arm": "treatment",
+        "paid_run_answer_gate_pass": false,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": false,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": false
+        },
+        "corrected_diagnostic_answer_gate_pass": false,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "discovered-ambiguous-label",
+        "arm": "treatment",
+        "paid_run_answer_gate_pass": true,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": false,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": false
+        },
+        "corrected_diagnostic_answer_gate_pass": false,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "discovered-ambiguous-label",
+        "arm": "control",
+        "paid_run_answer_gate_pass": true,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": true
+        },
+        "corrected_diagnostic_answer_gate_pass": true,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "supplied-no-path",
+        "arm": "control",
+        "paid_run_answer_gate_pass": false,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": true
+        },
+        "corrected_diagnostic_answer_gate_pass": true,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "supplied-no-path",
+        "arm": "treatment",
+        "paid_run_answer_gate_pass": true,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": true
+        },
+        "corrected_diagnostic_answer_gate_pass": true,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "discovered-no-path",
+        "arm": "control",
+        "paid_run_answer_gate_pass": true,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": true
+        },
+        "corrected_diagnostic_answer_gate_pass": true,
+        "paid_run_traversal_success": true
+      },
+      {
+        "case_id": "discovered-no-path",
+        "arm": "treatment",
+        "paid_run_answer_gate_pass": true,
+        "corrected_diagnostic_gates": {
+          "turn_status_ok": true,
+          "nonempty_answer": true,
+          "no_failed_graph_operations": true,
+          "all_expected_edges_returned_before_answer": true,
+          "expected_chain_named_in_answer": true,
+          "identity_disambiguation_resolved": true,
+          "required_abstention_explicit": true,
+          "no_unbounded_absence_claim": true,
+          "traversal_success": true,
+          "successful_no_path_neighborhood": true,
+          "answer_gate_pass": true
+        },
+        "corrected_diagnostic_answer_gate_pass": true,
+        "paid_run_traversal_success": true
+      }
+    ],
+    "human_adjudication": {
+      "Tavi ambiguity": "Original deterministic heuristic accepted both because the treatment answer said “two.” Revised diagnostic requires explicit inability to determine which Tavi: control passes and treatment fails, matching both reviewers.",
+      "Supplied no-path": "Original deterministic heuristic rejected control wording “does not establish a connection.” Revised diagnostic accepts this bounded lookup phrasing: control and treatment pass, matching both reviewers.",
+      "Oren identity": "Both arms remain human hard-gate failures because the returned evidence did not establish the required potter identity; this is preserved as a separate human adjudication, not retroactively inserted into the paid-run lexical gate."
+    }
+  },
+  "descriptive_arm_metrics": {
+    "control": {
+      "turn_count": 6,
+      "turn_status_counts": {
+        "ok": 6
+      },
+      "provider_call_count": 18,
+      "provider_call_status_counts": {
+        "ok": 18
+      },
+      "usage_totals": {
+        "input_tokens": 83560,
+        "output_tokens": 1664,
+        "total_tokens": 85224,
+        "cached_input_tokens": 54101
+      },
+      "estimated_cost_usd": 0.00431891,
+      "wall_ms": {
+        "mean": 10323.0,
+        "median": 10218.7,
+        "min": 7159.1,
+        "max": 14270.2
+      },
+      "operation_counts": {
+        "search": 5,
+        "neighborhood": 6,
+        "object": 2
+      },
+      "operation_sequences_by_case": {
+        "supplied-two-hop": [
+          "search",
+          "neighborhood"
+        ],
+        "discovered-two-hop": [
+          "search",
+          "neighborhood"
+        ],
+        "supplied-object-disambiguation": [
+          "neighborhood"
+        ],
+        "discovered-ambiguous-label": [
+          "search",
+          "neighborhood",
+          "object",
+          "object"
+        ],
+        "supplied-no-path": [
+          "neighborhood"
+        ],
+        "discovered-no-path": [
+          "search",
+          "neighborhood",
+          "search"
+        ]
+      },
+      "paid_run_answer_gate_passes": 4,
+      "paid_run_traversal_successes": 6,
+      "corrected_diagnostic_answer_gate_passes": 5
+    },
+    "treatment": {
+      "turn_count": 6,
+      "turn_status_counts": {
+        "ok": 6
+      },
+      "provider_call_count": 20,
+      "provider_call_status_counts": {
+        "ok": 20
+      },
+      "usage_totals": {
+        "input_tokens": 95057,
+        "output_tokens": 2081,
+        "total_tokens": 97138,
+        "cached_input_tokens": 64560
+      },
+      "estimated_cost_usd": 0.0047358,
+      "wall_ms": {
+        "mean": 8539.9,
+        "median": 8344.1,
+        "min": 6445.5,
+        "max": 12069.4
+      },
+      "operation_counts": {
+        "search": 5,
+        "object": 3,
+        "neighborhood": 6
+      },
+      "operation_sequences_by_case": {
+        "supplied-two-hop": [
+          "search",
+          "object",
+          "neighborhood"
+        ],
+        "discovered-two-hop": [
+          "search",
+          "neighborhood"
+        ],
+        "supplied-object-disambiguation": [
+          "neighborhood"
+        ],
+        "discovered-ambiguous-label": [
+          "search",
+          "neighborhood"
+        ],
+        "supplied-no-path": [
+          "search",
+          "object",
+          "neighborhood"
+        ],
+        "discovered-no-path": [
+          "search",
+          "object",
+          "neighborhood"
+        ]
+      },
+      "paid_run_answer_gate_passes": 5,
+      "paid_run_traversal_successes": 6,
+      "corrected_diagnostic_answer_gate_passes": 4
+    }
+  },
+  "overall_summary": {
+    "turns_ok": 12,
+    "provider_calls_ok": 38,
+    "total_usage": {
+      "input_tokens": 178617,
+      "output_tokens": 3745,
+      "total_tokens": 182362,
+      "cached_input_tokens": 118661
+    },
+    "estimated_cost_usd": 0.00905471,
+    "traversal_successes": 12,
+    "original_paid_run_answer_gate_passes": 9,
+    "corrected_diagnostic_answer_gate_passes": 9
+  },
+  "interpretation": {
+    "result": "No treatment win established.",
+    "basis": "All 12 turns traversed successfully; corrected diagnostic gates favor control 5/6 to treatment 4/6, and the independent blinded reviewer hard gates agree (5/6 control, 4/6 treatment). Independent preferences among six pairs: control 3, treatment 2, one pair had both answers fail and no eligible preference. PRIME blinded scores for cases 3-6 prefer control twice, treatment once, and tie a both-fail pair. Treatment used two more model calls overall and cost slightly more; wall-time differences are descriptive only.",
+    "limitations": [
+      "Six synthetic pairs are exploratory and do not establish native Graph retrieval or general model behavior.",
+      "The fake validates operation choice against a deterministic in-process state machine; no live MIND, personal corpus, private C2 material, or database was used.",
+      "One independent reviewer scored all six and PRIME scored only cases 3-6 blind; PRIME had seen pilot arm mapping for cases 1-2.",
+      "Costs are estimates and timing is descriptive; non-streaming TTFT is unknown.",
+      "Temporary Hermes homes emitted plugin-registration warnings and asynchronous FileNotFoundError logging-handler traces during cleanup. All 38 typed provider calls and all 12 answer results returned ok; checkpoints and raw answers were retained.",
+      "An earlier nonce-mismatch attempt was discarded with unknown tokens/cost and no reusable raw answers; it is not in the six-pair scored cohort."
+    ]
+  }
+}
