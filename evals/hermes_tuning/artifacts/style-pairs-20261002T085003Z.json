@@ -1729,7 +1729,7 @@
     "zero_tool_events": true,
     "all_turns_ok": true
   },
-  "rating_status": "pending independent blinded scoring; no prose ratings added",
+  "rating_status": "complete; both locked blind reviews were scored before unblinding, then mapped and stored",
   "blind_review_provenance": {
     "PRIME": {
       "sha256": "c25badfd47ec695d22a92ad689632edd70cc56c98dab0e4f522e7e4a79188e4e",
