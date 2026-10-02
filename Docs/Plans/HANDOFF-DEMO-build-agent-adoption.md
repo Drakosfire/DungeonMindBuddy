@@ -8,11 +8,11 @@ Steward: DEMO. Implementation owner: DungeonMindBuddy. Content-aware source retr
 
 ## Pinned baseline and topology
 
-- Buddy main at design: `3608663a950cde7472ea942628170f083e533b14` (2026-10-02).
-- At re-anchor, PR #836 (managed World → native Graph binding) and #839 (Plan source-bundle diagnostics) were open. PRIME owns their review and merge.
-- PR #842 is the BLOCKED Play Agent adoption handoff. PRIME owns its activation and the serial slot decision.
-- PR #781 only changes the shared Build projection-action helper and tests; it does not own the Build page or controller.
-- Default topology is **serial**. Do not activate or dispatch this Build implementation while #836/#839 or the Play #842 slot decision is unresolved. At activation, fetch current main, inspect open PRs and leases, and confirm shared Agent and server-route ownership again.
+- Re-anchored to Buddy main `61f76f567bce672bf88248bd17e5bb44feb77ba2` (2026-10-02).
+- PR #836 merged at `6de8d831ab82308086677fb3038122936ab9a756`; PR #839 merged at `47f9955fd054017a1739dfa8129df65dd61d6bcd`; PR #842 merged at `672d18b059eaeceff20555374170ec2679f79082`. Those gates are settled.
+- PR #781 covers the shared Build projection-action helper and tests only; it does not own the Build page or controller.
+- The current serial prerequisites ahead of later surface adoption are recovery → AGENT-INTERACTION runtime acceptance (#865) → Plan action projection (#859) → Plan conversation consumer (#857) → the Elderwyld Plan Graph usefulness path. Play follows that path. PRIME retains sequencing authority among later Play, Build, and Ingest adoption; this handoff assigns Build no slot.
+- Build remains **BLOCKED** pending the Buddy exact-document/committed-registry-revision state-sync/admission implementation and a separate exact Build resolver/request lease. No Build implementation, provider, database, or runtime lease is active. At any future activation, re-anchor main, inspect open PRs and leases, and confirm shared Agent and server-route ownership.
 
 ## Current evidence
 
@@ -24,7 +24,7 @@ At the pinned main:
 - The shared Agent request model accepts surface `build` and primary-work kind `build`, but `apps/live_control_server/routes/agent.py` currently rejects every primary-work kind other than `plan`. Schema acceptance is not a Build resolver.
 - The older `/api/live/query` SurfaceContext V1 is campaign/document/session-shaped and its resolver does not accept Build; it is not a fallback conversation path. Use the shared `/api/live/agent/turn` contract with explicit World owner scope and a server-verified Build resolver.
 - The current `usePublishAgentSurfaceContext` compatibility helper fills a missing campaign ID with the surface ID (so Build could become campaign `build`), and the shared ambient/thread scope is campaign-shaped. A managed-World Build publisher must avoid that fallback; any browser-local thread namespace must remain separate from the wire owner and carry an explicit World owner identity.
-- The roadmap already requires the exact Build document/current committed revision, stale-revision rejection, and says campaign/World equality is insufficient proof (pinned main, `ROADMAP-demo.md` around lines 503–517).
+- The roadmap and Architecture ruling require the exact admitted Build document and current committed registry revision; campaign/World ID equality does not prove ownership. The server must derive owner scope from the admitted workspace record.
 - The UI API currently exposes Index and World Plan turn wrappers only; the future Build path needs a typed client wrapper after the server resolver is accepted.
 - Build metadata and draft state are available in the Build controller/editor. They are not proof of server-side World ownership or committed-revision authority.
 
@@ -41,13 +41,13 @@ These are source findings, not a live browser or provider witness.
 
 ## Required server admission
 
-The client’s World/document locators and expected revision are claims to check, not authority. Before model dispatch, Buddy must independently resolve the selected managed World and the active Build document through an owning server-side authority, prove that the document belongs to that World, load its current committed revision, and compare it with the expected revision. The response and trace must report the resolved identity/revision.
+The Build surface/document editor supplies explicit `document_id` and expected committed registry revision as locators to validate; the server must not infer a unique document from the World. Before model dispatch, Buddy resolves the admitted workspace record, verifies its World association and current committed registry revision, and derives owner scope only from that authoritative record. The response and trace report the server-resolved document and revision.
 
-A mismatch, foreign or missing document, legacy-only selection, unresolved World mapping, or unavailable revision must fail closed with no provider call. Use the native Build revision identity; do not synthesize a revision from a title, campaign label, draft hash, or client state. If Buddy has no server authority that can prove World-to-Build-document ownership and the committed revision, stop before dispatch and return to the relevant work-authority owner for a contract. Do not add source reading to solve this gap. Confirm the existing request authentication/selection boundary during activation; this slice does not create a new authentication system.
+A missing, foreign, stale, ambiguous, legacy-only, or unavailable document/revision fails closed with no provider call. Never synthesize revision identity from a title, campaign label, draft hash, or client state. This accepted owner boundary requires no new cross-repository contract; the remaining gate is implementation of Buddy's exact-document/revision state-sync and admission path, followed by its separately leased Build resolver/request work. Do not add source reading to solve this gap. Confirm the existing request authentication/selection boundary during activation; this slice does not create a new authentication system.
 
 ## Verification required at activation
 
-The future ACTIVE handoff must pin an exact base/head, enumerate an exclusive expected-path allowlist, name the verification environment and PR topology, and include mutable authority documents that need a truthful sync after #836 settles. Candidate file boundaries below are investigative hints only; they are not a lease.
+The future ACTIVE handoff must pin an exact base/head, enumerate an exclusive expected-path allowlist, name the verification environment and PR topology, and identify any mutable authority documents needing synchronization after the state-sync/admission prerequisite settles. Candidate file boundaries below are investigative hints only; they are not a lease.
 
 At minimum, verify at the owning boundaries:
 
