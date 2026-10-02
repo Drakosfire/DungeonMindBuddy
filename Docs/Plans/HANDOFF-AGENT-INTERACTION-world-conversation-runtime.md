@@ -20,9 +20,10 @@ activation.
 
 Connect Buddy's production generic Agent turn path to the accepted APP-STATE
 World conversation service. A verified World has one server-issued active
-conversation shared by its surfaces. Every accepted turn is durable, keeps the
-surface/work basis under which it was submitted, and completes on that same
-historical turn even if the user changes selection before the response returns.
+conversation that later surface consumers share. Every accepted turn is
+durable, keeps the surface/work basis under which it was submitted, and
+completes on that same historical turn even if the user changes selection
+before the response returns.
 
 The World conversation ID is visible conversation identity. Provider
 continuation is a separate, narrower context segment keyed from the
@@ -49,10 +50,11 @@ not conversation authority.
   document or revision changes before completion. The result is not persisted
   on its originating turn. Existing tests encode both per-document history
   separation and the dropped late response.
-- No open Buddy PR or active task currently owns production runtime adoption.
-  The suspended `codex/agent-world-conversation-backend` checkout is dirty at
-  `0e49c4d7`. Preserve it until PRIME explicitly reconciles its diff and grants
-  a new lease. Do not edit, transplant, or infer authority from that checkout.
+- At this pinned base, no implementation PR or assigned task owns production
+  runtime adoption. The suspended
+  `codex/agent-world-conversation-backend` checkout is dirty at `0e49c4d7`.
+  Preserve it until PRIME explicitly reconciles its diff and grants a new
+  lease. Do not edit, transplant, or infer authority from that checkout.
 
 ## Required runtime contract
 
@@ -72,19 +74,22 @@ not conversation authority.
    and instance, primary work, supporting references, and selection where
    present. For Plan, bind the saved document ID, object revision,
    Content/WorkRevision ID and number, and full committed-content SHA-256. For
-   Play, bind the selected Run/revision or snapshot and its pinned Runbook
-   identity/revision/hash. Never treat a client locator as resolved authority.
+   a later Play consumer, preserve the selected Run/revision or snapshot and
+   pinned Runbook identity/revision/hash that its server resolver supplies.
+   This handoff does not implement that Run resolver. Never treat a client
+   locator as resolved authority.
 4. Keep provider continuation separate from the World conversation ID. A Plan
    document or committed revision change starts a fresh provider segment even
-   when the bytes happen to match. A Play Run or Runbook revision change also
-   starts a fresh segment. Do not replay hidden provider history from a prior
-   segment as if it were formed under the current work basis. Recompute current
-   context and tools on every turn. Do not add resumable provider sessions if
-   the selected adapter has none.
+   when the bytes happen to match. When a later Play resolver supplies its
+   Run/Runbook basis, either revision change also starts a fresh segment. Do not
+   replay hidden provider history from an earlier segment as if it were formed
+   under the current work basis. Recompute current context and tools on every
+   turn. Do not add resumable provider sessions if the selected adapter has
+   none.
 5. Correlate completion to the persisted originating turn and frozen work
    basis. A late Plan A result remains Plan A history; it is not dropped or
-   attached to Plan B. A late Run A result remains Run A history; it cannot
-   mutate or become the current answer for Run B.
+   attached to Plan B. Apply the same invariant when the later Play consumer
+   adopts this runtime; this slice does not implement Play selection behavior.
 6. Preserve provider-neutral transcript boundaries: store visible user and
    assistant text plus typed provenance and lifecycle only. Do not store
    hidden prompts, model reasoning, compiled Plan content, graph/tool packets,
@@ -102,18 +107,20 @@ not conversation authority.
 - **Plan/Content** retains Compose/Revise proposal bytes, review state, Apply
   receipts, and ordinary Save results as Plan-owned actions. They are not
   generic conversation turns; a non-authoritative link/summary is optional.
-- A future Plan consumer may import only allowlisted visible Ask turns whose
+- The later DEMO Plan consumer cutover owns invoking the legacy importer. It
+  may import only allowlisted visible Ask turns whose
   stored `ownerId` exactly matches the independently verified World and whose
   `contentBasis` is preserved. Import must be idempotent by stable source-turn
   identity. Missing/mismatched turns are skipped or quarantined; do not infer
   ownership from a local namespace. Do not import proposal/action rows or
   Hermes handles. Keep local bytes until the owning service confirms import.
 
-This runtime slice does not change Plan or Play UI, Graph retrieval, citations,
-tool policy, Run/Runbook persistence, provider/model policy, deployment/auth,
-APP-STATE schema, or proposal/Save behavior. The Plan consumer is the first
-DEMO surface successor after runtime acceptance; Play follows under its pinned
-handoff. Other surfaces remain separately bounded.
+This runtime slice does not change Plan or Play UI, legacy browser-history
+import, Graph retrieval, citations, tool policy, Run/Runbook persistence,
+provider/model policy, deployment/auth, APP-STATE schema, or proposal/Save
+behavior. The Plan consumer is the first DEMO surface successor after runtime
+acceptance; Play follows under its pinned handoff. Other surfaces remain
+separately bounded.
 
 ## Required owning-boundary evidence
 
@@ -123,25 +130,31 @@ At minimum, its tests must prove:
 
 - Production route/service calls use the APP-STATE conversation service and
   stable turn receipts, not browser history as authority.
-- Plan and Play requests for the same verified World resolve the same active
-  server conversation and ordered history across reload/fresh runtime
-  instances; `New conversation` uses the durable command/CAS contract.
+- Two currently supported, server-resolved Agent contexts for the same World
+  (for example Index and saved Plan) use the same active server conversation
+  and ordered history, but distinct provider segments; each turn keeps its own
+  exact surface/work basis. A changed Plan document/revision also selects a
+  fresh segment. `New conversation` uses the durable command/CAS contract. Do
+  not require a real Play route or Run resolver in this runtime PR.
 - User input is persisted before dispatch; retries, concurrent turns,
-  interrupted calls, and late completion preserve sequence and originating
+  interrupted calls, and late Plan completion preserve sequence and originating
   provenance without fabricating an answer.
-- Provider pointer/segment selection changes with the exact Plan or Play work
-  basis and never leaks hidden history across document/revision/Run/Runbook
-  boundaries.
+- Provider pointer/segment selection changes with the exact Plan document and
+  committed revision/digest and never leaks hidden history across those
+  boundaries. Preserve the typed contract for future Play Run/Runbook bases;
+  test their resolver and UI in the later Play consumer slice.
 - Invalid World/work/revision or malformed provenance fails closed before
   provider work. A database or receipt failure cannot silently fall back to
   localStorage.
-- Verified Ask-history import is idempotent and exact-World scoped. Plan
-  proposal/action bytes stay with their owning Plan path.
+- Plan proposal/action bytes stay with their owning Plan path; legacy history
+  import is not part of this runtime slice.
 
 The later DEMO consumer witness must run a configured-provider Plan multi-turn
-conversation, reload it, switch to another Plan and to Play in the same World,
-and prove shared visible history, exact provenance, segment isolation, and
-late-result placement. It is not operator acceptance of J1–J6.
+conversation, reload it, and switch to another Plan in the same World. Prove
+shared visible history, exact provenance, segment isolation, and late-result
+placement. A separate later Play consumer witness will prove Run/Runbook
+selection, cross-surface history, and late-result placement. Neither is
+operator acceptance of J1–J6.
 
 ## Activation gates and return contract
 
