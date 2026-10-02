@@ -11,7 +11,8 @@
   consumer cutover under their separate handoffs.
 - **PR title:** `APP-STATE: preserve typed Agent turn provenance`.
 - **Verification:** isolated disposable APP-STATE PostgreSQL only. No shared
-  database, provider, live server, runtime, or port reservation.
+  database, provider, live product server, or runtime. APP-STATE does not
+  reserve or manage the dedicated test port described below.
 - **Design authority:** APP-STATE World conversation contract;
   `ARCHITECTURE-application-state-layer.md`; `DECISION-agent-context-compilation.md`;
   PRIME's 2026-10-02 provenance ruling.
@@ -107,9 +108,20 @@ existing retries valid while making changed provenance conflict.
 
 ## Required owning-boundary evidence
 
-Use the existing isolated disposable PostgreSQL fixture; the migration test
-must exercise a database at `20261001_0011` with existing rows before upgrading
-to `20261002_0012`. At minimum, verify:
+**PRIME-owned test-resource lease:** PRIME owns container
+`prime-app-state-provenance-pg-20261002`, PostgreSQL 16.15 at
+`127.0.0.1:55460`, admin database `postgres`, with tmpfs data and no persistent
+volume. APP-STATE may connect to this target for the scoped suite by setting
+`DMB_APPLICATION_STATE_TEST_DATABASE_URL` to the approved test-admin DSN. The
+existing fixture creates and drops uniquely named
+`dungeonbuddy_app_state_test_*` databases. APP-STATE must not reserve, start,
+or stop the port/container, and must not use shared port 54329 or durable port
+54331. PRIME owns container shutdown/removal after the test receipt and review.
+This exception leases only disposable test-database access; it does not lease a
+runtime or product server.
+
+The migration test must exercise a database at `20261001_0011` with existing
+rows before upgrading to `20261002_0012`. At minimum, verify:
 
 1. Strict model validation accepts a complete Content tuple and rejects partial
    tuples, missing digest, invalid UUID, nonpositive/bool revisions, and new
