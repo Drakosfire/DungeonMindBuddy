@@ -217,65 +217,65 @@ model call, no tools or graph, 611 input / 48 output / 13 reasoning tokens and
 trace-estimated `$0.0000851`; the provider request ID was not separately
 surfaced. This witness closes only the connected saved-Plan Ask gate.
 
-The next game-prep graph goal is a serial successor: make the existing, already
-populated Elderwyld native graph queryable from that same Plan conversation.
-The C1+C2 graph must be available together. Buddy `scope_mode=world` maps to
-MIND V2 `WORLD_CROSS_CAMPAIGN` with GM admissibility; the older prescription to
-query `campaign` with `campaign_id=longmont-c2` would hide C1 and must not be
-used. C2 Session 29 is Buddy Agent narrative focus (`campaign_id=longmont-c2`,
-`session_id=session-29`) carried through a separate Buddy context/ranking path.
-These labels never populate native V2 query scope, `campaign_id`, `focus`, or a
-graph entity ID. The C2 question must use facts already in the adopted graph;
-the current direct adapter does not forward that focus. Resolve the native head
-once per turn and pin search, multi-hop, evidence, and source reads to it. Return
-a compact receipt with managed World/native Graph identity, active binding
-version, scope, GM admissibility, separate Buddy narrative focus, pinned
-revision/head ID, head-at-resolution, current `is_head` observations, and
-evidence/source refs. Before provider dispatch, show the configured provider
-destination and that bounded graph evidence/source excerpts may be sent; after
-the turn, identify the exact evidence references/excerpts actually included.
-Never send a full graph or include Plan text/full graph payload in receipts
-or logs.
+The next game-prep graph capability is an explicit Buddy managed-World to
+existing MIND V2 Graph binding for native `world_id=eldyrwild`. This is the first
+standalone capability; it does not add Graph retrieval to the saved-Plan Agent.
+The mapping is versioned and persisted on the Buddy managed World. Buddy owns
+the relationship and its status. MIND owns native Graph identity and head
+existence. Buddy validates an activation through the existing read-only MIND
+adapter. The managed World ID, native Graph `world_id`, and VNext Knowledge
+`space_id` remain distinct; `#826` creates an empty KnowledgeSpace and does not
+satisfy this binding.
 
-Buddy's managed-World owner must persist an explicit, active/versioned mapping
-from the distinct managed World ID to existing MIND V2 Graph `world_id=eldyrwild`.
-MIND V2 Graph `world_id` is distinct from VNext Knowledge `space_id`; do not
-translate or substitute the identifiers. Do not infer the mapping from a name,
-slug, campaign ID, or graph contents. Use the existing non-empty native graph;
-#826's empty-space provisioning does not satisfy this binding, and this gate
-must not create/import a new KnowledgeSpace. Buddy must derive GM authority from
-trusted server-side surface/session state; a non-GM request must fail closed.
-Current Buddy has no demonstrated in-process authentication middleware on
-`/api/live`, so identifying or building the trusted GM principal/role boundary
-is an explicit BLOCKED activation gate. If absent, do not dispatch
-graph/provider requests. The static audit of the sealed Eldyrwild V6 adoption bundle reports 469 objects,
-323 relationships, 83 source artifacts, and 93 contributions. These package
-counts do not prove live queryability. A prior PRIME read-only observation recorded native head
-`rev:680c246047d67f9fe0293ee90526f670`, parent adoption
-`rev:34b1f8e2625d5ba693fc726a2a1a4720`, and 95 native contributions; that is
-historical evidence, not the successor's live witness. The older local Buddy
-graph snapshot (`rev:0c644…`, 472 nodes, 376 edges, 93 local contribution files)
-is not native authority. The prior audit found C2 source artifacts for Sessions
-22–25 only; Sessions 26–28 and Session 28 recap ingestion remain separate,
-unproved gates. Never alias `campaign_id == world_id`.
+PR #835 merged at Buddy main `1ccfe7f2af69684e1d02276f66b875ef336b82a0` from
+corrected code head `3a1a12b05be8e00581dce45da2b1b5efa53f123a`. It gates the
+listed Agent/query, projection/retrieval, Threat query-hydration, and Threat
+identity-candidate Graph read responses behind the configured loopback local
+operator. This is a local single-operator capability, not named-user or remote
+GM identity. MIND `Admissibility.GM` remains a separate visibility filter.
+ThreatDraft, Graph Review, and remaining publication workflow reads are not
+claimed secured by #835. The route audit found unguarded Graph Preview
+recap-projection, existing-object candidates, latest-preview, extract/promote
+review-package and prepare, and Threat publication identity-resolution
+responses that return source/evidence or stored candidate data. ThreatDraft
+and prepare/commit internal revision reads also remain outside this gate.
+These are not all native MIND projections. Classify and gate those routes
+before any full-graph query activation.
 
-The successor's BLOCKED contract and acceptance witness are recorded in
+The active binding handoff is
+[`HANDOFF-DEMO-existing-graph-binding.md`](../Plans/HANDOFF-DEMO-existing-graph-binding.md).
+PRIME accepted its exact 11-path allowlist and serial topology at design head
+`80ab7490878b297eba14602130fe867a5d3e47c2`, activating the implementation lane
+from Buddy main `1ccfe7f2af69684e1d02276f66b875ef336b82a0`. Buddy PR #826 remains
+OPEN/CLEAN at `4fa28e586783f0e63edb85fa664afa53521367f6` and paused with its
+existing worktree/head preserved. It may not edit or merge its managed-World
+registry changes while this binding slice owns that path. After the binding PR
+merges, #826 must rebase or redesign against the new record contract before its
+next implementation or merge.
+
+The saved-Plan query remains a separate BLOCKED successor under
 [`HANDOFF-DEMO-session29-elderwyld-graph.md`](../Plans/HANDOFF-DEMO-session29-elderwyld-graph.md).
-It remains BLOCKED after Buddy PR #834 merged the corrected gate at
-`5b8686829a8f734d99dca59e4998611aee5df5cb`. The #833 configured-provider
-saved-Plan witness passed as recorded above. The serial prerequisite to protect
-the listed public native Graph read responses is ACTIVE under
-[`HANDOFF-DEMO-agent-graph-auth.md`](../Plans/HANDOFF-DEMO-agent-graph-auth.md);
-it covers Agent/query, projection/retrieval, Threat query-hydration, and Threat
-identity-candidate data. Internal validation reads in remaining write workflows
-are outside this PR and are not asserted secured. It does not implement World
-binding or graph querying. Before any full-graph implementation lease, re-anchor
-on current `origin/main`, reconcile the #826
-empty-space versus existing-Graph binding ownership, obtain ARCHITECTURE
-exact-head acceptance of the corrected contract, land and review the auth
-prerequisite, and confirm the read-only `eldyrwild` witness plus isolated native
-fixtures for concurrent-head and R1→R2 restart proofs. This does not close the
-Session 28 recap-ingestion gate or J1–J6 acceptance.
+It must expose C1 and C2 together through MIND V2 `WORLD_CROSS_CAMPAIGN` with
+`campaign_id=None` and GM admissibility. C2 Session 29 labels
+(`campaign_id=longmont-c2`, `session_id=session-29`) are separate Buddy
+narrative focus only; they never populate native V2 scope, campaign, focus, or a
+graph entity ID. Buddy must resolve the current head once per turn and pin all
+search, multi-hop, evidence, and source reads to it. MIND V2 supports a revision
+pin per operation; Buddy owns the full-turn orchestration and receipt. The query
+must cite native evidence/source references, disclose the configured provider
+destination and bounded excerpts before dispatch, and show the exact excerpts
+actually sent after the turn.
+
+No current live read proves that `eldyrwild` is populated at its present head.
+The bundle's 469 objects, 323 relationships, 83 source artifacts, and 93
+contributions are static package counts. The prior native observation of head
+`rev:680c246047d67f9fe0293ee90526f670`, parent adoption
+`rev:34b1f8e2625d5ba693fc726a2a1a4720`, and 95 contributions is historical, not
+a live witness. The query handoff still requires a read-only current-graph
+witness and a separate disposable fixture for R1-to-R2 concurrent publication
+and restart re-resolution. No real Graph mutation or KnowledgeSpace creation is
+part of either witness. This does not close Session 28 recap admission or J1-J6
+acceptance.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest

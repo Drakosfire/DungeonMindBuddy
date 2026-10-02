@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from unittest.mock import patch
 
@@ -35,7 +36,7 @@ def test_create_world_persists_exact_identity_and_root(root: Path) -> None:
     assert created.name == "The Glass Orchard"
     assert created.source_root_relpath == "corpus/the-glass-orchard-markdown"
     assert (root / created.source_root_relpath).is_dir()
-    assert created.schema_version == "dmb_world_container_record_v1"
+    assert created.schema_version == "dmb_world_container_record_v2"
 
     listed = list_world_containers(root)
     assert len(listed) == 1
@@ -189,4 +190,35 @@ def test_managed_root_enables_workspace_source_without_weakening_missing_root(
 
 
 def test_registry_schema_constant() -> None:
-    assert REGISTRY_SCHEMA == "dmb_world_container_registry_v1"
+    assert REGISTRY_SCHEMA == "dmb_world_container_registry_v2"
+
+
+def test_legacy_v1_registry_read_is_unbound_and_does_not_rewrite_bytes(root: Path) -> None:
+    path = world_containers_path(root)
+    path.parent.mkdir(parents=True)
+    original = json.dumps(
+        {
+            "schema_version": "dmb_world_container_registry_v1",
+            "records": [
+                {
+                    "schema_version": "dmb_world_container_record_v1",
+                    "world_id": "legacy-world",
+                    "name": "Legacy World",
+                    "source_root_relpath": "corpus/legacy-world-markdown",
+                    "created_at": "2026-01-01T00:00:00Z",
+                }
+            ],
+        },
+        separators=(",", ":"),
+    ).encode("utf-8")
+    path.write_bytes(original)
+
+    listed = list_world_containers(root)
+
+    assert len(listed) == 1
+    assert listed[0].schema_version == "dmb_world_container_record_v2"
+    assert listed[0].world_id == "legacy-world"
+    assert listed[0].name == "Legacy World"
+    assert listed[0].source_root_relpath == "corpus/legacy-world-markdown"
+    assert listed[0].native_graph_binding is None
+    assert path.read_bytes() == original
