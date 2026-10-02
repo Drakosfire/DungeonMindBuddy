@@ -22,6 +22,7 @@ At the pinned main:
 - The Agent turn request model accepts `surface_id: ingest` and a World owner with no primary work. The server independently resolves a supplied World owner, while its saved-work resolver currently supports Plan only.
 - The older `/api/live/query` context adapter is campaign/document/session-shaped and is not the managed-World Ingest conversation path.
 - The shared `AgentInteractionChrome` and `AskPluginSlot` are the accepted conversation host. Ingest does not currently register a plugin there.
+- `usePublishAgentSurfaceContext` treats a missing campaign as the surface ID (`ingest`) for neutral grouping. That fallback is not an owner identity and must never be serialized as campaign scope or presented as a campaign.
 
 These are source findings, not a live browser or provider witness.
 
@@ -30,8 +31,8 @@ These are source findings, not a live browser or provider witness.
 1. Reuse the global Agent host. Add an Ingest-specific Ask plugin under the Ingest surface; do not create a separate chat shell or redesign the shared host.
 2. Make Ask available only for an independently selected managed World. The turn identifies that World and `surface_id: ingest`; it has no active Run/work claim. A selected extraction Run, source, candidate, or Graph Review state is not included in this first turn.
 3. Send the user’s question with an explicit World owner scope. Omit `primary_work`, set `client_work_state: none`, set `graph_request: none`, and set `graph_selection: null`.
-4. Before dispatch, tell the user that the Agent receives the selected World/Ingest identity and their question only. It has not read the source, extracted content, graph, or selected Run. Do not send campaign IDs, session numbers, run IDs, source text, evidence, candidates, graph payloads, or other run/source data.
-5. Keep thread storage partitioned by the non-wire local key `ingest-owner:world:<world-id>`, following the established Index pattern. The request owner is the explicit verified World ID. Do not put the World ID or the local key in a `campaignId` field or represent it as campaign scope.
+4. Before dispatch, tell the user that the Agent receives the selected World/Ingest identity and their question only. It has not read the source, extracted content, graph, or selected Run. Keep the surface instance ID at the route level; never encode the extraction Run in it. Do not send campaign IDs, session numbers, run IDs, source text, evidence, candidates, graph payloads, or other run/source data.
+5. Keep thread storage partitioned by the non-wire local key `ingest-owner:world:<world-id>`, following the established Index pattern. The request owner is the explicit verified World ID. Never put the World ID or local key in a wire campaign field or present either as campaign identity in the UI. An internal browser-local thread namespace may use the existing Index storage pattern only if it remains local and is not displayed or transmitted as campaign scope.
 6. If no managed World is selected, or the server cannot resolve the supplied World owner, keep Ask unavailable or fail the turn before provider dispatch. Do not infer World ownership from `campaign_id == world_id`, the query string, Graph Review handoff, or UI context.
 7. A switch to another World or thread invalidates pending results from the previous identity; no late response may render or persist in the new World’s conversation.
 
