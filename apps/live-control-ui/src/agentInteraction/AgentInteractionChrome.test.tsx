@@ -99,6 +99,11 @@ describe("AgentInteractionChrome", () => {
 
     await user.click(screen.getByRole("button", { name: "Open" }));
     expect(screen.getByTestId("agent-interaction-chrome")).toHaveClass("open");
+    expect(screen.getByRole("button", { name: "Close chat" })).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Close chat" }));
+    expect(screen.getByTestId("agent-interaction-chrome")).not.toHaveClass("open");
+    await user.click(screen.getByRole("button", { name: "Open" }));
 
     view.rerender(
       <AgentInteractionProvider>

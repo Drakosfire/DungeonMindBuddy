@@ -594,6 +594,29 @@
   z-index: 980;
 }
 
+.agent-interaction-exit {
+  position: fixed;
+  top: max(0.75rem, env(safe-area-inset-top));
+  right: max(0.75rem, env(safe-area-inset-right));
+  z-index: 1;
+  border: 1px solid var(--border, #2a3142);
+  border-radius: 999px;
+  background: var(--bg-input, #12141a);
+  color: var(--fg, #e8eaef);
+  cursor: pointer;
+  padding: 0.55rem 0.8rem;
+}
+
+.agent-interaction-exit:hover {
+  border-color: var(--accent, #7aa2f7);
+  color: var(--accent, #7aa2f7);
+}
+
+.plan-agent-shell.open .plan-agent-pane-header,
+.plan-agent-shell.open .index-agent-conversation header {
+  padding-right: 5.5rem;
+}
+
 body.surface-projection-open .plan-agent-shell {
   z-index: 840;
 }

@@ -503,7 +503,6 @@ export function PlanAgentInteractionBar({
     ? managedAskReady
     : derived != null && !focusValidationPending;
   const open = agentInteraction.paneState.isOpen;
-  const setOpen = agentInteraction.setPaneOpen;
   const [status, setStatus] = useState<BundleStatus>("idle");
   const [error, setError] = useState<string | null>(null);
   const [bundle, setBundle] = useState<IngestionSourceBundle | null>(null);
@@ -1232,9 +1231,6 @@ export function PlanAgentInteractionBar({
                   </div>
                 ) : null}
               </div>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close Ask DungeonBuddy">
-                Close
-              </button>
             </div>
           </header>
           {threadSwitcherOpen ? (
