@@ -8,7 +8,7 @@
 
 ## User transition
 
-From a managed World with a selected World-owned Play Run, the operator can ask DungeonBuddy about the current moment of play in the same World-wide Agent conversation used across surfaces. Each turn records its exact Play surface, selected Run identity/revision or snapshot, and pinned Runbook identity/committed revision/hash. A Run or revision change starts a new provider-continuation segment. A late response remains attached to the originating Run's historical turn and never becomes the current answer or context for a newly selected Run.
+From a managed World with a selected World-owned Play Run, the operator can ask DungeonBuddy about the current moment of play in the same World-wide Agent conversation used across surfaces. Each turn records its exact Play surface, selected Run identity/revision or snapshot, and pinned Runbook identity/committed revision/hash. A change in the server-resolved Play scope starts a new provider-continuation segment. A late response remains attached to the originating Run's historical turn and never becomes the current answer or context for a newly selected Run.
 
 This is one Buddy product capability: adopt the generic Agent turn contract on Play. It does not add Graph retrieval, citations, mutations, a new Agent framework, or changes to Run ownership.
 
@@ -191,17 +191,18 @@ and digest. Prior provenance explains that historical turn; it is not current
 World truth, authorization, or a context snapshot.
 
 Keep provider continuation separate from visible conversation identity. For
-Play, a provider segment is scoped to the verified World, exact Run identity
-and revision/snapshot, and exact pinned Runbook identity plus committed
-revision/hash. A Run change, Run revision/snapshot change, or Runbook identity/
-revision/hash change starts a fresh provider segment. Any provider continuation
-key/token must bind that tuple or a server-generated segment ID derived from it;
-it cannot be keyed only by World, conversation, surface, or browser state.
-Default provider replay for a new segment must not silently carry old-segment
-Run turns forward as though they described the new selected work. The World-
-global transcript may remain visible across surfaces; the Agent runtime owns
-any explicit bounded history policy and must preserve provenance when resolving
-a conversational reference.
+Play, a provider segment is scoped to the verified World, the resolved Play
+surface/instance, exact Run identity and revision/snapshot, and exact pinned
+Runbook identity plus committed revision/hash. A change in any part of that
+scope starts a fresh provider segment. Any provider continuation key/token must
+bind the full tuple or a server-generated segment ID derived from it; it cannot
+be keyed only by World, conversation, surface, or browser state. If the selected
+provider adapter has no resumable session today, do not add one solely for this
+adoption. Default provider replay for a new segment must not silently carry
+old-segment Run turns forward as though they described the new selected work.
+The World-global transcript may remain visible across surfaces; the Agent
+runtime owns any explicit bounded history policy and must preserve provenance
+when resolving a conversational reference.
 
 Every UI submission captures the originating durable turn and resolved Play
 basis. Validate completion against that captured turn/segment, never against
@@ -232,12 +233,15 @@ alone is not that evidence.
 
 After those predecessors merge and PRIME pins an ACTIVE DEMO lease, mounted
 Play UI/API tests should prove:
-- Play uses the same server conversation identity/history for the World that
-  the other cut-over surface exposes; no Play-private transcript is created.
+- Play uses the same server active-World conversation identity/history; no
+  Play-private transcript is created. When a companion surface has also cut
+  over, verify both surfaces expose the same conversation/history. If no
+  companion UI is cut over yet, leave that broader visual witness open rather
+  than claiming cross-surface UI acceptance.
 - Ask is unavailable without a selected Run; with one, request resolution and
   the returned typed receipt match the exact World/Run/Runbook snapshot.
-- A Run/revision/Runbook tuple change starts a fresh provider segment and does
-  not send prior segment turns as current work context.
+- A surface/Run/revision/Runbook scope change starts a fresh provider segment
+  and does not send prior segment turns as current work context.
 - A delayed Run A completion stays on A's historical turn after selection
   changes to Run B and cannot change B's active context/tools/current-answer
   state.
