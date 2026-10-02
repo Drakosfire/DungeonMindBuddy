@@ -1,10 +1,10 @@
 # HANDOFF — DEMO: Play Agent on an exact World Run
 
-**Status:** BLOCKED — bounded design recorded; no implementation lease
+**Status:** BLOCKED — refreshed design ready for PRIME activation review; no implementation lease
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
-**Design anchor:** Buddy `main@3608663a950cde7472ea942628170f083e533b14`
-**Topology:** serial successor. PRIME directed that this handoff remain BLOCKED until the #836 binding/authority review and #839 diagnostics gate settle. Re-anchor and request a pinned ACTIVE lease after both gates. No implementation or runtime lease is active.
+**Design anchor:** Buddy `main@c3904bc1e08df689b92d5a0b710b546f77af4600`
+**Topology:** serial successor. #836 and #839 are settled; #848's additive trace-instrumentation PR is merged. This design remains BLOCKED until PRIME accepts the refreshed handoff and activates a fresh implementation lease. No implementation or runtime lease is active.
 
 ## User transition
 
@@ -16,12 +16,52 @@ This is one Buddy product capability: adopt the generic Agent turn contract on P
 
 Buddy #820 completed the World PlayRun C2 UI migration at `bfa741261e715eadb48d873f87fccc1764417da8`; its lease ended at merge. The generic POST /api/live/agent/turn request permits Play and Run locators, but the current work resolver accepts only Plan and returns work_kind_unresolved for a Run. Play has no Ask plugin. Its PlaySurfacePublisher builds legacy A7 publication context from campaign V1 records only, so that publication is not authority for a World V2 Agent turn.
 
-The source contract review was performed against `012ff01acc4e490601f4993644903689af2708c4`. Buddy main was at `92d5ff9c35778a97527546aa9aa15ca8fb7290af` when evaluation-only PR #840 merged; current main and this design anchor are `3608663a950cde7472ea942628170f083e533b14`. The exact comparison from the prior anchor contains three Hermes-only commits and four paths: `Docs/Plans/HANDOFF-HERMES-host-latency.md`, `evals/hermes_tuning/README.md`, `evals/hermes_tuning/artifacts/host-latency-20261002T051413Z.json`, and `evals/hermes_tuning/run_host_latency.py`. No Agent or Play contract changed.
+This handoff is re-anchored at Buddy `main@c3904bc1e08df689b92d5a0b710b546f77af4600`.
+PR #836 merged at `6de8d831ab82308086677fb3038122936ab9a756` from
+`cf226c24da4973f88bbfb904889b45e857ffef31`; it adds the managed-World to
+native-Graph binding but does not change the generic Agent resolver or Play
+request contract. PR #839 merged at
+`47f9955fd054017a1739dfa8129df65dd61d6bcd` and changes Plan source-bundle
+diagnostics only. Both predecessor gates named in the original design are
+settled.
 
-Buddy #836 is open at `18c5de19cb481742206f7c8c3cdfdc97a9097f77` and owns World binding paths plus ROADMAP-demo.md. Buddy #839 is open at `fccb75c5ce5392681bdbaf14beb15b79be220ecc`. Paused open #826 overlaps #836's World container/registry lease and remains inactive. GitHub changed-file lists at the exact #836 and #839 heads show no overlap with the proposed generic Agent resolver or Play page paths; #836 does not change the shared AgentInteractionChrome. PRIME directed DEMO to prepare this design BLOCKED and activate serially only after #836 and #839 settle, followed by a fresh re-anchor. PRIME also confirmed that this first Play slice requires an exact selected World-owned Run: with no Run, Ask stays unavailable and general World/Play chat is deferred to a separate capability.
+PR #848 merged its worker-phase instrumentation at
+`be608e77ee86ecc2cd57336e98b289c9901823e7`. The merged change adds
+allowlisted internal trace phases; it does not change Run resolution, pointer
+lookup, provider dispatch, turn results, or concurrency. RAKE DUTY's comparison
+of #848 with this Play design found no resolver or receipt dependency. Play
+must tolerate additive trace names, keep its Run/Runbook receipt distinct from
+trace telemetry, and never put Run identity or authored Play prose in timing
+spans.
 
-RAKE DUTY's read-only audit found three current hazards. First, the generic route rejects Run primary work before dispatch but currently permits a Play request with no owner and no primary work to reach pointer/provider dispatch; strict World V2 Play checks are used only by the legacy query path. Second, the Play V2 publication omits World ID and its generic UI fallback uses a synthetic Play scope, so local threads can be shared across Worlds unless the new Play conversation explicitly scopes its local namespace by verified World and surface. Third, the structured pointer key includes owner, work kind/ID, and client thread ID but omits surface and Run revision; the store lock protects individual JSON operations, not the resolve-provider-commit sequence, so same-key turns can race. The proposed contract below addresses these issues. PRIME owns activation and final lease. This document grants no write lease.
+PR #826 remains OPEN/paused at
+`4fa28e586783f0e63edb85fa664afa53521367f6`. Its exact changed paths are
+`apps/live_control_server/integrations/dungeonmind/world_space_provisioning.py`,
+`apps/live_control_server/routes/world_containers.py`,
+`apps/live_control_server/services/world_container_registry.py`,
+`apps/live_control_server/services/world_space_binding.py`, `pyproject.toml`,
+`uv.lock`, and its KnowledgeSpace tests. None overlaps the proposed Play
+implementation code paths; #826 holds no active lease and must redesign against
+the merged v2 World registry before its own future activation.
 
+The refreshed open-PR census at this anchor found #842, #843, and #844 are
+one-file BLOCKED handoff PRs; they are design artifacts, not implementation
+leases. #842's own one-file PR is the handoff being refreshed here. #843 and
+#844 touch only their separate handoff files. #798 is backlog documentation,
+#781 is the Build projection-action helper, #763–#765 are Rules work, and
+#760–#761 are Canvas handoffs. Their exact changed-file lists do not overlap
+the proposed Play implementation code paths. The Play handoff is the next
+serial implementation candidate; #843 Build and #844 Ingest remain BLOCKED and
+are not dispatched in parallel.
+
+RAKE DUTY's read-only Play audit remains applicable: generic Play turns must
+fail before pointer/provider work unless a server-verified World and the exact
+selected World-owned Run snapshot resolve; local conversation identity must
+include verified World plus Play surface; provider continuation must be
+segmented by exact Run and revision; and same-key lookup/provider/commit must
+serialize or return a typed conflict. The implementation must prove the actual
+deployment process topology before relying on a process-local lock.
+This refreshed design grants no write or runtime lease.
 ## Request and authority contract
 
 Keep the existing `dmb_agent_turn_request_v1` request shape. For a selected managed World Run, the client sends only:
@@ -48,6 +88,11 @@ Pass only the bounded authored current Beat and optional Scene through the estab
 ## Typed response and compatibility
 
 Do not add fields to `dmb_agent_turn_response_v1`: the Pydantic model forbids extras and the existing Plan client validates exact keys. Preserve the exact Index and Plan v1 responses. Play needs a versioned Play-specific response envelope, proposed discriminator `dmb_agent_play_turn_response_v1`; the Play client requires that discriminator and validates all exact keys and values against its submitted request.
+
+PR #848 adds bounded, allowlisted internal runtime phase spans on current main.
+Treat trace span names as additive. Keep the typed Play Run receipt separate
+from trace telemetry, and do not put World/Run identity, source text, or authored
+Play prose into timing spans.
 
 The Play envelope's typed `primary_work` receipt must include:
 
@@ -80,6 +125,7 @@ Backend tests must exercise `POST /api/live/agent/turn` with a provider spy and 
 - Current Beat/Scene prose is the bounded exact pinned content; no graph or citation call occurs.
 - Strict Index/Plan response shapes and persisted pointers remain compatible; v1 clients reject the Play discriminator; the Play validator rejects any mismatched/missing receipt field.
 - Run A→B, same-Run revision changes, Plan→Play, late results, and same-key concurrent turns obey the isolation and serialization rules above.
+- The Play response/consumer tolerates additive internal trace span names; the Run receipt stays separate, and timing spans contain no World/Run identity or authored Play prose.
 
 Mounted Play UI tests use mocked APIs/provider responses and prove Ask remains unavailable without a selected Run; with a selected Run they prove the exact request, validated World V2 selection, surface-specific thread, Play receipt display, Run A→B switch, and stale-response fencing. No live provider, application server, product database, Graph service, or corpus is needed for the implementation PR. After merge, DEMO will run the authorized configured-provider Play conversation witness in the designated demo environment and record the exact World/Run/revision, response basis, and multi-turn continuity without changing runtime ownership.
 
@@ -123,8 +169,21 @@ apps/live-control-ui/src/playSurface/PlayAgentConversation.css
 apps/live-control-ui/src/playSurface/PlayAgentConversation.test.tsx
 ```
 
-This is a proposed set only. If the implementation needs another path, response/request contract, dependency, database/schema migration, cross-repository change, or shared runtime state, return to PRIME before editing. In particular, `ROADMAP-demo.md` is still in #836's open lease and cannot be changed until that lease ends.
+This is a proposed set only, not an active allowlist. PR #836 released the Roadmap lease when it merged. The current open-PR path census found no active implementation owner on these proposed Play paths; #843 and #844 remain BLOCKED design handoffs. If implementation needs another path, response/request contract, dependency, database/schema migration, cross-repository change, or shared runtime state, return to PRIME before editing. PRIME must pin the final write allowlist, base, verification, and runtime/process-topology boundaries before implementation.
 
 ## Activation checklist
 
-PRIME must confirm that the #836 binding/authority review and #839 diagnostics gate have settled, then re-anchor main, relevant open PRs, and active leases. PRIME reviews this exact BLOCKED handoff and activates one serial implementation PR with a fresh base, explicit path/runtime lease, inherited failures, exact verification commands, and PR topology. RAKE DUTY's read-only Play findings and the exact GitHub changed-file checks above are part of the design evidence. Any changed owner boundary or contract returns to PRIME before editing. No implementation or runtime start is authorized by this BLOCKED document.
+Re-anchor Buddy remote main before activation. At this handoff revision, main
+is `c3904bc1e08df689b92d5a0b710b546f77af4600`; #836 and #839 are merged, #848
+is merged, #826 remains paused, and #843/#844 remain BLOCKED. The exact
+changed-file census above found no active code-path collision for the Play
+candidate.
+
+PRIME must review this exact BLOCKED handoff and decide whether to activate one
+serial implementation PR. Activation must pin the current base, exact final
+write allowlist, inherited failures, verification commands, and concurrency
+topology/lock boundary. Runtime use during the implementation tests is not
+required; any configured-provider post-merge witness still needs PRIME's
+designated isolated environment and exact pin. Any changed owner boundary or
+contract returns to PRIME before editing. This BLOCKED document grants no
+implementation or runtime authority.
