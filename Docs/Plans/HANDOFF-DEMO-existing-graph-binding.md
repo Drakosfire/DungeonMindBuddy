@@ -1,12 +1,12 @@
 # HANDOFF — DEMO: bind a managed World to an existing native Graph
 
-**Status:** ACTIVE — PRIME accepted the exact 11-path allowlist and serial
-topology at design head `80ab7490878b297eba14602130fe867a5d3e47c2`. The registry
-lease has transferred from paused PR #826 to this implementation lane.
+**Status:** COMPLETE — Buddy PR #836 merged at
+`6de8d831ab82308086677fb3038122936ab9a756` from reviewed head
+`cf226c24da4973f88bbfb904889b45e857ffef31`.
 
 **Steward:** DEMO
 
-**Current base:** Buddy `origin/main@a0282b4eb3c53c8b1f66e238cc13de9ae96de8d5`
+**Implementation base:** Buddy `origin/main@a0282b4eb3c53c8b1f66e238cc13de9ae96de8d5`
 after the 2026-10-02 re-anchor and rebase. Original activation base:
 `1ccfe7f2af69684e1d02276f66b875ef336b82a0`.
 
@@ -251,3 +251,27 @@ its fixture creates and drops a disposable database through
 `DMB_APPLICATION_STATE_TEST_DATABASE_URL` or fallback `127.0.0.1:54329`. The
 override is unset and no listener exists on the fallback port. No database or
 runtime action was taken.
+
+## 11. Settlement — 2026-10-02
+
+Buddy PR #836 merged at `6de8d831ab82308086677fb3038122936ab9a756` from exact
+head `cf226c24da4973f88bbfb904889b45e857ffef31`. PRIME reviewed the exact head,
+merged under its standing merge delegation, and independently reran the focused
+registry/binding/direct-route suite: **35 passed**, with 11 existing Pydantic
+`schema`-shadow warnings. Ruff passed on all seven leased Python paths, and the
+cumulative diff check passed.
+
+The broader TestClient request hang was reproduced on both base and head and
+on a trivial synchronous FastAPI route. The disposable PostgreSQL integration
+was not run because `DMB_APPLICATION_STATE_TEST_DATABASE_URL` is unset and
+fallback `127.0.0.1:54329` has no listener. No shared database, server, provider,
+live `eldyrwild` binding, or Graph mutation was used. These limits do not claim
+a live binding or saved-Plan Graph query.
+
+The exclusive implementation lease ended at merge. PR #826 remains open and
+paused at head `4fa28e586783f0e63edb85fa664afa53521367f6`. Before any further
+implementation or merge, it must re-anchor and redesign its KnowledgeSpace
+binding against the merged v2 managed-World record while preserving the Graph
+and KnowledgeSpace as distinct typed relations. PRIME must accept its updated
+handoff and owning-boundary verification plan; no #826 implementation lease is
+active. The saved-Plan Graph query remains BLOCKED under its separate handoff.

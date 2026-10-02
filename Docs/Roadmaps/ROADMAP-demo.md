@@ -242,16 +242,36 @@ and prepare/commit internal revision reads also remain outside this gate.
 These are not all native MIND projections. Classify and gate those routes
 before any full-graph query activation.
 
-The active binding handoff is
-[`HANDOFF-DEMO-existing-graph-binding.md`](../Plans/HANDOFF-DEMO-existing-graph-binding.md).
-PRIME accepted its exact 11-path allowlist and serial topology at design head
-`80ab7490878b297eba14602130fe867a5d3e47c2`, activating the implementation lane
-from Buddy main `1ccfe7f2af69684e1d02276f66b875ef336b82a0`. Buddy PR #826 remains
-OPEN/CLEAN at `4fa28e586783f0e63edb85fa664afa53521367f6` and paused with its
-existing worktree/head preserved. It may not edit or merge its managed-World
-registry changes while this binding slice owns that path. After the binding PR
-merges, #826 must rebase or redesign against the new record contract before its
-next implementation or merge.
+Plan source-bundle diagnostics PR #839 merged at
+`47f9955fd054017a1739dfa8129df65dd61d6bcd` from head
+`fccb75c5ce5392681bdbaf14beb15b79be220ecc`. Its two mounted shell regressions
+passed 2/2 and the cumulative diff check passed. UI typecheck retained the
+inherited `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace
+'JSX'` error outside the change; no server, provider, database or runtime was
+used. The handoff is COMPLETE. It clarifies the existing source-bundle
+inspection; it does not add native Graph evidence or recap admission.
+
+The Graph-binding handoff
+[`HANDOFF-DEMO-existing-graph-binding.md`](../Plans/HANDOFF-DEMO-existing-graph-binding.md)
+completed in Buddy PR #836 at `6de8d831ab82308086677fb3038122936ab9a756`, from
+reviewed code head `cf226c24da4973f88bbfb904889b45e857ffef31`. It adds the
+versioned managed-World/native-Graph relation, local-operator guarded bind and
+deactivate operations, read-only identity/head validation, and redacted status
+responses. The focused registry/binding/list-route suite passed 35 tests with
+11 existing Pydantic warnings; Ruff and the cumulative diff check passed.
+The broader TestClient hang was reproduced on base and head plus a trivial
+synchronous route. Its disposable PostgreSQL integration was not run because
+the fixture override is unset and fallback `127.0.0.1:54329` has no listener.
+No live `eldyrwild` bind, Graph write, shared database, server or provider action
+occurred. The implementation handoff is COMPLETE and its exclusive lease ended
+at merge.
+
+PR #826 remains OPEN at head `4fa28e586783f0e63edb85fa664afa53521367f6` and
+paused. It must re-anchor and redesign its KnowledgeSpace binding against the
+merged v2 managed-World record, retain distinct Graph and KnowledgeSpace
+identities/lifecycles, and return its revised handoff and no-skip PostgreSQL
+verification plan to PRIME. No #826 implementation or merge is authorized by
+its old branch state.
 
 The saved-Plan query remains a separate BLOCKED successor under
 [`HANDOFF-DEMO-session29-elderwyld-graph.md`](../Plans/HANDOFF-DEMO-session29-elderwyld-graph.md).
