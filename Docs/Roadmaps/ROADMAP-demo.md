@@ -281,15 +281,15 @@ resolution verifies the managed World, then passes its managed ID unchanged to
 the MIND direct reader, which expects the bound native Graph ID. The Agent path
 does not read #836's active binding, and it forwards the request's revision pin.
 The narrow fix belongs at Buddy's trusted Agent-turn boundary: resolve the
-active binding, capture its binding_version and one current native head, and
+active binding, capture its `binding_version` and one current native head, and
 carry the managed and native IDs separately.
 
 The query uses MIND V2 `WORLD_CROSS_CAMPAIGN` with `campaign_id=None` and GM
 admissibility. Keep `campaign_id=longmont-c2` and `session_id=session-29` in Buddy
 narrative focus only; never pass them as native scope, campaign, focus, or a
 Graph entity ID. Pin every search, multi-hop, evidence, and source read to one
-server-resolved current head. Return native citations, disclose provider
-destination and bounded excerpts before dispatch, and show the exact excerpts
+server-resolved current head. Return native citations, disclose the configured
+provider destination and bounded excerpts before dispatch, and show the exact excerpts
 sent after the turn.
 
 This is a read-only query of existing `eldyrwild`. It is separate from the
