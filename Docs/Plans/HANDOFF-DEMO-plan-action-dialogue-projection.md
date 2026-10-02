@@ -100,6 +100,17 @@ is missing, stale, foreign, or ambiguous, fail closed before provider work and
 do not create a projected dialogue entry. Content remains the source of the
 committed-basis truth; the Plan owner stores a typed reference to it.
 
+The existing Content read selects one coherent committed snapshot as the
+action's basis-selection point. Persist that exact basis tuple with the action
+before provider dispatch. If the Plan advances after this read, including
+before the action row is inserted, keep the action pinned to the captured
+snapshot; do not reject it or rebind it to the new head. The action remains
+historical and is excluded from projections for a newer Plan basis. Apply
+retains its captured-basis guard, and ordinary Save retains its existing
+expected-object-revision CAS, which rejects stale changes. No shared unit of
+work, current-at-insert check, Content-specific transaction, or new Content
+resolver is required.
+
 Before provider dispatch, reserve a durable Plan-owned action row in a
 transaction. Each row contains:
 
@@ -235,10 +246,12 @@ This handoff is PREPARED and stays BLOCKED until PRIME:
 
 1. Accepts the AGENT-INTERACTION runtime PR/base/head and its owning-boundary
    evidence.
-2. Confirms `apps/live_control_server/services/workspace_document_registry.py`
+2. Uses the existing Content read
    `get_committed_playable_revision(document_id, kind="plan",
-   expected_world_id=...)` supplies the exact committed-basis tuple needed by
-   this owner. Any new Content resolver is a separate owner contract.
+   expected_world_id=...)` to select the coherent committed-basis snapshot
+   described above. The Plan action persists that captured tuple. No new
+   Content resolver, shared unit of work, or current-at-insert validation is
+   required.
 3. Obtains APP-STATE's explicit review/authorization of the Plan-owned
    migration using the shared Alembic authority.
 4. Re-anchors Buddy main, inspects open PRs/active leases, and grants an exact
@@ -270,7 +283,9 @@ exact-diff review. It accepts this bounded capability's design only. The
 present amendment records ARCHITECTURE's clarified private action-record state
 machine and shared-migration boundary, plus PRIME's decision to exclude
 proposal bytes and Apply/Save lifecycle from this slice. Implementation remains
-BLOCKED until the AGENT-INTERACTION runtime is accepted, Content confirms the
-exact committed-basis resolver, APP-STATE reviews the Plan-owned migration, and
-PRIME grants an exclusive path and verification lease. No provider, database,
-service, runtime, or product-state authority was granted by #859.
+BLOCKED until the AGENT-INTERACTION runtime is accepted, APP-STATE reviews the
+Plan-owned migration, and PRIME grants an exclusive path and verification
+lease. The existing Content snapshot read selects each action's committed
+basis; no separate Content resolver or Content-specific transaction is
+required. No provider, database, service, runtime, or product-state authority
+was granted by #859.
