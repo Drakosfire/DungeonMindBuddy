@@ -217,15 +217,13 @@ model call, no tools or graph, 611 input / 48 output / 13 reasoning tokens and
 trace-estimated `$0.0000851`; the provider request ID was not separately
 surfaced. This witness closes only the connected saved-Plan Ask gate.
 
-The next game-prep graph capability is an explicit Buddy managed-World to
-existing MIND V2 Graph binding for native `world_id=eldyrwild`. This is the first
-standalone capability; it does not add Graph retrieval to the saved-Plan Agent.
-The mapping is versioned and persisted on the Buddy managed World. Buddy owns
-the relationship and its status. MIND owns native Graph identity and head
-existence. Buddy validates an activation through the existing read-only MIND
-adapter. The managed World ID, native Graph `world_id`, and VNext Knowledge
-`space_id` remain distinct; `#826` creates an empty KnowledgeSpace and does not
-satisfy this binding.
+The first game-prep Graph capability was an explicit Buddy managed-World
+to existing MIND V2 Graph binding for native `world_id=eldyrwild`. The completed
+#836 slice stores a versioned relationship on the managed World; Buddy owns
+the relation and its status, and MIND owns native Graph identity and head
+existence. The managed World ID, native Graph `world_id`, and VNext Knowledge
+`space_id` remain distinct. The paused #826 KnowledgeSpace path creates a
+different empty resource and does not satisfy this binding.
 
 PR #835 merged at Buddy main `1ccfe7f2af69684e1d02276f66b875ef336b82a0` from
 corrected code head `3a1a12b05be8e00581dce45da2b1b5efa53f123a`. It gates the
@@ -273,29 +271,37 @@ identities/lifecycles, and return its revised handoff and no-skip PostgreSQL
 verification plan to PRIME. No #826 implementation or merge is authorized by
 its old branch state.
 
-The saved-Plan query remains a separate BLOCKED successor under
-[`HANDOFF-DEMO-session29-elderwyld-graph.md`](../Plans/HANDOFF-DEMO-session29-elderwyld-graph.md).
-It must expose C1 and C2 together through MIND V2 `WORLD_CROSS_CAMPAIGN` with
-`campaign_id=None` and GM admissibility. C2 Session 29 labels
-(`campaign_id=longmont-c2`, `session_id=session-29`) are separate Buddy
-narrative focus only; they never populate native V2 scope, campaign, focus, or a
-graph entity ID. Buddy must resolve the current head once per turn and pin all
-search, multi-hop, evidence, and source reads to it. MIND V2 supports a revision
-pin per operation; Buddy owns the full-turn orchestration and receipt. The query
-must cite native evidence/source references, disclose the configured provider
-destination and bounded excerpts before dispatch, and show the exact excerpts
-actually sent after the turn.
+**Session 29 existing-Graph retrieval — immediate J3 query gate; implementation BLOCKED.**
 
-No current live read proves that `eldyrwild` is populated at its present head.
-The bundle's 469 objects, 323 relationships, 83 source artifacts, and 93
-contributions are static package counts. The prior native observation of head
-`rev:680c246047d67f9fe0293ee90526f670`, parent adoption
-`rev:34b1f8e2625d5ba693fc726a2a1a4720`, and 95 contributions is historical, not
-a live witness. The query handoff still requires a read-only current-graph
-witness and a separate disposable fixture for R1-to-R2 concurrent publication
-and restart re-resolution. No real Graph mutation or KnowledgeSpace creation is
-part of either witness. This does not close Session 28 recap admission or J1-J6
-acceptance.
+The bounded contract is pinned in
+[HANDOFF-DEMO-session29-elderwyld-graph.md](../Plans/HANDOFF-DEMO-session29-elderwyld-graph.md).
+The focused source audit at Buddy code head `672d18b` (Agent query code unchanged
+through docs-only #853 at main `e6a4e7d3`) confirms the exact gap: Agent graph
+resolution verifies the managed World, then passes its managed ID unchanged to
+the MIND direct reader, which expects the bound native Graph ID. The Agent path
+does not read #836's active binding, and it forwards the request's revision pin.
+The narrow fix belongs at Buddy's trusted Agent-turn boundary: resolve the
+active binding, capture its `binding_version` and one current native head, and
+carry the managed and native IDs separately.
+
+The query uses MIND V2 `WORLD_CROSS_CAMPAIGN` with `campaign_id=None` and GM
+admissibility. Keep `campaign_id=longmont-c2` and `session_id=session-29` in Buddy
+narrative focus only; never pass them as native scope, campaign, focus, or a
+Graph entity ID. Pin every search, multi-hop, evidence, and source read to one
+server-resolved current head. Return native citations, disclose the configured
+provider destination and bounded excerpts before dispatch, and show the exact excerpts
+sent after the turn.
+
+This is a read-only query of existing `eldyrwild`. It is separate from the
+fresh-World source-admission path below and #826's paused KnowledgeSpace
+provisioning. Its implementation is serial after the merged #853 production
+conversation runtime is implemented and accepted, then the DEMO Plan consumer
+cutover is accepted. #853 is design-only; PRIME has not assigned its
+implementation owner or lease. No current live read proves `eldyrwild`'s present
+head or answerability. The previous native observation at
+rev:680c246047d67f9fe0293ee90526f670 is historical only. The J3 live witness
+and disposable `R1`-to-`R2`/restart fixture remain required. Do not mutate the real
+Graph or create a KnowledgeSpace for either witness.
 
 The user's DEMO minimum still requires one real, surface-aware conversational
 Agent entry on every navigable DEMO surface (Index, Plan, Play, Build, Ingest
@@ -531,9 +537,10 @@ gate is AGENT-INTERACTION production runtime adoption; A2's harness boundary
 and A3's challenger experiment do not complete it. The design-only BLOCKED
 [runtime handoff](../Plans/HANDOFF-AGENT-INTERACTION-world-conversation-runtime.md)
 records the owner gap and required production proof. Once that gate is reviewed,
-DEMO's first consumer cutover is Plan; Play follows under its separate BLOCKED
-[conversation handoff](../Plans/HANDOFF-DEMO-play-agent-adoption.md). Neither
-consumer has an implementation lease. #826 retains its independent
+DEMO's first consumer cutover is Plan. The Session 29 existing-Graph
+query is its own serial J3 successor after that cutover; Play follows under its
+separate BLOCKED [conversation handoff](../Plans/HANDOFF-DEMO-play-agent-adoption.md).
+Neither consumer has an implementation lease. #826 retains its independent
 KnowledgeSpace holds and is not a Play predecessor.
 
 **Build Agent adoption — contract resolved, implementation still blocked:**
@@ -1245,10 +1252,11 @@ native genesis/source authority. If the fresh-native route requires an absent
 contract, return that precise gap to MIND rather than reintroducing migration,
 fixture seeding or a parallel authority as an implementation shortcut.
 
-### First-customer native source foundations — accepted; fresh-World J3 remains open
+### Fresh-World native source admission — separate later J3 gate remains open
 
 - **State:** MIND #83/#85/#96 and Buddy #787 are merged; no active MIND or
-  WorldKeeper prerequisite lease and no J3 implementation lease. Buddy #811
+  WorldKeeper prerequisite lease and no fresh-World source-admission
+  implementation lease. Buddy #811
   merged at `2da16c35e1902468451910a44550ff2db20a5bbe`; C1 Buddy #810 then
   merged at `9aa82aacca3d27849b3fba83dcfc6577097b9b7d` after its seven-suite
   PostgreSQL owner witness passed 242 tests with 11 existing Pydantic shadow
@@ -1285,8 +1293,8 @@ fixture seeding or a parallel authority as an implementation shortcut.
   unavailable (503). This run is downstream inspection on the existing
   caller-selected `space_id=world_id` path, not evidence for MIND #96. Quote
   correction alone cannot clear either boundary.
-- **Next J3 definition:** after the serial #810 gate and current J2 transition
-  clear, define the Buddy product path from selected source
+- **Next fresh-World admission definition:** after the serial #810 gate and current
+  J2 transition clear, define the separate Buddy product path from selected source
   spans through MIND #96 provisioning/admission and WorldKeeper prepare/commit
   to ordinary Agent citation and restart read-after-write. Buddy must persist
   the server-minted `world_id` → `space_id` binding, remove the current
