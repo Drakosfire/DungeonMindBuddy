@@ -1,0 +1,22 @@
+{
+  "schema": "dmb_world_graph_retrieval_result_v1",
+  "operation": "search",
+  "outcome": "enough",
+  "matchedNodeIds": ["person:nera", "place:east-tower", "place:old-quarry"],
+  "nodes": [
+    {"nodeId":"person:nera","label":"Nera","kind":"Person","role":"east watchtower keeper","summary":"Nera maintains the east watchtower."},
+    {"nodeId":"place:east-tower","label":"East Watchtower","kind":"Place","role":"watchtower","summary":"The east tower's blue lantern went dark three nights ago."},
+    {"nodeId":"place:old-quarry","label":"Old Quarry","kind":"Place","role":"quarry","summary":"A dry silver-dust trail leads from the east tower toward the old quarry; nobody has followed it."}
+  ],
+  "relationships": [
+    {"edgeId":"edge:nera-keeps-tower","sourceNodeId":"person:nera","targetNodeId":"place:east-tower","predicate":"keeps","label":"Nera keeps the East Watchtower"},
+    {"edgeId":"edge:tower-trail-quarry","sourceNodeId":"place:east-tower","targetNodeId":"place:old-quarry","predicate":"trail_leads_toward","label":"A silver-dust trail leads from the tower toward the Old Quarry"}
+  ],
+  "attributes": [
+    {"assertionId":"assertion:nera-missing","subjectNodeId":"person:nera","predicate":"status","label":"Status","textValue":"missing"},
+    {"assertionId":"assertion:lantern-dark","subjectNodeId":"place:east-tower","predicate":"lantern_status","label":"Lantern status","textValue":"blue lantern went dark three nights ago"}
+  ],
+  "sourceAnchors": [],
+  "coverage": {},
+  "trustBoundary": {"canTrust":["Synthetic fixture facts only"],"cannotTrust":["Any real campaign or native Graph state"]}
+}

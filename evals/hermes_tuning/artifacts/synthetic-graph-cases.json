@@ -1,0 +1,438 @@
+{
+  "schema": "hermes_tuning_synthetic_graph_v1",
+  "created_at": "2026-10-02T04:53:37.201827+00:00",
+  "source": "fully synthetic Graph fixture; production retrieval dispatcher replaced in process",
+  "provider": "openai-api",
+  "model": "gpt-6-luna",
+  "api_base_url": "https://api.openai.com/v1",
+  "fixture_sha256": "67a8e5938a745b91e08fa8b52c9d85a4471f88a13287354c603f29451c42a518",
+  "cases": [
+    {
+      "case_id": "synthetic-direct-neras-role-v1",
+      "question": "What role does Nera have in Alderwatch?",
+      "status": "ok",
+      "error_code": null,
+      "error_message": null,
+      "wall_ms": 7293.5,
+      "response_model_calls": [
+        {
+          "call_id": "model-call-948d54ab0d8e",
+          "runtime_api_request_id": "synthetic-graph-c0133754-83eb-4c81-82db-5dfb6f80201f:4b29d9f0-0cfb-4a3a-ae43-bf6efbe22483:09af53d0:api:1",
+          "runtime_turn_id": "synthetic-graph-c0133754-83eb-4c81-82db-5dfb6f80201f:4b29d9f0-0cfb-4a3a-ae43-bf6efbe22483:09af53d0",
+          "sequence": 1,
+          "status": "ok",
+          "provider": "openai-api",
+          "requested_model": "gpt-6-luna",
+          "response_model": "gpt-6-luna",
+          "api_mode": "codex_responses",
+          "started_at": "2026-10-02T04:53:22.344131Z",
+          "completed_at": "2026-10-02T04:53:24.153958Z",
+          "duration_ms": 1809.8266124725342,
+          "request_summary": {
+            "api_call_count": 1,
+            "message_count": 2,
+            "tool_count": 4,
+            "approx_input_tokens": 3963,
+            "request_char_count": 15849,
+            "assistant_content_chars": 0,
+            "assistant_tool_call_count": 1
+          },
+          "usage": {
+            "status": "reported",
+            "input_tokens": 4380,
+            "output_tokens": 45,
+            "total_tokens": 4425,
+            "cached_input_tokens": 4377,
+            "cache_write_input_tokens": 0,
+            "uncached_input_tokens": 3,
+            "reasoning_tokens": 0
+          },
+          "cost": {
+            "status": "estimated",
+            "usd": 6.657e-05,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "finish_reason": "tool_calls"
+        },
+        {
+          "call_id": "model-call-94c2833b3811",
+          "runtime_api_request_id": "synthetic-graph-c0133754-83eb-4c81-82db-5dfb6f80201f:4b29d9f0-0cfb-4a3a-ae43-bf6efbe22483:09af53d0:api:2",
+          "runtime_turn_id": "synthetic-graph-c0133754-83eb-4c81-82db-5dfb6f80201f:4b29d9f0-0cfb-4a3a-ae43-bf6efbe22483:09af53d0",
+          "sequence": 2,
+          "status": "ok",
+          "provider": "openai-api",
+          "requested_model": "gpt-6-luna",
+          "response_model": "gpt-6-luna",
+          "api_mode": "codex_responses",
+          "started_at": "2026-10-02T04:53:25.433917Z",
+          "completed_at": "2026-10-02T04:53:26.415737Z",
+          "duration_ms": 981.820821762085,
+          "request_summary": {
+            "api_call_count": 2,
+            "message_count": 4,
+            "tool_count": 4,
+            "approx_input_tokens": 4266,
+            "request_char_count": 17061,
+            "assistant_content_chars": 88,
+            "assistant_tool_call_count": 0
+          },
+          "usage": {
+            "status": "reported",
+            "input_tokens": 4619,
+            "output_tokens": 27,
+            "total_tokens": 4646,
+            "cached_input_tokens": 4377,
+            "cache_write_input_tokens": 0,
+            "uncached_input_tokens": 242,
+            "reasoning_tokens": 0
+          },
+          "cost": {
+            "status": "estimated",
+            "usd": 8.147e-05,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "tool_events": [
+        {
+          "tool_name": "expand_graph_retrieval",
+          "state": "start",
+          "duration_ms": null,
+          "outcome": null,
+          "matched_node_ids": [],
+          "relationship_ids": [],
+          "source_anchor_ids": []
+        },
+        {
+          "tool_name": "expand_graph_retrieval",
+          "state": "completion",
+          "duration_ms": 3.5570120089687407,
+          "outcome": "enough",
+          "matched_node_ids": [
+            "person:nera"
+          ],
+          "relationship_ids": [],
+          "source_anchor_ids": []
+        }
+      ],
+      "fake_graph_reads": [
+        {
+          "tool_name": "expand_graph_retrieval",
+          "operation": "search",
+          "query_text_sha256": "c0421c461fd06e41",
+          "seed_node_ids": [],
+          "result_status": "ok",
+          "outcome": "enough",
+          "matched_node_ids": [
+            "person:nera"
+          ],
+          "relationship_ids": []
+        }
+      ],
+      "tool_read_count": 1,
+      "answer": "Nera is the **east watchtower keeper** in Alderwatch. She is also marked as **missing**."
+    },
+    {
+      "case_id": "synthetic-two-hop-nera-quarry-v1",
+      "question": "How is Nera connected to the Old Quarry? State the relationship chain and what remains unverified.",
+      "status": "ok",
+      "error_code": null,
+      "error_message": null,
+      "wall_ms": 10765.4,
+      "response_model_calls": [
+        {
+          "call_id": "model-call-0abc0697307b",
+          "runtime_api_request_id": "synthetic-graph-276e97ca-44e1-4d00-b467-02d45a0af86e:31b9f440-b7e7-4f21-be0c-cddee0908eb7:2f645095:api:1",
+          "runtime_turn_id": "synthetic-graph-276e97ca-44e1-4d00-b467-02d45a0af86e:31b9f440-b7e7-4f21-be0c-cddee0908eb7:2f645095",
+          "sequence": 1,
+          "status": "ok",
+          "provider": "openai-api",
+          "requested_model": "gpt-6-luna",
+          "response_model": "gpt-6-luna",
+          "api_mode": "codex_responses",
+          "started_at": "2026-10-02T04:53:27.436388Z",
+          "completed_at": "2026-10-02T04:53:28.561925Z",
+          "duration_ms": 1125.5366802215576,
+          "request_summary": {
+            "api_call_count": 1,
+            "message_count": 2,
+            "tool_count": 4,
+            "approx_input_tokens": 4006,
+            "request_char_count": 16024,
+            "assistant_content_chars": 0,
+            "assistant_tool_call_count": 1
+          },
+          "usage": {
+            "status": "reported",
+            "input_tokens": 4411,
+            "output_tokens": 41,
+            "total_tokens": 4452,
+            "cached_input_tokens": 4408,
+            "cache_write_input_tokens": 0,
+            "uncached_input_tokens": 3,
+            "reasoning_tokens": 0
+          },
+          "cost": {
+            "status": "estimated",
+            "usd": 6.488e-05,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "finish_reason": "tool_calls"
+        },
+        {
+          "call_id": "model-call-16fc07f618e3",
+          "runtime_api_request_id": "synthetic-graph-276e97ca-44e1-4d00-b467-02d45a0af86e:31b9f440-b7e7-4f21-be0c-cddee0908eb7:2f645095:api:2",
+          "runtime_turn_id": "synthetic-graph-276e97ca-44e1-4d00-b467-02d45a0af86e:31b9f440-b7e7-4f21-be0c-cddee0908eb7:2f645095",
+          "sequence": 2,
+          "status": "ok",
+          "provider": "openai-api",
+          "requested_model": "gpt-6-luna",
+          "response_model": "gpt-6-luna",
+          "api_mode": "codex_responses",
+          "started_at": "2026-10-02T04:53:29.695588Z",
+          "completed_at": "2026-10-02T04:53:31.631538Z",
+          "duration_ms": 1935.9500408172607,
+          "request_summary": {
+            "api_call_count": 2,
+            "message_count": 4,
+            "tool_count": 4,
+            "approx_input_tokens": 4333,
+            "request_char_count": 17330,
+            "assistant_content_chars": 0,
+            "assistant_tool_call_count": 1
+          },
+          "usage": {
+            "status": "reported",
+            "input_tokens": 4668,
+            "output_tokens": 46,
+            "total_tokens": 4714,
+            "cached_input_tokens": 4408,
+            "cache_write_input_tokens": 0,
+            "uncached_input_tokens": 260,
+            "reasoning_tokens": 0
+          },
+          "cost": {
+            "status": "estimated",
+            "usd": 9.308e-05,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "finish_reason": "tool_calls"
+        },
+        {
+          "call_id": "model-call-a87ba9d2d8e1",
+          "runtime_api_request_id": "synthetic-graph-276e97ca-44e1-4d00-b467-02d45a0af86e:31b9f440-b7e7-4f21-be0c-cddee0908eb7:2f645095:api:3",
+          "runtime_turn_id": "synthetic-graph-276e97ca-44e1-4d00-b467-02d45a0af86e:31b9f440-b7e7-4f21-be0c-cddee0908eb7:2f645095",
+          "sequence": 3,
+          "status": "ok",
+          "provider": "openai-api",
+          "requested_model": "gpt-6-luna",
+          "response_model": "gpt-6-luna",
+          "api_mode": "codex_responses",
+          "started_at": "2026-10-02T04:53:31.640152Z",
+          "completed_at": "2026-10-02T04:53:34.721428Z",
+          "duration_ms": 3081.2768936157227,
+          "request_summary": {
+            "api_call_count": 3,
+            "message_count": 6,
+            "tool_count": 4,
+            "approx_input_tokens": 4522,
+            "request_char_count": 18086,
+            "assistant_content_chars": 0,
+            "assistant_tool_call_count": 1
+          },
+          "usage": {
+            "status": "reported",
+            "input_tokens": 4779,
+            "output_tokens": 218,
+            "total_tokens": 4997,
+            "cached_input_tokens": 4665,
+            "cache_write_input_tokens": 0,
+            "uncached_input_tokens": 114,
+            "reasoning_tokens": 163
+          },
+          "cost": {
+            "status": "estimated",
+            "usd": 0.00016705000000000002,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "finish_reason": "tool_calls"
+        },
+        {
+          "call_id": "model-call-937158a5b2be",
+          "runtime_api_request_id": "synthetic-graph-276e97ca-44e1-4d00-b467-02d45a0af86e:31b9f440-b7e7-4f21-be0c-cddee0908eb7:2f645095:api:4",
+          "runtime_turn_id": "synthetic-graph-276e97ca-44e1-4d00-b467-02d45a0af86e:31b9f440-b7e7-4f21-be0c-cddee0908eb7:2f645095",
+          "sequence": 4,
+          "status": "ok",
+          "provider": "openai-api",
+          "requested_model": "gpt-6-luna",
+          "response_model": "gpt-6-luna",
+          "api_mode": "codex_responses",
+          "started_at": "2026-10-02T04:53:34.730559Z",
+          "completed_at": "2026-10-02T04:53:37.189827Z",
+          "duration_ms": 2459.268093109131,
+          "request_summary": {
+            "api_call_count": 4,
+            "message_count": 8,
+            "tool_count": 4,
+            "approx_input_tokens": 5487,
+            "request_char_count": 21948,
+            "assistant_content_chars": 335,
+            "assistant_tool_call_count": 0
+          },
+          "usage": {
+            "status": "reported",
+            "input_tokens": 5220,
+            "output_tokens": 127,
+            "total_tokens": 5347,
+            "cached_input_tokens": 4776,
+            "cache_write_input_tokens": 0,
+            "uncached_input_tokens": 444,
+            "reasoning_tokens": 55
+          },
+          "cost": {
+            "status": "estimated",
+            "usd": 0.00015566,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "finish_reason": "stop"
+        }
+      ],
+      "tool_events": [
+        {
+          "tool_name": "expand_graph_retrieval",
+          "state": "start",
+          "duration_ms": null,
+          "outcome": null,
+          "matched_node_ids": [],
+          "relationship_ids": [],
+          "source_anchor_ids": []
+        },
+        {
+          "tool_name": "expand_graph_retrieval",
+          "state": "completion",
+          "duration_ms": 1.9321940199006349,
+          "outcome": "partial",
+          "matched_node_ids": [
+            "person:nera"
+          ],
+          "relationship_ids": [],
+          "source_anchor_ids": []
+        },
+        {
+          "tool_name": "expand_graph_retrieval",
+          "state": "start",
+          "duration_ms": null,
+          "outcome": null,
+          "matched_node_ids": [],
+          "relationship_ids": [],
+          "source_anchor_ids": []
+        },
+        {
+          "tool_name": "expand_graph_retrieval",
+          "state": "error",
+          "duration_ms": 0.6081530009396374,
+          "outcome": null,
+          "matched_node_ids": [],
+          "relationship_ids": [],
+          "source_anchor_ids": []
+        },
+        {
+          "tool_name": "expand_graph_retrieval",
+          "state": "start",
+          "duration_ms": null,
+          "outcome": null,
+          "matched_node_ids": [],
+          "relationship_ids": [],
+          "source_anchor_ids": []
+        },
+        {
+          "tool_name": "expand_graph_retrieval",
+          "state": "completion",
+          "duration_ms": 0.8697379962541163,
+          "outcome": "partial",
+          "matched_node_ids": [
+            "person:nera"
+          ],
+          "relationship_ids": [],
+          "source_anchor_ids": []
+        }
+      ],
+      "fake_graph_reads": [
+        {
+          "tool_name": "expand_graph_retrieval",
+          "operation": "search",
+          "query_text_sha256": "98374b43c831501b",
+          "seed_node_ids": [],
+          "result_status": "ok",
+          "outcome": "partial",
+          "matched_node_ids": [
+            "person:nera"
+          ],
+          "relationship_ids": []
+        },
+        {
+          "tool_name": "expand_graph_retrieval",
+          "operation": "neighborhood",
+          "query_text_sha256": "e3b0c44298fc1c14",
+          "seed_node_ids": [],
+          "result_status": "error",
+          "error_code": "invalid_request",
+          "status_code": 422,
+          "error_message": "seedNodeIds must contain the accepted candidate person:nera"
+        },
+        {
+          "tool_name": "expand_graph_retrieval",
+          "operation": "search",
+          "query_text_sha256": "7e2395eadc2d7adb",
+          "seed_node_ids": [],
+          "result_status": "ok",
+          "outcome": "partial",
+          "matched_node_ids": [
+            "person:nera"
+          ],
+          "relationship_ids": []
+        }
+      ],
+      "tool_read_count": 2,
+      "answer": "I can’t establish a relationship chain from Nera to the Old Quarry. The available graph result identifies Nera as the east watchtower keeper and marks her missing, but returned no relationships; attempts to retrieve neighborhood coverage did not succeed. So any link between Nera, the watchtower, and the Old Quarry remains unverified."
+    }
+  ],
+  "limit": "This measures tool choice against a deterministic fake Graph response; it does not prove native Graph retrieval, traversal, admission, or source authority."
+}
