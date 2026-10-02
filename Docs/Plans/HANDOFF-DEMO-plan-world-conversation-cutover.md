@@ -251,3 +251,12 @@ contract outside the pinned lease. No Plan implementation, runtime/service,
 provider, database, Graph, port, shared external state, or product mutation is
 authorized by this design. Visual acceptance and the connected J1–J6 journey
 remain separate open gates.
+
+## Design review and merge settlement
+
+Buddy PR #857 merged at main `41fe2944468327da852a987685992fc50f91f059`
+from reviewed head `de08a3cc2f24406d1440b771f047ba0b8398a6e8` after PRIME's
+exact-diff review. This accepts the BLOCKED design only. The AGENT-INTERACTION
+runtime and separate Plan action-dialogue projection implementation remain
+serial predecessors, and no Plan consumer implementation/provider/database
+lease is active.

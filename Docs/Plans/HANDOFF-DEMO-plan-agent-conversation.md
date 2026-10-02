@@ -199,3 +199,13 @@ runtime state, or product generation was used or changed. The existing
 `PlanAgentInteractionBar.test.tsx` fixture failures and inherited UI typecheck
 error remain separate from #805. PRIME completed independent review and merge
 control; broader DEMO acceptance remains open.
+
+**Subsequent fixture settlement — Buddy #858:** RAKE reproduced the retired
+`getWorkspaceDocument` fixture in five of nine mounted cases because current
+`SelectedWorldContext` resolves through `getWorkspaceDocumentAny`. PRIME merged
+the one-file test-only correction at main
+`13dbf3a42b0b040a482c0ced1ec0fe5d7b314c37` from reviewed head
+`6d1effa5665dd644c343e0d8627b295a18bd23f3`; the focused suite now passes 9/9.
+This resolves the inherited fixture failures without changing Plan product
+behavior or reopening #805's implementation lease. The typecheck failure and
+broader DEMO acceptance remain as recorded above.

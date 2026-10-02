@@ -328,11 +328,15 @@ Buddy #805 merged on 2026-09-30 at
 diff and its owning-boundary evidence; focused Plan, history and API tests
 passed 147/147. The mounted reviewed Plan edit regression passed 1/1. UI
 typecheck retains the inherited `ThreatPublicationPanel.tsx:553` JSX namespace
-error. The separate legacy `PlanAgentInteractionBar.test.tsx` suite remains
-3/8 on both base and head because its fixture mocks the retired
-`getWorkspaceDocument` call while the selected-World provider now uses
-`getWorkspaceDocumentAny`; no changes to that out-of-slice path were made.
-The #805 write lease ended at merge. No provider or live runtime was used.
+error. At #805 review, the separate legacy `PlanAgentInteractionBar.test.tsx`
+suite was 3/8 on base and head because its fixture mocked the retired
+`getWorkspaceDocument` call while the selected-World provider used
+`getWorkspaceDocumentAny`. RAKE later reproduced five fixture failures on
+current main; Buddy #858 merged at `13dbf3a42b0b040a482c0ced1ec0fe5d7b314c37`
+from reviewed head `6d1effa5665dd644c343e0d8627b295a18bd23f3` with a one-file
+test-only correction, and the mounted suite now passes 9/9. This repaired test
+setup only; it changed no product behavior and does not expand #805's released
+lease. No provider or live runtime was used.
 
 **Plan transport-mode implementation — merged; live witness pending:** Buddy
 #812 (`DEMO: route Hermes Agent turns through Responses mode`) merged at
@@ -561,6 +565,12 @@ server-side cap. No Ask-only narrowing or client-supplied history is authorized.
 The runtime and action-projection prerequisites must be accepted, then PRIME
 must grant the exact consumer lease before implementation; no Plan
 UI/runtime/provider lease is active.
+The consumer design merged in Buddy #857 at
+`41fe2944468327da852a987685992fc50f91f059` from reviewed head
+`de08a3cc2f24406d1440b771f047ba0b8398a6e8`; the separate action-projection
+design merged in #859 at `43c4c4daa8e1c17b22953681fe817e6881242b36` from
+reviewed head `c78feb94f37f7612200e2d0962d26d0f5a1326cf`. Both merges accept
+design only; the projection and consumer implementation remain BLOCKED.
 
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
