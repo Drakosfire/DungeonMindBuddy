@@ -1779,6 +1779,14 @@ export function PlanAgentInteractionBar({
         data-expanded="true"
         data-testid="plan-ask-fallback-shell"
       >
+        <button
+          type="button"
+          className="agent-interaction-exit"
+          onClick={() => agentInteraction.setPaneOpen(false)}
+          aria-label="Close chat"
+        >
+          Close
+        </button>
         {askPane}
       </section>
     );
