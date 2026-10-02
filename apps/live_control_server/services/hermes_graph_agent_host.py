@@ -61,8 +61,8 @@ _LOGGING_DRAINED_MARKER = ".dmb-hermes-logging-drained"
 _MAX_WORKER_PHASES = 8
 _WORKER_PHASE_NAMES = frozenset(
     {
-        "rung3_home_setup",
-        "rung3_agent_import",
+        "rung3_bootstrap_logger_home_setup",
+        "rung3_cached_agent_factory_lookup",
         "rung3_plugin_discovery",
         "rung3_agent_construction",
         "rung3_provider_conversation",

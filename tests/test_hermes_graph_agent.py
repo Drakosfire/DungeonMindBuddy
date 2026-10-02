@@ -16,6 +16,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 import yaml
 
+import apps.live_control_server.services.hermes_graph_agent as hermes_graph_agent_mod
 from apps.live_control_server.services.hermes_graph_agent import (
     HermesGraphAgentTurnRequest,
     _derive_answer_scope,
@@ -437,7 +438,7 @@ def test_agent_receives_exact_lockdown_configuration(tmp_path: Path) -> None:
     assert "anthropic" not in str(init.get("provider") or "").lower()
     assert "anthropic" not in str(init.get("base_url") or "").lower()
     assert {phase["name"] for phase in worker_phases} == {
-        "rung3_home_setup",
+        "rung3_bootstrap_logger_home_setup",
         "rung3_plugin_discovery",
         "rung3_agent_construction",
         "rung3_provider_conversation",
@@ -460,6 +461,43 @@ def test_agent_receives_exact_lockdown_configuration(tmp_path: Path) -> None:
     )
     assert fail_open_result.status == result.status
     assert fail_open_result.final_response == result.final_response
+
+
+def test_response_phase_errors_if_typed_result_construction_throws(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    result_type = hermes_graph_agent_mod.HermesGraphAgentTurnResult
+
+    def fail_success_result(**kwargs: Any) -> Any:
+        if kwargs.get("status") == "ok":
+            raise RuntimeError("synthetic typed result construction failure")
+        return result_type(**kwargs)
+
+    monkeypatch.setattr(
+        hermes_graph_agent_mod,
+        "HermesGraphAgentTurnResult",
+        fail_success_result,
+    )
+    phases: list[dict[str, Any]] = []
+    result = run_hermes_graph_agent_turn(
+        HermesGraphAgentTurnRequest(
+            question="What do we know about Tripod?",
+            world_id="world:eldyrwild",
+            campaign_id="campaign:c1",
+            session_id="sess-result-construction-error",
+            root=tmp_path,
+        ),
+        agent_factory=_FakeAgent,
+        on_worker_phase=phases.append,
+    )
+
+    assert result.status == "error"
+    response_phase = next(
+        phase
+        for phase in phases
+        if phase["name"] == "rung3_response_normalization_projection"
+    )
+    assert response_phase["status"] == "error"
 
 
 def test_pinned_hermes_auto_selects_responses_for_policy_model(

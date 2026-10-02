@@ -1244,7 +1244,9 @@ def run_hermes_graph_agent_turn(
             return _error_result(**kwargs)
 
         try:
-            with timed_worker_phase("rung3_home_setup") as home_setup_succeeded:
+            with timed_worker_phase(
+                "rung3_bootstrap_logger_home_setup"
+            ) as home_setup_succeeded:
                 try:
                     _initialize_worker_logger_home()
                 except Exception:
@@ -1269,11 +1271,13 @@ def run_hermes_graph_agent_turn(
             factory = agent_factory
             if factory is None:
                 try:
-                    with timed_worker_phase("rung3_agent_import") as import_succeeded:
+                    with timed_worker_phase(
+                        "rung3_cached_agent_factory_lookup"
+                    ) as lookup_succeeded:
                         with hermes_import_namespace():
                             module = importlib.import_module("run_agent")
                             factory = module.AIAgent
-                        import_succeeded()
+                        lookup_succeeded()
                 except Exception:
                     return observed_error(
                         hermes_session_id=session_id,
@@ -1499,8 +1503,7 @@ def run_hermes_graph_agent_turn(
                 model_calls, telemetry_warnings = api_observer.finish()
                 if persistent_profile:
                     profile_turn_persisted = True
-                response_normalization_succeeded()
-                return HermesGraphAgentTurnResult(
+                result = HermesGraphAgentTurnResult(
                     status="ok",
                     final_response=final_response,
                     messages=[
@@ -1520,6 +1523,8 @@ def run_hermes_graph_agent_turn(
                     model_calls=model_calls,
                     telemetry_warnings=telemetry_warnings,
                 )
+                response_normalization_succeeded()
+                return result
         except Exception:
             return observed_error(
                 hermes_session_id=session_id,

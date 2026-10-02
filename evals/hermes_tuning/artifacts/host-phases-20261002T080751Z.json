@@ -1,13 +1,13 @@
 {
   "schema": "hermes_tuning_host_phases_v1",
-  "created_at": "2026-10-02T07:48:17.238902+00:00",
+  "created_at": "2026-10-02T08:07:45.976304+00:00",
   "source": "fully synthetic evidence; no private corpus or Graph reads",
   "scenario_id": "alderwatch-pressure-synthetic-v1",
   "provider": "openai-api",
   "model": "gpt-6-luna",
   "api_base_url": "https://api.openai.com/v1",
   "sample_count_requested": 5,
-  "parent_pid": 1495679,
+  "parent_pid": 1513886,
   "input_sha256": "566f50e5db8973e8dff5b154f55b8ff32c5fc0efc1f9d5098722ba51f962b3b5",
   "effective_question": "Evidence packet (fully synthetic):\n- Alderwatch has one bridge across the river; it closes at dusk.\n- Three nights ago, the east watchtower's blue lantern went dark. Its keeper, Nera, is missing.\n- A dry trail of silver dust runs from the tower toward the old quarry; nobody has followed it.\n- The mayor says the north road is passable. The ferryman reports hearing bells beneath the river.\n\nRequest: Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list.",
   "system_instruction": "You are DungeonBuddy's conversational assistant. Respond using only the conversation context and descriptive current-surface context provided. No graph retrieval is performed on this turn. Earlier conversation may contain historical graph-derived statements; they are not revalidated as current graph evidence. Do not claim a fresh lookup or current verification from those statements. Identify them as prior conversation and request an explicit graph-retrieval turn when current confirmation is needed. You have no graph tools or external action tools on this turn.",
@@ -23,7 +23,7 @@
     "post_run_gate_fields_recomputed": false
   },
   "host_start_ready_ms": null,
-  "worker_start_pid": 1495751,
+  "worker_start_pid": 1514024,
   "host_start_method": "spawn",
   "samples": [
     {
@@ -31,23 +31,23 @@
       "phase": "cold_worker_turn",
       "direct_control": {
         "status": "ok",
-        "wall_ms": 5453.0,
-        "response_id": "resp_0d5c5798c3972a8a006abf61c278cc87d1b73b6dd25c8f97ef",
+        "wall_ms": 5836.7,
+        "response_id": "resp_0f9562dfb4fe6b7e006abf665373c087d1b8c0ca0210b10cfe",
         "usage": {
           "input_tokens": 246,
           "input_tokens_details": {
             "cached_tokens": 0,
             "cache_write_tokens": 0
           },
-          "output_tokens": 312,
+          "output_tokens": 274,
           "output_tokens_details": {
-            "reasoning_tokens": 206
+            "reasoning_tokens": 169
           },
-          "total_tokens": 558
+          "total_tokens": 520
         },
         "cost": {
           "status": "estimated",
-          "usd": 0.0001806,
+          "usd": 0.0001616,
           "currency": "USD",
           "pricing_table_matched": true,
           "rates_per_1m_usd": {
@@ -56,9 +56,9 @@
             "output": 0.5
           }
         },
-        "answer": "If the party needs to cross the river, Alderwatch’s only bridge closes at dusk. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, disappeared. A dry trail of silver dust leads toward the old quarry; nobody has followed it, so where it goes—and whether it relates to Nera—remains unknown. The mayor says the north road is passable; the ferryman reports hearing bells beneath the river. Neither report is independently confirmed.",
+        "answer": "The bridge closes at dusk, creating an immediate choice: cross before then or risk losing that route. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, disappeared; a trail of silver dust leads toward the old quarry, but no one has followed it. The mayor says the north road is passable; the ferryman reports bells beneath the river. What happened to Nera, where the trail leads, and whether the bells are connected remain unknown.",
         "hard_gate_check": {
-          "word_count": 75,
+          "word_count": 79,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -74,201 +74,201 @@
         "status": "ok",
         "error_code": null,
         "error_message": null,
-        "wall_ms": 11368.9,
+        "wall_ms": 10244.7,
         "phase_spans": [
           {
-            "span_id": "386125b9a7d0487aa959d59edf9bfca0:1",
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:1",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_serialize",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:22.693187+00:00",
-            "completed_at": "2026-10-02T07:48:22.693187+00:00",
+            "started_at": "2026-10-02T08:07:51.814423+00:00",
+            "completed_at": "2026-10-02T08:07:51.814423+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "386125b9a7d0487aa959d59edf9bfca0"
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
             }
           },
           {
-            "span_id": "386125b9a7d0487aa959d59edf9bfca0:2",
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:2",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_turn_gate_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:22.693241+00:00",
-            "completed_at": "2026-10-02T07:48:22.693241+00:00",
+            "started_at": "2026-10-02T08:07:51.814476+00:00",
+            "completed_at": "2026-10-02T08:07:51.814476+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "386125b9a7d0487aa959d59edf9bfca0"
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
             }
           },
           {
-            "span_id": "386125b9a7d0487aa959d59edf9bfca0:3",
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_acquire_ready",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:22.693027+00:00",
-            "completed_at": "2026-10-02T07:48:24.857027+00:00",
-            "duration_ms": 2164,
+            "started_at": "2026-10-02T08:07:51.814871+00:00",
+            "completed_at": "2026-10-02T08:07:53.692871+00:00",
+            "duration_ms": 1878,
             "attributes": {
-              "host_phase_group_id": "386125b9a7d0487aa959d59edf9bfca0"
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
             }
           },
           {
-            "span_id": "386125b9a7d0487aa959d59edf9bfca0:4",
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_wire_encode",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:24.857336+00:00",
-            "completed_at": "2026-10-02T07:48:24.857336+00:00",
+            "started_at": "2026-10-02T08:07:53.693086+00:00",
+            "completed_at": "2026-10-02T08:07:53.693086+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "386125b9a7d0487aa959d59edf9bfca0"
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
             }
           },
           {
-            "span_id": "386125b9a7d0487aa959d59edf9bfca0:5",
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:24.857468+00:00",
-            "completed_at": "2026-10-02T07:48:24.858468+00:00",
+            "started_at": "2026-10-02T08:07:53.692654+00:00",
+            "completed_at": "2026-10-02T08:07:53.693654+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "386125b9a7d0487aa959d59edf9bfca0"
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
             }
           },
           {
-            "span_id": "386125b9a7d0487aa959d59edf9bfca0:6",
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_accept_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:24.858681+00:00",
-            "completed_at": "2026-10-02T07:48:24.859681+00:00",
+            "started_at": "2026-10-02T08:07:53.693423+00:00",
+            "completed_at": "2026-10-02T08:07:53.694423+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "386125b9a7d0487aa959d59edf9bfca0"
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
             }
           },
           {
-            "span_id": "386125b9a7d0487aa959d59edf9bfca0:7",
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:7",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_proceed_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:24.859852+00:00",
-            "completed_at": "2026-10-02T07:48:24.859852+00:00",
+            "started_at": "2026-10-02T08:07:53.694540+00:00",
+            "completed_at": "2026-10-02T08:07:53.694540+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "386125b9a7d0487aa959d59edf9bfca0"
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
             }
           },
           {
-            "span_id": "386125b9a7d0487aa959d59edf9bfca0:8",
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:8",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_result_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:24.859757+00:00",
-            "completed_at": "2026-10-02T07:48:34.061757+00:00",
-            "duration_ms": 9202,
+            "started_at": "2026-10-02T08:07:53.694753+00:00",
+            "completed_at": "2026-10-02T08:08:02.058753+00:00",
+            "duration_ms": 8364,
             "attributes": {
-              "host_phase_group_id": "386125b9a7d0487aa959d59edf9bfca0"
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
             }
           },
           {
-            "span_id": "20a5d69cedb14bb8bac2607af6a2e03f:1",
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:1",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_home_setup",
+            "name": "rung3_bootstrap_logger_home_setup",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:24.862040+00:00",
-            "completed_at": "2026-10-02T07:48:26.110040+00:00",
-            "duration_ms": 1248,
+            "started_at": "2026-10-02T08:07:53.697426+00:00",
+            "completed_at": "2026-10-02T08:07:54.913426+00:00",
+            "duration_ms": 1216,
             "attributes": {
-              "host_phase_group_id": "20a5d69cedb14bb8bac2607af6a2e03f"
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
             }
           },
           {
-            "span_id": "20a5d69cedb14bb8bac2607af6a2e03f:2",
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:2",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_agent_import",
+            "name": "rung3_cached_agent_factory_lookup",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:26.110124+00:00",
-            "completed_at": "2026-10-02T07:48:26.111124+00:00",
+            "started_at": "2026-10-02T08:07:54.913305+00:00",
+            "completed_at": "2026-10-02T08:07:54.914305+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "20a5d69cedb14bb8bac2607af6a2e03f"
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
             }
           },
           {
-            "span_id": "20a5d69cedb14bb8bac2607af6a2e03f:3",
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_plugin_discovery",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:26.111615+00:00",
-            "completed_at": "2026-10-02T07:48:26.580615+00:00",
-            "duration_ms": 469,
+            "started_at": "2026-10-02T08:07:54.914838+00:00",
+            "completed_at": "2026-10-02T08:07:55.374838+00:00",
+            "duration_ms": 460,
             "attributes": {
-              "host_phase_group_id": "20a5d69cedb14bb8bac2607af6a2e03f"
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
             }
           },
           {
-            "span_id": "20a5d69cedb14bb8bac2607af6a2e03f:4",
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_agent_construction",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:26.581951+00:00",
-            "completed_at": "2026-10-02T07:48:27.009951+00:00",
-            "duration_ms": 428,
+            "started_at": "2026-10-02T08:07:55.376024+00:00",
+            "completed_at": "2026-10-02T08:07:55.766024+00:00",
+            "duration_ms": 390,
             "attributes": {
-              "host_phase_group_id": "20a5d69cedb14bb8bac2607af6a2e03f"
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
             }
           },
           {
-            "span_id": "20a5d69cedb14bb8bac2607af6a2e03f:5",
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_provider_conversation",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:27.011753+00:00",
-            "completed_at": "2026-10-02T07:48:34.055753+00:00",
-            "duration_ms": 7044,
+            "started_at": "2026-10-02T08:07:55.767767+00:00",
+            "completed_at": "2026-10-02T08:08:02.050767+00:00",
+            "duration_ms": 6283,
             "attributes": {
-              "host_phase_group_id": "20a5d69cedb14bb8bac2607af6a2e03f"
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
             }
           },
           {
-            "span_id": "20a5d69cedb14bb8bac2607af6a2e03f:6",
+            "span_id": "9c15c8cb57544a5696739706ac70d3be:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_response_normalization_projection",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:34.056278+00:00",
-            "completed_at": "2026-10-02T07:48:34.056278+00:00",
+            "started_at": "2026-10-02T08:08:02.051558+00:00",
+            "completed_at": "2026-10-02T08:08:02.051558+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "20a5d69cedb14bb8bac2607af6a2e03f"
+              "host_phase_group_id": "9c15c8cb57544a5696739706ac70d3be"
             }
           },
           {
-            "span_id": "386125b9a7d0487aa959d59edf9bfca0:15",
+            "span_id": "191eb12496d14574ad761186d5c3a0e6:15",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_result_decode",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:34.061944+00:00",
-            "completed_at": "2026-10-02T07:48:34.061944+00:00",
+            "started_at": "2026-10-02T08:08:02.058945+00:00",
+            "completed_at": "2026-10-02T08:08:02.058945+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "386125b9a7d0487aa959d59edf9bfca0"
+              "host_phase_group_id": "191eb12496d14574ad761186d5c3a0e6"
             }
           }
         ],
@@ -278,29 +278,29 @@
             "provider": "openai-api",
             "requested_model": "gpt-6-luna",
             "response_model": "gpt-6-luna",
-            "duration_ms": 4969.027996063232,
+            "duration_ms": 4551.333427429199,
             "request_summary": {
               "api_call_count": 1,
               "message_count": 2,
               "tool_count": 0,
               "approx_input_tokens": 763,
               "request_char_count": 3051,
-              "assistant_content_chars": 411,
+              "assistant_content_chars": 451,
               "assistant_tool_call_count": 0
             },
             "usage": {
               "status": "reported",
               "input_tokens": 633,
-              "output_tokens": 247,
-              "total_tokens": 880,
+              "output_tokens": 306,
+              "total_tokens": 939,
               "cached_input_tokens": 0,
               "cache_write_input_tokens": 0,
               "uncached_input_tokens": 633,
-              "reasoning_tokens": 151
+              "reasoning_tokens": 205
             },
             "cost": {
               "status": "estimated",
-              "usd": 0.0001868,
+              "usd": 0.0002163,
               "currency": "USD",
               "pricing_table_matched": true,
               "rates_per_1m_usd": {
@@ -312,18 +312,18 @@
           }
         ],
         "model_call_count": 1,
-        "sum_observed_model_call_ms": 4969.0,
-        "unallocated_residual_ms": 6399.9,
+        "sum_observed_model_call_ms": 4551.3,
+        "unallocated_residual_ms": 5693.3,
         "tool_event_count": 0,
         "tool_call_count": 0,
         "process_isolation": "process_exclusive",
         "worker_pid_before": null,
-        "worker_pid_after": 1495751,
+        "worker_pid_after": 1514024,
         "worker_pid_matches_cold_worker": true,
         "worker_reused_from_previous_sample": false,
-        "answer": "Get across the river—or choose another route—before dusk, when Alderwatch’s only bridge closes. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, vanished; a trail of silver dust leads toward the old quarry, still unfollowed. The mayor says the north road is passable, but that hasn’t been confirmed here. The ferryman reports bells beneath the river; their source is unknown.",
+        "answer": "Make the bridge’s dusk closure the immediate pressure: Alderwatch has only one crossing, so the party must decide whether to cross before it shuts. Established: the east tower’s blue lantern went dark three nights ago, Nera is missing, and silver dust leads toward the quarry, uninvestigated. The mayor says the north road is passable; the ferryman reports bells beneath the river. Whether these leads connect—or what happened to Nera—remains unknown.",
         "hard_gate_check": {
-          "word_count": 65,
+          "word_count": 70,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -341,23 +341,23 @@
       "phase": "warm_reused_worker_turn",
       "direct_control": {
         "status": "ok",
-        "wall_ms": 4987.6,
-        "response_id": "resp_0f0567a3c36adc59006abf61d2460087d1812959c16145eade",
+        "wall_ms": 5511.0,
+        "response_id": "resp_004b4a76a1bea477006abf66622dfc87d199a6f9b176b3a1eb",
         "usage": {
           "input_tokens": 246,
           "input_tokens_details": {
             "cached_tokens": 0,
             "cache_write_tokens": 0
           },
-          "output_tokens": 337,
+          "output_tokens": 333,
           "output_tokens_details": {
-            "reasoning_tokens": 230
+            "reasoning_tokens": 221
           },
-          "total_tokens": 583
+          "total_tokens": 579
         },
         "cost": {
           "status": "estimated",
-          "usd": 0.0001931,
+          "usd": 0.0001911,
           "currency": "USD",
           "pricing_table_matched": true,
           "rates_per_1m_usd": {
@@ -366,9 +366,9 @@
             "output": 0.5
           }
         },
-        "answer": "Alderwatch’s only bridge closes at dusk, so decide early whether to cross or take the north road. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, disappeared. A dry silver-dust trail leads toward the old quarry; no one has followed it. Nera’s fate and the lantern’s cause are unknown. The mayor says the north road is passable; the ferryman reports hearing bells beneath the river, but what they mean is unknown.",
+        "answer": "The key pressure is the only bridge: it closes at dusk, so decide whether to cross before then or risk being stranded. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, went missing. A dry trail of silver dust leads toward the old quarry; nobody has followed it. The mayor says the north road is passable, while the ferryman reports bells beneath the river. What happened to Nera, where the trail leads, and whether the bells are connected remain unknown.",
         "hard_gate_check": {
-          "word_count": 76,
+          "word_count": 85,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -384,201 +384,201 @@
         "status": "ok",
         "error_code": null,
         "error_message": null,
-        "wall_ms": 5760.8,
+        "wall_ms": 6863.5,
         "phase_spans": [
           {
-            "span_id": "85ba62a7e2e5489595958f8f9c27df75:1",
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:1",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_serialize",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.051000+00:00",
-            "completed_at": "2026-10-02T07:48:39.051000+00:00",
+            "started_at": "2026-10-02T08:08:07.571657+00:00",
+            "completed_at": "2026-10-02T08:08:07.571657+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "85ba62a7e2e5489595958f8f9c27df75"
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
             }
           },
           {
-            "span_id": "85ba62a7e2e5489595958f8f9c27df75:2",
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:2",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_turn_gate_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.051061+00:00",
-            "completed_at": "2026-10-02T07:48:39.051061+00:00",
+            "started_at": "2026-10-02T08:08:07.571758+00:00",
+            "completed_at": "2026-10-02T08:08:07.571758+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "85ba62a7e2e5489595958f8f9c27df75"
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
             }
           },
           {
-            "span_id": "85ba62a7e2e5489595958f8f9c27df75:3",
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_acquire_ready",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.051113+00:00",
-            "completed_at": "2026-10-02T07:48:39.051113+00:00",
+            "started_at": "2026-10-02T08:08:07.571853+00:00",
+            "completed_at": "2026-10-02T08:08:07.571853+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "85ba62a7e2e5489595958f8f9c27df75"
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
             }
           },
           {
-            "span_id": "85ba62a7e2e5489595958f8f9c27df75:4",
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_wire_encode",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.051272+00:00",
-            "completed_at": "2026-10-02T07:48:39.051272+00:00",
+            "started_at": "2026-10-02T08:08:07.572150+00:00",
+            "completed_at": "2026-10-02T08:08:07.572150+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "85ba62a7e2e5489595958f8f9c27df75"
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
             }
           },
           {
-            "span_id": "85ba62a7e2e5489595958f8f9c27df75:5",
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.051324+00:00",
-            "completed_at": "2026-10-02T07:48:39.051324+00:00",
+            "started_at": "2026-10-02T08:08:07.572285+00:00",
+            "completed_at": "2026-10-02T08:08:07.572285+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "85ba62a7e2e5489595958f8f9c27df75"
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
             }
           },
           {
-            "span_id": "85ba62a7e2e5489595958f8f9c27df75:6",
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_accept_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.051500+00:00",
-            "completed_at": "2026-10-02T07:48:39.052500+00:00",
-            "duration_ms": 1,
+            "started_at": "2026-10-02T08:08:07.572613+00:00",
+            "completed_at": "2026-10-02T08:08:07.574613+00:00",
+            "duration_ms": 2,
             "attributes": {
-              "host_phase_group_id": "85ba62a7e2e5489595958f8f9c27df75"
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
             }
           },
           {
-            "span_id": "85ba62a7e2e5489595958f8f9c27df75:7",
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:7",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_proceed_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.052732+00:00",
-            "completed_at": "2026-10-02T07:48:39.052732+00:00",
+            "started_at": "2026-10-02T08:08:07.574838+00:00",
+            "completed_at": "2026-10-02T08:08:07.574838+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "85ba62a7e2e5489595958f8f9c27df75"
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
             }
           },
           {
-            "span_id": "85ba62a7e2e5489595958f8f9c27df75:8",
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:8",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_result_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.052274+00:00",
-            "completed_at": "2026-10-02T07:48:44.811274+00:00",
-            "duration_ms": 5759,
+            "started_at": "2026-10-02T08:08:07.575372+00:00",
+            "completed_at": "2026-10-02T08:08:14.434372+00:00",
+            "duration_ms": 6859,
             "attributes": {
-              "host_phase_group_id": "85ba62a7e2e5489595958f8f9c27df75"
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
             }
           },
           {
-            "span_id": "331fe303317f4f1a93429ca8bfd5373f:1",
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:1",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_home_setup",
+            "name": "rung3_bootstrap_logger_home_setup",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.054278+00:00",
-            "completed_at": "2026-10-02T07:48:39.056278+00:00",
-            "duration_ms": 2,
+            "started_at": "2026-10-02T08:08:07.576894+00:00",
+            "completed_at": "2026-10-02T08:08:07.579894+00:00",
+            "duration_ms": 3,
             "attributes": {
-              "host_phase_group_id": "331fe303317f4f1a93429ca8bfd5373f"
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
             }
           },
           {
-            "span_id": "331fe303317f4f1a93429ca8bfd5373f:2",
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:2",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_agent_import",
+            "name": "rung3_cached_agent_factory_lookup",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.056176+00:00",
-            "completed_at": "2026-10-02T07:48:39.057176+00:00",
+            "started_at": "2026-10-02T08:08:07.580300+00:00",
+            "completed_at": "2026-10-02T08:08:07.581300+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "331fe303317f4f1a93429ca8bfd5373f"
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
             }
           },
           {
-            "span_id": "331fe303317f4f1a93429ca8bfd5373f:3",
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_plugin_discovery",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.057214+00:00",
-            "completed_at": "2026-10-02T07:48:39.467214+00:00",
-            "duration_ms": 410,
+            "started_at": "2026-10-02T08:08:07.581558+00:00",
+            "completed_at": "2026-10-02T08:08:08.004558+00:00",
+            "duration_ms": 423,
             "attributes": {
-              "host_phase_group_id": "331fe303317f4f1a93429ca8bfd5373f"
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
             }
           },
           {
-            "span_id": "331fe303317f4f1a93429ca8bfd5373f:4",
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_agent_construction",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.469104+00:00",
-            "completed_at": "2026-10-02T07:48:39.901104+00:00",
-            "duration_ms": 432,
+            "started_at": "2026-10-02T08:08:08.005763+00:00",
+            "completed_at": "2026-10-02T08:08:08.490763+00:00",
+            "duration_ms": 485,
             "attributes": {
-              "host_phase_group_id": "331fe303317f4f1a93429ca8bfd5373f"
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
             }
           },
           {
-            "span_id": "331fe303317f4f1a93429ca8bfd5373f:5",
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_provider_conversation",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:39.902640+00:00",
-            "completed_at": "2026-10-02T07:48:44.801640+00:00",
-            "duration_ms": 4899,
+            "started_at": "2026-10-02T08:08:08.492938+00:00",
+            "completed_at": "2026-10-02T08:08:14.421938+00:00",
+            "duration_ms": 5929,
             "attributes": {
-              "host_phase_group_id": "331fe303317f4f1a93429ca8bfd5373f"
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
             }
           },
           {
-            "span_id": "331fe303317f4f1a93429ca8bfd5373f:6",
+            "span_id": "2e5b289cac624008b3373a60b130bc8c:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_response_normalization_projection",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:44.802404+00:00",
-            "completed_at": "2026-10-02T07:48:44.802404+00:00",
+            "started_at": "2026-10-02T08:08:14.422932+00:00",
+            "completed_at": "2026-10-02T08:08:14.422932+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "331fe303317f4f1a93429ca8bfd5373f"
+              "host_phase_group_id": "2e5b289cac624008b3373a60b130bc8c"
             }
           },
           {
-            "span_id": "85ba62a7e2e5489595958f8f9c27df75:15",
+            "span_id": "383b5cca91e74926b054c20306bd0cb3:15",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_result_decode",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:44.811554+00:00",
-            "completed_at": "2026-10-02T07:48:44.811554+00:00",
+            "started_at": "2026-10-02T08:08:14.434777+00:00",
+            "completed_at": "2026-10-02T08:08:14.434777+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "85ba62a7e2e5489595958f8f9c27df75"
+              "host_phase_group_id": "383b5cca91e74926b054c20306bd0cb3"
             }
           }
         ],
@@ -588,29 +588,29 @@
             "provider": "openai-api",
             "requested_model": "gpt-6-luna",
             "response_model": "gpt-6-luna",
-            "duration_ms": 3007.0128440856934,
+            "duration_ms": 4871.821165084839,
             "request_summary": {
               "api_call_count": 1,
               "message_count": 2,
               "tool_count": 0,
               "approx_input_tokens": 763,
               "request_char_count": 3051,
-              "assistant_content_chars": 447,
+              "assistant_content_chars": 496,
               "assistant_tool_call_count": 0
             },
             "usage": {
               "status": "reported",
               "input_tokens": 633,
-              "output_tokens": 257,
-              "total_tokens": 890,
+              "output_tokens": 354,
+              "total_tokens": 987,
               "cached_input_tokens": 0,
               "cache_write_input_tokens": 0,
               "uncached_input_tokens": 633,
-              "reasoning_tokens": 151
+              "reasoning_tokens": 242
             },
             "cost": {
               "status": "estimated",
-              "usd": 0.0001918,
+              "usd": 0.00024029999999999999,
               "currency": "USD",
               "pricing_table_matched": true,
               "rates_per_1m_usd": {
@@ -622,18 +622,18 @@
           }
         ],
         "model_call_count": 1,
-        "sum_observed_model_call_ms": 3007.0,
-        "unallocated_residual_ms": 2753.8,
+        "sum_observed_model_call_ms": 4871.8,
+        "unallocated_residual_ms": 1991.7,
         "tool_event_count": 0,
         "tool_call_count": 0,
         "process_isolation": "process_exclusive",
-        "worker_pid_before": 1495751,
-        "worker_pid_after": 1495751,
+        "worker_pid_before": 1514024,
+        "worker_pid_after": 1514024,
         "worker_pid_matches_cold_worker": true,
         "worker_reused_from_previous_sample": true,
-        "answer": "The bridge is Alderwatch’s only river crossing, and it closes at dusk—choose a route before that window shuts. Established: three nights ago, the east watchtower’s blue lantern went dark; its keeper, Nera, is missing; and silver dust trails toward the old quarry, still unfollowed. The mayor says the north road is passable; the ferryman reports bells beneath the river. Nera’s whereabouts, the trail’s source, and the bells’ cause remain unknown.",
+        "answer": "Alderwatch’s only bridge closes at dusk, creating an immediate choice: take the north road, which the mayor says is passable, or investigate before the crossing shuts. Three nights ago, the east tower’s blue lantern went dark and its keeper, Nera, disappeared. A dry silver-dust trail points toward the old quarry; nobody has followed it. The ferryman reports hearing bells beneath the river. Nera’s fate, the trail’s destination, and the cause or meaning of the lantern and bells remain unknown.",
         "hard_gate_check": {
-          "word_count": 70,
+          "word_count": 79,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -651,23 +651,23 @@
       "phase": "warm_reused_worker_turn",
       "direct_control": {
         "status": "ok",
-        "wall_ms": 5199.5,
-        "response_id": "resp_0e38bcbc9f17b717006abf61dd069087d1b4b448ae81dd8eb9",
+        "wall_ms": 4883.1,
+        "response_id": "resp_0c0cef6a3517aa2d006abf666e8fa887d1908cc56c01944170",
         "usage": {
           "input_tokens": 246,
           "input_tokens_details": {
             "cached_tokens": 0,
             "cache_write_tokens": 0
           },
-          "output_tokens": 427,
+          "output_tokens": 392,
           "output_tokens_details": {
-            "reasoning_tokens": 315
+            "reasoning_tokens": 290
           },
-          "total_tokens": 673
+          "total_tokens": 638
         },
         "cost": {
           "status": "estimated",
-          "usd": 0.00023810000000000001,
+          "usd": 0.0002206,
           "currency": "USD",
           "pricing_table_matched": true,
           "rates_per_1m_usd": {
@@ -676,9 +676,9 @@
             "output": 0.5
           }
         },
-        "answer": "The immediate pressure is the bridge: Alderwatch has only one river crossing, and it closes at dusk, so any crossing needs to account for that deadline. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, vanished. A dry silver-dust trail leads toward the old quarry, but no one has followed it; whether it leads to Nera is unknown. The mayor says the north road is passable. The ferryman reports bells beneath the river, but their source is unknown.",
+        "answer": "Alderwatch’s only bridge closes at dusk, so put the party’s route choice on the clock. Three nights ago, the east watchtower’s blue lantern went dark and keeper Nera went missing; a dry trail of silver dust leads toward the old quarry, still untracked. The mayor says the north road is passable; the ferryman reports bells beneath the river. What happened to Nera, where the trail leads, and whether the bells are connected remain unknown.",
         "hard_gate_check": {
-          "word_count": 83,
+          "word_count": 74,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -694,201 +694,201 @@
         "status": "ok",
         "error_code": null,
         "error_message": null,
-        "wall_ms": 4833.5,
+        "wall_ms": 8220.5,
         "phase_spans": [
           {
-            "span_id": "7adf081d005b4335b1087731abdf75dd:1",
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:1",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_serialize",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.013678+00:00",
-            "completed_at": "2026-10-02T07:48:50.013678+00:00",
+            "started_at": "2026-10-02T08:08:19.320740+00:00",
+            "completed_at": "2026-10-02T08:08:19.320740+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "7adf081d005b4335b1087731abdf75dd"
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
             }
           },
           {
-            "span_id": "7adf081d005b4335b1087731abdf75dd:2",
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:2",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_turn_gate_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.013717+00:00",
-            "completed_at": "2026-10-02T07:48:50.013717+00:00",
+            "started_at": "2026-10-02T08:08:19.320783+00:00",
+            "completed_at": "2026-10-02T08:08:19.320783+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "7adf081d005b4335b1087731abdf75dd"
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
             }
           },
           {
-            "span_id": "7adf081d005b4335b1087731abdf75dd:3",
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_acquire_ready",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.013752+00:00",
-            "completed_at": "2026-10-02T07:48:50.013752+00:00",
+            "started_at": "2026-10-02T08:08:19.320817+00:00",
+            "completed_at": "2026-10-02T08:08:19.320817+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "7adf081d005b4335b1087731abdf75dd"
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
             }
           },
           {
-            "span_id": "7adf081d005b4335b1087731abdf75dd:4",
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_wire_encode",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.013857+00:00",
-            "completed_at": "2026-10-02T07:48:50.013857+00:00",
+            "started_at": "2026-10-02T08:08:19.320921+00:00",
+            "completed_at": "2026-10-02T08:08:19.320921+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "7adf081d005b4335b1087731abdf75dd"
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
             }
           },
           {
-            "span_id": "7adf081d005b4335b1087731abdf75dd:5",
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.013889+00:00",
-            "completed_at": "2026-10-02T07:48:50.013889+00:00",
+            "started_at": "2026-10-02T08:08:19.320954+00:00",
+            "completed_at": "2026-10-02T08:08:19.320954+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "7adf081d005b4335b1087731abdf75dd"
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
             }
           },
           {
-            "span_id": "7adf081d005b4335b1087731abdf75dd:6",
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_accept_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.013883+00:00",
-            "completed_at": "2026-10-02T07:48:50.014883+00:00",
+            "started_at": "2026-10-02T08:08:19.320829+00:00",
+            "completed_at": "2026-10-02T08:08:19.321829+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "7adf081d005b4335b1087731abdf75dd"
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
             }
           },
           {
-            "span_id": "7adf081d005b4335b1087731abdf75dd:7",
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:7",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_proceed_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.014997+00:00",
-            "completed_at": "2026-10-02T07:48:50.014997+00:00",
+            "started_at": "2026-10-02T08:08:19.321919+00:00",
+            "completed_at": "2026-10-02T08:08:19.321919+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "7adf081d005b4335b1087731abdf75dd"
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
             }
           },
           {
-            "span_id": "7adf081d005b4335b1087731abdf75dd:8",
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:8",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_result_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.014673+00:00",
-            "completed_at": "2026-10-02T07:48:54.846673+00:00",
-            "duration_ms": 4832,
+            "started_at": "2026-10-02T08:08:19.321871+00:00",
+            "completed_at": "2026-10-02T08:08:27.540871+00:00",
+            "duration_ms": 8219,
             "attributes": {
-              "host_phase_group_id": "7adf081d005b4335b1087731abdf75dd"
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
             }
           },
           {
-            "span_id": "35702070e47c4ad784763c0dd309a8f0:1",
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:1",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_home_setup",
+            "name": "rung3_bootstrap_logger_home_setup",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.016164+00:00",
-            "completed_at": "2026-10-02T07:48:50.018164+00:00",
+            "started_at": "2026-10-02T08:08:19.323491+00:00",
+            "completed_at": "2026-10-02T08:08:19.325491+00:00",
             "duration_ms": 2,
             "attributes": {
-              "host_phase_group_id": "35702070e47c4ad784763c0dd309a8f0"
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
             }
           },
           {
-            "span_id": "35702070e47c4ad784763c0dd309a8f0:2",
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:2",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_agent_import",
+            "name": "rung3_cached_agent_factory_lookup",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.018035+00:00",
-            "completed_at": "2026-10-02T07:48:50.019035+00:00",
+            "started_at": "2026-10-02T08:08:19.326188+00:00",
+            "completed_at": "2026-10-02T08:08:19.327188+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "35702070e47c4ad784763c0dd309a8f0"
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
             }
           },
           {
-            "span_id": "35702070e47c4ad784763c0dd309a8f0:3",
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_plugin_discovery",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.019394+00:00",
-            "completed_at": "2026-10-02T07:48:50.517394+00:00",
-            "duration_ms": 498,
+            "started_at": "2026-10-02T08:08:19.327801+00:00",
+            "completed_at": "2026-10-02T08:08:19.729801+00:00",
+            "duration_ms": 402,
             "attributes": {
-              "host_phase_group_id": "35702070e47c4ad784763c0dd309a8f0"
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
             }
           },
           {
-            "span_id": "35702070e47c4ad784763c0dd309a8f0:4",
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_agent_construction",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.518158+00:00",
-            "completed_at": "2026-10-02T07:48:50.834158+00:00",
-            "duration_ms": 316,
+            "started_at": "2026-10-02T08:08:19.731018+00:00",
+            "completed_at": "2026-10-02T08:08:20.027018+00:00",
+            "duration_ms": 296,
             "attributes": {
-              "host_phase_group_id": "35702070e47c4ad784763c0dd309a8f0"
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
             }
           },
           {
-            "span_id": "35702070e47c4ad784763c0dd309a8f0:5",
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_provider_conversation",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:50.835774+00:00",
-            "completed_at": "2026-10-02T07:48:54.836774+00:00",
-            "duration_ms": 4001,
+            "started_at": "2026-10-02T08:08:20.028014+00:00",
+            "completed_at": "2026-10-02T08:08:27.533014+00:00",
+            "duration_ms": 7505,
             "attributes": {
-              "host_phase_group_id": "35702070e47c4ad784763c0dd309a8f0"
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
             }
           },
           {
-            "span_id": "35702070e47c4ad784763c0dd309a8f0:6",
+            "span_id": "47ff6c620f5049bd9aeaf23e245ec82d:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_response_normalization_projection",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:54.837536+00:00",
-            "completed_at": "2026-10-02T07:48:54.837536+00:00",
+            "started_at": "2026-10-02T08:08:27.533807+00:00",
+            "completed_at": "2026-10-02T08:08:27.533807+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "35702070e47c4ad784763c0dd309a8f0"
+              "host_phase_group_id": "47ff6c620f5049bd9aeaf23e245ec82d"
             }
           },
           {
-            "span_id": "7adf081d005b4335b1087731abdf75dd:15",
+            "span_id": "eea2ab53879d468b91e4a26a8887194c:15",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_result_decode",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:54.847005+00:00",
-            "completed_at": "2026-10-02T07:48:54.847005+00:00",
+            "started_at": "2026-10-02T08:08:27.541077+00:00",
+            "completed_at": "2026-10-02T08:08:27.541077+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "7adf081d005b4335b1087731abdf75dd"
+              "host_phase_group_id": "eea2ab53879d468b91e4a26a8887194c"
             }
           }
         ],
@@ -898,29 +898,29 @@
             "provider": "openai-api",
             "requested_model": "gpt-6-luna",
             "response_model": "gpt-6-luna",
-            "duration_ms": 2913.674831390381,
+            "duration_ms": 6433.598041534424,
             "request_summary": {
               "api_call_count": 1,
               "message_count": 2,
               "tool_count": 0,
               "approx_input_tokens": 763,
               "request_char_count": 3051,
-              "assistant_content_chars": 473,
+              "assistant_content_chars": 469,
               "assistant_tool_call_count": 0
             },
             "usage": {
               "status": "reported",
               "input_tokens": 633,
-              "output_tokens": 254,
-              "total_tokens": 887,
+              "output_tokens": 383,
+              "total_tokens": 1016,
               "cached_input_tokens": 0,
               "cache_write_input_tokens": 0,
               "uncached_input_tokens": 633,
-              "reasoning_tokens": 145
+              "reasoning_tokens": 269
             },
             "cost": {
               "status": "estimated",
-              "usd": 0.00019030000000000002,
+              "usd": 0.0002548,
               "currency": "USD",
               "pricing_table_matched": true,
               "rates_per_1m_usd": {
@@ -932,18 +932,18 @@
           }
         ],
         "model_call_count": 1,
-        "sum_observed_model_call_ms": 2913.7,
-        "unallocated_residual_ms": 1919.8,
+        "sum_observed_model_call_ms": 6433.6,
+        "unallocated_residual_ms": 1786.9,
         "tool_event_count": 0,
         "tool_call_count": 0,
         "process_isolation": "process_exclusive",
-        "worker_pid_before": 1495751,
-        "worker_pid_after": 1495751,
+        "worker_pid_before": 1514024,
+        "worker_pid_after": 1514024,
         "worker_pid_matches_cold_worker": true,
         "worker_reused_from_previous_sample": true,
-        "answer": "Alderwatch’s only bridge closes at dusk, making the crossing the immediate pressure: the party must decide whether to cross before it shuts. Three nights ago, the east tower’s blue lantern went dark and its keeper, Nera, vanished; a dry silver-dust trail leads toward the old quarry, still unexplored. The mayor says the north road is passable, while the ferryman reports bells beneath the river. Nera’s whereabouts, the trail’s source, and the bells’ cause remain unknown.",
+        "answer": "The bridge closes at dusk, so make the party choose a route before time runs out; the mayor says the north road is passable, but that remains a report, not a guarantee. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, is missing. A dry trail of silver dust leads toward the old quarry, still uninvestigated. The ferryman reports bells beneath the river. Who took Nera, where the trail leads, and what the bells mean are all unknown.",
         "hard_gate_check": {
-          "word_count": 75,
+          "word_count": 83,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -961,23 +961,23 @@
       "phase": "warm_reused_worker_turn",
       "direct_control": {
         "status": "ok",
-        "wall_ms": 3545.6,
-        "response_id": "resp_07e8564f0e550608006abf61e6fe4c87d182fed420ad04301e",
+        "wall_ms": 3068.6,
+        "response_id": "resp_075e40fa168c1a33006abf667baccc87d197c737b31eaa69c8",
         "usage": {
           "input_tokens": 246,
           "input_tokens_details": {
             "cached_tokens": 0,
             "cache_write_tokens": 0
           },
-          "output_tokens": 232,
+          "output_tokens": 222,
           "output_tokens_details": {
-            "reasoning_tokens": 122
+            "reasoning_tokens": 116
           },
-          "total_tokens": 478
+          "total_tokens": 468
         },
         "cost": {
           "status": "estimated",
-          "usd": 0.0001406,
+          "usd": 0.0001356,
           "currency": "USD",
           "pricing_table_matched": true,
           "rates_per_1m_usd": {
@@ -986,9 +986,9 @@
             "output": 0.5
           }
         },
-        "answer": "Alderwatch’s only bridge closes at dusk; the party must choose whether to cross before then or risk being cut off. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, disappeared. A dry trail of silver dust leads toward the old quarry, but nobody has followed it. The mayor says the north road is passable; the ferryman reports bells beneath the river. What happened to Nera, where the trail leads, and what the bells mean remain unknown.",
+        "answer": "Alderwatch’s only bridge closes at dusk: choose a route or risk losing the crossing. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, went missing. A dry trail of silver dust leads toward the old quarry, but no one has followed it. The mayor says the north road is passable; the ferryman reports hearing bells beneath the river. Nera’s whereabouts, the trail’s source, and the bells’ meaning remain unknown.",
         "hard_gate_check": {
-          "word_count": 81,
+          "word_count": 74,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -1004,201 +1004,201 @@
         "status": "ok",
         "error_code": null,
         "error_message": null,
-        "wall_ms": 5468.7,
+        "wall_ms": 5022.4,
         "phase_spans": [
           {
-            "span_id": "b42adbec896948ffae8f249db9d233fd:1",
+            "span_id": "710334a2eedb44a68303663cfcc2b058:1",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_serialize",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.396537+00:00",
-            "completed_at": "2026-10-02T07:48:58.396537+00:00",
+            "started_at": "2026-10-02T08:08:30.611938+00:00",
+            "completed_at": "2026-10-02T08:08:30.611938+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "b42adbec896948ffae8f249db9d233fd"
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
             }
           },
           {
-            "span_id": "b42adbec896948ffae8f249db9d233fd:2",
+            "span_id": "710334a2eedb44a68303663cfcc2b058:2",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_turn_gate_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.396603+00:00",
-            "completed_at": "2026-10-02T07:48:58.396603+00:00",
+            "started_at": "2026-10-02T08:08:30.611979+00:00",
+            "completed_at": "2026-10-02T08:08:30.611979+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "b42adbec896948ffae8f249db9d233fd"
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
             }
           },
           {
-            "span_id": "b42adbec896948ffae8f249db9d233fd:3",
+            "span_id": "710334a2eedb44a68303663cfcc2b058:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_acquire_ready",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.396641+00:00",
-            "completed_at": "2026-10-02T07:48:58.396641+00:00",
+            "started_at": "2026-10-02T08:08:30.612009+00:00",
+            "completed_at": "2026-10-02T08:08:30.612009+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "b42adbec896948ffae8f249db9d233fd"
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
             }
           },
           {
-            "span_id": "b42adbec896948ffae8f249db9d233fd:4",
+            "span_id": "710334a2eedb44a68303663cfcc2b058:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_wire_encode",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.396770+00:00",
-            "completed_at": "2026-10-02T07:48:58.396770+00:00",
+            "started_at": "2026-10-02T08:08:30.612111+00:00",
+            "completed_at": "2026-10-02T08:08:30.612111+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "b42adbec896948ffae8f249db9d233fd"
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
             }
           },
           {
-            "span_id": "b42adbec896948ffae8f249db9d233fd:5",
+            "span_id": "710334a2eedb44a68303663cfcc2b058:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.396809+00:00",
-            "completed_at": "2026-10-02T07:48:58.396809+00:00",
+            "started_at": "2026-10-02T08:08:30.612149+00:00",
+            "completed_at": "2026-10-02T08:08:30.612149+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "b42adbec896948ffae8f249db9d233fd"
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
             }
           },
           {
-            "span_id": "b42adbec896948ffae8f249db9d233fd:6",
+            "span_id": "710334a2eedb44a68303663cfcc2b058:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_accept_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.396905+00:00",
-            "completed_at": "2026-10-02T07:48:58.397905+00:00",
+            "started_at": "2026-10-02T08:08:30.612295+00:00",
+            "completed_at": "2026-10-02T08:08:30.613295+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "b42adbec896948ffae8f249db9d233fd"
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
             }
           },
           {
-            "span_id": "b42adbec896948ffae8f249db9d233fd:7",
+            "span_id": "710334a2eedb44a68303663cfcc2b058:7",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_proceed_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.398042+00:00",
-            "completed_at": "2026-10-02T07:48:58.398042+00:00",
+            "started_at": "2026-10-02T08:08:30.613424+00:00",
+            "completed_at": "2026-10-02T08:08:30.613424+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "b42adbec896948ffae8f249db9d233fd"
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
             }
           },
           {
-            "span_id": "b42adbec896948ffae8f249db9d233fd:8",
+            "span_id": "710334a2eedb44a68303663cfcc2b058:8",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_result_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.397662+00:00",
-            "completed_at": "2026-10-02T07:49:03.864662+00:00",
-            "duration_ms": 5467,
+            "started_at": "2026-10-02T08:08:30.613832+00:00",
+            "completed_at": "2026-10-02T08:08:35.633832+00:00",
+            "duration_ms": 5020,
             "attributes": {
-              "host_phase_group_id": "b42adbec896948ffae8f249db9d233fd"
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
             }
           },
           {
-            "span_id": "d8e226f8831a41859a694b9121ce68d5:1",
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:1",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_home_setup",
+            "name": "rung3_bootstrap_logger_home_setup",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.399446+00:00",
-            "completed_at": "2026-10-02T07:48:58.402446+00:00",
+            "started_at": "2026-10-02T08:08:30.614775+00:00",
+            "completed_at": "2026-10-02T08:08:30.617775+00:00",
             "duration_ms": 3,
             "attributes": {
-              "host_phase_group_id": "d8e226f8831a41859a694b9121ce68d5"
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
             }
           },
           {
-            "span_id": "d8e226f8831a41859a694b9121ce68d5:2",
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:2",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_agent_import",
+            "name": "rung3_cached_agent_factory_lookup",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.402445+00:00",
-            "completed_at": "2026-10-02T07:48:58.403445+00:00",
+            "started_at": "2026-10-02T08:08:30.617763+00:00",
+            "completed_at": "2026-10-02T08:08:30.618763+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "d8e226f8831a41859a694b9121ce68d5"
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
             }
           },
           {
-            "span_id": "d8e226f8831a41859a694b9121ce68d5:3",
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_plugin_discovery",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.404179+00:00",
-            "completed_at": "2026-10-02T07:48:58.822179+00:00",
-            "duration_ms": 418,
+            "started_at": "2026-10-02T08:08:30.619705+00:00",
+            "completed_at": "2026-10-02T08:08:31.076705+00:00",
+            "duration_ms": 457,
             "attributes": {
-              "host_phase_group_id": "d8e226f8831a41859a694b9121ce68d5"
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
             }
           },
           {
-            "span_id": "d8e226f8831a41859a694b9121ce68d5:4",
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_agent_construction",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:58.822882+00:00",
-            "completed_at": "2026-10-02T07:48:59.092882+00:00",
-            "duration_ms": 270,
+            "started_at": "2026-10-02T08:08:31.077337+00:00",
+            "completed_at": "2026-10-02T08:08:31.404337+00:00",
+            "duration_ms": 327,
             "attributes": {
-              "host_phase_group_id": "d8e226f8831a41859a694b9121ce68d5"
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
             }
           },
           {
-            "span_id": "d8e226f8831a41859a694b9121ce68d5:5",
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_provider_conversation",
             "status": "ok",
-            "started_at": "2026-10-02T07:48:59.096048+00:00",
-            "completed_at": "2026-10-02T07:49:03.856048+00:00",
-            "duration_ms": 4760,
+            "started_at": "2026-10-02T08:08:31.406396+00:00",
+            "completed_at": "2026-10-02T08:08:35.624396+00:00",
+            "duration_ms": 4218,
             "attributes": {
-              "host_phase_group_id": "d8e226f8831a41859a694b9121ce68d5"
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
             }
           },
           {
-            "span_id": "d8e226f8831a41859a694b9121ce68d5:6",
+            "span_id": "1756f03a762f4143abb74a10bc9b76bb:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_response_normalization_projection",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:03.856902+00:00",
-            "completed_at": "2026-10-02T07:49:03.856902+00:00",
+            "started_at": "2026-10-02T08:08:35.625177+00:00",
+            "completed_at": "2026-10-02T08:08:35.625177+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "d8e226f8831a41859a694b9121ce68d5"
+              "host_phase_group_id": "1756f03a762f4143abb74a10bc9b76bb"
             }
           },
           {
-            "span_id": "b42adbec896948ffae8f249db9d233fd:15",
+            "span_id": "710334a2eedb44a68303663cfcc2b058:15",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_result_decode",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:03.864999+00:00",
-            "completed_at": "2026-10-02T07:49:03.864999+00:00",
+            "started_at": "2026-10-02T08:08:35.634139+00:00",
+            "completed_at": "2026-10-02T08:08:35.634139+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "b42adbec896948ffae8f249db9d233fd"
+              "host_phase_group_id": "710334a2eedb44a68303663cfcc2b058"
             }
           }
         ],
@@ -1208,29 +1208,29 @@
             "provider": "openai-api",
             "requested_model": "gpt-6-luna",
             "response_model": "gpt-6-luna",
-            "duration_ms": 4292.767763137817,
+            "duration_ms": 3023.5555171966553,
             "request_summary": {
               "api_call_count": 1,
               "message_count": 2,
               "tool_count": 0,
               "approx_input_tokens": 763,
               "request_char_count": 3051,
-              "assistant_content_chars": 484,
+              "assistant_content_chars": 463,
               "assistant_tool_call_count": 0
             },
             "usage": {
               "status": "reported",
               "input_tokens": 633,
-              "output_tokens": 270,
-              "total_tokens": 903,
+              "output_tokens": 279,
+              "total_tokens": 912,
               "cached_input_tokens": 0,
               "cache_write_input_tokens": 0,
               "uncached_input_tokens": 633,
-              "reasoning_tokens": 160
+              "reasoning_tokens": 173
             },
             "cost": {
               "status": "estimated",
-              "usd": 0.0001983,
+              "usd": 0.0002028,
               "currency": "USD",
               "pricing_table_matched": true,
               "rates_per_1m_usd": {
@@ -1242,18 +1242,18 @@
           }
         ],
         "model_call_count": 1,
-        "sum_observed_model_call_ms": 4292.8,
-        "unallocated_residual_ms": 1175.9,
+        "sum_observed_model_call_ms": 3023.6,
+        "unallocated_residual_ms": 1998.8,
         "tool_event_count": 0,
         "tool_call_count": 0,
         "process_isolation": "process_exclusive",
-        "worker_pid_before": 1495751,
-        "worker_pid_after": 1495751,
+        "worker_pid_before": 1514024,
+        "worker_pid_after": 1514024,
         "worker_pid_matches_cold_worker": true,
         "worker_reused_from_previous_sample": true,
-        "answer": "The bridge is Alderwatch’s only river crossing and closes at dusk, so make the party’s route choice the immediate pressure; the mayor says the north road is passable. Established: three nights ago, the east tower’s blue lantern went dark, Nera disappeared, and silver dust trails toward the old quarry. Unknown: what happened to Nera, where the trail leads, whether the north road is truly safe, and what the ferryman’s bells beneath the river mean. No one has followed the trail yet.",
+        "answer": "The only bridge closes at dusk, making the party’s crossing time the immediate pressure. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, disappeared; a trail of silver dust leads toward the old quarry, but no one has followed it. Nera’s whereabouts, the trail’s destination, and the bells the ferryman says he heard beneath the river remain unknown. The mayor says the north road is passable, but that has not been confirmed.",
         "hard_gate_check": {
-          "word_count": 81,
+          "word_count": 77,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -1271,23 +1271,23 @@
       "phase": "warm_reused_worker_turn",
       "direct_control": {
         "status": "ok",
-        "wall_ms": 3704.9,
-        "response_id": "resp_06b964892d6442c4006abf61f008b487d1a08542b4a5dc13b5",
+        "wall_ms": 3960.2,
+        "response_id": "resp_09b3c62394b38302006abf6683cd6c87d1992fa223c1e426f3",
         "usage": {
           "input_tokens": 246,
           "input_tokens_details": {
             "cached_tokens": 0,
             "cache_write_tokens": 0
           },
-          "output_tokens": 238,
+          "output_tokens": 317,
           "output_tokens_details": {
-            "reasoning_tokens": 123
+            "reasoning_tokens": 209
           },
-          "total_tokens": 484
+          "total_tokens": 563
         },
         "cost": {
           "status": "estimated",
-          "usd": 0.00014360000000000002,
+          "usd": 0.0001831,
           "currency": "USD",
           "pricing_table_matched": true,
           "rates_per_1m_usd": {
@@ -1296,9 +1296,9 @@
             "output": 0.5
           }
         },
-        "answer": "At dusk, Alderwatch’s only bridge closes; decide whether the party crosses before then or risks being cut off. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, disappeared. A silver-dust trail leads toward the old quarry, still un followed. Nera’s whereabouts, the trail’s source, and any connection to the bells beneath the river are unknown. The mayor says the north road is passable; the ferryman reports hearing bells below. Neither report confirms what the party will find.",
+        "answer": "The bridge is Alderwatch’s only river crossing and closes at dusk, putting a hard clock on any crossing. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, disappeared. A dry silver-dust trail leads toward the old quarry, but no one has followed it. The mayor says the north road is passable; the ferryman reports hearing bells beneath the river. Nera’s whereabouts, the trail’s source, and whether the bells are connected remain unknown.",
         "hard_gate_check": {
-          "word_count": 82,
+          "word_count": 77,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -1314,201 +1314,201 @@
         "status": "ok",
         "error_code": null,
         "error_message": null,
-        "wall_ms": 5199.6,
+        "wall_ms": 5064.8,
         "phase_spans": [
           {
-            "span_id": "59f5af573ede48fe94493284057d9e48:1",
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:1",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_serialize",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.572804+00:00",
-            "completed_at": "2026-10-02T07:49:07.572804+00:00",
+            "started_at": "2026-10-02T08:08:39.597228+00:00",
+            "completed_at": "2026-10-02T08:08:39.597228+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "59f5af573ede48fe94493284057d9e48"
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
             }
           },
           {
-            "span_id": "59f5af573ede48fe94493284057d9e48:2",
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:2",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_turn_gate_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.572852+00:00",
-            "completed_at": "2026-10-02T07:49:07.572852+00:00",
+            "started_at": "2026-10-02T08:08:39.597281+00:00",
+            "completed_at": "2026-10-02T08:08:39.597281+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "59f5af573ede48fe94493284057d9e48"
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
             }
           },
           {
-            "span_id": "59f5af573ede48fe94493284057d9e48:3",
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_acquire_ready",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.572888+00:00",
-            "completed_at": "2026-10-02T07:49:07.572888+00:00",
+            "started_at": "2026-10-02T08:08:39.597319+00:00",
+            "completed_at": "2026-10-02T08:08:39.597319+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "59f5af573ede48fe94493284057d9e48"
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
             }
           },
           {
-            "span_id": "59f5af573ede48fe94493284057d9e48:4",
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_wire_encode",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.573012+00:00",
-            "completed_at": "2026-10-02T07:49:07.573012+00:00",
+            "started_at": "2026-10-02T08:08:39.597447+00:00",
+            "completed_at": "2026-10-02T08:08:39.597447+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "59f5af573ede48fe94493284057d9e48"
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
             }
           },
           {
-            "span_id": "59f5af573ede48fe94493284057d9e48:5",
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_request_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.573052+00:00",
-            "completed_at": "2026-10-02T07:49:07.573052+00:00",
+            "started_at": "2026-10-02T08:08:39.597489+00:00",
+            "completed_at": "2026-10-02T08:08:39.597489+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "59f5af573ede48fe94493284057d9e48"
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
             }
           },
           {
-            "span_id": "59f5af573ede48fe94493284057d9e48:6",
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_accept_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.573017+00:00",
-            "completed_at": "2026-10-02T07:49:07.574017+00:00",
+            "started_at": "2026-10-02T08:08:39.597647+00:00",
+            "completed_at": "2026-10-02T08:08:39.598647+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "59f5af573ede48fe94493284057d9e48"
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
             }
           },
           {
-            "span_id": "59f5af573ede48fe94493284057d9e48:7",
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:7",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_proceed_queue_put",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.574127+00:00",
-            "completed_at": "2026-10-02T07:49:07.574127+00:00",
+            "started_at": "2026-10-02T08:08:39.598756+00:00",
+            "completed_at": "2026-10-02T08:08:39.598756+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "59f5af573ede48fe94493284057d9e48"
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
             }
           },
           {
-            "span_id": "59f5af573ede48fe94493284057d9e48:8",
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:8",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_worker_result_wait",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.574049+00:00",
-            "completed_at": "2026-10-02T07:49:12.772049+00:00",
-            "duration_ms": 5198,
+            "started_at": "2026-10-02T08:08:39.598316+00:00",
+            "completed_at": "2026-10-02T08:08:44.661316+00:00",
+            "duration_ms": 5063,
             "attributes": {
-              "host_phase_group_id": "59f5af573ede48fe94493284057d9e48"
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
             }
           },
           {
-            "span_id": "9b66cb32ea1143c7a05ef39a66bff2d1:1",
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:1",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_home_setup",
+            "name": "rung3_bootstrap_logger_home_setup",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.574952+00:00",
-            "completed_at": "2026-10-02T07:49:07.577952+00:00",
+            "started_at": "2026-10-02T08:08:39.600622+00:00",
+            "completed_at": "2026-10-02T08:08:39.603622+00:00",
             "duration_ms": 3,
             "attributes": {
-              "host_phase_group_id": "9b66cb32ea1143c7a05ef39a66bff2d1"
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
             }
           },
           {
-            "span_id": "9b66cb32ea1143c7a05ef39a66bff2d1:2",
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:2",
             "parent_span_id": null,
             "kind": "phase",
-            "name": "rung3_agent_import",
+            "name": "rung3_cached_agent_factory_lookup",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.577982+00:00",
-            "completed_at": "2026-10-02T07:49:07.578982+00:00",
+            "started_at": "2026-10-02T08:08:39.603861+00:00",
+            "completed_at": "2026-10-02T08:08:39.604861+00:00",
             "duration_ms": 1,
             "attributes": {
-              "host_phase_group_id": "9b66cb32ea1143c7a05ef39a66bff2d1"
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
             }
           },
           {
-            "span_id": "9b66cb32ea1143c7a05ef39a66bff2d1:3",
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:3",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_plugin_discovery",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.580071+00:00",
-            "completed_at": "2026-10-02T07:49:07.931071+00:00",
-            "duration_ms": 351,
+            "started_at": "2026-10-02T08:08:39.605165+00:00",
+            "completed_at": "2026-10-02T08:08:40.001165+00:00",
+            "duration_ms": 396,
             "attributes": {
-              "host_phase_group_id": "9b66cb32ea1143c7a05ef39a66bff2d1"
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
             }
           },
           {
-            "span_id": "9b66cb32ea1143c7a05ef39a66bff2d1:4",
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:4",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_agent_construction",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:07.932596+00:00",
-            "completed_at": "2026-10-02T07:49:08.251596+00:00",
-            "duration_ms": 319,
+            "started_at": "2026-10-02T08:08:40.002275+00:00",
+            "completed_at": "2026-10-02T08:08:40.306275+00:00",
+            "duration_ms": 304,
             "attributes": {
-              "host_phase_group_id": "9b66cb32ea1143c7a05ef39a66bff2d1"
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
             }
           },
           {
-            "span_id": "9b66cb32ea1143c7a05ef39a66bff2d1:5",
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:5",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_provider_conversation",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:08.254186+00:00",
-            "completed_at": "2026-10-02T07:49:12.763186+00:00",
-            "duration_ms": 4509,
+            "started_at": "2026-10-02T08:08:40.308038+00:00",
+            "completed_at": "2026-10-02T08:08:44.643038+00:00",
+            "duration_ms": 4335,
             "attributes": {
-              "host_phase_group_id": "9b66cb32ea1143c7a05ef39a66bff2d1"
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
             }
           },
           {
-            "span_id": "9b66cb32ea1143c7a05ef39a66bff2d1:6",
+            "span_id": "0f1e61edcac24d5b8e0b6408678418a1:6",
             "parent_span_id": null,
             "kind": "phase",
             "name": "rung3_response_normalization_projection",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:12.763856+00:00",
-            "completed_at": "2026-10-02T07:49:12.763856+00:00",
+            "started_at": "2026-10-02T08:08:44.644110+00:00",
+            "completed_at": "2026-10-02T08:08:44.644110+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "9b66cb32ea1143c7a05ef39a66bff2d1"
+              "host_phase_group_id": "0f1e61edcac24d5b8e0b6408678418a1"
             }
           },
           {
-            "span_id": "59f5af573ede48fe94493284057d9e48:15",
+            "span_id": "16f6d18e4f04473fabaf5dcd085cd6cb:15",
             "parent_span_id": null,
             "kind": "phase",
             "name": "host_result_decode",
             "status": "ok",
-            "started_at": "2026-10-02T07:49:12.772271+00:00",
-            "completed_at": "2026-10-02T07:49:12.772271+00:00",
+            "started_at": "2026-10-02T08:08:44.661831+00:00",
+            "completed_at": "2026-10-02T08:08:44.661831+00:00",
             "duration_ms": 0,
             "attributes": {
-              "host_phase_group_id": "59f5af573ede48fe94493284057d9e48"
+              "host_phase_group_id": "16f6d18e4f04473fabaf5dcd085cd6cb"
             }
           }
         ],
@@ -1518,29 +1518,29 @@
             "provider": "openai-api",
             "requested_model": "gpt-6-luna",
             "response_model": "gpt-6-luna",
-            "duration_ms": 3518.1424617767334,
+            "duration_ms": 3894.740343093872,
             "request_summary": {
               "api_call_count": 1,
               "message_count": 2,
               "tool_count": 0,
               "approx_input_tokens": 763,
               "request_char_count": 3051,
-              "assistant_content_chars": 458,
+              "assistant_content_chars": 385,
               "assistant_tool_call_count": 0
             },
             "usage": {
               "status": "reported",
               "input_tokens": 633,
-              "output_tokens": 243,
-              "total_tokens": 876,
+              "output_tokens": 216,
+              "total_tokens": 849,
               "cached_input_tokens": 0,
               "cache_write_input_tokens": 0,
               "uncached_input_tokens": 633,
-              "reasoning_tokens": 137
+              "reasoning_tokens": 125
             },
             "cost": {
               "status": "estimated",
-              "usd": 0.0001848,
+              "usd": 0.0001713,
               "currency": "USD",
               "pricing_table_matched": true,
               "rates_per_1m_usd": {
@@ -1552,18 +1552,18 @@
           }
         ],
         "model_call_count": 1,
-        "sum_observed_model_call_ms": 3518.1,
-        "unallocated_residual_ms": 1681.5,
+        "sum_observed_model_call_ms": 3894.7,
+        "unallocated_residual_ms": 1170.1,
         "tool_event_count": 0,
         "tool_call_count": 0,
         "process_isolation": "process_exclusive",
-        "worker_pid_before": 1495751,
-        "worker_pid_after": 1495751,
+        "worker_pid_before": 1514024,
+        "worker_pid_after": 1514024,
         "worker_pid_matches_cold_worker": true,
         "worker_reused_from_previous_sample": true,
-        "answer": "At dusk, Alderwatch’s only bridge closes, so the party must choose whether to cross before then or risk another route. Three nights ago, the east tower’s blue lantern went dark and its keeper, Nera, disappeared; a dry trail of silver dust leads toward the old quarry, but nobody has followed it. The mayor says the north road is passable; the ferryman reports bells beneath the river. Who took Nera, where the dust leads, and what rings below remain unknown.",
+        "answer": "Put the bridge’s dusk closure in front of the party as an immediate travel clock. Nera is missing, the east tower’s blue lantern went dark three nights ago, and an untraced silver-dust trail leads toward the old quarry. The mayor says the north road is passable; the ferryman reports bells beneath the river. Whether either lead offers a safe route—and where Nera went—remains unknown.",
         "hard_gate_check": {
-          "word_count": 79,
+          "word_count": 64,
           "gates": {
             "turn_status_ok": true,
             "nonempty_answer": true,
@@ -1586,6 +1586,6 @@
   ],
   "host_shutdown": {
     "confirmed": true,
-    "elapsed_ms": 778.4
+    "elapsed_ms": 831.4
   }
 }

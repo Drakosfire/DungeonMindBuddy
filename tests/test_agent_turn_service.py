@@ -732,7 +732,7 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
                 },
                 {
                     "span_id": "abcdef0123456789abcdef0123456789:1",
-                    "name": "rung3_plugin_discovery",
+                    "name": "rung3_bootstrap_logger_home_setup",
                     "status": "ok",
                     "started_at": "2026-10-01T23:59:59.991Z",
                     "completed_at": "2026-10-02T00:00:00Z",
@@ -796,7 +796,9 @@ def test_successful_plan_turn_returns_one_sanitized_trace_event(
         span for span in trace["spans"] if span["name"] == "host_worker_result_wait"
     )
     worker_span = next(
-        span for span in trace["spans"] if span["name"] == "rung3_plugin_discovery"
+        span
+        for span in trace["spans"]
+        if span["name"] == "rung3_bootstrap_logger_home_setup"
     )
     assert sum(span.get("name", "").startswith("host_") for span in trace["spans"]) == 1
     assert sum(span.get("name", "").startswith("rung3_") for span in trace["spans"]) == 1

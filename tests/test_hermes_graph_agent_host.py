@@ -427,7 +427,7 @@ def test_worker_phase_telemetry_is_request_correlated_and_allowlisted() -> None:
         "span_id": f"{group_id}:1",
         "parent_span_id": None,
         "kind": "phase",
-        "name": "rung3_provider_conversation",
+        "name": "rung3_cached_agent_factory_lookup",
         "status": "ok",
         "started_at": "2026-10-02T00:00:00Z",
         "completed_at": "2026-10-02T00:00:00.012Z",
@@ -454,7 +454,7 @@ def test_worker_phase_telemetry_is_request_correlated_and_allowlisted() -> None:
     )
     assert len(calls) == 1
     assert len(phases) == 1
-    assert phases[0]["name"] == "rung3_provider_conversation"
+    assert phases[0]["name"] == "rung3_cached_agent_factory_lookup"
     assert phases[0]["attributes"] == {"host_phase_group_id": group_id}
     assert "TRACE_LEAK_SENTINEL" not in repr(phases)
     assert "DROP_SENTINEL" not in repr(phases)
