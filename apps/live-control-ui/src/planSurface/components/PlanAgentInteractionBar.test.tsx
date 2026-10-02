@@ -144,7 +144,7 @@ describe("PlanAgentInteractionBar graph lens", () => {
         created_at: "2026-01-01T00:00:00Z",
       }],
     });
-    vi.spyOn(liveApi, "getWorkspaceDocument").mockResolvedValue(record);
+    vi.spyOn(liveApi, "getWorkspaceDocumentAny").mockResolvedValue(record);
     vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue({
       schema: "dmb_world_graph_projection_v1",
       snapshot: {
