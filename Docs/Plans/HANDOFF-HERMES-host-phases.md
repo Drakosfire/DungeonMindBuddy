@@ -1,4 +1,4 @@
-# HERMES host phase timing — ACTIVE
+# HERMES host phase timing — COMPLETE
 
 Authority: the operator requested a provisional Hermes-tuning subagent to improve co-GM prose, latency, and Graph traversal with experimental evidence returned to PRIME. Buddy PR #841 was independently reviewed and merged at `3608663a950cde7472ea942628170f083e533b14`. This handoff starts from that exact `origin/main` revision, succeeds the completed host-latency handoff, and authorizes one bounded Buddy-owned instrumentation experiment. It does not appoint a permanent steward or change production inference policy.
 
@@ -17,3 +17,5 @@ Owner: provisional Hermes-tuning subagent; PRIME pins scope, reviews, and contro
 At the host/trace owning boundaries, prove successful and error phase duration validity, request correlation, bounded counts, callback fail-open behavior, and absence of synthetic prompt/answer sentinel text in serialized trace. Preserve existing model-call observations. The synthetic witness must show five successful turns and the same worker for warm turns. A latency reduction is not an acceptance gate. Review the exact cumulative base-to-head diff and artifacts, commit/push, and open one Buddy PR with an evidence packet to PRIME. Do not merge; PRIME obtains independent review and decides the next experiment.
 
 Only synthetic or clearly public fixtures may be sent to the configured provider. The automatic approval review rejected exporting the private C2 Session 23 packet to OpenAI; specific approval remains pending. Never retry or reroute that packet without it, and never expose API keys in evidence.
+
+Settlement: Buddy PR #845 merged at `7ad9e11972a3cd40ebe4c69618e4ac9491d011e6` after independent review. The five-turn synthetic witness found 2.638 seconds of cold worker readiness, near-zero parent serialization/queue/decode time, and 1.95–3.37 seconds of warm residual inside worker execution beyond observed provider calls. This lease is closed. A worker-internal phase experiment, live Graph witness, or prose challenger requires a new bounded handoff.
