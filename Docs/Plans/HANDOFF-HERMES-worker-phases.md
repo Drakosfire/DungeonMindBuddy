@@ -1,0 +1,19 @@
+# HERMES worker phase timing — ACTIVE
+
+Authority: the operator's provisional Hermes-tuning program, with PRIME controlling bounded leases, independent review, and merge. Buddy PR #845 merged at `7ad9e11972a3cd40ebe4c69618e4ac9491d011e6`; its settlement merged in #846. This slice starts from Buddy `origin/main@85dbbd8e4441c481eed9dd09ac46d9bf2df64cba`. It grants no permanent steward mandate or inference-policy change.
+
+## One question
+
+The five-turn synthetic actual-host witness left 1.95–3.37 seconds of warm wall time beyond observed model calls inside the worker execution interval. Which sequential Rung 3 stages account for it? Measure worker home setup, agent import, plugin discovery, agent construction, provider conversation, and response normalization/projection. Provider-call timing is nested inside provider conversation and must be reported separately, never added to that phase total. Record any remaining unallocated interval. This is an instrumentation experiment, not a speed optimization or native-Graph quality claim.
+
+Use the existing request-correlated internal telemetry stream to carry only bounded phase name, status, timestamps, duration, and correlation ID to the parent. Reconstruct allowlisted spans at the service trace boundary. Callback/telemetry failure must not alter a turn result. Do not put timing data in public requests/responses or the serialized worker result, change Graph/corpus authority, change model policy, or record question, answer, Graph context, source text, or credentials in timing telemetry. Existing generic trace consumers may see additive span names; verify their bounded handling. Preserve the existing model-call observations and host-phase spans.
+
+## Lease
+
+Owner: provisional Hermes-tuning subagent. Branch `codex/hermes-worker-phases` from the exact Buddy main revision above in the isolated Hermes worktree. Exclusive write set: this handoff; `apps/live_control_server/services/hermes_graph_agent.py`, `apps/live_control_server/services/hermes_graph_agent_host.py`, `apps/live_control_server/services/agent_turn_service.py`; `tests/test_hermes_graph_agent.py`, `tests/test_hermes_graph_agent_host.py`, `tests/test_agent_turn_service.py`; and `evals/hermes_tuning/run_host_phases.py`, `evals/hermes_tuning/README.md`, plus one new synthetic artifact in `evals/hermes_tuning/artifacts/`. No other file may be edited without PRIME amending the lease. Current open #836/#839/#842–#844 and paused #826 do not touch this set; recheck before PR. Product routes, UI, Graph service, private corpus, and database are read-only.
+
+## Acceptance and handback
+
+At the owning boundary, prove phase success/error and callback fail-open behavior; strict request-correlated telemetry parsing; bounded names/counts/durations; no prompt or answer sentinel in streamed, returned, or logged trace; and unchanged model-call/result behavior. Run an actual-host synthetic cold turn and at least four warm turns on the same worker, with interleaved same-model direct controls where feasible. Report exact commands, model/provider, answer gates, PID/reuse, stage durations, provider duration, unallocated residual, token/cost fields, failures, and limitations. Five valid turns and trace privacy are gates; a latency reduction is not. Check in after a valid cold/warm pair. Inspect the cumulative diff and artifact, commit/push, and open one Buddy PR with exact head and evidence to PRIME. Do not merge. PRIME obtains independent review before merging.
+
+Only synthetic or clearly public fixtures may be sent to the configured provider. Automatic approval review rejected exporting the private C2 Session 23 evidence packet to OpenAI; specific approval remains pending. Do not retry or reroute that packet without it.
