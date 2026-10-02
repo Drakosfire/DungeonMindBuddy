@@ -17,6 +17,37 @@ function ControlledEditor({ output }: { output: ReturnType<typeof baseCandidateD
   return <StatblockDefinitionEditor output={output} editorState={state} onEditorStateChange={setState} />;
 }
 
+function movementCandidateDefinition() {
+  const output = baseCandidateDefinition();
+  return {
+    ...output,
+    movement: {
+      modes: [
+        { key: "foot", mode: "walk" as const, distance: { value: 30, unit: "feet" as const }, qualifiers: ["land"] },
+      ],
+    },
+    rule_elements: output.rule_elements.map((element, index) =>
+      index === 0
+        ? {
+            ...element,
+            key: "marsh_stride",
+            mechanic: {
+              kind: "composite" as const,
+              target: null,
+              effects: [
+                {
+                  kind: "movement" as const,
+                  movement_mode_key: "swim",
+                  distance: { value: 20, unit: "feet" as const },
+                },
+              ],
+            },
+          }
+        : element,
+    ),
+  };
+}
+
 describe("StatblockDefinitionEditor", () => {
   it("discloses rule element summary and uses honest remainder badges behind advanced", () => {
     render(<ControlledEditor output={baseCandidateDefinition()} />);
@@ -46,8 +77,9 @@ describe("StatblockDefinitionEditor", () => {
     expect(defenses!.textContent).toMatch(/primary AC value editable above/i);
 
     const fullyProtected = document.querySelector('[data-protected-path="movement"]');
-    expect(fullyProtected!.getAttribute("data-protected-mode")).toBe("fully_protected");
-    expect(fullyProtected!.textContent).toMatch(/not editable via dedicated controls/i);
+    expect(fullyProtected).toBeNull();
+    expect(screen.getByRole("region", { name: "Movement modes" })).toBeTruthy();
+    expect(screen.getByLabelText("Movement mode key 0")).toBeTruthy();
   });
 
   it("renders protected regions queryable in the DOM with session disclosure", () => {
@@ -137,6 +169,96 @@ describe("StatblockDefinitionEditor", () => {
     render(<Harness />);
     await user.type(screen.getByLabelText("Creature name"), "!");
     expect(latest.validatedRevision).toBeNull();
+  });
+
+  it("keeps movement keys and effect references independent while editing typed fields", async () => {
+    const user = userEvent.setup();
+    const output = movementCandidateDefinition();
+    let latest = markValidationAssociated(
+      createEditorStateFromOutput(output),
+      "validated_with_warnings",
+    );
+    const untouchedElement = structuredClone(latest.workingCopy.rule_elements[1]);
+
+    function Harness() {
+      const [state, setState] = useState(latest);
+      latest = state;
+      return <StatblockDefinitionEditor output={output} editorState={state} onEditorStateChange={setState} />;
+    }
+
+    render(<Harness />);
+
+    await user.selectOptions(screen.getByLabelText("Movement mode kind 0"), "swim");
+    expect(latest.workingCopy.movement.modes[0]).toMatchObject({ key: "foot", mode: "swim" });
+    expect(screen.getByLabelText("Movement mode reference marsh_stride 0")).toHaveProperty(
+      "value",
+      "swim",
+    );
+
+    const keyInput = screen.getByLabelText("Movement mode key 0");
+    await user.clear(keyInput);
+    await user.type(keyInput, "waterway");
+    expect(screen.getByLabelText("Movement mode reference marsh_stride 0")).toHaveProperty(
+      "value",
+      "swim",
+    );
+
+    const referenceInput = screen.getByLabelText("Movement mode reference marsh_stride 0");
+    await user.clear(referenceInput);
+    await user.type(referenceInput, "waterway");
+    await user.clear(screen.getByLabelText("Movement mode distance 0"));
+    await user.type(screen.getByLabelText("Movement mode distance 0"), "45");
+    await user.clear(screen.getByLabelText("Movement mode qualifier 0 0"));
+    await user.type(screen.getByLabelText("Movement mode qualifier 0 0"), "submerged");
+
+    expect(latest.workingCopy.movement.modes[0]).toEqual({
+      key: "waterway",
+      mode: "swim",
+      distance: { value: 45, unit: "feet" },
+      qualifiers: ["submerged"],
+    });
+    expect(latest.workingCopy.rule_elements[0].mechanic).toEqual({
+      kind: "composite",
+      target: null,
+      effects: [
+        {
+          kind: "movement",
+          movement_mode_key: "waterway",
+          distance: { value: 20, unit: "feet" },
+        },
+      ],
+    });
+    expect(latest.workingCopy.rule_elements[1]).toEqual(untouchedElement);
+    expect(latest.validatedRevision).toBeNull();
+    expect(screen.getByTestId("editor-ui-status").textContent).toContain("dirty_unvalidated");
+  });
+
+  it("adds a movement entry without inferring or rewriting its reference", async () => {
+    const user = userEvent.setup();
+    const output = movementCandidateDefinition();
+    function Harness() {
+      const [state, setState] = useState(() => createEditorStateFromOutput(output));
+      return <StatblockDefinitionEditor output={output} editorState={state} onEditorStateChange={setState} />;
+    }
+
+    render(<Harness />);
+    await user.click(screen.getByRole("button", { name: "Add movement mode" }));
+    await user.type(screen.getByLabelText("Movement mode key 1"), "waterway");
+    await user.selectOptions(screen.getByLabelText("Movement mode kind 1"), "swim");
+    await user.clear(screen.getByLabelText("Movement mode distance 1"));
+    await user.type(screen.getByLabelText("Movement mode distance 1"), "25");
+    await user.click(screen.getByRole("button", { name: "Add qualifier to movement mode 1" }));
+    await user.type(screen.getByLabelText("Movement mode qualifier 1 0"), "submerged");
+
+    expect(screen.getByLabelText("Movement mode reference marsh_stride 0")).toHaveProperty(
+      "value",
+      "swim",
+    );
+    await user.clear(screen.getByLabelText("Movement mode reference marsh_stride 0"));
+    await user.type(screen.getByLabelText("Movement mode reference marsh_stride 0"), "waterway");
+
+    expect(screen.getByLabelText("Movement mode key 1")).toHaveProperty("value", "waterway");
+    expect(screen.getByLabelText("Movement mode kind 1")).toHaveProperty("value", "swim");
   });
 
   it("shows validated status while dirty when validation is associated at current revision", () => {
