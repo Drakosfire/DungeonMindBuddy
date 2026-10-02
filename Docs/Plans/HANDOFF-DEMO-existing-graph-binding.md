@@ -6,7 +6,9 @@ lease has transferred from paused PR #826 to this implementation lane.
 
 **Steward:** DEMO
 
-**Design base:** Buddy `origin/main@1ccfe7f2af69684e1d02276f66b875ef336b82a0`.
+**Current base:** Buddy `origin/main@a0282b4eb3c53c8b1f66e238cc13de9ae96de8d5`
+after the 2026-10-02 re-anchor and rebase. Original activation base:
+`1ccfe7f2af69684e1d02276f66b875ef336b82a0`.
 
 **Consumed contract:** MIND `origin/main@619329c2c8586572ffd04558a79b3555c2ca3764`.
 
@@ -229,3 +231,23 @@ the guarded local-operator Graph read responses named in
 Threat publication internal Graph reads still require a separate route audit;
 they are not declared secured by #835. The full saved-Plan graph query, Session
 28 recap admission, and J1-J6 acceptance remain incomplete.
+
+## 10. Re-anchor and verification — 2026-10-02
+
+After PR #839 merged, the active implementation branch was rebased from its
+prior head `18c5de19cb481742206f7c8c3cdfdc97a9097f77` onto Buddy
+`main@a0282b4eb3c53c8b1f66e238cc13de9ae96de8d5`. The implementation code head
+before this handoff-only evidence update was `b92c6871862183279beb11c42244777cea84dc1`.
+
+At that code head, the focused registry/binding/list route suite passed **35
+tests** with 11 existing Pydantic `schema`-shadow warnings. Ruff passed on all
+seven leased Python paths, and `git diff --check origin/main...HEAD` passed.
+
+The broader `tests/test_live_world_containers.py` TestClient run remains
+unavailable in this environment: its first empty-list request stalls, also
+reproduced on the base and a trivial synchronous FastAPI route. The
+`tests/test_demo_world_selection_integration.py` PostgreSQL test was not run;
+its fixture creates and drops a disposable database through
+`DMB_APPLICATION_STATE_TEST_DATABASE_URL` or fallback `127.0.0.1:54329`. The
+override is unset and no listener exists on the fallback port. No database or
+runtime action was taken.
