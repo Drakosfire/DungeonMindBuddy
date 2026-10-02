@@ -36,7 +36,7 @@ These are source findings, not a live browser or provider witness.
 2. Offer this path only when the current selection is a managed World and the active Build document is eligible. World scope comes from the managed World selection. A legacy Build campaign ID or display label must never be promoted, translated, or guessed as a World ID.
 3. The turn context may contain only the verified World identity, surface identity (`build`), active document identity/title, the exact current committed object revision, and whether unsaved edits exist. The user’s question is sent as the message. Set `graph_request` to `none`.
 4. Do not send Markdown, source excerpts, browser/editor draft bytes, graph payloads, or other document content in this slice. UI and prompt wording must say that the Agent has not read the document; for a dirty document, say that draft edits are excluded. Show the identity/revision disclosure before dispatch.
-5. Bind the conversation and each response to the verified World + Build document + committed revision. A document or revision change invalidates the pending turn and any incompatible saved thread continuity. Never display a late response under a different document.
+5. Keep the visible conversation identity World-scoped. Record the verified Build document and committed revision as each turn’s historical basis, and scope provider continuation to that basis. A document or revision change starts a fresh provider segment; it does not replace the World conversation or invalidate the durable turn. Bind completion to its originating turn and frozen basis, so a late result remains in World history under the original document/revision and is never presented as an answer for the newly selected document.
 6. If managed World ownership, active document identity, or committed revision cannot be verified, disable or fail the turn before provider dispatch. Do not fall back to campaign scope, Graph context, Plan resolution, or client-provided content.
 
 ## Required server admission
@@ -54,7 +54,7 @@ At minimum, verify at the owning boundaries:
 - A mounted Build + shared Agent host test proves Ask presence and context for an eligible managed World/document, plus unavailable behavior for empty, loading, error, legacy, foreign, or unresolved documents.
 - The captured client request contains the honest World/Build/document/revision identity, the question, the accurate dirty-state flag, and `graph_request: none`; it contains no Markdown or draft bytes.
 - Backend tests prove exact World/document/revision resolution and reject missing, foreign, stale, or unsupported identity before runtime/provider dispatch. An accepted mocked turn reports the server-resolved context and sends no source body.
-- A document/revision switch while a turn is pending cannot display the old answer or continue an incompatible thread under the new identity.
+- Owning-boundary switch witness: submit a Build turn for document A/revision 1, switch to document B/revision 2 while A is pending, then complete A. Prove A remains on its originating durable turn in the same World history with A/revision 1 provenance, is never presented as B’s answer, and B starts a fresh provider segment without A’s hidden provider context.
 - Review the cumulative base-to-head diff and run the relevant Build UI, Agent-turn route/service, and type checks. Record inherited failures separately. A live managed-World witness is still required before product acceptance; tests alone do not claim it.
 
 Candidate implementation boundaries to recheck after re-anchoring:
