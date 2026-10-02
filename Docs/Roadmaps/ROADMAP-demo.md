@@ -550,8 +550,9 @@ It adopts the APP-STATE World transcript for saved Plan Ask while preserving
 the committed-content-only #833 request and Plan-owned Compose/Revise/Apply/
 Save behavior. PRIME ruled that Compose/Revise must retain its existing
 six-item dialogue behavior. Since the current local window includes `plan_edit`
-turns without exact committed-basis provenance, a separate Plan-owned typed
-action-dialogue projection capability/PR must precede this consumer cutover.
+turns without exact committed-basis provenance, the separate Plan-owned typed
+[action-dialogue projection capability](../Plans/HANDOFF-DEMO-plan-action-dialogue-projection.md)
+and its own PR must precede this consumer cutover.
 The projection may expose only the instruction and visible assistant summary
 with exact World/Plan/committed-basis provenance and stable order; no proposal
 bytes or Apply/Save receipts. The cutover combines eligible APP-STATE Ask turns

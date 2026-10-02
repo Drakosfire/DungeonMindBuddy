@@ -119,8 +119,10 @@ client `conversation_history`.
 ### Compose/Revise context requirement
 
 Preserve the existing six-item dialogue behavior. Before this consumer can
-activate, a separate Plan-owned capability and PR must define and deliver a
-typed visible action-dialogue read/projection. Its eligible action records
+activate, the separate Plan-owned capability in
+[HANDOFF-DEMO-plan-action-dialogue-projection.md](HANDOFF-DEMO-plan-action-dialogue-projection.md)
+must be delivered under its own reviewed PR. Its typed visible action-dialogue
+projection returns eligible action records that
 contain the instruction and assistant summary only, plus exact verified World,
 Plan document, committed-basis provenance, and stable ordering. When the
 mounted draft is dirty, the action record keeps a separate request-input witness
