@@ -31,14 +31,17 @@ _WORLD_COLS = "world_id, active_conversation_id, pointer_revision AS revision"
 _TURN_COLS = """
     turn_id, conversation_id, world_id, idempotency_key, sequence, revision,
     status, user_text, assistant_text, failure_code, surface_resolution,
-    surface_id, attempt, accepted_at, completed_at, updated_at
+    surface_id, surface_instance_id, attempt, accepted_at, completed_at, updated_at
 """
 _DRAFT_COLS = """
     world_id, conversation_id, draft_id, revision, body, request_fingerprint,
-    surface_resolution, surface_id, primary_resolution, primary_kind,
+    surface_resolution, surface_id, surface_instance_id,
+    primary_resolution, primary_kind,
     primary_object_id, primary_revision, primary_content_sha256,
+    primary_object_revision, primary_work_revision_id, primary_revision_n,
     selected_resolution, selected_kind, selected_object_id, selected_revision,
-    selected_content_sha256, source_fingerprint, retired_at, created_at, updated_at
+    selected_content_sha256, selected_object_revision, selected_work_revision_id,
+    selected_revision_n, source_fingerprint, retired_at, created_at, updated_at
 """
 
 
@@ -49,6 +52,9 @@ def _reference_from_row(row: dict[str, Any]) -> HistoricalReference:
         object_id=row["object_id"],
         revision=row["revision"],
         content_sha256=row["content_sha256"],
+        object_revision=row["object_revision"],
+        work_revision_id=row["work_revision_id"],
+        revision_n=row["revision_n"],
     )
 
 
@@ -59,14 +65,20 @@ def _reference_values(reference: HistoricalReference) -> tuple[Any, ...]:
         reference.object_id,
         reference.revision,
         reference.content_sha256,
+        reference.object_revision,
+        reference.work_revision_id,
+        reference.revision_n,
     )
 
 
-def _turn_references(conn: psycopg.Connection, turn_id: UUID) -> tuple[HistoricalReference, list[HistoricalReference], HistoricalReference]:
+def _turn_references(
+    conn: psycopg.Connection, turn_id: UUID
+) -> tuple[HistoricalReference, list[HistoricalReference], HistoricalReference]:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            SELECT reference_role, ordinal, resolution, kind, object_id, revision, content_sha256
+            SELECT reference_role, ordinal, resolution, kind, object_id, revision,
+                   content_sha256, object_revision, work_revision_id, revision_n
             FROM agent.turn_reference
             WHERE turn_id = %s
             ORDER BY CASE reference_role WHEN 'primary' THEN 0 WHEN 'supporting' THEN 1 ELSE 2 END,
@@ -78,7 +90,9 @@ def _turn_references(conn: psycopg.Connection, turn_id: UUID) -> tuple[Historica
     primary = next((r for r in rows if r["reference_role"] == "primary"), None)
     selected = next((r for r in rows if r["reference_role"] == "selected"), None)
     if primary is None or selected is None:
-        raise ApplicationStateIntegrityError("turn is missing typed primary/selected provenance")
+        raise ApplicationStateIntegrityError(
+            "turn is missing typed primary/selected provenance"
+        )
     return (
         _reference_from_row(primary),
         [_reference_from_row(r) for r in rows if r["reference_role"] == "supporting"],
@@ -92,21 +106,29 @@ def _turn_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Turn:
         world_id=row["world_id"],
         surface_resolution=row["surface_resolution"],
         surface_id=row["surface_id"],
+        surface_instance_id=row["surface_instance_id"],
         primary_work=primary,
         supporting_work=supporting,
         selected_object=selected,
     )
     return Turn(
-        **{key: row[key] for key in row if key not in {"surface_resolution", "surface_id"}},
+        **{
+            key: row[key]
+            for key in row
+            if key not in {"surface_resolution", "surface_id", "surface_instance_id"}
+        },
         provenance=provenance,
     )
 
 
-def _draft_references(conn: psycopg.Connection, draft_id: UUID) -> list[HistoricalReference]:
+def _draft_references(
+    conn: psycopg.Connection, draft_id: UUID
+) -> list[HistoricalReference]:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             """
-            SELECT resolution, kind, object_id, revision, content_sha256
+            SELECT resolution, kind, object_id, revision, content_sha256,
+                   object_revision, work_revision_id, revision_n
             FROM agent.draft_reference
             WHERE draft_id = %s
             ORDER BY ordinal
@@ -122,12 +144,16 @@ def _draft_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Draft:
         world_id=row["world_id"],
         surface_resolution=row["surface_resolution"],
         surface_id=row["surface_id"],
+        surface_instance_id=row["surface_instance_id"],
         primary_work=HistoricalReference(
             resolution=row["primary_resolution"],
             kind=row["primary_kind"],
             object_id=row["primary_object_id"],
             revision=row["primary_revision"],
             content_sha256=row["primary_content_sha256"],
+            object_revision=row["primary_object_revision"],
+            work_revision_id=row["primary_work_revision_id"],
+            revision_n=row["primary_revision_n"],
         ),
         supporting_work=_draft_references(conn, row["draft_id"]),
         selected_object=HistoricalReference(
@@ -136,6 +162,9 @@ def _draft_from_row(conn: psycopg.Connection, row: dict[str, Any]) -> Draft:
             object_id=row["selected_object_id"],
             revision=row["selected_revision"],
             content_sha256=row["selected_content_sha256"],
+            object_revision=row["selected_object_revision"],
+            work_revision_id=row["selected_work_revision_id"],
+            revision_n=row["selected_revision_n"],
         ),
     )
     return Draft(
@@ -176,7 +205,10 @@ def lock_world_state(conn: psycopg.Connection, world_id: str) -> WorldPointer:
 
 def get_world_state(conn: psycopg.Connection, world_id: str) -> WorldPointer | None:
     with conn.cursor(row_factory=dict_row) as cur:
-        cur.execute(f"SELECT {_WORLD_COLS} FROM agent.world_state WHERE world_id = %s", (world_id,))
+        cur.execute(
+            f"SELECT {_WORLD_COLS} FROM agent.world_state WHERE world_id = %s",
+            (world_id,),
+        )
         row = cur.fetchone()
     return None if row is None else WorldPointer.model_validate(row)
 
@@ -269,7 +301,9 @@ def insert_command_receipt(
         )
         row = cur.fetchone()
     if row is None:
-        raise ApplicationStateIntegrityError("conversation command receipt did not persist")
+        raise ApplicationStateIntegrityError(
+            "conversation command receipt did not persist"
+        )
     return ConversationCommandReceipt.model_validate(row)
 
 
@@ -293,7 +327,16 @@ def insert_conversation(
             ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING {_CONVERSATION_COLS}
             """,
-            (conversation_id, world_id, status, revision, next_turn_sequence, now, now, archived_at),
+            (
+                conversation_id,
+                world_id,
+                status,
+                revision,
+                next_turn_sequence,
+                now,
+                now,
+                archived_at,
+            ),
         )
         row = cur.fetchone()
     if row is None:
@@ -371,7 +414,15 @@ def update_conversation_state(
             WHERE world_id = %s AND conversation_id = %s AND revision = %s
             RETURNING {_CONVERSATION_COLS}
             """,
-            (status, next_turn_sequence, now, archived_at, world_id, conversation_id, expected_revision),
+            (
+                status,
+                next_turn_sequence,
+                now,
+                archived_at,
+                world_id,
+                conversation_id,
+                expected_revision,
+            ),
         )
         row = cur.fetchone()
     return None if row is None else Conversation.model_validate(row)
@@ -401,11 +452,13 @@ def advance_conversation_for_turn(
     return None if row is None else (int(row[0]), int(row[1]))
 
 
-def get_active_conversation(conn: psycopg.Connection, world_id: str) -> Conversation | None:
+def get_active_conversation(
+    conn: psycopg.Connection, world_id: str
+) -> Conversation | None:
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
             f"""
-            SELECT c.{_CONVERSATION_COLS.replace(', ', ', c.')}
+            SELECT c.{_CONVERSATION_COLS.replace(", ", ", c.")}
             FROM agent.world_state AS w
             JOIN agent.conversation AS c
               ON c.conversation_id = w.active_conversation_id AND c.world_id = w.world_id
@@ -459,7 +512,12 @@ def lock_turn(conn: psycopg.Connection, world_id: str, turn_id: UUID) -> Turn | 
 
 
 def list_turns(
-    conn: psycopg.Connection, world_id: str, conversation_id: UUID, *, limit: int, before_sequence: int | None
+    conn: psycopg.Connection,
+    world_id: str,
+    conversation_id: UUID,
+    *,
+    limit: int,
+    before_sequence: int | None,
 ) -> list[Turn]:
     clauses = ["world_id = %s", "conversation_id = %s"]
     params: list[Any] = [world_id, conversation_id]
@@ -471,7 +529,7 @@ def list_turns(
         cur.execute(
             f"""
             SELECT {_TURN_COLS} FROM agent.turn
-            WHERE {' AND '.join(clauses)} ORDER BY sequence DESC LIMIT %s
+            WHERE {" AND ".join(clauses)} ORDER BY sequence DESC LIMIT %s
             """,
             params,
         )
@@ -500,10 +558,11 @@ def insert_turn(
             INSERT INTO agent.turn (
                 turn_id, conversation_id, world_id, idempotency_key, idempotency_fingerprint, sequence,
                 revision, status, request_fingerprint, user_text, assistant_text,
-                failure_code, surface_resolution, surface_id, attempt, accepted_at,
+                failure_code, surface_resolution, surface_id, surface_instance_id,
+                attempt, accepted_at,
                 completed_at, updated_at
             ) VALUES (%s, %s, %s, %s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s, %s,
-                      %s, %s, %s)
+                      %s, %s, %s, %s)
             RETURNING {_TURN_COLS}
             """,
             (
@@ -520,6 +579,7 @@ def insert_turn(
                 failure_code,
                 provenance.surface_resolution,
                 provenance.surface_id,
+                provenance.surface_instance_id,
                 attempt,
                 now,
                 now if status in {"completed", "failed", "interrupted"} else None,
@@ -546,8 +606,9 @@ def _insert_turn_reference(
     conn.execute(
         """
         INSERT INTO agent.turn_reference (
-            turn_id, reference_role, ordinal, resolution, kind, object_id, revision, content_sha256
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            turn_id, reference_role, ordinal, resolution, kind, object_id, revision,
+            content_sha256, object_revision, work_revision_id, revision_n
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (turn_id, role, ordinal, *_reference_values(reference)),
     )
@@ -648,16 +709,23 @@ def save_draft(
         save_fingerprint,
         provenance.surface_resolution,
         provenance.surface_id,
+        provenance.surface_instance_id,
         primary.resolution,
         primary.kind,
         primary.object_id,
         primary.revision,
         primary.content_sha256,
+        primary.object_revision,
+        primary.work_revision_id,
+        primary.revision_n,
         selected.resolution,
         selected.kind,
         selected.object_id,
         selected.revision,
         selected.content_sha256,
+        selected.object_revision,
+        selected.work_revision_id,
+        selected.revision_n,
         model_fingerprint(provenance),
         None,
         now,
@@ -669,11 +737,15 @@ def save_draft(
                 f"""
                 INSERT INTO agent.composer_draft (
                     world_id, conversation_id, draft_id, revision, body, request_fingerprint,
-                    surface_resolution, surface_id, primary_resolution, primary_kind,
+                    surface_resolution, surface_id, surface_instance_id,
+                    primary_resolution, primary_kind,
                     primary_object_id, primary_revision, primary_content_sha256,
+                    primary_object_revision, primary_work_revision_id, primary_revision_n,
                     selected_resolution, selected_kind, selected_object_id, selected_revision,
-                    selected_content_sha256, source_fingerprint, retired_at, created_at, updated_at
-                ) VALUES ({', '.join(['%s'] * 22)}) RETURNING {_DRAFT_COLS}
+                    selected_content_sha256, selected_object_revision,
+                    selected_work_revision_id, selected_revision_n,
+                    source_fingerprint, retired_at, created_at, updated_at
+                ) VALUES ({", ".join(["%s"] * len(values))}) RETURNING {_DRAFT_COLS}
                 """,
                 values,
             )
@@ -683,10 +755,15 @@ def save_draft(
                 UPDATE agent.composer_draft
                 SET revision = %s, body = %s, request_fingerprint = %s,
                     surface_resolution = %s, surface_id = %s,
+                    surface_instance_id = %s,
                     primary_resolution = %s, primary_kind = %s, primary_object_id = %s,
                     primary_revision = %s, primary_content_sha256 = %s,
+                    primary_object_revision = %s, primary_work_revision_id = %s,
+                    primary_revision_n = %s,
                     selected_resolution = %s, selected_kind = %s, selected_object_id = %s,
                     selected_revision = %s, selected_content_sha256 = %s,
+                    selected_object_revision = %s, selected_work_revision_id = %s,
+                    selected_revision_n = %s,
                     source_fingerprint = %s, updated_at = %s
                 WHERE world_id = %s AND conversation_id = %s AND draft_id = %s
                 RETURNING {_DRAFT_COLS}
@@ -697,16 +774,23 @@ def save_draft(
                     save_fingerprint,
                     provenance.surface_resolution,
                     provenance.surface_id,
+                    provenance.surface_instance_id,
                     primary.resolution,
                     primary.kind,
                     primary.object_id,
                     primary.revision,
                     primary.content_sha256,
+                    primary.object_revision,
+                    primary.work_revision_id,
+                    primary.revision_n,
                     selected.resolution,
                     selected.kind,
                     selected.object_id,
                     selected.revision,
                     selected.content_sha256,
+                    selected.object_revision,
+                    selected.work_revision_id,
+                    selected.revision_n,
                     model_fingerprint(provenance),
                     now,
                     save.world_id,
@@ -729,8 +813,9 @@ def _replace_draft_references(
         conn.execute(
             """
             INSERT INTO agent.draft_reference (
-                draft_id, ordinal, resolution, kind, object_id, revision, content_sha256
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                draft_id, ordinal, resolution, kind, object_id, revision,
+                content_sha256, object_revision, work_revision_id, revision_n
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (draft_id, ordinal, *_reference_values(reference)),
         )
@@ -753,7 +838,14 @@ def retire_draft(
               AND revision = %s AND retired_at IS NULL
             RETURNING {_DRAFT_COLS}
             """,
-            (retired_at, retired_at, world_id, conversation_id, draft_id, expected_revision),
+            (
+                retired_at,
+                retired_at,
+                world_id,
+                conversation_id,
+                draft_id,
+                expected_revision,
+            ),
         )
         row = cur.fetchone()
     return None if row is None else _draft_from_row(conn, row)
