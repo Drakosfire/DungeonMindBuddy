@@ -2,13 +2,15 @@
   "schema": "hermes_synthetic_graph_crawl_final_evidence_v1",
   "created_at": "2026-10-02",
   "authority": {
-    "implementation_commit": "c3d862c6336df681d5c23d10a881f399a8be2e18",
     "pilot_approval_reference": "PRIME-2026-10-02-bbbd01f6-edf21077",
     "cohort": "one six-case synthetic cohort; no additional provider calls",
     "provider_model": {
       "provider": "openai-api",
       "model": "gpt-6-luna"
-    }
+    },
+    "paid_runner_commit": "bbbd01f6bb9a41515cc6433a4942f7837e3403d8",
+    "paid_runner_rebased_equivalent": "6568758049fce1c308ed71dfc25f5ca753adb037",
+    "post_run_diagnostic_commit": "c3d862c6336df681d5c23d10a881f399a8be2e18"
   },
   "inputs": {
     "raw_paid_run_path": "/tmp/hermes-graph-crawl-pilot-20261002T143000Z.json",
