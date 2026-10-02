@@ -12,6 +12,9 @@ from application_state.agent_conversation import AgentConversationService
 from application_state.agent_conversation.types import (
     ConversationCommand,
     HistoricalReference,
+    SubmittedGraphRequestIntentV1,
+    SubmittedPrimaryWorkIntentV1,
+    SubmittedTurnIntentV1,
     TurnProvenance,
     TurnResult,
     TurnSubmission,
@@ -73,6 +76,23 @@ def _submission(
         expected_conversation_revision=expected_revision,
         user_text=user_text,
         provenance=provenance or _provenance(world_id),
+        submitted_intent_v1=SubmittedTurnIntentV1(
+            world_id=world_id,
+            client_thread_id="world-retry-client-thread",
+            message=user_text,
+            surface_id="plan",
+            surface_instance_id="plan-main",
+            client_work_state="saved_clean",
+            primary_work=SubmittedPrimaryWorkIntentV1(
+                kind="plan",
+                object_id="plan:main",
+                expected_revision=3,
+                expected_revision_n=17,
+                expected_content_sha256="a" * 64,
+            ),
+            graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+            graph_selection=None,
+        ),
     )
 
 
@@ -116,12 +136,35 @@ def test_completed_turn_retry_after_world_switch_returns_original_receipt(
     assert service.get_active_conversation(world_id) == later_before
     assert service.list_turns(world_id, later.conversation_id) == []
 
-    with pytest.raises(ApplicationStateConflictError, match="different content or provenance"):
-        service.accept_turn(retry.model_copy(update={"user_text": "A different submission."}))
-    with pytest.raises(ApplicationStateConflictError, match="different content or provenance"):
+    changed_message = "A different submission."
+    with pytest.raises(ApplicationStateConflictError, match="different submitted intent"):
         service.accept_turn(
-            retry.model_copy(update={"provenance": _provenance(world_id, work_revision="work-4")})
+            retry.model_copy(
+                update={
+                    "user_text": changed_message,
+                    "submitted_intent_v1": retry.submitted_intent_v1.model_copy(
+                        update={"message": changed_message}
+                    ),
+                }
+            )
         )
+    changed_plan_basis = retry.submitted_intent_v1.primary_work.model_copy(
+        update={
+            "expected_revision_n": retry.submitted_intent_v1.primary_work.expected_revision_n
+            + 1,
+            "expected_content_sha256": "b" * 64,
+        }
+    )
+    changed_plan_intent = retry.submitted_intent_v1.model_copy(
+        update={"primary_work": changed_plan_basis}
+    )
+    with pytest.raises(ApplicationStateConflictError, match="different submitted intent"):
+        service.accept_turn(
+            retry.model_copy(update={"submitted_intent_v1": changed_plan_intent})
+        )
+    assert service.accept_turn(
+        retry.model_copy(update={"provenance": _provenance(world_id, work_revision="work-4")})
+    ) == completed
 
 
 def test_same_turn_key_is_independent_across_worlds(application_state_dsn: str) -> None:
@@ -268,7 +311,7 @@ def test_0011_backfills_stable_fingerprints_for_existing_turns(
             (world_id, key),
         ).fetchone()
     assert stored == expected
-    assert _current_and_head(application_state_dsn) == ("20261001_0011", "20261001_0011")
+    assert _current_and_head(application_state_dsn) == ("20261002_0013", "20261002_0013")
 
 
 def test_0011_fails_closed_on_legacy_duplicate_world_keys(
@@ -286,7 +329,7 @@ def test_0011_fails_closed_on_legacy_duplicate_world_keys(
     with pytest.raises(RuntimeError, match="existing duplicate"):
         command.upgrade(alembic_config(), "head")
 
-    assert _current_and_head(application_state_dsn) == ("20261001_0010", "20261001_0011")
+    assert _current_and_head(application_state_dsn) == ("20261001_0010", "20261002_0013")
     with psycopg.connect(application_state_dsn) as conn:
         columns = conn.execute(
             """

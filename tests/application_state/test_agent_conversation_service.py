@@ -761,6 +761,15 @@ def test_claim_recovery_migration_preserves_completed_legacy_turn(
     assert loaded.attempt == completed.attempt
     assert loaded.submitted_intent_fingerprint_v1 is None
     assert loaded.claim_expires_at is None
+    assert submission.submitted_intent_v1 is not None
+    with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
+        service.reconcile_turn(
+            "turn-claim-migration-world",
+            submission.idempotency_key,
+            submission.submitted_intent_v1,
+        )
+    with pytest.raises(ApplicationStateConflictError, match="legacy-receipt-unverifiable"):
+        service.accept_turn(submission)
     with psycopg.connect(application_state_dsn, autocommit=True) as conn:
         assert (
             conn.execute(

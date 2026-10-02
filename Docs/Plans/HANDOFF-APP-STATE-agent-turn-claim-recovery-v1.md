@@ -97,6 +97,8 @@ src/application_state/agent_conversation/repository.py
 src/application_state/agent_conversation/service.py
 tests/application_state/test_agent_conversation_service.py
 tests/application_state/test_agent_conversation_postgres.py
+tests/test_agent_conversation_world_retry.py
+tests/application_state/test_agent_conversation_provenance_migration.py
 Docs/Roadmaps/ROADMAP-application-state.md
 Docs/Plans/HANDOFF-APP-STATE-agent-turn-claim-recovery-v1.md (status/activation record only)
 ~~~
@@ -157,10 +159,10 @@ The prepared-state gates below were the conditions for activation. PRIME's 2026-
 ### Activation record — 2026-10-02
 
 - **Accepted authority:** this handoff at Buddy main `61f76f567bce672bf88248bd17e5bb44feb77ba2`; exact document blob `1f125bc4a97fa57973f36aa8c41614d54a8c9ce3`.
-- **Implementation base:** freshly fetched `origin/main` at `61f76f567bce672bf88248bd17e5bb44feb77ba2`.
+- **Implementation base:** freshly fetched `origin/main` at `7fd0508e7af371a5c45a4a36521c565c52d0687d`; the same PR branch was rebased onto this tip.
 - **Implementation branch:** `codex/app-state-turn-claim-recovery-implementation`.
 - **Owner and topology:** APP-STATE; one serial implementation PR before frozen #865.
-- **Exclusive write lease:** exactly the candidate implementation write set listed above. The Graph runtime successor gate remains outside this lease.
+- **Exclusive write lease:** exactly the candidate implementation write set listed above. PRIME extended this lease on 2026-10-02 to include `tests/test_agent_conversation_world_retry.py` and `tests/application_state/test_agent_conversation_provenance_migration.py` for the required contract and migration expectation updates. The Graph runtime successor gate remains outside this lease.
 - **Verification resources:** PRIME-owned PostgreSQL 16 disposable service at `127.0.0.1:55457`; fixture-created unique `dungeonbuddy_app_state_test_*` databases only, using the private DSN file specified in the handoff. PRIME owns container lifecycle.
 - **Runtime boundary:** no configured or live provider, product runtime, production database, real DB `54331`, or cutover rehearsal DBs.
 - **Frozen successor:** #865 remains frozen at `b8aa42c3b4b6b5201d39b19aa62c2bef364cc94c` until recovery merges and PRIME re-anchors/releases its successor lease.
