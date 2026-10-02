@@ -60,6 +60,12 @@ _HOST_PHASE_SPAN_NAMES = frozenset(
         "host_proceed_queue_put",
         "host_worker_result_wait",
         "host_result_decode",
+        "rung3_home_setup",
+        "rung3_agent_import",
+        "rung3_plugin_discovery",
+        "rung3_agent_construction",
+        "rung3_provider_conversation",
+        "rung3_response_normalization_projection",
     }
 )
 _HOST_PHASE_SPAN_ID_RE = re.compile(

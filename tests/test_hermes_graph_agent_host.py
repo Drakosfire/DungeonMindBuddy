@@ -221,6 +221,62 @@ def _stub_worker_main(request_queue: Any, response_queue: Any) -> None:
         )
 
 
+def _worker_phase_telemetry_main(request_queue: Any, response_queue: Any) -> None:
+    """Emit one synthetic internal worker span across the real host boundary."""
+    from apps.live_control_server.services.hermes_graph_agent_contract import (
+        decode_json_wire,
+        serialize_hermes_graph_agent_turn_result,
+    )
+
+    _put_json(response_queue, {"type": "ready", "pid": os.getpid()})
+    while True:
+        message = decode_json_wire(request_queue.get())
+        if message.get("type") == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        if message.get("type") != "execute":
+            continue
+        request_id = str(message.get("requestId") or "")
+        _put_json(
+            response_queue,
+            {"type": "accepted", "requestId": request_id, "pid": os.getpid()},
+        )
+        if _await_proceed_or_shutdown(request_queue, request_id) == "shutdown":
+            _put_json(response_queue, {"type": "shutdown_ack", "pid": os.getpid()})
+            return
+        group_id = "0123456789abcdef0123456789abcdef"
+        _put_json(
+            response_queue,
+            {
+                "type": "telemetry",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": {
+                    "workerPhases": [
+                        {
+                            "span_id": f"{group_id}:1",
+                            "name": "rung3_provider_conversation",
+                            "status": "ok",
+                            "started_at": "2026-10-02T00:00:00Z",
+                            "completed_at": "2026-10-02T00:00:00.012Z",
+                            "duration_ms": 12,
+                            "attributes": {"host_phase_group_id": group_id},
+                        }
+                    ]
+                },
+            },
+        )
+        _put_json(
+            response_queue,
+            {
+                "type": "result",
+                "requestId": request_id,
+                "pid": os.getpid(),
+                "payload": serialize_hermes_graph_agent_turn_result(_ok_result()),
+            },
+        )
+
+
 def _logging_fake_agent_worker(request_queue: Any, response_queue: Any) -> None:
     """Run two offline Rung 3 turns and emit Hermes file logs for each."""
     import importlib
@@ -359,6 +415,81 @@ def _streamed_model_call(
         },
         "cost": {"status": "unavailable"},
     }
+
+
+def test_worker_phase_telemetry_is_request_correlated_and_allowlisted() -> None:
+    request_id = "request-1"
+    group_id = "0123456789abcdef0123456789abcdef"
+    phases: list[dict[str, Any]] = []
+    calls: list[dict[str, Any]] = []
+    warnings: list[str] = []
+    phase = {
+        "span_id": f"{group_id}:1",
+        "parent_span_id": None,
+        "kind": "phase",
+        "name": "rung3_provider_conversation",
+        "status": "ok",
+        "started_at": "2026-10-02T00:00:00Z",
+        "completed_at": "2026-10-02T00:00:00.012Z",
+        "duration_ms": 12,
+        "attributes": {"host_phase_group_id": group_id},
+        "extra_context": "TRACE_LEAK_SENTINEL",
+    }
+    hermes_host_mod._ingest_streamed_telemetry(
+        {
+            "type": "telemetry",
+            "requestId": request_id,
+            "payload": {
+                "modelCalls": [_streamed_model_call()],
+                "workerPhases": [
+                    phase,
+                    {**phase, "span_id": "bad-id", "extra_context": "DROP_SENTINEL"},
+                ],
+            },
+        },
+        request_id=request_id,
+        telemetry_calls=calls,
+        telemetry_worker_phases=phases,
+        telemetry_warnings=warnings,
+    )
+    assert len(calls) == 1
+    assert len(phases) == 1
+    assert phases[0]["name"] == "rung3_provider_conversation"
+    assert phases[0]["attributes"] == {"host_phase_group_id": group_id}
+    assert "TRACE_LEAK_SENTINEL" not in repr(phases)
+    assert "DROP_SENTINEL" not in repr(phases)
+    assert "worker_phases_malformed" in warnings
+
+    hermes_host_mod._ingest_streamed_telemetry(
+        {
+            "type": "telemetry",
+            "requestId": "different-request",
+            "payload": {"workerPhases": [phase]},
+        },
+        request_id=request_id,
+        telemetry_calls=calls,
+        telemetry_worker_phases=phases,
+        telemetry_warnings=warnings,
+    )
+    assert len(phases) == 1
+
+
+def test_worker_phase_telemetry_crosses_host_process_boundary() -> None:
+    host = HermesGraphAgentHost(worker_target=_worker_phase_telemetry_main)
+    phases: list[dict[str, Any]] = []
+    try:
+        result = host.execute(_request(), on_host_phase=phases.append)
+        assert result.status == "ok"
+        worker_phases = [phase for phase in phases if phase["name"].startswith("rung3_")]
+        assert len(worker_phases) == 1
+        assert worker_phases[0]["name"] == "rung3_provider_conversation"
+        assert worker_phases[0]["status"] == "ok"
+        assert worker_phases[0]["duration_ms"] == 12
+        assert worker_phases[0]["attributes"] == {
+            "host_phase_group_id": "0123456789abcdef0123456789abcdef"
+        }
+    finally:
+        assert host.shutdown()
 
 
 def _telemetry_then_hang_worker(request_queue: Any, response_queue: Any) -> None:

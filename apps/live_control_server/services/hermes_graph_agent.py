@@ -37,6 +37,7 @@ import time
 import uuid
 from collections.abc import Callable, Iterator, Mapping, Sequence
 from contextlib import contextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Literal
 
@@ -46,7 +47,9 @@ from apps.live_control_server.services.agent_graph_policy import (
     GRAPH_SYSTEM_POLICY as _GRAPH_SYSTEM_POLICY,
     resolve_agent_graph_openai_inference as _resolve_hermes_openai_inference,
 )
-from apps.live_control_server.services.agent_turn_trace import map_hermes_observer_to_model_call
+from apps.live_control_server.services.agent_turn_trace import (
+    map_hermes_observer_to_model_call,
+)
 from apps.live_control_server.services.hermes_graph_agent_contract import (
     PROCESS_ISOLATION_MODE,
     HermesGraphAgentTurnRequest,
@@ -220,8 +223,14 @@ def _resolve_capability_policy(
 ) -> HermesCapabilityPolicy:
     if request.capability_policy is not None:
         return request.capability_policy
-    if request.world_id is None or request.campaign_id is None or request.scope_mode is None:
-        raise ValueError("no-scope turns require an explicit conversation-only capability policy")
+    if (
+        request.world_id is None
+        or request.campaign_id is None
+        or request.scope_mode is None
+    ):
+        raise ValueError(
+            "no-scope turns require an explicit conversation-only capability policy"
+        )
     focus = (
         dict(request.focus)
         if request.focus is not None
@@ -773,7 +782,9 @@ class _ToolEventCollector:
         args = args if isinstance(args, dict) else {}
         scope_fields = self._authoritative_scope_fields()
         call_id = (
-            str(tool_call_id) if tool_call_id is not None else f"anon:{len(self.events)}"
+            str(tool_call_id)
+            if tool_call_id is not None
+            else f"anon:{len(self.events)}"
         )
         self.events.append(
             HermesGraphToolEvent(
@@ -809,7 +820,9 @@ class _ToolEventCollector:
         args = args if isinstance(args, dict) else {}
         call_key = str(tool_call_id) if tool_call_id is not None else None
         started = (
-            self._starts_by_call_id.pop(call_key, None) if call_key is not None else None
+            self._starts_by_call_id.pop(call_key, None)
+            if call_key is not None
+            else None
         )
         duration_ms = (
             (time.perf_counter() - started) * 1000.0 if started is not None else None
@@ -975,12 +988,52 @@ def run_hermes_graph_agent_turn(
     *,
     agent_factory: Any | None = None,
     on_model_call: Callable[[Mapping[str, Any]], None] | None = None,
+    on_worker_phase: Callable[[Mapping[str, Any]], None] | None = None,
 ) -> HermesGraphAgentTurnResult:
     """Run one lockdown Hermes graph-agent turn and return a typed result.
 
     Isolation mode is always :data:`PROCESS_ISOLATION_MODE` (process-exclusive).
     """
     session_id = (request.session_id or "").strip() or str(uuid.uuid4())
+    phase_group_id = uuid.uuid4().hex
+    phase_sequence = 0
+
+    @contextmanager
+    def timed_worker_phase(name: str) -> Iterator[Callable[[], None]]:
+        nonlocal phase_sequence
+        started_mono = time.monotonic()
+        phase_sequence += 1
+        sequence = phase_sequence
+        status = "error"
+
+        def mark_success() -> None:
+            nonlocal status
+            status = "ok"
+
+        try:
+            yield mark_success
+        finally:
+            if on_worker_phase is not None and sequence <= 8:
+                duration_ms = max(0, round((time.monotonic() - started_mono) * 1000))
+                completed_at = datetime.now(UTC)
+                span = {
+                    "span_id": f"{phase_group_id}:{sequence}",
+                    "parent_span_id": None,
+                    "kind": "phase",
+                    "name": name,
+                    "status": status,
+                    "started_at": datetime.fromtimestamp(
+                        completed_at.timestamp() - duration_ms / 1000, UTC
+                    ).isoformat(),
+                    "completed_at": completed_at.isoformat(),
+                    "duration_ms": duration_ms,
+                    "attributes": {"host_phase_group_id": phase_group_id},
+                }
+                try:
+                    on_worker_phase(span)
+                except Exception:
+                    # Timing is observational and never changes the turn result.
+                    pass
 
     if not str(request.question or "").strip():
         return _error_result(
@@ -1016,7 +1069,10 @@ def run_hermes_graph_agent_turn(
         policy.mode != "graph"
         or not str(request.world_id or "").strip()
         or request.scope_mode not in {"campaign", "world"}
-        or (request.scope_mode == "campaign" and not str(request.campaign_id or "").strip())
+        or (
+            request.scope_mode == "campaign"
+            and not str(request.campaign_id or "").strip()
+        )
     ):
         return _error_result(
             hermes_session_id=session_id,
@@ -1049,8 +1105,13 @@ def run_hermes_graph_agent_turn(
     retrieval_session_packet: dict[str, Any] | None = None
     if request.retrieval_session is not None:
         retrieval_session_packet = dict(request.retrieval_session)
-        if request.retrieval_session_id and "retrieval_session_id" not in retrieval_session_packet:
-            retrieval_session_packet["retrieval_session_id"] = request.retrieval_session_id
+        if (
+            request.retrieval_session_id
+            and "retrieval_session_id" not in retrieval_session_packet
+        ):
+            retrieval_session_packet["retrieval_session_id"] = (
+                request.retrieval_session_id
+            )
         try:
             hydrate_session_from_packet(retrieval_session_packet)
         except Exception:
@@ -1064,11 +1125,17 @@ def run_hermes_graph_agent_turn(
         # Persistent native profiles belong to saved Plan work only. Other
         # surfaces keep their existing per-turn Hermes home behavior.
         profiles_root_raw = os.environ.get(_SESSION_PROFILES_ENV)
-        test_only_ephemeral_profile = agent_factory is not None and not profiles_root_raw
+        test_only_ephemeral_profile = (
+            agent_factory is not None and not profiles_root_raw
+        )
         # This is a typed server decision carried over runtime IPC. Rendered
         # surface prose is descriptive and never grants persistence.
         plan_continuity_turn = request.plan_continuity_turn
-        if plan_continuity_turn and not profiles_root_raw and not test_only_ephemeral_profile:
+        if (
+            plan_continuity_turn
+            and not profiles_root_raw
+            and not test_only_ephemeral_profile
+        ):
             return _error_result(
                 hermes_session_id=session_id,
                 error_code="hermes_continuity_unavailable",
@@ -1084,9 +1151,9 @@ def run_hermes_graph_agent_turn(
         restored_history: list[dict[str, Any]] | None = None
         if persistent_profile:
             profiles_root = Path(str(profiles_root_raw)).expanduser().resolve()
-            profile_home = profiles_root / hashlib.sha256(
-                session_id.encode("utf-8")
-            ).hexdigest()
+            profile_home = (
+                profiles_root / hashlib.sha256(session_id.encode("utf-8")).hexdigest()
+            )
             state_db_path = profile_home / "state.db"
             continuing_session = bool(request.session_id and request.session_id.strip())
             try:
@@ -1177,32 +1244,36 @@ def run_hermes_graph_agent_turn(
             return _error_result(**kwargs)
 
         try:
-            try:
-                _initialize_worker_logger_home()
-            except Exception:
-                return observed_error(
-                    hermes_session_id=session_id,
-                    error_code="hermes_import_error",
-                    error_message=(
-                        "Hermes AIAgent could not be imported from the locked environment."
-                    ),
-                )
-            if not persistent_profile:
-                _prepare_isolated_hermes_home(
-                    hermes_home,
-                    enabled_plugin_ids=policy.enabled_plugin_ids,
-                    model=model,
-                    provider=provider,
-                    base_url=base_url,
-                )
-            os.environ["HERMES_HOME"] = str(hermes_home)
+            with timed_worker_phase("rung3_home_setup") as home_setup_succeeded:
+                try:
+                    _initialize_worker_logger_home()
+                except Exception:
+                    return observed_error(
+                        hermes_session_id=session_id,
+                        error_code="hermes_import_error",
+                        error_message=(
+                            "Hermes AIAgent could not be imported from the locked environment."
+                        ),
+                    )
+                if not persistent_profile:
+                    _prepare_isolated_hermes_home(
+                        hermes_home,
+                        enabled_plugin_ids=policy.enabled_plugin_ids,
+                        model=model,
+                        provider=provider,
+                        base_url=base_url,
+                    )
+                os.environ["HERMES_HOME"] = str(hermes_home)
+                home_setup_succeeded()
 
             factory = agent_factory
             if factory is None:
                 try:
-                    with hermes_import_namespace():
-                        module = importlib.import_module("run_agent")
-                        factory = module.AIAgent
+                    with timed_worker_phase("rung3_agent_import") as import_succeeded:
+                        with hermes_import_namespace():
+                            module = importlib.import_module("run_agent")
+                            factory = module.AIAgent
+                        import_succeeded()
                 except Exception:
                     return observed_error(
                         hermes_session_id=session_id,
@@ -1231,43 +1302,47 @@ def run_hermes_graph_agent_turn(
                             ),
                         )
 
-                    # Drop stale entries only for plugin toolsets we rediscover.
-                    _purge_stale_rediscoverable_plugin_tools(registry, policy)
+                    with timed_worker_phase(
+                        "rung3_plugin_discovery"
+                    ) as discovery_succeeded:
+                        # Drop stale entries only for plugin toolsets we rediscover.
+                        _purge_stale_rediscoverable_plugin_tools(registry, policy)
 
-                    hermes_plugins.discover_plugins(force=True)
+                        hermes_plugins.discover_plugins(force=True)
 
-                    discovery_error = _verify_enabled_plugin_discovery(
-                        hermes_plugins,
-                        policy,
-                    )
-                    if discovery_error is not None:
-                        return observed_error(
-                            hermes_session_id=session_id,
-                            error_code=discovery_error,
-                            error_message=(
-                                "One or more enabled plugin toolsets were not "
-                                "successfully loaded during the current discovery sweep."
-                            ),
+                        discovery_error = _verify_enabled_plugin_discovery(
+                            hermes_plugins,
+                            policy,
                         )
+                        if discovery_error is not None:
+                            return observed_error(
+                                hermes_session_id=session_id,
+                                error_code=discovery_error,
+                                error_message=(
+                                    "One or more enabled plugin toolsets were not "
+                                    "successfully loaded during the current discovery sweep."
+                                ),
+                            )
 
-                    visible_defs = get_tool_definitions(
-                        enabled_toolsets=list(policy.enabled_toolsets),
-                        quiet_mode=True,
-                    )
-                    visible_names = _tool_names_from_definitions(visible_defs)
-                    surface_error = _validate_model_visible_surface(
-                        visible_names,
-                        policy,
-                    )
-                    if surface_error is not None:
-                        return observed_error(
-                            hermes_session_id=session_id,
-                            error_code=surface_error,
-                            error_message=(
-                                "Hermes model-visible tool surface does not match "
-                                "the capability policy."
-                            ),
+                        visible_defs = get_tool_definitions(
+                            enabled_toolsets=list(policy.enabled_toolsets),
+                            quiet_mode=True,
                         )
+                        visible_names = _tool_names_from_definitions(visible_defs)
+                        surface_error = _validate_model_visible_surface(
+                            visible_names,
+                            policy,
+                        )
+                        if surface_error is not None:
+                            return observed_error(
+                                hermes_session_id=session_id,
+                                error_code=surface_error,
+                                error_message=(
+                                    "Hermes model-visible tool surface does not match "
+                                    "the capability policy."
+                                ),
+                            )
+                        discovery_succeeded()
 
                     hermes_plugins.set_thread_tool_whitelist(
                         set(policy.enabled_tool_names),
@@ -1283,42 +1358,50 @@ def run_hermes_graph_agent_turn(
                     )
                     api_observer.register(plugin_manager)
 
-                    agent = factory(
-                        quiet_mode=True,
-                        skip_memory=True,
-                        skip_context_files=True,
-                        enabled_toolsets=list(policy.enabled_toolsets),
-                        session_id=session_id,
-                        provider=provider,
-                        model=model,
-                        base_url=base_url,
-                        **({"session_db": session_db} if session_db is not None else {}),
-                        tool_start_callback=collector.on_start,
-                        tool_complete_callback=collector.on_complete,
-                        ephemeral_system_prompt=_build_ephemeral_system_prompt(
-                            policy,
-                            request,
-                            retrieval_session_packet=retrieval_session_packet,
-                        ),
-                    )
-                    api_observer.capture_runtime_api_mode(agent)
-
-                    agent_tools = getattr(agent, "tools", None)
-                    if isinstance(agent_tools, list):
-                        agent_visible = _tool_names_from_definitions(agent_tools)
-                        agent_surface_error = _validate_model_visible_surface(
-                            agent_visible,
-                            policy,
+                    with timed_worker_phase(
+                        "rung3_agent_construction"
+                    ) as agent_construction_succeeded:
+                        agent = factory(
+                            quiet_mode=True,
+                            skip_memory=True,
+                            skip_context_files=True,
+                            enabled_toolsets=list(policy.enabled_toolsets),
+                            session_id=session_id,
+                            provider=provider,
+                            model=model,
+                            base_url=base_url,
+                            **(
+                                {"session_db": session_db}
+                                if session_db is not None
+                                else {}
+                            ),
+                            tool_start_callback=collector.on_start,
+                            tool_complete_callback=collector.on_complete,
+                            ephemeral_system_prompt=_build_ephemeral_system_prompt(
+                                policy,
+                                request,
+                                retrieval_session_packet=retrieval_session_packet,
+                            ),
                         )
-                        if agent_surface_error is not None:
-                            return observed_error(
-                                hermes_session_id=session_id,
-                                error_code=agent_surface_error,
-                                error_message=(
-                                    "AIAgent model-visible tools do not match the "
-                                    "capability policy."
-                                ),
+                        api_observer.capture_runtime_api_mode(agent)
+
+                        agent_tools = getattr(agent, "tools", None)
+                        if isinstance(agent_tools, list):
+                            agent_visible = _tool_names_from_definitions(agent_tools)
+                            agent_surface_error = _validate_model_visible_surface(
+                                agent_visible,
+                                policy,
                             )
+                            if agent_surface_error is not None:
+                                return observed_error(
+                                    hermes_session_id=session_id,
+                                    error_code=agent_surface_error,
+                                    error_message=(
+                                        "AIAgent model-visible tools do not match the "
+                                        "capability policy."
+                                    ),
+                                )
+                        agent_construction_succeeded()
 
                     history = (
                         restored_history
@@ -1334,10 +1417,14 @@ def run_hermes_graph_agent_turn(
                         )
                     )
                     try:
-                        raw = agent.run_conversation(
-                            user_message=str(request.question).strip(),
-                            conversation_history=history,
-                        )
+                        with timed_worker_phase(
+                            "rung3_provider_conversation"
+                        ) as provider_conversation_succeeded:
+                            raw = agent.run_conversation(
+                                user_message=str(request.question).strip(),
+                                conversation_history=history,
+                            )
+                            provider_conversation_succeeded()
                     except Exception:
                         return observed_error(
                             hermes_session_id=session_id,
@@ -1353,79 +1440,86 @@ def run_hermes_graph_agent_turn(
                     tool_events=collector.events,
                 )
 
-            if not isinstance(raw, Mapping):
-                return observed_error(
-                    hermes_session_id=session_id,
-                    error_code="hermes_malformed_response",
-                    error_message="Hermes returned a malformed turn response.",
-                    tool_events=collector.events,
-                )
+            with timed_worker_phase(
+                "rung3_response_normalization_projection"
+            ) as response_normalization_succeeded:
+                if not isinstance(raw, Mapping):
+                    return observed_error(
+                        hermes_session_id=session_id,
+                        error_code="hermes_malformed_response",
+                        error_message="Hermes returned a malformed turn response.",
+                        tool_events=collector.events,
+                    )
 
-            messages = raw.get("messages")
-            if messages is None:
-                messages = []
-            if not isinstance(messages, list):
-                return observed_error(
-                    hermes_session_id=session_id,
-                    error_code="hermes_malformed_response",
-                    error_message="Hermes returned a malformed messages payload.",
-                    tool_events=collector.events,
-                )
+                messages = raw.get("messages")
+                if messages is None:
+                    messages = []
+                if not isinstance(messages, list):
+                    return observed_error(
+                        hermes_session_id=session_id,
+                        error_code="hermes_malformed_response",
+                        error_message="Hermes returned a malformed messages payload.",
+                        tool_events=collector.events,
+                    )
 
-            final_response = raw.get("final_response")
-            if final_response is not None and not isinstance(final_response, str):
-                final_response = str(final_response)
-            returned_session_id = str(raw.get("session_id") or session_id)
-            if persistent_profile and returned_session_id != session_id:
-                return observed_error(
-                    hermes_session_id=session_id,
-                    error_code="hermes_continuity_unavailable",
-                    error_message=(
-                        "Hermes changed the isolated conversation identity. "
-                        "Start a new conversation."
-                    ),
-                    tool_events=collector.events,
+                final_response = raw.get("final_response")
+                if final_response is not None and not isinstance(final_response, str):
+                    final_response = str(final_response)
+                returned_session_id = str(raw.get("session_id") or session_id)
+                if persistent_profile and returned_session_id != session_id:
+                    return observed_error(
+                        hermes_session_id=session_id,
+                        error_code="hermes_continuity_unavailable",
+                        error_message=(
+                            "Hermes changed the isolated conversation identity. "
+                            "Start a new conversation."
+                        ),
+                        tool_events=collector.events,
+                    )
+                if persistent_profile and not _persisted_turn_matches(
+                    session_db,
+                    session_id=session_id,
+                    question=str(request.question).strip(),
+                    final_response=final_response,
+                ):
+                    return observed_error(
+                        hermes_session_id=session_id,
+                        error_code="hermes_continuity_unavailable",
+                        error_message=(
+                            "Hermes did not persist this turn to its isolated conversation. "
+                            "Start a new conversation."
+                        ),
+                        tool_events=collector.events,
+                    )
+                hydrated = (
+                    get_session(request.retrieval_session_id)
+                    if request.retrieval_session_id
+                    else None
                 )
-            if persistent_profile and not _persisted_turn_matches(
-                session_db,
-                session_id=session_id,
-                question=str(request.question).strip(),
-                final_response=final_response,
-            ):
-                return observed_error(
-                    hermes_session_id=session_id,
-                    error_code="hermes_continuity_unavailable",
-                    error_message=(
-                        "Hermes did not persist this turn to its isolated conversation. "
-                        "Start a new conversation."
+                model_calls, telemetry_warnings = api_observer.finish()
+                if persistent_profile:
+                    profile_turn_persisted = True
+                response_normalization_succeeded()
+                return HermesGraphAgentTurnResult(
+                    status="ok",
+                    final_response=final_response,
+                    messages=[
+                        dict(m) if isinstance(m, Mapping) else {"value": m}
+                        for m in messages
+                    ],
+                    hermes_session_id=returned_session_id,
+                    tool_events=list(collector.events),
+                    process_isolation=PROCESS_ISOLATION_MODE,
+                    retrieval_session_id=request.retrieval_session_id,
+                    retrieval_session=(
+                        hydrated.project_for_hermes()
+                        if hydrated is not None
+                        else retrieval_session_packet
                     ),
-                    tool_events=collector.events,
+                    answer_scope=_derive_answer_scope(collector.events),
+                    model_calls=model_calls,
+                    telemetry_warnings=telemetry_warnings,
                 )
-            hydrated = (
-                get_session(request.retrieval_session_id)
-                if request.retrieval_session_id
-                else None
-            )
-            model_calls, telemetry_warnings = api_observer.finish()
-            if persistent_profile:
-                profile_turn_persisted = True
-            return HermesGraphAgentTurnResult(
-                status="ok",
-                final_response=final_response,
-                messages=[
-                    dict(m) if isinstance(m, Mapping) else {"value": m} for m in messages
-                ],
-                hermes_session_id=returned_session_id,
-                tool_events=list(collector.events),
-                process_isolation=PROCESS_ISOLATION_MODE,
-                retrieval_session_id=request.retrieval_session_id,
-                retrieval_session=(
-                    hydrated.project_for_hermes() if hydrated is not None else retrieval_session_packet
-                ),
-                answer_scope=_derive_answer_scope(collector.events),
-                model_calls=model_calls,
-                telemetry_warnings=telemetry_warnings,
-            )
         except Exception:
             return observed_error(
                 hermes_session_id=session_id,
@@ -1463,7 +1557,11 @@ def run_hermes_graph_agent_turn(
                     pass
             if hermes_state is not None and previous_default_db_path is not None:
                 hermes_state.DEFAULT_DB_PATH = previous_default_db_path
-            if persistent_profile and profile_created_for_new_session and not profile_turn_persisted:
+            if (
+                persistent_profile
+                and profile_created_for_new_session
+                and not profile_turn_persisted
+            ):
                 try:
                     _remove_unbound_hermes_profile(profile_home, profiles_root)
                 except Exception:
