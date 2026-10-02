@@ -242,6 +242,134 @@ function mockJsonResponse(
   } as Response;
 }
 
+type DynamicLiveApi = typeof import("./liveApi");
+let destinationTestApi: DynamicLiveApi | null = null;
+
+async function importLiveApiForBaseUrl(baseUrl: string): Promise<DynamicLiveApi> {
+  vi.stubEnv("VITE_LIVE_API_BASE_URL", baseUrl);
+  vi.resetModules();
+  destinationTestApi = await import("./liveApi");
+  return destinationTestApi;
+}
+
+function graphTurnRequest(mode: "world" | "none" = "world") {
+  return {
+    schema: "dmb_agent_turn_request_v1",
+    client_thread_id: "thread-local-destination",
+    turn_id: "turn-local-destination",
+    surface: { surface_id: "index", instance_id: "index-instance" },
+    owner_scope: { kind: "world", world_id: "world-a" },
+    primary_work: null,
+    client_work_state: "none",
+    graph_request: mode === "none"
+      ? { mode: "none" }
+      : {
+          mode: "world",
+          world_id: "world-a",
+          campaign_id: null,
+          revision_pin: null,
+          focus: { kind: "none", session_id: null, campaign_id: null },
+        },
+    graph_selection: null,
+    message: "Read the graph.",
+  };
+}
+
+describe("local operator API destination policy", () => {
+  afterEach(() => {
+    destinationTestApi?.setNativeGraphAccessToken(null);
+    destinationTestApi = null;
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("allows a relative same-origin request only on a loopback page origin", async () => {
+    const pageHostname = new URL(window.location.href).hostname.replace(/^\[|\]$/g, "").toLowerCase();
+    expect(["localhost", "127.0.0.1", "::1"]).toContain(pageHostname);
+    const api = await importLiveApiForBaseUrl("");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema: "dmb_agent_turn_response_v1" }),
+    );
+
+    await api.postIndexAgentTurn(
+      graphTurnRequest() as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0],
+    );
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/turn");
+    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBe(
+      "Bearer test-only-local-operator-credential-value",
+    );
+    expect(fetchSpy.mock.calls[0]?.[1]?.redirect).toBe("error");
+  });
+
+  it.each(["http://127.0.0.1:7865", "http://localhost:7865"])(
+    "allows an explicit loopback API origin: %s",
+    async (baseUrl) => {
+      const api = await importLiveApiForBaseUrl(baseUrl);
+      api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+      const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+        mockJsonResponse({ schema: "dmb_agent_turn_response_v1" }),
+      );
+
+      await api.postIndexAgentTurn(
+        graphTurnRequest() as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0],
+      );
+
+      expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(`${baseUrl}/api/live/agent/turn`);
+      expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBe(
+        "Bearer test-only-local-operator-credential-value",
+      );
+      expect(fetchSpy.mock.calls[0]?.[1]?.redirect).toBe("error");
+    },
+  );
+
+  it("blocks a graph request to a non-loopback API base before fetch", async () => {
+    const api = await importLiveApiForBaseUrl("https://api.example.invalid");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    await expect(api.postIndexAgentTurn(
+      graphTurnRequest() as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0],
+    )).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 0,
+      message: expect.stringContaining("loopback"),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("applies the destination guard to identity-candidate publication reads", async () => {
+    const api = await importLiveApiForBaseUrl("https://api.example.invalid");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    await expect(api.prepareThreatIdentityCandidates("draft-a", "operation-a")).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 0,
+      message: expect.stringContaining("loopback"),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("keeps graph:none turns credential-free even with a non-loopback API base", async () => {
+    const api = await importLiveApiForBaseUrl("https://api.example.invalid");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema: "dmb_agent_turn_response_v1" }),
+    );
+
+    await api.postIndexAgentTurn(
+      graphTurnRequest("none") as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0],
+    );
+
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("https://api.example.invalid/api/live/agent/turn");
+    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBeNull();
+    expect(fetchSpy.mock.calls[0]?.[1]?.redirect).toBeUndefined();
+  });
+});
+
 describe("Threat publication API", () => {
   afterEach(() => {
     clearProjectionRequestCache();

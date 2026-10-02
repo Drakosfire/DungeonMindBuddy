@@ -207,6 +207,35 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   return pathname === "/api/live/query" && payload?.world_graph_context != null;
 }
 
+function isLoopbackApiDestination(requestUrl: string): boolean {
+  let destination: URL;
+  try {
+    const pageUrl = typeof window === "undefined" ? undefined : window.location.href;
+    destination = pageUrl ? new URL(requestUrl, pageUrl) : new URL(requestUrl);
+  } catch {
+    return false;
+  }
+
+  if (destination.protocol !== "http:" && destination.protocol !== "https:") return false;
+  const hostname = destination.hostname.replace(/^\[|\]$/g, "").toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+}
+
+function apiRequestTarget(
+  path: string,
+  body: BodyInit | null | undefined,
+): { url: string; localGraphRequest: boolean } {
+  const url = `${baseUrl}${path}`;
+  const localGraphRequest = requiresNativeGraphAuthorization(path, body);
+  if (localGraphRequest && !isLoopbackApiDestination(url)) {
+    throw new LiveApiError(
+      "Native Graph requests are blocked unless the configured API destination is loopback.",
+      0,
+    );
+  }
+  return { url, localGraphRequest };
+}
+
 function headerRecord(headers: HeadersInit | undefined): Record<string, string> {
   if (!headers) return {};
   if (headers instanceof Headers) return Object.fromEntries(headers.entries());
@@ -324,12 +353,14 @@ function parseWorldGraphErrorFields(body: {
 }
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  const target = apiRequestTarget(path, init?.body);
   const headers = nativeGraphHeaders(path, init?.body, {
     "Content-Type": "application/json",
     ...headerRecord(init?.headers),
   });
-  const response = await fetch(`${baseUrl}${path}`, {
+  const response = await fetch(target.url, {
     ...init,
+    ...(target.localGraphRequest ? { redirect: "error" as const } : {}),
     headers,
   });
   if (!response.ok) {
@@ -787,8 +818,10 @@ async function publicationFetch<T extends { schema: string; result_label: string
   init: RequestInit | undefined,
   validate: (body: unknown, status: number) => T | null,
 ): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, {
+  const target = apiRequestTarget(path, init?.body);
+  const response = await fetch(target.url, {
     ...init,
+    ...(target.localGraphRequest ? { redirect: "error" as const } : {}),
     headers: nativeGraphHeaders(path, init?.body, {
       "Content-Type": "application/json",
       ...headerRecord(init?.headers),
