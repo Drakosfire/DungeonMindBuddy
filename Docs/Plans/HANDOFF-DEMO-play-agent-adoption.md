@@ -36,7 +36,18 @@ spans.
 
 PR #826 remains OPEN/paused and unmergeable at head
 `4fa28e586783f0e63edb85fa664afa53521367f6`, based on stale
-`5b7e1e4543c94708e11687feb60093d98d6db93f`. RAKE DUTY's read-only rework audit
+`5b7e1e4543c94708e11687feb60093d98d6db93f`. Its exact eight changed paths
+are:
+- `apps/live_control_server/integrations/dungeonmind/world_space_provisioning.py`
+- `apps/live_control_server/routes/world_containers.py`
+- `apps/live_control_server/services/world_container_registry.py`
+- `apps/live_control_server/services/world_space_binding.py`
+- `pyproject.toml`
+- `tests/integration/test_world_space_binding_postgres.py`
+- `tests/test_world_space_binding.py`
+- `uv.lock`
+
+RAKE DUTY's read-only rework audit
 against Buddy main `c3904bc1e08df689b92d5a0b710b546f77af4600` and merged #836
 found that #826's v1 contract cannot be resumed unchanged:
 
