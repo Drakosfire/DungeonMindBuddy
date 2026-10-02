@@ -1,7 +1,8 @@
 # HANDOFF — DEMO: clarify Plan source-bundle diagnostics
 
-**Status:** ACTIVE — DEMO's appointed mandate authorizes this bounded
-presentation repair based on the current dogfood transcript.
+**Status:** COMPLETE — Buddy PR #839 merged at
+`47f9955fd054017a1739dfa8129df65dd61d6bcd` from reviewed head
+`fccb75c5ce5392681bdbaf14beb15b79be220ecc`.
 
 **Steward:** DEMO
 
@@ -82,3 +83,18 @@ dependent Plan Agent slice. Do not pre-mark completion or invent a merge SHA.
 At completion, commit the intended diff, push this branch, open one PR, and
 send PRIME its exact head and verification evidence. PRIME owns review and
 merge; DEMO does not merge.
+
+
+## Settlement — 2026-10-02
+
+Buddy PR #839 merged at `47f9955fd054017a1739dfa8129df65dd61d6bcd` from
+reviewed code head `fccb75c5ce5392681bdbaf14beb15b79be220ecc`. The mounted
+Plan shell regressions passed 2/2 under bundled Node v24.19.0, and the
+cumulative diff check passed. UI `tsc -b` retains the inherited out-of-lease
+diagnostic `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace
+'JSX'`. No server, provider, database, or Graph runtime was used. PRIME reports
+an exact-head review; GitHub currently exposes no submitted review record and
+no commit status or check run. The implementation lease ended at merge.
+
+The ROADMAP-demo.md sync remains sequenced after PR #836 releases its exclusive
+roadmap path lease. Re-anchor before making that backward-looking update.
