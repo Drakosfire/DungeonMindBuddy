@@ -47,12 +47,17 @@ found that #826's v1 contract cannot be resumed unchanged:
   `knowledge_space_binding`; preserve the existing native Graph relation and
   current read-only v1 compatibility. Adapt writes to v2 CAS and preserve both
   relations when committing after the external MIND call.
-- #826 and #836 both change `world_containers.py`; keep #836's guarded
-  Graph bind/deactivate routes and redacted DTO. #826's KnowledgeSpace POST
-  currently has no auth guard. The #836 guard is a local-operator bearer for
-  loopback local/development use, not named remote-user or per-World ownership.
-  The owner/auth model must be explicit; a local-only route must guard before
-  repository, registry, or MIND provisioning work.
+- #826 and #836 both change `world_containers.py`; keep #836's guarded Graph
+  bind/deactivate routes and redacted DTO. #826's KnowledgeSpace POST currently
+  has no auth guard. ARCHITECTURE ruled on 2026-10-02 that current provisioning
+  must remain local-only and use the loopback local-operator bearer guard before
+  repository, registry, PostgreSQL, or MIND side effects; fail closed unless
+  the local-operator request is proven. This guard does not establish named
+  remote-user or per-World authorization, so do not expose the route remotely.
+  Before any remote exposure, a separate contract must authenticate the actor
+  and authorize provisioning against this exact managed World server-side
+  before side effects. Do not infer authority from UI selection, campaign
+  identity, or the MIND allocation receipt.
 - #826 upgrades `pyproject.toml` and `uv.lock` from MIND #85 to accepted MIND
   #96 merge `619329c2c8586572ffd04558a79b3555c2ca3764`; preserve that pin and
   regenerate the lock consistently. MIND's allocation receipt proves an
