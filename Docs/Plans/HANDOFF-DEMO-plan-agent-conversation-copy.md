@@ -1,6 +1,6 @@
 # HANDOFF — DEMO managed-World Plan conversation witness alignment
 
-**Status:** ACTIVE — bounded test-only verification repair authorized by the DEMO stewardship mandate.
+**Status:** COMPLETE — merged in Buddy PR #847.
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Base:** Buddy `main@ff5234bba6456928f820b55e12482f1de88be554`
 **Branch:** `codex/demo-plan-conversation-copy`
@@ -37,3 +37,7 @@ No other path, service, provider, database, runtime, persistent demo data, or PR
 - Run `npm --prefix apps/live-control-ui test -- src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx` and `git diff --check`.
 - Inspect the cumulative base-to-head diff; it must contain only this handoff and the one test assertion change.
 - No browser, provider, database, or shared runtime witness is claimed. PRIME owns review and merge; no merge authority is granted here.
+
+## Settlement
+
+Buddy PR #847 was reviewed and merged on 2026-10-02 at `01a292ba5487d39e581c62690c65c5f6d15e5722` from head `9e33dda202f64e17174a06e38d0089ba002b87cc`. DEMO ran the mounted integration suite on that exact head: **4 passed**. The cumulative `git diff --check` against base `ff5234bba6456928f820b55e12482f1de88be554` passed. This closes only the test-verification slice; no live J1–J6 witness is claimed. The write lease is released.
