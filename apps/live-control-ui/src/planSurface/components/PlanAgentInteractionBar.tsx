@@ -1573,20 +1573,34 @@ export function PlanAgentInteractionBar({
             ) : null}
 
             <details className="plan-agent-diagnostics-drawer">
-              <summary>Memory coverage diagnostics</summary>
+              <summary>Source-bundle diagnostics</summary>
+              <p className="plan-agent-muted">
+                Source-bundle scan session: Live Session {querySession}.
+              </p>
+              <p className="plan-agent-muted">
+                Plan target:{" "}
+                {sessionDescriptor.planningDocument.targetSession == null
+                  ? "not set"
+                  : `Session ${sessionDescriptor.planningDocument.targetSession}`}
+              </p>
+              <p className="plan-agent-muted">World Graph focus: {memorySessionLabel}.</p>
+              <p className="plan-agent-muted">
+                This source-bundle layer check does not report native World Graph evidence or recap
+                admission.
+              </p>
               {status === "loading" ? <p className="plan-agent-muted">Loading source bundle…</p> : null}
               {status === "error" ? (
                 <p className="plan-agent-error">{error ?? "Unable to load source bundle."}</p>
               ) : null}
               {bundle ? (
                 <>
-                <section className="plan-agent-proof" aria-label="Ingestion proof">
+                <section className="plan-agent-proof" aria-label="Source-bundle layers">
                   <div>
-                    <p className="plan-surface-kicker">Ingestion proof</p>
+                    <p className="plan-surface-kicker">Live-session source bundle</p>
                     <h3>
                       {activeSessionComplete
-                        ? `Session ${querySession} has all expected ingest layers`
-                        : `Session ${querySession} is missing ${missingStages.length} ingest layers`}
+                        ? `Live Session ${querySession} has all expected source-bundle ingest layers`
+                        : `Live Session ${querySession} is missing ${missingStages.length} source-bundle ingest layers`}
                     </h3>
                     <p>
                       The bundle exposes {unitCount} SourceUnits across {artifactCount} artifacts.
