@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type {
   AbilityName,
+  AttackMechanic_Input,
   CompositeMechanic_Input,
   MovementEffect_Input,
   MovementMode_Input,
@@ -8,6 +9,7 @@ import type {
   PassiveMechanic_Input,
   PhaseTransitionMechanic_Input,
   RuleElement_Input,
+  SaveEffectMechanic_Input,
   StatblockDefinitionV1_Output,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { ProtectedStructureBlock } from "./ProtectedStructureBlock";
@@ -47,18 +49,54 @@ const MOVEMENT_MODE_KINDS: MovementModeKind[] = [
   "special",
 ];
 
-type DirectEffectsMechanic =
+type DirectEffectMechanic =
   | CompositeMechanic_Input
+  | AttackMechanic_Input
   | PassiveMechanic_Input
-  | PhaseTransitionMechanic_Input;
-type DirectEffect = NonNullable<DirectEffectsMechanic["effects"]>[number];
+  | PhaseTransitionMechanic_Input
+  | SaveEffectMechanic_Input;
+type DirectEffect = NonNullable<CompositeMechanic_Input["effects"]>[number];
+type MovementEffectField =
+  | "effects"
+  | "hit_effects"
+  | "miss_effects"
+  | "success_effects"
+  | "failure_effects";
+type MovementEffectCollection = {
+  field: MovementEffectField;
+  label: string;
+  effects: DirectEffect[];
+};
 
-function hasDirectEffects(mechanic: RuleElement_Input["mechanic"]): mechanic is DirectEffectsMechanic {
-  return (
-    mechanic.kind === "composite" ||
-    mechanic.kind === "passive" ||
-    mechanic.kind === "phase_transition"
-  );
+function movementEffectCollections(
+  mechanic: RuleElement_Input["mechanic"],
+): MovementEffectCollection[] {
+  switch (mechanic.kind) {
+    case "composite":
+    case "passive":
+    case "phase_transition":
+      return [{ field: "effects", label: "effects", effects: mechanic.effects ?? [] }];
+    case "attack":
+      return [
+        { field: "hit_effects", label: "hit effects", effects: mechanic.hit_effects ?? [] },
+        { field: "miss_effects", label: "miss effects", effects: mechanic.miss_effects ?? [] },
+      ];
+    case "save_effect":
+      return [
+        {
+          field: "success_effects",
+          label: "success effects",
+          effects: mechanic.success_effects ?? [],
+        },
+        {
+          field: "failure_effects",
+          label: "failure effects",
+          effects: mechanic.failure_effects ?? [],
+        },
+      ];
+    default:
+      return [];
+  }
 }
 
 function isMovementEffect(effect: DirectEffect): effect is MovementEffect_Input {
@@ -66,7 +104,9 @@ function isMovementEffect(effect: DirectEffect): effect is MovementEffect_Input 
 }
 
 function hasDirectMovementEffect(mechanic: RuleElement_Input["mechanic"]): boolean {
-  return hasDirectEffects(mechanic) && (mechanic.effects ?? []).some(isMovementEffect);
+  return movementEffectCollections(mechanic).some((collection) =>
+    collection.effects.some(isMovementEffect),
+  );
 }
 
 function updateMovementMode(
@@ -111,23 +151,57 @@ function removeMovementMode(state: StatblockEditorState, index: number): Statblo
 function updateMovementEffectReference(
   state: StatblockEditorState,
   elementKey: string,
+  field: MovementEffectField,
   effectIndex: number,
   movementModeKey: string,
 ): StatblockEditorState {
   return updateWorkingCopy(state, (current) => ({
     ...current,
     rule_elements: current.rule_elements.map((element) => {
-      if (element.key !== elementKey || !hasDirectEffects(element.mechanic)) return element;
+      if (element.key !== elementKey) return element;
+      const updateEffects = (effects: DirectEffect[] | undefined): DirectEffect[] =>
+        (effects ?? []).map((effect, index) =>
+          index === effectIndex && isMovementEffect(effect)
+            ? { ...effect, movement_mode_key: movementModeKey }
+            : effect,
+        );
+      const mechanic = element.mechanic;
+      let updatedMechanic: DirectEffectMechanic | null = null;
+      switch (mechanic.kind) {
+        case "composite":
+        case "passive":
+        case "phase_transition":
+          if (field === "effects") {
+            updatedMechanic = { ...mechanic, effects: updateEffects(mechanic.effects) };
+          }
+          break;
+        case "attack":
+          updatedMechanic = {
+            ...mechanic,
+            hit_effects:
+              field === "hit_effects" ? updateEffects(mechanic.hit_effects) : mechanic.hit_effects,
+            miss_effects:
+              field === "miss_effects" ? updateEffects(mechanic.miss_effects) : mechanic.miss_effects,
+          };
+          break;
+        case "save_effect":
+          updatedMechanic = {
+            ...mechanic,
+            success_effects:
+              field === "success_effects"
+                ? updateEffects(mechanic.success_effects)
+                : mechanic.success_effects,
+            failure_effects:
+              field === "failure_effects"
+                ? updateEffects(mechanic.failure_effects)
+                : mechanic.failure_effects,
+          };
+          break;
+      }
+      if (!updatedMechanic) return element;
       return {
         ...element,
-        mechanic: {
-          ...element.mechanic,
-          effects: (element.mechanic.effects ?? []).map((effect, index) =>
-            index === effectIndex && isMovementEffect(effect)
-              ? { ...effect, movement_mode_key: movementModeKey }
-              : effect,
-          ),
-        },
+        mechanic: updatedMechanic,
       };
     }),
   }));
@@ -331,29 +405,30 @@ export function StatblockDefinitionEditor({
                 onChange={(event) => commit(setRuleElementRulesText(state, element.key, event.target.value))}
               />
             </label>
-            {hasDirectEffects(element.mechanic)
-              ? (element.mechanic.effects ?? []).map((effect, effectIndex) =>
-                  isMovementEffect(effect) ? (
-                    <label key={`movement-reference-${effectIndex}`}>
-                      Movement mode reference for {element.key} effect {effectIndex + 1}
-                      <input
-                        aria-label={`Movement mode reference ${element.key} ${effectIndex}`}
-                        value={effect.movement_mode_key ?? ""}
-                        onChange={(event) =>
-                          commit(
-                            updateMovementEffectReference(
-                              state,
-                              element.key,
-                              effectIndex,
-                              event.currentTarget.value,
-                            ),
-                          )
-                        }
-                      />
-                    </label>
-                  ) : null,
-                )
-              : null}
+            {movementEffectCollections(element.mechanic).flatMap((collection) =>
+              collection.effects.map((effect, effectIndex) =>
+                isMovementEffect(effect) ? (
+                  <label key={`movement-reference-${collection.field}-${effectIndex}`}>
+                    Movement mode reference for {element.key} {collection.label} {effectIndex + 1}
+                    <input
+                      aria-label={`Movement mode reference ${element.key} ${collection.label} ${effectIndex}`}
+                      value={effect.movement_mode_key ?? ""}
+                      onChange={(event) =>
+                        commit(
+                          updateMovementEffectReference(
+                            state,
+                            element.key,
+                            collection.field,
+                            effectIndex,
+                            event.currentTarget.value,
+                          ),
+                        )
+                      }
+                    />
+                  </label>
+                ) : null,
+              ),
+            )}
           </article>
         ))}
       </section>

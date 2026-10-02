@@ -18,7 +18,9 @@ import type {
 } from "../../api/types";
 import { persistGenerationAttempt, readGenerationAttempt, scopedWorkbenchJoinKey, type StatblockDraftScope } from "./statblockDraftScope";
 import type {
+  AttackMechanic_Output,
   GeneratedStatblockCandidateV1,
+  RuleElement_Output,
   ValidationReceiptV1,
 } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { readStoredReviseAttempt } from "../../statblocks/revision/statblockRevisionAttempt";
@@ -43,6 +45,34 @@ const activeResponse: ReadStatblockCandidateResponseV1 = {
 function movementCandidate(candidateId: string): GeneratedStatblockCandidateV1 {
   const result = structuredClone(candidate);
   result.candidate_id = candidateId;
+  const sourceElement = result.definition.rule_elements[0];
+  const attack = sourceElement.mechanic as AttackMechanic_Output;
+  const movementEffect = {
+    kind: "movement" as const,
+    movement_mode_key: "swim",
+    distance: { value: 20, unit: "feet" as const },
+  };
+  const attackElement: RuleElement_Output = {
+    ...sourceElement,
+    key: "marsh_strike",
+    mechanic: {
+      ...attack,
+      hit_effects: [movementEffect],
+      miss_effects: [movementEffect],
+    },
+  };
+  const saveElement: RuleElement_Output = {
+    ...sourceElement,
+    key: "marsh_surge",
+    name: "Marsh Surge",
+    mechanic: {
+      kind: "save_effect",
+      save: { ability: "dexterity", dc: 14 },
+      target: attack.target,
+      success_effects: [movementEffect],
+      failure_effects: [movementEffect],
+    },
+  };
   result.definition = {
     ...result.definition,
     movement: {
@@ -50,25 +80,7 @@ function movementCandidate(candidateId: string): GeneratedStatblockCandidateV1 {
         { key: "ground", mode: "walk", distance: { value: 30, unit: "feet" }, qualifiers: ["land"] },
       ],
     },
-    rule_elements: result.definition.rule_elements.map((element, index) =>
-      index === 0
-        ? {
-            ...element,
-            key: "marsh_stride",
-            mechanic: {
-              kind: "composite",
-              target: null,
-              effects: [
-                {
-                  kind: "movement",
-                  movement_mode_key: "swim",
-                  distance: { value: 20, unit: "feet" },
-                },
-              ],
-            },
-          }
-        : element,
-    ),
+    rule_elements: [attackElement, saveElement],
   };
   return result;
 }
@@ -1888,24 +1900,40 @@ describe("StatblockWorkbenchModule", () => {
       const danglingPreview = validateSpy.mock.calls[0][0].definition;
       expect(danglingPreview.movement.modes[0]).toMatchObject({ key: "ground", mode: "swim" });
       expect(danglingPreview.rule_elements[0].mechanic).toMatchObject({
-        effects: [{ kind: "movement", movement_mode_key: "swim" }],
+        hit_effects: [{ kind: "movement", movement_mode_key: "swim" }],
+        miss_effects: [{ kind: "movement", movement_mode_key: "swim" }],
+      });
+      expect(danglingPreview.rule_elements[1].mechanic).toMatchObject({
+        success_effects: [{ kind: "movement", movement_mode_key: "swim" }],
+        failure_effects: [{ kind: "movement", movement_mode_key: "swim" }],
       });
       expect(screen.getByRole("button", { name: "Accept/Save mechanics" })).toBeDisabled();
 
       const modeKeyInput = screen.getByLabelText("Movement mode key 0");
       await user.clear(modeKeyInput);
       await user.type(modeKeyInput, "waterway");
-      const movementReferenceInput = screen.getByLabelText(
-        "Movement mode reference marsh_stride 0",
-      );
-      await user.clear(movementReferenceInput);
-      await user.type(movementReferenceInput, "waterway");
+      const movementReferenceLabels = [
+        "Movement mode reference marsh_strike hit effects 0",
+        "Movement mode reference marsh_strike miss effects 0",
+        "Movement mode reference marsh_surge success effects 0",
+        "Movement mode reference marsh_surge failure effects 0",
+      ];
+      for (const label of movementReferenceLabels) {
+        expect(screen.getByLabelText(label)).toHaveProperty("value", "swim");
+        await user.clear(screen.getByLabelText(label));
+        await user.type(screen.getByLabelText(label), "waterway");
+      }
       await validateWorkingCopy(user);
 
       const acceptedDefinition = validateSpy.mock.calls[1][0].definition;
       expect(acceptedDefinition.movement.modes[0]).toMatchObject({ key: "waterway", mode: "swim" });
       expect(acceptedDefinition.rule_elements[0].mechanic).toMatchObject({
-        effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+        hit_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+        miss_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+      });
+      expect(acceptedDefinition.rule_elements[1].mechanic).toMatchObject({
+        success_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+        failure_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
       });
       expect(acceptedDefinition.identity).toEqual(sourceCandidate.definition.identity);
 

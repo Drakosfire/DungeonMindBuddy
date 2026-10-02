@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import type { AttackMechanic_Output, RuleElement_Output } from "../../contracts/dungeonbuddy-statblocks-v1/client";
 import { baseCandidateDefinition, complexCandidateDefinition } from "./editorFixtures";
 import { StatblockDefinitionEditor } from "./StatblockDefinitionEditor";
 import {
@@ -45,6 +46,47 @@ function movementCandidateDefinition() {
           }
         : element,
     ),
+  };
+}
+
+function attackAndSaveMovementCandidateDefinition() {
+  const output = baseCandidateDefinition();
+  const sourceElement = output.rule_elements[0];
+  const attack = sourceElement.mechanic as AttackMechanic_Output;
+  const movementEffect = {
+    kind: "movement" as const,
+    movement_mode_key: "swim",
+    distance: { value: 20, unit: "feet" as const },
+  };
+  const attackElement: RuleElement_Output = {
+    ...sourceElement,
+    key: "marsh_strike",
+    mechanic: {
+      ...attack,
+      hit_effects: [movementEffect],
+      miss_effects: [movementEffect],
+    },
+  };
+  const saveElement: RuleElement_Output = {
+    ...sourceElement,
+    key: "marsh_surge",
+    name: "Marsh Surge",
+    mechanic: {
+      kind: "save_effect",
+      save: { ability: "dexterity", dc: 14 },
+      target: attack.target,
+      success_effects: [movementEffect],
+      failure_effects: [movementEffect],
+    },
+  };
+  return {
+    ...output,
+    movement: {
+      modes: [
+        { key: "foot", mode: "walk" as const, distance: { value: 30, unit: "feet" as const }, qualifiers: ["land"] },
+      ],
+    },
+    rule_elements: [attackElement, saveElement],
   };
 }
 
@@ -190,7 +232,7 @@ describe("StatblockDefinitionEditor", () => {
 
     await user.selectOptions(screen.getByLabelText("Movement mode kind 0"), "swim");
     expect(latest.workingCopy.movement.modes[0]).toMatchObject({ key: "foot", mode: "swim" });
-    expect(screen.getByLabelText("Movement mode reference marsh_stride 0")).toHaveProperty(
+    expect(screen.getByLabelText("Movement mode reference marsh_stride effects 0")).toHaveProperty(
       "value",
       "swim",
     );
@@ -198,12 +240,12 @@ describe("StatblockDefinitionEditor", () => {
     const keyInput = screen.getByLabelText("Movement mode key 0");
     await user.clear(keyInput);
     await user.type(keyInput, "waterway");
-    expect(screen.getByLabelText("Movement mode reference marsh_stride 0")).toHaveProperty(
+    expect(screen.getByLabelText("Movement mode reference marsh_stride effects 0")).toHaveProperty(
       "value",
       "swim",
     );
 
-    const referenceInput = screen.getByLabelText("Movement mode reference marsh_stride 0");
+    const referenceInput = screen.getByLabelText("Movement mode reference marsh_stride effects 0");
     await user.clear(referenceInput);
     await user.type(referenceInput, "waterway");
     await user.clear(screen.getByLabelText("Movement mode distance 0"));
@@ -250,15 +292,60 @@ describe("StatblockDefinitionEditor", () => {
     await user.click(screen.getByRole("button", { name: "Add qualifier to movement mode 1" }));
     await user.type(screen.getByLabelText("Movement mode qualifier 1 0"), "submerged");
 
-    expect(screen.getByLabelText("Movement mode reference marsh_stride 0")).toHaveProperty(
+    expect(screen.getByLabelText("Movement mode reference marsh_stride effects 0")).toHaveProperty(
       "value",
       "swim",
     );
-    await user.clear(screen.getByLabelText("Movement mode reference marsh_stride 0"));
-    await user.type(screen.getByLabelText("Movement mode reference marsh_stride 0"), "waterway");
+    await user.clear(screen.getByLabelText("Movement mode reference marsh_stride effects 0"));
+    await user.type(screen.getByLabelText("Movement mode reference marsh_stride effects 0"), "waterway");
 
     expect(screen.getByLabelText("Movement mode key 1")).toHaveProperty("value", "waterway");
     expect(screen.getByLabelText("Movement mode kind 1")).toHaveProperty("value", "swim");
+  });
+
+  it("edits movement references in attack hit/miss and save success/failure arrays", async () => {
+    const user = userEvent.setup();
+    const output = attackAndSaveMovementCandidateDefinition();
+    let latest = createEditorStateFromOutput(output);
+
+    function Harness() {
+      const [state, setState] = useState(latest);
+      latest = state;
+      return <StatblockDefinitionEditor output={output} editorState={state} onEditorStateChange={setState} />;
+    }
+
+    render(<Harness />);
+
+    const referenceLabels = [
+      "Movement mode reference marsh_strike hit effects 0",
+      "Movement mode reference marsh_strike miss effects 0",
+      "Movement mode reference marsh_surge success effects 0",
+      "Movement mode reference marsh_surge failure effects 0",
+    ];
+    for (const label of referenceLabels) {
+      expect(screen.getByLabelText(label)).toHaveProperty("value", "swim");
+    }
+
+    await user.clear(screen.getByLabelText("Movement mode key 0"));
+    await user.type(screen.getByLabelText("Movement mode key 0"), "waterway");
+    for (const label of referenceLabels) {
+      expect(screen.getByLabelText(label)).toHaveProperty("value", "swim");
+      await user.clear(screen.getByLabelText(label));
+      await user.type(screen.getByLabelText(label), "waterway");
+    }
+
+    expect(latest.workingCopy.rule_elements[0].mechanic).toMatchObject({
+      kind: "attack",
+      hit_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+      miss_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+    });
+    expect(latest.workingCopy.rule_elements[1].mechanic).toMatchObject({
+      kind: "save_effect",
+      success_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+      failure_effects: [{ kind: "movement", movement_mode_key: "waterway" }],
+    });
+    expect(latest.workingCopy.movement.modes[0].key).toBe("waterway");
+    expect(latest.validatedRevision).toBeNull();
   });
 
   it("shows validated status while dirty when validation is associated at current revision", () => {
