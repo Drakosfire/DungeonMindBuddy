@@ -1,11 +1,15 @@
 """SBW09b: Threat publication identity-resolution route contract tests."""
+
 from __future__ import annotations
 
 import uuid
 from pathlib import Path
 from unittest.mock import patch
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
+import pytest
+from starlette.requests import Request
 
 import apps.live_control_server.routes.threat_publication_identity as identity_routes
 import apps.live_control_server.services.threat_publication_identity as identity_svc
@@ -34,16 +38,27 @@ from graph_memory.projection.world_projection import WorldGraphProjectionNodeVie
 
 DEFAULT_DIGEST = "sha256:" + "a" * 64
 PARENT = "rev:parent1"
+LOCAL_OPERATOR_TOKEN = "test-local-operator-token-with-adequate-length"
 
 
 class _FakeHead:
     def __init__(self, revision_id: str) -> None:
-        self.head_revision_id = revision_id
+        self.revision_id = revision_id
+
+
+class _FakeAuthority:
+    def __init__(self, revision_id: str) -> None:
+        self.revision_id = revision_id
+
+    def current_head(self, _world_id: str) -> _FakeHead:
+        return _FakeHead(self.revision_id)
 
 
 def _mock_head(monkeypatch, revision_id: str) -> None:
     monkeypatch.setattr(
-        pub_svc.kernel, "open_world_graph_head", lambda root, world_id: _FakeHead(revision_id)
+        pub_svc,
+        "get_world_graph_authority",
+        lambda **_kwargs: _FakeAuthority(revision_id),
     )
 
 
@@ -83,9 +98,43 @@ def _mechanics_saved_draft(tmp_path: Path, monkeypatch):
     return draft
 
 
+def _authorized_client(monkeypatch: pytest.MonkeyPatch) -> TestClient:
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", LOCAL_OPERATOR_TOKEN)
+    return TestClient(
+        create_app(),
+        client=("127.0.0.1", 50000),
+        headers={"Authorization": f"Bearer {LOCAL_OPERATOR_TOKEN}"},
+    )
+
+
 def _client(tmp_path: Path, monkeypatch) -> TestClient:
     monkeypatch.setattr(identity_routes, "repo_root", lambda: tmp_path)
-    return TestClient(create_app())
+    return _authorized_client(monkeypatch)
+
+
+def _request_context(
+    authorization: str | None = None, *, host: str = "127.0.0.1"
+) -> Request:
+    headers = []
+    if authorization is not None:
+        headers.append((b"authorization", authorization.encode("utf-8")))
+    path = "/api/live/threat-drafts/draft/publication-operations/op/identity-candidates/prepare"
+    return Request(
+        {
+            "type": "http",
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "http",
+            "path": path,
+            "raw_path": path.encode("ascii"),
+            "query_string": b"",
+            "headers": headers,
+            "client": (host, 50000),
+            "server": ("127.0.0.1", 8000),
+        }
+    )
 
 
 def _begin(tmp_path: Path, draft) -> str:
@@ -263,7 +312,7 @@ def test_routes_pass_repo_and_world_roots_independently(
     with patch.object(
         identity_routes, "prepare_identity_candidates", side_effect=capture_prepare
     ):
-        client = TestClient(create_app())
+        client = _authorized_client(monkeypatch)
         response = client.post(
             f"/api/live/threat-drafts/{draft_id}/publication-operations/{operation_id}/identity-candidates/prepare",
             json={},
@@ -272,3 +321,155 @@ def test_routes_pass_repo_and_world_roots_independently(
     assert response.status_code == 200
     assert captured["repo_root"] == repo
     assert captured["world_root"] == world
+
+
+def test_identity_candidate_route_denies_before_native_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from apps.live_control_server.models.threat_publication_identity import (
+        PrepareThreatIdentityCandidatesRequestV1,
+    )
+    from apps.live_control_server.services import agent_graph_auth
+    from apps.live_control_server.services.agent_graph_auth import NativeGraphPrincipal
+
+    for name in (
+        "DMB_AGENT_GRAPH_AUTH_MODE",
+        "DMB_AGENT_GRAPH_AUTH_ENVIRONMENT",
+        "DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+    calls: list[str] = []
+    monkeypatch.setattr(identity_routes, "repo_root", lambda: calls.append("repo"))
+    monkeypatch.setattr(
+        identity_routes, "world_graph_root", lambda: calls.append("world")
+    )
+    monkeypatch.setattr(
+        identity_routes,
+        "prepare_identity_candidates",
+        lambda *_args, **_kwargs: calls.append("prepare"),
+    )
+    draft_id = str(uuid.uuid4())
+    operation_id = str(uuid.uuid4())
+    body = PrepareThreatIdentityCandidatesRequestV1()
+
+    with pytest.raises(HTTPException) as missing_config:
+        identity_routes.post_prepare_identity_candidates(
+            draft_id, operation_id, body, _request_context()
+        )
+    assert missing_config.value.status_code == 503
+
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", LOCAL_OPERATOR_TOKEN)
+    for authorization in (None, "Bearer wrong-test-credential"):
+        with pytest.raises(HTTPException) as denied:
+            identity_routes.post_prepare_identity_candidates(
+                draft_id, operation_id, body, _request_context(authorization)
+            )
+        assert denied.value.status_code == 401
+
+    monkeypatch.setattr(
+        agent_graph_auth,
+        "authenticate_native_graph_principal",
+        lambda _request: NativeGraphPrincipal(
+            subject="local_player", role="player", auth_method="local_operator"
+        ),
+    )
+    with pytest.raises(HTTPException) as non_gm:
+        identity_routes.post_prepare_identity_candidates(
+            draft_id,
+            operation_id,
+            body,
+            _request_context(f"Bearer {LOCAL_OPERATOR_TOKEN}"),
+        )
+    assert non_gm.value.status_code == 403
+    assert calls == []
+
+
+def test_identity_candidate_route_returns_authorized_candidate_data(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import json
+
+    from apps.live_control_server.models.threat_publication_identity import (
+        PrepareThreatIdentityCandidatesRequestV1,
+        ThreatIdentityCandidateSetV1,
+        candidate_set_digest_for_set,
+    )
+
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", LOCAL_OPERATOR_TOKEN)
+    monkeypatch.setattr(identity_routes, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(identity_routes, "world_graph_root", lambda: tmp_path)
+
+    draft_id = str(uuid.uuid4())
+    operation_id = str(uuid.uuid4())
+    body = PrepareThreatIdentityCandidatesRequestV1()
+    candidate_set_fields = dict(
+        draft_id=draft_id,
+        operation_id=operation_id,
+        source_digest=DEFAULT_DIGEST,
+        expected_parent_revision_id=PARENT,
+        matching_profile=MATCHING_PROFILE_V1,
+        candidate_query="One",
+        eligible_threat_count=1,
+        exact_collision_count=1,
+        truncated=False,
+        candidates=[
+            {
+                "node_id": "threat:one",
+                "label": "One",
+                "kind": "Threat",
+                "role": "antagonist",
+                "aliases": ["The One"],
+                "campaign_scope": "c1",
+                "summary": "A graph-backed candidate.",
+                "source_domains": ["campaign"],
+                "binding_ids": [],
+                "has_exact_accepted_binding": False,
+                "match_score": 100,
+                "match_reasons": ["exact_name"],
+                "exact_name_collision": True,
+            }
+        ],
+        candidate_set_digest=DEFAULT_DIGEST,
+    )
+    provisional_candidate_set = ThreatIdentityCandidateSetV1.model_construct(
+        **candidate_set_fields
+    )
+    candidate_set = ThreatIdentityCandidateSetV1.model_validate(
+        {
+            **candidate_set_fields,
+            "candidate_set_digest": candidate_set_digest_for_set(
+                provisional_candidate_set
+            ),
+        }
+    )
+    outcome = identity_svc.IdentityResolutionOutcome(
+        identity_svc._response(
+            draft_id,
+            operation_id,
+            "publication_identity_candidates_ready",
+            candidate_set=candidate_set,
+            predecessor_usable=True,
+        )
+    )
+    monkeypatch.setattr(
+        identity_routes, "prepare_identity_candidates", lambda *_a, **_k: outcome
+    )
+
+    response = identity_routes.post_prepare_identity_candidates(
+        draft_id,
+        operation_id,
+        body,
+        _request_context(f"Bearer {LOCAL_OPERATOR_TOKEN}"),
+    )
+    assert response.status_code == 200
+    payload = json.loads(response.body)
+    assert payload["candidate_set"]["candidates"][0]["node_id"] == "threat:one"
+    assert (
+        payload["candidate_set"]["candidates"][0]["summary"]
+        == "A graph-backed candidate."
+    )

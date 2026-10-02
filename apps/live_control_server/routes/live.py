@@ -37,6 +37,7 @@ from apps.live_control_server.services.agent_world_graph_query_context import (
     AgentWorldGraphQueryContextError,
     AgentWorldGraphQueryContextRequest,
 )
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.hermes_graph_query import HermesGraphQueryRequestError
 from apps.live_control_server.services.live_agent_loop import process_live_query
 from apps.live_control_server.services.citation_source_reader import (
@@ -919,7 +920,10 @@ def post_tiptap_markdown_write_commit(
 
 
 @router.post("/query", response_model=None)
-def post_live_query(body: LiveQueryRequest) -> Any:
+def post_live_query(body: LiveQueryRequest, request: Request) -> Any:
+    if body.world_graph_context is not None:
+        # The legacy query path shares the native Graph access boundary.
+        enforce_native_graph_gm(request)
     base = session_dir()
     managed_packet: dict[str, Any] | None = None
     # Legacy C1/C2 Hermes queries use Eldyrwild as their World. They must not

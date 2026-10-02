@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
@@ -12,6 +12,9 @@ from fastapi.routing import APIRoute
 from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
     project_world_graph,
+)
+from apps.live_control_server.services.agent_graph_auth import (
+    native_graph_gm_dependency,
 )
 from apps.live_control_server.services.world_graph_recap_projection import (
     build_world_graph_recap_projection_payload,
@@ -63,6 +66,7 @@ router = APIRouter(
     prefix="/api/live/world-graph",
     tags=["world-graph-projection"],
     route_class=_ProjectionAPIRoute,
+    dependencies=[Depends(native_graph_gm_dependency)],
 )
 
 

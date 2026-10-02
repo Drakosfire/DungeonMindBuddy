@@ -744,6 +744,10 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
 
     managed_world = create_world_container(tmp_path, name="Agent Projection Test World")
     world_root = tmp_path / "isolated-world-root"
+    auth_token = "test-local-operator-token-with-adequate-length"
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_MODE", "local_operator")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_AUTH_ENVIRONMENT", "development")
+    monkeypatch.setenv("DMB_AGENT_GRAPH_LOCAL_OPERATOR_TOKEN", auth_token)
     monkeypatch.setenv(WORLD_GRAPH_AUTHORITY_ENV, WORLD_GRAPH_AUTHORITY_DUNGEONMIND)
     monkeypatch.setenv(WORLD_GRAPH_ROOT_ENV, str(world_root))
     monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
@@ -823,11 +827,15 @@ def test_verified_world_projection_reaches_runtime_through_full_http_route(
     async def post_turn() -> httpx.Response:
         # Keep the real application/router/HTTP path, but leave the external
         # agent-worker lifecycle outside this deterministic integration test.
-        transport = httpx.ASGITransport(app=app)
+        transport = httpx.ASGITransport(app=app, client=("127.0.0.1", 50000))
         async with httpx.AsyncClient(
             transport=transport, base_url="http://test"
         ) as client:
-            return await client.post("/api/live/agent/turn", json=payload)
+            return await client.post(
+                "/api/live/agent/turn",
+                json=payload,
+                headers={"Authorization": f"Bearer {auth_token}"},
+            )
 
     response = asyncio.run(post_turn())
 

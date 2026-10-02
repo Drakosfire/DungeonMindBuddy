@@ -4,13 +4,20 @@
 
 **Steward:** DEMO
 
-**Design base:** Buddy `origin/main@5a7abdfdf0be13c11b0ce849be433e03a6cb662d`.
+**Design base:** Buddy `origin/main@5b8686829a8f734d99dca59e4998611aee5df5cb`.
 
 **Merged serial predecessor:** Buddy PR #833, `DEMO: ask from saved Plan content`,
-merged at `5a7abdfdf0be13c11b0ce849be433e03a6cb662d`. The saved-Plan Ask
-implementation is merged; its configured-provider live witness remains
-unclaimed. This successor is re-anchored on that merge and remains BLOCKED on
-its own design/runtime gates.
+merged at `5a7abdfdf0be13c11b0ce849be433e03a6cb662d`. Its configured-provider
+saved-Plan witness passed on 2026-10-01: committed Plan content was used, an
+unsaved conflicting draft was excluded, one OpenAI `gpt-6-luna` call completed,
+and the turn plus exact revision basis survived reload; no tools or graph were
+used. Trace `agent-trace-a66bdf5dd035` estimated `$0.0000851`; the provider
+request ID was not separately surfaced. Buddy PR #834 then merged the corrected
+Session 29 full-graph gate at `5b8686829a8f734d99dca59e4998611aee5df5cb`.
+Full graph querying remains BLOCKED on its independent gates. The local GM auth
+prerequisite is now active under
+[`HANDOFF-DEMO-agent-graph-auth.md`](HANDOFF-DEMO-agent-graph-auth.md); it does
+not implement binding or graph querying.
 
 **Future implementation PR title:** `DEMO: query Session 29 across Elderwyld graph`
 
@@ -66,9 +73,9 @@ This is a serial successor. It has no write lease and allocates no implementatio
 
 Before activation, the steward must:
 
-1. Keep this design anchored at `origin/main@5a7abdfdf0be13c11b0ce849be433e03a6cb662d`; record that #833 is merged there and that its configured-provider witness remains outstanding. Obtain ARCHITECTURE exact-head acceptance of this corrected contract; re-anchor again before any later implementation dispatch.
+1. Keep this design anchored at current Buddy `origin/main@5b8686829a8f734d99dca59e4998611aee5df5cb`; preserve the #833 witness PASS and #834 BLOCKED gate accurately. Obtain ARCHITECTURE exact-head acceptance of this corrected contract; re-anchor again before any later implementation dispatch.
 2. Reinspect PR #826 and all active leases. PR #826's empty-space provisioning does not satisfy or implement the binding to this pre-existing Elderwyld graph. Resolve any shared World registry/binding ownership before assigning paths.
-3. Establish trusted server-side GM identity for `/api/live` before any cross-campaign GM read. Current Buddy has no demonstrated in-process authentication dependency or middleware on this route; the selected World, URL, browser, or model cannot establish GM authority. Identify the authoritative authenticated principal/role source and its owning route boundary. If it is absent, fail closed before graph/provider/model dispatch; record this as a BLOCKED gate, not an assumed capability.
+3. Land and independently review the active serial local-operator GM prerequisite in [`HANDOFF-DEMO-agent-graph-auth.md`](HANDOFF-DEMO-agent-graph-auth.md). It protects the listed graph-read responses, including Agent/query, projection/retrieval, Threat query-hydration, and Threat identity-candidate data. Its bearer capability proves only local-operator access; MIND GM admissibility remains independent. Before any C1+C2 retrieval activation, recheck route coverage and prove no excluded write-workflow route returns native source, evidence, object, or projection data or permits cross-campaign retrieval through browser-controlled scope.
 4. Confirm a read-only native MIND V2 Graph endpoint for `world_id=eldyrwild` and a separate isolated disposable native fixture/runtime for concurrent head movement and R1→R2 restart proof. Keep the real graph witness read-only.
 5. Pin the exact Buddy and MIND base refs, final exclusive path allowlists, data stores, runtime/database/output ownership, verification commands, and PR topology in an ACTIVE handoff before implementation.
 

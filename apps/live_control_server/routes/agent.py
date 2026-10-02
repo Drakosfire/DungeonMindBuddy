@@ -16,6 +16,7 @@ from apps.live_control_server.services.agent_runtime import (
     AgentCurrentWorkContext,
     AgentSurfaceContext,
 )
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 from apps.live_control_server.services.agent_turn_service import (
     AgentTurnResolvedWork,
     AgentTurnServiceError,
@@ -340,6 +341,10 @@ def _graph_resolver(
 
 @router.post("/turn", response_model=None)
 def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
+    if body.graph_request.mode != "none":
+        # Check before runtime lookup, World/work resolution, graph reads or
+        # provider dispatch. Graphless turns retain their existing path.
+        enforce_native_graph_gm(request)
     runtime = getattr(request.app.state, "agent_turn_runtime", None)
     try:
         result = execute_agent_turn(

@@ -1,8 +1,9 @@
 """SBW10a: read-only exact Threat query + mechanics hydration API."""
+
 from __future__ import annotations
 
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
@@ -15,13 +16,17 @@ from apps.live_control_server.services.threat_query_hydration import (
     ThreatQueryHydrationError,
     query_threats_with_hydration,
 )
+from apps.live_control_server.services.agent_graph_auth import enforce_native_graph_gm
 
 
 router = APIRouter(prefix="/api/live/threats", tags=["threat-query-hydration"])
 
 
 @router.post("/query-hydration")
-def post_threat_query_hydration(body: ThreatQueryHydrationRequestV1) -> JSONResponse:
+def post_threat_query_hydration(
+    body: ThreatQueryHydrationRequestV1, request: Request
+) -> JSONResponse:
+    enforce_native_graph_gm(request)
     root = world_graph_root()
     try:
         response = query_threats_with_hydration(body, root=root)

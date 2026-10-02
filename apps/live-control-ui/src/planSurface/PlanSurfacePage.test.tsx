@@ -258,6 +258,7 @@ function PublicationProbe() {
 }
 
 afterEach(() => {
+  liveApi.setNativeGraphAccessToken(null);
   vi.restoreAllMocks();
   localStorage.clear();
   window.history.replaceState({}, "", "/");
@@ -383,6 +384,29 @@ it("pins Ask to the exact committed World Plan revision and excludes editor text
   ]);
   expect(JSON.stringify(stored)).not.toContain(savedAgentPlanText);
   expect(JSON.stringify(stored)).not.toContain("MUST_NOT_BE_PERSISTED");
+});
+
+it("accepts a local Graph credential in a password field and clears it from the form", async () => {
+  mockSavedPlanForAgent();
+  const setCredential = vi.spyOn(liveApi, "setNativeGraphAccessToken");
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  const input = await screen.findByLabelText("Local operator Graph credential");
+  expect(input).toHaveAttribute("type", "password");
+  fireEvent.change(input, { target: { value: "test-only-local-operator-credential-value" } });
+  fireEvent.click(screen.getByRole("button", { name: "Set Graph access" }));
+
+  expect(setCredential).toHaveBeenCalledWith("test-only-local-operator-credential-value");
+  expect(input).toHaveValue("");
+  expect(await screen.findByText(/Credential is held in this tab's memory/)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Clear Graph access" }));
+  expect(setCredential).toHaveBeenLastCalledWith(null);
+  expect(await screen.findByText("Native Graph credential cleared.")).toBeInTheDocument();
 });
 
 it("persists bounded Plan Agent trace receipts through reload without prompt data", async () => {
