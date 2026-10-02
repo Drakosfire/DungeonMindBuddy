@@ -1806,6 +1806,10 @@
           "preference": "A",
           "preference_reason": "More directly foregrounds the immediate route decision."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "209a90a4cfbe41ccb3c33f78220bb87ed4af69ccab0f469902ba5217abf09dbb",
+        "B": "55a0d3b1281968a3f0c8025f6d85887e86688bcde3a28ca323f2e69454599a74"
       }
     },
     {
@@ -1873,6 +1877,10 @@
           "preference": "B",
           "preference_reason": "Slight clarity advantage while preserving the keyed uncertainty."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "33bc1a95228571c11e2ec6d440725090fca8b0be78b416f694bc98e640512fe0",
+        "B": "82625a3bb0ee2599f873c05eb57d8c66dfd711a95a2809a8239350482197cfc6"
       }
     },
     {
@@ -1930,6 +1938,10 @@
           "preference": "B",
           "preference_reason": "Only eligible answer; focuses on the unexamined roots."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "353ff7c84f65213a457739042acfcf63a9dea0777c561cb1fa42fa6bcd7ac8f1",
+        "B": "fc5de76c85119bb8d21fedbd3d441c93b5287731025d6ac6523315a68f5315cf"
       }
     },
     {
@@ -1997,6 +2009,10 @@
           "preference": "B",
           "preference_reason": "More natural and scene-ready while keeping cause unresolved."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "7bf1f5112624f8dcc8ea81b0cad95680c02d9d17273fca13159a94c7ab47aaa2",
+        "B": "c2be097a8865af809ac180b40d05a45ceab26f391ebffddde4bce07e48a518f9"
       }
     },
     {
@@ -2064,6 +2080,10 @@
           "preference": "B",
           "preference_reason": "More specific verification before the deadline."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "26514063a8c3f282e436c8250275a9ef4407f9bbd22a9a6b34c05a24b4a4e70f",
+        "B": "b4a52792c8e1b96f910238623765772c6368b84d21d503165206f5fd896c9a24"
       }
     },
     {
@@ -2131,6 +2151,10 @@
           "preference": "B",
           "preference_reason": "More actionable without treating either report as conclusive."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "971a7e7c884469d5b7d0c8ad881c95086750a4382a283067bcbf1c4b42bb1484",
+        "B": "df67e962b7d9e102b4e9a36ccf6de9e0fcd5ae777a52f4a0fd192dbdfa0b2942"
       }
     },
     {
@@ -2198,6 +2222,10 @@
           "preference": "B",
           "preference_reason": "Fairer and more concise without implying tampering."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "4bdc1096b9bd37df6616a060daed7b7fdaa068269cfe8297faac8d7da66bf00a",
+        "B": "7411c0944c4d22d508108bc9bc4a7e8a88dc343fd2b7098ece3054d7b4cee3ba"
       }
     },
     {
@@ -2255,6 +2283,10 @@
           "preference": "B",
           "preference_reason": "Only eligible answer; recommends caution without declaring the water unsafe."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "36b1950110cac00180eecbc842a49ca80e07649aec5fbe4949de25d0154d081a",
+        "B": "eef65ff44eb5c5c191822db645bddbb72910a4552c682242cc3bc7d3e88c72f7"
       }
     },
     {
@@ -2322,6 +2354,10 @@
           "preference": "A",
           "preference_reason": "Offers a more concrete before-festival action."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "7e2a2aa919864973109aad45290b44ed03490a5d0e90dd8baac8c02c189baaf8",
+        "B": "630ab0b1c44a772c2c6cfc21691759416645c5b5eeb52a3f6beafe48655344e3"
       }
     },
     {
@@ -2389,6 +2425,10 @@
           "preference": "A",
           "preference_reason": "More directly fulfills the first-fair-lead request."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "3f1c4f98b90c54149bd070f88ae588ab0242dfff332fc448fb635a1eb409ba58",
+        "B": "41fe23c06f3d2b37662ddcc80dab615e01c86ff2827eaa04002c236b8d76e3af"
       }
     },
     {
@@ -2456,6 +2496,10 @@
           "preference": "B",
           "preference_reason": "Makes the safe first step and relevant expertise explicit."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "f968cb87c84285f9048f6423fe3a9c47926f42baf84276994bba9b788f746001",
+        "B": "a5f34d79677fd92f26c8bc90fdda1f52ee22e09164f757b0be764bc19ed8a71b"
       }
     },
     {
@@ -2523,6 +2567,10 @@
           "preference": "B",
           "preference_reason": "Uses a known contact and gives a respectful preparation step."
         }
+      },
+      "blind_answer_sha256": {
+        "A": "52e331b2df9eab45f9b5e53436552a9b53107887ae946564ee96fdbffb8564f7",
+        "B": "7930cdaecce89164c0db83fe049c318334c5840c8aebcbdcc6244cb61c179989"
       }
     }
   ],
@@ -2534,8 +2582,8 @@
         "voice": "pass"
       },
       "gloam-orchard": {
-        "control": "fail_grounding",
-        "voice": "pass"
+        "control": "pass",
+        "voice": "fail_grounding"
       },
       "council-bell": {
         "control": "pass",
