@@ -307,8 +307,14 @@ code {
   backdrop-filter: blur(10px);
 }
 
+.app-site-nav:has(.app-world-selector__menu) {
+  position: relative;
+  z-index: 1;
+}
+
 .app-site-nav__routes {
   display: flex;
+  flex: 1 1 100%;
   flex-wrap: wrap;
   gap: 6px;
   min-width: 0;
@@ -317,6 +323,10 @@ code {
 .app-world-selector {
   position: relative;
   flex: 0 0 auto;
+}
+
+.app-world-selector:has(.app-world-selector__menu) {
+  z-index: 1;
 }
 
 .app-world-selector > button,
@@ -334,7 +344,7 @@ code {
 .app-world-selector__menu {
   position: absolute;
   z-index: 30;
-  right: 0;
+  left: 0;
   top: calc(100% + 0.4rem);
   display: grid;
   gap: 0.4rem;
@@ -466,6 +476,7 @@ code {
 }
 
 .app-world-graph-status {
+  flex: 0 1 22rem;
   margin-left: auto;
   min-width: 0;
 }
