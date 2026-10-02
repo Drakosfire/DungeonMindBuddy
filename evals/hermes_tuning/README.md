@@ -145,3 +145,44 @@ uv run python evals/hermes_tuning/run_host_phases.py --samples 5 --output evals/
 Provider conversation encloses the observed model call, so those columns overlap and must not be added. The provider-call residual inside that phase was about 1,732 ms cold and 440–1,194 ms warm. Bootstrap/logger+home setup, cached factory lookup, plugin discovery, and construction together measured 2,067 ms cold and 701–912 ms warm. The sum of worker phases was within 13–24 ms of `host_worker_result_wait` on every turn. The total host residual also includes cold acquire/readiness (1,878 ms) and small parent/IPC overhead; that makes the worker-phase breakdown consistent with, rather than additive to, the host residual.
 
 The API returns complete answers after the conversation, so normalization/projection rounded below the 1 ms display precision on these runs; this is a measured lower bound, not proof the work is free. The cold bootstrap/logger+home interval is conspicuous, and plugin discovery/construction recur on warm turns. These measurements identify where this code spends time in this run; they do not demonstrate an optimization or explain all machine/provider variability. Provider durations and direct-control wall times vary between adjacent samples. The worker's module startup imports happen before the `ready` message and are included in host acquire/readiness. Separately, `_initialize_worker_logger_home()` imports and caches `run_agent` during first-turn bootstrap/logger+home setup. The later factory lookup is cached; this experiment cannot isolate the true cold `run_agent` import without changing bootstrap behavior, which is outside this lease. Policy resolution, inference resolution, and retrieval-session hydration before `_RUNTIME_LOCK` are also outside the six spans. The artifact contains only the synthetic scenario, answers, usage, and timing telemetry; no private corpus or Graph service was used. The timing telemetry contains no prompt, answer, or Graph context fields.
+
+
+## Synthetic Graph crawl pairs
+
+The bounded follow-up experiment compares the graph-only Hermes route with one treatment-only, model-visible instruction across six fully invented cases. Three cases provide accepted candidate IDs without relations; three require candidate discovery through the fake's first `search`. Cases cover supported two-hop paths, object-based identity disambiguation, same-label ambiguity, and no-path lookups. The gold chain/abstention keys exist only in the fixture and scorer packet, never in the model-visible prompt or tool descriptions.
+
+The fake replaces `graph_memory.hermes_graph_plugin.execute_hermes_graph_interaction_tool_json` inside the harness process. It validates the actual model-facing `targets: [{kind: "node", id: ...}]` and `depth` (1 or 2) request fields. It accepts search targets only when supplied earlier, accepts neighborhood/object targets only when supplied or returned from search, returns candidate-only search results, and never returns relationships from search or object. Neighborhood exposes only fixture edges reachable within the requested depth. It records each operation, target, depth, returned node/edge IDs, errors, model-call telemetry, raw answer, wall time, and deterministic answer/traversal gates. Turn status and traversal success are reported separately.
+
+Run the offline owning-boundary checks first:
+
+```bash
+uv run pytest -q tests/test_hermes_tuning_graph_crawl_pairs.py
+uv run ruff check evals/hermes_tuning/run_graph_crawl_pairs.py tests/test_hermes_tuning_graph_crawl_pairs.py
+```
+
+After PRIME reviews the exact handoff pin and authorizes provider use, run only the first two matched pairs into temporary files:
+
+```bash
+uv run python evals/hermes_tuning/run_graph_crawl_pairs.py --stop-after 2 --output /tmp/hermes-graph-crawl-pilot.json --blind-output /tmp/hermes-graph-crawl-pilot-blind.json
+# After PRIME reviews the two-pair check-in and gives an approval reference:
+uv run python evals/hermes_tuning/run_graph_crawl_pairs.py --resume --stop-after 6 --prime-approval-reference "<PRIME approval reference>" --output /tmp/hermes-graph-crawl-pilot.json --blind-output /tmp/hermes-graph-crawl-blind.json
+```
+
+Before provider calls, both prompts are built and checked for system-policy parity after normalizing only the fresh `retrievalSessionId`; raw prompt hashes are retained. Resume requires the exact pending pilot or an approved continuation checkpoint, matching model/provider and fixture/instruction hashes, immutable pilot-row hash, full checkpoint hash, requested phase, and (for cases 3–6) the same explicit PRIME approval reference. Each completed arm raw answer, calls, trace, timing, tokens, and cost is atomically checkpointed before gate/parity checks. A fresh run refuses to overwrite an existing output. The earlier nonce-mismatch run is discarded; its two arm turns have unknown model-call counts, tokens, and cost and are not reusable. The completed cohort is preserved in the final artifact below; no partial pilot artifact was committed. The blinded packet contains each randomized A/B answer and only that answer's actually returned node, relationship, and identity-attribute evidence, followed by a separate gold answer key. It includes answer hashes but no arm mapping, style instruction, operation sequence, timing, costs, model/tool counts, or tool traces. Reviewer scores and hashes were locked before labels were mapped back to arms by exact answer hash.
+
+Automated answer gates are conservative lexical screens and do not replace blinded grounding review, especially for invented relationship claims, directionality, ambiguous referents, or bounded no-path wording. The fake establishes only model operation choice against a deterministic in-process state machine. It does not demonstrate native Graph crawling, executor/session admission, live retrieval availability, provenance, source authority, or production behavior. Six pairs are exploratory; non-streaming TTFT is unknown. No private corpus, C2 material, live MIND, or database is used.
+
+### Completed six-pair cohort
+
+The final raw synthetic evidence, both locked score packets, answer-hash mapping, preserved paid-run gates, and separate corrected diagnostic gates are in [hermes-graph-crawl-20261002.json](artifacts/hermes-graph-crawl-20261002.json). The raw `/tmp` inputs and locked score-file SHA-256 values are recorded inside the artifact. PRIME scored cases 3–6 before mapping; PRIME had already seen the first two case mappings during technical pilot review. An independent reviewer scored all six from the blinded packet before mapping.
+
+| Arm | Provider calls | Total tokens | Estimated cost | Mean wall time | Search / neighborhood / object | Paid-run answer gates | Corrected diagnostic gates | Traversal |
+| --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | ---: |
+| Control | 18 | 85,224 | $0.00431891 | 10.32 s | 5 / 6 / 2 | 4/6 | 5/6 | 6/6 |
+| Treatment | 20 | 97,138 | $0.00473580 | 8.54 s | 5 / 6 / 3 | 5/6 | 4/6 | 6/6 |
+
+All 12 turn results and 38 provider calls returned `ok`; both arms traversed successfully on all six cases. The independent blind review judged hard-gate pass counts 5/6 for control and 4/6 for treatment. Its paired preferences were control 3, treatment 2, and one pair with both answers failing the hard gate and no eligible preference. PRIME's blind review of cases 3–6 preferred control twice, treatment once, and had one both-fail tie. The evidence does not establish a treatment win. Treatment used two more provider calls and cost about $0.000417 more; its lower mean wall time is descriptive only.
+
+The paid-run gate object remains untouched in the artifact. Post-run review found two lexical errors: the old ambiguity screen treated “two” as proof of unresolved identity, passing treatment's Tavi answer while control's explicit “can't identify which one” also passed; the no-path screen missed control's bounded “does not establish a connection” wording. The corrected diagnostic recheck requires explicit unresolved identity and accepts that bounded lookup wording. It changes the diagnostic result to control 5/6 and treatment 4/6, matching both reviewers' hard-gate judgments. For the separate Oren identity case, both human reviewers reject both arms because neither returned the required identity attribute; this remains a human adjudication instead of a retroactive edit to the paid-run gates.
+
+During all turns, Hermes also emitted plugin-registration warnings and asynchronous `FileNotFoundError` logging traces while temporary home directories were cleaned up. Typed results, answer checkpoints, and all 38 provider calls completed successfully. Costs are estimates, timing varies, non-streaming TTFT is unknown, and this synthetic fake does not establish live Graph behavior or general model quality.
