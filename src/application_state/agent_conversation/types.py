@@ -21,10 +21,44 @@ def _fingerprint(value: object) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
+def _fingerprint_compatible_payload(value: object) -> object:
+    """Omit only new null provenance fields to keep pre-0012 hashes stable."""
+    if isinstance(value, list):
+        return [_fingerprint_compatible_payload(item) for item in value]
+    if isinstance(value, dict):
+        is_provenance = {
+            "surface_resolution",
+            "primary_work",
+            "selected_object",
+        }.issubset(value)
+        is_reference = {
+            "resolution",
+            "kind",
+            "object_id",
+            "revision",
+            "content_sha256",
+        }.issubset(value)
+        return {
+            key: _fingerprint_compatible_payload(item)
+            for key, item in value.items()
+            if not (
+                item is None
+                and (
+                    (key == "surface_instance_id" and is_provenance)
+                    or (
+                        key in {"object_revision", "work_revision_id", "revision_n"}
+                        and is_reference
+                    )
+                )
+            )
+        }
+    return value
+
+
 def request_fingerprint(value: BaseModel) -> str:
     """Hash a typed request for idempotency; request JSON is never persisted."""
-
-    return _fingerprint(value.model_dump(mode="json", exclude={"command_id", "idempotency_key"}))
+    payload = value.model_dump(mode="json", exclude={"command_id", "idempotency_key"})
+    return _fingerprint(_fingerprint_compatible_payload(payload))
 
 
 def turn_idempotency_fingerprint(
@@ -33,11 +67,13 @@ def turn_idempotency_fingerprint(
     """Fingerprint turn meaning, independent of conversation routing and CAS revision."""
 
     return _fingerprint(
-        {
-            "world_id": world_id,
-            "user_text": user_text,
-            "provenance": provenance.model_dump(mode="json"),
-        }
+        _fingerprint_compatible_payload(
+            {
+                "world_id": world_id,
+                "user_text": user_text,
+                "provenance": provenance.model_dump(mode="json"),
+            }
+        )
     )
 
 
@@ -53,15 +89,51 @@ class HistoricalReference(StrictModel):
     object_id: str | None = None
     revision: str | None = None
     content_sha256: str | None = Field(default=None, pattern=r"^[0-9a-fA-F]{64}$")
+    object_revision: int | None = Field(default=None, strict=True, ge=1)
+    work_revision_id: UUID | None = None
+    revision_n: int | None = Field(default=None, strict=True, ge=1)
 
     @model_validator(mode="after")
     def validate_resolution(self) -> "HistoricalReference":
+        typed_content_revision = (
+            self.object_revision,
+            self.work_revision_id,
+            self.revision_n,
+        )
+        has_typed_content_revision = any(
+            value is not None for value in typed_content_revision
+        )
+        if has_typed_content_revision and not all(
+            value is not None for value in typed_content_revision
+        ):
+            raise ValueError(
+                "Content object revision, WorkRevision ID, and revision number must be supplied together"
+            )
+        if has_typed_content_revision and (
+            self.resolution != "resolved" or self.content_sha256 is None
+        ):
+            raise ValueError(
+                "typed Content revisions require a resolved reference and full content digest"
+            )
         if self.resolution == "resolved":
-            if not self.kind or not self.kind.strip() or not self.object_id or not self.object_id.strip():
+            if (
+                not self.kind
+                or not self.kind.strip()
+                or not self.object_id
+                or not self.object_id.strip()
+            ):
                 raise ValueError("resolved references require kind and object_id")
         elif self.resolution == "absent" and any(
             value is not None
-            for value in (self.kind, self.object_id, self.revision, self.content_sha256)
+            for value in (
+                self.kind,
+                self.object_id,
+                self.revision,
+                self.content_sha256,
+                self.object_revision,
+                self.work_revision_id,
+                self.revision_n,
+            )
         ):
             raise ValueError("absent references cannot carry an object identity")
         if self.kind is not None and not self.kind.strip():
@@ -75,8 +147,11 @@ class TurnProvenance(StrictModel):
     world_id: str
     surface_resolution: Resolution
     surface_id: str | None = None
+    surface_instance_id: str | None = None
     primary_work: HistoricalReference
-    supporting_work: list[HistoricalReference] = Field(default_factory=list, max_length=32)
+    supporting_work: list[HistoricalReference] = Field(
+        default_factory=list, max_length=32
+    )
     selected_object: HistoricalReference
 
     @model_validator(mode="after")
@@ -90,6 +165,15 @@ class TurnProvenance(StrictModel):
             raise ValueError("absent surface cannot carry surface_id")
         if self.surface_id is not None and not self.surface_id.strip():
             raise ValueError("surface_id cannot be blank")
+        if self.surface_instance_id is not None:
+            if not self.surface_instance_id.strip():
+                raise ValueError("surface_instance_id cannot be blank")
+            if self.surface_resolution != "resolved":
+                raise ValueError(
+                    "surface instance identity requires a resolved surface"
+                )
+        if self.surface_resolution == "absent" and self.surface_instance_id is not None:
+            raise ValueError("absent surface cannot carry surface_instance_id")
         return self
 
 
@@ -295,7 +379,9 @@ class LegacyImport(StrictModel):
         if not self.source_import_key.strip() or not self.source_thread_id.strip():
             raise ValueError("source import key and thread ID are required")
         if any(turn.world_id != self.world_id for turn in self.turns):
-            raise ValueError("every legacy turn must exactly match the verified World ID")
+            raise ValueError(
+                "every legacy turn must exactly match the verified World ID"
+            )
         return self
 
 

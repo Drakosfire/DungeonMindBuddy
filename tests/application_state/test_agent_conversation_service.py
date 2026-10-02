@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
+import json
 from uuid import uuid4
 
 import pytest
@@ -29,7 +31,9 @@ from application_state.errors import (
 )
 
 
-def _ref(kind: str, object_id: str, revision: str, digest: str | None = None) -> HistoricalReference:
+def _ref(
+    kind: str, object_id: str, revision: str, digest: str | None = None
+) -> HistoricalReference:
     return HistoricalReference(
         resolution="resolved",
         kind=kind,
@@ -39,7 +43,9 @@ def _ref(kind: str, object_id: str, revision: str, digest: str | None = None) ->
     )
 
 
-def _provenance(world_id: str = "world-one", *, run_id: str = "run-1") -> TurnProvenance:
+def _provenance(
+    world_id: str = "world-one", *, run_id: str = "run-1"
+) -> TurnProvenance:
     return TurnProvenance(
         world_id=world_id,
         surface_resolution="resolved",
@@ -53,7 +59,160 @@ def _provenance(world_id: str = "world-one", *, run_id: str = "run-1") -> TurnPr
     )
 
 
-def _new(service: AgentConversationService, world_id: str, *, expected_revision: int, active_id=None, command_id=None):
+def _without_0012_fields(value):
+    if isinstance(value, list):
+        return [_without_0012_fields(item) for item in value]
+    if isinstance(value, dict):
+        return {
+            key: _without_0012_fields(item)
+            for key, item in value.items()
+            if not (
+                key
+                in {
+                    "surface_instance_id",
+                    "object_revision",
+                    "work_revision_id",
+                    "revision_n",
+                }
+                and item is None
+            )
+        }
+    return value
+
+
+def test_additive_null_provenance_fields_preserve_legacy_fingerprint_shape() -> None:
+    from application_state.agent_conversation.types import (
+        request_fingerprint,
+        turn_idempotency_fingerprint,
+    )
+
+    provenance = _provenance("fingerprint-world")
+    legacy_shape = _without_0012_fields(provenance.model_dump(mode="json"))
+    payload = {
+        "world_id": "fingerprint-world",
+        "user_text": "stable retry",
+        "provenance": legacy_shape,
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str)
+    expected = hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    assert (
+        turn_idempotency_fingerprint("fingerprint-world", "stable retry", provenance)
+        == expected
+    )
+    assert (
+        request_fingerprint(provenance)
+        == hashlib.sha256(
+            json.dumps(
+                legacy_shape, sort_keys=True, separators=(",", ":"), default=str
+            ).encode("utf-8")
+        ).hexdigest()
+    )
+    assert request_fingerprint(
+        provenance.model_copy(update={"surface_instance_id": "plan-pane-2"})
+    ) != request_fingerprint(provenance)
+
+
+def test_content_reference_requires_complete_typed_revision_and_resolved_identity() -> (
+    None
+):
+    from application_state.agent_conversation.types import HistoricalReference
+
+    revision_id = uuid4()
+    complete = HistoricalReference(
+        resolution="resolved",
+        kind="plan",
+        object_id="plan-1",
+        content_sha256="c" * 64,
+        object_revision=4,
+        work_revision_id=revision_id,
+        revision_n=3,
+    )
+    assert complete.work_revision_id == revision_id
+
+    for invalid in (
+        {
+            "resolution": "resolved",
+            "kind": "plan",
+            "object_id": "plan-1",
+            "content_sha256": "c" * 64,
+            "object_revision": 4,
+            "work_revision_id": revision_id,
+        },
+        {
+            "resolution": "resolved",
+            "kind": "plan",
+            "object_id": "plan-1",
+            "object_revision": 4,
+            "work_revision_id": revision_id,
+            "revision_n": 3,
+        },
+        {
+            "resolution": "resolved",
+            "kind": "plan",
+            "object_id": "plan-1",
+            "content_sha256": "c" * 64,
+            "object_revision": 0,
+            "work_revision_id": revision_id,
+            "revision_n": 3,
+        },
+        {
+            "resolution": "resolved",
+            "kind": "plan",
+            "object_id": "plan-1",
+            "content_sha256": "c" * 64,
+            "object_revision": 4,
+            "work_revision_id": revision_id,
+            "revision_n": True,
+        },
+        {
+            "resolution": "resolved",
+            "kind": "plan",
+            "object_id": "plan-1",
+            "content_sha256": "c" * 64,
+            "object_revision": True,
+            "work_revision_id": revision_id,
+            "revision_n": 3,
+        },
+        {
+            "resolution": "resolved",
+            "kind": "plan",
+            "object_id": "plan-1",
+            "content_sha256": "c" * 64,
+            "object_revision": 4,
+            "work_revision_id": "not-a-uuid",
+            "revision_n": 3,
+        },
+        {
+            "resolution": "absent",
+            "object_revision": 4,
+            "work_revision_id": revision_id,
+            "revision_n": 3,
+            "content_sha256": "c" * 64,
+        },
+    ):
+        with pytest.raises(ValidationError):
+            HistoricalReference.model_validate(invalid)
+
+
+def test_absent_surface_cannot_carry_instance_identity() -> None:
+    with pytest.raises(ValidationError, match="surface instance identity"):
+        TurnProvenance(
+            world_id="world-one",
+            surface_resolution="absent",
+            surface_instance_id="plan-pane-1",
+            primary_work=HistoricalReference(resolution="absent"),
+            selected_object=HistoricalReference(resolution="absent"),
+        )
+
+
+def _new(
+    service: AgentConversationService,
+    world_id: str,
+    *,
+    expected_revision: int,
+    active_id=None,
+    command_id=None,
+):
     return service.new_conversation(
         ConversationCommand(
             world_id=world_id,
@@ -64,20 +223,30 @@ def _new(service: AgentConversationService, world_id: str, *, expected_revision:
     )
 
 
-def test_world_identity_isolation_and_stable_conversation_ids(application_state_dsn: str) -> None:
+def test_world_identity_isolation_and_stable_conversation_ids(
+    application_state_dsn: str,
+) -> None:
     service = AgentConversationService()
     command_id = uuid4()
     one = _new(service, "world-one", expected_revision=0, command_id=command_id)
     two = _new(service, "world-two", expected_revision=0, command_id=command_id)
 
     assert one.conversation_id != two.conversation_id
-    assert service.get_active_conversation("world-one").conversation_id == one.conversation_id
-    assert service.get_active_conversation("world-two").conversation_id == two.conversation_id
+    assert (
+        service.get_active_conversation("world-one").conversation_id
+        == one.conversation_id
+    )
+    assert (
+        service.get_active_conversation("world-two").conversation_id
+        == two.conversation_id
+    )
     with pytest.raises(ApplicationStateNotFoundError):
         service.get_conversation("world-two", one.conversation_id)
 
 
-def test_new_commands_use_pointer_cas_and_receipt_only_replay(application_state_dsn: str) -> None:
+def test_new_commands_use_pointer_cas_and_receipt_only_replay(
+    application_state_dsn: str,
+) -> None:
     service = AgentConversationService()
     first_command = ConversationCommand(
         world_id="new-retry-world",
@@ -92,12 +261,21 @@ def test_new_commands_use_pointer_cas_and_receipt_only_replay(application_state_
         expected_revision=first.pointer_revision,
         active_id=first.conversation_id,
     )
-    assert service.get_active_conversation("new-retry-world").conversation_id == second.conversation_id
+    assert (
+        service.get_active_conversation("new-retry-world").conversation_id
+        == second.conversation_id
+    )
 
     replay = service.new_conversation(first_command)
     assert replay == first
-    assert service.get_active_conversation("new-retry-world").conversation_id == second.conversation_id
-    assert service.get_conversation("new-retry-world", first.conversation_id).status == "archived"
+    assert (
+        service.get_active_conversation("new-retry-world").conversation_id
+        == second.conversation_id
+    )
+    assert (
+        service.get_conversation("new-retry-world", first.conversation_id).status
+        == "archived"
+    )
 
     stale_first_delivery_a = ConversationCommand(
         world_id="delayed-first-world",
@@ -112,18 +290,27 @@ def test_new_commands_use_pointer_cas_and_receipt_only_replay(application_state_
         expected_active_conversation_id=None,
     )
     committed_b = service.new_conversation(first_delivery_b)
-    with pytest.raises(ApplicationStateConflictError, match="active conversation changed"):
+    with pytest.raises(
+        ApplicationStateConflictError, match="active conversation changed"
+    ):
         service.new_conversation(stale_first_delivery_a)
     conversations = service.list_conversations("delayed-first-world")
-    assert [row.conversation_id for row in conversations] == [committed_b.conversation_id]
-    assert service.get_active_conversation("delayed-first-world").conversation_id == committed_b.conversation_id
+    assert [row.conversation_id for row in conversations] == [
+        committed_b.conversation_id
+    ]
+    assert (
+        service.get_active_conversation("delayed-first-world").conversation_id
+        == committed_b.conversation_id
+    )
 
     changed_binding = first_command.model_copy(update={"expected_pointer_revision": 1})
     with pytest.raises(ApplicationStateConflictError, match="different binding"):
         service.new_conversation(changed_binding)
 
 
-def test_archive_and_reopen_retries_do_not_reapply_lifecycle_changes(application_state_dsn: str) -> None:
+def test_archive_and_reopen_retries_do_not_reapply_lifecycle_changes(
+    application_state_dsn: str,
+) -> None:
     service = AgentConversationService()
     first = _new(service, "archive-world", expected_revision=0)
     archive = ArchiveCommand(
@@ -143,7 +330,10 @@ def test_archive_and_reopen_retries_do_not_reapply_lifecycle_changes(application
         active_id=None,
     )
     service.archive_conversation(archive)
-    assert service.get_active_conversation("archive-world").conversation_id == next_conversation.conversation_id
+    assert (
+        service.get_active_conversation("archive-world").conversation_id
+        == next_conversation.conversation_id
+    )
 
     reopen = ReopenCommand(
         world_id="archive-world",
@@ -160,10 +350,15 @@ def test_archive_and_reopen_retries_do_not_reapply_lifecycle_changes(application
         active_id=first.conversation_id,
     )
     assert service.reopen_conversation(reopen) == reopened
-    assert service.get_active_conversation("archive-world").conversation_id == later.conversation_id
+    assert (
+        service.get_active_conversation("archive-world").conversation_id
+        == later.conversation_id
+    )
 
 
-def test_turn_idempotency_order_provenance_and_truthful_lifecycle(application_state_dsn: str) -> None:
+def test_turn_idempotency_order_provenance_and_truthful_lifecycle(
+    application_state_dsn: str,
+) -> None:
     service = AgentConversationService()
     created = _new(service, "turn-world", expected_revision=0)
     submission = TurnSubmission(
@@ -183,7 +378,9 @@ def test_turn_idempotency_order_provenance_and_truthful_lifecycle(application_st
     assert accepted.provenance.supporting_work[1].kind == "beat"
 
     with pytest.raises(ApplicationStateConflictError, match="different content"):
-        service.accept_turn(submission.model_copy(update={"user_text": "Different text"}))
+        service.accept_turn(
+            submission.model_copy(update={"user_text": "Different text"})
+        )
     running = service.begin_turn(
         "turn-world", created.conversation_id, accepted.turn_id, expected_revision=1
     )
@@ -198,16 +395,21 @@ def test_turn_idempotency_order_provenance_and_truthful_lifecycle(application_st
         )
     )
     assert completed.status == "completed"
-    assert service.complete_turn(
-        TurnResult(
-            world_id="turn-world",
-            conversation_id=created.conversation_id,
-            turn_id=accepted.turn_id,
-            expected_revision=running.revision,
-            assistant_text="The caravan is east of the river.",
+    assert (
+        service.complete_turn(
+            TurnResult(
+                world_id="turn-world",
+                conversation_id=created.conversation_id,
+                turn_id=accepted.turn_id,
+                expected_revision=running.revision,
+                assistant_text="The caravan is east of the river.",
+            )
         )
-    ) == completed
-    with pytest.raises(ApplicationStateConflictError, match="different recorded result"):
+        == completed
+    )
+    with pytest.raises(
+        ApplicationStateConflictError, match="different recorded result"
+    ):
         service.complete_turn(
             TurnResult(
                 world_id="turn-world",
@@ -228,7 +430,10 @@ def test_turn_idempotency_order_provenance_and_truthful_lifecycle(application_st
     )
     accepted_second = service.accept_turn(second)
     running_second = service.begin_turn(
-        "turn-world", created.conversation_id, accepted_second.turn_id, expected_revision=1
+        "turn-world",
+        created.conversation_id,
+        accepted_second.turn_id,
+        expected_revision=1,
     )
     failed = service.fail_turn(
         TurnFailure(
@@ -241,12 +446,17 @@ def test_turn_idempotency_order_provenance_and_truthful_lifecycle(application_st
     )
     assert failed.status == "failed" and failed.assistant_text is None
     retried = service.begin_turn(
-        "turn-world", created.conversation_id, accepted_second.turn_id, expected_revision=failed.revision
+        "turn-world",
+        created.conversation_id,
+        accepted_second.turn_id,
+        expected_revision=failed.revision,
     )
     assert retried.attempt == 2 and retried.status == "running"
 
 
-def test_concurrent_turn_writers_use_conversation_revision_cas(application_state_dsn: str) -> None:
+def test_concurrent_turn_writers_use_conversation_revision_cas(
+    application_state_dsn: str,
+) -> None:
     service = AgentConversationService()
     created = _new(service, "concurrent-turn-world", expected_revision=0)
     requests = [
@@ -270,11 +480,17 @@ def test_concurrent_turn_writers_use_conversation_revision_cas(application_state
     with ThreadPoolExecutor(max_workers=2) as pool:
         outcomes = list(pool.map(submit, requests))
     assert sum(not isinstance(value, Exception) for value in outcomes) == 1
-    assert sum(isinstance(value, ApplicationStateConflictError) for value in outcomes) == 1
-    assert len(service.list_turns("concurrent-turn-world", created.conversation_id)) == 1
+    assert (
+        sum(isinstance(value, ApplicationStateConflictError) for value in outcomes) == 1
+    )
+    assert (
+        len(service.list_turns("concurrent-turn-world", created.conversation_id)) == 1
+    )
 
 
-def test_source_bound_draft_cas_submit_and_uncertain_retry(application_state_dsn: str) -> None:
+def test_source_bound_draft_cas_submit_and_uncertain_retry(
+    application_state_dsn: str,
+) -> None:
     service = AgentConversationService()
     created = _new(service, "draft-world", expected_revision=0)
     draft_id = uuid4()
@@ -294,9 +510,7 @@ def test_source_bound_draft_cas_submit_and_uncertain_retry(application_state_dsn
     )
     assert updated.revision == 2
     with pytest.raises(ApplicationStateConflictError, match="revision mismatch"):
-        service.save_draft(
-            initial.model_copy(update={"body": "stale overwrite"})
-        )
+        service.save_draft(initial.model_copy(update={"body": "stale overwrite"}))
     changed_source = _provenance("draft-world", run_id="run-2")
     with pytest.raises(ApplicationStateConflictError, match="source changed"):
         service.save_draft(
@@ -333,7 +547,10 @@ def test_source_bound_draft_cas_submit_and_uncertain_retry(application_state_dsn
     assert receipt.turn.user_text == updated.body
     assert receipt.turn.sequence == 1
     assert receipt.retired_draft_revision == rebound.revision
-    assert service.get_draft("draft-world", created.conversation_id, draft_id).retired_at is not None
+    assert (
+        service.get_draft("draft-world", created.conversation_id, draft_id).retired_at
+        is not None
+    )
     assert service.submit_draft(submit) == receipt
     assert len(service.list_turns("draft-world", created.conversation_id)) == 1
 
@@ -370,14 +587,20 @@ def test_submit_draft_rolls_back_turn_if_retirement_fails(
 
     with monkeypatch.context() as patcher:
         patcher.setattr(service_module.repo, "retire_draft", fail_retirement)
-        with pytest.raises(ApplicationStateConflictError, match="changed during submission"):
+        with pytest.raises(
+            ApplicationStateConflictError, match="changed during submission"
+        ):
             service.submit_draft(request)
     assert service.list_turns("atomic-draft-world", created.conversation_id) == []
-    retained = service.get_draft("atomic-draft-world", created.conversation_id, draft.draft_id)
+    retained = service.get_draft(
+        "atomic-draft-world", created.conversation_id, draft.draft_id
+    )
     assert retained.revision == draft.revision and retained.retired_at is None
 
 
-def test_verified_legacy_import_is_bounded_exact_world_and_idempotent(application_state_dsn: str) -> None:
+def test_verified_legacy_import_is_bounded_exact_world_and_idempotent(
+    application_state_dsn: str,
+) -> None:
     service = AgentConversationService()
     legacy_turn = LegacyTurn(
         source_turn_id="legacy-turn-1",
@@ -471,5 +694,7 @@ def test_storage_boundary_requires_nonblank_world_and_fails_closed_when_db_is_do
         APPLICATION_STATE_DSN_ENV,
         "postgresql://app_state_agent_test:no-secret@127.0.0.1:55469/app_state_agent_unavailable",
     )
-    with pytest.raises(ApplicationStateUnavailableError, match="PostgreSQL is unavailable"):
+    with pytest.raises(
+        ApplicationStateUnavailableError, match="PostgreSQL is unavailable"
+    ):
         service.get_world_pointer("unavailable-world")
