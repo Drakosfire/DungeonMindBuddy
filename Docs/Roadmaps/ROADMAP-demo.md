@@ -528,10 +528,13 @@ tests passed 14/14; its full Application State suite had three inherited stale
 migration-head assertions confirmed on the exact base. #827's retry/PostgreSQL
 tests passed 9/9 and conversation service tests passed 10/10. The next serial
 gate is AGENT-INTERACTION production runtime adoption; A2's harness boundary
-and A3's challenger experiment do not complete it. DEMO Play surface cutover
-follows after that runtime contract and lease are pinned. See the BLOCKED
-[Play conversation handoff](../Plans/HANDOFF-DEMO-play-agent-adoption.md).
-#826 retains its independent KnowledgeSpace holds and is not a Play predecessor.
+and A3's challenger experiment do not complete it. The design-only BLOCKED
+[runtime handoff](../Plans/HANDOFF-AGENT-INTERACTION-world-conversation-runtime.md)
+records the owner gap and required production proof. Once that gate is reviewed,
+DEMO's first consumer cutover is Plan; Play follows under its separate BLOCKED
+[conversation handoff](../Plans/HANDOFF-DEMO-play-agent-adoption.md). Neither
+consumer has an implementation lease. #826 retains its independent
+KnowledgeSpace holds and is not a Play predecessor.
 
 **Build Agent adoption — contract resolved, implementation still blocked:**
 ARCHITECTURE's 2026-09-30 ruling establishes the exact admitted workspace
