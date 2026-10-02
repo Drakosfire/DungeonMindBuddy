@@ -4,17 +4,17 @@
 - **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`.
 - **Owner:** PRIME to assign an AGENT-INTERACTION implementation task/owner.
 - **Repository:** `Drakosfire/DungeonMindBuddy`.
-- **Pinned base:** Buddy `main@672d18b059eaeceff20555374170ec2679f79082`.
+- **Design origin:** Buddy `main@672d18b059eaeceff20555374170ec2679f79082`.
+- **Prepared re-entry base:** Buddy `main@6a17c852971ad087eca1b8d43450a31f67cf2c3d` (2026-10-02).
 - **Topology:** serial — APP-STATE storage/domain service (#822/#827 complete),
   AGENT-INTERACTION runtime adoption, DEMO Plan consumer cutover, then Play
   and remaining surface cutovers.
 - **Design authority:** APP-STATE World conversation contract, ARCHITECTURE's
   2026-10-02 ruling, and PRIME's runtime-owner routing decision.
 
-This handoff pins the missing production runtime contract. It does not activate
-implementation. PRIME will review this design and assign an owner and exact
-implementation lease. The implementation must have one bounded PR after that
-activation.
+This handoff pins the missing production runtime contract and the prepared
+resumed-#865 packet below. It does not activate implementation. The packet is
+pending PRIME acceptance; no implementation lease is active.
 
 ## Mission
 
@@ -172,6 +172,140 @@ The owner returns the exact base/head, cumulative diff, owning-boundary test
 results and preserved failures, runtime/API contract, retry and migration
 behavior, provider-segment behavior, and unresolved acceptance gates. PRIME
 reviews and controls merge. Only then may DEMO pin its Plan consumer lease.
+
+## Resumed #865 activation packet — prepared, pending PRIME acceptance
+
+This packet records the bounded successor proposed after APP-STATE #867 and
+does not grant a code, provider, database, service, port, or product-state
+lease. The frozen #865 source head below is evidence/reference only; it is not
+an accepted runtime revision.
+
+- **Re-anchored base:** Buddy `origin/main@6a17c852971ad087eca1b8d43450a31f67cf2c3d`.
+- **Frozen #865 reference:** PR #865 head
+  `b8aa42c3b4b6b5201d39b19aa62c2bef364cc94c`; five original runtime/test paths.
+- **Recovery predecessor:** APP-STATE #867 merged at
+  `21af97cdc5fe4d10c10032b35c9b26c9ff23ac2b`, from reviewed head
+  `7c8cf2951dd5c47b76297aee1bbdbd34d2c33ce9`. Its four owning suites passed
+  34 tests in about 52.96 seconds; architecture accepted. Re-read the merged
+  handoff and cumulative main diff before implementation.
+- **Open work preserved:** #869 remains open. Its draft control coverage,
+  149-test result, inherited typecheck failure, and pending real witness are
+  not #865 acceptance evidence. The #869 branch retains its own implementation
+  paths; PRIME transferred only the exclusive status-only
+  `Docs/Roadmaps/ROADMAP-demo.md` path to the future #865 successor.
+- **Owner:** PRIME to assign after accepting this packet.
+- **Topology:** one serial implementation PR, resumed from the refreshed base.
+  No second runtime capability or PR is included.
+
+### Proposed exclusive expected-path allowlist
+
+Runtime and owning-boundary tests:
+
+~~~text
+apps/live_control_server/models/agent_turn.py
+apps/live_control_server/routes/agent.py
+apps/live_control_server/services/agent_turn_service.py
+tests/application_state/test_agent_conversation_postgres.py
+tests/test_agent_turn_route.py
+tests/test_agent_turn_service.py
+~~~
+
+The final four paths below are restricted to backward-looking status/evidence
+settlement after the implementation result is known. They authorize no
+behavioral edits and do not authorize edits before the successor lease is
+activated:
+
+~~~text
+Docs/Plans/HANDOFF-AGENT-INTERACTION-world-conversation-runtime.md
+Docs/Plans/HANDOFF-APP-STATE-agent-turn-claim-recovery-v1.md
+Docs/Roadmaps/ROADMAP-application-state.md
+Docs/Roadmaps/ROADMAP-demo.md
+~~~
+
+The #869-to-#865 roadmap transfer is status-only and exclusive for the
+successor's settlement. Preserve #869's current evidence and open status; do
+not claim #869 merged or full J4 acceptance. APP-STATE's recovery handoff and
+roadmap record only the already-merged #867 result. Do not pre-mark the
+in-flight runtime slice complete or invent its merge SHA, review count, or
+witness.
+
+No other source, schema, migration, MIND/Graph adapter, UI/Plan consumer,
+provider deployment/configuration, lockfile, root configuration, or frozen
+dirty checkout path is in this lease. In particular, preserve the suspended
+`codex/agent-world-conversation-backend` checkout; do not edit or transplant
+it.
+
+### Runtime ordering and receipt contract
+
+After verifying World authorization and work scope, construct the canonical
+submitted intent from the original normalized request envelope. Reconcile the
+World/key receipt before resolving the current conversation pointer, Plan,
+Graph, or provider context. An exact receipt returns the original conversation,
+turn status/result, and frozen typed provenance without current-state
+resolution. A changed semantic intent conflicts; a different
+`client_thread_id` alone does not. Only the no-receipt path resolves today's
+basis and calls APP-STATE acceptance with the required v1 submitted-intent
+fingerprint. A legacy receipt without that fingerprint fails closed as
+`legacy-receipt-unverifiable`, including for callers that do not supply v1.
+Draft/import contracts remain separate.
+
+The semantic fingerprint includes visible message, surface/instance, client
+work state, original primary Plan revision/number/content SHA, and Graph
+mode/scope/revision pin/focus/selected-node intent. Routing-only
+`client_thread_id` is excluded. These are request-intent inputs; resolved
+historical references remain typed provenance stored separately.
+
+Store typed provenance references separately from the submitted-intent
+fingerprint. Do not duplicate context bodies or add context IDs, context
+digests, or schema fields. Preserve the exact immutable Plan revision and
+Markdown used for the turn. For Graph, preserve graph identity and the resolved
+immutable snapshot revision even when no node is selected; validate any
+selected node against that snapshot and retain a separate head/freshness
+reference when needed. If an original pin is unavailable or inadmissible,
+fail closed before provider dispatch. Candidate binding is needed only for an
+actual selected-candidate capability; ordinary Plan Ask does not require it.
+
+For a new turn, use the bounded APP-STATE claim and revision fence. A live
+claim is pending and cannot dispatch twice. Expiry blocks the old fence; a
+successful reclaim advances the fence and attempt. Renew, complete, and fail
+with the current fence. Retry a transient persistence write using the retained
+provider output, without another dispatch while that fence is valid. Provider
+execution and PostgreSQL commit are not atomic: preserve at-least-once
+semantics and truthful pending/indeterminate outcomes; never fabricate an
+answer or claim exactly-once provider calls.
+
+### Required owning-boundary evidence
+
+- **Service tests** (`tests/test_agent_turn_service.py`): exact completed
+  receipt after Plan/head and active-pointer rotation returns the old result
+  without current Plan/Graph/provider lookup or another dispatch; changed
+  semantic fields conflict while changed `client_thread_id` does not. A live
+  claim returns pending with zero second dispatch; expiry/reclaim advances
+  revision and attempt; renew returns the current fence; stale completion and
+  failure fail before and after reclaim; persistence retry reuses the same
+  provider output.
+- **Route tests** (`tests/test_agent_turn_route.py`): prove authorization,
+  ordering, request normalization, response/status behavior, and zero provider
+  work for invalid World/work scope or an unverifiable receipt.
+- **PostgreSQL tests**
+  (`tests/application_state/test_agent_conversation_postgres.py`): exercise
+  durable restart/recovery, transaction and lock boundaries, exact historical
+  receipt resolution, claim expiry/reclaim/fencing, and only the authorized
+  unique fixture databases.
+- **Historical pins:** expired Plan recovery loads the original immutable
+  revision bytes and verifies its WorkRevision ID. Expired Graph recovery
+  loads the original immutable revision, including graph identity, without
+  requiring a selection. Selected nodes are checked against that snapshot.
+  Missing, stale, or inadmissible pins cause zero provider calls.
+- **#833 semantic phase:** keep the saved-Plan fact plus dirty-draft decoy as a
+  distinct phase inside this one canonical runtime acceptance. Include
+  graph-mode-none/zero-Graph-resolution behavior and an exact-basis receipt
+  after reload. Coordinate a real configured-provider runtime witness later;
+  the existing #833 witness remains historically complete but is not full J4
+  or J1–J6 acceptance.
+
+No test result is presumed by this packet. Record exact commands, environments,
+failures, and evidence on the successor before requesting review.
 
 Until activation, this design grants no write, provider, database, service,
 port, shared-runtime, or product-state authority. D0 appearance and J1–J6
