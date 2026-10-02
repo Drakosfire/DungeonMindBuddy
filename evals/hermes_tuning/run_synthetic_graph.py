@@ -68,7 +68,7 @@ def main() -> int:
             "query_text_sha256": hashlib.sha256(
                 str(args.get("queryText", "")).encode()
             ).hexdigest()[:16],
-            "seed_node_ids": args.get("seedNodeIds", []),
+            "model_supplied_targets": args.get("targets", []),
         }
         active_case_reads.append(item)
 
@@ -92,12 +92,16 @@ def main() -> int:
             )
 
         op = args.get("operation") or "search"
-        if op == "neighborhood" and "person:nera" not in args.get("seedNodeIds", []):
-            return error_response(
-                "seedNodeIds must contain the accepted candidate person:nera"
-            )
-        if op == "object" and args.get("nodeId") != "person:nera":
-            return error_response("nodeId must identify an accepted candidate")
+        targets = args.get("targets", [])
+        target_node_ids = [
+            target.get("id")
+            for target in targets
+            if isinstance(target, dict) and target.get("kind") == "node"
+        ]
+        if op == "neighborhood" and "person:nera" not in target_node_ids:
+            return error_response("targets must include {kind: node, id: person:nera}")
+        if op == "object" and "person:nera" not in target_node_ids:
+            return error_response("targets must identify an accepted candidate node")
         if op not in {"search", "neighborhood", "object"}:
             return error_response("unsupported synthetic operation")
         payload = dict(fixture)
@@ -128,11 +132,11 @@ def main() -> int:
                 if item["subjectNodeId"] == "person:nera"
             ]
         elif op == "neighborhood":
-            payload["outcome"] = "enough" if args.get("maxDepth", 1) == 2 else "partial"
+            payload["outcome"] = "enough" if args.get("depth", 1) == 2 else "partial"
             payload["matchedNodeIds"] = ["person:nera", "place:east-tower"]
             payload["nodes"] = fixture["nodes"][:2]
             payload["relationships"] = fixture["relationships"][:1]
-            if args.get("maxDepth", 1) == 2:
+            if args.get("depth", 1) == 2:
                 payload["matchedNodeIds"] = fixture["matchedNodeIds"]
                 payload["nodes"] = fixture["nodes"]
                 payload["relationships"] = fixture["relationships"]
