@@ -1,10 +1,10 @@
 # HANDOFF — DEMO: Play adoption of the World Agent conversation
 
-**Status:** BLOCKED — shared World-conversation storage/runtime predecessors are incomplete; no DEMO implementation or runtime lease
+**Status:** BLOCKED — APP-STATE storage is complete; AGENT-INTERACTION production runtime adoption remains pending; no DEMO implementation or runtime lease
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 **Repository:** `Drakosfire/DungeonMindBuddy`
 **Design anchor:** Buddy `main@6a11200c729c1abe6d730f7794d935b966041eda`
-**Topology:** serial: APP-STATE conversation storage/domain service → AGENT-INTERACTION runtime adoption → DEMO Play surface cutover. #826 remains separately paused for its own v2 redesign and zero-skip evidence; PRIME has ruled it is not a Play predecessor. This is a docs-only refresh; no implementation or runtime lease is active.
+**Topology:** serial: APP-STATE conversation storage/domain service (#822/#827 complete) → AGENT-INTERACTION production runtime adoption → DEMO Play surface cutover. #826 remains separately paused for its own v2 redesign and zero-skip evidence; PRIME has ruled it is not a Play predecessor. This is a docs-only refresh; no implementation or runtime lease is active.
 
 ## User transition
 
@@ -34,15 +34,31 @@ PR #852 merged the DEMO readiness report at current main and records D0 as
 incomplete pending a verified current runtime pin. None supplies the shared
 World-conversation runtime seam.
 
+Buddy PR #822 merged at `0e49c4d708d3e16c8068384549adb50e863bf64a`,
+providing typed PostgreSQL storage/domain service for server-assigned World
+conversations, one active conversation per verified World, CAS/idempotent
+lifecycle commands, ordered turns, typed provenance, source-bound drafts, and
+bounded exact-World legacy import. Its assigned service/PostgreSQL tests passed
+14/14. The full `tests/application_state` run had 182 passes and 3 failures;
+the exact same stale migration-head assertions reproduce on its clean base, so
+they are inherited. PR #827 merged at
+`c48abb9fa5857df90af0b086ab78294445fd252a`, adding World-wide semantic
+idempotency receipts and the unique fence. Its focused retry/PostgreSQL tests
+passed 9/9 and existing conversation service tests passed 10/10. Together,
+#822 and #827 complete the APP-STATE storage/domain-service and World-wide turn
+receipt gate.
+
 The current-main APP-STATE handoff
-`HANDOFF-APP-STATE-world-agent-conversation-v1.md` selects one server-generated,
-active conversation per verified World across surfaces. Canonical history is
-provider-neutral visible text; each turn stores typed World/surface and
-role-labeled primary/supporting work provenance with exact revisions/digests
-where available. The Agent owner verifies the World, resolves current work,
-and recomputes context/tools on every turn. The APP-STATE storage/domain-service
-step is the first serial predecessor. No APP-STATE conversation-storage PR is
-open in the current remote census, so that gate is not proven complete.
+`HANDOFF-APP-STATE-world-agent-conversation-v1.md` defines the accepted
+contract: one server-generated active conversation per verified World across
+surfaces; provider-neutral visible history; exact per-turn surface and
+role-labeled primary/supporting work provenance; and fresh context/tool
+resolution every turn. The remaining serial blocker is AGENT-INTERACTION's
+production runtime adoption. Its A2 adapter boundary is COMPLETE/MERGED; A3 is
+a challenger experiment only, not production selection. No current-main or
+open-PR evidence proves canonical conversation turns are adopted by the
+production Agent path. PRIME's sequence is now APP-STATE (#822/#827 complete)
+→ AGENT-INTERACTION runtime adoption → DEMO surface cutover.
 
 The current AgentRuntime boundary handoff A2 is COMPLETE/MERGED, while its A3
 PydanticAI experiment is a challenger only and does not select a production
@@ -220,16 +236,9 @@ prove same-scope serialization or a typed conflict.
 
 ## Owning-boundary verification
 
-Before DEMO cutover, APP-STATE must prove its durable World conversation and
-turn contract through the owning PostgreSQL service, including World isolation,
-active switching/archive/reopen CAS, idempotent turn/draft behavior, typed
-provenance, fresh-service restart recovery, and fail-closed database
-unavailability. AGENT-INTERACTION must then prove that the actual production
-turn path persists accepted user input before dispatch, resolves fresh
-World/surface/work/tools every turn, replays only history permitted by the
-current provider segment, and correlates retries/late completions to their
-originating durable turn. A2's harness boundary or an A3 challenger experiment
-alone is not that evidence.
+APP-STATE's durable World conversation/domain-service gate is complete at the exact merged heads #822 (`0e49c4d708d3e16c8068384549adb50e863bf64a`) and #827 (`c48abb9fa5857df90af0b086ab78294445fd252a`) with the owner-reported service/PostgreSQL, retry, and conversation-service evidence above. Do not treat the APP-STATE handoff's old ACTIVE header as proof of an unmerged implementation or as a new lease.
+
+Before DEMO cutover, AGENT-INTERACTION must prove that the actual production turn path persists accepted user input before dispatch, resolves fresh World/surface/work/tools every turn, replays only history permitted by the current provider segment, and correlates retries/late completions to their originating durable turn. A2's harness boundary or an A3 challenger experiment alone is not that evidence.
 
 After those predecessors merge and PRIME pins an ACTIVE DEMO lease, mounted
 Play UI/API tests should prove:
@@ -277,17 +286,15 @@ the exact upstream consumer contract or paths require expanding this slice.
 
 Re-anchor remote main, open PRs, and active leases before each activation
 decision. At this revision Buddy main is
-`6a11200c729c1abe6d730f7794d935b966041eda`; #836, #839, #848, #851, and #852
-are settled. #826 remains paused/unmergeable under its separate v2/auth/zero-
-skip holds; it is not a Play predecessor. #843/#844 remain separate BLOCKED
-design handoffs.
+`6a11200c729c1abe6d730f7794d935b966041eda`; #822 and #827 complete the APP-STATE
+storage/turn-receipt step. #836, #839, #848, #851, and #852 are settled. #826
+remains paused/unmergeable under its separate v2/auth/zero-skip holds; it is not
+a Play predecessor. #843/#844 remain separate BLOCKED design handoffs.
 
-Do not activate Play until APP-STATE's World conversation storage/domain
-service and the AGENT-INTERACTION production runtime adoption are merged,
-verified at their owning boundaries, and pinned by PRIME. PRIME then must issue
+Do not activate Play until AGENT-INTERACTION's production runtime adoption is
+merged, verified at its owning boundary, and pinned by PRIME. PRIME then must issue
 a distinct ACTIVE DEMO surface-cutover lease naming the exact current base,
 consumer write set, verification, and runtime/process boundaries. This handoff
 remains BLOCKED and grants no implementation, provider, database, or runtime
 authority. Human acceptance of the actual connected Play conversation remains
 part of the full DEMO mission.
-
