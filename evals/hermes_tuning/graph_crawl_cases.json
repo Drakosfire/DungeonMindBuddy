@@ -1,0 +1,307 @@
+{
+  "schema": "hermes_synthetic_graph_crawl_cases_v1",
+  "source": "Entirely synthetic; invented names, node IDs, facts, and questions.",
+  "cases": [
+    {
+      "case_id": "supplied-two-hop",
+      "candidate_mode": "supplied",
+      "question": "What connects Mira to the Brass Observatory? Give the supported relationship chain, or say what remains unverified.",
+      "candidates": [
+        {
+          "id": "person:mira",
+          "label": "Mira",
+          "kind": "Person"
+        }
+      ],
+      "search_candidates": [],
+      "nodes": [
+        {
+          "id": "person:mira",
+          "label": "Mira",
+          "kind": "Person"
+        },
+        {
+          "id": "place:lantern-yard",
+          "label": "Lantern Yard",
+          "kind": "Place"
+        },
+        {
+          "id": "place:brass-observatory",
+          "label": "Brass Observatory",
+          "kind": "Place"
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge:mira-yard",
+          "source": "person:mira",
+          "target": "place:lantern-yard",
+          "predicate": "visits",
+          "label": "visits"
+        },
+        {
+          "id": "edge:yard-observatory",
+          "source": "place:lantern-yard",
+          "target": "place:brass-observatory",
+          "predicate": "opens_toward",
+          "label": "opens toward"
+        }
+      ],
+      "identity_attributes": {},
+      "expected_edge_ids": [
+        "edge:mira-yard",
+        "edge:yard-observatory"
+      ],
+      "must_abstain": false,
+      "requested_endpoint_node_ids": [
+        "person:mira",
+        "place:brass-observatory"
+      ]
+    },
+    {
+      "case_id": "discovered-two-hop",
+      "candidate_mode": "discovered",
+      "question": "How is Sella connected to the Glass Orchard? Give a supported relationship chain, or say what remains unverified.",
+      "candidates": [],
+      "search_candidates": [
+        {
+          "id": "person:sella",
+          "label": "Sella",
+          "kind": "Person"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "person:sella",
+          "label": "Sella",
+          "kind": "Person"
+        },
+        {
+          "id": "place:reed-bridge",
+          "label": "Reed Bridge",
+          "kind": "Place"
+        },
+        {
+          "id": "place:glass-orchard",
+          "label": "Glass Orchard",
+          "kind": "Place"
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge:sella-bridge",
+          "source": "person:sella",
+          "target": "place:reed-bridge",
+          "predicate": "guards",
+          "label": "guards"
+        },
+        {
+          "id": "edge:bridge-orchard",
+          "source": "place:reed-bridge",
+          "target": "place:glass-orchard",
+          "predicate": "leads_to",
+          "label": "leads to"
+        }
+      ],
+      "identity_attributes": {},
+      "expected_edge_ids": [
+        "edge:sella-bridge",
+        "edge:bridge-orchard"
+      ],
+      "must_abstain": false,
+      "requested_endpoint_node_ids": [
+        "person:sella",
+        "place:glass-orchard"
+      ]
+    },
+    {
+      "case_id": "supplied-object-disambiguation",
+      "candidate_mode": "supplied",
+      "question": "Which of the two people called Oren is connected to the Blue Kiln, and through what chain? State uncertainty if the records do not distinguish them.",
+      "candidates": [
+        {
+          "id": "person:oren-a",
+          "label": "Oren",
+          "kind": "Person"
+        },
+        {
+          "id": "person:oren-b",
+          "label": "Oren",
+          "kind": "Person"
+        }
+      ],
+      "search_candidates": [],
+      "nodes": [
+        {
+          "id": "person:oren-a",
+          "label": "Oren",
+          "kind": "Person"
+        },
+        {
+          "id": "person:oren-b",
+          "label": "Oren",
+          "kind": "Person"
+        },
+        {
+          "id": "place:blue-kiln",
+          "label": "Blue Kiln",
+          "kind": "Place"
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge:oren-b-kiln",
+          "source": "person:oren-b",
+          "target": "place:blue-kiln",
+          "predicate": "supplies",
+          "label": "supplies"
+        }
+      ],
+      "identity_attributes": {
+        "person:oren-a": [
+          {
+            "predicate": "trade",
+            "value": "mapmaker"
+          }
+        ],
+        "person:oren-b": [
+          {
+            "predicate": "trade",
+            "value": "potter"
+          }
+        ]
+      },
+      "expected_edge_ids": [
+        "edge:oren-b-kiln"
+      ],
+      "required_identity_value": "potter",
+      "must_abstain": false,
+      "requested_endpoint_node_ids": [
+        "person:oren-a",
+        "person:oren-b",
+        "place:blue-kiln"
+      ]
+    },
+    {
+      "case_id": "discovered-ambiguous-label",
+      "candidate_mode": "discovered",
+      "question": "How is Tavi connected to the Ember Gate? The records may contain more than one Tavi; do not choose without distinguishing evidence.",
+      "candidates": [],
+      "search_candidates": [
+        {
+          "id": "person:tavi-a",
+          "label": "Tavi",
+          "kind": "Person"
+        },
+        {
+          "id": "person:tavi-b",
+          "label": "Tavi",
+          "kind": "Person"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "person:tavi-a",
+          "label": "Tavi",
+          "kind": "Person"
+        },
+        {
+          "id": "person:tavi-b",
+          "label": "Tavi",
+          "kind": "Person"
+        },
+        {
+          "id": "place:ember-gate",
+          "label": "Ember Gate",
+          "kind": "Place"
+        }
+      ],
+      "edges": [
+        {
+          "id": "edge:tavi-a-gate",
+          "source": "person:tavi-a",
+          "target": "place:ember-gate",
+          "predicate": "approaches",
+          "label": "approaches"
+        }
+      ],
+      "identity_attributes": {},
+      "expected_edge_ids": [],
+      "must_abstain": true,
+      "abstention_reason": "ambiguous",
+      "requested_endpoint_node_ids": [
+        "person:tavi-a",
+        "person:tavi-b",
+        "place:ember-gate"
+      ]
+    },
+    {
+      "case_id": "supplied-no-path",
+      "candidate_mode": "supplied",
+      "question": "How is Pella connected to the Moss Archive? Report only what this bounded lookup supports.",
+      "candidates": [
+        {
+          "id": "person:pella",
+          "label": "Pella",
+          "kind": "Person"
+        }
+      ],
+      "search_candidates": [],
+      "nodes": [
+        {
+          "id": "person:pella",
+          "label": "Pella",
+          "kind": "Person"
+        },
+        {
+          "id": "place:moss-archive",
+          "label": "Moss Archive",
+          "kind": "Place"
+        }
+      ],
+      "edges": [],
+      "identity_attributes": {},
+      "expected_edge_ids": [],
+      "must_abstain": true,
+      "abstention_reason": "no_path",
+      "requested_endpoint_node_ids": [
+        "person:pella",
+        "place:moss-archive"
+      ]
+    },
+    {
+      "case_id": "discovered-no-path",
+      "candidate_mode": "discovered",
+      "question": "How is Edda connected to the Copper Fen? Report only what this bounded lookup supports.",
+      "candidates": [],
+      "search_candidates": [
+        {
+          "id": "person:edda",
+          "label": "Edda",
+          "kind": "Person"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "person:edda",
+          "label": "Edda",
+          "kind": "Person"
+        },
+        {
+          "id": "place:copper-fen",
+          "label": "Copper Fen",
+          "kind": "Place"
+        }
+      ],
+      "edges": [],
+      "identity_attributes": {},
+      "expected_edge_ids": [],
+      "must_abstain": true,
+      "abstention_reason": "no_path",
+      "requested_endpoint_node_ids": [
+        "person:edda",
+        "place:copper-fen"
+      ]
+    }
+  ]
+}
