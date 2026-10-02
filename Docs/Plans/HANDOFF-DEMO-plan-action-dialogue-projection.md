@@ -215,3 +215,14 @@ The implementation PR for this capability must merge and its read/write
 contract be reviewed before the DEMO Plan consumer cutover can activate. The
 two changes remain separate capabilities and separate PRs. Human visual and
 connected J1–J6 acceptance stay open.
+
+## Design review and merge settlement
+
+Buddy PR #859 merged at main `43c4c4daa8e1c17b22953681fe817e6881242b36`
+from reviewed head `c78feb94f37f7612200e2d0962d26d0f5a1326cf` after PRIME's
+exact-diff review. This accepts the bounded projection contract only. The
+implementation remains BLOCKED until the AGENT-INTERACTION runtime is
+accepted, Content confirms the exact committed-basis resolver, and PRIME grants
+the Plan proposal/action owner an exclusive path and verification lease. No
+provider, database, service, runtime, or product-state authority was granted
+by #859.
