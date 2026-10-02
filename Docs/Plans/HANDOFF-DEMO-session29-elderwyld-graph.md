@@ -96,7 +96,7 @@ Before activation, the steward must:
    graph-derived or source/evidence content, or permits cross-campaign retrieval
    through browser-controlled scope. #835 does not assert those workflows
    secure.
-3. Confirm a read-only MIND V2 path for the existing `eldyrwyld` graph, a
+3. Confirm a read-only MIND V2 path for the existing `eldyrwild` graph, a
    non-empty current native head, and C1, Session 29 C2, and cross-campaign
    questions that use facts already present in the graph. Do not initialize or
    mutate the real graph.
