@@ -1,0 +1,607 @@
+{
+  "schema": "hermes_tuning_host_latency_v1",
+  "created_at": "2026-10-02T05:14:13.887311+00:00",
+  "source": "fully synthetic evidence; no private corpus or Graph reads",
+  "scenario_id": "alderwatch-pressure-synthetic-v1",
+  "provider": "openai-api",
+  "model": "gpt-6-luna",
+  "api_base_url": "https://api.openai.com/v1",
+  "sample_count_requested": 5,
+  "parent_pid": 1351699,
+  "input_sha256": "566f50e5db8973e8dff5b154f55b8ff32c5fc0efc1f9d5098722ba51f962b3b5",
+  "effective_question": "Evidence packet (fully synthetic):\n- Alderwatch has one bridge across the river; it closes at dusk.\n- Three nights ago, the east watchtower's blue lantern went dark. Its keeper, Nera, is missing.\n- A dry trail of silver dust runs from the tower toward the old quarry; nobody has followed it.\n- The mayor says the north road is passable. The ferryman reports hearing bells beneath the river.\n\nRequest: Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list.",
+  "system_instruction": "You are DungeonBuddy's conversational assistant. Respond using only the conversation context and descriptive current-surface context provided. No graph retrieval is performed on this turn. Earlier conversation may contain historical graph-derived statements; they are not revalidated as current graph evidence. Do not claim a fresh lookup or current verification from those statements. Identify them as prior conversation and request an explicit graph-retrieval turn when current confirmation is needed. You have no graph tools or external action tools on this turn.",
+  "host_start_ready_ms": 1728.9,
+  "worker_start_pid": 1351768,
+  "host_start_method": "spawn",
+  "samples": [
+    {
+      "sample_id": "sample-1",
+      "phase": "cold_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 5070.8,
+        "response_id": "resp_059d5eb2936ba0c8006abf3da6d26c87d1a45a1265376a886f",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 365,
+          "output_tokens_details": {
+            "reasoning_tokens": 250
+          },
+          "total_tokens": 611
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0002071,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "Alderwatch’s only bridge closes at dusk, creating a deadline for crossing or pursuing leads. Established: three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, vanished; a trail of silver dust leads toward the old quarry, still unfollowed. The mayor says the north road is passable; the ferryman reports bells beneath the river. Unknown: what happened to Nera, what the dust or bells mean, and whether any lead connects to her. Let the players choose where to press.",
+        "hard_gate_check": {
+          "word_count": 82,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 9112.5,
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 5007.839679718018,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 764,
+              "request_char_count": 3053,
+              "assistant_content_chars": 468,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 367,
+              "total_tokens": 1000,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 259
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.0002468,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 5007.8,
+        "unallocated_residual_ms": 4104.6,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": 1351768,
+        "worker_pid_after": 1351768,
+        "worker_pid_matches_ready_worker": true,
+        "worker_reused_from_previous_sample": false,
+        "answer": "Make dusk the immediate pressure: Alderwatch’s only bridge closes then, so the party must decide whether to cross or take the north road. Three nights ago, the east watchtower’s blue lantern went dark and keeper Nera vanished; a dry silver-dust trail leads toward the old quarry, still unfollowed. The mayor says the north road is passable; the ferryman reports bells beneath the river. The trail’s source, Nera’s fate, and whether either route is safe remain unknown.",
+        "hard_gate_check": {
+          "word_count": 76,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    },
+    {
+      "sample_id": "sample-2",
+      "phase": "warm_reused_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 4568.5,
+        "response_id": "resp_0f3bcd43567eb5b7006abf3db5f6ec87d1b755538f0bd004f5",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 332,
+          "output_tokens_details": {
+            "reasoning_tokens": 235
+          },
+          "total_tokens": 578
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0001906,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "Get the party across Alderwatch’s only bridge before dusk, or make a deliberate choice to trust the mayor’s claim that the north road is passable. Three nights ago, the east tower’s blue lantern went dark and its keeper, Nera, disappeared; a silver-dust trail leads toward the quarry, but nobody has followed it. Nera’s whereabouts, the trail’s source, and the ferryman’s reported bells beneath the river remain unknown.",
+        "hard_gate_check": {
+          "word_count": 67,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 6488.4,
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 4098.796606063843,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 764,
+              "request_char_count": 3053,
+              "assistant_content_chars": 451,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 290,
+              "total_tokens": 923,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 187
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.00020830000000000002,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 4098.8,
+        "unallocated_residual_ms": 2389.6,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": 1351768,
+        "worker_pid_after": 1351768,
+        "worker_pid_matches_ready_worker": true,
+        "worker_reused_from_previous_sample": true,
+        "answer": "The bridge is Alderwatch’s only river crossing and closes at dusk; make the party’s crossing decision urgent. Three nights ago, the east tower’s blue lantern went dark and its keeper, Nera, disappeared. A trail of silver dust leads toward the quarry, but no one has followed it. Nera’s fate and the dust’s source are unknown. The mayor says the north road is passable; the ferryman reports hearing bells beneath the river. Neither report is confirmed.",
+        "hard_gate_check": {
+          "word_count": 75,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    },
+    {
+      "sample_id": "sample-3",
+      "phase": "warm_reused_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 4003.1,
+        "response_id": "resp_07d5881260f54ae6006abf3dc137a487d19e48b0e6634366b3",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 301,
+          "output_tokens_details": {
+            "reasoning_tokens": 198
+          },
+          "total_tokens": 547
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0001751,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "The bridge closes at dusk, so settle the party’s route and timing before pursuing leads. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, went missing; a dry trail of silver dust leads toward the old quarry, but no one has followed it. The mayor says the north road is passable; the ferryman reports bells beneath the river. Nera’s whereabouts, the trail’s source, and the bells’ cause remain unknown.",
+        "hard_gate_check": {
+          "word_count": 74,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 6148.9,
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 4496.267080307007,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 764,
+              "request_char_count": 3053,
+              "assistant_content_chars": 478,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 304,
+              "total_tokens": 937,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 197
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.00021530000000000003,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 4496.3,
+        "unallocated_residual_ms": 1652.7,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": 1351768,
+        "worker_pid_after": 1351768,
+        "worker_pid_matches_ready_worker": true,
+        "worker_reused_from_previous_sample": true,
+        "answer": "The single bridge closes at dusk, so the party must decide whether to cross before then or investigate from this side. Three nights ago, the east watchtower’s blue lantern went dark and its keeper, Nera, disappeared; a trail of silver dust leads toward the old quarry, and nobody has followed it. The mayor says the north road is passable, while the ferryman reports bells beneath the river. Whether either report points to a safe route—or what happened to Nera—remains unknown.",
+        "hard_gate_check": {
+          "word_count": 80,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    },
+    {
+      "sample_id": "sample-4",
+      "phase": "warm_reused_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 4062.9,
+        "response_id": "resp_0730966732142754006abf3dcb3d1887d195e8a6a247a4fb4c",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 318,
+          "output_tokens_details": {
+            "reasoning_tokens": 200
+          },
+          "total_tokens": 564
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0001836,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "Make the bridge’s dusk closure the immediate clock: Alderwatch has no other bridge across the river. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, disappeared; a dry trail of silver dust leads toward the old quarry, still unfollowed. The mayor says the north road is passable, while the ferryman reports bells beneath the river. The cause of Nera’s disappearance, where the trail leads, and whether either report is reliable remain unknown. Don’t decide those outcomes before the players act.",
+        "hard_gate_check": {
+          "word_count": 85,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 6283.7,
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 5032.655954360962,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 764,
+              "request_char_count": 3053,
+              "assistant_content_chars": 465,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 363,
+              "total_tokens": 996,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 254
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.0002448,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 5032.7,
+        "unallocated_residual_ms": 1251.0,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": 1351768,
+        "worker_pid_after": 1351768,
+        "worker_pid_matches_ready_worker": true,
+        "worker_reused_from_previous_sample": true,
+        "answer": "Put the bridge’s dusk closure up front: it is Alderwatch’s only river crossing, so the party has a limited window to cross. Established: the east watchtower’s blue lantern went dark three nights ago, Nera is missing, and a dry silver-dust trail toward the old quarry has gone unfollowed. The mayor says the north road is passable; the ferryman reports bells beneath the river. Whether the road is safe, what the bells mean, and where the trail leads remain unknown.",
+        "hard_gate_check": {
+          "word_count": 79,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    },
+    {
+      "sample_id": "sample-5",
+      "phase": "warm_reused_worker_turn",
+      "direct_control": {
+        "status": "ok",
+        "wall_ms": 3014.0,
+        "response_id": "resp_0f9566e65499b784006abf3dd5b6a887d1ba813d7d4ef3b6c6",
+        "usage": {
+          "input_tokens": 246,
+          "input_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 0
+          },
+          "output_tokens": 249,
+          "output_tokens_details": {
+            "reasoning_tokens": 147
+          },
+          "total_tokens": 495
+        },
+        "cost": {
+          "status": "estimated",
+          "usd": 0.0001491,
+          "currency": "USD",
+          "pricing_table_matched": true,
+          "rates_per_1m_usd": {
+            "input": 0.1,
+            "cached_input": 0.01,
+            "output": 0.5
+          }
+        },
+        "answer": "Get the party across Alderwatch’s only bridge before dusk; it closes then. Three nights ago, the east watchtower’s blue lantern went dark, and its keeper, Nera, disappeared. A dry trail of silver dust leads toward the old quarry, but nobody has followed it. The mayor says the north road is passable; the ferryman reports hearing bells beneath the river. What happened to Nera, where the trail leads, and what the bells mean remain unknown.",
+        "hard_gate_check": {
+          "word_count": 74,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      },
+      "host": {
+        "status": "ok",
+        "error_code": null,
+        "error_message": null,
+        "wall_ms": 6096.9,
+        "model_calls": [
+          {
+            "status": "ok",
+            "provider": "openai-api",
+            "requested_model": "gpt-6-luna",
+            "response_model": "gpt-6-luna",
+            "duration_ms": 3808.079242706299,
+            "request_summary": {
+              "api_call_count": 1,
+              "message_count": 2,
+              "tool_count": 0,
+              "approx_input_tokens": 764,
+              "request_char_count": 3053,
+              "assistant_content_chars": 467,
+              "assistant_tool_call_count": 0
+            },
+            "usage": {
+              "status": "reported",
+              "input_tokens": 633,
+              "output_tokens": 233,
+              "total_tokens": 866,
+              "cached_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "uncached_input_tokens": 633,
+              "reasoning_tokens": 126
+            },
+            "cost": {
+              "status": "estimated",
+              "usd": 0.0001798,
+              "currency": "USD",
+              "pricing_table_matched": true,
+              "rates_per_1m_usd": {
+                "input": 0.1,
+                "cached_input": 0.01,
+                "output": 0.5
+              }
+            }
+          }
+        ],
+        "model_call_count": 1,
+        "sum_observed_model_call_ms": 3808.1,
+        "unallocated_residual_ms": 2288.8,
+        "tool_event_count": 0,
+        "tool_call_count": 0,
+        "process_isolation": "process_exclusive",
+        "worker_pid_before": 1351768,
+        "worker_pid_after": 1351768,
+        "worker_pid_matches_ready_worker": true,
+        "worker_reused_from_previous_sample": true,
+        "answer": "The bridge closes at dusk, making the untraced silver-dust trail toward the quarry the clearest actionable lead—and a choice of when to leave Alderwatch. Established: the east tower’s blue lantern went dark three nights ago, and its keeper, Nera, is missing. Unknown: where Nera is, where the trail ends, and what causes the bells beneath the river. The mayor says the north road is passable; the ferryman reports the bells. Neither report is independently confirmed.",
+        "hard_gate_check": {
+          "word_count": 75,
+          "gates": {
+            "turn_status_ok": true,
+            "nonempty_answer": true,
+            "at_most_100_words": true,
+            "mentions_actionable_bridge_pressure": true,
+            "mentions_nera_missing": true,
+            "signals_unresolved_fact": true,
+            "all_pass": true
+          }
+        }
+      }
+    }
+  ],
+  "limits": [
+    "Five turns are descriptive evidence, not a stable latency distribution or production speedup.",
+    "The host-ready span and outer turn wall are observed, but internal import, plugin discovery, scheduling, projection, and IPC spans are not separately instrumented.",
+    "Responses are non-streaming through this host API; first useful visible text and TTFT are unknown.",
+    "The direct route is a same-process Responses API control; it does not measure host startup or IPC.",
+    "The answer checks are deterministic heuristics for status, length, key facts, and an uncertainty marker; they do not prove full grounding."
+  ],
+  "host_shutdown": {
+    "confirmed": true,
+    "elapsed_ms": 622.9
+  },
+  "answer_gate_rule": {
+    "version": "synthetic-co-gm-screen-v2",
+    "checks": [
+      "turn status is ok and answer is nonempty",
+      "at most 100 whitespace-delimited words",
+      "mentions the bridge and dusk",
+      "mentions Nera with missing, disappeared, or vanished",
+      "contains an explicit unresolved-fact marker"
+    ],
+    "post_run_gate_fields_recomputed": true,
+    "post_run_note": "The initial screen did not recognize the synthetic answer wording “Nera vanished”; only hard_gate_check fields were recomputed offline with the additional synonym. Raw answers, model calls, timing values, token usage, costs, and worker identity were not changed."
+  }
+}
