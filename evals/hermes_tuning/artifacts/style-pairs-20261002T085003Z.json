@@ -1,0 +1,2624 @@
+{
+  "schema": "hermes_synthetic_style_pairs_v1",
+  "created_at": "2026-10-02T08:45:27.639251+00:00",
+  "cohort_id": "03904bd8-e559-421d-b196-88fdafb0c656",
+  "source": "fully synthetic; not derived from private or user corpus material",
+  "provider": "openai-api",
+  "model": "gpt-6-luna",
+  "api_base_url": "https://api.openai.com/v1",
+  "randomization_seed": 20261002,
+  "arm_order": [
+    "control_first",
+    "control_first",
+    "voice_first",
+    "voice_first",
+    "voice_first",
+    "control_first",
+    "voice_first",
+    "voice_first",
+    "voice_first",
+    "voice_first",
+    "voice_first",
+    "control_first"
+  ],
+  "cases": [
+    {
+      "case_id": "alderwatch-bridge",
+      "evidence": [
+        "Alderwatch has one bridge across the river; it closes at dusk.",
+        "Three nights ago, the east watchtower's blue lantern went dark. Its keeper, Nera, is missing.",
+        "A dry trail of silver dust runs from the tower toward the old quarry; nobody has followed it.",
+        "The mayor says the north road is passable. The ferryman reports hearing bells beneath the river."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on the bridge deadline and the first choice the party faces.",
+      "supported_facts": [
+        "The bridge closes at dusk and is Alderwatch's only bridge.",
+        "Nera and the east watchtower lantern are missing or dark.",
+        "The silver trail points toward the old quarry and is uninvestigated.",
+        "The mayor and ferryman reports are attributed statements."
+      ],
+      "known_unknowns": [
+        "What happened to Nera or the lantern.",
+        "Where the silver trail leads or what caused the bells."
+      ],
+      "actionable_pressure": "The party must plan around the bridge closing at dusk.",
+      "base_user_sha256": "0f85b948ba521d70b88ec47fcf77270f27e8c7e950134f7fe99c7ab673a89a13",
+      "voice_user_sha256": "3b07e42d3acc8f238156a886a82b9b3e641246036639f852004e16e7de100ab5",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "control",
+        "voice"
+      ],
+      "arms": {
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Alderwatch’s only bridge closes at dusk, so the party must decide whether to use it before time runs out or stay and pursue the local leads. Three nights ago, the east tower’s blue lantern went dark and Nera vanished; a dry silver-dust trail points toward the quarry, but nobody has followed it. The mayor says the north road is passable; the ferryman reports bells beneath the river. Which route is safe, what happened to Nera, and whether the bells matter remain unknown.",
+          "wall_ms": 12653.5,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "0f85b948ba521d70b88ec47fcf77270f27e8c7e950134f7fe99c7ab673a89a13",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 7298.578500747681,
+              "usage": {
+                "input_tokens": 646,
+                "output_tokens": 319,
+                "total_tokens": 965,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0002241,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0002241,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 82,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Put the bridge deadline on the table early: Alderwatch’s only bridge closes at dusk. The party’s first choice is whether to follow the silver-dust trail toward the quarry or prioritize the north road before the bridge shuts. The mayor says the road is passable, but that hasn’t been confirmed. Nera is missing, and the east tower’s blue lantern has been dark for three nights. What the trail leads to—and what the ferryman’s bells beneath the river mean—remains unknown.",
+          "wall_ms": 7241.6,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "3b07e42d3acc8f238156a886a82b9b3e641246036639f852004e16e7de100ab5",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 5492.9845333099365,
+              "usage": {
+                "input_tokens": 669,
+                "output_tokens": 471,
+                "total_tokens": 1140,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0003024,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0003024,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 78,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "marrow-ferry",
+      "evidence": [
+        "The Marrow ferry has missed two morning crossings this week.",
+        "A red warning pennant was tied to the south landing before dawn.",
+        "The ferrymaster says the engine is sound; a deckhand says the spare fuel drum is gone.",
+        "The river is running high, but no flood warning has been issued."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on how the missed crossings affect the party's immediate route choice.",
+      "supported_facts": [
+        "Two morning crossings were missed this week.",
+        "The red pennant was at the south landing before dawn.",
+        "The ferrymaster and deckhand give conflicting explanations.",
+        "The river is high and there is no issued flood warning."
+      ],
+      "known_unknowns": [
+        "Why the crossings were missed.",
+        "Who tied the pennant or whether the fuel drum is actually gone."
+      ],
+      "actionable_pressure": "The party should choose a route while accounting for uncertain ferry availability.",
+      "base_user_sha256": "eff11fe6af163c0bde7570f16c82585086831ba22f586cd5da7a582ea4f6d862",
+      "voice_user_sha256": "530fefddf027db3fa9bbbf38d64abf5621e4f6b2e8cc27718a239733ccf460fc",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "control",
+        "voice"
+      ],
+      "arms": {
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "The party should choose now whether to wait for the Marrow ferry or take an alternate route: it has missed two morning crossings this week, and the river is high. A red warning pennant was tied at the south landing before dawn, but its meaning is unknown; no flood warning has been issued. The ferrymaster says the engine is sound, while a deckhand says the spare fuel drum is gone. Whether the ferry can make the next crossing—and why it missed the others—remains unclear.",
+          "wall_ms": 4708.7,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "eff11fe6af163c0bde7570f16c82585086831ba22f586cd5da7a582ea4f6d862",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 3175.2936840057373,
+              "usage": {
+                "input_tokens": 631,
+                "output_tokens": 256,
+                "total_tokens": 887,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00019109999999999998,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00019109999999999998,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 84,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "The party’s immediate choice is whether to wait for another Marrow crossing or avoid relying on the ferry for now. It has missed two morning crossings this week; the river is high, and a red warning pennant was at the south landing before dawn, though no flood warning has been issued. The ferrymaster says the engine is sound, while a deckhand reports the spare fuel drum missing. Whether the ferry can make the next crossing—and why it has been delayed—remains unknown.",
+          "wall_ms": 4807.3,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "530fefddf027db3fa9bbbf38d64abf5621e4f6b2e8cc27718a239733ccf460fc",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 3642.382860183716,
+              "usage": {
+                "input_tokens": 654,
+                "output_tokens": 268,
+                "total_tokens": 922,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00019940000000000002,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00019940000000000002,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 81,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "gloam-orchard",
+      "evidence": [
+        "A strip of frost appeared overnight across one row of Gloam Orchard despite mild weather.",
+        "The orchard keeper has not inspected the roots beneath that row.",
+        "A cellar door at the orchard edge was found closed and locked this morning.",
+        "The keeper says no one has reported damaged fruit yet."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a useful first investigation without deciding the cause.",
+      "supported_facts": [
+        "Frost affected one row overnight during mild weather.",
+        "The roots have not been inspected.",
+        "The cellar door was locked when found.",
+        "No damaged fruit has been reported to the keeper."
+      ],
+      "known_unknowns": [
+        "What caused the frost.",
+        "Whether the roots, cellar, or fruit are affected."
+      ],
+      "actionable_pressure": "The party can inspect the affected row and its unexamined roots before deciding what the frost means.",
+      "base_user_sha256": "4c4457e73ff36c5b4f8c4e1f1e9d86630a74338e6b7cc79398618219f5bccfef",
+      "voice_user_sha256": "c9dd94249e83bfc0aa0856fa5320206c606a8016e2c170766c669e5846a1380b",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "voice",
+        "control"
+      ],
+      "arms": {
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Start by inspecting the roots beneath the frosted row and comparing them with a nearby unaffected row; no one has checked them yet, and that can narrow the next steps without assuming a cause. The frost appeared overnight despite mild weather, the cellar door was found locked this morning, and no damaged fruit has been reported. Whether the roots are affected, when the cellar was last opened, and whether either clue is connected remain unknown.",
+          "wall_ms": 8594.6,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "c9dd94249e83bfc0aa0856fa5320206c606a8016e2c170766c669e5846a1380b",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 3870.27907371521,
+              "usage": {
+                "input_tokens": 646,
+                "output_tokens": 169,
+                "total_tokens": 815,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0001491,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0001491,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 75,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Start by getting the keeper to inspect the roots beneath the single frosted row: the frost appeared overnight despite mild weather, but its cause and any root damage are unknown. The cellar door at the orchard’s edge was found locked this morning; whether it matters is unknown. No damaged fruit has been reported so far.",
+          "wall_ms": 5210.4,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "4c4457e73ff36c5b4f8c4e1f1e9d86630a74338e6b7cc79398618219f5bccfef",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 3124.7873306274414,
+              "usage": {
+                "input_tokens": 623,
+                "output_tokens": 182,
+                "total_tokens": 805,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00015329999999999999,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00015329999999999999,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 55,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "council-bell",
+      "evidence": [
+        "The council hall bell rang twice at noon on three consecutive days.",
+        "Each time, the east window was open; the caretaker says it was latched before noon.",
+        "The bell rope was found coiled on the floor after the third ringing.",
+        "No witness saw anyone inside the hall."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a fair clue and one unresolved question for the hall scene.",
+      "supported_facts": [
+        "The bell rang twice at noon for three consecutive days.",
+        "The east window was open each time, despite the caretaker's account.",
+        "The rope was coiled after the third ringing.",
+        "No witness saw anyone inside."
+      ],
+      "known_unknowns": [
+        "Who or what rang the bell.",
+        "Whether the caretaker's account is mistaken or false."
+      ],
+      "actionable_pressure": "The party can inspect the window and rope while keeping the cause unresolved.",
+      "base_user_sha256": "a81a32b3f6dcb3d7d6cc28ed9276635f9a946aad24aae4a17200e5bba882bed9",
+      "voice_user_sha256": "24d1d3e2ab1d40674535e47e7ab3c83e3e20d2951be8b13322385add1239e749",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "voice",
+        "control"
+      ],
+      "arms": {
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Put the repeated noon pattern within easy reach: the bell rang twice on each of three consecutive days, the east window was open each time, and the rope was coiled on the floor after the third ringing. The caretaker says the window was latched before noon; no witness saw anyone inside. Those are the facts, not proof of how the bell rang. Let the group inspect the window and rope. The fair unresolved question: how did the window come to be open?",
+          "wall_ms": 6354.0,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "24d1d3e2ab1d40674535e47e7ab3c83e3e20d2951be8b13322385add1239e749",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 4527.2886753082275,
+              "usage": {
+                "input_tokens": 648,
+                "output_tokens": 317,
+                "total_tokens": 965,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0002233,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0002233,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 82,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": false,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": false
+            }
+          }
+        },
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Use the next noon as a watch opportunity: the bell rang twice at noon on three consecutive days, and each time the east window was found open despite the caretaker saying it was latched beforehand. After the third ringing, the rope lay coiled on the floor; no one saw anyone inside. These are clues, not proof of how the bell rang or who—if anyone—was there. The unresolved question for the hall scene: how does the window keep opening?",
+          "wall_ms": 5627.4,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "a81a32b3f6dcb3d7d6cc28ed9276635f9a946aad24aae4a17200e5bba882bed9",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 3759.0415477752686,
+              "usage": {
+                "input_tokens": 625,
+                "output_tokens": 232,
+                "total_tokens": 857,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0001785,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0001785,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 78,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": false,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": false
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "westbay-arrivals",
+      "evidence": [
+        "Two Westbay cargo ships are listed as due tomorrow, not today.",
+        "The dockmaster reports seeing a blue sail moving west last night.",
+        "Neither ship has checked in at the harbor office.",
+        "A crate of medical supplies is expected on one of the ships."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on the supplies and what the party can verify before the ships are due.",
+      "supported_facts": [
+        "Two cargo ships are due tomorrow.",
+        "The dockmaster reports a blue sail moving west last night.",
+        "Neither ship has checked in.",
+        "Medical supplies are expected on one ship."
+      ],
+      "known_unknowns": [
+        "Whether the blue sail belonged to either ship.",
+        "Whether the supplies or ships are delayed, diverted, or in danger."
+      ],
+      "actionable_pressure": "The party can verify the manifest and prepare a contingency before the arrival deadline.",
+      "base_user_sha256": "03d8e8f0e4cba35009aca89bab5eba2213abed59853496f084dd1dfcc6009a85",
+      "voice_user_sha256": "3a2065d5f6dd8a9f7c768516f5bd0d1a625dec71e37e420fed8716e0ae8a8e7f",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "voice",
+        "control"
+      ],
+      "arms": {
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "The medical-supplies crate is expected tomorrow, so the party can check the harbor office and ask the dockmaster which ship is meant to carry it. Two Westbay cargo ships are due tomorrow; neither has checked in. The dockmaster saw a blue sail moving west last night, but whether it belonged to either ship is unknown. The party can verify the ships’ identities, expected arrival details, and whether the crate is aboard before they’re due.",
+          "wall_ms": 4608.2,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "3a2065d5f6dd8a9f7c768516f5bd0d1a625dec71e37e420fed8716e0ae8a8e7f",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 2773.7560272216797,
+              "usage": {
+                "input_tokens": 645,
+                "output_tokens": 177,
+                "total_tokens": 822,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00015299999999999998,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00015299999999999998,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 74,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "A crate of medical supplies is expected on one of the two Westbay ships due tomorrow, and neither has checked in yet. Before they’re due, the party can check harbor records and ask the dockmaster for more detail about last night’s blue sail moving west. It’s unknown whether that sail belonged to either ship—or where the crate is now.",
+          "wall_ms": 4605.8,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "03d8e8f0e4cba35009aca89bab5eba2213abed59853496f084dd1dfcc6009a85",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 2707.933187484741,
+              "usage": {
+                "input_tokens": 622,
+                "output_tokens": 212,
+                "total_tokens": 834,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00016820000000000002,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00016820000000000002,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 59,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "ashen-ridge-crossing",
+      "evidence": [
+        "The Ashen Ridge bridge supports groan when carts cross.",
+        "An engineer says carts under two tons can cross safely.",
+        "A miller reports that one plank cracked under a handcart yesterday.",
+        "Heavy rain is forecast before dusk."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on the party's crossing decision before the rain.",
+      "supported_facts": [
+        "The bridge supports groan under carts.",
+        "The engineer and miller give different assessments.",
+        "The miller reports a plank cracked under a handcart.",
+        "Heavy rain is forecast before dusk."
+      ],
+      "known_unknowns": [
+        "The bridge's actual weight limit and whether the report is representative.",
+        "Whether rain will worsen the crossing."
+      ],
+      "actionable_pressure": "The party must weigh the crossing risk against the rain deadline without treating either report as conclusive.",
+      "base_user_sha256": "267a0db01943324c8c45bd03893c28464b1cc61e04f7a2e970513f0ab0e21be4",
+      "voice_user_sha256": "cabef174c736dd12f5526cc7747bc5ea8d27bd16e3d4096343cb9ea8f8a11875",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "control",
+        "voice"
+      ],
+      "arms": {
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "The party must decide whether to cross Ashen Ridge before the forecast rain arrives: the bridge groans under carts, an engineer says loads under two tons can cross safely, and a miller reports a plank cracked under a handcart yesterday. Whether that plank was repaired, how rain will affect the bridge, and the party’s total load are unknown. Keep the danger unresolved; let their crossing plan shape what happens.",
+          "wall_ms": 5874.9,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "267a0db01943324c8c45bd03893c28464b1cc61e04f7a2e970513f0ab0e21be4",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 4569.795608520508,
+              "usage": {
+                "input_tokens": 611,
+                "output_tokens": 299,
+                "total_tokens": 910,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00021060000000000002,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00021060000000000002,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 69,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Before the rain arrives, have the party decide whether to cross now, reduce their loads, or wait. The supports groan under carts; an engineer says loads under two tons can cross safely, but a miller reports a plank cracked beneath a handcart yesterday. It’s unknown whether that plank has been repaired or how the bridge will fare in heavy rain. Let the party weigh the engineer’s guidance against the recent damage and choose their risk.",
+          "wall_ms": 6004.8,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "cabef174c736dd12f5526cc7747bc5ea8d27bd16e3d4096343cb9ea8f8a11875",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 4236.401081085205,
+              "usage": {
+                "input_tokens": 634,
+                "output_tokens": 218,
+                "total_tokens": 852,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00017240000000000002,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00017240000000000002,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 75,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "sealed-archive",
+      "evidence": [
+        "A page is missing from the sealed archive ledger.",
+        "The archivist says the cabinet was locked at closing.",
+        "The assistant also has a cabinet key; the key log has no entry for last night.",
+        "The night watch heard a cart in the courtyard but did not see who was driving."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a fair investigation that does not accuse anyone without evidence.",
+      "supported_facts": [
+        "A ledger page is missing.",
+        "The archivist says the cabinet was locked at closing.",
+        "The assistant has a key and the log contains no entry.",
+        "The watch heard a cart but saw no driver."
+      ],
+      "known_unknowns": [
+        "Who removed the page or whether it was removed intentionally.",
+        "Who drove the cart or whether it is connected."
+      ],
+      "actionable_pressure": "The party can compare the key log and cart report before drawing accusations.",
+      "base_user_sha256": "e9ab55670d5d658ee95cab0874e8c1d41538d137cd3e590a064e18aba841b622",
+      "voice_user_sha256": "f05939fda46d0db64afa76417ecd7dbcbd18544f1124e8645d564a3384b8e955",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "voice",
+        "control"
+      ],
+      "arms": {
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Start by securing the ledger and building a timeline before anyone’s account can be influenced: check the cabinet and key procedure, then compare closing and watch rounds with courtyard access. Established: a page is missing; the archivist says the cabinet was locked at closing; the assistant has a key, with no entry in last night’s log; the watch heard a cart but saw no driver. Unknown: when the page disappeared, whether the cabinet was opened, or whether the cart is connected. Treat each lead neutrally; none identifies a culprit.",
+          "wall_ms": 6040.3,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "f05939fda46d0db64afa76417ecd7dbcbd18544f1124e8645d564a3384b8e955",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 3925.0142574310303,
+              "usage": {
+                "input_tokens": 648,
+                "output_tokens": 230,
+                "total_tokens": 878,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0001798,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0001798,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 89,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Start by securing the ledger and cabinet, then compare the lock and key records before evidence is disturbed. Established: a page is missing, the archivist says the cabinet was locked at closing, the assistant has a key with no log entry for last night, and the watch heard a cart but saw no driver. Unknown: whether the cabinet was opened, who took the page, or who drove the cart. Treat each lead as a question, not an accusation.",
+          "wall_ms": 5717.6,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "e9ab55670d5d658ee95cab0874e8c1d41538d137cd3e590a064e18aba841b622",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 3545.5446243286133,
+              "usage": {
+                "input_tokens": 625,
+                "output_tokens": 302,
+                "total_tokens": 927,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0002135,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0002135,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 78,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "northfield-well",
+      "evidence": [
+        "Water from Northfield's public well tasted metallic after a pump repair yesterday.",
+        "No illness has been reported to the healer.",
+        "The repair crew says it replaced a worn valve and left the well open.",
+        "A water inspection is scheduled for tomorrow morning."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a cautious immediate response while the inspection is pending.",
+      "supported_facts": [
+        "The water tasted metallic after a pump repair.",
+        "No illness has been reported to the healer.",
+        "The crew replaced a worn valve and left the well open, according to the crew.",
+        "Inspection is scheduled for tomorrow morning."
+      ],
+      "known_unknowns": [
+        "Whether the water is unsafe or the taste is caused by the repair.",
+        "Whether anyone is ill but has not reported it."
+      ],
+      "actionable_pressure": "The party can help residents use caution and await the scheduled inspection without declaring the water safe or poisoned.",
+      "base_user_sha256": "76d650ca3e8d592553fb75c2f79568021c2a5b6f8e67f93d8ed26b809b606054",
+      "voice_user_sha256": "928855d598b5de799ab067de375ae2edd48bfd25a9fd07c86d610fddcd328c56",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "voice",
+        "control"
+      ],
+      "arms": {
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Until tomorrow morning’s inspection, advise residents to avoid drinking or cooking with the well water and arrange another source. Established: it tasted metallic after yesterday’s pump repair; the crew replaced a worn valve and left the well open, and no illness has been reported to the healer. Unknown: whether the water is unsafe or what caused the taste. Keep the well’s status clear to residents and wait for the inspection before deciding it is safe to use again.",
+          "wall_ms": 4767.0,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "928855d598b5de799ab067de375ae2edd48bfd25a9fd07c86d610fddcd328c56",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 2968.0330753326416,
+              "usage": {
+                "input_tokens": 639,
+                "output_tokens": 247,
+                "total_tokens": 886,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0001874,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0001874,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 78,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "The immediate pressure is keeping people supplied without relying on the well until tomorrow’s inspection. Residents reported a metallic taste after yesterday’s pump repair; the crew replaced a worn valve and left the well open, and no illness has been reported to the healer. Whether the water is unsafe—or the repair caused the taste—is unknown. Consider having the party arrange an alternate water source and calmly urge caution, without declaring the well contaminated.",
+          "wall_ms": 4973.3,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "76d650ca3e8d592553fb75c2f79568021c2a5b6f8e67f93d8ed26b809b606054",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 2971.407890319824,
+              "usage": {
+                "input_tokens": 616,
+                "output_tokens": 248,
+                "total_tokens": 864,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0001856,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0001856,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 73,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "lantern-gate",
+      "evidence": [
+        "The Lantern Festival begins tonight beside the canal.",
+        "A festival lantern was found in the water with a note reading 'leave the gate open'.",
+        "The canal gate controls the lower market's water level.",
+        "The gatekeeper says the mechanism is working normally."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a choice the party can make before the festival begins.",
+      "supported_facts": [
+        "The festival begins tonight.",
+        "A lantern and note were found in the canal.",
+        "The gate controls the lower market's water level.",
+        "The gatekeeper reports that the mechanism works normally."
+      ],
+      "known_unknowns": [
+        "Who wrote the note and what they intend.",
+        "Whether the gate is actually at risk."
+      ],
+      "actionable_pressure": "The party must decide whether to inspect or secure the gate before the festival, while the note's meaning remains uncertain.",
+      "base_user_sha256": "30de4d29bc5ee420b577abf833b12192a89c583523b8a0ab7502aa439a745922",
+      "voice_user_sha256": "d4a447dc3d01774614631946c44100033d2342ba696dbc68e38c396273bfe98a",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "voice",
+        "control"
+      ],
+      "arms": {
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Before the festival begins, the party can ask the gatekeeper to inspect the gate with them or arrange a watch at the canal. A lantern was found in the water with a note asking for the gate to be left open; the gate controls the lower market’s water level, and the gatekeeper says it is working normally. Who left the note, what they intend, and whether the gate is currently open are unknown.",
+          "wall_ms": 5418.2,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "d4a447dc3d01774614631946c44100033d2342ba696dbc68e38c396273bfe98a",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 2784.1508388519287,
+              "usage": {
+                "input_tokens": 640,
+                "output_tokens": 226,
+                "total_tokens": 866,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00017700000000000002,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00017700000000000002,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 73,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Before the Lantern Festival begins tonight, the party can investigate the waterlogged lantern and its “leave the gate open” note, or decide whether to press the gatekeeper about securing the canal gate. The gate controls the lower market’s water level, and the gatekeeper says its mechanism is working normally. Who left the lantern, what they intend, and whether the gate is at risk remain unknown.",
+          "wall_ms": 4499.1,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "30de4d29bc5ee420b577abf833b12192a89c583523b8a0ab7502aa439a745922",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 3197.117805480957,
+              "usage": {
+                "input_tokens": 617,
+                "output_tokens": 173,
+                "total_tokens": 790,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00014820000000000002,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00014820000000000002,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 65,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "salt-road-barrels",
+      "evidence": [
+        "A salt-road wagon arrived with two fewer water barrels than its manifest lists.",
+        "The driver says all barrel seals were intact at departure.",
+        "A line of footprints ends at the dry ravine beside the road.",
+        "No one has searched the ravine."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on the first fair lead and what remains unverified.",
+      "supported_facts": [
+        "Two barrels are missing relative to the manifest.",
+        "The driver says seals were intact at departure.",
+        "Footprints end at the ravine.",
+        "The ravine has not been searched."
+      ],
+      "known_unknowns": [
+        "When or how the barrels went missing.",
+        "Who made the footprints or what is in the ravine."
+      ],
+      "actionable_pressure": "The party can search the ravine before deciding whether the driver or route is responsible.",
+      "base_user_sha256": "8561411cfe9c285b71c4127bd08e0ba6b06e012547bf05b7614b79ff8256a9ac",
+      "voice_user_sha256": "07779b23b1bd8193fa4ebfe4c77434c2b3097d2b38c5a4fd5bd621be2cda4bcb",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "voice",
+        "control"
+      ],
+      "arms": {
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "The wagon is two water barrels short, so the dry ravine is the first fair lead: footprints end there, and no one has searched it. The driver says the seals were intact at departure, but that has not been independently confirmed. The barrels’ whereabouts, who made the tracks, and whether the two are connected remain unknown.",
+          "wall_ms": 5949.1,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "07779b23b1bd8193fa4ebfe4c77434c2b3097d2b38c5a4fd5bd621be2cda4bcb",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 2565.6535625457764,
+              "usage": {
+                "input_tokens": 639,
+                "output_tokens": 219,
+                "total_tokens": 858,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0001734,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0001734,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 56,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "The immediate pressure is a two-barrel water shortfall. The driver reports the seals were intact at departure, and footprints end at the dry ravine beside the road; no one has searched it. Start there: it’s the fairest lead. Who made the tracks, what lies beyond their endpoint, and whether the ravine has anything to do with the missing barrels all remain unverified.",
+          "wall_ms": 6031.3,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "8561411cfe9c285b71c4127bd08e0ba6b06e012547bf05b7614b79ff8256a9ac",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 4714.713335037231,
+              "usage": {
+                "input_tokens": 616,
+                "output_tokens": 330,
+                "total_tokens": 946,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0002266,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0002266,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 62,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "grey-mine-bellows",
+      "evidence": [
+        "The bellows at Grey Mine stopped working before the first shift.",
+        "The foreman says no workers went below today.",
+        "The shift ledger lists three miners who have not checked in.",
+        "The mine's air has not been tested since the bellows stopped."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a safe first step before anyone enters the mine.",
+      "supported_facts": [
+        "The bellows stopped before the first shift.",
+        "The foreman says nobody went below today.",
+        "Three miners have not checked in according to the ledger.",
+        "The mine air has not been tested."
+      ],
+      "known_unknowns": [
+        "Whether any miners are underground.",
+        "Whether the air is safe or why the bellows stopped."
+      ],
+      "actionable_pressure": "The party should verify the miners' location and test the air before anyone enters.",
+      "base_user_sha256": "0761429faa5ccfac4868548d2e8c0091fdbcf50b1fdb2608db1226a5a97754cc",
+      "voice_user_sha256": "ede0a2691f1875ab7bc0dac47036868f43db7927bd3390f37cacab3b25a3c81d",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "voice",
+        "control"
+      ],
+      "arms": {
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Keep everyone out and have qualified mine-rescue personnel assess the mine and test its air from outside before anyone enters. The bellows failed before first shift, the air has not been tested since, and the ledger lists three miners who haven’t checked in. The foreman says nobody went below, but whether the miners are inside—and whether the mine is safe to enter—remains unknown.",
+          "wall_ms": 5727.0,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "ede0a2691f1875ab7bc0dac47036868f43db7927bd3390f37cacab3b25a3c81d",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 4050.314426422119,
+              "usage": {
+                "input_tokens": 640,
+                "output_tokens": 259,
+                "total_tokens": 899,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.00019350000000000001,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.00019350000000000001,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 63,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Keep everyone out until the mine’s air can be tested safely from outside; the bellows stopped before first shift, and the air has not been tested since. The foreman says no one went below today, but the ledger lists three miners who haven’t checked in. Where they are—and whether the mine is safe—remains unknown.",
+          "wall_ms": 5125.7,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "0761429faa5ccfac4868548d2e8c0091fdbcf50b1fdb2608db1226a5a97754cc",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 2818.557024002075,
+              "usage": {
+                "input_tokens": 617,
+                "output_tokens": 197,
+                "total_tokens": 814,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0001602,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0001602,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 54,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    },
+    {
+      "case_id": "tern-chapel-offerings",
+      "evidence": [
+        "For three mornings, offerings have appeared on the Tern Chapel windowsill instead of the altar.",
+        "The caretaker blames visitors but has no names.",
+        "The night watch has not seen anyone approach the chapel.",
+        "A memorial service is scheduled there tomorrow."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a respectful question or preparation before the service.",
+      "supported_facts": [
+        "Offerings appeared on the windowsill for three mornings, not the altar.",
+        "The caretaker suspects visitors but has no names.",
+        "The night watch did not see anyone approach.",
+        "A memorial service is scheduled for tomorrow."
+      ],
+      "known_unknowns": [
+        "Who left the offerings and why.",
+        "Whether the offerings relate to the service."
+      ],
+      "actionable_pressure": "The party can speak with the caretaker and prepare the chapel respectfully before the service, without blaming anyone.",
+      "base_user_sha256": "b05faaea62add7dd2c6e4eed289e97604e01b0046de332a6c45155f3a06a5fab",
+      "voice_user_sha256": "a23ee9b48657adff779256167628fc863d4398efe807463a0b572f8a1c1bc6d3",
+      "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+      "arm_order": [
+        "control",
+        "voice"
+      ],
+      "arms": {
+        "control": {
+          "arm": "control",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Before tomorrow’s memorial, quietly ask the caretaker how the offerings should be treated during the service; don’t move or display them without permission. Established: offerings have appeared on the Tern Chapel windowsill for three mornings; the caretaker suspects visitors but has no names, and the night watch saw no one approach. Unknown: who left them, why, or whether they relate to the memorial. Let the answer guide a respectful plan, not an accusation.",
+          "wall_ms": 6669.0,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "b05faaea62add7dd2c6e4eed289e97604e01b0046de332a6c45155f3a06a5fab",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 4956.473350524902,
+              "usage": {
+                "input_tokens": 615,
+                "output_tokens": 413,
+                "total_tokens": 1028,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.000268,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.000268,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 73,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        },
+        "voice": {
+          "arm": "voice",
+          "status": "ok",
+          "error_code": null,
+          "answer": "Before tomorrow’s memorial, quietly ask the service lead how they’d like the offerings handled, so they aren’t moved or discussed in a way that unsettles mourners. Three mornings of offerings on the Tern Chapel windowsill are established; the caretaker suspects visitors but has no names, and the night watch saw no one approach. Who left them, and why, remains unknown.",
+          "wall_ms": 5630.1,
+          "system_sha256": "1a6076cf73dce4307f0e9f1b527aa6dabd82471c724bbcc185164534d5b7e340",
+          "user_sha256": "a23ee9b48657adff779256167628fc863d4398efe807463a0b572f8a1c1bc6d3",
+          "model_calls": [
+            {
+              "status": "ok",
+              "provider": "openai-api",
+              "requested_model": "gpt-6-luna",
+              "response_model": "gpt-6-luna",
+              "duration_ms": 3883.3231925964355,
+              "usage": {
+                "input_tokens": 638,
+                "output_tokens": 176,
+                "total_tokens": 814,
+                "cached_input_tokens": 0
+              },
+              "cost": {
+                "status": "estimated",
+                "usd": 0.0001518,
+                "currency": "USD",
+                "pricing_table_matched": true
+              }
+            }
+          ],
+          "estimated_cost": {
+            "status": "estimated",
+            "usd": 0.0001518,
+            "currency": "USD",
+            "pricing_table_matched": true,
+            "rates_per_1m_usd": {
+              "input": 0.1,
+              "cached_input": 0.01,
+              "output": 0.5
+            }
+          },
+          "tool_event_count": 0,
+          "hard_gates": {
+            "word_count": 60,
+            "gates": {
+              "turn_status_ok": true,
+              "nonempty_answer": true,
+              "at_most_100_words": true,
+              "no_heading_or_bullets": true,
+              "explicit_uncertainty": true,
+              "exactly_one_model_call": true,
+              "no_tool_events": true,
+              "all_pass": true
+            }
+          }
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "Twelve pairs are exploratory and do not establish general or production quality improvement.",
+    "Hard gates are deterministic screens, not complete factual-grounding proofs; evidence-keyed scoring remains a blinded human task.",
+    "Non-streaming responses leave TTFT unknown."
+  ],
+  "blind_packet_sha256": "620692b26e6b12e2066cf6115e79c06153837d3a1d8d00e31302aff78911df19",
+  "blind_seed": 91731,
+  "treatment_sentence": "Write as a calm, practical co-GM: direct, warm, and specific; avoid generic dramatic flourishes.",
+  "comparison": "same policy-resolved conversation-only Hermes route; treatment appends only the sentence above to user input",
+  "task_constraints": "compact co-GM prep note at most 100 words; actionable pressure first; distinguish established facts from unknowns; no invented outcome; natural prose without headings or bullets",
+  "hard_gate_rule": {
+    "max_words": 100,
+    "no_heading_or_bullets": true,
+    "explicit_uncertainty_markers": [
+      "unknown",
+      "unconfirmed",
+      "unverified",
+      "unclear",
+      "not known",
+      "not established",
+      "not yet"
+    ],
+    "exactly_one_model_call": true,
+    "zero_tool_events": true,
+    "all_turns_ok": true
+  },
+  "rating_status": "pending independent blinded scoring; no prose ratings added",
+  "blind_review_provenance": {
+    "PRIME": {
+      "sha256": "c25badfd47ec695d22a92ad689632edd70cc56c98dab0e4f522e7e4a79188e4e",
+      "arm_mapping_seen_before_lock": false
+    },
+    "independent_reviewer": {
+      "sha256": "09d310ddc897fc11b57d2f6697d16ccc6f71a01c59a3e9d6f454e093ed135762",
+      "arm_mapping_seen_before_lock": false
+    }
+  },
+  "blind_review_case_results": [
+    {
+      "case_id": "alderwatch-bridge",
+      "blind_label_to_arm": {
+        "A": "voice",
+        "B": "control"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "alderwatch-bridge",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              5,
+              4,
+              5,
+              4
+            ],
+            "B": [
+              4,
+              5,
+              4,
+              4
+            ]
+          },
+          "preference": "A",
+          "reason": "A more clearly frames the choice against the bridge deadline and attributes the road report."
+        },
+        "independent_reviewer": {
+          "case_id": "alderwatch-bridge",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              4,
+              4,
+              4
+            ],
+            "reason": "Explicit route decision under the bridge deadline and attributes the road report."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              4,
+              5,
+              4,
+              4
+            ],
+            "reason": "Clear and grounded but less explicit about which first route choice to make."
+          },
+          "preference": "A",
+          "preference_reason": "More directly foregrounds the immediate route decision."
+        }
+      }
+    },
+    {
+      "case_id": "marrow-ferry",
+      "blind_label_to_arm": {
+        "A": "control",
+        "B": "voice"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "marrow-ferry",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              5,
+              4,
+              4,
+              4
+            ],
+            "B": [
+              5,
+              4,
+              4,
+              4
+            ]
+          },
+          "preference": "tie",
+          "reason": "Both present the immediate wait-or-reroute choice and preserve conflicting accounts."
+        },
+        "independent_reviewer": {
+          "case_id": "marrow-ferry",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              4,
+              4,
+              4
+            ],
+            "reason": "Clear immediate route decision and preserves competing reports."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              5,
+              4,
+              4
+            ],
+            "reason": "Clearer immediate route choice; keeps cause and availability unknown."
+          },
+          "preference": "B",
+          "preference_reason": "Slight clarity advantage while preserving the keyed uncertainty."
+        }
+      }
+    },
+    {
+      "case_id": "gloam-orchard",
+      "blind_label_to_arm": {
+        "A": "voice",
+        "B": "control"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "gloam-orchard",
+          "hard_gates": {
+            "A": "fail_grounding",
+            "B": "pass"
+          },
+          "scores": {
+            "A": null,
+            "B": [
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "preference": "B",
+          "reason": "A assumes a nearby unaffected comparison row exists; B keeps the first step inside supplied evidence."
+        },
+        "independent_reviewer": {
+          "case_id": "gloam-orchard",
+          "A": {
+            "gates": {
+              "factual_grounding": "fail",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": null,
+            "reason": "Asserts a nearby unaffected comparison row exists, which is not in evidence."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              4,
+              5,
+              4,
+              5
+            ],
+            "reason": "Keeps the first investigation within evidence and does not decide the cause."
+          },
+          "preference": "B",
+          "preference_reason": "Only eligible answer; focuses on the unexamined roots."
+        }
+      }
+    },
+    {
+      "case_id": "council-bell",
+      "blind_label_to_arm": {
+        "A": "voice",
+        "B": "control"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "council-bell",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              4,
+              4,
+              3,
+              4
+            ],
+            "B": [
+              5,
+              5,
+              5,
+              4
+            ]
+          },
+          "preference": "B",
+          "reason": "Both are plain prose and preserve the mystery; B opens with a playable watch opportunity."
+        },
+        "independent_reviewer": {
+          "case_id": "council-bell",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              4,
+              4,
+              3,
+              4
+            ],
+            "reason": "Accurately presents the clues and avoids claiming a cause; phrasing is somewhat stiff."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              4,
+              5,
+              5,
+              4
+            ],
+            "reason": "Natural watch opportunity and one fair open question; no causal claim."
+          },
+          "preference": "B",
+          "preference_reason": "More natural and scene-ready while keeping cause unresolved."
+        }
+      }
+    },
+    {
+      "case_id": "westbay-arrivals",
+      "blind_label_to_arm": {
+        "A": "control",
+        "B": "voice"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "westbay-arrivals",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              5,
+              5,
+              5,
+              5
+            ],
+            "B": [
+              4,
+              4,
+              4,
+              3
+            ]
+          },
+          "preference": "A",
+          "reason": "A is compact and direct; B repeats the deadline and verification plan."
+        },
+        "independent_reviewer": {
+          "case_id": "westbay-arrivals",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              4,
+              4,
+              4,
+              5
+            ],
+            "reason": "Compact and grounded; suggests checking records and the dockmaster's account."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              4,
+              4,
+              4
+            ],
+            "reason": "More specific pre-arrival verification of identity, manifest, and crate."
+          },
+          "preference": "B",
+          "preference_reason": "More specific verification before the deadline."
+        }
+      }
+    },
+    {
+      "case_id": "ashen-ridge-crossing",
+      "blind_label_to_arm": {
+        "A": "control",
+        "B": "voice"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "ashen-ridge-crossing",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              4,
+              4,
+              3,
+              4
+            ],
+            "B": [
+              5,
+              5,
+              4,
+              4
+            ]
+          },
+          "preference": "B",
+          "reason": "B offers concrete crossing options and treats both reports as uncertain."
+        },
+        "independent_reviewer": {
+          "case_id": "ashen-ridge-crossing",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              4,
+              4,
+              3,
+              4
+            ],
+            "reason": "Balanced facts and unknowns, but final sentence is meta and vague."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              5,
+              4,
+              4
+            ],
+            "reason": "Actionable choices and balanced treatment of engineer and miller reports."
+          },
+          "preference": "B",
+          "preference_reason": "More actionable without treating either report as conclusive."
+        }
+      }
+    },
+    {
+      "case_id": "sealed-archive",
+      "blind_label_to_arm": {
+        "A": "voice",
+        "B": "control"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "sealed-archive",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              3,
+              4,
+              3,
+              3
+            ],
+            "B": [
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "preference": "B",
+          "reason": "B gives a fair neutral sequence; A is wordy and hints that accounts might be influenced without evidence."
+        },
+        "independent_reviewer": {
+          "case_id": "sealed-archive",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              3,
+              4,
+              3,
+              3
+            ],
+            "reason": "Useful timeline steps, but acting before accounts can be influenced insinuates unsupported interference."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              5,
+              4,
+              5
+            ],
+            "reason": "Neutral, concise inquiry treats each lead as a question rather than an accusation."
+          },
+          "preference": "B",
+          "preference_reason": "Fairer and more concise without implying tampering."
+        }
+      }
+    },
+    {
+      "case_id": "northfield-well",
+      "blind_label_to_arm": {
+        "A": "control",
+        "B": "voice"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "northfield-well",
+          "hard_gates": {
+            "A": "fail_grounding",
+            "B": "pass"
+          },
+          "scores": {
+            "A": null,
+            "B": [
+              5,
+              5,
+              4,
+              4
+            ]
+          },
+          "preference": "B",
+          "reason": "A attributes the metallic taste to residents, a reporter absent from evidence; B gives a cautious plan without declaring contamination."
+        },
+        "independent_reviewer": {
+          "case_id": "northfield-well",
+          "A": {
+            "gates": {
+              "factual_grounding": "fail",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": null,
+            "reason": "Claims residents reported the taste; evidence only says the water tasted metallic."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              5,
+              4,
+              4
+            ],
+            "reason": "Safely actionable pending inspection and preserves uncertainty."
+          },
+          "preference": "B",
+          "preference_reason": "Only eligible answer; recommends caution without declaring the water unsafe."
+        }
+      }
+    },
+    {
+      "case_id": "lantern-gate",
+      "blind_label_to_arm": {
+        "A": "voice",
+        "B": "control"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "lantern-gate",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              4,
+              4,
+              4,
+              4
+            ],
+            "B": [
+              5,
+              5,
+              5,
+              4
+            ]
+          },
+          "preference": "B",
+          "reason": "B gives a clearer before-festival investigation choice while keeping the note unproven."
+        },
+        "independent_reviewer": {
+          "case_id": "lantern-gate",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              4,
+              4,
+              4
+            ],
+            "reason": "Concrete inspection or watch choice before the festival; leaves intent and risk open."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              4,
+              5,
+              4,
+              4
+            ],
+            "reason": "Clear and grounded, with a useful gatekeeper follow-up."
+          },
+          "preference": "A",
+          "preference_reason": "Offers a more concrete before-festival action."
+        }
+      }
+    },
+    {
+      "case_id": "salt-road-barrels",
+      "blind_label_to_arm": {
+        "A": "control",
+        "B": "voice"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "salt-road-barrels",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              4,
+              4,
+              4,
+              4
+            ],
+            "B": [
+              5,
+              5,
+              5,
+              5
+            ]
+          },
+          "preference": "B",
+          "reason": "B makes the ravine lead and uncertainty clear in fewer, more natural words."
+        },
+        "independent_reviewer": {
+          "case_id": "salt-road-barrels",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              4,
+              4,
+              5
+            ],
+            "reason": "Frames the ravine as a fair first lead and leaves its connection unverified."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              4,
+              5,
+              4,
+              4
+            ],
+            "reason": "Clear and grounded, but less explicit about why this is the first fair lead."
+          },
+          "preference": "A",
+          "preference_reason": "More directly fulfills the first-fair-lead request."
+        }
+      }
+    },
+    {
+      "case_id": "grey-mine-bellows",
+      "blind_label_to_arm": {
+        "A": "control",
+        "B": "voice"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "grey-mine-bellows",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              5,
+              5,
+              4,
+              5
+            ],
+            "B": [
+              5,
+              5,
+              5,
+              4
+            ]
+          },
+          "preference": "B",
+          "reason": "Both preserve uncertainty; B names qualified help for a safer first step."
+        },
+        "independent_reviewer": {
+          "case_id": "grey-mine-bellows",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              5,
+              4,
+              5
+            ],
+            "reason": "Clear safe first step; distinguishes the foreman's account from ledger uncertainty."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              5,
+              5,
+              4
+            ],
+            "reason": "Explicit qualified rescue assessment and external air test before entry."
+          },
+          "preference": "B",
+          "preference_reason": "Makes the safe first step and relevant expertise explicit."
+        }
+      }
+    },
+    {
+      "case_id": "tern-chapel-offerings",
+      "blind_label_to_arm": {
+        "A": "voice",
+        "B": "control"
+      },
+      "reviews": {
+        "PRIME": {
+          "case_id": "tern-chapel-offerings",
+          "hard_gates": {
+            "A": "pass",
+            "B": "pass"
+          },
+          "scores": {
+            "A": [
+              4,
+              5,
+              5,
+              5
+            ],
+            "B": [
+              4,
+              4,
+              3,
+              4
+            ]
+          },
+          "preference": "A",
+          "reason": "A is gentler and reads as prose; B uses inline Established/Unknown labels. A's service lead is a suggested contact, not an established fact."
+        },
+        "independent_reviewer": {
+          "case_id": "tern-chapel-offerings",
+          "A": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              4,
+              4,
+              4,
+              5
+            ],
+            "reason": "Respectful and concise, though it presupposes a service-lead role not stated in evidence."
+          },
+          "B": {
+            "gates": {
+              "factual_grounding": "pass",
+              "uncertainty_and_attribution": "pass",
+              "format_and_word_limit": "pass",
+              "action_pressure_focus": "pass"
+            },
+            "scores": [
+              5,
+              5,
+              4,
+              4
+            ],
+            "reason": "Asks the known caretaker, protects the offerings, and avoids accusation."
+          },
+          "preference": "B",
+          "preference_reason": "Uses a known contact and gives a respectful preparation step."
+        }
+      }
+    }
+  ],
+  "human_gate_adjudication": {
+    "method": "after both blind score files were locked and SHA-256 verified; arm mapping joined by exact unchanged answer text",
+    "results": {
+      "northfield-well": {
+        "control": "fail_grounding",
+        "voice": "pass"
+      },
+      "gloam-orchard": {
+        "control": "fail_grounding",
+        "voice": "pass"
+      },
+      "council-bell": {
+        "control": "pass",
+        "voice": "pass",
+        "lexical_uncertainty_screen_false_negative": true
+      },
+      "all_other_answers": "pass"
+    },
+    "raw_deterministic_gate_fields_preserved": true
+  },
+  "blinded_review_summary": {
+    "PRIME": {
+      "eligible_pair_count": 10,
+      "eligible_case_ids": [
+        "alderwatch-bridge",
+        "marrow-ferry",
+        "council-bell",
+        "westbay-arrivals",
+        "ashen-ridge-crossing",
+        "sealed-archive",
+        "lantern-gate",
+        "salt-road-barrels",
+        "grey-mine-bellows",
+        "tern-chapel-offerings"
+      ],
+      "preference_by_arm": {
+        "control": 4,
+        "voice": 5,
+        "tie": 1
+      },
+      "mean_scores_by_arm": {
+        "control": [
+          4.6,
+          4.6,
+          4.2,
+          4.3
+        ],
+        "voice": [
+          4.4,
+          4.4,
+          4.2,
+          4.0
+        ]
+      }
+    },
+    "independent_reviewer": {
+      "eligible_pair_count": 10,
+      "eligible_case_ids": [
+        "alderwatch-bridge",
+        "marrow-ferry",
+        "council-bell",
+        "westbay-arrivals",
+        "ashen-ridge-crossing",
+        "sealed-archive",
+        "lantern-gate",
+        "salt-road-barrels",
+        "grey-mine-bellows",
+        "tern-chapel-offerings"
+      ],
+      "preference_by_arm": {
+        "control": 4,
+        "voice": 6,
+        "tie": 0
+      },
+      "mean_scores_by_arm": {
+        "control": [
+          4.5,
+          4.6,
+          4.0,
+          4.4
+        ],
+        "voice": [
+          4.5,
+          4.4,
+          3.9,
+          4.0
+        ]
+      }
+    }
+  },
+  "runner_diagnostics": {
+    "observed": "The run emitted provider-plugin registration compatibility warnings and asynchronous FileNotFoundError logging traces while generated temporary Hermes home directories were cleaned up.",
+    "turn_outcomes": "All 24 typed turn results and observed model calls completed successfully.",
+    "artifact_policy": "Diagnostics are summarized here; raw logger output is not included. No prompts, answers, credentials, or personal corpus were emitted in the observed diagnostics."
+  }
+}

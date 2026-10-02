@@ -1,0 +1,258 @@
+{
+  "schema": "hermes_synthetic_style_cases_v1",
+  "source": "fully synthetic; not derived from private or user corpus material",
+  "cases": [
+    {
+      "case_id": "alderwatch-bridge",
+      "evidence": [
+        "Alderwatch has one bridge across the river; it closes at dusk.",
+        "Three nights ago, the east watchtower's blue lantern went dark. Its keeper, Nera, is missing.",
+        "A dry trail of silver dust runs from the tower toward the old quarry; nobody has followed it.",
+        "The mayor says the north road is passable. The ferryman reports hearing bells beneath the river."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on the bridge deadline and the first choice the party faces.",
+      "supported_facts": [
+        "The bridge closes at dusk and is Alderwatch's only bridge.",
+        "Nera and the east watchtower lantern are missing or dark.",
+        "The silver trail points toward the old quarry and is uninvestigated.",
+        "The mayor and ferryman reports are attributed statements."
+      ],
+      "known_unknowns": [
+        "What happened to Nera or the lantern.",
+        "Where the silver trail leads or what caused the bells."
+      ],
+      "actionable_pressure": "The party must plan around the bridge closing at dusk."
+    },
+    {
+      "case_id": "marrow-ferry",
+      "evidence": [
+        "The Marrow ferry has missed two morning crossings this week.",
+        "A red warning pennant was tied to the south landing before dawn.",
+        "The ferrymaster says the engine is sound; a deckhand says the spare fuel drum is gone.",
+        "The river is running high, but no flood warning has been issued."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on how the missed crossings affect the party's immediate route choice.",
+      "supported_facts": [
+        "Two morning crossings were missed this week.",
+        "The red pennant was at the south landing before dawn.",
+        "The ferrymaster and deckhand give conflicting explanations.",
+        "The river is high and there is no issued flood warning."
+      ],
+      "known_unknowns": [
+        "Why the crossings were missed.",
+        "Who tied the pennant or whether the fuel drum is actually gone."
+      ],
+      "actionable_pressure": "The party should choose a route while accounting for uncertain ferry availability."
+    },
+    {
+      "case_id": "gloam-orchard",
+      "evidence": [
+        "A strip of frost appeared overnight across one row of Gloam Orchard despite mild weather.",
+        "The orchard keeper has not inspected the roots beneath that row.",
+        "A cellar door at the orchard edge was found closed and locked this morning.",
+        "The keeper says no one has reported damaged fruit yet."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a useful first investigation without deciding the cause.",
+      "supported_facts": [
+        "Frost affected one row overnight during mild weather.",
+        "The roots have not been inspected.",
+        "The cellar door was locked when found.",
+        "No damaged fruit has been reported to the keeper."
+      ],
+      "known_unknowns": [
+        "What caused the frost.",
+        "Whether the roots, cellar, or fruit are affected."
+      ],
+      "actionable_pressure": "The party can inspect the affected row and its unexamined roots before deciding what the frost means."
+    },
+    {
+      "case_id": "council-bell",
+      "evidence": [
+        "The council hall bell rang twice at noon on three consecutive days.",
+        "Each time, the east window was open; the caretaker says it was latched before noon.",
+        "The bell rope was found coiled on the floor after the third ringing.",
+        "No witness saw anyone inside the hall."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a fair clue and one unresolved question for the hall scene.",
+      "supported_facts": [
+        "The bell rang twice at noon for three consecutive days.",
+        "The east window was open each time, despite the caretaker's account.",
+        "The rope was coiled after the third ringing.",
+        "No witness saw anyone inside."
+      ],
+      "known_unknowns": [
+        "Who or what rang the bell.",
+        "Whether the caretaker's account is mistaken or false."
+      ],
+      "actionable_pressure": "The party can inspect the window and rope while keeping the cause unresolved."
+    },
+    {
+      "case_id": "westbay-arrivals",
+      "evidence": [
+        "Two Westbay cargo ships are listed as due tomorrow, not today.",
+        "The dockmaster reports seeing a blue sail moving west last night.",
+        "Neither ship has checked in at the harbor office.",
+        "A crate of medical supplies is expected on one of the ships."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on the supplies and what the party can verify before the ships are due.",
+      "supported_facts": [
+        "Two cargo ships are due tomorrow.",
+        "The dockmaster reports a blue sail moving west last night.",
+        "Neither ship has checked in.",
+        "Medical supplies are expected on one ship."
+      ],
+      "known_unknowns": [
+        "Whether the blue sail belonged to either ship.",
+        "Whether the supplies or ships are delayed, diverted, or in danger."
+      ],
+      "actionable_pressure": "The party can verify the manifest and prepare a contingency before the arrival deadline."
+    },
+    {
+      "case_id": "ashen-ridge-crossing",
+      "evidence": [
+        "The Ashen Ridge bridge supports groan when carts cross.",
+        "An engineer says carts under two tons can cross safely.",
+        "A miller reports that one plank cracked under a handcart yesterday.",
+        "Heavy rain is forecast before dusk."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on the party's crossing decision before the rain.",
+      "supported_facts": [
+        "The bridge supports groan under carts.",
+        "The engineer and miller give different assessments.",
+        "The miller reports a plank cracked under a handcart.",
+        "Heavy rain is forecast before dusk."
+      ],
+      "known_unknowns": [
+        "The bridge's actual weight limit and whether the report is representative.",
+        "Whether rain will worsen the crossing."
+      ],
+      "actionable_pressure": "The party must weigh the crossing risk against the rain deadline without treating either report as conclusive."
+    },
+    {
+      "case_id": "sealed-archive",
+      "evidence": [
+        "A page is missing from the sealed archive ledger.",
+        "The archivist says the cabinet was locked at closing.",
+        "The assistant also has a cabinet key; the key log has no entry for last night.",
+        "The night watch heard a cart in the courtyard but did not see who was driving."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a fair investigation that does not accuse anyone without evidence.",
+      "supported_facts": [
+        "A ledger page is missing.",
+        "The archivist says the cabinet was locked at closing.",
+        "The assistant has a key and the log contains no entry.",
+        "The watch heard a cart but saw no driver."
+      ],
+      "known_unknowns": [
+        "Who removed the page or whether it was removed intentionally.",
+        "Who drove the cart or whether it is connected."
+      ],
+      "actionable_pressure": "The party can compare the key log and cart report before drawing accusations."
+    },
+    {
+      "case_id": "northfield-well",
+      "evidence": [
+        "Water from Northfield's public well tasted metallic after a pump repair yesterday.",
+        "No illness has been reported to the healer.",
+        "The repair crew says it replaced a worn valve and left the well open.",
+        "A water inspection is scheduled for tomorrow morning."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a cautious immediate response while the inspection is pending.",
+      "supported_facts": [
+        "The water tasted metallic after a pump repair.",
+        "No illness has been reported to the healer.",
+        "The crew replaced a worn valve and left the well open, according to the crew.",
+        "Inspection is scheduled for tomorrow morning."
+      ],
+      "known_unknowns": [
+        "Whether the water is unsafe or the taste is caused by the repair.",
+        "Whether anyone is ill but has not reported it."
+      ],
+      "actionable_pressure": "The party can help residents use caution and await the scheduled inspection without declaring the water safe or poisoned."
+    },
+    {
+      "case_id": "lantern-gate",
+      "evidence": [
+        "The Lantern Festival begins tonight beside the canal.",
+        "A festival lantern was found in the water with a note reading 'leave the gate open'.",
+        "The canal gate controls the lower market's water level.",
+        "The gatekeeper says the mechanism is working normally."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a choice the party can make before the festival begins.",
+      "supported_facts": [
+        "The festival begins tonight.",
+        "A lantern and note were found in the canal.",
+        "The gate controls the lower market's water level.",
+        "The gatekeeper reports that the mechanism works normally."
+      ],
+      "known_unknowns": [
+        "Who wrote the note and what they intend.",
+        "Whether the gate is actually at risk."
+      ],
+      "actionable_pressure": "The party must decide whether to inspect or secure the gate before the festival, while the note's meaning remains uncertain."
+    },
+    {
+      "case_id": "salt-road-barrels",
+      "evidence": [
+        "A salt-road wagon arrived with two fewer water barrels than its manifest lists.",
+        "The driver says all barrel seals were intact at departure.",
+        "A line of footprints ends at the dry ravine beside the road.",
+        "No one has searched the ravine."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on the first fair lead and what remains unverified.",
+      "supported_facts": [
+        "Two barrels are missing relative to the manifest.",
+        "The driver says seals were intact at departure.",
+        "Footprints end at the ravine.",
+        "The ravine has not been searched."
+      ],
+      "known_unknowns": [
+        "When or how the barrels went missing.",
+        "Who made the footprints or what is in the ravine."
+      ],
+      "actionable_pressure": "The party can search the ravine before deciding whether the driver or route is responsible."
+    },
+    {
+      "case_id": "grey-mine-bellows",
+      "evidence": [
+        "The bellows at Grey Mine stopped working before the first shift.",
+        "The foreman says no workers went below today.",
+        "The shift ledger lists three miners who have not checked in.",
+        "The mine's air has not been tested since the bellows stopped."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a safe first step before anyone enters the mine.",
+      "supported_facts": [
+        "The bellows stopped before the first shift.",
+        "The foreman says nobody went below today.",
+        "Three miners have not checked in according to the ledger.",
+        "The mine air has not been tested."
+      ],
+      "known_unknowns": [
+        "Whether any miners are underground.",
+        "Whether the air is safe or why the bellows stopped."
+      ],
+      "actionable_pressure": "The party should verify the miners' location and test the air before anyone enters."
+    },
+    {
+      "case_id": "tern-chapel-offerings",
+      "evidence": [
+        "For three mornings, offerings have appeared on the Tern Chapel windowsill instead of the altar.",
+        "The caretaker blames visitors but has no names.",
+        "The night watch has not seen anyone approach the chapel.",
+        "A memorial service is scheduled there tomorrow."
+      ],
+      "question": "Write a compact co-GM prep note (at most 100 words) for the next session. Lead with the most useful actionable pressure, distinguish established facts from unknowns, and do not invent an outcome. Natural prose; no headings or bullet list. Focus on a respectful question or preparation before the service.",
+      "supported_facts": [
+        "Offerings appeared on the windowsill for three mornings, not the altar.",
+        "The caretaker suspects visitors but has no names.",
+        "The night watch did not see anyone approach.",
+        "A memorial service is scheduled for tomorrow."
+      ],
+      "known_unknowns": [
+        "Who left the offerings and why.",
+        "Whether the offerings relate to the service."
+      ],
+      "actionable_pressure": "The party can speak with the caretaker and prepare the chapel respectfully before the service, without blaming anyone."
+    }
+  ]
+}
