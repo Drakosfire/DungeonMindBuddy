@@ -114,7 +114,8 @@ function renderChoices(text,nested,s){
   $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary><span class="choice-callout">Choices <span class="choice-hint">Click to expand</span></span></summary><p class="choice-prompt">${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'What do they do?')}</p>${md(text.slice(c.bodyStart,c.end).replace(/^\s*### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=o.unexpected?'Something else.':raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^\s*- \*\*[^*]+\*\*[^\n]*(?:\n|$)/,'');return `<div class="option"><label><input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> ${esc(title)}</label>${/something (else|unexpected)|another objective/i.test(title)?`<label class="other-action">What did they do?<textarea data-other-note="${o.id}" placeholder="Describe the unexpected action…">${esc(state.otherNotes[state.doc+':'+s.id+':'+o.id]??state.otherNotes[state.doc+':'+s.id]??'')}</textarea></label>`:''}<details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}<button type="button" class="log-direction">Log player direction</button><span class="direction-status" role="status">${state.outcomes.some(o=>o.document===state.doc&&o.scene===s.id)?'Saved in Decision log · browser only':'Saved here in your browser; export from Files'}</span></details>`);
  }
 }
-function showReference(id,label){
+async function showReference(id,label){
+ if(id==='node:captain-lysandra-ironveil'){await showLysandra(label);return}
  const mentions=state.drafts.flatMap((text,doc)=>parse(text).scenes.flatMap(scene=>{
   const body=text.slice(scene.bodyStart,scene.end);
   const paragraphs=body.replace(/<!--.*?-->/gs,'').split(/\n\s*\n/).filter(p=>p.includes('(dmb-node:'+id+')')).map(p=>p.replace(/\[([^\]]+)\]\(dmb-node:[^)]+\)/g,'$1').replace(/^#{1,4} /gm,'').trim());
@@ -122,11 +123,32 @@ function showReference(id,label){
   if(paragraphs.length&&situation&&!paragraphs.includes(situation))paragraphs.push(situation.replace(/\[([^\]]+)\]\(dmb-node:[^)]+\)/g,'$1'));
   return paragraphs.length?[{doc,scene,paragraphs}]:[];
  }));
- $('#editorTitle').textContent=label;$('#editorHelp').textContent='In your preparation · '+mentions.length+' connected scenes';
- $('#fields').innerHTML=mentions.length?mentions.map(m=>`<section class="reference-context"><button type="button" data-reference-scene="${esc(m.scene.id)}" data-reference-doc="${m.doc}">${esc(fixtures[m.doc].name)} · ${esc(m.scene.title)} →</button>${m.paragraphs.slice(0,2).map(p=>`<p>${inline(p)}</p>`).join('')}</section>`).join(''):'<p>No scene context is linked to this reference yet.</p>';
+ $('#editorTitle').textContent=label;$('#editorHelp').textContent='Preparation references · '+mentions.length+' scenes in these documents';
+ $('#fields').innerHTML=mentions.length?mentions.map(m=>`<section class="reference-context"><button type="button" data-reference-scene="${esc(m.scene.id)}" data-reference-doc="${m.doc}">${esc(fixtures[m.doc].name)} · ${esc(m.scene.title)} →</button>${m.paragraphs.slice(0,2).map(p=>`${md(p)}`).join('')}</section>`).join(''):'<p>No scene context is linked to this reference yet.</p>';
  $('#fields').insertAdjacentHTML('beforeend',`<details><summary>Advanced</summary><p>${esc(id)}</p><p>Context comes from local preparation, not a live Graph query.</p></details>`);
  document.querySelectorAll('[data-reference-scene]').forEach(b=>b.onclick=()=>{$('#editor').close();state.view='cards';go(b.dataset.referenceScene,+b.dataset.referenceDoc)});
  $('#apply').hidden=true;$('#errors').textContent='';$('#editor').showModal();
+}
+async function showLysandra(label){
+ $('#editorTitle').textContent=label;$('#editorHelp').textContent='Mirathorn Guard · Mireward roots';$('#apply').hidden=true;$('#errors').textContent='';
+ $('#fields').innerHTML='<nav class="node-tabs"><button type="button" data-node-tab="overview">Character</button><button type="button" data-node-tab="timeline">Timeline</button><button type="button" data-node-tab="statblock4">Statblock · CR 4</button><button type="button" data-node-tab="history">Family & places</button><button type="button" data-node-tab="dossier">Dossier</button></nav><section id="nodeBody"></section>';
+ async function view(tab){
+  document.querySelectorAll('[data-node-tab]').forEach(b=>b.classList.toggle('active',b.dataset.nodeTab===tab));
+  if(tab==='overview'){$('#nodeBody').innerHTML='<p>Disciplined, restrained field commander and liaison between the Mirathorn Guard, City Council and Questionable Company. Raised in Mireward; duty drew her to Mirathorn.</p><h3>People & ties</h3><ul><li><strong>Lysandro</strong> · father; gate keeper and outspoken critic of hierarchy.</li><li><strong>Merrow</strong> · mother.</li><li><strong>Torr</strong> · grandfather; taught her head-count math.</li><li><strong>Calyx</strong> · sibling.</li><li><strong>Questionable Company</strong> · field allies; liaison and command responsibility.</li></ul><p>At home, public discipline meets family accountability. She deflects, corrects or goes quiet rather than explaining her past.</p><details><summary>Sources & coverage</summary><p>Saved character dossier and Mireward family history. Dossier calls her Lieutenant; statblock calls her Captain. Current rank is not resolved here. Live Graph relationships are not loaded.</p></details>';return}
+  $('#nodeBody').textContent='Loading…';
+  const text=await (await fetch('./node-sources/'+tab+'.md')).text();
+  if(tab==='timeline'){
+   const rows=text.split('\n').filter(l=>/^\| \d/.test(l)).map(l=>l.split('|').slice(1,-1).map(c=>c.trim()));
+   const sessions=[...new Set(rows.map(r=>r[0]))];
+   $('#nodeBody').innerHTML='<p class="coverage-note">Saved routed recap timeline · Session '+sessions.join(', ')+'. This source is a partial history; later sessions and current Graph evidence are not loaded.</p>'+sessions.map(session=>'<h3>Session '+esc(session)+'</h3><ol>'+rows.filter(r=>r[0]===session).map(r=>'<li>'+inline(r[4])+'</li>').join('')+'</ol>');
+  }else {
+   let display=text.replace(/^---\n[\s\S]*?\n---\n/,'').replace(/^!\[.*?\]\(.*?\)\s*$/gm,'');
+   display=display.replace(/<table>.*?<\/table>/gs,table=>{const cells=[...table.matchAll(/<td>([^<]*)<\/td>/g)].map(m=>m[1]);return cells.length===12?'| '+cells.slice(0,6).join(' | ')+' |\n| '+cells.slice(6).join(' | ')+' |':table});
+   if(tab==='statblock4')display=display.replace(/^RESPECTED AND RALLYING[^\n]*\n/m,'');
+   $('#nodeBody').innerHTML=md(display)+(tab==='statblock4'?'<p><a href="./node-sources/statblock2.md" target="_blank">Open baseline CR 2 source</a></p>':'');
+  }
+ }
+ document.querySelectorAll('[data-node-tab]').forEach(b=>b.onclick=()=>view(b.dataset.nodeTab));await view('overview');$('#editor').showModal();
 }
 function openEdit(s,text){
  $('#apply').hidden=false;$('#apply').textContent='Apply preparation';$('#editorTitle').textContent='Edit · '+s.title;$('#editorHelp').textContent='Edit one scene in the local preparation copy. Existing stable markers must remain intact.';

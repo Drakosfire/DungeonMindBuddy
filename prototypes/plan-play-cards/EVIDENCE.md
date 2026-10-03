@@ -67,3 +67,7 @@ Fixed clearing of logged checklist selections; migrated existing logs back into 
 ## Shared writing pad and default unexpected action
 
 Added a bottom floating Notes button and resizable non-modal writing pad, shared across scenes and documents. Browser verified typed text survives Next and refresh; removed only the test text and returned to the original scene. Open state also persists. Markdown export is separate. Every choice group now supplies the unexpected-action note UI, reusing an explicit source option or a local fallback. Source fixtures remain unchanged. Screenshot: `evidence/shared-notepad.png`.
+
+## Lysandra character view
+
+Replaced the preparation-only Lysandra popup with a source-backed character view: role, formatted family/ally ties, dossier, Mireward family/place history, saved routed Session 20 timeline and CR4 statblock with baseline CR2 link. Copied sources verbatim into node-sources, with original paths in provenance.json. Browser verified character and statblock tabs. Timeline explicitly declares partial saved coverage; this is not live Graph integration, current statblock lifecycle resolution or a full cross-session chronology. Rank disagreement is preserved in Sources & coverage. Generic context excerpts now use Markdown formatting. Screenshot: evidence/lysandra-character.png.
