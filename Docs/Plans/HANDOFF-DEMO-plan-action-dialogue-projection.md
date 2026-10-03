@@ -9,6 +9,7 @@
 **Preparation base:** Buddy `main@327bdb5a899178eef2c16f3e9198219eb8e79773` (PR #863 merge).
 
 **Amendment base:** Buddy `main@1c0320d18c53037308cd7412719fb3e2f0610d99` (PR #865 merge).
+**Timing amendment base:** Buddy `main@8c4671c2769067af3ee46abff1ce675434d62916` (PR #895 merge).
 
 **Accepted design:** PR #859 merged at `43c4c4daa8e1c17b22953681fe817e6881242b36` from reviewed head `c78feb94f37f7612200e2d0962d26d0f5a1326cf`. This amendment narrows the action-record scope and records the shared-migration ownership ruling; it does not activate implementation.
 
@@ -92,11 +93,35 @@ accepted. Current runtime routes and services remain outside this handoff.
 
 ## Provider operation and action-lease decision
 
-Buddy pins GenerationEngine commit `9122257f5a8842e4771990a3316130bc1bf7e332` in `pyproject.toml` and `uv.lock`. At this pin, `TextRequest.deadline_ms` bounds one `generate_structured` operation, including GenerationEngine's bounded retry/backoff and structured-conformance attempts. PRIME accepts one top-level operation per newly reserved Plan action; same-key retries, concurrent duplicates, and status reads never start another operation. This permits GenerationEngine's bounded internal attempts and does not promise one provider HTTP request or exactly-once provider execution.
+Buddy pins GenerationEngine commit
+`9122257f5a8842e4771990a3316130bc1bf7e332` in `pyproject.toml` and
+`uv.lock`. At this pin, `TextRequest.deadline_ms` bounds one
+`generate_structured` operation, including GenerationEngine's bounded
+retry/backoff and structured-conformance attempts. PRIME accepts one top-level
+operation per newly reserved Plan action; same-key retries, concurrent
+duplicates, and status reads never start another operation. This permits
+GenerationEngine's bounded internal attempts; it does not promise one provider
+HTTP request or exactly-once provider execution.
 
-The Plan proposal path must explicitly pass `deadline_ms=60000`. The Plan action's database-time lease is 120 seconds from durable reservation. Terminal writes use database time and require the live lease and matching dispatch token/fence. The 60 seconds is an operation budget, not a hard route or reservation-to-terminal wall-clock bound. The synchronous bridge joins its worker without a timeout; expiry does not cancel an already-running provider call or reclaim its worker thread. Setup, sync cleanup, or persistence may consume the nominal interval between the operation budget and lease, so that interval is not a guaranteed terminal-persistence margin. If work outlives the lease, the fence/expiry transition makes the action `indeterminate`; no terminal success/failure or proposal payload/summary may be exposed, and the same intent never redispatches. Hard route cancellation or thread reclamation is separate future owner work outside this capability.
+The Plan proposal path must explicitly pass `deadline_ms=60000`. The Plan
+action's database-time lease is 120 seconds from durable reservation.
+Terminal writes use database time and require the live lease and matching
+dispatch token/fence. The 60 seconds is an operation budget, not a hard route
+or reservation-to-terminal wall-clock bound. The synchronous bridge joins its
+worker without a timeout; expiry does not cancel an already-running provider
+call or reclaim its worker thread. Setup, sync cleanup, or persistence may
+consume the nominal interval between the operation budget and lease, so that
+interval is not a guaranteed terminal-persistence margin. If work outlives
+the lease, the fence/expiry transition makes the action `indeterminate`; no
+terminal success/failure or proposal payload/summary may be exposed, and the
+same intent never redispatches. Hard route cancellation or thread reclamation
+is separate future owner work outside this capability.
 
-The database row and its compare-and-set are authoritative for outcome. A response whose `completed` compare-and-set won before expiry may be delivered later for its original action/basis; a response whose write loses to expiry or indeterminate state must not expose usable proposal content. A new attempt requires fresh explicit user intent and a fresh idempotency key.
+The database row and its compare-and-set are authoritative for outcome. A
+response whose `completed` compare-and-set won before expiry may be delivered
+later for its original action/basis; a response whose write loses to expiry or
+indeterminate state must not expose usable proposal content. A new attempt
+requires fresh explicit user intent and a fresh idempotency key.
 
 ## Write-time record contract
 
@@ -398,8 +423,9 @@ from reviewed head `c78feb94f37f7612200e2d0962d26d0f5a1326cf` after PRIME's
 exact-diff review. It accepts this bounded capability's design only. The
 2026-10-03 amendment records PRIME's accepted Plan-owned expiry/fence rule,
 ARCHITECTURE's review, the explicit 60-second GenerationEngine operation
-budget versus 120-second database-time lease (without a hard route-time claim),
-and RAKE DUTY's read-only late-payload failure audit and owning-boundary test. PR #865 is accepted and merged at
+budget versus 120-second database-time lease (without a hard route-time
+claim), and RAKE DUTY's read-only late-payload failure audit and owning-boundary
+test. PR #865 is accepted and merged at
 `1c0320d18c53037308cd7412719fb3e2f0610d99`; it does not provide live
 consumer/provider/operator evidence or J1–J6 acceptance. APP-STATE's explicit
 review of the Plan-owned migration and shared unit-of-work boundary and PRIME's
