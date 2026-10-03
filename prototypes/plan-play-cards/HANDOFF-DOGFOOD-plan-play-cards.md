@@ -1,0 +1,3 @@
+# DOGFOOD Plan / Play card prototype
+
+ACTIVE — direct operator prototype authorization relayed by PRIME, 2026-10-02. Serial independent prototype PR. Base origin/main 1ded2275; branch codex/dogfood-plan-play-cards; checkout /tmp/dmb-plan-play-cards. Exclusive write set prototypes/plan-play-cards/** only. No shared UI, application APIs, databases, graph or runtime mutation. Port 5203 reserved for standalone prototype; live 5202/7866 retained. Fixture imports exact source Markdown with stable marker indexes; edits/outcomes stay in labeled browser-local prototype state. Completion requires four operator flows and browser evidence plus owning-boundary tests. No provider or production capability claims.
