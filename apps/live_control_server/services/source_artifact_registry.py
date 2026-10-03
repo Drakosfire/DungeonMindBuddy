@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -43,6 +44,8 @@ from src.live_play.live_store import load_json, write_json
 
 DEFAULT_SOURCE_ARTIFACT_REGISTRY_REL = "out/registries/source_artifacts.json"
 DEFAULT_SOURCE_SPAN_INDEX_DIR_REL = "out/registries/source_span_indexes"
+RECAP_SOURCE_CONTENT_ROOT_ENV = "DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT"
+DEFAULT_RECAP_SOURCE_CONTENT_ROOT = "out/registries/source_content/recap"
 SOURCE_ARTIFACT_REGISTRY_SCHEMA = "dmb_source_artifact_registry_v1"
 
 _SAFE_ARTIFACT_DIR_RE = re.compile(r"[^A-Za-z0-9._-]+")
@@ -110,6 +113,18 @@ def _resolve_registry_content_path(root: Path, relpath: str) -> Path:
             status_code=422,
         )
     return target
+
+
+def _recap_content_root_relpath(root: Path) -> str:
+    configured = os.environ.get(RECAP_SOURCE_CONTENT_ROOT_ENV, "").strip()
+    value = (configured or DEFAULT_RECAP_SOURCE_CONTENT_ROOT).replace("\\", "/")
+    path = Path(value)
+    if value.startswith("file:") or path.is_absolute() or ".." in path.parts:
+        raise SourceArtifactRegistryError(
+            "unsafe recap source content root", status_code=422
+        )
+    _resolve_registry_content_path(root, value)
+    return path.as_posix()
 
 
 def source_span_index_relpath(source_artifact_id: str) -> str:
@@ -565,7 +580,8 @@ def create_recap_source_artifact(
 
     Bytes are always materialized under a registry-owned, repo-contained URI
     keyed by the full content digest
-    (``out/registries/source_content/recap/<campaign>/<session>/<sha256>.md``).
+    (default ``out/registries/source_content/recap``; an explicitly configured
+    repo-contained recap content root may replace that prefix).
     The caller's original recap path is read-only input and is never rewritten.
     """
     cleaned_campaign = _require_safe_path_segment(
@@ -611,7 +627,7 @@ def create_recap_source_artifact(
     # retain or rewrite the caller's original recap path — that source must stay
     # immutable from the registry's perspective.
     relpath = (
-        "out/registries/source_content/recap/"
+        f"{_recap_content_root_relpath(root)}/"
         f"{cleaned_campaign}/{cleaned_session}/{content_sha256}.md"
     )
     target = _resolve_registry_content_path(root, relpath)
