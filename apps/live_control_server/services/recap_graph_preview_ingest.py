@@ -20,6 +20,7 @@ from apps.live_control_server.services.graph_ingest_run_registry import (
     GraphIngestRunSummary,
     UNUSABLE_SOURCE_RECAP_DIGEST,
     discover_graph_ingest_runs,
+    graph_ingest_output_root,
 )
 from apps.live_control_server.services.graph_preview_runner import (
     run_recap_production_extraction,
@@ -41,7 +42,6 @@ from graph_memory.ingestion.graph_ingest_run import (
 
 
 _MANIFEST_NAME = "graph_ingest_run_manifest.json"
-_RUNS_ROOT = Path("out/graph_memory/runs")
 logger = logging.getLogger(__name__)
 
 
@@ -1305,10 +1305,15 @@ def _candidate_graph_path(repo: Path, manifest_path: Path) -> str | None:
 
 def _new_run_dir(repo: Path, campaign_id: str, session: int) -> Path:
     timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-    base = _RUNS_ROOT / campaign_id / f"session-{session}" / timestamp
+    base = (
+        graph_ingest_output_root(repo).relative_to(repo.resolve())
+        / campaign_id
+        / f"session-{session}"
+        / timestamp
+    )
     path = base
     suffix = 1
-    while path.exists():
+    while (repo / path).exists():
         suffix += 1
         path = base.with_name(f"{base.name}-{suffix}")
     return path

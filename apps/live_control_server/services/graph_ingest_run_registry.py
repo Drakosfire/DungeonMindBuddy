@@ -364,6 +364,15 @@ def _normalize_repo_path(repo: Path, value: str) -> str:
     return path.as_posix().lstrip("./")
 
 
+def graph_ingest_output_root(repo: Path) -> Path:
+    """Use the configured discovery root for new runs, with identical confinement."""
+    value = (
+        os.environ.get(GRAPH_INGEST_RUNS_ENV, "").strip()
+        or DEFAULT_GRAPH_INGEST_RUN_ROOTS[0]
+    )
+    return _resolve_repo_contained_path(Path(value), repo.resolve(), must_exist=False)
+
+
 def _graph_ingest_search_roots(
     repo: Path, *, include_eval_roots: bool = False
 ) -> list[Path]:

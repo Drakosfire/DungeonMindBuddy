@@ -990,3 +990,25 @@ def test_recap_inspection_route_rejects_worldbuilding(
     )
     assert response.status_code == 422
     assert "not applicable" in response.json()["detail"]
+
+
+def test_recap_writer_and_discovery_use_configured_root(client_env, monkeypatch):
+    from apps.live_control_server.services.graph_ingest_run_registry import discover_graph_ingest_runs
+
+    client, _corpus, _candidate = client_env
+    configured = "out/test_recap_ingest_graph_preview/configured-runs"
+    monkeypatch.setenv("DUNGEONMIND_GRAPH_INGEST_RUNS_ROOT", configured)
+    _prepare_normalized(client)
+    try:
+        response = client.post("/api/live/recap-ingest", json={
+            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22,
+        })
+        assert response.status_code == 200, response.text
+        graph = response.json()["ingest_report"]["graph_preview"]
+        assert graph["status"] == "source_span_bundle_ready"
+        assert graph["manifest_path"].startswith(configured + "/longmont-c2/session-22/")
+        assert (ROOT / graph["manifest_path"]).is_file()
+        runs = discover_graph_ingest_runs(ROOT, campaign_id="longmont-c2", session_id="session-22")
+        assert any(run.manifest_path == graph["manifest_path"] for run in runs)
+    finally:
+        shutil.rmtree(ROOT / configured, ignore_errors=True)
