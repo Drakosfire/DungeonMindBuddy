@@ -47,6 +47,11 @@ create one.
   source record UUID. The future consumer merge orders by
   `(accepted_at, source rank [Ask=0, PlanAction=1], source sequence, source
   record UUID)` and applies its total-six cap after merging.
+- Resolve the active conversation and read eligible turns in one SQL statement
+  joining the APP-owned World pointer, active conversation, turns, and primary
+  references. Do not resolve the pointer in one statement and query turns in a
+  later snapshot; a concurrent conversation switch must not make an archived
+  conversation look active to this projection.
 - Return a small typed projection containing only the visible user question,
   visible assistant answer, and the metadata above. Do not return complete
   `Turn` records, idempotency keys/fingerprints, failure data, provider state,
