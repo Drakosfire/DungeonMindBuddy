@@ -1,45 +1,46 @@
 # HANDOFF — APP-STATE: World turn replay and authorization repair
 
-- **Status:** ACTIVE — APP-STATE code/test-only #865 repair lease; no live
-  provider, operator, HTTP runtime, or production/cutover database lease.
+- **Status:** COMPLETE — Buddy PR #865 merged at
+  `1c0320d18c53037308cd7412719fb3e2f0610d99` from reviewed head
+  `097107324e0be5f5e7aa45e9633f70c09c4794e5`. Its code/test lease is released;
+  later consumer/provider/operator activation remains separately held.
 - **Steward and accountable owner:** APP-STATE.
 - **Repository:** `Drakosfire/DungeonMindBuddy`.
 - **Design base:** Buddy `main@2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c`.
-- **Frozen implementation reference:** Buddy #865 head
-  `b8aa42c3b4b6b5201d39b19aa62c2bef364cc94c`.
-- **Implementation lane:** isolated branch
-  `codex/agent-interaction-world-runtime-repair`, based on current `origin/main`
-  at `2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c`.
-- **Topology:** serial: merged APP-STATE claim/receipt recovery (#867) → one
-  auth/replay repair/rebase of #865 → current DEMO #857 canonical World
-  conversation plus Plan/action projections, preserving committed-Plan-only
-  Ask → separately authorized Plan/Graph auto-context. DEMO owns #857 and the
-  Plan consumer.
-- **PR topology:** update the existing #865 capability in one cumulative PR
-  after PRIME re-anchors and dispatches it. Do not create an Ask/Graph retrieval
-  PR or fold retrieval into #865.
+- **Reviewed implementation head:** Buddy #865 `097107324e0be5f5e7aa45e9633f70c09c4794e5`.
+- **Merge base:** `main@2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c`.
+- **Topology:** serial code path completed: APP-STATE claim/receipt recovery
+  (#867) → AGENT-INTERACTION World runtime (#865) → DEMO Plan action-dialogue
+  design (#859) → later Plan consumer/cutover. The later stages remain separate.
+- **PR topology:** the existing #865 was updated in place and merged. No
+  Ask/Graph retrieval PR was created or folded into #865.
 
-This handoff activates only the bounded code/test repair below. It keeps #865
-as one World conversation runtime capability and does not authorize live
-operator activation, configured-provider calls, database migration, or live
-database access. #857 retains #833's committed-Plan-only Ask behavior. Plan or
-Graph automatic context is a later, separately authorized capability with
-explicit context intent, same-World scope, `focus=none`, and exact per-turn Plan,
-Graph, anchor, and omission provenance; it is excluded from both #865 and the
-current #857 cutover.
+This handoff records the completed bounded code/test repair. It kept #865 as
+one World conversation runtime capability and did not authorize live operator
+activation, configured-provider calls, database migration, or live database
+access. #857 retains #833's committed-Plan-only Ask behavior. Plan or Graph
+automatic context is a later, separately authorized capability with explicit
+context intent, same-World scope, `focus=none`, and exact per-turn Plan, Graph,
+anchor, and omission provenance; it was excluded from #865 and the current #857
+cutover.
 
-## Re-anchor after #893
+## Historical re-anchor before #865 repair
 
-- `origin/main` is `2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c`, the #893 merge.
+This records the 2026-10-03 pre-merge activation checkpoint. Its frozen-head
+and open-PR statements are superseded by the merge settlement at the end of
+this handoff.
+
+- At this checkpoint, `origin/main` was
+  `2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c`, the #893 merge.
   #893 adds only
   `Docs/Plans/HANDOFF-DEMO-plan-world-auto-context.md`; that handoff remains
   BLOCKED and grants no implementation, service, Graph, provider, database, or
   runtime lease. Its complete-provider-request budget and distinct real-runtime
   lease gate apply to that future auto-context capability, not to this #865
   repair.
-- #865 remains OPEN, base `main`, head
-  `b8aa42c3b4b6b5201d39b19aa62c2bef364cc94c`, with the same five cumulative
-  paths listed below. Merging #893 did not update or activate #865.
+- At that checkpoint, #865 was OPEN, base `main`, head
+  `b8aa42c3b4b6b5201d39b19aa62c2bef364cc94c`, with the five cumulative paths
+  listed below. Merging #893 did not update or activate #865.
 - ARCHITECTURE's final #893 findings apply only to the later auto-context
   successor: current R.3 anchor reads do not expose `source_revision_id`; a
   future receipt must use verified returned-content digest, pinned Graph
@@ -150,12 +151,12 @@ This checkpoint does not authorize edits to APP-STATE persistence, `types.py`,
 repository/schema, migrations, Graph, UI, provider configuration, or root
 configuration.
 
-## Active narrow #865 repair lease
+## Historical narrow #865 repair lease
 
-PRIME accepted this handoff and released the code repair. #865 remains the
-single PR; its open state is transport, not authority beyond this exact lease.
-The old divergent runtime worktree is preserved, and this new checkout was
-created from current `origin/main`.
+At dispatch, PRIME accepted this handoff and released the code repair. #865 was
+the single PR; its open state was transport, not authority beyond the exact
+lease. The old divergent runtime worktree remains preserved, and the repair
+checkout was created from that checkpoint's `origin/main`.
 
 - **Base:** `origin/main@2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c`.
 - **PR:** update #865 in place as one cumulative PR; do not open an Ask/Graph
@@ -242,7 +243,7 @@ not print or commit the DSN. Do not use the fixture's local fallback or
 environment is unavailable, report the owning test as unrun; do not substitute
 a live database.
 
-## Scope, gates, and dispatch
+## Scope, gates, and dispatch at implementation start
 
 - No Plan/Graph auto-context or retrieval behavior, citations, new route/schema,
   migration, broad APP-STATE redesign, UI/Plan consumer work, provider
@@ -258,3 +259,134 @@ a live database.
   `origin/main` base/head and diff review, boundary tests, and truthful report
   of inherited failures or missing witnesses. Merge remains separate
   authority.
+
+## Settlement — Buddy #865 merge
+
+The bounded APP-STATE repair is complete. Buddy PR #865 merged on 2026-10-03
+at `1c0320d18c53037308cd7412719fb3e2f0610d99` from reviewed head
+`097107324e0be5f5e7aa45e9633f70c09c4794e5`, based on
+`main@2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c`. PRIME reported 58 combined
+route, PostgreSQL, Agent-service, and auth tests passing in 41.43 seconds,
+plus the HTTP cardinality case passing in 8.42 seconds. ARCH's conditional
+code-acceptance holds were resolved. The original five-path lease and its
+explicitly authorized test-only `tests/test_agent_graph_auth.py` addition are
+released. These code checks do not activate a configured provider, live World,
+production database, consumer cutover, or operator acceptance.
+
+The merged runtime contract and later held activation gates are recorded in
+[the AGENT-INTERACTION runtime handoff](HANDOFF-AGENT-INTERACTION-world-conversation-runtime.md).
+
+## Next contract checkpoint — APP-STATE review of #859
+
+Buddy PR #859 merged the design-only Plan action-dialogue projection at
+`43c4c4daa8e1c17b22953681fe817e6881242b36`. Its implementation remains
+blocked. The current contract is
+[`HANDOFF-DEMO-plan-action-dialogue-projection.md`](HANDOFF-DEMO-plan-action-dialogue-projection.md).
+
+APP-STATE's preliminary boundary review finds the ownership split compatible
+with this repository: Plan/DEMO owns action semantics, lifecycle, idempotency,
+repository/service, and safe projections; APP-STATE owns only the shared
+Alembic runner, unit-of-work, DSN, and database infrastructure. The design
+keeps these rows outside `agent.turn` and Content's committed-revision tables.
+The current merged `main@1c0320d1` migration chain has one head,
+`20261002_0013`, descending from `20261002_0012`. The inspected open PR paths
+do not overlap the Alembic versions directory.
+
+This review does not grant an implementation lease. The #859 handoff did not
+pin an exact migration filename, schema signature, or exclusive path allowlist;
+APP-STATE proposes the following exact persistence paths for PRIME to pin in a
+future ACTIVE handoff:
+
+```text
+src/application_state/plan_action_dialogue/__init__.py
+src/application_state/plan_action_dialogue/types.py
+src/application_state/plan_action_dialogue/repository.py
+src/application_state/plan_action_dialogue/service.py
+src/application_state/migrations/versions/20261003_0014_plan_action_dialogue.py
+tests/application_state/test_plan_action_dialogue_postgres.py
+```
+
+After PRIME's design amendment, APP-STATE accepts these as the proposed exact
+APP-owned persistence paths, subject to PRIME pinning them in an ACTIVE
+handoff. The migration is additive and linear, with `down_revision =
+"20261002_0013"`. Do not edit `migrations/env.py`, the shared runner, DSN,
+Content tables/APIs, or `agent.*`. PRIME must re-anchor and pin these paths,
+the Plan route/model/UI correlation paths, verification fixture, and one serial
+PR before any implementation begins.
+
+### Proposed minimal persistence contract for review
+
+Use one Plan-owned `plan.action_dialogue` table. The minimum durable fields are:
+
+- `action_id UUID` primary key; `world_id TEXT`; `plan_document_id UUID`;
+  stable client `idempotency_key UUID`; canonical `request_fingerprint` as a
+  checked SHA-256; server `sequence BIGINT` and `accepted_at TIMESTAMPTZ`;
+- frozen basis: `object_revision`, `work_revision_id UUID`, `revision_n`, and
+  `content_sha256`; all required, server-resolved, and kept with the action;
+- request witness: action type, instruction, draft-matches-basis boolean,
+  draft SHA-256, and nullable selection kind plus selected-text digest or
+  stable range witness. Never store submitted draft bytes or selected text;
+- lifecycle: `status` constrained to `pending|completed|failed|indeterminate`,
+  nullable active `dispatch_token UUID`, monotonic `fence BIGINT`,
+  database-evaluated `lease_expires_at TIMESTAMPTZ`, `updated_at`, nullable
+  `failure_code`, and nullable `assistant_summary`/`completed_at`. A nullable
+  `dispatch_started_at TIMESTAMPTZ` may record observability, but it does not
+  permit reclaim or redispatch after expiry.
+
+Enforce unique `(world_id, idempotency_key)` so reusing a key for another Plan
+or basis is detected; compare the full fingerprint and return the existing row
+only for an exact match. Enforce unique `(world_id, plan_document_id,
+sequence)` ordering and positive sequence/fence values. Constrain `pending`
+rows to have a dispatch token and lease expiry; terminal rows revoke/null the
+active dispatch token. Require a completed row to have a nonempty safe summary
+and `completed_at`; non-completed rows have neither. Require `failure_code`
+for `failed`/`indeterminate` and keep it null for `pending`/`completed`. Add
+indexes for exact-basis completed projection/order and bounded status reads.
+Do not add foreign ownership or transcript fields to `agent.*` or `content.*`.
+
+Amended process-death contract: reserve a `pending` action and persist its
+dispatch token, fence, and bounded lease expiry before provider dispatch. Use
+database time for expiry comparisons and updates. A same-key/same-fingerprint
+retry reads the existing action and never dispatches again; changed
+fingerprints conflict. A live `pending` action remains `pending`. On a read or
+attempted transition, lazily lock and reconcile an expired `pending` row once
+to `indeterminate`, monotonically advance its fence, and return the resulting
+state. Do not add a sweeper or background worker, reclaim the reservation, or
+automatically redispatch. Completion and definite-failure writes are
+compare-and-set operations requiring `status = pending`, the same dispatch
+token and fence, and an unexpired lease according to database time. Expiry
+reconciliation advances the fence and revokes the active token. A stale/late
+worker cannot commit a summary or terminal result after
+expiry/reconciliation. The configured provider deadline must be demonstrably
+bounded below the lease duration; this does not eliminate process-death
+uncertainty. Reconciliation beyond
+`indeterminate` requires provider operation correlation explicitly supported
+by the selected runtime, or a new user intent. APP-STATE World-turn claims and
+recovery APIs do not authorize reuse for Plan actions.
+
+The owning PostgreSQL tests must exercise concurrent reservation for one key,
+same-key exact retry and changed-fingerprint conflict, live-pending reads,
+one-time expiry reconciliation and fence advancement, completion/failure CAS
+before expiry, and stale/late writes after expiry with no summary leakage.
+Implementation evidence must also show the selected runtime's actual provider
+deadline is bounded below the configured database lease.
+
+### Existing Content basis boundary
+
+The current `get_committed_playable_revision(document_id, revision_n,
+expected_sha256, kind="plan", expected_world_id=...)` read returns the resolved
+WorkObject and immutable WorkRevision tuple, including object revision,
+WorkRevision UUID/number, SHA-256, and Markdown. The Plan owner must verify the
+World/document/kind/active binding and fingerprint the resulting exact tuple.
+The read selects an immutable basis; if the Plan advances before the action
+row is inserted, persist the captured reference rather than requiring it to
+remain today's head. Historical retries use that exact Content revision read.
+`get_current_world_plan_revision` is available when the caller has the full
+expected object/revision-number/digest tuple and requires a currently matching
+Plan; it must not be used to add a second current-at-insert validation after
+the accepted basis was captured.
+
+APP approves this existing Content boundary for reference resolution only.
+Plan/DEMO remains the owner of its action schema, action lifecycle, and safe
+projection. No migration, provider, route, UI, or product-state work is
+authorized until PRIME pins the implementation lease.
