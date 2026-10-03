@@ -6,7 +6,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let state;try{state=JSON.parse(localStorage.getItem(storage))}catch{}
 state??={drafts:fixtures.map(x=>x.markdown),outcomes:[],doc:0,scene:'scene:warehouse-tail',mode:'plan',view:'cards',block:0,room:null};
-state.actions??={};state.noteDrafts??={};
+state.actions??={};state.noteDrafts??={};state.panels??={outline:true,notes:false};
 let choices=new Set();
 function inline(s){return esc(s).replace(/\[([^\]]+)\]\(dmb-node:([^)]+)\)/g,'<button class="node" data-node="$2">$1</button>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');}
 function md(text){
@@ -31,10 +31,10 @@ function render(){
  const text=state.drafts[state.doc],parsed=parse(text),s=parsed.scenes.find(x=>x.id===state.scene)??parsed.scenes[0];state.scene=s.id;const draftKey=state.doc+':'+s.id;choices=new Set(state.actions[draftKey]??[]);
  $('#document').innerHTML=fixtures.map((x,i)=>`<option value="${i}" ${i===state.doc?'selected':''}>${x.name}</option>`).join('');
  for(const key of ['plan','play','cards','long'])$('#'+key).classList.toggle('active',state.mode===key||state.view===key);
- $('#create').hidden=state.mode!=='plan';$('#indexTitle').textContent=state.doc?'House · scene / room index':'Adventure · Beats / Scenes';
+ $('#create').hidden=state.mode!=='plan';$('#indexTitle').textContent='Outline';$('.workspace').classList.toggle('outline-hidden',!state.panels.outline);$('.workspace').classList.toggle('notes-hidden',!state.panels.notes);
  let beat='';
  $('#index').innerHTML=parsed.scenes.map(x=>{let heading='';if(x.beat!==beat){beat=x.beat;const e=parsed.elements.find(y=>y.id===beat);heading=`<div class="beat">${esc(text.slice(e?.bodyStart??0,e?.end??0).match(/^## (.+)/m)?.[1]??'Scenes')}</div>`}return heading+`<button data-scene="${x.id}" class="${x.id===s.id?'active':''}">${esc(x.title)}</button>`}).join('')+'<div class="beat">Reference</div><button id="overview">Intent / source context</button>'+(state.doc===0?'<div class="beat">Connected place</div><button id="house">Ironveil House →</button>':'<button id="session">← Session 29 aftermath</button>');
- $('#context').innerHTML=`<span class="badge">${state.mode==='plan'?'PREPARATION · LOCAL COPY':'PLAY · LOCAL SESSION'}</span><span title="${esc(s.id)}">${esc(s.title)}</span>${state.mode==='plan'?'<button id="edit">Edit this card</button>':''}`;
+ $('#context').innerHTML=`<button id="toggleOutline" aria-controls="index" aria-expanded="${state.panels.outline}">Outline</button><h2 title="${esc(s.id)}">${esc(s.title)}</h2><span id="blockContext"></span><span class="badge">${state.mode==='plan'?'Prep · local copy':'Play · local session'}</span>${state.mode==='plan'?'<button id="edit">Edit this card</button>':''}<button id="toggleNotes" aria-controls="journal" aria-expanded="${state.panels.notes}">Play notes${state.outcomes.filter(o=>o.document===state.doc).length?' · '+state.outcomes.filter(o=>o.document===state.doc).length:''}</button>`;
  if(state.view==='long'){
   $('#content').innerHTML=md(text);$('#context').innerHTML+='<button id="returnCard">Return to focused card</button>';
  }else{
@@ -50,7 +50,11 @@ function render(){
   const roomParts=state.doc===1&&s.id==='scene:ironveil-house-map'&&slot>0?roomBlocks(selected.text):null;
   const detailSlot=Math.min(state.detail??0,(roomParts?.length??1)-1);
   const focusText=roomParts?.[detailSlot].text??selected.text;
-  $('#content').innerHTML=`<div class="card-heading"><h2>${esc(s.title)}</h2><span>${slot+1} / ${items.length} blocks</span></div><div class="block-tabs">${isHouseMap?`<button data-block="0">Room map</button><select id="roomSelect" aria-label="House space">${items.map((b,i)=>`<option value="${i}" ${i===slot?'selected':''}>${esc(b.title)}</option>`).join('')}</select>`:items.map((b,i)=>`<button data-block="${i}" class="${i===slot?'active':''}">${esc(b.title)}</button>`).join('')}</div>${roomParts&&roomParts.length>1?`<div class="room-tabs">${roomParts.map((b,i)=>`<button data-detail="${i}" class="${i===detailSlot?'active':''}">${esc(b.title)}</button>`).join('')}</div>`:''}<section class="focused-block">${md(focusText)}</section>`;
+  $('#blockContext').textContent=selected.title+' · '+(slot+1)+' / '+items.length;
+  let displayText=focusText.replace(/^### [^\n]+\n?/, '');
+  const leadingLabel=displayText.match(/^\*\*([^*]+)\*\*\s*\n/);
+  if(leadingLabel&&leadingLabel[1]===selected.title)displayText=displayText.slice(leadingLabel[0].length);
+  $('#content').innerHTML=`<div class="block-tabs">${isHouseMap?`<button data-block="0">Room map</button><select id="roomSelect" aria-label="House space">${items.map((b,i)=>`<option value="${i}" ${i===slot?'selected':''}>${esc(b.title)}</option>`).join('')}</select>`:items.map((b,i)=>`<button data-block="${i}" class="${i===slot?'active':''}">${esc(b.title)}</button>`).join('')}</div>${roomParts&&roomParts.length>1?`<div class="room-tabs">${roomParts.map((b,i)=>`<button data-detail="${i}" class="${i===detailSlot?'active':''}">${esc(b.title)}</button>`).join('')}</div>`:''}<section class="focused-block">${md(displayText)}</section>`;
   if(isHouseMap&&slot===0)$('#content').insertAdjacentHTML('beforeend',`<section class="room-map"><h3>Ground floor</h3><div>${items.slice(1,6).map((b,i)=>`<button data-block="${i+1}">${esc(b.title)}</button>`).join('')}</div><h3>Upper floor</h3><div>${items.slice(6).map((b,i)=>`<button data-block="${i+6}">${esc(b.title)}</button>`).join('')}</div><p class="map-note">Source-described spaces by floor. Positions imply no physical adjacency. Residence remains unresolved.</p></section>`);
   if(state.doc===1&&s.id==='scene:ironveil-house-map'&&[2,9].includes(slot))$('#content').insertAdjacentHTML('beforeend',`<button data-scene="${slot===2?'scene:ironveil-kitchen':'scene:lysandra-alone-at-home'}">Related interaction: ${slot===2?'Kitchen Table':'Lysandra alone'} →</button>`);
   if(firstChoice&&(!isHouseMap||slot===9))renderChoices(text,nested,s);
@@ -58,7 +62,9 @@ function render(){
   $('#content').insertAdjacentHTML('beforeend',`<div class="next"><button id="previous" ${i===0?'disabled':''}>← Previous scene</button><button id="next" ${i===parsed.scenes.length-1?'disabled':''}>Next scene →</button></div>`);
   $('#previous').onclick=()=>go(parsed.scenes[i-1].id);$('#next').onclick=()=>go(parsed.scenes[i+1].id);
  }
- $('#outcomes').innerHTML=state.outcomes.filter(o=>o.document===state.doc).map(o=>`<div class="outcome"><span class="badge">RECORDED · LOCAL</span><strong>${esc(o.scene)}</strong><p>${esc(o.note)}</p><small>${esc(o.choices.join(', '))}</small>${followups(o)}</div>`).join('')+(state.mode==='play'?'<label>What happened? Include unexpected actions.<textarea id="outcomeNote" placeholder="Record what players actually did…"></textarea></label><button id="record">Record local outcome</button>':'<p>Preparation stays intact when outcomes are recorded in Play.</p>');
+ $('#outcomes').innerHTML=state.outcomes.filter(o=>o.document===state.doc).map(o=>`<div class="outcome"><span class="badge">PLAY NOTE · LOCAL</span><strong>${esc(o.scene)}</strong><p>${esc(o.note)}</p><small>${esc(o.choices.join(', '))}</small>${followups(o)}</div>`).join('')+(state.mode==='play'?'<label>What happened? Include unexpected actions.<textarea id="outcomeNote" placeholder="Record what players actually did…"></textarea></label><button id="record">Record local outcome</button>':'<p>Switch to Play to add a note about what happened.</p>');
+ $('#toggleOutline').onclick=()=>{state.panels.outline=!state.panels.outline;save();render()};
+ $('#toggleNotes').onclick=()=>{state.panels.notes=!state.panels.notes;save();render()};
  document.querySelectorAll('[data-follow]').forEach(b=>b.onclick=()=>go(b.dataset.follow,+b.dataset.followdoc));
  document.querySelectorAll('[data-scene]').forEach(b=>b.onclick=()=>go(b.dataset.scene));
  document.querySelectorAll('[data-block]').forEach(b=>b.onclick=()=>{state.block=+b.dataset.block;state.detail=0;save();render()});
