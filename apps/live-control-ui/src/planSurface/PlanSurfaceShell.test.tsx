@@ -118,6 +118,26 @@ const expectedWorldGraphContextRequest = {
   revision_pin: "rev-1",
 };
 
+function mockManagedWorldProjection(managedWorldId: string, revisionId = "rev-1") {
+  vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue({
+    schema: "dmb_managed_world_graph_projection_v1",
+    managedWorldId,
+    nativeWorldId: "eldyrwild",
+    bindingVersion: 1,
+    projection: {
+      ...worldGraphProjection,
+      snapshot: {
+        ...worldGraphProjection.snapshot,
+        worldId: "eldyrwild",
+        campaignId: "",
+        scopeMode: "world",
+        revisionId,
+        headRevisionId: revisionId,
+      },
+    },
+  });
+}
+
 /** Isolated canvas tests still need save-status visibility after heading moved to context bar. */
 function durableCanvasShellProps(sessionDescriptor: ReturnType<typeof fixturePlanSessionDescriptor>) {
   return {
@@ -381,6 +401,7 @@ describe("PlanSurfaceShell", () => {
         scopeMode: "world",
       },
     });
+    mockManagedWorldProjection(worldId);
     const durableWrite = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
     const proposalCall = vi.spyOn(liveApi, "postPlanDocumentEditProposal").mockImplementation(async (request) => ({
       schema_version: "dmb_plan_document_edit_proposal_v1",
@@ -3404,6 +3425,7 @@ describe("PlanSurfaceShell", () => {
         return managedRecord;
       });
       vi.mocked(liveApi.postWorldGraphProjection).mockRejectedValue(new Error("no published head"));
+      mockManagedWorldProjection(worldId);
       const bundle = vi.mocked(liveApi.getSourceBundle);
       window.history.pushState({}, "", `/plan?world=${worldId}`);
       const view = render(
@@ -3440,6 +3462,7 @@ describe("PlanSurfaceShell", () => {
           headRevisionId: "rev-of-conks-1",
         },
       });
+      mockManagedWorldProjection(worldId, "rev-of-conks-1");
       const worldCitation = {
         ...buildGraphAnchorCitation("rev-of-conks-1"),
         world_id: worldId,
@@ -3515,13 +3538,9 @@ describe("PlanSurfaceShell", () => {
       await user.type(screen.getByLabelText("Question"), "What do we know?");
       await user.click(screen.getByRole("button", { name: "Ask DungeonBuddy" }));
       await waitFor(() => expect(liveQueryFetchCalls()).toHaveLength(1));
-      expect(vi.mocked(liveApi.postWorldGraphProjection).mock.calls.length).toBeGreaterThan(0);
-      for (const [projectionRequest] of vi.mocked(liveApi.postWorldGraphProjection).mock.calls) {
-        expect(projectionRequest).toMatchObject({
-          worldId,
-          campaignId: "",
-          scopeMode: "world",
-        });
+      expect(vi.mocked(liveApi.postManagedWorldGraphProjection).mock.calls.length).toBeGreaterThan(0);
+      for (const [projectionRequest] of vi.mocked(liveApi.postManagedWorldGraphProjection).mock.calls) {
+        expect(projectionRequest).toMatchObject({ managedWorldId: worldId });
       }
       expect(latestLiveQueryBody()).toMatchObject({
         campaign_id: worldId,
