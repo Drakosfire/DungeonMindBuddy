@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { getRecapArtifacts, getHistoricalRecapInspection, postCitationSource } from "../api/liveApi";
 import { postRecapIngest } from "../api/recapIngestApi";
@@ -739,7 +739,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [reviewSource, setReviewSource] = useState<string | null>(null);
+  const [reviewSource, setReviewSource] = useState<{ prose: string; identity: string; session: number; nodes: number; edges: number } | null>(null);
+  const reviewEpoch = useRef(0);
+  const currentReviewIdentity = useRef("");
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewLoading, setReviewLoading] = useState(false);
   const [forceStage, setForceStage] = useState(false);
@@ -850,6 +852,15 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
   const isBuildingGraphPreview = state.status === "building_graph_preview";
   const isMaterializingPreviewSupergraph = state.status === "materializing_preview_supergraph";
   const graphPreview = latestResult?.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
+  const reviewIdentity = JSON.stringify([ingestCampaignId, recapSession, graphPreview?.extraction_run_id ?? null]);
+  useLayoutEffect(() => {
+    currentReviewIdentity.current = reviewIdentity;
+    reviewEpoch.current += 1;
+    setReviewSource(null);
+    setReviewError(null);
+    setReviewLoading(false);
+    return () => { reviewEpoch.current += 1; };
+  }, [reviewIdentity]);
   // Trust live graph_preview.status only — draft states must not claim materialized.
   const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
@@ -1799,20 +1810,33 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
     }
   }
 
-  async function reviewSavedExtraction() {
+  async function reviewSavedSource() {
     const runId = graphPreview?.extraction_run_id;
     if (!runId) return;
+    const identity = reviewIdentity;
+    const epoch = ++reviewEpoch.current;
+    const capturedSession = recapSession;
+    const nodes = graphPreview?.candidate_node_count ?? 0;
+    const edges = graphPreview?.candidate_edge_count ?? 0;
+    const isCurrent = () => epoch === reviewEpoch.current && identity === currentReviewIdentity.current;
     setReviewLoading(true);
     setReviewError(null);
     setReviewSource(null);
     try {
       const inspection = await getHistoricalRecapInspection(runId);
-      if (inspection.runId !== runId || inspection.campaignId !== ingestCampaignId || inspection.sessionId !== `session-${recapSession}`) throw new Error("Saved extraction does not match this session.");
-      if (inspection.sourceStatus !== "available" || !inspection.sourceProse) throw new Error(inspection.unavailableReason || "Saved source is unavailable.");
-      setReviewSource(inspection.sourceProse);
+      if (!isCurrent()) return;
+      if (inspection.runId !== runId || inspection.campaignId !== ingestCampaignId || inspection.sessionId !== `session-${capturedSession}`) {
+        throw new Error("Saved extraction does not match this session.");
+      }
+      if (inspection.sourceStatus !== "available" || !inspection.sourceProse) {
+        throw new Error(inspection.unavailableReason || "Saved source is unavailable.");
+      }
+      setReviewSource({ prose: inspection.sourceProse, identity, session: capturedSession, nodes, edges });
     } catch (error) {
-      setReviewError(error instanceof Error ? error.message : "Unable to open saved extraction.");
-    } finally { setReviewLoading(false); }
+      if (isCurrent()) setReviewError(error instanceof Error ? error.message : "Unable to open saved source.");
+    } finally {
+      if (isCurrent()) setReviewLoading(false);
+    }
   }
 
   function openGraphReviewWorkbench() {
@@ -2172,8 +2196,8 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
               )}
             </button>
             {graphPreview?.status === "candidate_validation_ready" && graphPreview.extraction_run_id ? (
-              <button type="button" className="primary" disabled={reviewLoading} onClick={() => void reviewSavedExtraction()}>
-                {reviewLoading ? "Opening review…" : "Review saved extraction"}
+              <button type="button" className="primary" disabled={reviewLoading} onClick={() => void reviewSavedSource()}>
+                {reviewLoading ? "Opening review…" : "Review saved source"}
               </button>
             ) : null}
             {isIngestSurfacePath() && hasPreviewUnionStore ? (
@@ -2516,12 +2540,12 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
           />
 
           {reviewError ? <p role="alert" className="module-error">{reviewError}</p> : null}
-          {reviewSource !== null ? (
+          {reviewSource !== null && reviewSource.identity === reviewIdentity ? (
             <section aria-label="Saved extraction source review">
-              <h3>Session {recapSession} · Saved extraction source</h3>
-              <p>{graphPreview?.candidate_node_count ?? 0} nodes · {graphPreview?.candidate_edge_count ?? 0} edges. World Graph admission is pending.</p>
+              <h3>Session {reviewSource.session} · Saved extraction source</h3>
+              <p>{reviewSource.nodes} nodes · {reviewSource.edges} edges. World Graph admission is pending.</p>
               <p className="module-muted">Exact saved source. Candidate admission requires a verified campaign-to-World association.</p>
-              <div className="md-content md-theme-command" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(reviewSource) }} />
+              <div className="md-content md-theme-command" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(reviewSource.prose) }} />
               <button type="button" onClick={() => setReviewSource(null)}>Close review</button>
             </section>
           ) : null}
