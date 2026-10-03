@@ -94,6 +94,7 @@ function render(){
  if($('#outcomeNote')){$('#outcomeNote').value=state.noteDrafts[draftKey]??'';$('#outcomeNote').oninput=()=>{state.noteDrafts[draftKey]=$('#outcomeNote').value;save()}};
  if($('#record'))$('#record').onclick=()=>{try{state=recordOutcome(state,state.doc,s.id,[...choices],$('#outcomeNote').value);state.actions[draftKey]=[...choices];delete state.noteDrafts[draftKey];save();render()}catch(e){$('#outcomeNote').setCustomValidity(e.message);$('#outcomeNote').reportValidity()}};
  if($('#edit'))$('#edit').onclick=()=>openEdit(s,text);
+ $('#exportSession').onclick=()=>download('DungeonBuddy-session-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify({format:'dmb-plan-play-cards-backup-v1',savedAt:new Date().toISOString(),state},null,2),'application/json');
  $('#exportPrep').onclick=()=>download(fixtures[state.doc].name+' - local prep.md',state.drafts[state.doc],'text/markdown');
  $('#exportOutcomes').onclick=()=>download('prototype-outcomes.json',JSON.stringify(state.outcomes,null,2),'application/json');
  if($('#returnCard'))$('#returnCard').onclick=()=>{state.view='cards';save();render()};

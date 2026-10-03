@@ -45,3 +45,5 @@ Logged selections stay checked on return. Something else accepts an unexpected-a
 The floating Notes button opens one resizable writing pad shared across all cards/documents. It saves on input in browser-local storage and exports Markdown independently. Every choice group supplies a Something else note field, using the existing source option when present or a local fallback when absent.
 
 Use Complete in the scene toolbar to mark/unmark a scene. The outline shows a checkmark and crossed-out title. Completed scenes remain navigable; status persists per document/scene in browser storage.
+
+Files → Back up full session downloads a versioned JSON snapshot containing all current browser state: document drafts, decisions, pending choices/notes, shared writing pad and completion marks. Keep a separate copy for recovery; this prototype does not yet offer a restore-file UI.

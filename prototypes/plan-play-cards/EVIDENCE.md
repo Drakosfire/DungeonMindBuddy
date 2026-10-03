@@ -75,3 +75,7 @@ Replaced the preparation-only Lysandra popup with a source-backed character view
 ## Scene completion
 
 Added a reversible Complete checkbox to the scene toolbar. Browser verified opening scene shows a checkmark and computed line-through style after refresh and remains clickable after navigation. State keys include document and scene identity; no source or decision record is changed. Screenshot: evidence/scene-completion.png.
+
+## Full session backup
+
+Added Files → Back up full session. Browser downloaded the operator snapshot into Downloads; file validation confirmed format and drafts/outcomes/actions/completedScenes/playPad/otherNotes keys. Private backup contents are not committed. Restore-file UI is not yet implemented.
