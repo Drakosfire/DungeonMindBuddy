@@ -1,4 +1,4 @@
-import {parse,validate,editCard,recordOutcome,sceneBlocks,rooms,roomBlocks,createScene} from './model.js';
+import {parse,validate,editCard,recordOutcome,sceneBlocks,rooms,roomBlocks,createScene,directionEffects} from './model.js?v=direction-log-1';
 const fixtures=await (await fetch('./content.json')).json();
 const verifiedRefs=[...new Map(fixtures.flatMap(f=>[...f.markdown.matchAll(/\[([^\]]+)\]\(dmb-node:([^)]+)\)/g)].map(m=>[m[2],{id:m[2],label:m[1]}]))).values()];
 const storage='dmb-plan-play-cards-v1';
@@ -32,8 +32,9 @@ function render(){
  $('#document').innerHTML=fixtures.map((x,i)=>`<option value="${i}" ${i===state.doc?'selected':''}>${x.name}</option>`).join('');
  for(const key of ['plan','play','cards','long'])$('#'+key).classList.toggle('active',state.mode===key||state.view===key);
  $('#create').hidden=state.mode!=='plan';$('#indexTitle').textContent='Outline';$('.workspace').classList.toggle('outline-hidden',!state.panels.outline);$('.workspace').classList.toggle('notes-hidden',!state.panels.notes);
+ const effects=directionEffects(text,state.outcomes,state.doc);
  let beat='';
- $('#index').innerHTML=parsed.scenes.map(x=>{let heading='';if(x.beat!==beat){beat=x.beat;const e=parsed.elements.find(y=>y.id===beat);heading=`<div class="beat">${esc(text.slice(e?.bodyStart??0,e?.end??0).match(/^## (.+)/m)?.[1]??'Scenes')}</div>`}return heading+`<button data-scene="${x.id}" class="${x.id===s.id?'active':''}">${esc(x.title)}</button>`}).join('')+'<div class="beat">Reference</div><button id="overview">Intent / source context</button>'+(state.doc===0?'<div class="beat">Connected place</div><button id="house">Ironveil House →</button>':'<button id="session">← Session 29 aftermath</button>');
+ $('#index').innerHTML=parsed.scenes.map(x=>{let heading='';if(x.beat!==beat){beat=x.beat;const e=parsed.elements.find(y=>y.id===beat);heading=`<div class="beat">${esc(text.slice(e?.bodyStart??0,e?.end??0).match(/^## (.+)/m)?.[1]??'Scenes')}</div>`}return heading+`<button data-scene="${x.id}" class="${x.id===s.id?'active':''} ${effects.find(e=>e.scene===x.id)?.effect.status==='not-planned'?'not-planned':''}">${esc(x.title)}${effects.find(e=>e.scene===x.id)?.effect.status==='not-planned'?'<small>Not planned · prior direction</small>':''}</button>`}).join('')+'<div class="beat">Reference</div><button id="overview">Intent / source context</button>'+(state.doc===0?'<div class="beat">Connected place</div><button id="house">Ironveil House →</button>':'<button id="session">← Session 29 aftermath</button>');
  $('#context').innerHTML=`<button id="toggleOutline" aria-controls="index" aria-expanded="${state.panels.outline}">Outline</button><h2 title="${esc(s.id)}">${esc(s.title)}</h2><span id="blockContext"></span><span class="badge">${state.mode==='plan'?'Prep · local copy':'Play · local session'}</span>${state.mode==='plan'?'<button id="edit">Edit this card</button>':''}<button id="toggleNotes" aria-controls="journal" aria-expanded="${state.panels.notes}">Play notes${state.outcomes.filter(o=>o.document===state.doc).length?' · '+state.outcomes.filter(o=>o.document===state.doc).length:''}</button>`;
  if(state.view==='long'){
   $('#content').innerHTML=md(text);$('#context').innerHTML+='<button id="returnCard">Return to focused card</button>';
@@ -57,12 +58,16 @@ function render(){
   $('#content').innerHTML=`<div class="block-tabs">${isHouseMap?`<button data-block="0">Room map</button><select id="roomSelect" aria-label="House space">${items.map((b,i)=>`<option value="${i}" ${i===slot?'selected':''}>${esc(b.title)}</option>`).join('')}</select>`:items.map((b,i)=>`<button data-block="${i}" class="${i===slot?'active':''}">${esc(b.title)}</button>`).join('')}</div>${roomParts&&roomParts.length>1?`<div class="room-tabs">${roomParts.map((b,i)=>`<button data-detail="${i}" class="${i===detailSlot?'active':''}">${esc(b.title)}</button>`).join('')}</div>`:''}<section class="focused-block">${md(displayText)}</section>`;
   if(isHouseMap&&slot===0)$('#content').insertAdjacentHTML('beforeend',`<section class="room-map"><h3>Ground floor</h3><div>${items.slice(1,6).map((b,i)=>`<button data-block="${i+1}">${esc(b.title)}</button>`).join('')}</div><h3>Upper floor</h3><div>${items.slice(6).map((b,i)=>`<button data-block="${i+6}">${esc(b.title)}</button>`).join('')}</div><p class="map-note">Source-described spaces by floor. Positions imply no physical adjacency. Residence remains unresolved.</p></section>`);
   if(state.doc===1&&s.id==='scene:ironveil-house-map'&&[2,9].includes(slot))$('#content').insertAdjacentHTML('beforeend',`<button data-scene="${slot===2?'scene:ironveil-kitchen':'scene:lysandra-alone-at-home'}">Related interaction: ${slot===2?'Kitchen Table':'Lysandra alone'} →</button>`);
+  const location=body.match(/^Location:\s*(.+)$/m)?.[1];
+  if(location)$('#content').insertAdjacentHTML('afterbegin',`<div class="scene-location">${inline(location)}</div>`);
+  const effect=effects.find(e=>e.scene===s.id)?.effect;
+  if(effect?.status==='not-planned')$('#content').insertAdjacentHTML('afterbegin','<p class="direction-flag">Not planned after a recorded player direction. Still available to run.</p>');
   if(firstChoice&&(!isHouseMap||slot===9))renderChoices(text,nested,s);
   const i=parsed.scenes.indexOf(s);
   $('#content').insertAdjacentHTML('beforeend',`<div class="next"><button id="previous" ${i===0?'disabled':''}>← Previous scene</button><button id="next" ${i===parsed.scenes.length-1?'disabled':''}>Next scene →</button></div>`);
   $('#previous').onclick=()=>go(parsed.scenes[i-1].id);$('#next').onclick=()=>go(parsed.scenes[i+1].id);
  }
- $('#outcomes').innerHTML=state.outcomes.filter(o=>o.document===state.doc).map(o=>`<div class="outcome"><span class="badge">PLAY NOTE · LOCAL</span><strong>${esc(o.scene)}</strong><p>${esc(o.note)}</p><small>${esc(o.choices.join(', '))}</small>${followups(o)}</div>`).join('')+(state.mode==='play'?'<label>What happened? Include unexpected actions.<textarea id="outcomeNote" placeholder="Record what players actually did…"></textarea></label><button id="record">Record local outcome</button>':'<p>Switch to Play to add a note about what happened.</p>');
+ $('#outcomes').innerHTML=state.outcomes.filter(o=>o.document===state.doc).map(o=>`<div class="outcome"><span class="badge">${o.kind==='player-direction'?'PLAYER DIRECTION':'PLAY NOTE'} · LOCAL</span><strong>${esc(parsed.scenes.find(s=>s.id===o.scene)?.title??o.scene)}</strong><p>${esc(o.note)}</p><details><summary>Advanced</summary><small>${esc(o.at??'')} · ${esc(o.choices.join(', '))}</small></details>${followups(o)}</div>`).join('')+(state.mode==='play'?'<label>What happened? Include unexpected actions.<textarea id="outcomeNote" placeholder="Record what players actually did…"></textarea></label><button id="record">Record local outcome</button>':'<p>Switch to Play to add a note about what happened.</p>');
  $('#toggleOutline').onclick=()=>{state.panels.outline=!state.panels.outline;save();render()};
  $('#toggleNotes').onclick=()=>{state.panels.notes=!state.panels.notes;save();render()};
  document.querySelectorAll('[data-follow]').forEach(b=>b.onclick=()=>go(b.dataset.follow,+b.dataset.followdoc));
@@ -71,6 +76,14 @@ function render(){
  if($('#roomSelect'))$('#roomSelect').onchange=e=>{state.block=+e.target.value;state.detail=0;save();render()};
  document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>{state.detail=+b.dataset.detail;save();render()});
  document.querySelectorAll('[data-option]').forEach(b=>b.onchange=()=>{b.checked?choices.add(b.dataset.option):choices.delete(b.dataset.option);state.actions[draftKey]=[...choices];save()});
+ document.querySelectorAll('.log-direction').forEach(button=>button.onclick=()=>{
+  const status=button.nextElementSibling;
+  if(!choices.size){status.textContent='Check the actions the players took first.';return}
+  const labels=[...choices].map(id=>{const option=parsed.elements.find(e=>e.id===id);return text.slice(option.bodyStart,option.end).match(/- \*\*([^*]+)\*\*/)?.[1]??id});
+  state=recordOutcome(state,state.doc,s.id,[...choices],labels.join('; '));
+  state.outcomes.at(-1).kind='player-direction';state.outcomes.at(-1).choiceLabels=labels;
+  delete state.actions[draftKey];choices.clear();state.panels.notes=true;save();render();
+ });
  document.querySelectorAll('[data-node]').forEach(b=>b.onclick=()=>showReference(b.dataset.node,b.textContent));
  if($('#outcomeNote')){$('#outcomeNote').value=state.noteDrafts[draftKey]??'';$('#outcomeNote').oninput=()=>{state.noteDrafts[draftKey]=$('#outcomeNote').value;save()}};
  if($('#record'))$('#record').onclick=()=>{try{state=recordOutcome(state,state.doc,s.id,[...choices],$('#outcomeNote').value);choices.clear();delete state.actions[draftKey];delete state.noteDrafts[draftKey];save();render()}catch(e){$('#outcomeNote').setCustomValidity(e.message);$('#outcomeNote').reportValidity()}};
@@ -91,7 +104,7 @@ function followups(outcome){
 function renderChoices(text,nested,s){
  for(const c of nested.filter(e=>e.kind==='choice')){
   const opts=nested.filter(e=>e.kind==='option'&&e.start>c.start&&e.start<(nested.find(x=>x.kind==='choice'&&x.start>c.start)?.start??s.end));
-  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary><span class="choice-callout">Explore choices <span class="choice-hint">Click to expand</span></span>${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'Choices')} <small>Multiple actions allowed</small></summary>${md(text.slice(c.bodyStart,c.end).replace(/^\s*### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^\s*- \*\*[^*]+\*\*[^\n]*(?:\n|$)/,'');return `<div class="option"><label>${state.mode==='play'?`<input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> `:''}${esc(title)}</label><details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}</details>`);
+  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary><span class="choice-callout">Choices <span class="choice-hint">Click to expand</span></span></summary><p class="choice-prompt">${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'What do they do?')}</p>${md(text.slice(c.bodyStart,c.end).replace(/^\s*### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^\s*- \*\*[^*]+\*\*[^\n]*(?:\n|$)/,'');return `<div class="option"><label><input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> ${esc(title)}</label><details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}<button type="button" class="log-direction">Log player direction</button><span class="direction-status" role="status"></span></details>`);
  }
 }
 function showReference(id,label){

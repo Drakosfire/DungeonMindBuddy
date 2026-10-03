@@ -16,3 +16,11 @@ export function createScene(values,id){
  if(options.length){const suffix=id.slice(6);source+=`\n<!-- dmb-playable-element:v2 kind=choice id=choice:${suffix} scene=${id} -->\n### What do they do?\n\nMultiple activities may happen simultaneously.\n`;options.forEach(([action,consequence],i)=>source+=`\n<!-- dmb-playable-element:v2 kind=option id=option:${suffix}-${i} -->\n- **${action}**\n\n  Consequence: ${consequence}\n`);source+=`\n<!-- dmb-playable-element:v2 kind=option id=option:${suffix}-unexpected -->\n- **Something unexpected.**\n\n  Follow player intent and record the actual outcome.\n`}
  return source;
 }
+export function directionEffects(markdown,outcomes,doc){
+ const parsed=parse(markdown),effects=new Map();
+ for(const outcome of outcomes.filter(o=>o.document===doc))for(const id of outcome.choices){
+  const option=parsed.elements.find(e=>e.kind==='option'&&e.id===id);
+  for(const [attribute,status] of [['activates','available'],['suppresses','not-planned']])for(const target of (option?.[attribute]??'').split(',').filter(Boolean))effects.set(target,{status,scene:outcome.scene,outcome:outcome.id});
+ }
+ return parsed.scenes.map(scene=>({scene:scene.id,effect:effects.get(scene.id)??effects.get(scene.beat)})).filter(x=>x.effect);
+}
