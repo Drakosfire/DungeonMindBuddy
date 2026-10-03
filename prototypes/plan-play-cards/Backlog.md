@@ -15,3 +15,10 @@ Bounded prototype learnings. IDEA entries are hypotheses, not production adoptio
 **Action:** PRIME to sequence recovery, Buddy card/navigation adoption, durable session writing, sourced entity/combat views and agent-assisted recap reconciliation. Retain the exact design-v1 baseline. Explore maps, music cues and evolving background/NPC threads in subsequent bounded work.
 **Surfaces when:** Production Plan/Play adoption, session persistence, entity inspector or recap design resumes.
 **Refs:** SESSION-29-REVIEW.md; design-v1/BASELINE.md; PR #887; private completed-session backup exported 2026-10-03T22:23:24.734Z.
+
+## [IDEA] Enrich moments without prescribing play — captured 2026-10-03
+**Context:** Additional operator reflection relayed by PRIME after its review of d47fd3d0. Cards, choices, lenses and aesthetics felt right; navigation generally decent; the reminder not to force Meat Mind combat reinforced the GM's decision.
+**Insight:** Preparation supports both action and restraint. Enrichment should make a moment easier to read and run while leaving the GM free to decide its consequence.
+**Action:** Explore full Graph enrichment, easy multimedia interaction, sound clues linked to moments/choices, rolls connected to narrative effects, and an enjoyable organized live-note space. Preserve provenance and distinguish observed rolls, interpreted effects and proposed outcomes. These are candidates, not shipped capabilities or implementation activation.
+**Surfaces when:** Scene lenses, multimedia, sound cues, roll capture or live-note design resumes.
+**Refs:** SESSION-29-REVIEW.md additional reflection; design-v1/BASELINE.md; PRIME message following d47fd3d0; PR #887. Raw private session notes and backup remain outside the repository.

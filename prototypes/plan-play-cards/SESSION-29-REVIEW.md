@@ -88,3 +88,11 @@ Next-session follow-ups from the writing: make imported maps accessible in conte
 ## Next trial
 
 Observe whether the operator can find a location, open a coherent entity, write anywhere and recover the session without help. Collect direct player feedback separately. Ask which reserve cards reassured the GM, which were unreachable or irrelevant, and whether writing was interrupted by navigation. Use voluntary observations and saved artifacts; do not infer success from click totals or completion marks alone.
+
+## Additional operator reflection relayed by PRIME
+
+At the subsequent safe checkpoint, PRIME relayed that cards, scene choices, scene lenses and the aesthetic felt right, and navigation was generally decent. The preparation reminder not to force Meat Mind combat reinforced the GM's decision. This adds a concrete example of preparation helping restraint rather than prescribing an encounter: a useful card can support a decision *not* to run its material.
+
+These statements are operator feedback relayed by PRIME, not additional telemetry or independent player testimony. They strengthen the existing direction without proving every navigation path or lens works. PRIME accepted design v1 as a preservation constraint, explicitly without production activation.
+
+Desired next affordances are full Graph enrichment; easy multimedia reading and interaction; sound clues attached to moments or choices; recorded rolls connected to narrative effects; and a fun, organized live-note space. These are candidate product work. They are neither shipped features nor admissions of played canon. Multimedia/roll associations should retain source, moment/choice identity and operator interpretation rather than silently treating a roll as a settled narrative outcome. Future design should improve the writing space while preserving unrestricted capture.
