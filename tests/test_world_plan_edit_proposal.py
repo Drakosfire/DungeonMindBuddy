@@ -47,14 +47,15 @@ def _request(**overrides) -> WorldPlanDocumentEditProposalRequest:
 
 
 class _FakeGenerationClient:
-    def __init__(self) -> None:
+    def __init__(self, replacement_markdown: str = "The shutters rattle in the wind.") -> None:
         self.requests: list = []
+        self.replacement_markdown = replacement_markdown
 
     async def generate_structured(self, request):
         self.requests.append(request)
         return SimpleNamespace(
             parsed={
-                "replacement_markdown": "The shutters rattle in the wind.",
+                "replacement_markdown": self.replacement_markdown,
                 "summary": "Add a tense beat",
                 "assumptions": ["The sound is proposed atmosphere."],
                 "cannot_complete_reason": None,
@@ -188,6 +189,49 @@ def test_world_proposal_uses_only_explicit_draft_context_and_returns_exact_ident
     context = json.loads(fake.requests[0].user_prompt)
     assert context["current_plan_markdown"] == "# Current local draft\n"
     assert "SAVED SERVER PROSE" not in fake.requests[0].user_prompt
+
+
+def test_world_replacement_prompt_allows_only_echoing_existing_protected_tokens(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    marker = "<!-- dmb-playable-element:v2 kind=scene id=scene:town-breathes -->"
+    link = "[Lysandra Ironveil](dmb-node:node:captain-lysandra-ironveil)"
+    section = f"{marker}\n### Mireward After the Attack\n\n{link} is present.\n"
+    _authority(monkeypatch)
+    fake = _FakeGenerationClient(section)
+    result = service.propose_world_plan_document_edit(
+        root=tmp_path,
+        request=_request(draft_markdown=section, draft_sha256=_sha(section), selected_text=section),
+        generation_client=fake,
+        model="test-model",
+    )
+
+    assert result.replacement_markdown == section.strip()
+    prompt = fake.requests[0].system_prompt
+    assert "For this World replace-selection request only" in prompt
+    assert "exact original spelling" in prompt
+    assert "Never invent, change, remove, reorder, duplicate" in prompt
+    assert "graph identities or graph truth" in prompt
+    context = json.loads(fake.requests[0].user_prompt)
+    assert context["selected_text"] == section
+    assert context["current_plan_markdown"] == section
+
+
+def test_world_caret_prompt_keeps_the_restricted_shared_grammar(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _authority(monkeypatch)
+    fake = _FakeGenerationClient()
+    service.propose_world_plan_document_edit(
+        root=tmp_path,
+        request=_request(target_kind="insert_at_caret", selected_text=""),
+        generation_client=fake,
+        model="test-model",
+    )
+
+    assert fake.requests[0].system_prompt == service._SYSTEM_PROMPT
+    normalized_prompt = " ".join(fake.requests[0].system_prompt.split())
+    assert "Do not produce HTML, graph node IDs, file paths, or unknown component markers." in normalized_prompt
 
 
 def _client(monkeypatch: pytest.MonkeyPatch, root: Path) -> TestClient:

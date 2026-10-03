@@ -9,8 +9,14 @@ import type {
 import { tiptapJsonToSemanticMarkdown } from "../../tiptap/markdown/calloutMarkdown";
 import { markdownToTiptapDoc } from "../../tiptap/markdown/markdownToTiptap";
 import { semanticMarkdownSerializationDiagnostics } from "../../tiptap/markdown/semanticMarkdownSafety";
-import { preserveLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
+import { preserveLeadingYamlFrontmatter, stripLeadingYamlFrontmatter } from "../../tiptap/markdown/stripLeadingYamlFrontmatter";
+import {
+  formatPlayableElementMarker,
+  validatePlayableHeadingAttrs,
+  validatePlayableOptionItemAttrs,
+} from "../../tiptap/playable/playableElementIdentity";
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
+import { planSectionTargetForSelection, type PlanSectionTarget } from "./planSectionTarget";
 
 export interface PlanEditEditorState {
   editor: Editor | null;
@@ -71,6 +77,29 @@ export interface CapturedWorldPlanEditTarget {
   draftGeneration: number;
   selectionGeneration: number;
   wholeBulletItem?: CapturedPlanEditTarget["wholeBulletItem"];
+  sectionTarget?: CapturedWorldPlanSectionTarget;
+}
+
+export interface WorldPlanProtectedStructureEntry {
+  kind: "playable-marker" | "graph-reference" | "horizontal-rule";
+  identity: string;
+  headingPath: Array<{ level: number; ordinal: number }>;
+}
+
+export interface CapturedWorldPlanSectionTarget {
+  id: string;
+  heading: string;
+  level: number;
+  rootNodeStart: number;
+  rootNodeEnd: number;
+  applyFrom: number;
+  applyTo: number;
+  applyRootStartIndex: number;
+  applyRootEndIndex: number;
+  protectedInventory: WorldPlanProtectedStructureEntry[];
+  fullDocumentInventory: WorldPlanProtectedStructureEntry[];
+  roundTripPrefix: JSONContent[];
+  roundTripSuffix: JSONContent[];
 }
 
 export interface AdmittedWorldPlanEditProposal {
@@ -246,21 +275,224 @@ export async function capturePlanEditTarget(input: PlanEditEditorState): Promise
   };
 }
 
+function typedPlayableMarker(node: JSONContent): string | null {
+  if (node.type === "heading") {
+    const validated = validatePlayableHeadingAttrs(node.attrs);
+    return validated.status === "canonical" && validated.identity.version === "v2"
+      ? formatPlayableElementMarker(validated.identity)
+      : null;
+  }
+  if (node.type === "listItem") {
+    const validated = validatePlayableOptionItemAttrs(node.attrs);
+    return validated.status === "canonical"
+      ? formatPlayableElementMarker(validated.identity)
+      : null;
+  }
+  return null;
+}
+
+function worldPlanProtectedStructureInventory(
+  rootContent: readonly JSONContent[],
+): WorldPlanProtectedStructureEntry[] {
+  const inventory: WorldPlanProtectedStructureEntry[] = [];
+  let headingOrdinal = 0;
+  let headingPath: Array<{ level: number; ordinal: number }> = [];
+
+  const visit = (
+    node: JSONContent,
+    ownerPath: Array<{ level: number; ordinal: number }>,
+  ) => {
+    if (node.type === "horizontalRule") {
+      inventory.push({ kind: "horizontal-rule", identity: "---", headingPath: ownerPath });
+    }
+    if (node.type === "graphNodeReference") {
+      inventory.push({
+        kind: "graph-reference",
+        identity: JSON.stringify({
+          nodeId: node.attrs?.nodeId ?? null,
+          label: node.attrs?.label ?? null,
+        }),
+        headingPath: ownerPath,
+      });
+    }
+    if (node.type === "listItem") {
+      const marker = typedPlayableMarker(node);
+      if (marker) inventory.push({ kind: "playable-marker", identity: marker, headingPath: ownerPath });
+    }
+    for (const child of node.content ?? []) visit(child, ownerPath);
+  };
+
+  for (const node of rootContent) {
+    if (node.type === "heading") {
+      const level = Number(node.attrs?.level);
+      if (Number.isInteger(level) && level >= 1 && level <= 6) {
+        while (headingPath.length && headingPath[headingPath.length - 1]!.level >= level) {
+          headingPath = headingPath.slice(0, -1);
+        }
+        headingOrdinal += 1;
+        headingPath = [...headingPath, { level, ordinal: headingOrdinal }];
+      }
+      const marker = typedPlayableMarker(node);
+      if (marker) {
+        inventory.push({
+          kind: "playable-marker",
+          identity: marker,
+          headingPath: headingPath.map((entry) => ({ ...entry })),
+        });
+      }
+    }
+    visit(node, headingPath.map((entry) => ({ ...entry })));
+  }
+  return inventory;
+}
+
+function rootNodesOverlappingSelection(
+  editor: Editor,
+  from: number,
+  to: number,
+  target: NonNullable<ReturnType<typeof planSectionTargetForSelection>>,
+): {
+  rootContent: JSONContent[];
+  applyFrom: number;
+  applyTo: number;
+  applyRootStartIndex: number;
+  applyRootEndIndex: number;
+} {
+  const nodes: JSONContent[] = [];
+  let applyFrom: number | null = null;
+  let applyTo: number | null = null;
+  let applyRootStartIndex: number | null = null;
+  let applyRootEndIndex: number | null = null;
+  editor.state.doc.forEach((node, position, rootIndex) => {
+    if (position + node.nodeSize <= from || position >= to) return;
+    if (rootIndex < target.rootNodeStart || rootIndex >= target.rootNodeEnd) {
+      throw new PlanEditGuardError("The selected Plan section no longer matches its root heading bounds.");
+    }
+    nodes.push(node.toJSON() as JSONContent);
+    applyFrom ??= position;
+    applyTo = position + node.nodeSize;
+    applyRootStartIndex ??= rootIndex;
+    applyRootEndIndex = rootIndex + 1;
+  });
+  if (!nodes.length || nodes[0]?.type !== "heading") {
+    throw new PlanEditGuardError("The selected Plan section cannot be captured as a complete heading range.");
+  }
+  if (applyFrom === null || applyTo === null || applyRootStartIndex === null || applyRootEndIndex === null) {
+    throw new PlanEditGuardError("The selected Plan section cannot be captured as a complete root range.");
+  }
+  return { rootContent: nodes, applyFrom, applyTo, applyRootStartIndex, applyRootEndIndex };
+}
+
+function canonicalSectionMarkdownFromDraft(draftMarkdown: string, rootContent: JSONContent[]): string {
+  const sectionMarkdown = tiptapJsonToSemanticMarkdown({ type: "doc", content: rootContent });
+  const body = stripLeadingYamlFrontmatter(draftMarkdown).markdown;
+  const first = body.indexOf(sectionMarkdown);
+  if (first < 0 || body.indexOf(sectionMarkdown, first + 1) >= 0) {
+    throw new PlanEditGuardError("This heading section has no unique exact location in the canonical Plan draft.");
+  }
+  return sectionMarkdown;
+}
+
+type WorldPlanSemanticNodeProjection = {
+  type?: string;
+  text?: string;
+  attrs?: unknown;
+  marks?: Array<{ type?: string; attrs?: unknown }>;
+  content?: WorldPlanSemanticNodeProjection[];
+};
+
+function stableSemanticValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableSemanticValue);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, item]) => [key, stableSemanticValue(item)]),
+    );
+  }
+  return value;
+}
+
+function worldPlanSemanticContentProjection(nodes: JSONContent[] | undefined): WorldPlanSemanticNodeProjection[] {
+  const projection: WorldPlanSemanticNodeProjection[] = [];
+  for (const node of nodes ?? []) {
+    const marks = node.marks?.map((mark) => ({
+      type: mark.type,
+      ...(mark.attrs && Object.keys(mark.attrs).length ? { attrs: stableSemanticValue(mark.attrs) } : {}),
+    }));
+    const semanticAttrs = node.attrs
+      ? Object.fromEntries(Object.entries(node.attrs).filter(([, value]) => value !== null && value !== undefined))
+      : undefined;
+    const attrs = semanticAttrs && Object.keys(semanticAttrs).length ? stableSemanticValue(semanticAttrs) : undefined;
+    const current: WorldPlanSemanticNodeProjection = {
+      type: node.type,
+      ...(node.text !== undefined
+        ? { text: marks?.some((mark) => mark.type === "code") ? node.text : node.text.replace(/\s+/g, " ") }
+        : {}),
+      ...(attrs !== undefined ? { attrs } : {}),
+      ...(marks?.length ? { marks } : {}),
+      ...(node.content?.length ? { content: worldPlanSemanticContentProjection(node.content) } : {}),
+    };
+    const prior = projection[projection.length - 1];
+    if (node.type === "text"
+      && prior?.type === "text"
+      && JSON.stringify(prior.attrs) === JSON.stringify(current.attrs)
+      && JSON.stringify(prior.marks) === JSON.stringify(current.marks)) {
+      prior.text = `${prior.text ?? ""}${current.text ?? ""}`;
+    } else {
+      projection.push(current);
+    }
+  }
+  return projection;
+}
+
+function sameWorldPlanSemanticContent(left: JSONContent[] | undefined, right: JSONContent[] | undefined): boolean {
+  return JSON.stringify(worldPlanSemanticContentProjection(left))
+    === JSON.stringify(worldPlanSemanticContentProjection(right));
+}
+
+export function worldPlanSectionRoundTripUnavailableReason(rootContent: JSONContent[]): string | null {
+  if (!rootContent.length) return "This heading section is empty and cannot be used for a proposal.";
+  const markdown = tiptapJsonToSemanticMarkdown({ type: "doc", content: rootContent });
+  const reimported = markdownToTiptapDoc(markdown);
+  if (reimported.diagnostics.some((diagnostic) => diagnostic.level === "warning")
+    || semanticMarkdownSerializationDiagnostics(reimported.doc).length) {
+    return "This heading section cannot be represented safely in Markdown, so it is unavailable for Agent proposals.";
+  }
+  if (!sameWorldPlanSemanticContent(rootContent, reimported.doc.content)) {
+    return "This heading section changes editor structure during Markdown round-trip, so it is unavailable for Agent proposals.";
+  }
+  return null;
+}
+
+export function worldPlanSectionUnavailableReason(
+  editor: Editor,
+  target: PlanSectionTarget,
+): string | null {
+  try {
+    const section = rootNodesOverlappingSelection(editor, target.from, target.to, target);
+    return worldPlanSectionRoundTripUnavailableReason(section.rootContent);
+  } catch (reason) {
+    return reason instanceof Error
+      ? reason.message
+      : "This heading section cannot be captured safely for an Agent proposal.";
+  }
+}
+
 export async function captureWorldPlanEditTarget(
   input: WorldPlanEditEditorState,
   getCurrent: () => WorldPlanEditEditorState = () => input,
 ): Promise<CapturedWorldPlanEditTarget> {
   const editor = currentWorldEditor(input);
   const { from, to } = editor.state.selection;
-  const selectedText = editor.state.doc.textBetween(from, to, "\n");
+  const editorSelectedText = editor.state.doc.textBetween(from, to, "\n");
   const targetKind = from === to ? "insert_at_caret" : "replace_selection";
-  if (targetKind === "replace_selection" && !selectedText.trim()) {
+  if (targetKind === "replace_selection" && !editorSelectedText.trim()) {
     throw new PlanEditGuardError("Select text or place a caret in the Plan editor.");
   }
   const json = editor.getJSON();
   const editorJson = JSON.stringify(json);
   const selectionJson = JSON.stringify(editor.state.selection.toJSON());
-  const wholeBulletItem = wholeBulletItemSelection(editor, from, to, selectedText);
+  const wholeBulletItem = wholeBulletItemSelection(editor, from, to, editorSelectedText);
   if (markdownToTiptapDoc(input.sourceMarkdown).diagnostics.some((diagnostic) => diagnostic.level === "warning")) {
     throw new PlanEditGuardError("This Plan source cannot round-trip safely; resolve its Markdown warnings first.");
   }
@@ -271,8 +503,47 @@ export async function captureWorldPlanEditTarget(
     input.sourceMarkdown,
     tiptapJsonToSemanticMarkdown(json),
   );
+  const matchedSection = targetKind === "replace_selection"
+    ? planSectionTargetForSelection(editor, from, to)
+    : null;
+  let selectedText = editorSelectedText;
+  let sectionTarget: CapturedWorldPlanSectionTarget | undefined;
+  if (matchedSection) {
+    const sectionSlice = rootNodesOverlappingSelection(editor, from, to, matchedSection);
+    const sectionRootContent = sectionSlice.rootContent;
+    selectedText = canonicalSectionMarkdownFromDraft(draftMarkdown, sectionRootContent);
+    const unavailableReason = worldPlanSectionRoundTripUnavailableReason(sectionRootContent);
+    if (unavailableReason) throw new PlanEditGuardError(unavailableReason);
+    const baseline = markdownToTiptapDoc(draftMarkdown);
+    const baselineRootContent = baseline.doc.content ?? [];
+    const editorRootContent = json.content ?? [];
+    if (
+      baseline.diagnostics.some((diagnostic) => diagnostic.level === "warning")
+      || baselineRootContent.length !== editorRootContent.length
+      || baselineRootContent.some((node, index) => node.type !== editorRootContent[index]?.type)
+    ) {
+      throw new PlanEditGuardError("This heading section cannot be bounded safely in the canonical Plan draft.");
+    }
+    sectionTarget = {
+      id: matchedSection.id,
+      heading: matchedSection.heading,
+      level: matchedSection.level,
+      rootNodeStart: matchedSection.rootNodeStart,
+      rootNodeEnd: matchedSection.rootNodeEnd,
+      applyFrom: sectionSlice.applyFrom,
+      applyTo: sectionSlice.applyTo,
+      applyRootStartIndex: sectionSlice.applyRootStartIndex,
+      applyRootEndIndex: sectionSlice.applyRootEndIndex,
+      protectedInventory: worldPlanProtectedStructureInventory(sectionRootContent),
+      fullDocumentInventory: worldPlanProtectedStructureInventory(json.content ?? []),
+      roundTripPrefix: baselineRootContent.slice(0, sectionSlice.applyRootStartIndex),
+      roundTripSuffix: baselineRootContent.slice(sectionSlice.applyRootEndIndex),
+    };
+  }
   if (draftMarkdown.length > 80_000 || selectedText.length > 8_000) {
-    throw new PlanEditGuardError("The selected Plan material is too large for one proposal.");
+    throw new PlanEditGuardError(matchedSection
+      ? "This heading section exceeds the 8,000-character proposal limit. Select a smaller text range directly in the editor."
+      : "The selected Plan material is too large for one proposal.");
   }
   const draftSha256 = await sha256(draftMarkdown);
   const live = getCurrent();
@@ -300,6 +571,7 @@ export async function captureWorldPlanEditTarget(
     draftGeneration: input.draftGeneration,
     selectionGeneration: input.selectionGeneration,
     wholeBulletItem,
+    sectionTarget,
   };
 }
 
@@ -360,14 +632,28 @@ function insertionForTarget(
   };
 }
 
-function validateFragment(markdown: string): { content: JSONContent[]; canonicalMarkdown: string } {
+function validateFragment(
+  markdown: string,
+  sectionInventory?: WorldPlanProtectedStructureEntry[],
+): { content: JSONContent[]; canonicalMarkdown: string } {
   if (!markdown.trim() || markdown.length > 12_000) {
     throw new PlanEditGuardError("Agent returned an empty or oversized edit.");
   }
+  const sectionMode = sectionInventory !== undefined;
+  const referenceFreeText = sectionMode
+    ? markdown.replace(/\[[^\]]*\]\(dmb-node:[^)]+\)/g, "")
+    : markdown;
+  const comments = Array.from(markdown.matchAll(/<!--[\s\S]*?-->/g), (match) => match[0]);
+  const expectedMarkers = sectionMode
+    ? sectionInventory.filter((entry) => entry.kind === "playable-marker").map((entry) => entry.identity)
+    : [];
   if (
-    /^---\s*$/m.test(markdown)
+    (!sectionMode && /^---\s*$/m.test(markdown))
     || /<\/?[A-Za-z][^>]*>/.test(markdown)
-    || /(?:dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(markdown)
+    || (sectionMode
+      ? /(?:graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(referenceFreeText)
+        || JSON.stringify(comments) !== JSON.stringify(expectedMarkers)
+      : /(?:dmb-node:|graphNodeReference|\bnode:[a-z0-9_-]+)/i.test(markdown))
     || /\[[^\]]+\]\((?:file:|\.{1,2}\/|\/)/i.test(markdown)
     || /(?:^|\n)\s*>\s*\[!(?!READ-ALOUD\]|GM-NOTE\]|DECISION-CONSEQUENCE\])[^\]]+\]/i.test(markdown)
   ) {
@@ -381,11 +667,19 @@ function validateFragment(markdown: string): { content: JSONContent[]; canonical
   if (semanticMarkdownSerializationDiagnostics(parsed.doc).length) {
     throw new PlanEditGuardError("Agent proposed a component the Plan editor cannot serialize safely.");
   }
+  if (sectionMode) {
+    const replacementInventory = worldPlanProtectedStructureInventory(parsed.doc.content ?? []);
+    if (JSON.stringify(replacementInventory) !== JSON.stringify(sectionInventory)) {
+      const index = sectionInventory.findIndex((entry, entryIndex) => JSON.stringify(entry) !== JSON.stringify(replacementInventory[entryIndex]));
+      throw new PlanEditGuardError(`Agent proposal changed protected section identities at ${index}; expected ${JSON.stringify(sectionInventory[index])}, received ${JSON.stringify(replacementInventory[index])}; counts ${sectionInventory.length}/${replacementInventory.length}.`);
+    }
+  }
   const canonicalMarkdown = tiptapJsonToSemanticMarkdown(parsed.doc);
   const reparsed = markdownToTiptapDoc(canonicalMarkdown);
   if (
     reparsed.diagnostics.some((diagnostic) => diagnostic.level === "warning")
-    || JSON.stringify(reparsed.doc) !== JSON.stringify(parsed.doc)
+    || (!sectionMode && JSON.stringify(reparsed.doc) !== JSON.stringify(parsed.doc))
+    || (sectionMode && !sameWorldPlanSemanticContent(parsed.doc.content, reparsed.doc.content))
   ) {
     throw new PlanEditGuardError("Agent proposal does not round-trip through Plan Markdown.");
   }
@@ -431,7 +725,7 @@ export async function admitWorldPlanEditProposal(
   ) {
     throw new PlanEditGuardError("Agent proposal does not match the captured World Plan target.");
   }
-  const fragment = validateFragment(response.replacement_markdown);
+  const fragment = validateFragment(response.replacement_markdown, captured.sectionTarget?.protectedInventory);
   return { response, ...fragment };
 }
 
@@ -546,26 +840,79 @@ export async function applyWorldPlanEditProposal(args: {
   ) {
     throw new PlanEditGuardError("World Plan or selection changed after the Agent proposal. Compose again.");
   }
+  if (captured.sectionTarget) {
+    const reviewed = markdownToTiptapDoc(admitted.canonicalMarkdown);
+    if (reviewed.diagnostics.some((diagnostic) => diagnostic.level === "warning")
+      || !sameWorldPlanSemanticContent(admitted.content, reviewed.doc.content)) {
+      throw new PlanEditGuardError("The reviewed World Plan edit changed after it was prepared. Compose again.");
+    }
+  }
   const simulated = new Editor({
     extensions: DEFAULT_MARKDOWN_EDITOR_EXTENSIONS,
     content: editor.getJSON(),
   });
-  const insertion = insertionForTarget(captured, admitted.content);
+  const insertion = captured.sectionTarget
+    ? {
+      range: { from: captured.sectionTarget.applyFrom, to: captured.sectionTarget.applyTo },
+      content: admitted.content,
+    }
+    : insertionForTarget(captured, admitted.content);
   try {
     if (!simulated.commands.insertContentAt(insertion.range, insertion.content)) {
       throw new PlanEditGuardError("Agent proposal cannot be inserted at this World Plan target.");
     }
     const result = simulated.getJSON();
+    const resultRootContent = result.content ?? [];
+    if (captured.sectionTarget) {
+      const { applyRootEndIndex, applyRootStartIndex } = captured.sectionTarget;
+      const originalRootContent = (JSON.parse(captured.editorJson) as JSONContent).content ?? [];
+      const originalPrefix = originalRootContent.slice(0, applyRootStartIndex);
+      const originalSuffix = originalRootContent.slice(applyRootEndIndex);
+      const resultSuffixStart = resultRootContent.length - originalSuffix.length;
+      if (
+        resultRootContent.length !== originalPrefix.length + admitted.content.length + originalSuffix.length
+        || JSON.stringify(resultRootContent.slice(0, originalPrefix.length)) !== JSON.stringify(originalPrefix)
+        || resultSuffixStart < originalPrefix.length
+        || JSON.stringify(resultRootContent.slice(resultSuffixStart)) !== JSON.stringify(originalSuffix)
+      ) {
+        throw new PlanEditGuardError("Agent proposal would change Plan content outside the selected heading section.");
+      }
+      const resultInventory = worldPlanProtectedStructureInventory(result.content ?? []);
+      const expectedInventory = captured.sectionTarget.fullDocumentInventory;
+      if (JSON.stringify(resultInventory) !== JSON.stringify(expectedInventory)) {
+        const index = expectedInventory.findIndex((entry, entryIndex) => JSON.stringify(entry) !== JSON.stringify(resultInventory[entryIndex]));
+        throw new PlanEditGuardError(`Agent proposal would change protected Plan identities (${expectedInventory.length}/${resultInventory.length}, at ${index}: ${JSON.stringify(expectedInventory[index])} <> ${JSON.stringify(resultInventory[index])}).`);
+      }
+    }
     if (semanticMarkdownSerializationDiagnostics(result).length) {
       throw new PlanEditGuardError("Agent proposal would make the Plan unsafe to save as Markdown.");
     }
     const serialized = tiptapJsonToSemanticMarkdown(result);
     const reimported = markdownToTiptapDoc(serialized);
+    const reserialized = tiptapJsonToSemanticMarkdown(reimported.doc);
+    if (captured.sectionTarget) {
+      const { applyRootStartIndex, fullDocumentInventory, roundTripPrefix, roundTripSuffix } = captured.sectionTarget;
+      const reimportedRootContent = reimported.doc.content ?? [];
+      const suffixStart = reimportedRootContent.length - roundTripSuffix.length;
+      const reimportedInventory = worldPlanProtectedStructureInventory(reimportedRootContent);
+      if (
+        reimportedInventory.length !== fullDocumentInventory.length
+        || JSON.stringify(reimportedInventory) !== JSON.stringify(fullDocumentInventory)
+        || suffixStart < applyRootStartIndex
+        || JSON.stringify(reimportedRootContent.slice(0, applyRootStartIndex)) !== JSON.stringify(roundTripPrefix)
+        || JSON.stringify(reimportedRootContent.slice(suffixStart)) !== JSON.stringify(roundTripSuffix)
+      ) {
+        throw new PlanEditGuardError("Agent proposal would change content outside the selected heading section after Markdown reload.");
+      }
+      if (!sameWorldPlanSemanticContent(admitted.content, reimportedRootContent.slice(applyRootStartIndex, suffixStart))) {
+        throw new PlanEditGuardError("Agent proposal would change content inside the selected heading section after Markdown reload.");
+      }
+    }
     if (
       reimported.diagnostics.some((diagnostic) => diagnostic.level === "warning")
-      || tiptapJsonToSemanticMarkdown(reimported.doc) !== serialized
+      || (!captured.sectionTarget && reserialized !== serialized)
     ) {
-      throw new PlanEditGuardError("Agent proposal would not round-trip in this Plan location.");
+      throw new PlanEditGuardError("Agent proposal would not round-trip safely in this Plan location.");
     }
   } finally {
     simulated.destroy();

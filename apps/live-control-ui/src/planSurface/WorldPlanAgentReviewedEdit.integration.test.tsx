@@ -1,6 +1,8 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { StrictMode, type ReactNode } from "react";
 import { webcrypto } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
@@ -12,6 +14,8 @@ import { AgentInteractionChrome } from "../agentInteraction/AgentInteractionChro
 import { AskPluginSlotProvider } from "../agentInteraction/AskPluginSlot";
 import { activeThreadStorageKey, threadIndexStorageKey, threadStorageKey } from "../agentInteraction/agentInteractionStorage";
 import { PlanSurfacePage } from "./PlanSurfacePage";
+import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import { tiptapJsonToSemanticMarkdown } from "../tiptap/markdown/calloutMarkdown";
 
 const capturedChrome = vi.hoisted(() => ({ editorTools: null as unknown }));
 
@@ -41,6 +45,78 @@ vi.mock("./PlanSurfaceShell", () => ({
 const worldId = "world-reviewed-edit-integration";
 const documentId = "saved-world-plan-reviewed-edit";
 const initialMarkdown = "# Plan\n\nThe keeper waits beneath the black arch.\n";
+const repositoryRoot = resolve(process.cwd(), "../..");
+const session29Markdown = readFileSync(resolve(
+  repositoryRoot,
+  "corpus",
+  "eldyrwild-markdown",
+  "Longmont Campaign",
+  "Campaign 2",
+  "Session Prep",
+  "Session 29 - Buddy Plan.md",
+), "utf8");
+
+function session29V2Markers(markdown: string): string[] {
+  return Array.from(markdown.matchAll(/<!--\s*dmb-playable-element:v2[^\r\n]*?-->/g), (match) => match[0]);
+}
+
+function session29NodeLinks(markdown: string): string[] {
+  return Array.from(markdown.matchAll(/\[[^\]]*\]\(dmb-node:[^)]+\)/g), (match) => match[0]);
+}
+
+function normalizeThematicBreakSpacing(markdown: string): string {
+  return markdown.replace(/\n+(?=---(?:\r?\n|$))/g, "\n");
+}
+
+function selectedMarkdownSection(markdown: string, headingText: string): { fragment: string; replace: (replacement: string) => string } {
+  const lines = markdown.split("\n");
+  const offsets: number[] = [];
+  const headings: Array<{ line: number; offset: number; level: number; text: string }> = [];
+  let offset = 0;
+  for (let line = 0; line < lines.length; line += 1) {
+    offsets.push(offset);
+    const match = /^(#{1,6})\s+(.+?)\s*$/.exec(lines[line]);
+    if (match) headings.push({ line, offset, level: match[1].length, text: match[2] });
+    offset += lines[line].length + 1;
+  }
+  const selected = headings.find((heading) => heading.text === headingText);
+  if (!selected) throw new Error(`Session 29 heading not found: ${headingText}`);
+  const nextPeer = headings.find((heading) => heading.offset > selected.offset && heading.level <= selected.level);
+  const markerBefore = (line: number) => line > 0 && /<!--\s*dmb-playable-element:v2\b/.test(lines[line - 1]);
+  const startLine = markerBefore(selected.line) ? selected.line - 1 : selected.line;
+  let endLine = nextPeer ? (markerBefore(nextPeer.line) ? nextPeer.line - 1 : nextPeer.line) : lines.length;
+  if (nextPeer) {
+    while (endLine > startLine && !lines[endLine - 1]!.trim()) endLine -= 1;
+    if (endLine > startLine && /^---+$/.test(lines[endLine - 1]!.trim())) {
+      endLine -= 1;
+    }
+  }
+  const start = offsets[startLine];
+  const end = nextPeer ? offsets[endLine] : markdown.length;
+  const fragment = markdown.slice(start, end);
+
+  return {
+    fragment,
+    replace(replacement) {
+      return `${markdown.slice(0, start)}${replacement}${markdown.slice(end)}`;
+    },
+  };
+}
+
+function reviseFirstSectionProse(fragment: string): string {
+  const lines = fragment.split("\n");
+  const headingLine = lines.findIndex((line) => /^#{1,6}\s+/.test(line));
+  const proseLine = lines.findIndex((line, index) => index > headingLine
+    && line.trim()
+    && !/^#{1,6}\s+/.test(line)
+    && !/^<!--/.test(line.trim())
+    && !/^>/.test(line.trim())
+    && !/^---+$/.test(line.trim()));
+  if (proseLine < 0) throw new Error("Session 29 target section has no prose to revise.");
+  lines[proseLine] = `${lines[proseLine]} [reviewed section detail]`;
+  return lines.join("\n");
+}
+
 const liveApplyScenarios = [
   [
     "plain prose",
@@ -250,7 +326,10 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
     target: { value: "Add a warm light source to the opening." },
   });
   fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
-  expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
+  await screen.findByRole("region", { name: "Review proposed Plan edit" }).catch(() => {
+    const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
+    throw new Error(`Section proposal was rejected. Alerts: ${alerts || "none"}`);
+  });
   const request = proposal.mock.calls[0][0];
   expect(request).toMatchObject({
     document_id: documentId,
@@ -312,6 +391,322 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
   expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Apply to mounted draft" })).not.toBeInTheDocument();
 });
+
+const session29SectionCases = [
+  {
+    label: "parent Beat",
+    heading: "The Hours They Bought",
+    includedChild: "Mireward After the Attack",
+    excludedPeer: "Sixteen People Still Sleeping",
+  },
+  {
+    label: "scene",
+    heading: "Mireward After the Attack",
+    includedChild: "The town is damaged but functioning.",
+    excludedPeer: "What Do You Do With the Time You Bought?",
+  },
+] as const;
+
+it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply within a safe round-trip boundary", async (sectionCase) => {
+  savedMarkdown = session29Markdown;
+  expect(session29V2Markers(session29Markdown)).toHaveLength(90);
+  expect(session29NodeLinks(session29Markdown)).toHaveLength(72);
+  setupWorldApi();
+  let expectedAfterApply = "";
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => {
+    const section = selectedMarkdownSection(request.draft_markdown, sectionCase.heading);
+    const replacement = reviseFirstSectionProse(section.fragment);
+    const canonicalReplacement = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacement).doc);
+    expectedAfterApply = section.replace(canonicalReplacement);
+    return {
+      schema_version: "dmb_world_plan_document_edit_proposal_v1",
+      document_id: request.document_id,
+      world_id: request.world_id,
+      base_revision: request.base_revision,
+      base_content_sha256: request.base_content_sha256,
+      draft_sha256: request.draft_sha256,
+      target_kind: request.target_kind,
+      selected_text_sha256: await sha256Hex(request.selected_text),
+      replacement_markdown: replacement,
+      summary: `Revise ${sectionCase.heading}.`,
+      assumptions: [],
+      model: "gpt-6-luna",
+      model_observed: true,
+      model_latency_ms: 1,
+      wall_latency_ms: 1,
+      usage: null,
+    };
+  });
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    title: "Integration Plan",
+    target_relpath: `out/workspace/plan/${documentId}.md`,
+    target_display_path: `out/workspace/plan/${documentId}.md`,
+    registry_revision: 8,
+    file_exists: true,
+    writer_ok: true,
+    writer_confirm_token: "integration-save-token",
+    warnings: [],
+    diagnostics: [],
+  });
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
+    savedMarkdown = request.markdown;
+    savedRevision = 8;
+    savedDigest = "c".repeat(64);
+    return {
+      schema_version: "dmb_tiptap_markdown_write_commit_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: documentId,
+      title: "Integration Plan",
+      target_relpath: `out/workspace/plan/${documentId}.md`,
+      target_display_path: `out/workspace/plan/${documentId}.md`,
+      registry_revision: savedRevision,
+      committed_revision: savedRevision,
+      committed_record: { ...planRecord(), revision: savedRevision },
+      normalized_content_sha256: savedDigest,
+      writer_ok: true,
+      writer_phase: "commit",
+      diagnostics: [],
+    };
+  });
+
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(editorSurface).toHaveTextContent("The Hours They Bought"));
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+
+  fireEvent.click(screen.getByRole("button", { name: "Refresh section list" }));
+  const sectionSelect = await screen.findByRole("combobox", { name: "Plan heading section" }) as HTMLSelectElement;
+  await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
+  const option = Array.from(sectionSelect.options).find((candidate) => candidate.textContent?.includes(sectionCase.heading));
+  expect(option).toBeDefined();
+
+  if (sectionCase.label === "parent Beat") {
+    const beforeSelection = editorSurface.textContent;
+    expect(option!.disabled).toBe(true);
+    expect(option!.textContent).toContain("unavailable");
+    fireEvent.change(sectionSelect, { target: { value: option!.value } });
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(
+      "This heading section changes editor structure during Markdown round-trip",
+    ));
+    expect(sectionSelect.value).toBe("");
+    expect(editorSurface.textContent).toBe(beforeSelection);
+    expect(proposal).not.toHaveBeenCalled();
+    expect(prepare).not.toHaveBeenCalled();
+    expect(commit).not.toHaveBeenCalled();
+    expect(savedMarkdown).toBe(session29Markdown);
+    return;
+  }
+
+  expect(option!.disabled).toBe(false);
+  fireEvent.change(sectionSelect, { target: { value: option!.value } });
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${option!.textContent} selected`));
+  const beforeProposalText = editorSurface.textContent;
+  expect(proposal).not.toHaveBeenCalled();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  fireEvent.change(screen.getByLabelText("What should DungeonBuddy change?"), {
+    target: { value: `Revise ${sectionCase.heading} with one reviewed detail.` },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1), { timeout: 3_000 }).catch(() => {
+    const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
+    throw new Error(`Section proposal was not sent. Alerts: ${alerts || "none"}`);
+  });
+  expect(proposal).toHaveBeenCalledTimes(1);
+  const request = proposal.mock.calls[0][0];
+  expect(request.target_kind).toBe("replace_selection");
+  expect(request.selected_text).toContain(sectionCase.heading);
+  expect(request.selected_text).toContain(sectionCase.includedChild);
+  expect(request.selected_text).not.toContain(sectionCase.excludedPeer);
+  expect(session29V2Markers(request.draft_markdown)).toEqual(session29V2Markers(session29Markdown));
+  expect(session29NodeLinks(request.draft_markdown)).toEqual(session29NodeLinks(session29Markdown));
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).not.toHaveTextContent("reviewed section detail");
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  await screen.findByRole("region", { name: "Review proposed Plan edit" });
+  fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
+  await waitFor(() => expect(editorSurface).toHaveTextContent("reviewed section detail")).catch(() => {
+    const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
+    throw new Error(`Section Apply failed. Alerts: ${alerts || "none"}`);
+  });
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  expect(savedMarkdown).toBe(session29Markdown);
+
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await waitFor(() => expect(screen.getByText("Saved to this World.")).toBeInTheDocument());
+  expect(prepare).toHaveBeenCalledTimes(1);
+  expect(commit).toHaveBeenCalledTimes(1);
+  const submittedMarkdown = commit.mock.calls[0][0].markdown;
+  expect(normalizeThematicBreakSpacing(submittedMarkdown)).toBe(normalizeThematicBreakSpacing(expectedAfterApply));
+  expect(commit.mock.calls[0][0].markdown).toBe(prepare.mock.calls[0][0].markdown);
+  expect(session29V2Markers(submittedMarkdown)).toEqual(session29V2Markers(session29Markdown));
+  expect(session29NodeLinks(submittedMarkdown)).toEqual(session29NodeLinks(session29Markdown));
+  expect(submittedMarkdown).toContain("reviewed section detail");
+
+  view.unmount();
+  window.history.replaceState({}, "", location);
+  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const reloadedEditor = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(reloadedEditor).toHaveTextContent("reviewed section detail"));
+  expect(session29V2Markers(savedMarkdown)).toEqual(session29V2Markers(session29Markdown));
+  expect(session29NodeLinks(savedMarkdown)).toEqual(session29NodeLinks(session29Markdown));
+}, 30_000);
+
+it("reviews, applies, saves, and reloads rich content inside one selected World Plan section", async () => {
+  const sourceMarkdown = [
+    "# Plan",
+    "",
+    "## Mireward",
+    "",
+    "### After the attack",
+    "",
+    "The town waits.",
+    "",
+    "## North Road",
+    "",
+    "A different route.",
+  ].join("\n");
+  const replacementMarkdown = [
+    "## Mireward",
+    "",
+    "### After the attack",
+    "",
+    "The **watcher** waits for *a signal*.",
+    "",
+    "> The first witness speaks from the gate.",
+    ">",
+    "> The second witness answers from the river.",
+    "",
+    "> [!READ-ALOUD]",
+    "> The river carries a low, silver sound.",
+    "",
+    "> [!DECISION-CONSEQUENCE]",
+    "> ### Decision",
+    "> Hold the bridge.",
+    ">",
+    "> ### Consequence",
+    "> The town keeps the crossing until dawn.",
+  ].join("\n");
+  savedMarkdown = sourceMarkdown;
+  setupWorldApi();
+  const canonicalReplacement = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacementMarkdown).doc);
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
+    schema_version: "dmb_world_plan_document_edit_proposal_v1",
+    document_id: request.document_id,
+    world_id: request.world_id,
+    base_revision: request.base_revision,
+    base_content_sha256: request.base_content_sha256,
+    draft_sha256: request.draft_sha256,
+    target_kind: request.target_kind,
+    selected_text_sha256: await sha256Hex(request.selected_text),
+    replacement_markdown: replacementMarkdown,
+    summary: "Add the reviewed voices and decision.",
+    assumptions: [],
+    model: "gpt-6-luna",
+    model_observed: true,
+    model_latency_ms: 1,
+    wall_latency_ms: 1,
+    usage: null,
+  }));
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockResolvedValue({
+    schema_version: "dmb_tiptap_markdown_write_prepare_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    document_id: documentId,
+    title: "Integration Plan",
+    target_relpath: `out/workspace/plan/${documentId}.md`,
+    target_display_path: `out/workspace/plan/${documentId}.md`,
+    registry_revision: 8,
+    file_exists: true,
+    writer_ok: true,
+    writer_confirm_token: "integration-rich-section-save-token",
+    warnings: [],
+    diagnostics: [],
+  });
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockImplementation(async (request) => {
+    savedMarkdown = request.markdown;
+    savedRevision = 8;
+    savedDigest = "d".repeat(64);
+    return {
+      schema_version: "dmb_tiptap_markdown_write_commit_v2",
+      scope_mode: "world",
+      world_id: worldId,
+      document_id: documentId,
+      title: "Integration Plan",
+      target_relpath: `out/workspace/plan/${documentId}.md`,
+      target_display_path: `out/workspace/plan/${documentId}.md`,
+      registry_revision: savedRevision,
+      committed_revision: savedRevision,
+      committed_record: { ...planRecord(), revision: savedRevision },
+      normalized_content_sha256: savedDigest,
+      writer_ok: true,
+      writer_phase: "commit",
+      diagnostics: [],
+    };
+  });
+
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  const sectionSelect = await screen.findByRole("combobox", { name: "Plan heading section" }) as HTMLSelectElement;
+  fireEvent.click(screen.getByRole("button", { name: "Refresh section list" }));
+  await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
+  const option = Array.from(sectionSelect.options).find((candidate) => candidate.textContent?.includes("Mireward"));
+  expect(option).toBeDefined();
+  fireEvent.change(sectionSelect, { target: { value: option!.value } });
+  await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${option!.textContent} selected`));
+  fireEvent.change(screen.getByLabelText("What should DungeonBuddy change?"), {
+    target: { value: "Add the reviewed multi-paragraph witnesses, read-aloud, and decision consequence." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
+  await screen.findByRole("region", { name: "Review proposed Plan edit" });
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).not.toHaveTextContent("The watcher");
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
+  await waitFor(() => expect(editorSurface).toHaveTextContent("second witness answers from the river"));
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  expect(savedMarkdown).toBe(sourceMarkdown);
+
+  fireEvent.click(screen.getByRole("button", { name: "Save Plan" }));
+  await waitFor(() => expect(screen.getByText("Saved to this World.")).toBeInTheDocument());
+  expect(prepare).toHaveBeenCalledTimes(1);
+  expect(commit).toHaveBeenCalledTimes(1);
+  const submittedMarkdown = commit.mock.calls[0][0].markdown;
+  expect(selectedMarkdownSection(submittedMarkdown, "Mireward").fragment).toBe(canonicalReplacement);
+  expect(submittedMarkdown).toContain("## North Road");
+  expect(commit.mock.calls[0][0].markdown).toBe(prepare.mock.calls[0][0].markdown);
+  const reloadedSection = selectedMarkdownSection(savedMarkdown, "Mireward").fragment;
+  const semanticTree = markdownToTiptapDoc(reloadedSection).doc;
+  const serializedTree = JSON.stringify(semanticTree);
+  expect(serializedTree).toContain('"type":"bold"');
+  expect(serializedTree).toContain('"type":"italic"');
+  expect(serializedTree).toContain('"type":"blockquote"');
+  expect(serializedTree).toContain('"type":"callout"');
+  expect(serializedTree).toContain('"type":"decisionConsequence"');
+
+  view.unmount();
+  window.history.replaceState({}, "", location);
+  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const reloadedEditor = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(reloadedEditor).toHaveTextContent("The watcher"));
+  expect(selectedMarkdownSection(savedMarkdown, "Mireward").fragment).toBe(canonicalReplacement);
+}, 30_000);
 
 it("drops a delayed proposal that completes after the mounted Plan conversation unmounts", async () => {
   setupWorldApi();
