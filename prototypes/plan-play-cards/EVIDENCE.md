@@ -63,3 +63,7 @@ Compact single-line Choices disclosure; source Location remains visible across b
 ## Retained decisions and unexpected action notes
 
 Fixed clearing of logged checklist selections; migrated existing logs back into scene selections once. Browser verified Prioritize the sleepers remains checked after Next → Previous and refresh. Renamed the optional sidebar Decision log and explained browser-local storage / Files export. Logging no longer forces the sidebar open; unchanged repeated submissions are guarded. Something else has a persistent note field that selects that action while typing and stores its text with the direction record. Screenshot: `evidence/retained-decisions.png`.
+
+## Shared writing pad and default unexpected action
+
+Added a bottom floating Notes button and resizable non-modal writing pad, shared across scenes and documents. Browser verified typed text survives Next and refresh; removed only the test text and returned to the original scene. Open state also persists. Markdown export is separate. Every choice group now supplies the unexpected-action note UI, reusing an explicit source option or a local fallback. Source fixtures remain unchanged. Screenshot: `evidence/shared-notepad.png`.
