@@ -1,10 +1,11 @@
 # HANDOFF — DEMO: Plan section targeting
 
-**Status:** ACTIVE — PRIME authorized this independent Plan consumer slice.
-**Owner:** DEMO.
-**Base:** Buddy `main@0ecda4d7995244bdf24ed7ba721ddaac17d855fb` (verified current after #891 merged; #891 changed only `PlanSurfaceShell.test.tsx`, outside this lease).
-**Branch/worktree:** `codex/demo-plan-section-targeting` at `/tmp/demo-plan-section-targeting`.
-**PR topology:** parallel-independent from the frozen #886 navigation shell PR at `e66afe387ea34a7f2a2467e27bfbcbc7f058a1be`; this is one separate PR, not stacked on #886, with no #886 file or runtime overlap.
+**Status:** COMPLETE — Buddy PR #890 merged at `6b8f335410e4e52a9d737f1feed6e20d1180f431` from reviewed code head `892fc997efe60383733fdefbbabb6f6a9fec71b8`; implementation lease released.
+**Owner:** DEMO (settled implementation lane).
+**Activation base:** Buddy `main@0ecda4d7995244bdf24ed7ba721ddaac17d855fb` (verified after #891 merged; #891 changed only `PlanSurfaceShell.test.tsx`, outside this lease).
+**Published branch/head:** `codex/demo-plan-section-targeting` at `892fc997efe60383733fdefbbabb6f6a9fec71b8`, merged by #890 at `6b8f335410e4e52a9d737f1feed6e20d1180f431`.
+**Source worktree:** `/tmp/demo-plan-section-targeting` (historical; no active lease).
+**PR topology:** parallel-independent from the frozen #886 navigation shell PR at `e66afe387ea34a7f2a2467e27bfbcbc7f058a1be`; #890 merged separately, with no #886 file or runtime overlap.
 
 **Lease amendment:** PRIME explicitly added
 `apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.ts` and its
@@ -84,7 +85,9 @@ admission.
   capture/apply/save contracts, report the concrete boundary to PRIME; do not add
   a source-patching framework to this slice.
 
-## Exclusive write lease
+## Exclusive write lease (historical; released at PR #890 merge)
+
+The allowlist below describes the completed #890 implementation lease; it is not current write authority. No active implementation lease remains under this handoff.
 
 Modify only:
 
@@ -125,7 +128,7 @@ approved `selected_text` use is limited to canonical Markdown for an exact
 whole-section selection; arbitrary editor selections keep their existing text
 semantics. Do not add a request field or schema.
 
-## Re-anchor and concurrent leases
+## Activation re-anchor and concurrent leases (historical)
 
 The prior implementation base was `main@8dc639f06e05cf1809f42ecaba4c791ef21af66b`.
 PR #891 merged at `0ecda4d7995244bdf24ed7ba721ddaac17d855fb`; its sole changed
@@ -210,8 +213,10 @@ It contains the linked Session 29 Plan, 72 `dmb-node:` references and 90
   in leased files. The package wrapper could not write its build-info file under
   this checkout's read-only `node_modules` symlink. `git diff --check` passes.
 
-The verified implementation is rebased onto
-`main@0ecda4d7995244bdf24ed7ba721ddaac17d855fb`. Existing PR #890 is the
-assigned publication target. Record its exact published head and verification
-evidence there, then return any fidelity or contract limits to PRIME. Do not
-merge.
+## Settlement (2026-10-03)
+
+Buddy PR #890 merged to `main` at `6b8f335410e4e52a9d737f1feed6e20d1180f431` from exact reviewed code head `892fc997efe60383733fdefbbabb6f6a9fec71b8`. PRIME merged after the exact-head evidence was returned; ARCHITECTURE accepted the fail-closed section-safety contract.
+
+Focused frontend tests passed 56/56. Backend service tests passed 13 tests; the database-backed route test was deselected because no designated disposable PostgreSQL DSN was available. Scoped Ruff, Python syntax checks and `git diff --check` passed. Direct TypeScript checking reported only the inherited `TS2503: Cannot find namespace 'JSX'` error at `src/statblocks/publication/ThreatPublicationPanel.tsx:553`, outside the lease.
+
+Round-trip-safe sections are actionable. The Session 29 parent Beat remains unavailable because adjacent list blocks merge during Markdown round-trip; the mounted witness proves refusal before proposal submission and a nested Scene Review → Apply → Save → reload path. No live provider reliability or database-backed route/write behavior is claimed. The implementation lease ended at merge. Any parent-Beat serializer repair or other expansion requires a new bounded handoff.
