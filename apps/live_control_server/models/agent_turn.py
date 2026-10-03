@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+
+from application_state.agent_conversation.types import TurnProvenance
 
 
 class AgentTurnSurface(BaseModel):
@@ -298,7 +301,9 @@ class AgentTurnWorkResult(BaseModel):
 class AgentTurnGraphResult(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    status: Literal["not_requested", "ready", "empty", "unavailable", "rejected"]
+    status: Literal[
+        "not_requested", "ready", "empty", "unavailable", "rejected", "replayed"
+    ]
     world_id: str | None = None
     campaign_id: str | None = None
     scope_mode: Literal["world", "campaign"] | None = None
@@ -317,6 +322,7 @@ class AgentTurnConversationResult(BaseModel):
     turn_id: str
     pointer_status: Literal["absent", "accepted", "recovered", "rejected", "reused"]
     pointer_id: str | None
+    conversation_id: UUID | None = None
 
 
 class AgentTurnAnswerResult(BaseModel):
@@ -347,3 +353,70 @@ class AgentTurnResponse(BaseModel):
     graph: AgentTurnGraphResult
     conversation: AgentTurnConversationResult
     answer: AgentTurnAnswerResult
+
+
+class AgentConversationHistoryTurn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    turn_id: UUID
+    sequence: int = Field(ge=1)
+    lifecycle_status: Literal[
+        "accepted", "running", "completed", "failed", "interrupted"
+    ]
+    user_text: str
+    assistant_text: str | None
+    provenance: TurnProvenance
+
+
+class AgentConversationHistoryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_conversation_history_v1"] = Field(
+        default="dmb_agent_conversation_history_v1", alias="schema"
+    )
+    world_id: str = Field(min_length=1, max_length=128)
+    conversation_state: Literal["active", "absent"]
+    conversation_id: UUID | None
+    active_conversation_id: UUID | None
+    pointer_revision: int = Field(ge=0)
+    turns: list[AgentConversationHistoryTurn]
+    next_before_sequence: int | None = Field(default=None, ge=1)
+
+    @model_validator(mode="after")
+    def validate_conversation_state(self) -> "AgentConversationHistoryResponse":
+        if self.conversation_state == "absent":
+            if (
+                self.conversation_id is not None
+                or self.active_conversation_id is not None
+                or self.turns
+            ):
+                raise ValueError("absent conversation state cannot carry a conversation or turns")
+        elif (
+            self.conversation_id is None
+            or self.active_conversation_id != self.conversation_id
+        ):
+            raise ValueError("active conversation state requires matching active conversation IDs")
+        return self
+
+
+class AgentNewConversationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_new_conversation_v1"] = Field(
+        default="dmb_agent_new_conversation_v1", alias="schema"
+    )
+    command_id: UUID
+    expected_pointer_revision: int = Field(ge=0)
+    expected_active_conversation_id: UUID | None
+
+
+class AgentNewConversationResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    schema_: Literal["dmb_agent_new_conversation_response_v1"] = Field(
+        default="dmb_agent_new_conversation_response_v1", alias="schema"
+    )
+    world_id: str
+    conversation_id: UUID
+    active_conversation_id: UUID | None
+    pointer_revision: int = Field(ge=0)

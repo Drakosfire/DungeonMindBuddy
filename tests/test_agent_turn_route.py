@@ -45,6 +45,15 @@ def _payload() -> dict[str, Any]:
     }
 
 
+@pytest.fixture(autouse=True)
+def _authorize_route_execution(monkeypatch: Any) -> None:
+    """Keep these route behavior tests independent of local auth setup."""
+    from apps.live_control_server.routes import agent as agent_route
+
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", lambda _request: None)
+    monkeypatch.setattr(agent_route, "_conversation_service", lambda _request: None)
+
+
 def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
     tmp_path: Path, monkeypatch: Any
 ) -> None:
@@ -90,6 +99,125 @@ def test_no_scope_route_does_not_load_packet_and_registers_exactly_once(
     assert runtime.invocations[0].context_packet.world_scope is None
     assert runtime.invocations[0].context_packet.retrieval_session is None
     assert (tmp_path / "session-dir" / "hermes_thread_pointers.json").is_file()
+
+
+def test_graph_auth_denial_precedes_world_receipt_reconciliation(
+    monkeypatch: Any,
+) -> None:
+    from fastapi import HTTPException
+
+    from apps.live_control_server.routes import agent as agent_route
+
+    class ReceiptSpy:
+        called = False
+
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Any:
+            self.called = True
+            raise AssertionError("denied Graph request reached receipt reconciliation")
+
+    receipt_spy = ReceiptSpy()
+
+    def deny(_request: Any) -> Any:
+        raise HTTPException(status_code=403, detail="denied")
+
+    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", deny)
+    body = AgentTurnRequest.model_validate(
+        {
+            **_payload(),
+            "owner_scope": {"kind": "world", "world_id": "world-auth-test"},
+        }
+    )
+    app = SimpleNamespace(
+        state=SimpleNamespace(agent_conversation_service=receipt_spy)
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        agent_route.post_agent_turn(body, SimpleNamespace(app=app))
+
+    assert exc_info.value.status_code == 403
+    assert receipt_spy.called is False
+
+
+def test_unverified_world_is_rejected_before_turn_receipt_reconciliation(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+        execute_agent_turn,
+    )
+    from apps.live_control_server.services.hermes_session_store import (
+        HermesSessionPointerStore,
+    )
+
+    class ReceiptSpy:
+        called = False
+
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Any:
+            self.called = True
+            raise AssertionError("unverified World reached receipt reconciliation")
+
+    receipt_spy = ReceiptSpy()
+    body = AgentTurnRequest.model_validate(
+        {
+            **_payload(),
+            "owner_scope": {"kind": "world", "world_id": "submitted-world"},
+        }
+    )
+    with pytest.raises(AgentTurnServiceError) as exc_info:
+        execute_agent_turn(
+            body,
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _body: {"kind": "world", "id": "other-world"},
+            work_resolver=lambda *_args: pytest.fail("World denial resolved work"),
+            graph_resolver=lambda *_args: pytest.fail("no Graph was requested"),
+            runtime_factory=lambda: pytest.fail("World denial loaded runtime"),
+            conversation_service=receipt_spy,
+        )
+
+    assert exc_info.value.code == "world_owner_unverified"
+    assert exc_info.value.status_code == 403
+    assert receipt_spy.called is False
+
+
+def test_legacy_receipt_conflict_does_not_load_runtime_or_resolve_work(
+    tmp_path: Path,
+) -> None:
+    from application_state.errors import ApplicationStateConflictError
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+        execute_agent_turn,
+    )
+    from apps.live_control_server.services.hermes_session_store import (
+        HermesSessionPointerStore,
+    )
+
+    class LegacyReceipt:
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Any:
+            raise ApplicationStateConflictError(
+                "legacy-receipt-unverifiable: stored receipt has no v1 digest"
+            )
+
+    body = AgentTurnRequest.model_validate(
+        {
+            **_payload(),
+            "owner_scope": {"kind": "world", "world_id": "world-legacy-test"},
+        }
+    )
+    with pytest.raises(AgentTurnServiceError) as exc_info:
+        execute_agent_turn(
+            body,
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _body: {"kind": "world", "id": "world-legacy-test"},
+            work_resolver=lambda *_args: pytest.fail("legacy receipt resolved work"),
+            graph_resolver=lambda *_args: pytest.fail("no Graph was requested"),
+            runtime_factory=lambda: pytest.fail("legacy receipt loaded runtime"),
+            conversation_service=LegacyReceipt(),
+        )
+
+    assert exc_info.value.code == "turn_receipt_unverifiable"
+    assert exc_info.value.status_code == 409
 
 
 def test_request_validation_rejects_unknown_or_contradictory_fields() -> None:
@@ -278,10 +406,11 @@ def test_plan_resolver_fails_stale_pin_before_agent_dispatch(monkeypatch: Any) -
 
 
 def test_plan_agent_route_dispatches_only_atomic_committed_content(
-    tmp_path: Path, monkeypatch: Any
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str
 ) -> None:
     import json
 
+    assert application_state_dsn
     from apps.live_control_server.routes import agent as agent_route
     from apps.live_control_server.services.world_container_registry import (
         create_world_container,
@@ -293,7 +422,7 @@ def test_plan_agent_route_dispatches_only_atomic_committed_content(
         "world_id": managed_world.world_id,
         "document_id": "plan-1",
         "object_revision": 7,
-        "work_revision_id": "work-revision-4",
+        "work_revision_id": "f9077838-81ae-4b7c-bfa6-37ade6f0d488",
         "revision_n": 4,
         "markdown": markdown,
         "content_sha256": "b" * 64,
@@ -688,8 +817,24 @@ def test_full_application_http_route_and_legacy_route_cardinality(
         if getattr(route, "path", None) == "/api/live/query"
         and "POST" in getattr(route, "methods", set())
     ]
+    history_routes = [
+        route
+        for route in app.routes
+        if getattr(route, "path", None)
+        == "/api/live/agent/worlds/{world_id}/conversation"
+        and "GET" in getattr(route, "methods", set())
+    ]
+    new_conversation_routes = [
+        route
+        for route in app.routes
+        if getattr(route, "path", None)
+        == "/api/live/agent/worlds/{world_id}/conversation/new"
+        and "POST" in getattr(route, "methods", set())
+    ]
     assert len(agent_routes) == 1
     assert len(legacy_routes) == 1
+    assert len(history_routes) == 1
+    assert len(new_conversation_routes) == 1
 
     async def post_turn() -> httpx.Response:
         # ASGITransport exercises the full HTTP app without starting its
@@ -713,8 +858,9 @@ def test_full_application_http_route_and_legacy_route_cardinality(
 
 
 def test_verified_world_projection_reaches_runtime_through_full_http_route(
-    tmp_path: Path, monkeypatch: Any
+    tmp_path: Path, monkeypatch: Any, application_state_dsn: str
 ) -> None:
+    assert application_state_dsn
     from apps.live_control_server.config import (
         WORLD_GRAPH_AUTHORITY_DUNGEONMIND,
         WORLD_GRAPH_AUTHORITY_ENV,

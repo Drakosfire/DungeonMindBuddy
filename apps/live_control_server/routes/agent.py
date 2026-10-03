@@ -4,11 +4,19 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import ValidationError
+
+from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.types import ConversationCommand
+from application_state.errors import ApplicationStateError
 
 from apps.live_control_server.config import repo_root, session_dir, world_graph_root
 from apps.live_control_server.models.agent_turn import (
+    AgentConversationHistoryResponse,
+    AgentConversationHistoryTurn,
+    AgentNewConversationRequest,
+    AgentNewConversationResponse,
     AgentTurnContentBasis,
     AgentTurnRequest,
 )
@@ -339,13 +347,149 @@ def _graph_resolver(
         ) from exc
 
 
+def _conversation_service(request: Request) -> AgentConversationService:
+    configured = getattr(request.app.state, "agent_conversation_service", None)
+    return configured if configured is not None else AgentConversationService()
+
+
+def _verified_world_id(world_id: str) -> str:
+    try:
+        return get_world_container(repo_root(), world_id).world_id
+    except WorldContainerRegistryError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": "world_owner_unavailable", "message": str(exc)},
+        ) from exc
+
+
+@router.get(
+    "/worlds/{world_id}/conversation",
+    response_model=AgentConversationHistoryResponse,
+)
+def get_world_conversation_history(
+    world_id: str,
+    request: Request,
+    limit: int = Query(default=50, ge=1, le=100),
+    before_sequence: int | None = Query(default=None, gt=0),
+) -> AgentConversationHistoryResponse:
+    # Authenticate before managed World lookup and every APP-STATE read.
+    enforce_native_graph_gm(request)
+    verified_world_id = _verified_world_id(world_id)
+    service = _conversation_service(request)
+    try:
+        # The pointer and active record are separate APP-STATE reads. Verify
+        # they agree across the history read so callers can use the revision
+        # for a subsequent New Conversation CAS.
+        snapshot = None
+        for _attempt in range(3):
+            before = service.get_world_pointer(verified_world_id)
+            conversation = service.get_active_conversation(verified_world_id)
+            turns = (
+                []
+                if conversation is None
+                else service.list_turns(
+                    verified_world_id,
+                    conversation.conversation_id,
+                    limit=limit,
+                    before_sequence=before_sequence,
+                )
+            )
+            after = service.get_world_pointer(verified_world_id)
+            active_id = None if conversation is None else conversation.conversation_id
+            if (
+                before.revision == after.revision
+                and before.active_conversation_id == after.active_conversation_id
+                and before.active_conversation_id == active_id
+            ):
+                snapshot = (after, conversation, turns)
+                break
+        if snapshot is None:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "code": "conversation_changed",
+                    "message": "The World conversation changed while history was being read.",
+                },
+            )
+    except ApplicationStateError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": "conversation_unavailable", "message": str(exc)},
+        ) from exc
+    pointer, conversation, turns = snapshot
+    if conversation is None:
+        return AgentConversationHistoryResponse(
+            world_id=verified_world_id,
+            conversation_state="absent",
+            conversation_id=None,
+            active_conversation_id=None,
+            pointer_revision=pointer.revision,
+            turns=[],
+        )
+    return AgentConversationHistoryResponse(
+        world_id=verified_world_id,
+        conversation_state="active",
+        conversation_id=conversation.conversation_id,
+        active_conversation_id=pointer.active_conversation_id,
+        pointer_revision=pointer.revision,
+        turns=[
+            AgentConversationHistoryTurn(
+                turn_id=turn.turn_id,
+                sequence=turn.sequence,
+                lifecycle_status=turn.status,
+                user_text=turn.user_text,
+                assistant_text=turn.assistant_text,
+                provenance=turn.provenance,
+            )
+            for turn in turns
+        ],
+        # before_sequence is exclusive; using the first visible sequence gives
+        # the caller the next older page without exposing repository ordering.
+        next_before_sequence=(
+            turns[0].sequence if len(turns) == limit and turns else None
+        ),
+    )
+
+
+@router.post(
+    "/worlds/{world_id}/conversation/new",
+    response_model=AgentNewConversationResponse,
+)
+def post_new_world_conversation(
+    world_id: str,
+    body: AgentNewConversationRequest,
+    request: Request,
+) -> AgentNewConversationResponse:
+    enforce_native_graph_gm(request)
+    verified_world_id = _verified_world_id(world_id)
+    service = _conversation_service(request)
+    try:
+        receipt = service.new_conversation(
+            ConversationCommand(
+                world_id=verified_world_id,
+                command_id=body.command_id,
+                expected_pointer_revision=body.expected_pointer_revision,
+                expected_active_conversation_id=body.expected_active_conversation_id,
+            )
+        )
+    except ApplicationStateError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": "conversation_command_rejected", "message": str(exc)},
+        ) from exc
+    return AgentNewConversationResponse(
+        world_id=verified_world_id,
+        conversation_id=receipt.conversation_id,
+        active_conversation_id=receipt.active_conversation_id,
+        pointer_revision=receipt.pointer_revision,
+    )
+
+
 @router.post("/turn", response_model=None)
 def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
-    if body.graph_request.mode != "none":
-        # Check before runtime lookup, World/work resolution, graph reads or
-        # provider dispatch. Graphless turns retain their existing path.
-        enforce_native_graph_gm(request)
-    runtime = getattr(request.app.state, "agent_turn_runtime", None)
+    # Authorization is a prerequisite for every turn, including Graph none.
+    # It runs before World/receipt/DB resolution and before runtime lookup.
+    enforce_native_graph_gm(request)
     try:
         result = execute_agent_turn(
             body,
@@ -354,7 +498,10 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
             owner_resolver=_owner_resolver,
             work_resolver=_work_resolver,
             graph_resolver=_graph_resolver,
-            runtime=runtime,
+            runtime_factory=lambda: getattr(
+                request.app.state, "agent_turn_runtime", None
+            ),
+            conversation_service=_conversation_service(request),
         )
         return result.model_dump(mode="json", by_alias=True)
     except AgentTurnServiceError as exc:
@@ -364,3 +511,8 @@ def post_agent_turn(body: AgentTurnRequest, request: Request) -> dict[str, Any]:
         ) from exc
     except ValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except ApplicationStateError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": "conversation_unavailable", "message": str(exc)},
+        ) from exc

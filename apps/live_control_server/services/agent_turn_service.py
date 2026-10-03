@@ -6,8 +6,31 @@ import json
 import re
 from dataclasses import dataclass, replace
 from datetime import datetime
+from hashlib import sha256
 from pathlib import Path
 from typing import Any, Callable, Mapping
+from uuid import NAMESPACE_URL, UUID, uuid5
+
+from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.types import (
+    Conversation,
+    ConversationCommand,
+    HistoricalReference,
+    SubmittedGraphFocusIntentV1,
+    SubmittedGraphRequestIntentV1,
+    SubmittedGraphSelectionIntentV1,
+    SubmittedPrimaryWorkIntentV1,
+    SubmittedTurnIntentV1,
+    Turn,
+    TurnFailure,
+    TurnProvenance,
+    TurnResult,
+    TurnSubmission,
+)
+from application_state.errors import (
+    ApplicationStateConflictError,
+    ApplicationStateError,
+)
 
 from apps.live_control_server.models.agent_turn import (
     AgentTurnContentBasis,
@@ -243,6 +266,288 @@ def _surface_context_for_turn(
     )
 
 
+def _conversation_provenance(
+    request: AgentTurnRequest,
+    *,
+    world_id: str,
+    work: AgentTurnResolvedWork | None,
+) -> TurnProvenance:
+    primary_work = HistoricalReference(resolution="absent")
+    if work is not None:
+        content_basis = work.content_basis
+        work_revision_id: UUID | None = None
+        if content_basis is not None:
+            try:
+                work_revision_id = UUID(content_basis.work_revision_id)
+            except ValueError as exc:
+                raise AgentTurnServiceError(
+                    "The resolved Content revision identity is invalid.",
+                    code="work_revision_invalid",
+                    status_code=503,
+                ) from exc
+        primary_work = HistoricalReference(
+            resolution="resolved",
+            kind=work.kind,
+            object_id=work.object_id,
+            revision=str(work.revision),
+            content_sha256=(
+                None if content_basis is None else content_basis.content_sha256
+            ),
+            object_revision=(
+                None if content_basis is None else content_basis.object_revision
+            ),
+            work_revision_id=work_revision_id,
+            revision_n=None if content_basis is None else content_basis.revision_n,
+        )
+    return TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id=request.surface.surface_id,
+        surface_instance_id=request.surface.instance_id,
+        primary_work=primary_work,
+        supporting_work=[],
+        selected_object=HistoricalReference(
+            resolution=("unresolved" if request.graph_selection is not None else "absent")
+        ),
+    )
+
+
+def _submitted_turn_intent(
+    request: AgentTurnRequest, *, world_id: str
+) -> SubmittedTurnIntentV1:
+    """Capture normalized caller semantics before resolving mutable context."""
+    graph_request = request.graph_request.model_dump(mode="python")
+    graph_focus = graph_request.get("focus")
+    graph_intent = SubmittedGraphRequestIntentV1(
+        mode=graph_request["mode"],
+        world_id=graph_request.get("world_id"),
+        campaign_id=graph_request.get("campaign_id"),
+        revision_pin=graph_request.get("revision_pin"),
+        focus=(
+            None
+            if graph_focus is None
+            else SubmittedGraphFocusIntentV1.model_validate(graph_focus)
+        ),
+    )
+    primary_work = (
+        None
+        if request.primary_work is None
+        else SubmittedPrimaryWorkIntentV1.model_validate(
+            request.primary_work.model_dump(mode="python")
+        )
+    )
+    graph_selection = (
+        None
+        if request.graph_selection is None
+        else SubmittedGraphSelectionIntentV1(
+            node_id=request.graph_selection.node_id
+        )
+    )
+    return SubmittedTurnIntentV1(
+        world_id=world_id,
+        client_thread_id=request.client_thread_id,
+        message=request.message,
+        surface_id=request.surface.surface_id,
+        surface_instance_id=request.surface.instance_id,
+        client_work_state=request.client_work_state,
+        primary_work=primary_work,
+        graph_request=graph_intent,
+        graph_selection=graph_selection,
+    )
+
+
+def _turn_idempotency_key(world_id: str, turn_id: str) -> UUID:
+    return uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world_id}:{turn_id}")
+
+
+def _completed_turn_replay(
+    request: AgentTurnRequest,
+    *,
+    owner: Mapping[str, Any],
+    turn: Turn,
+) -> AgentTurnResponse:
+    """Project a completed durable receipt without loading runtime/current state."""
+    segment_thread_id = _provider_segment_thread_id(
+        turn.provenance, conversation_id=turn.conversation_id
+    )
+    trace = AgentTurnTraceBuilder(
+        agent_thread_id=segment_thread_id,
+        turn_id=request.turn_id,
+        runtime="durable_receipt",
+        backend="application_state",
+        mode="replay",
+    )
+    final_trace = trace.finalize_and_log(
+        status="ok",
+        model_calls=0,
+        extra_warnings=["durable_turn_replay_no_provider_dispatch"],
+        hermes_fields={"conversation_context": "durable_replay"},
+        observed_model_call_count=0,
+    )
+    primary = turn.provenance.primary_work
+    primary_status = (
+        "absent"
+        if primary.resolution == "absent"
+        else "resolved"
+        if primary.resolution == "resolved"
+        else "unavailable"
+    )
+    return AgentTurnResponse(
+        client_thread_id=request.client_thread_id,
+        turn_id=request.turn_id,
+        surface={
+            "surface_id": request.surface.surface_id,
+            "instance_id": request.surface.instance_id,
+            "status": "resolved",
+        },
+        owner_scope={
+            "status": "resolved",
+            "kind": owner.get("kind"),
+            "owner_id": owner.get("id"),
+            "name": owner.get("name"),
+        },
+        primary_work={
+            "status": primary_status,
+            "kind": primary.kind,
+            "object_id": primary.object_id,
+            "revision_used": primary.revision,
+            "expected_revision": (
+                None
+                if request.primary_work is None
+                else request.primary_work.expected_revision
+            ),
+            # The receipt stores the typed historical reference, not transient
+            # editor divergence state. Do not synthesize a current Content basis.
+            "content_basis": None,
+        },
+        client_work_state_reported=request.client_work_state,
+        graph={
+            "status": (
+                "not_requested"
+                if request.graph_request.mode == "none"
+                else "replayed"
+            ),
+            "selection_node_id": (
+                None
+                if request.graph_selection is None
+                else request.graph_selection.node_id
+            ),
+        },
+        conversation={
+            "client_thread_id": request.client_thread_id,
+            "turn_id": request.turn_id,
+            "conversation_id": turn.conversation_id,
+            "pointer_status": "reused",
+            "pointer_id": None,
+        },
+        answer={
+            "status": "ok",
+            "text": turn.assistant_text,
+            "code": None,
+            "message": None,
+            "graph_grounded": False,
+            "trace": final_trace,
+        },
+    )
+
+
+def _provider_segment_thread_id(
+    provenance: TurnProvenance, *, conversation_id: UUID
+) -> str:
+    """Derive provider continuity only from server-resolved conversation basis."""
+    payload = json.dumps(
+        {
+            "conversation_id": str(conversation_id),
+            "provenance": provenance.model_dump(mode="json"),
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    digest = sha256(payload.encode("utf-8")).hexdigest()
+    return f"app-state-segment-{digest}"
+
+
+def _active_or_create_conversation(
+    service: AgentConversationService,
+    *,
+    world_id: str,
+    turn_id: str,
+) -> Conversation:
+    active = service.get_active_conversation(world_id)
+    if active is not None:
+        return active
+    pointer = service.get_world_pointer(world_id)
+    command = ConversationCommand(
+        world_id=world_id,
+        command_id=uuid5(NAMESPACE_URL, f"dmb-agent-new:{world_id}:{turn_id}"),
+        expected_pointer_revision=pointer.revision,
+        expected_active_conversation_id=pointer.active_conversation_id,
+    )
+    try:
+        service.new_conversation(command)
+    except ApplicationStateConflictError:
+        # Another turn may have won the empty-pointer race. Use its server
+        # conversation; do not manufacture a second active conversation.
+        pass
+    active = service.get_active_conversation(world_id)
+    if active is None:
+        raise AgentTurnServiceError(
+            "The World conversation pointer changed before a conversation could be opened.",
+            code="conversation_changed",
+            status_code=409,
+        )
+    return active
+
+
+def _accept_world_turn(
+    service: AgentConversationService,
+    request: AgentTurnRequest,
+    *,
+    world_id: str,
+    provenance: TurnProvenance,
+    submitted_intent: SubmittedTurnIntentV1,
+) -> Turn:
+    idempotency_key = _turn_idempotency_key(world_id, request.turn_id)
+    for _attempt in range(3):
+        active = _active_or_create_conversation(
+            service, world_id=world_id, turn_id=request.turn_id
+        )
+        submission = TurnSubmission(
+            world_id=world_id,
+            conversation_id=active.conversation_id,
+            idempotency_key=idempotency_key,
+            expected_conversation_revision=active.revision,
+            user_text=request.message,
+            provenance=provenance,
+            submitted_intent_v1=submitted_intent,
+        )
+        try:
+            return service.accept_turn(submission)
+        except ApplicationStateConflictError as exc:
+            message = str(exc)
+            if "different submitted intent" in message or "legacy-receipt-unverifiable" in message:
+                code = (
+                    "turn_receipt_unverifiable"
+                    if "legacy-receipt-unverifiable" in message
+                    else "turn_idempotency_conflict"
+                )
+                raise AgentTurnServiceError(
+                    message, code=code, status_code=409
+                ) from exc
+            latest = service.get_active_conversation(world_id)
+            if latest is None:
+                raise AgentTurnServiceError(
+                    str(exc), code="conversation_conflict", status_code=409
+                ) from exc
+            # A neighboring turn may have advanced the conversation CAS while
+            # keeping the same active conversation; retry against its revision.
+    raise AgentTurnServiceError(
+        "The World conversation changed repeatedly while accepting this turn.",
+        code="conversation_conflict",
+        status_code=409,
+    )
+
+
 def execute_agent_turn(
     request: AgentTurnRequest,
     *,
@@ -252,21 +557,86 @@ def execute_agent_turn(
     work_resolver: WorkResolver,
     graph_resolver: GraphResolver,
     runtime: AgentRuntime | None = None,
+    runtime_factory: Callable[[], AgentRuntime | None] | None = None,
+    conversation_service: AgentConversationService | None = None,
 ) -> AgentTurnResponse:
     """Resolve authority on each call, then execute one read-only conversation turn.
 
     Resolver callbacks are deliberately explicit: each identity channel has its own
     authority and cannot silently inherit a value from another request field.
     """
-    selected_runtime = runtime or default_hermes_agent_runtime()
     try:
         owner = owner_resolver(request)
+    except AgentTurnServiceError:
+        raise
+    except Exception as exc:
+        raise AgentTurnServiceError(
+            "Could not resolve the supplied owner identity.",
+            code="authority_unavailable",
+            status_code=503,
+        ) from exc
+
+    durable_turn: Turn | None = None
+    submitted_intent: SubmittedTurnIntentV1 | None = None
+    canonical_world_id: str | None = None
+    if request.owner_scope is not None and request.owner_scope.kind == "world":
+        requested_world_id = request.owner_scope.world_id
+        if (
+            owner is None
+            or owner.get("kind") != "world"
+            or owner.get("id") != requested_world_id
+        ):
+            raise AgentTurnServiceError(
+                "The submitted World could not be independently verified.",
+                code="world_owner_unverified",
+                status_code=403,
+            )
+        canonical_world_id = requested_world_id
+        if conversation_service is not None:
+            submitted_intent = _submitted_turn_intent(
+                request, world_id=canonical_world_id
+            )
+            idempotency_key = _turn_idempotency_key(
+                canonical_world_id, request.turn_id
+            )
+            try:
+                durable_turn = conversation_service.reconcile_turn(
+                    canonical_world_id, idempotency_key, submitted_intent
+                )
+            except ApplicationStateConflictError as exc:
+                message = str(exc)
+                code = (
+                    "turn_receipt_unverifiable"
+                    if "legacy-receipt-unverifiable" in message
+                    else "turn_idempotency_conflict"
+                )
+                raise AgentTurnServiceError(
+                    message, code=code, status_code=409
+                ) from exc
+            except ApplicationStateError as exc:
+                raise AgentTurnServiceError(
+                    "The durable World turn receipt could not be checked.",
+                    code="conversation_unavailable",
+                    status_code=503,
+                ) from exc
+            if durable_turn is not None and durable_turn.status == "running":
+                raise AgentTurnServiceError(
+                    "This World turn is already running; its provider will not be dispatched twice.",
+                    code="turn_already_running",
+                    status_code=409,
+                )
+            if durable_turn is not None and durable_turn.status == "completed":
+                return _completed_turn_replay(
+                    request, owner=owner, turn=durable_turn
+                )
+
+    try:
         work = work_resolver(request, owner)
     except AgentTurnServiceError:
         raise
     except Exception as exc:
         raise AgentTurnServiceError(
-            "Could not resolve the supplied owner or saved-work identity.",
+            "Could not resolve the supplied saved-work identity.",
             code="authority_unavailable",
             status_code=503,
         ) from exc
@@ -309,12 +679,62 @@ def execute_agent_turn(
     plan_binding = work_kind == "plan"
     plan_continuity = plan_binding and request.surface.surface_id == "plan"
     surface_context = _surface_context_for_turn(request, owner, work)
+
+    pointer_owner_kind = owner_kind
+    pointer_owner_id = owner_id
+    pointer_work_kind = work_kind
+    pointer_work_id = work_id
+    pointer_thread_id = request.client_thread_id
+    if conversation_service is not None and canonical_world_id is not None:
+        if durable_turn is None:
+            if submitted_intent is None:
+                raise AgentTurnServiceError(
+                    "The normalized submitted World intent is unavailable.",
+                    code="turn_intent_unavailable",
+                    status_code=503,
+                )
+            provenance = _conversation_provenance(
+                request,
+                world_id=canonical_world_id,
+                work=work,
+            )
+            durable_turn = _accept_world_turn(
+                conversation_service,
+                request,
+                world_id=canonical_world_id,
+                provenance=provenance,
+                submitted_intent=submitted_intent,
+            )
+        else:
+            # Accepted/failed/interrupted receipts are retryable lifecycle
+            # states. Continue using their frozen conversation/provenance;
+            # never retarget a retry through today's World pointer.
+            provenance = durable_turn.provenance
+        segment_thread_id = _provider_segment_thread_id(
+            durable_turn.provenance, conversation_id=durable_turn.conversation_id
+        )
+        pointer_owner_kind = "world"
+        pointer_owner_id = canonical_world_id
+        pointer_work_kind = "agent_conversation_segment"
+        pointer_work_id = segment_thread_id
+        pointer_thread_id = segment_thread_id
+        if durable_turn.status == "running":
+            raise AgentTurnServiceError(
+                "This World turn is already running; its provider will not be dispatched twice.",
+                code="turn_already_running",
+                status_code=409,
+            )
+        if durable_turn.status == "completed":
+            return _completed_turn_replay(
+                request, owner=owner or {}, turn=durable_turn
+            )
+
     pointer = pointer_store.resolve_structured_for_request(
-        owner_kind=owner_kind,
-        owner_id=owner_id,
-        work_kind=work_kind,
-        work_id=work_id,
-        agent_thread_id=request.client_thread_id,
+        owner_kind=pointer_owner_kind,
+        owner_id=pointer_owner_id,
+        work_kind=pointer_work_kind,
+        work_id=pointer_work_id,
+        agent_thread_id=pointer_thread_id,
         pointer_id=None,
     )
     if pointer.pointer_status == "rejected" and plan_continuity:
@@ -342,7 +762,7 @@ def execute_agent_turn(
         assembly = assemble_agent_conversation_context(
             question=runtime_message,
             runtime_session_id=pointer.continuity_session_id,
-            thread_id=request.client_thread_id,
+            thread_id=pointer_thread_id,
             turn_id=request.turn_id,
             surface_context=surface_context,
         )
@@ -369,7 +789,7 @@ def execute_agent_turn(
             question=runtime_message,
             graph_envelope=envelope,
             root=root,
-            thread_id=request.client_thread_id,
+            thread_id=pointer_thread_id,
             turn_id=request.turn_id,
             runtime_session_id=pointer.continuity_session_id,
             surface_context=surface_context,
@@ -387,70 +807,187 @@ def execute_agent_turn(
             "is_head": envelope.get("is_head"),
         }
 
+    # Delay runtime lookup/construction until authorization, receipt replay,
+    # current work, pointer, and graph validation have all succeeded.
+    selected_runtime = runtime or (
+        runtime_factory() if runtime_factory is not None else None
+    ) or default_hermes_agent_runtime()
     descriptor = descriptor_for_runtime(selected_runtime)
     trace = AgentTurnTraceBuilder(
-        agent_thread_id=request.client_thread_id,
+        agent_thread_id=pointer_thread_id,
         turn_id=request.turn_id,
         runtime=descriptor.trace_runtime,
         backend=descriptor.trace_backend,
         mode=descriptor.trace_mode,
     )
     trace.context_summary = dict(assembly.trace_summary)
-    runtime_dispatch_span_id = trace.start_phase("runtime_dispatch")
-    try:
-        invocation = replace(assembly.invocation, plan_continuity_turn=plan_continuity)
-        result = selected_runtime.run(invocation)
-    except Exception:
-        trace.complete_phase(runtime_dispatch_span_id, status="error")
-        raise
-    else:
-        trace.complete_phase(runtime_dispatch_span_id)
-    host_phase_spans = result.runtime_metadata.get("host_phase_spans", [])
-    if isinstance(host_phase_spans, list):
-        seen_host_span_ids: set[str] = set()
-        accepted_host_span_count = 0
-        for candidate in host_phase_spans[:24]:
-            safe_span = _trace_safe_host_phase_span(
-                candidate, parent_span_id=runtime_dispatch_span_id
-            )
-            if safe_span is None or safe_span["span_id"] in seen_host_span_ids:
-                continue
-            trace.spans.append(safe_span)
-            seen_host_span_ids.add(safe_span["span_id"])
-            accepted_host_span_count += 1
-            if accepted_host_span_count >= 24:
-                break
-    final_trace = trace.finalize_and_log(
-        status="ok" if result.status == "ok" else "error",
-        model_calls=result.model_calls,
-        extra_warnings=result.telemetry_warnings,
-        hermes_fields={
-            "tool_events": [
-                {
-                    "tool_name": event.tool_name,
-                    "state": event.state,
-                    "duration_ms": event.duration_ms,
-                }
-                for event in result.tool_events
-            ],
-            "hermes_session_id": result.runtime_session_id,
-            "process_isolation": result.runtime_metadata.get("process_isolation"),
-            "conversation_context": "structured"
-            if pointer.continuity_session_id
-            else "fresh",
-        },
-        observed_model_call_count=result.observed_model_call_count,
+    runtime_dispatch_span_id: str | None = None
+    running_turn: Turn | None = None
+    result = None
+    replayed_completed_turn = (
+        durable_turn is not None and durable_turn.status == "completed"
     )
+    if not replayed_completed_turn:
+        if durable_turn is not None and conversation_service is not None:
+            try:
+                running_turn = conversation_service.begin_turn(
+                    durable_turn.world_id,
+                    durable_turn.conversation_id,
+                    durable_turn.turn_id,
+                    expected_revision=durable_turn.revision,
+                )
+            except ApplicationStateError as exc:
+                raise AgentTurnServiceError(
+                    str(exc), code="turn_lifecycle_conflict", status_code=exc.status_code
+                ) from exc
+        runtime_dispatch_span_id = trace.start_phase("runtime_dispatch")
+        try:
+            invocation = replace(
+                assembly.invocation, plan_continuity_turn=plan_continuity
+            )
+            result = selected_runtime.run(invocation)
+            if plan_continuity and result.status == "ok":
+                if not result.runtime_session_id:
+                    raise AgentTurnServiceError(
+                        "Hermes did not return a persistent conversation session. "
+                        "Choose New conversation to start fresh; the saved work was not changed.",
+                        code="hermes_continuity_unavailable",
+                        status_code=409,
+                    )
+                if (
+                    pointer.continuity_session_id
+                    and result.runtime_session_id != pointer.continuity_session_id
+                ):
+                    pointer_store.revoke_structured_after_continuity_failure(
+                        owner_kind=pointer_owner_kind,
+                        owner_id=pointer_owner_id,
+                        work_kind=pointer_work_kind,
+                        work_id=pointer_work_id,
+                        agent_thread_id=pointer_thread_id,
+                        hermes_session_id=pointer.continuity_session_id,
+                    )
+                    raise AgentTurnServiceError(
+                        "Hermes could not resume the saved conversation. "
+                        "Choose New conversation to start fresh; the saved work was not changed.",
+                        code="hermes_continuity_unavailable",
+                        status_code=409,
+                    )
+        except AgentTurnServiceError as exc:
+            if running_turn is not None and conversation_service is not None:
+                conversation_service.fail_turn(
+                    TurnFailure(
+                        world_id=running_turn.world_id,
+                        conversation_id=running_turn.conversation_id,
+                        turn_id=running_turn.turn_id,
+                        expected_revision=running_turn.revision,
+                        failure_code=exc.code,
+                    )
+                )
+            trace.complete_phase(runtime_dispatch_span_id, status="error")
+            raise
+        except Exception:
+            if running_turn is not None and conversation_service is not None:
+                conversation_service.fail_turn(
+                    TurnFailure(
+                        world_id=running_turn.world_id,
+                        conversation_id=running_turn.conversation_id,
+                        turn_id=running_turn.turn_id,
+                        expected_revision=running_turn.revision,
+                        failure_code="runtime_interrupted",
+                    ),
+                    interrupted=True,
+                )
+            trace.complete_phase(runtime_dispatch_span_id, status="error")
+            raise
+        else:
+            trace.complete_phase(runtime_dispatch_span_id)
+
+        if running_turn is not None and conversation_service is not None:
+            try:
+                if result.status == "ok" and result.final_text:
+                    durable_turn = conversation_service.complete_turn(
+                        TurnResult(
+                            world_id=running_turn.world_id,
+                            conversation_id=running_turn.conversation_id,
+                            turn_id=running_turn.turn_id,
+                            expected_revision=running_turn.revision,
+                            assistant_text=result.final_text,
+                        )
+                    )
+                else:
+                    durable_turn = conversation_service.fail_turn(
+                        TurnFailure(
+                            world_id=running_turn.world_id,
+                            conversation_id=running_turn.conversation_id,
+                            turn_id=running_turn.turn_id,
+                            expected_revision=running_turn.revision,
+                            failure_code=result.error_code or "agent_runtime_error",
+                        )
+                    )
+            except ApplicationStateError as exc:
+                raise AgentTurnServiceError(
+                    str(exc), code="turn_persistence_failed", status_code=exc.status_code
+                ) from exc
+
+    if result is not None:
+        host_phase_spans = result.runtime_metadata.get("host_phase_spans", [])
+        if isinstance(host_phase_spans, list) and runtime_dispatch_span_id is not None:
+            seen_host_span_ids: set[str] = set()
+            accepted_host_span_count = 0
+            for candidate in host_phase_spans[:24]:
+                safe_span = _trace_safe_host_phase_span(
+                    candidate, parent_span_id=runtime_dispatch_span_id
+                )
+                if safe_span is None or safe_span["span_id"] in seen_host_span_ids:
+                    continue
+                trace.spans.append(safe_span)
+                seen_host_span_ids.add(safe_span["span_id"])
+                accepted_host_span_count += 1
+                if accepted_host_span_count >= 24:
+                    break
+        final_trace = trace.finalize_and_log(
+            status="ok" if result.status == "ok" else "error",
+            model_calls=result.model_calls,
+            extra_warnings=result.telemetry_warnings,
+            hermes_fields={
+                "tool_events": [
+                    {
+                        "tool_name": event.tool_name,
+                        "state": event.state,
+                        "duration_ms": event.duration_ms,
+                    }
+                    for event in result.tool_events
+                ],
+                "hermes_session_id": result.runtime_session_id,
+                "process_isolation": result.runtime_metadata.get("process_isolation"),
+                "conversation_context": "structured"
+                if pointer.continuity_session_id
+                else "fresh",
+            },
+            observed_model_call_count=result.observed_model_call_count,
+        )
+    else:
+        final_trace = trace.finalize_and_log(
+            status="ok",
+            model_calls=0,
+            extra_warnings=["durable_turn_replay_no_provider_dispatch"],
+            hermes_fields={"conversation_context": "durable_replay"},
+            observed_model_call_count=0,
+        )
 
     pointer_binding = None
-    if plan_continuity and result.error_code == "hermes_continuity_unavailable":
+    if (
+        result is not None
+        and plan_continuity
+        and result.error_code == "hermes_continuity_unavailable"
+    ):
         if pointer.continuity_session_id:
             pointer_store.revoke_structured_after_continuity_failure(
-                owner_kind=owner_kind,
-                owner_id=owner_id,
-                work_kind=work_kind,
-                work_id=work_id,
-                agent_thread_id=request.client_thread_id,
+                owner_kind=pointer_owner_kind,
+                owner_id=pointer_owner_id,
+                work_kind=pointer_work_kind,
+                work_id=pointer_work_id,
+                agent_thread_id=pointer_thread_id,
                 hermes_session_id=pointer.continuity_session_id,
             )
         raise AgentTurnServiceError(
@@ -459,7 +996,7 @@ def execute_agent_turn(
             code="hermes_continuity_unavailable",
             status_code=409,
         )
-    if plan_continuity and result.status == "ok":
+    if result is not None and plan_continuity and result.status == "ok":
         if not result.runtime_session_id:
             raise AgentTurnServiceError(
                 "Hermes did not return a persistent conversation session. "
@@ -472,11 +1009,11 @@ def execute_agent_turn(
             and result.runtime_session_id != pointer.continuity_session_id
         ):
             pointer_store.revoke_structured_after_continuity_failure(
-                owner_kind=owner_kind,
-                owner_id=owner_id,
-                work_kind=work_kind,
-                work_id=work_id,
-                agent_thread_id=request.client_thread_id,
+                owner_kind=pointer_owner_kind,
+                owner_id=pointer_owner_id,
+                work_kind=pointer_work_kind,
+                work_id=pointer_work_id,
+                agent_thread_id=pointer_thread_id,
                 hermes_session_id=pointer.continuity_session_id,
             )
             raise AgentTurnServiceError(
@@ -485,19 +1022,35 @@ def execute_agent_turn(
                 code="hermes_continuity_unavailable",
                 status_code=409,
             )
-    if result.runtime_session_id and (
+    if result is not None and result.runtime_session_id and (
         not plan_binding or (plan_continuity and result.status == "ok")
     ):
         pointer_binding = pointer_store.upsert_structured_after_turn(
-            owner_kind=owner_kind,
-            owner_id=owner_id,
-            work_kind=work_kind,
-            work_id=work_id,
-            agent_thread_id=request.client_thread_id,
+            owner_kind=pointer_owner_kind,
+            owner_id=pointer_owner_id,
+            work_kind=pointer_work_kind,
+            work_id=pointer_work_id,
+            agent_thread_id=pointer_thread_id,
             hermes_session_id=result.runtime_session_id,
             require_new_thread=plan_continuity,
         )
-    if result.status != "ok":
+    if result is None:
+        answer = {
+            "status": "ok",
+            "text": None if durable_turn is None else durable_turn.assistant_text,
+            "code": None,
+            "message": None,
+            "graph_grounded": False,
+        }
+    elif durable_turn is not None and durable_turn.status == "failed":
+        answer = {
+            "status": "error",
+            "text": None,
+            "code": durable_turn.failure_code or "agent_runtime_error",
+            "message": result.error_message or "Agent turn did not complete.",
+            "graph_grounded": False,
+        }
+    elif result.status != "ok":
         answer = {
             "status": "error",
             "text": None,
@@ -549,6 +1102,11 @@ def execute_agent_turn(
         conversation={
             "client_thread_id": request.client_thread_id,
             "turn_id": request.turn_id,
+            "conversation_id": (
+                None
+                if durable_turn is None
+                else durable_turn.conversation_id
+            ),
             "pointer_status": (
                 "reused" if pointer.continuity_session_id else pointer.pointer_status
             ),
