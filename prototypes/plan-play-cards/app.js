@@ -91,10 +91,23 @@ function followups(outcome){
 function renderChoices(text,nested,s){
  for(const c of nested.filter(e=>e.kind==='choice')){
   const opts=nested.filter(e=>e.kind==='option'&&e.start>c.start&&e.start<(nested.find(x=>x.kind==='choice'&&x.start>c.start)?.start??s.end));
-  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary>${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'Choices')} <small>Multiple actions allowed</small></summary>${md(text.slice(c.bodyStart,c.end).replace(/^### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^- \*\*[^*]+\*\*.*\n?/,'');return `<div class="option"><label>${state.mode==='play'?`<input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> `:''}${esc(title)}</label><details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}</details>`);
+  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary><span class="choice-callout">Explore choices <span class="choice-hint">Click to expand</span></span>${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'Choices')} <small>Multiple actions allowed</small></summary>${md(text.slice(c.bodyStart,c.end).replace(/^\s*### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^\s*- \*\*[^*]+\*\*[^\n]*(?:\n|$)/,'');return `<div class="option"><label>${state.mode==='play'?`<input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> `:''}${esc(title)}</label><details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}</details>`);
  }
 }
-function showReference(id,label){$('#editorTitle').textContent=label;$('#editorHelp').textContent='Verified source reference · prototype inspection, not live Graph access.';$('#fields').innerHTML=`<p>${esc(id)}</p><p>This reference came from the independently read native World projection. No entity or statblock is created here.</p>`;$('#apply').hidden=true;$('#errors').textContent='';$('#editor').showModal()}
+function showReference(id,label){
+ const mentions=state.drafts.flatMap((text,doc)=>parse(text).scenes.flatMap(scene=>{
+  const body=text.slice(scene.bodyStart,scene.end);
+  const paragraphs=body.replace(/<!--.*?-->/gs,'').split(/\n\s*\n/).filter(p=>p.includes('(dmb-node:'+id+')')).map(p=>p.replace(/\[([^\]]+)\]\(dmb-node:[^)]+\)/g,'$1').replace(/^#{1,4} /gm,'').trim());
+  const situation=sceneBlocks(body).find(b=>b.title==='Situation')?.text.replace(/^\s*\*\*Situation\*\*\s*/, '').trim();
+  if(paragraphs.length&&situation&&!paragraphs.includes(situation))paragraphs.push(situation.replace(/\[([^\]]+)\]\(dmb-node:[^)]+\)/g,'$1'));
+  return paragraphs.length?[{doc,scene,paragraphs}]:[];
+ }));
+ $('#editorTitle').textContent=label;$('#editorHelp').textContent='In your preparation · '+mentions.length+' connected scenes';
+ $('#fields').innerHTML=mentions.length?mentions.map(m=>`<section class="reference-context"><button type="button" data-reference-scene="${esc(m.scene.id)}" data-reference-doc="${m.doc}">${esc(fixtures[m.doc].name)} · ${esc(m.scene.title)} →</button>${m.paragraphs.slice(0,2).map(p=>`<p>${inline(p)}</p>`).join('')}</section>`).join(''):'<p>No scene context is linked to this reference yet.</p>';
+ $('#fields').insertAdjacentHTML('beforeend',`<details><summary>Advanced</summary><p>${esc(id)}</p><p>Context comes from local preparation, not a live Graph query.</p></details>`);
+ document.querySelectorAll('[data-reference-scene]').forEach(b=>b.onclick=()=>{$('#editor').close();state.view='cards';go(b.dataset.referenceScene,+b.dataset.referenceDoc)});
+ $('#apply').hidden=true;$('#errors').textContent='';$('#editor').showModal();
+}
 function openEdit(s,text){
  $('#apply').hidden=false;$('#apply').textContent='Apply preparation';$('#editorTitle').textContent='Edit · '+s.title;$('#editorHelp').textContent='Edit one scene in the local preparation copy. Existing stable markers must remain intact.';
  $('#fields').innerHTML='<label>Card preparation Markdown<textarea id="cardBody" style="min-height:350px"></textarea></label>';$('#cardBody').value=text.slice(s.bodyStart,s.end).trim();$('#fields').insertAdjacentHTML('beforeend',`<label>Verified node reference<select id="referenceSelect" aria-label="Verified node reference">${verifiedRefs.map(r=>`<option value="${r.id}">${esc(r.label)}</option>`).join('')}</select></label><button type="button" id="insertReference">Insert reference at selection</button>`);$('#insertReference').onclick=()=>{const field=$('#cardBody'),r=verifiedRefs.find(x=>x.id===$('#referenceSelect').value);const from=field.selectionStart,to=field.selectionEnd;field.setRangeText(`[${to>from?field.value.slice(from,to):r.label}](dmb-node:${r.id})`,from,to,'end');field.focus()};$('#errors').textContent='';
