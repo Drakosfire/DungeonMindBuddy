@@ -147,6 +147,46 @@ class HistoricalReference(StrictModel):
         return self
 
 
+class PlanAskContextBasis(StrictModel):
+    """Server-resolved committed Plan basis used only to filter Ask history."""
+
+    world_id: str = Field(min_length=1, max_length=128)
+    document_id: str = Field(min_length=1, max_length=128)
+    object_revision: int = Field(strict=True, ge=1)
+    work_revision_id: UUID
+    revision_n: int = Field(strict=True, ge=1)
+    content_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="after")
+    def validate_basis(self) -> "PlanAskContextBasis":
+        if self.world_id != self.world_id.strip():
+            raise ValueError("Plan Ask basis World must not contain surrounding whitespace")
+        if not self.world_id.strip():
+            raise ValueError("Plan Ask basis World is required")
+        if self.document_id != self.document_id.strip():
+            raise ValueError("Plan Ask basis document must not contain surrounding whitespace")
+        if not self.document_id.strip():
+            raise ValueError("Plan Ask basis document is required")
+        return self
+
+
+class CompletedPlanAskPair(StrictModel):
+    """Visible, safe Ask pair with stable source-local merge metadata."""
+
+    source_kind: Literal["ask"] = "ask"
+    source_sequence: int = Field(strict=True, ge=1)
+    source_record_id: UUID
+    accepted_at: datetime
+    question: str = Field(min_length=1)
+    answer: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_visible_text(self) -> "CompletedPlanAskPair":
+        if not self.question.strip() or not self.answer.strip():
+            raise ValueError("completed Plan Ask pairs require visible question and answer")
+        return self
+
+
 class TurnProvenance(StrictModel):
     world_id: str
     surface_resolution: Resolution
