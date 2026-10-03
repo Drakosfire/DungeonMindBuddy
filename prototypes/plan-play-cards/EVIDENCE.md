@@ -95,3 +95,7 @@ Something else fields show Saving… then a saved timestamp, with per-choice rec
 ## Scene-specific notes
 
 Added Scene notes under each card, keyed by document and scene. Browser verified text field and save receipt survives refresh. Removed only verification text; operator writing pad remains unchanged. Scene note state is included in full-session backup. Private screenshot stays outside Git.
+
+## Meat Mind HP comparison
+
+Added a toolbar creature view with the saved Session 26 round 4 provisional 155/200 HP snapshot, graph-backed creature description, known statblock binding, and an autosaved operator current-HP field included in full-session backups. Current HP is explicitly a local play record, not live combat synchronization. Exact spawn costs remain unverified; no capacity is invented. Separate browser tab verified the snapshot, empty-current state and mechanics disclosure without editing active play data. Module syntax, model tests, fixture verification and diff whitespace checks passed.

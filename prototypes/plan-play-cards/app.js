@@ -136,6 +136,7 @@ function renderChoices(text,nested,s){
  }
 }
 async function showReference(id,label){
+ if(id==='threat:authored:d60f9863b0faf7f586d69182a0882f1f'){await showMeatMind();return}
  if(id==='node:captain-lysandra-ironveil'){await showLysandra(label);return}
  const mentions=state.drafts.flatMap((text,doc)=>parse(text).scenes.flatMap(scene=>{
   const body=text.slice(scene.bodyStart,scene.end);
@@ -216,3 +217,14 @@ $('#togglePlayPad').onclick=()=>showPlayPad(!state.playPad.open);
 $('#closePlayPad').onclick=()=>showPlayPad(false);
 $('#exportPlayPad').onclick=()=>download('play-notes.md',state.playPad.text,'text/markdown');
 showPlayPad(state.playPad.open);
+
+$('#meatMind').onclick=showMeatMind;
+async function showMeatMind(){
+ const source=await(await fetch('./node-sources/meat-mind.json')).json();
+ $('#editorTitle').textContent='Meat Mind';$('#editorHelp').textContent='Core mass · HP fuels spawning';$('#apply').hidden=true;$('#errors').textContent='';
+ const current=state.meatMindHP??{};
+ $('#fields').innerHTML=`<p>A hidden core beneath the breach. It spends its own mass to spawn lesser forms and feeds on bodies to rebuild it.</p><h3>HP across encounters</h3><p><strong>Saved Session ${source.session} · round ${source.round}: ${source.historical.hp} / ${source.historical.maxHp} HP</strong><br>Historical snapshot · ${esc(source.exportedAt)} · HP and AC were provisional.</p><label for="meatCurrentHP">Current HP · your local play record</label><input id="meatCurrentHP" type="number" min="0" step="1" placeholder="Not recorded" value="${current.hp??''}"><small id="meatHPReceipt" role="status">${current.savedAt?choiceSaveReceipt(current.savedAt):'Current combat HP has not been loaded.'}</small><p id="meatComparison"></p><h3>Spawning and recovery</h3><ul><li>Spawn actions spend core HP.</li><li>Feeding restores or grows HP.</li><li>Burning the core prevents reform and may shut down spawning.</li></ul><p>The exact spawn cost and thresholds are not verified here. No remaining-spawn count can be calculated yet.</p><details><summary>Creature description</summary>${md(source.description)}</details><details><summary>Sources & statblock binding</summary><p>${esc(source.source)}</p><p>Known statblock: ${esc(source.historical.statblockId)}<br>Revision: ${esc(source.historical.revisionId)}</p><p>The bound statblock rules and live combat state are not loaded. Editing this field saves a prototype play record; it does not update the combat tracker.</p></details>`;
+ const compare=()=>{const hp=state.meatMindHP?.hp;$('#meatComparison').textContent=hp==null?'Enter the current HP to compare it with the saved encounter.':`${hp} HP now · ${hp-Number(source.historical.hp)>0?'+':''}${hp-Number(source.historical.hp)} HP compared with the saved ${source.historical.hp}.`};compare();
+ $('#meatCurrentHP').oninput=()=>{const field=$('#meatCurrentHP');if(!field.validity.valid)return;state.meatMindHP={hp:field.value===''?null:Number(field.value),savedAt:new Date().toISOString()};try{save();$('#meatHPReceipt').textContent=choiceSaveReceipt(state.meatMindHP.savedAt);compare()}catch{$('#meatHPReceipt').textContent='Not saved · browser storage unavailable.'}};
+ $('#editor').showModal();
+}

@@ -1,0 +1,24 @@
+{
+  "historical": {
+    "id": "meat-mind",
+    "name": "Meat Mind",
+    "team": "enemy",
+    "order": 5,
+    "init": "17",
+    "ac": "16",
+    "hp": "155",
+    "maxHp": 200,
+    "delta": "",
+    "notes": "Boss \u00b7 HP = core mass; spawn spends HP; fire on core matters. Action \u2014 Seed Corruption: if marked refugees are unprotected this round, flip 1 Marked Refugee to enemy (or defeat the refugee token and spawn a Hybrid). Prefer a named face over anonymous mass. Other: Spawn Latchling/Meatling \u00b7 Telepathic pressure \u00b7 Reform (if not burned). Provisional HP/AC \u2014 hydrate from Workbench / graph threat:authored:d60f9863b0faf7f586d69182a0882f1f (sb_b0b2b907\u2026).",
+    "defeated": false,
+    "statblockPath": "",
+    "graphNodeId": "threat:authored:d60f9863b0faf7f586d69182a0882f1f",
+    "statblockId": "sb_b0b2b907c1294c5cae3cf62681829c09",
+    "revisionId": "rev_cb413b564685440ebd90373bdb151e5d"
+  },
+  "session": 26,
+  "round": 4,
+  "exportedAt": "2026-08-19T02:12:37.527Z",
+  "description": "**Meat Mind**\nA writhing mass of accumulated flesh and hunger hidden in the tunnels beneath the breach. The visible fight is only its surface behavior. Its true body is the core mass below ground, where drained goo and corpses are gathered into a living intelligence. It cannot split into independent selves, but it can reform if not burned away. It defends itself by spawning lesser meat-forms, warping perception, and turning nearby bodies into fuel.\n\n### Core identity\n- **Role:** defensive boss / siege-organizer\n- **Form:** underground mass, partially manifested through cracks, tunnels, and seepage\n- **Play pattern:** spend HP to spawn threats, absorb bodies to regain/grow HP\n- **Weakness:** fire / burning the core\n- **Secondary resistance:** resilient against cutting; physical damage tends to produce more lesser forms\n- **Magic resistance:** strong resistance to spells and mental interference, but not total immunity\n\n### Battlefield logic\n- The party can\u2019t just \u201ckill the thing in the street\u201d unless they reach the core.\n- Above-ground manifestations are symptoms, not the heart of the enemy.\n- Killing minions is useful tactically, but if bodies are left behind, the Meat Mind profits.\n- Cutting it apart is bad unless the pieces are finished by fire or otherwise denied reformation.\n\n### Likely abilities\n- **Spawn Meatlings** as an action, spending HP to create battlefield pressure.\n- **Spawn Meatwings** when heavily cut or disrupted, representing a messy defensive response.\n- **Telepathic pressure**: whispers, urges, false certainties, fear, or commands.\n- **Charm / influence**: not necessarily domination, but enough to misdirect or soften resistance.\n- **Illusion / misdirection**: false openings, fake voices, false positions in the tunnels.\n- **Defensive reactions**: harden mass, seal cracks, thicken goo, drag bodies inward, react to fire with panic or retreat.\n\n### Statblock direction\nI\u2019d suggest making it work like this:\n- **HP = core mass**\n- **Spawn actions reduce HP**\n- **Feeding increases HP**\n- **Burning the core prevents reform and may shut down spawn abilities**\n- **Cutting causes fragmentation effects rather than clean damage payoff**\n- **If the core is exposed, the fight becomes much more dangerous but also winnable**\n\n### Good mechanical hooks\nYou probably want at least these:\n1. **Spawn on turn**\n2. **Feed on corpses / meat**\n3. **Telepathic intrusion**\n4. **Illusory defense**\n5. **Burn vulnerability**\n6. **Cutting retaliation / meatling spill**\n7. **Core exposure as the real objective**\n\nA concise in-world description could be:\n\n> Beneath the breach lies the Meat Mind: a hidden, pulsing core of gathered flesh and instinct, swollen where the dead have drained into the earth. It does not flee like a beast or rule like a mind; it defends, adapts, and feeds. It sends lesser meat-forms to fight above while the true body remains below, burning hunger into shape and turning every corpse into more of itself.",
+  "source": "evals/c2_live_prep/mireward-prep/saves/combat/longmont-c2__session_26__mireward_wall_breach__combat_state_v1.json"
+}
