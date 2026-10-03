@@ -2,7 +2,7 @@
 
 **Status:** BLOCKED — concrete redesign; no implementation or runtime lease  
 **Owner:** DEMO steward  
-**Re-anchor:** Buddy `main@67b0df1a478f50ff324b919d13f299c276b89198` (PR #878 merge), checked 2026-10-02 through the GitHub repository connector. Shell `git fetch origin main` was unavailable because this environment could not resolve GitHub.  
+**Design source:** Buddy `main@67b0df1a478f50ff324b919d13f299c276b89198` (PR #878 merge). **Latest re-anchor:** Buddy `main@312a9a3b33d2381d74049daeb8be6846c93b7fb4` (PR #879 merge), checked 2026-10-03 through GitHub. PR #879 changes only recap-review UI/test files and leaves this J3 contract unchanged. Local `git fetch origin main` is unavailable because this environment cannot resolve GitHub.  
 **MIND contract:** DungeonMind `619329c2c8586572ffd04558a79b3555c2ca3764` (PR #96, current MIND main at re-anchor).  
 **Topology after activation:** serial; one implementation PR for this capability. Keep open but paused Rules #763 behind this slice because its branch also changes `pyproject.toml` / `uv.lock`; re-anchor #763 after the J3 dependency decision lands.  
 **Predecessor:** Buddy PR #826 remains paused and is not a merge, cherry-pick, or rebase candidate. It must not be treated as active authority.
@@ -44,7 +44,7 @@ There is no local deactivate, transfer, delete, or rebind operation in this slic
 2. Release the Buddy registry lock before any MIND call or database work.
 3. Call MIND #96 `create_empty_space` with the exact saved allocation and semantic inputs. MIND's operation owns atomic minting and genesis creation.
 4. Reacquire the lock and reload the latest registry. Confirm the same managed World identity (`world_id`, `created_at`, and source-root path), verified source root, pending allocation, binding version, and request digest. Finalize only the Space field on that latest record, preserving any concurrent `native_graph_binding` and unrelated registry updates.
-5. If the pending owner or version changed, do not attach the receipt to a replacement. Leave the durable MIND result recoverable under the original allocation and report a conflict for retry/reconciliation. Same-World concurrent requests with identical intent converge on the same allocation and receipt; different intent conflicts.
+5. If the pending owner or version changed, do not attach the receipt to a replacement. Leave the durable MIND result recoverable under the original allocation and report a conflict for retry/reconciliation. If the record is already active with the same receipt, return it idempotently without another MIND call. Same-World concurrent requests with identical intent converge on the same allocation and receipt; different intent conflicts.
 6. Enforce uniqueness of active MIND Space IDs and of allocation IDs across all pending/active bindings before every persisted mutation. An allocator collision must not write a registry document that later becomes unreadable.
 
 The public World DTO may expose a separate KnowledgeSpace `status` (`unbound | pending | active`) and `binding_version` only. Keep allocation IDs, Space IDs, semantic descriptors/digests, and receipts private. Reads of legacy V1 registry data remain read-only and must not rewrite it; a V2 mutation must preserve every existing Graph binding.
@@ -75,7 +75,7 @@ Do not edit `Docs/Roadmaps/ROADMAP-demo.md` in this lease proposal: open PR #869
 
 - V1 registry reads do not write or normalize the stored file; V2 records without Space binding remain unbound.
 - A V2 mutation preserves an existing Graph binding and public responses redact all private Space data.
-- Cover unique active Space/allocation constraints, allocator collision, invalid or mismatched receipts, pending failure, same-key/same-intent response-loss replay, same-key/changed-intent conflict, same-World concurrent retries, stale-owner/version fencing, and an unrelated concurrent Graph-binding update.
+- Cover unique active Space/allocation constraints, allocator collision, invalid or mismatched receipts, pending failure, same-key/same-intent response-loss replay, same-key/changed-intent conflict, idempotent reads of an already active binding without another MIND call, same-World concurrent retries, stale-owner/version fencing, and an unrelated concurrent Graph-binding update.
 - Prove registry mutation locks are not held while MIND is called.
 - Mount the real route and prove auth rejection precedes file/registry/MIND work; prove the authorized empty-body call provisions only once and returns the redacted DTO.
 - Run the existing Buddy MIND Graph adapter and native Graph binding suites under exact MIND pin #96. A dependency pin change that breaks those paths blocks activation/merge pending contract repair.
