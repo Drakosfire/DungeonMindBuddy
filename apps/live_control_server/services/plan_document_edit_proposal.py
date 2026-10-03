@@ -402,8 +402,12 @@ def propose_world_plan_document_edit(
     world = _verified_world(root, request.world_id)
     selected_digest = _digest(request.selected_text)
     try:
-        existing = store.get_by_key(request.idempotency_key)
+        existing = store.get_by_key(request.world_id, request.idempotency_key)
     except ApplicationStateError as exc:
+        raise PlanDocumentEditProposalError(
+            "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
+        ) from exc
+    except Exception as exc:
         raise PlanDocumentEditProposalError(
             "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
         ) from exc
@@ -454,6 +458,10 @@ def propose_world_plan_document_edit(
             "action_idempotency_conflict", "This action key was already used for a different request.", status_code=409
         ) from exc
     except ApplicationStateError as exc:
+        raise PlanDocumentEditProposalError(
+            "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
+        ) from exc
+    except Exception as exc:
         raise PlanDocumentEditProposalError(
             "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
         ) from exc
@@ -648,6 +656,10 @@ def get_world_plan_action_projection(
     try:
         return (action_store or PlanActionDialogueService()).list_status(basis)
     except ApplicationStateError as exc:
+        raise PlanDocumentEditProposalError(
+            "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
+        ) from exc
+    except Exception as exc:
         raise PlanDocumentEditProposalError(
             "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
         ) from exc

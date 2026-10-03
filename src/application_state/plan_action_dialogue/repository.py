@@ -58,12 +58,15 @@ def _record(row: dict[str, Any]) -> PlanActionRecord:
     )
 
 
-def _get_by_key(conn: psycopg.Connection, key: UUID, *, lock: bool) -> PlanActionRecord | None:
+def _get_by_key(
+    conn: psycopg.Connection, world_id: str, key: UUID, *, lock: bool
+) -> PlanActionRecord | None:
     suffix = " FOR UPDATE" if lock else ""
     with conn.cursor(row_factory=dict_row) as cur:
         cur.execute(
-            f"SELECT {_RETURNING} FROM plan_action.action WHERE idempotency_key = %s{suffix}",
-            (key,),
+            f"SELECT {_RETURNING} FROM plan_action.action "
+            f"WHERE world_id = %s AND idempotency_key = %s{suffix}",
+            (world_id, key),
         )
         row = cur.fetchone()
     return None if row is None else _record(row)
@@ -122,7 +125,7 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
                 'pending', %s, 1, clock_timestamp(),
                 clock_timestamp() + interval '120 seconds', clock_timestamp()
             )
-            ON CONFLICT (idempotency_key) DO NOTHING
+            ON CONFLICT (world_id, idempotency_key) DO NOTHING
             RETURNING {_RETURNING}
             """,
             (
@@ -138,7 +141,7 @@ def reserve(conn: psycopg.Connection, request: PlanActionReservation) -> tuple[P
     if row is not None:
         return _record(row), True
 
-    existing = _get_by_key(conn, request.idempotency_key, lock=True)
+    existing = _get_by_key(conn, basis.world_id, request.idempotency_key, lock=True)
     if existing is None:
         raise RuntimeError("Plan action idempotency conflict did not resolve to a row")
     if existing.request_fingerprint != request.request_fingerprint:
@@ -185,8 +188,8 @@ def finish(
     return current
 
 
-def get_by_key(conn: psycopg.Connection, key: UUID) -> PlanActionRecord | None:
-    current = _get_by_key(conn, key, lock=True)
+def get_by_key(conn: psycopg.Connection, world_id: str, key: UUID) -> PlanActionRecord | None:
+    current = _get_by_key(conn, world_id, key, lock=True)
     if current is not None and current.status == "pending":
         current = _reconcile_expiry(conn, current.action_id)
     return current

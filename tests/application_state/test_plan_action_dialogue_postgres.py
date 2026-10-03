@@ -161,7 +161,14 @@ def test_concurrent_expiry_reconciliation_advances_fence_once(application_state_
     _expire(application_state_dsn, reserved.action_id)
 
     with ThreadPoolExecutor(max_workers=8) as pool:
-        results = list(pool.map(lambda _index: service.get_by_key(request.idempotency_key), range(8)))
+        results = list(
+            pool.map(
+                lambda _index: service.get_by_key(
+                    request.basis.world_id, request.idempotency_key
+                ),
+                range(8),
+            )
+        )
     assert all(result is not None for result in results)
     assert {result.status for result in results if result is not None} == {"indeterminate"}
     assert {result.fence for result in results if result is not None} == {reserved.fence + 1}

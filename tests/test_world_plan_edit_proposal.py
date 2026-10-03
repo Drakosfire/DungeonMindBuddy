@@ -7,7 +7,7 @@ import json
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from types import SimpleNamespace
-from threading import Event
+from threading import Event, Lock
 from uuid import UUID, uuid4
 
 import psycopg
@@ -81,7 +81,7 @@ class _FakeActionStore:
         self.action_id = None
         self.existing = None
 
-    def get_by_key(self, _key):
+    def get_by_key(self, _world_id, _key):
         return self.existing
 
     def reserve(self, request):
@@ -166,6 +166,57 @@ def test_world_request_forbids_session_and_campaign_authority_fields() -> None:
         _request(session=1)
     with pytest.raises(ValueError):
         _request(campaign_id="world-1")
+
+
+@pytest.mark.parametrize("failure_point", ["get_by_key", "reserve"])
+def test_raw_action_store_database_errors_return_stable_503(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, failure_point: str
+) -> None:
+    _authority(monkeypatch)
+    fake = _FakeGenerationClient()
+
+    class _BrokenStore:
+        def get_by_key(self, _world_id, _key):
+            if failure_point == "get_by_key":
+                raise psycopg.OperationalError("test connection failure")
+            return None
+
+        def reserve(self, _request):
+            raise psycopg.OperationalError("test connection failure")
+
+    monkeypatch.setattr(service, "PlanActionDialogueService", _BrokenStore)
+    with pytest.raises(service.PlanDocumentEditProposalError) as caught:
+        service.propose_world_plan_document_edit(
+            root=tmp_path,
+            request=_request(target_kind="insert_at_caret", selected_text=""),
+            generation_client=fake,
+            model="test-model",
+        )
+
+    assert caught.value.status_code == 503
+    assert caught.value.code == "action_store_unavailable"
+    assert fake.requests == []
+
+
+def test_raw_action_status_database_error_returns_stable_503(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _authority(monkeypatch)
+
+    class _BrokenStore:
+        def list_status(self, _basis):
+            raise psycopg.OperationalError("test connection failure")
+
+    monkeypatch.setattr(service, "PlanActionDialogueService", _BrokenStore)
+    with pytest.raises(service.PlanDocumentEditProposalError) as caught:
+        service.get_world_plan_action_projection(
+            root=tmp_path,
+            world_id="world-1",
+            document_id="plan-1",
+        )
+
+    assert caught.value.status_code == 503
+    assert caught.value.code == "action_store_unavailable"
 
 
 def test_world_proposal_uses_only_explicit_draft_context_and_returns_exact_identity(
@@ -279,7 +330,7 @@ def test_completed_action_can_deliver_late_only_for_its_original_basis(
             action_store=store,
         )
         assert completed.wait(timeout=5)
-        recorded = store.get_by_key(request.idempotency_key)
+        recorded = store.get_by_key(request.world_id, request.idempotency_key)
         assert recorded is not None
         assert recorded.status == "completed"
         assert recorded.basis == original_basis
@@ -339,7 +390,7 @@ def test_persistence_uncertainty_never_returns_uncommitted_proposal_payload(
     assert caught.value.status_code == 503
     assert len(fake.requests) == 1
 
-    recorded = store.get_by_key(request.idempotency_key)
+    recorded = store.get_by_key(request.world_id, request.idempotency_key)
     assert recorded is not None
     assert recorded.status == "completed"
     assert recorded.assistant_summary == "Add a tense beat"
@@ -411,6 +462,50 @@ def _client(monkeypatch: pytest.MonkeyPatch, root: Path) -> TestClient:
     app.include_router(workspace_documents.router)
     app.include_router(live.router)
     return TestClient(app)
+
+
+def _create_saved_world_plan(
+    client: TestClient, world_id: str, *, title: str, markdown: str
+) -> tuple[str, dict]:
+    created = client.post(
+        "/api/live/workspace-documents/world-plans",
+        json={
+            "schema_version": "dmb_workspace_document_create_v2",
+            "scope_mode": "world",
+            "world_id": world_id,
+            "title": title,
+        },
+    )
+    assert created.status_code == 200, created.text
+    document_id = created.json()["document_id"]
+    prepared = client.post(
+        "/api/live/tiptap/markdown-write/prepare",
+        json={
+            "schema_version": "dmb_tiptap_markdown_write_prepare_v2",
+            "scope_mode": "world",
+            "world_id": world_id,
+            "document_id": document_id,
+            "markdown": markdown,
+            "expected_revision": created.json()["revision"],
+        },
+    )
+    assert prepared.status_code == 200, prepared.text
+    committed = client.post(
+        "/api/live/tiptap/markdown-write/commit",
+        json={
+            "schema_version": "dmb_tiptap_markdown_write_commit_v2",
+            "scope_mode": "world",
+            "world_id": world_id,
+            "document_id": document_id,
+            "markdown": markdown,
+            "expected_revision": prepared.json()["registry_revision"],
+            "writer_confirm_token": prepared.json()["writer_confirm_token"],
+        },
+    )
+    assert committed.status_code == 200, committed.text
+    saved = client.get(f"/api/live/workspace-documents/{document_id}/snapshot")
+    assert saved.status_code == 200, saved.text
+    return document_id, saved.json()
 
 
 def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
@@ -578,8 +673,8 @@ def test_late_provider_result_loses_expired_action_fence_without_payload(
             self.calls += 1
             with psycopg.connect(application_state_dsn) as conn:
                 row = conn.execute(
-                    "SELECT status, dispatch_token, lease_expires_at FROM plan_action.action WHERE idempotency_key = %s",
-                    (request["idempotency_key"],),
+                    "SELECT status, dispatch_token, lease_expires_at FROM plan_action.action WHERE world_id = %s AND idempotency_key = %s",
+                    (request["world_id"], request["idempotency_key"]),
                 ).fetchone()
             self.reservation_seen = bool(row and row[0] == "pending" and row[1] and row[2])
             entered.set()
@@ -633,8 +728,8 @@ def test_late_provider_result_loses_expired_action_fence_without_payload(
 
         with psycopg.connect(application_state_dsn) as conn:
             conn.execute(
-                "UPDATE plan_action.action SET lease_expires_at = clock_timestamp() - interval '1 second' WHERE idempotency_key = %s",
-                (request["idempotency_key"],),
+                "UPDATE plan_action.action SET lease_expires_at = clock_timestamp() - interval '1 second' WHERE world_id = %s AND idempotency_key = %s",
+                (request["world_id"], request["idempotency_key"]),
             )
         status_page = client.get(
             "/api/live/world-plan-edit/actions",
@@ -663,8 +758,8 @@ def test_late_provider_result_loses_expired_action_fence_without_payload(
         assert "STALE-SUMMARY-SENTINEL" not in json.dumps(final_page.json())
         with psycopg.connect(application_state_dsn) as conn:
             status, summary, fence = conn.execute(
-                "SELECT status, assistant_summary, fence FROM plan_action.action WHERE idempotency_key = %s",
-                (request["idempotency_key"],),
+                "SELECT status, assistant_summary, fence FROM plan_action.action WHERE world_id = %s AND idempotency_key = %s",
+                (request["world_id"], request["idempotency_key"]),
             ).fetchone()
         assert status == "indeterminate"
         assert summary is None
@@ -674,4 +769,141 @@ def test_late_provider_result_loses_expired_action_fence_without_payload(
         release.set()
         if future is not None:
             future.result(timeout=8)
+        executor.shutdown(wait=True, cancel_futures=True)
+
+
+def test_same_key_is_world_scoped_and_foreign_retry_leaves_expired_action_untouched(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    application_state_dsn: str,
+) -> None:
+    world_a = create_world_container(tmp_path, name="Idempotency World A")
+    world_b = create_world_container(tmp_path, name="Idempotency World B")
+    client = _client(monkeypatch, tmp_path)
+    document_a, saved_a = _create_saved_world_plan(
+        client, world_a.world_id, title="Plan A", markdown="# Plan A\n"
+    )
+    document_b, saved_b = _create_saved_world_plan(
+        client, world_b.world_id, title="Plan B", markdown="# Plan B\n"
+    )
+
+    first_entered = Event()
+    release_first = Event()
+
+    class _TwoWorldGenerationClient:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.lock = Lock()
+
+        async def generate_structured(self, _generation_request):
+            with self.lock:
+                self.calls += 1
+                call_number = self.calls
+            if call_number == 1:
+                first_entered.set()
+                if not release_first.wait(timeout=15):
+                    raise TimeoutError("test did not release World A generation")
+            return SimpleNamespace(
+                parsed={
+                    "replacement_markdown": f"Proposal {call_number}",
+                    "summary": f"World {call_number} proposal summary",
+                    "assumptions": [],
+                    "cannot_complete_reason": None,
+                },
+                observation=SimpleNamespace(
+                    response_model="observed-test-model",
+                    resolved_model="test-model",
+                    latency_ms=1,
+                    input_tokens=1,
+                    output_tokens=1,
+                ),
+            )
+
+    fake = _TwoWorldGenerationClient()
+    monkeypatch.setattr(service, "_resolve_model", lambda: "test-model")
+    monkeypatch.setattr(service.GenerationClient, "from_env", lambda: fake)
+    key = str(uuid4())
+
+    def request(world_id: str, document_id: str, saved: dict, *, instruction: str, draft: str) -> dict:
+        return {
+            "idempotency_key": key,
+            "document_id": document_id,
+            "world_id": world_id,
+            "base_revision": saved["loaded_revision"],
+            "base_content_sha256": saved["content_sha256"],
+            "draft_markdown": draft,
+            "draft_sha256": _sha(draft),
+            "target_kind": "insert_at_caret",
+            "selected_text": "",
+            "instruction": instruction,
+            "conversation_history": [],
+        }
+
+    request_a = request(
+        world_a.world_id, document_a, saved_a,
+        instruction="Add a signal to Plan A.", draft="# Plan A draft\n",
+    )
+    request_b = request(
+        world_b.world_id, document_b, saved_b,
+        instruction="Add a signal to Plan B.", draft="# Plan B draft\n",
+    )
+
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = None
+    try:
+        future = executor.submit(
+            client.post, "/api/live/world-plan-edit/propose", json=request_a
+        )
+        assert first_entered.wait(timeout=5)
+        assert fake.calls == 1
+
+        with psycopg.connect(application_state_dsn) as conn:
+            conn.execute(
+                "UPDATE plan_action.action SET lease_expires_at = clock_timestamp() - interval '1 second' "
+                "WHERE world_id = %s AND idempotency_key = %s",
+                (world_a.world_id, key),
+            )
+
+        response_b = client.post("/api/live/world-plan-edit/propose", json=request_b)
+        assert response_b.status_code == 200, response_b.text
+        assert response_b.json()["idempotency_key"] == key
+        assert fake.calls == 2
+
+        with psycopg.connect(application_state_dsn) as conn:
+            rows = conn.execute(
+                "SELECT world_id, status, fence, assistant_summary, "
+                "lease_expires_at <= clock_timestamp() AS expired "
+                "FROM plan_action.action WHERE idempotency_key = %s",
+                (key,),
+            ).fetchall()
+        by_world = {row[0]: row[1:] for row in rows}
+        assert set(by_world) == {world_a.world_id, world_b.world_id}
+        assert by_world[world_a.world_id][0] == "pending"
+        assert by_world[world_a.world_id][1] == 1
+        assert by_world[world_a.world_id][3] is True
+        assert by_world[world_b.world_id][0] == "completed"
+        assert by_world[world_b.world_id][1] == 1
+        assert by_world[world_b.world_id][2] == response_b.json()["summary"]
+
+        release_first.set()
+        response_a = future.result(timeout=20)
+        assert response_a.status_code == 409
+        assert "replacement_markdown" not in response_a.text
+        assert "Proposal 1" not in response_a.text
+
+        with psycopg.connect(application_state_dsn) as conn:
+            rows = conn.execute(
+                "SELECT world_id, status, fence, assistant_summary "
+                "FROM plan_action.action WHERE idempotency_key = %s",
+                (key,),
+            ).fetchall()
+        by_world = {row[0]: row[1:] for row in rows}
+        assert by_world[world_a.world_id] == ("indeterminate", 2, None)
+        assert by_world[world_b.world_id] == (
+            "completed", 1, response_b.json()["summary"]
+        )
+    finally:
+        release_first.set()
+        if future is not None:
+            future.result(timeout=20)
         executor.shutdown(wait=True, cancel_futures=True)

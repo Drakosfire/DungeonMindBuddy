@@ -22,7 +22,7 @@ def upgrade() -> None:
         """
         CREATE TABLE plan_action.action (
             action_id UUID PRIMARY KEY,
-            idempotency_key UUID NOT NULL UNIQUE,
+            idempotency_key UUID NOT NULL,
             request_fingerprint TEXT NOT NULL CHECK (request_fingerprint ~ '^[0-9a-f]{64}$'),
             action_type TEXT NOT NULL CHECK (action_type IN ('compose', 'revise')),
             world_id TEXT NOT NULL CHECK (btrim(world_id) <> ''),
@@ -48,6 +48,8 @@ def upgrade() -> None:
             completed_at TIMESTAMPTZ NULL,
             lease_expires_at TIMESTAMPTZ NULL,
             updated_at TIMESTAMPTZ NOT NULL,
+            CONSTRAINT plan_action_world_idempotency_key_unique
+                UNIQUE (world_id, idempotency_key),
             CONSTRAINT plan_action_state_fields_check CHECK (
                 (status = 'pending' AND dispatch_token IS NOT NULL AND lease_expires_at IS NOT NULL
                     AND assistant_summary IS NULL AND failure_code IS NULL AND completed_at IS NULL)

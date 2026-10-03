@@ -46,9 +46,9 @@ class PlanActionDialogueService:
                 status=status, summary=summary, failure_code=failure_code,
             )
 
-    def get_by_key(self, key: UUID) -> PlanActionRecord | None:
+    def get_by_key(self, world_id: str, key: UUID) -> PlanActionRecord | None:
         with unit_of_work(self._dsn()) as conn:
-            return repo.get_by_key(conn, key)
+            return repo.get_by_key(conn, world_id, key)
 
     def list_status(self, basis: PlanActionBasis) -> PlanActionProjectionPage:
         with unit_of_work(self._dsn()) as conn:
