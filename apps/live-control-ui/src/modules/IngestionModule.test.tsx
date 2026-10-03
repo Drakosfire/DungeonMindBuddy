@@ -130,6 +130,11 @@ describe("IngestionModule", () => {
     expect(window.location.search).toContain("campaign=longmont-c1");
   });
 
+  it("uses an explicit source session for a standalone recap entry", async () => {
+    render(<IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />);
+    expect(await screen.findByLabelText("Recap/source session")).toHaveValue(29);
+  });
+
   it("renders editable recap/source session input", async () => {
     const user = setupIngestUser();
     render(<IngestionModule campaignId="longmont-c2" session={23} />);

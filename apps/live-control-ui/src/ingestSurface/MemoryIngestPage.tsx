@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { getExtractionRun, getPlanView } from "../api/liveApi";
 import type { PlanViewProjection } from "../api/types";
 import { usePublishAgentSurfaceContext } from "../agentInteraction/usePublishAgentSurfaceContext";
+import { IngestionModule } from "../modules/IngestionModule";
 import { AppChrome } from "../chrome/AppChrome";
 import { buildIngestContextFromPlanView } from "../planSurface/config/ingestSurfaceConfig";
 import { GraphReviewWorkbenchModule } from "../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule";
@@ -55,10 +56,12 @@ function SelectedWorldMemoryIngestPage() {
   const refresh = useCallback(async () => {
     const params = new URLSearchParams(window.location.search);
     const claimedCampaign = params.get("campaign")?.trim();
-    if (managedWorldId && claimedCampaign && claimedCampaign !== managedWorldId) {
+    const handoff = parseGraphReviewRunHandoff(window.location.search);
+    const isExistingRecapCampaign = !handoff && managedWorldId === "elderwyld" &&
+      (claimedCampaign === "longmont-c1" || claimedCampaign === "longmont-c2");
+    if (managedWorldId && claimedCampaign && claimedCampaign !== managedWorldId && !isExistingRecapCampaign) {
       throw new Error(`Ingest campaign ${claimedCampaign} does not match selected World ${managedWorldId}.`);
     }
-    const handoff = parseGraphReviewRunHandoff(window.location.search);
     if (managedWorldId && handoff?.extractionRunId && handoff.errors.length === 0) {
       const run = await getExtractionRun(handoff.extractionRunId);
       if (run.campaign_id !== managedWorldId) {
@@ -156,17 +159,22 @@ function SelectedWorldMemoryIngestPage() {
     );
   }
 
-  // The existing published-recap browser is specifically the C1/C2 review
-  // vocabulary. A managed World must not display that legacy catalog as if it
-  // were its own memory. Exact, server-verified managed run links still use
-  // the existing Graph Review projection below.
+  // The established recap pipeline owns the Longmont corpus in Elderwyld.
+  // Keep it separate from exact managed extraction-run review; never infer
+  // a Longmont campaign for another World.
   if (managedWorldId && !parseGraphReviewRunHandoff(window.location.search)) {
     return (
       <AppChrome activeRoute="ingest">
         <main className="ingest-surface-root" aria-label="Memory Ingest">
-          <h1>Memory review · {selectedWorld.kind === "managed" ? selectedWorld.name : managedWorldId}</h1>
-          <p>No exact extraction run is selected for this World.</p>
-          <p>Open a source in Build and follow its exact extraction-run link to review it here.</p>
+          <h1>Memory Ingest · {selectedWorld.kind === "managed" ? selectedWorld.name : managedWorldId}</h1>
+          {managedWorldId === "elderwyld" ? (
+            <IngestionModule campaignId="longmont-c2" session={29} initialSourceSession={29} />
+          ) : (
+            <>
+              <p>No exact extraction run is selected for this World.</p>
+              <p>Open a source in Build and follow its exact extraction-run link to review it here.</p>
+            </>
+          )}
         </main>
       </AppChrome>
     );

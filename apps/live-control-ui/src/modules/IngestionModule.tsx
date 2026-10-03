@@ -27,6 +27,7 @@ import { mergeInspectResult } from "./ingestResultMerge";
 interface IngestionModuleProps {
   campaignId: string;
   session: number;
+  initialSourceSession?: number;
 }
 
 const INGESTION_DRAFT_STORAGE_VERSION = 3;
@@ -721,7 +722,7 @@ function previewSourceSignature(recapSession: number, rawText: string, slug: str
   });
 }
 
-export function IngestionModule({ campaignId: planCampaignId, session }: IngestionModuleProps) {
+export function IngestionModule({ campaignId: planCampaignId, session, initialSourceSession }: IngestionModuleProps) {
   const projection = useOptionalProjection();
   const [ingestCampaignId, setIngestCampaignId] = useState(() =>
     resolveInitialReviewCampaignId(planCampaignId),
@@ -731,7 +732,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     [ingestCampaignId, session],
   );
   const requestedRecapSession = requestedRecapSessionFromLocation();
-  const initialRecapSession = requestedRecapSession ?? defaultRecapSession(session);
+  const initialRecapSession = requestedRecapSession ?? initialSourceSession ?? defaultRecapSession(session);
   const [activeStep, setActiveStep] = useState<number>(1);
   const [rawText, setRawText] = useState("");
   const [recapSession, setRecapSession] = useState<number>(() => initialRecapSession);
@@ -960,7 +961,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
         requestedRecapSession != null && draft?.recapSession !== requestedRecapSession
           ? null
           : draft;
-      const defaultRecap = requestedRecapSession ?? usableDraft?.recapSession ?? defaultRecapSession(session);
+      const defaultRecap = requestedRecapSession ?? usableDraft?.recapSession ?? initialSourceSession ?? defaultRecapSession(session);
       const restoredSlug = usableDraft?.slug ?? canonicalSlugTitleForRecapSession(defaultRecap)?.slug ?? "";
       const initialSlug =
         usableDraft?.showAdvanced && isNonGenericSlugOrTitle(restoredSlug, "") ? restoredSlug : "";
@@ -1058,7 +1059,7 @@ export function IngestionModule({ campaignId: planCampaignId, session }: Ingesti
     return () => {
       cancelled = true;
     };
-  }, [storageKey, session, ingestCampaignId, requestedRecapSession]);
+  }, [storageKey, session, ingestCampaignId, requestedRecapSession, initialSourceSession]);
 
   useEffect(() => {
     if (!hydrated || recapSession !== 22) {
