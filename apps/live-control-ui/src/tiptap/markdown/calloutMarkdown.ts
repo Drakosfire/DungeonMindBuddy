@@ -251,6 +251,15 @@ function serializeCallout(node: JsonNode): string {
   return body ? `${marker}\n${indentLines(body, "> ")}` : marker;
 }
 
+function serializeBlockquote(node: JsonNode): string {
+  const body = childNodes(node).map(serializeNode).filter(Boolean).join("\n\n");
+  if (!body) return ">";
+  return body
+    .split("\n")
+    .map((line) => (line === "" ? ">" : `> ${line}`))
+    .join("\n");
+}
+
 function paneBodyMarkdown(pane: JsonNode): string {
   return childNodes(pane).map(serializeNode).filter(Boolean).join("\n\n");
 }
@@ -324,6 +333,8 @@ function serializeNode(node: JsonNode): string {
       return childNodes(node).map(serializeNode).filter(Boolean).join(" ");
     case "callout":
       return serializeCallout(node);
+    case "blockquote":
+      return serializeBlockquote(node);
     case "decisionConsequence":
       return serializeDecisionConsequence(node);
     case "decisionPane":

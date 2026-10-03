@@ -29,7 +29,7 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
     })).toEqual([]);
   });
 
-  it("rejects StarterKit nodes that the Markdown serializer would flatten", () => {
+  it("accepts root blockquotes and rejects other StarterKit nodes that the Markdown serializer would flatten", () => {
     const diagnostics = semanticMarkdownSerializationDiagnostics({
       type: "doc",
       content: [
@@ -38,7 +38,37 @@ describe("semanticMarkdownSerializationDiagnostics", () => {
       ],
     });
 
-    expect(diagnostics.map((diagnostic) => diagnostic.nodeType)).toEqual(["blockquote", "codeBlock"]);
+    expect(diagnostics.map((diagnostic) => diagnostic.nodeType)).toEqual(["codeBlock"]);
+  });
+
+  it("rejects nested or structurally unsupported blockquotes", () => {
+    const diagnostics = semanticMarkdownSerializationDiagnostics({
+      type: "doc",
+      content: [
+        {
+          type: "blockquote",
+          content: [{ type: "heading", attrs: { level: 2 }, content: [{ type: "text", text: "Heading" }] }],
+        },
+        { type: "blockquote", content: [{ type: "paragraph", content: [] }] },
+        {
+          type: "bulletList",
+          content: [{
+            type: "listItem",
+            content: [{
+              type: "blockquote",
+              content: [{ type: "paragraph", content: [{ type: "text", text: "Nested" }] }],
+            }],
+          }],
+        },
+      ],
+    });
+
+    expect(diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: "Plain blockquote child heading is not supported by semantic Markdown." }),
+      expect.objectContaining({ message: "Plain blockquote paragraphs must contain inline content." }),
+      expect.objectContaining({ message: "Plain blockquotes are only supported at the document root." }),
+      expect.objectContaining({ message: "List item child blockquote is not supported by semantic Markdown." }),
+    ]));
   });
 
   it("accepts nested list and Decision/Consequence prep structures", () => {

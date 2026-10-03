@@ -18,6 +18,9 @@
  *    not which structures are supported. Each case also asserts semantic
  *    model stability across import → serialize → reimport.
  */
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+
 import { normalizeMdast } from "../../test/normalizeMdast";
 import { tiptapJsonToSemanticMarkdown } from "./calloutMarkdown";
 import { hasBlockingMarkdownImportDiagnostics, markdownToTiptapDoc } from "./markdownToTiptap";
@@ -44,8 +47,19 @@ const ADVERSARIAL_CASES: AdversarialCase[] = [
   { name: "fenced code block", markdown: "```json\n{\"hp\": 95}\n```", blockedOnMain: true },
 
   // --- Containers ---------------------------------------------------------
-  { name: "plain blockquote at root", markdown: "> just a quote", blockedOnMain: true },
   { name: "nested plain blockquote at root", markdown: ">> nested quote", blockedOnMain: true },
+  { name: "indented plain blockquote at root", markdown: " > indented quote", blockedOnMain: true },
+  { name: "list inside a plain root blockquote", markdown: "> - nested item", blockedOnMain: true },
+  {
+    name: "unsupported ordinary link inside a plain root blockquote",
+    markdown: "> Read [the plan](https://example.com).",
+    blockedOnMain: true,
+  },
+  {
+    name: "plain root quote before a callout marker",
+    markdown: "> ordinary prose\n>\n> [!GM-NOTE]\n> marker body",
+    blockedOnMain: true,
+  },
   { name: "blockquote nested in list item", markdown: "- Parent\n  > plain blockquote", blockedOnMain: true },
   { name: "heading nested in list item", markdown: "- Parent\n  ## Nested heading", blockedOnMain: true },
   {
@@ -354,6 +368,31 @@ type PreservedCleanCase = {
   note?: string;
 };
 
+function rootPlainBlockquoteSignature(document: unknown): unknown[] {
+  if (document === null || typeof document !== "object") return [];
+  const root = document as { content?: unknown[] };
+  return (root.content ?? [])
+    .filter((node): node is { type: string; content?: unknown[] } =>
+      node !== null && typeof node === "object" && (node as { type?: unknown }).type === "blockquote")
+    .map((quote) => (quote.content ?? []).map((paragraph) => {
+      if (paragraph === null || typeof paragraph !== "object") return paragraph;
+      const block = paragraph as { type?: unknown; content?: unknown[] };
+      return {
+        type: block.type,
+        content: (block.content ?? []).map((inline) => {
+          if (inline === null || typeof inline !== "object") return inline;
+          const item = inline as { type?: unknown; text?: unknown; marks?: unknown; attrs?: unknown };
+          return {
+            type: item.type,
+            ...(item.text !== undefined ? { text: item.text } : {}),
+            ...(item.marks !== undefined ? { marks: item.marks } : {}),
+            ...(item.attrs !== undefined ? { attrs: item.attrs } : {}),
+          };
+        }),
+      };
+    }));
+}
+
 const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
   { name: "ordinary prose", markdown: "A normal paragraph." },
   { name: "snake_case identifier", markdown: "Use snake_case_value here." },
@@ -517,6 +556,10 @@ const PRESERVED_CLEAN_CASES: PreservedCleanCase[] = [
   { name: "gm-note callout", markdown: "> [!GM-NOTE]\n> Keep this about triage." },
   { name: "rules callout", markdown: "> [!RULES]\n> Difficult terrain." },
   { name: "warning callout", markdown: "> [!WARNING]\n> Do not split the party." },
+  {
+    name: "plain root blockquote with paragraphs, inline marks, and a graph reference",
+    markdown: "> Read *boldly*, then [Lysandra](dmb-node:node:captain-lysandra-ironveil).\n>\n> Second **paragraph**.",
+  },
   { name: "callout with custom label", markdown: "> [!WARNING] Custom label\n> body" },
   { name: "stacked sibling callouts", markdown: "> [!GM-NOTE]\n> First note.\n> [!WARNING]\n> Second note." },
   { name: "callout containing safe table", markdown: "> [!GM-NOTE]\n> A | B\n> --- | ---\n> 1 | 2" },
@@ -603,5 +646,67 @@ describe("Markdown ingress corpus", () => {
         ).toEqual(normalizeMdast(parseMarkdownAst(markdown)));
       }
     });
+  });
+
+  it("round-trips the checked-in Session 29 source and linked Plan with quote and identity fidelity", () => {
+    const source = readFileSync(
+      "../../corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Campaign 2 Session 29.md",
+      "utf8",
+    );
+    const linkedPlan = readFileSync(
+      "../../corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 29 - Buddy Plan.md",
+      "utf8",
+    );
+    const sha256 = (value: string) => createHash("sha256").update(value).digest("hex");
+    const v2Markers = (value: string) => value.match(/^<!-- dmb-playable-element:v2 .* -->$/gm) ?? [];
+    const graphNodeLinks = (value: string) => value.match(/\[[^\]]+\]\(dmb-node:[^)]+\)/g) ?? [];
+    const graphNodeIds = (value: string) => Array.from(
+      value.matchAll(/\]\(dmb-node:([^)]+)\)/g),
+      (match) => match[1]!,
+    );
+
+    expect(sha256(source)).toBe("7628ff052ebb87e2e3a074e9a11b3f96753aab50b16c20a93a284a5ec76fc8d5");
+    expect(sha256(linkedPlan)).toBe("a7674ace660d7d3c4b82847a3486cf15e0df8f4a357333ad3c9185ef8f698dd7");
+    expect(linkedPlan.replace(/\[([^\]]+)\]\(dmb-node:[^)]+\)/g, "$1")).toBe(source);
+
+    for (const [sourceName, markdown] of [["source", source], ["linked Plan", linkedPlan]] as const) {
+      const imported = markdownToTiptapDoc(markdown);
+      expect(imported.diagnostics, `${sourceName} import diagnostics`).toEqual([]);
+      expect(semanticMarkdownSerializationDiagnostics(imported.doc)).toEqual([]);
+
+      const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+      const reimported = markdownToTiptapDoc(exported);
+      expect(reimported.diagnostics, `${sourceName} re-import diagnostics`).toEqual([]);
+      expect(semanticMarkdownSerializationDiagnostics(reimported.doc)).toEqual([]);
+      expect(rootPlainBlockquoteSignature(reimported.doc), `${sourceName} quote semantics`)
+        .toEqual(rootPlainBlockquoteSignature(imported.doc));
+      expect(
+        (reimported.doc.content ?? []).map((block) => block.type),
+        `${sourceName} root block sequence`,
+      ).toEqual((imported.doc.content ?? []).map((block) => block.type));
+      expect(v2Markers(exported)).toEqual(v2Markers(markdown));
+      expect(JSON.stringify(imported.doc).match(/\"type\":\"blockquote\"/g)?.length ?? 0).toBeGreaterThan(0);
+    }
+
+    const sourceMarkers = v2Markers(source);
+    const linkedMarkers = v2Markers(linkedPlan);
+    expect(sourceMarkers).toHaveLength(90);
+    expect(linkedMarkers).toEqual(sourceMarkers);
+
+    const linkedIds = graphNodeIds(linkedPlan);
+    expect(linkedIds).toHaveLength(72);
+    expect(new Set(linkedIds)).toEqual(new Set([
+      "loc:ironveil-warehouse",
+      "loc_3",
+      "loc_4",
+      "location:mirathorn",
+      "node:captain-lysandra-ironveil",
+      "node:thrin-branchborn",
+      "party:questionable-company",
+      "pc:karsemine",
+    ]));
+    const linkedExported = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(linkedPlan).doc);
+    expect(graphNodeLinks(linkedExported)).toEqual(graphNodeLinks(linkedPlan));
+    expect(graphNodeIds(linkedExported)).toEqual(linkedIds);
   });
 });
