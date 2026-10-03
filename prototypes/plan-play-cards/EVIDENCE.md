@@ -51,3 +51,7 @@ Final boundary repair: source-level H1/H2 reference sections (GM Running Notes /
 Renamed the scene index Outline and the outcome journal Play notes. Added independently persisted panel toggles (notes closed by default), explicit grid placement so content reclaims hidden columns, and a compact scene toolbar containing title, block/count and prep status. Removed repeated card heading and only matching leading block labels; source Markdown is unchanged.
 
 Syntax, model and fixture checks pass. This follow-up could not receive fresh browser acceptance: the in-app browser returned connection refused for 5203 despite the restored host listener returning HTTP 200. Existing screenshots above show the prior accepted layout, not this follow-up. Toggle/reload visual acceptance remains pending.
+
+## Node context and choice clarity follow-up
+
+Browser connectivity recovered. Verified Warehouse inspection shows two connected scenes with source excerpts and scene navigation controls; IDs/provenance are behind Advanced. Choice disclosure has an Explore choices callout and explicit expansion hint. Expanded rescue consequences show victims recovered / possible creature escape and later effect, with no repeated option label or choice title. Source Markdown remains unchanged. Screenshots: `evidence/node-context.png`, `evidence/choice-callout.png`. Syntax, model and fixture checks pass.
