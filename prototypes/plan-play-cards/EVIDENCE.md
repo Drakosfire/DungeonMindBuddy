@@ -45,3 +45,9 @@ This is a usable standalone prototype with browser-local authoring/session state
 Final preservation audit limit: a fresh read-only request to the previously known production API on 7866 returned connection refused, and the historical runtime checkout path was absent in this execution environment. No production restart/reconstruction was attempted. Preservation claims are bounded to this lane's no-write/no-call behavior, unchanged repository source hashes, and the earlier saved revision receipt; current external runtime availability/revision cannot be re-certified here. The prototype remains independently accessible on 5203.
 
 Final boundary repair: source-level H1/H2 reference sections (GM Running Notes / House Tone) are outside scene edit ranges rather than accidentally bundled into the last option. Model checks prove editing either last scene leaves the global section intact. Browser verification showed the storm editor excludes GM Running Notes while Intent/source context → Document still contains it. The opening screenshot was refreshed after this repair. Verified-reference select now has an explicit accessible label.
+
+## Compact layout follow-up
+
+Renamed the scene index Outline and the outcome journal Play notes. Added independently persisted panel toggles (notes closed by default), explicit grid placement so content reclaims hidden columns, and a compact scene toolbar containing title, block/count and prep status. Removed repeated card heading and only matching leading block labels; source Markdown is unchanged.
+
+Syntax, model and fixture checks pass. This follow-up could not receive fresh browser acceptance: the in-app browser returned connection refused for 5203 despite the restored host listener returning HTTP 200. Existing screenshots above show the prior accepted layout, not this follow-up. Toggle/reload visual acceptance remains pending.
