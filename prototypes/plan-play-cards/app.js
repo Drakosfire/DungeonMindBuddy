@@ -184,7 +184,15 @@ $('#create').onclick=()=>{
 state.playPad??={text:'',open:false};
 function showPlayPad(open){state.playPad.open=open;$('#playPad').hidden=!open;$('#togglePlayPad').setAttribute('aria-expanded',String(open));save();if(open)$('#playPadText').focus()}
 $('#playPadText').value=state.playPad.text;
-$('#playPadText').oninput=()=>{state.playPad.text=$('#playPadText').value;save();$('#playPadStatus').textContent='Saved in this browser'};
+let padStatusTimer;
+function padSavedStatus(){const time=state.playPad.savedAt;$('#playPadStatus').textContent=time?'✓ Saved at '+new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:'America/Denver'}).format(new Date(time))+' · this browser':'Autosave on · this browser';$('#playPadStatus').dataset.status='saved'}
+padSavedStatus();
+$('#playPadText').oninput=()=>{
+ clearTimeout(padStatusTimer);state.playPad.text=$('#playPadText').value;
+ const priorTime=state.playPad.savedAt;state.playPad.savedAt=new Date().toISOString();
+ $('#playPadStatus').textContent='Saving…';$('#playPadStatus').dataset.status='saving';
+ try{save();padStatusTimer=setTimeout(padSavedStatus,350)}catch(error){state.playPad.savedAt=priorTime;$('#playPadStatus').textContent='Not saved · browser storage unavailable. Export your notes.';$('#playPadStatus').dataset.status='error'}
+};
 $('#togglePlayPad').onclick=()=>showPlayPad(!state.playPad.open);
 $('#closePlayPad').onclick=()=>showPlayPad(false);
 $('#exportPlayPad').onclick=()=>download('play-notes.md',state.playPad.text,'text/markdown');

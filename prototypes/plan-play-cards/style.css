@@ -21,3 +21,5 @@ aside{grid-column:1}main{grid-column:2}#journal{grid-column:3}
 .scene-complete .scene-title{text-decoration:line-through;color:#9eada8}.scene-completion{display:flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap}.scene-completion input{width:auto;margin:0;accent-color:#799a80}
 
 .scene-flavor{margin-top:18px;padding:14px 18px;background:#e5dac2;border-left:3px solid #9c835b;border-radius:0 7px 7px 0}.scene-flavor h3{font:600 13px system-ui;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}.scene-flavor small{letter-spacing:0;color:#75664c;font-size:10px}.scene-flavor p{font-family:Georgia,serif;line-height:1.5}
+
+#playPadStatus{font-size:12px;color:#a9d3b4}#playPadStatus[data-status="saving"]{color:#d5c69e}#playPadStatus[data-status="error"]{color:#ffb6a2}

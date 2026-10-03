@@ -83,3 +83,7 @@ Added Files → Back up full session. Browser downloaded the operator snapshot i
 ## Sensory situation prose
 
 Situation cards now include an At the table passage using existing quoted read-aloud text. Added preparation flavor for nine scenes without read-aloud passages in scene-flavor.json; source fixtures and operator drafts remain unchanged. Browser verified both clinic source prose and newly authored claim-hours prose. Screenshot: evidence/sensory-situation.png.
+
+## Visible Play notes autosave
+
+The writing pad displays Saving… then a successful save timestamp in operator America/Denver time. Storage failures show Not saved and suggest export; the prior successful timestamp is retained internally. Browser verified Saving… and timestamp receipt while preserving the exact existing note text. Operator notes/screenshot remain outside Git.
