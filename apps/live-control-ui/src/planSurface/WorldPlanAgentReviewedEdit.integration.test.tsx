@@ -54,6 +54,13 @@ const liveApplyScenarios = [
     "> [!READ-ALOUD]\n> Three lantern flashes ripple across the eastern ridge. The scouts have returned, but no one will explain their silence. A cold wind threads through the camp, sharp against your skin.",
     "cold wind threads through the camp",
   ],
+  [
+    "plain root blockquote",
+    "Opening image: three lantern flashes ripple across the eastern ridge.\n\n> A root-level witness keeps watch from the broken wall.\n",
+    "A lone watcher keeps vigil above the marsh.",
+    "A lone watcher keeps vigil above the marsh.",
+    "Opening image: three lantern flashes ripple across the eastern ridge.A root-level witness keeps watch from the broken wall.",
+  ],
 ] as const;
 let savedMarkdown = initialMarkdown;
 let savedRevision = 7;
@@ -160,7 +167,7 @@ afterEach(() => {
   savedDigest = "b".repeat(64);
 });
 
-it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a live %s edit on the mounted editor", async (_label, sourceMarkdown, replacementMarkdown, expectedAppliedText) => {
+it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a live %s edit on the mounted editor", async (_label, sourceMarkdown, replacementMarkdown, expectedAppliedText, expectedVisibleSource = sourceMarkdown) => {
   savedMarkdown = sourceMarkdown;
   setupWorldApi();
   const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
@@ -223,12 +230,12 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
   window.history.replaceState({}, "", location);
   const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
   const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
-  await waitFor(() => expect(editorSurface).toHaveTextContent(sourceMarkdown));
+  await waitFor(() => expect(editorSurface).toHaveTextContent(expectedVisibleSource));
   const proseMirror = editorSurface.querySelector(".ProseMirror") as HTMLElement;
   const textNode = proseMirror.querySelector("p")?.firstChild as Text;
-  expect(textNode?.textContent).toBe(sourceMarkdown);
+  expect(textNode?.textContent).toContain("Opening image:");
   const range = document.createRange();
-  const firstSentenceEnd = sourceMarkdown.indexOf(".") + 1;
+  const firstSentenceEnd = (textNode?.textContent ?? "").indexOf(".") + 1;
   range.setStart(textNode, firstSentenceEnd);
   range.collapse(true);
   const domSelection = window.getSelection();
@@ -252,18 +259,22 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
     base_content_sha256: "b".repeat(64),
     instruction: "Add a warm light source to the opening.",
   });
-  expect(request.draft_markdown.trimEnd()).toBe(sourceMarkdown);
+  if (_label === "plain root blockquote") {
+    expect(request.draft_markdown).toContain("> A root-level witness keeps watch from the broken wall.");
+  } else {
+    expect(request.draft_markdown.trimEnd()).toBe(sourceMarkdown);
+  }
   expect(request.target_kind).toBe("insert_at_caret");
   expect(request.selected_text).toBe("");
   expect(JSON.stringify(request)).not.toContain("session");
-  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(sourceMarkdown);
+  expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedVisibleSource);
   expect(screen.getByRole("region", { name: "Review proposed Plan edit" })).toHaveTextContent(expectedAppliedText);
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
   await waitFor(() => {
-    expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(sourceMarkdown);
+    expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedVisibleSource);
     expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedAppliedText);
   });
   expect(prepare).not.toHaveBeenCalled();
@@ -287,11 +298,14 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
     writer_confirm_token: "integration-save-token",
     markdown: expect.stringContaining(replacementMarkdown),
   }));
+  if (_label === "plain root blockquote") {
+    expect(commit.mock.calls[0][0].markdown).toContain("> A root-level witness keeps watch from the broken wall.");
+  }
 
   view.unmount();
   window.history.replaceState({}, "", location);
   render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
-  expect(await screen.findByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(sourceMarkdown);
+  expect(await screen.findByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedVisibleSource);
   expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedAppliedText);
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByText("Plan proposal · Applied to the local draft")).toBeInTheDocument();

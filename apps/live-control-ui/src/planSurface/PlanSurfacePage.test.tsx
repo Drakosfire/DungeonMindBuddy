@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { readFileSync } from "node:fs";
 import { StrictMode, type ReactElement, type ReactNode } from "react";
 import { afterEach, expect, it, vi } from "vitest";
 
@@ -2008,4 +2009,117 @@ it("replaces World Plan identity by World and releases the canvas on unmount", a
   expect(localStorage.getItem(worldBKey)).toBe(worldBJournal);
   rerender(<Harness world={secondWorld} show={false} />);
   await waitFor(() => expect(screen.getByTestId("world-plan-publication")).toHaveAttribute("data-work-object", "none"));
+});
+
+it("keeps the checked-in Session 29 linked Plan safely editable after root-quote support", async () => {
+  const record = mockSavedPlanForAgent();
+  const session29Plan = readFileSync(
+    "../../corpus/eldyrwild-markdown/Longmont Campaign/Campaign 2/Session Prep/Session 29 - Buddy Plan.md",
+    "utf8",
+  );
+  vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({
+    schema_version: "dmb_workspace_document_snapshot_v2",
+    record,
+    markdown: session29Plan,
+    content_sha256: "d".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: 7,
+  });
+  const location = `/plan?world=${worldId}&documentId=${savedAgentPlanId}`;
+  window.history.replaceState({}, "", location);
+  render(
+    <SelectedWorldProvider locationSnapshot={location}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeEnabled());
+  expect(screen.queryByRole("alert", { name: "Markdown preservation warning" })).not.toBeInTheDocument();
+  expect(editorSurface.querySelector(".ProseMirror")).toHaveAttribute("contenteditable", "true");
+  expect(editorSurface).toHaveTextContent("Session 29 is about giving the table ownership again.");
+  expect(editorSurface).toHaveTextContent("For the first time in what feels like hours, nothing new is crawling out of the ground.");
+  await waitFor(() => expect(editorSurface.querySelectorAll(".graph-node-reference-view")).toHaveLength(72));
+  await waitFor(() => expect(editorSurface.querySelectorAll("[data-dmb-playable-id]")).toHaveLength(90));
+  expect(JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`) ?? "null").markdown).toBe(session29Plan);
+});
+
+it("preserves unsupported source and recovery bytes and refuses Save before prepare or commit", async () => {
+  const record = mockSavedPlanForAgent();
+  const unsupportedMarkdown = "# Plan\n\nRead [the rules](https://example.com/rules) before continuing.\n";
+  vi.mocked(liveApi.getWorldOwnedPlanSnapshot).mockResolvedValue({
+    schema_version: "dmb_workspace_document_snapshot_v2",
+    record,
+    markdown: unsupportedMarkdown,
+    content_sha256: "e".repeat(64),
+    file_fingerprint: "postgres",
+    file_exists: true,
+    loaded_revision: 7,
+  });
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("prepare must not be called"));
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockRejectedValue(new Error("commit must not be called"));
+  const location = `/plan?world=${worldId}&documentId=${savedAgentPlanId}`;
+  window.history.replaceState({}, "", location);
+  render(
+    <SelectedWorldProvider locationSnapshot={location}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(screen.getByRole("button", { name: "Save Plan" })).toBeDisabled());
+  expect(screen.getByRole("alert", { name: "Markdown preservation warning" })).toHaveTextContent(/cannot safely preserve/i);
+  expect(editorSurface.querySelector(".ProseMirror")).toHaveAttribute("contenteditable", "false");
+  const recoveryKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const recoveryBytes = localStorage.getItem(recoveryKey);
+  expect(JSON.parse(recoveryBytes ?? "null").markdown).toBe(unsupportedMarkdown);
+
+  await act(async () => { capturedPlanControls().save(); });
+
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  expect(localStorage.getItem(recoveryKey)).toBe(recoveryBytes);
+});
+
+it("reverts an editor transaction that the semantic Markdown serializer cannot preserve", async () => {
+  mockSavedPlanForAgent();
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite").mockRejectedValue(new Error("prepare must not be called"));
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite").mockRejectedValue(new Error("commit must not be called"));
+  const location = `/plan?world=${worldId}&documentId=${savedAgentPlanId}`;
+  window.history.replaceState({}, "", location);
+  render(
+    <SelectedWorldProvider locationSnapshot={location}>
+      <VerifiedPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(editorSurface.querySelector(".ProseMirror")).toHaveTextContent("The keeper waits beneath the black arch."));
+  const proseMirror = editorSurface.querySelector(".ProseMirror") as HTMLElement;
+  const textWalker = document.createTreeWalker(proseMirror, NodeFilter.SHOW_TEXT);
+  let textNode: Text | null = null;
+  while (textWalker.nextNode()) textNode = textWalker.currentNode as Text;
+  if (!textNode) throw new Error("Expected Plan editor text before testing a hard break.");
+  const range = document.createRange();
+  range.setStart(textNode, textNode.textContent?.length ?? 0);
+  range.collapse(true);
+  const selection = window.getSelection();
+  selection?.removeAllRanges();
+  selection?.addRange(range);
+  fireEvent.mouseUp(proseMirror);
+
+  const recoveryKey = `dmb:world-plan-local-draft:v2:${worldId}`;
+  const originalRecovery = localStorage.getItem(recoveryKey);
+  fireEvent.keyDown(proseMirror, { key: "Enter", code: "Enter", shiftKey: true });
+
+  expect(await screen.findByRole("alert")).toHaveTextContent(/edit was reverted to protect the saved Plan/i);
+  expect(screen.getByRole("alert")).toHaveTextContent(/Hard breaks are not represented losslessly/i);
+  expect(localStorage.getItem(recoveryKey)).toBe(originalRecovery);
+  const restoredEditor = editorSurface.querySelector(".ProseMirror") as HTMLElement;
+  expect(restoredEditor).not.toBe(proseMirror);
+  expect(restoredEditor).toHaveTextContent("The keeper waits beneath the black arch.");
+  expect(restoredEditor.querySelector("br")).not.toBeInTheDocument();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
 });
