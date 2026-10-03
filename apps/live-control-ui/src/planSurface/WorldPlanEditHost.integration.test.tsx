@@ -141,6 +141,12 @@ it("routes World Plan title, Save, formatting and insertion through the real doc
   const host = await screen.findByTestId("surface-edit-host");
   await waitFor(() => expect(within(host).getByRole("button", { name: "Save Plan" })).toBeEnabled());
   expect(host).toHaveAttribute("data-layout", "dock");
+  const planPage = screen.getByTestId("world-owned-plan");
+  expect(within(planPage).getByRole("heading", { level: 1, name: "New Plan" })).toHaveClass("sr-only");
+  expect(within(planPage).queryByText("WORLD PLAN")).not.toBeInTheDocument();
+  expect(within(planPage).getByText("Plan changes stay local until you choose Save Plan.")).toBeInTheDocument();
+  expect(screen.getByLabelText("Plan document")).toBeInTheDocument();
+  expect(screen.getByTestId("plan-authoring-identity")).toHaveTextContent("Unsaved Plan draft");
   const localId = JSON.parse(localStorage.getItem(draftKey) ?? "null").local_draft_id;
   await waitFor(() => expect(screen.getByTestId("edit-target")).toHaveTextContent(`plan-local-draft:${localId}`));
   expect(new Set(currentPublication!.editCommands.map((command) => command.id)).size).toBe(currentPublication!.editCommands.length);
@@ -164,6 +170,9 @@ it("routes World Plan title, Save, formatting and insertion through the real doc
   await waitFor(() => expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent("Read aloud"));
   fireEvent.click(within(host).getByRole("button", { name: "Save Plan" }));
   await screen.findByText("Saved to this World.");
+  expect(screen.getByRole("heading", { level: 1, name: "Edited title" })).toHaveClass("sr-only");
+  expect(screen.getByTestId("plan-authoring-identity")).toHaveTextContent("Plan editor");
+  expect(screen.getByTestId("plan-authoring-identity")).not.toHaveTextContent("Edited title");
   expect(create).toHaveBeenCalledWith(expect.objectContaining({ world_id: worldId, title: "Edited title" }));
   expect(commit).toHaveBeenCalledWith(expect.objectContaining({ world_id: worldId, document_id: savedRecord.document_id }));
   await waitFor(() => expect(screen.getByTestId("edit-target")).toHaveTextContent(`document:${savedRecord.document_id}`));

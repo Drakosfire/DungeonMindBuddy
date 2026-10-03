@@ -12,6 +12,7 @@ import {
   WorldGraphLensProjectionProvider,
   WorldGraphLensProvider,
 } from "../graphLens";
+import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { fixtureWorkspaceDocumentRecord } from "./config/planSessionDescriptor";
 import { mockPlanView, mockSourceBundle } from "../test/fixtures";
@@ -104,15 +105,17 @@ function Harness({
         <WorldGraphLensProvider planCampaignId="longmont-c2">
           <WorldGraphLensProjectionProvider defaultCampaignId="longmont-c2">
             <SurfaceContextProvider>
-              <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
-                <PlanSurfaceShell
-                  planView={mockPlanView}
-                  onEditorToolsChange={(tools) => {
-                    onEditorToolsChange(tools);
-                    setEditorTools(tools);
-                  }}
-                />
-              </AppChrome>
+              <PeekRegionProvider>
+                <AppChrome activeRoute="plan" editorTools={editorTools} editToolboxLayout="dock">
+                  <PlanSurfaceShell
+                    planView={mockPlanView}
+                    onEditorToolsChange={(tools) => {
+                      onEditorToolsChange(tools);
+                      setEditorTools(tools);
+                    }}
+                  />
+                </AppChrome>
+              </PeekRegionProvider>
             </SurfaceContextProvider>
           </WorldGraphLensProjectionProvider>
         </WorldGraphLensProvider>
@@ -171,6 +174,7 @@ describe("PlanSurfaceGraphInformation integration", () => {
     await waitFor(() => {
       expect(screen.getByText("Glowkindle")).toBeInTheDocument();
     });
+    expect(screen.getByRole("searchbox", { name: "Find objects" })).toBeInTheDocument();
     expect(screen.getByTestId("plan-world-graph-objects-panel")).toBe(panel);
     expect(screen.getByTestId("plan-world-graph-objects-panel")).toHaveAttribute(
       "data-status",
