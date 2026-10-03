@@ -237,15 +237,17 @@ it.
 
 ### Runtime ordering and receipt contract
 
-After verifying World authorization and work scope, construct the canonical
-submitted intent from the original normalized request envelope. Reconcile the
-World/key receipt before resolving the current conversation pointer, Plan,
-Graph, or provider context. An exact receipt returns the original conversation,
-turn status/result, and frozen typed provenance without current-state
-resolution. A changed semantic intent conflicts; a different
-`client_thread_id` alone does not. Only the no-receipt path resolves today's
-basis and calls APP-STATE acceptance with the required v1 submitted-intent
-fingerprint. A legacy receipt without that fingerprint fails closed as
+First independently verify World authority and validate the normalized
+request's syntactic scope without resolving today's Plan, Graph, selected-work
+authority, or conversation pointer. Construct the canonical submitted intent
+from that original normalized request envelope and reconcile the World/key
+receipt before any current-work resolution. An exact receipt returns the
+original conversation, turn status/result, and frozen typed provenance without
+depending on today's Plan, Graph, or active pointer. A changed semantic intent
+conflicts; a different `client_thread_id` alone does not. Only the no-receipt
+path resolves today's work basis and selected-work authority, then calls
+APP-STATE acceptance with the required v1 submitted-intent fingerprint. A
+legacy receipt without that fingerprint fails closed as
 `legacy-receipt-unverifiable`, including for callers that do not supply v1.
 Draft/import contracts remain separate.
 
@@ -261,9 +263,14 @@ digests, or schema fields. Preserve the exact immutable Plan revision and
 Markdown used for the turn. For Graph, preserve graph identity and the resolved
 immutable snapshot revision even when no node is selected; validate any
 selected node against that snapshot and retain a separate head/freshness
-reference when needed. If an original pin is unavailable or inadmissible,
-fail closed before provider dispatch. Candidate binding is needed only for an
-actual selected-candidate capability; ordinary Plan Ask does not require it.
+reference when needed. Preserve the original Plan WorkRevision UUID and
+content hash, plus Graph mode/scope and resolved snapshot identity. A valid
+historical pin remains usable after the current Plan or Graph head advances.
+Fail closed before provider dispatch only when the original pin is missing,
+its identity/digest cannot be verified, or it is inadmissible in its own
+resolved snapshot; a difference from today's head alone does not invalidate
+it. Candidate binding is needed only for an actual selected-candidate
+capability; ordinary Plan Ask does not require it.
 
 For a new turn, use the bounded APP-STATE claim and revision fence. A live
 claim is pending and cannot dispatch twice. Expiry blocks the old fence; a
@@ -296,7 +303,9 @@ answer or claim exactly-once provider calls.
   revision bytes and verifies its WorkRevision ID. Expired Graph recovery
   loads the original immutable revision, including graph identity, without
   requiring a selection. Selected nodes are checked against that snapshot.
-  Missing, stale, or inadmissible pins cause zero provider calls.
+  Missing pins, unverifiable original identity/digests, or pins inadmissible in
+  their own resolved snapshot cause zero provider calls. A changed current head
+  alone does not invalidate a valid historical pin.
 - **#833 semantic phase:** keep the saved-Plan fact plus dirty-draft decoy as a
   distinct phase inside this one canonical runtime acceptance. Include
   graph-mode-none/zero-Graph-resolution behavior and an exact-basis receipt
