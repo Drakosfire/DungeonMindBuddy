@@ -176,10 +176,11 @@ above. The frozen pre-repair source head was
   Its expired cases exercise Hermes pointer TTL, not APP claim expiry/reclaim.
   These results do not prove the outstanding historical-pin, APP lease, or
   retained-output gates below.
-- **Remaining acceptance:** Graph typed-provenance mapping, exact historical
-  replay basis, archived-history consumer contract, APP claim renewal/reclaim,
-  and bounded same-output persistence retry remain open. Do not call the 44
-  reported passing tests full runtime acceptance.
+- **Remaining acceptance:** storing and recovering the ratified typed Graph
+  provenance and historical Plan basis, APP claim renewal/reclaim, and bounded
+  same-output persistence retry remain open. Replay compatibility is limited
+  by the decision below; it is not whole-response byte identity. Do not call
+  the 44 reported passing tests full runtime acceptance.
 - **No merge or live witness:** PRIME review, the DEMO consumer witness, human
   operator acceptance, and later cutover gates remain separate. No configured
   provider, production database, or product state was used by this repair.
@@ -271,65 +272,51 @@ dirty checkout path is in this lease. In particular, preserve the suspended
 `codex/agent-world-conversation-backend` checkout; do not edit or transplant
 it.
 
-### Open mapping and response-contract decisions
+### Accepted mapping and bounded replay response contract
 
-The following decisions block completion and must be resolved before more
-behavioral edits:
+PRIME accepted ARCHITECTURE's mapping and bounded replay-compatibility decision.
+These decisions close design questions but do not waive implementation or
+evidence gates.
 
-1. **Graph provenance mapping:** `HistoricalReference` is generic enough to
-   name a real immutable Graph revision and a real selected Graph object, but
-   there is no accepted mapping for Graph mode, campaign/world scope, focus,
-   and optional head/freshness identity across `supporting_work` and
-   `selected_object`. The submitted-intent fingerprint is one-way and cannot
-   substitute for stored provenance. ARCHITECTURE must ratify the exact
-   `kind`/`object_id`/`revision` meaning and which absence/presence denotes
-   mode, scope, focus, selection, and head. Do not invent pseudo-work refs or
-   serialize context options into identity fields. If the existing typed
-   references cannot express the truthful mapping, return that concrete
-   insufficiency for owner/contract transfer; do not add a schema field here.
-
-   **Candidate mapping for ARCHITECTURE review, not yet accepted:** Graph
-   mode `none` stores no Graph reference and an absent selection. A Graph
-   request stores one `supporting_work` reference to the real World Graph
-   snapshot (`kind="world_graph_snapshot_world"` or
-   `kind="world_graph_snapshot_campaign"` to identify the query lens,
-   `object_id=world_id`, `revision=resolved_snapshot_revision_id`). If a
-   campaign lens/focus is present, store references to the actual campaign and
-   session objects at that same snapshot revision; if a head/freshness pin is
-   needed, store the actual World Graph head revision separately. Set
-   `selected_object` to the actual selected Graph node's kind and ID at the
-   resolved snapshot revision, or absent when no node was selected. The
-   original caller mode/scope/revision-pin/focus/selected-node remain in the
-   submitted-intent fingerprint for retry equality. ARCHITECTURE must confirm
-   that these kind values and snapshot-scoped campaign/session references are
-   truthful `HistoricalReference` semantics; do not implement this candidate
-   until ratified.
-2. **Replay divergence:** the existing response's
-   `AgentTurnContentBasis.has_divergent_working_copy` is not present in the
-   durable `HistoricalReference`; it is not equivalent to the client's
-   `client_work_state`. A replay cannot fabricate it or consult today's
-   working copy and still claim to return the original exact basis. ARCH and
-   DEMO must decide whether exact-basis successor compatibility requires this
-   original boolean. If yes, the current durable type/lease is insufficient
-   without an explicitly authorized persistence contract change. Do not
-   silently return a current value or map client state into it. The existing
-   `object_revision`, WorkRevision UUID/number, and content SHA can reconstruct
-   the immutable content identity, but not this original divergence value.
-3. **Archived history:** `AgentConversationService.list_turns` can read a
-   specified conversation, but the existing public history route only reads
-   the active pointer. After New Conversation, the old transcript is not
-   accessible through that route. Decide whether the existing POST replay's
-   response fields suffice for the successor or whether an authenticated
-   archived-conversation history contract is required. Any new query parameter,
-   route, or response field needs explicit public API authority and a named
-   owner; it is not part of the five-path lease.
+1. **Graph provenance mapping:** persist the actual immutable Graph snapshot
+   as a `HistoricalReference` with `kind="world_graph_revision"`,
+   `object_id` equal to the actual native World ID, and `revision` equal to the
+   actual returned immutable revision. Do not use fake hashes, IDs, or JSON
+   metadata. Persist the snapshot even with no selection. If selected,
+   `selected_object` names the actual admissible node kind and ID at that same
+   revision; otherwise it is absent. Repeated normalized intent verified by
+   the durable fingerprint supplies mode, scope, and focus. Revalidate
+   server-derived verified World, binding, and role through the owning
+   resolver. On replay, derive Graph scope/focus from matching verified intent
+   and the stored snapshot. Keep `head_revision_id` and `is_head` unset unless
+   that historical observation itself was persisted; never fetch today's head
+   to populate them. Report any concrete inability of existing typed
+   references to express this mapping; do not add schema fields or duplicate
+   context bodies.
+2. **Replay response:** a matching HTTP replay returns the stored answer,
+   conversation ID, and frozen-reference projection. This is not byte-identical
+   whole-response replay and does not authorize retrieval reruns or a fresh
+   grounding claim. The existing model path is explicitly authorized to return
+   `Graph.status="replayed"`; document consumer compatibility. Completed Plan
+   replay may leave `primary_work.content_basis` null because the original
+   `has_divergent_working_copy` boolean is not durably stored. Never infer that
+   value from today's draft or `client_work_state`. Preserve the immutable full
+   typed Plan basis in `TurnProvenance` and the response's primary revision
+   fields, so a future exact-basis Ask projection can consume the immutable
+   basis without claiming historical draft divergence. This bounded decision
+   does not waive frozen stored provenance or historical retry requirements.
+3. **Archived history boundary:** no public route, query parameter, provenance
+   field, or APP schema/store duplication is authorized. The bounded POST
+   replay contract above defines response compatibility for this slice. A
+   broader archived-conversation history contract requires explicit contract
+   transfer and a named owner.
 4. **Claim/runtime bound:** use `claim_turn` directly so a live claim is
    pending and an expired claim can be reclaimed. Renew under the existing
-   bounded lease, tracking each renewed revision as the only valid fence for
-   completion/failure, or provide an owning-boundary proof that the full
-   configured runtime is shorter than the chosen lease. The default Hermes
-   turn wait (120s) already exceeds the 60s default lease; readiness and accept
-   waits also count. Test both renew and stale-fence outcomes.
+   bounded lease. Serialize renewal and completion/failure so each operation
+   uses the latest returned revision as the only valid fence; stop and join
+   the renewer before finalizing. No runtime deadline is proven, and the
+   default Hermes turn wait (120s) exceeds the 60s APP default; readiness and
+   accept waits also count. Test renew and stale-fence outcomes.
 5. **Completion persistence:** retry transient `complete_turn` writes with
    the same in-memory provider output and same live fence for a bounded number
    of attempts. The existing completion method recognizes the same result if
@@ -337,9 +324,8 @@ behavioral edits:
    or the fence is lost, return a truthful indeterminate/pending outcome; do
    not redispatch, fabricate success, or mark a stale fence completed.
 
-These are exact acceptance gates, not a request to narrow the original runtime
-mission. Keep the five implementation paths, current schema, and current
-public API unchanged unless PRIME explicitly transfers the missing contract.
+Keep the five implementation paths, current schema, and current public API
+unchanged unless PRIME explicitly transfers a missing contract.
 
 ### Runtime ordering and receipt contract
 
@@ -447,12 +433,12 @@ At PR head `5674cf6f792c3516c4b99fdd2a2a6ac3eeab6991`:
   `tests/test_agent_turn_service.py` at the same head. Its “expired” cases are
   Hermes pointer TTL cases, not APP claim expiry/reclaim evidence; this file is
   not part of the current five-path lease.
-- These results verify the implemented subset only. Historical Graph/Plan
-  recovery, claim expiry/reclaim/renewal/fencing, maximum-runtime versus lease,
-  retained-output persistence retry, replay divergence semantics, and archived
-  conversation consumer compatibility remain open. The PR description records
-  HOLD; no merge, DEMO cutover, operator acceptance, or live-provider witness
-  is claimed.
+- These results verify the implemented subset only. Ratified historical
+  Graph/Plan storage and recovery, claim expiry/reclaim/renewal/fencing,
+  maximum-runtime versus lease, and retained-output persistence retry remain
+  open. The bounded replay response contract is settled as specified above.
+  The PR description records HOLD; no merge, DEMO cutover, operator acceptance,
+  or live-provider witness is claimed.
 
 Do not treat the 44 reported test passes as full acceptance. Record new exact
 commands, environment, failures, and owning-boundary evidence on this handoff
