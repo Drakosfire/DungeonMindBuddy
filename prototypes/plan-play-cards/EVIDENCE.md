@@ -87,3 +87,7 @@ Situation cards now include an At the table passage using existing quoted read-a
 ## Visible Play notes autosave
 
 The writing pad displays Saving… then a successful save timestamp in operator America/Denver time. Storage failures show Not saved and suggest export; the prior successful timestamp is retained internally. Browser verified Saving… and timestamp receipt while preserving the exact existing note text. Operator notes/screenshot remain outside Git.
+
+## Choice-note autosave and Hybrid reference
+
+Something else fields show Saving… then a saved timestamp, with per-choice receipt persistence and explicit storage failure feedback. Browser verified the transition with exact operator note text preserved; private screenshot stays outside Git. Opening scene now exposes Fleshborn Hybrid CR3 through a monster-reference pill. Source copied verbatim with provenance; browser verified AC13, HP45, actions including Flesh Lash and Consume the Weak. This is a corpus reference, not verified native Graph binding to the transformed refugees.

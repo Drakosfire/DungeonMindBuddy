@@ -7,7 +7,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let state;try{state=JSON.parse(localStorage.getItem(storage))}catch{}
 state??={drafts:fixtures.map(x=>x.markdown),outcomes:[],doc:0,scene:'scene:warehouse-tail',mode:'plan',view:'cards',block:0,room:null};
-state.completedScenes??={};state.actions??={};state.noteDrafts??={};state.otherNotes??={};state.panels??={outline:true,notes:false};
+state.completedScenes??={};state.actions??={};state.noteDrafts??={};state.otherNotes??={};state.otherNoteSavedAt??={};state.panels??={outline:true,notes:false};
 if(state.selectionVersion!==2){for(const outcome of state.outcomes){const key=outcome.document+':'+outcome.scene;state.actions[key]=[...outcome.choices]}state.selectionVersion=2;save()}
 let choices=new Set();
 function inline(s){return esc(s).replace(/\[([^\]]+)\]\(dmb-node:([^)]+)\)/g,'<button class="node" data-node="$2">$1</button>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');}
@@ -65,6 +65,7 @@ function render(){
   }
   if(isHouseMap&&slot===0)$('#content').insertAdjacentHTML('beforeend',`<section class="room-map"><h3>Ground floor</h3><div>${items.slice(1,6).map((b,i)=>`<button data-block="${i+1}">${esc(b.title)}</button>`).join('')}</div><h3>Upper floor</h3><div>${items.slice(6).map((b,i)=>`<button data-block="${i+6}">${esc(b.title)}</button>`).join('')}</div><p class="map-note">Source-described spaces by floor. Positions imply no physical adjacency. Residence remains unresolved.</p></section>`);
   if(state.doc===1&&s.id==='scene:ironveil-house-map'&&[2,9].includes(slot))$('#content').insertAdjacentHTML('beforeend',`<button data-scene="${slot===2?'scene:ironveil-kitchen':'scene:lysandra-alone-at-home'}">Related interaction: ${slot===2?'Kitchen Table':'Lysandra alone'} →</button>`);
+  if(s.id==='scene:warehouse-tail')$('#content').insertAdjacentHTML('afterbegin','<div class="monster-reference">Monster reference · <button class="node" id="hybridReference">Fleshborn Hybrid · CR 3</button></div>');
   const location=body.match(/^Location:\s*(.+)$/m)?.[1];
   if(location)$('#content').insertAdjacentHTML('afterbegin',`<div class="scene-location">${inline(location)}</div>`);
   const effect=effects.find(e=>e.scene===s.id)?.effect;
@@ -84,7 +85,15 @@ function render(){
  if($('#roomSelect'))$('#roomSelect').onchange=e=>{state.block=+e.target.value;state.detail=0;save();render()};
  document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>{state.detail=+b.dataset.detail;save();render()});
  document.querySelectorAll('[data-option]').forEach(b=>b.onchange=()=>{b.checked?choices.add(b.dataset.option):choices.delete(b.dataset.option);state.actions[draftKey]=[...choices];save()});
- document.querySelectorAll('[data-other-note]').forEach(field=>field.oninput=()=>{const id=field.dataset.otherNote;state.otherNotes[draftKey+':'+id]=field.value;if(field.value.trim())choices.add(id);else choices.delete(id);state.actions[draftKey]=[...choices];const checkbox=document.querySelector(`[data-option="${id}"]`);if(checkbox)checkbox.checked=choices.has(id);save()});
+ document.querySelectorAll('[data-other-note]').forEach(field=>{
+  let timer;field.oninput=()=>{
+   clearTimeout(timer);const id=field.dataset.otherNote,key=draftKey+':'+id,status=field.nextElementSibling;
+   state.otherNotes[key]=field.value;if(field.value.trim())choices.add(id);else choices.delete(id);state.actions[draftKey]=[...choices];
+   const checkbox=document.querySelector(`[data-option="${id}"]`);if(checkbox)checkbox.checked=choices.has(id);
+   const prior=state.otherNoteSavedAt[key];state.otherNoteSavedAt[key]=new Date().toISOString();status.textContent='Saving…';status.dataset.status='saving';
+   try{save();timer=setTimeout(()=>{status.textContent=choiceSaveReceipt(state.otherNoteSavedAt[key]);status.dataset.status='saved'},350)}catch(error){state.otherNoteSavedAt[key]=prior;status.textContent='Not saved · browser storage unavailable. Copy your note.';status.dataset.status='error'}
+  };
+ });
  document.querySelectorAll('.log-direction').forEach(button=>button.onclick=()=>{
   const status=button.nextElementSibling;
   if(!choices.size){status.textContent='Check the actions the players took first.';return}
@@ -96,6 +105,7 @@ function render(){
   state.outcomes.at(-1).otherNote=extra;state.outcomes.at(-1).kind='player-direction';state.outcomes.at(-1).choiceLabels=labels;
   state.actions[draftKey]=[...choices];save();render();
  });
+ if($('#hybridReference'))$('#hybridReference').onclick=showHybrid;
  document.querySelectorAll('[data-node]').forEach(b=>b.onclick=()=>showReference(b.dataset.node,b.textContent));
  if($('#outcomeNote')){$('#outcomeNote').value=state.noteDrafts[draftKey]??'';$('#outcomeNote').oninput=()=>{state.noteDrafts[draftKey]=$('#outcomeNote').value;save()}};
  if($('#record'))$('#record').onclick=()=>{try{state=recordOutcome(state,state.doc,s.id,[...choices],$('#outcomeNote').value);state.actions[draftKey]=[...choices];delete state.noteDrafts[draftKey];save();render()}catch(e){$('#outcomeNote').setCustomValidity(e.message);$('#outcomeNote').reportValidity()}};
@@ -114,12 +124,13 @@ function followups(outcome){
  const available=[...targets].map(id=>p.scenes.find(x=>x.id===id||x.beat===id)).filter(Boolean);
  return available.length?`<p>Source-linked follow-ups (optional)</p>${available.map(x=>`<button data-followdoc="${outcome.document}" data-follow="${x.id}">${esc(x.title)} →</button>`).join('')}${suppressed.size?`<p>Source relevance suppressed: ${esc([...suppressed].join(', '))}. Navigation stays open.</p>`:''}`:'';
 }
+function choiceSaveReceipt(time){return time?'✓ Saved at '+new Intl.DateTimeFormat(undefined,{hour:'numeric',minute:'2-digit',second:'2-digit',timeZone:'America/Denver'}).format(new Date(time))+' · this browser':'Autosave on · this browser'}
 function renderChoices(text,nested,s){
  for(const c of nested.filter(e=>e.kind==='choice')){
   const opts=nested.filter(e=>e.kind==='option'&&e.start>c.start&&e.start<(nested.find(x=>x.kind==='choice'&&x.start>c.start)?.start??s.end));
   const other=opts.find(o=>/something (else|unexpected)|another objective/i.test(text.slice(o.bodyStart,o.end)));
   if(!other)opts.push({id:c.id+':unexpected',bodyStart:0,end:0,unexpected:true});
-  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary><span class="choice-callout">Choices <span class="choice-hint">Click to expand</span></span></summary><p class="choice-prompt">${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'What do they do?')}</p>${md(text.slice(c.bodyStart,c.end).replace(/^\s*### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=o.unexpected?'Something else.':raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^\s*- \*\*[^*]+\*\*[^\n]*(?:\n|$)/,'');return `<div class="option"><label><input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> ${esc(title)}</label>${/something (else|unexpected)|another objective/i.test(title)?`<label class="other-action">What did they do?<textarea data-other-note="${o.id}" placeholder="Describe the unexpected action…">${esc(state.otherNotes[state.doc+':'+s.id+':'+o.id]??state.otherNotes[state.doc+':'+s.id]??'')}</textarea></label>`:''}<details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}<button type="button" class="log-direction">Log player direction</button><span class="direction-status" role="status">${state.outcomes.some(o=>o.document===state.doc&&o.scene===s.id)?'Saved in Decision log · browser only':'Saved here in your browser; export from Files'}</span></details>`);
+  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary><span class="choice-callout">Choices <span class="choice-hint">Click to expand</span></span></summary><p class="choice-prompt">${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'What do they do?')}</p>${md(text.slice(c.bodyStart,c.end).replace(/^\s*### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=o.unexpected?'Something else.':raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^\s*- \*\*[^*]+\*\*[^\n]*(?:\n|$)/,'');return `<div class="option"><label><input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> ${esc(title)}</label>${/something (else|unexpected)|another objective/i.test(title)?`<label class="other-action">What did they do?<textarea data-other-note="${o.id}" placeholder="Describe the unexpected action…">${esc(state.otherNotes[state.doc+':'+s.id+':'+o.id]??state.otherNotes[state.doc+':'+s.id]??'')}</textarea><small class="choice-save-status" role="status">${choiceSaveReceipt(state.otherNoteSavedAt[state.doc+':'+s.id+':'+o.id])}</small></label>`:''}<details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}<button type="button" class="log-direction">Log player direction</button><span class="direction-status" role="status">${state.outcomes.some(o=>o.document===state.doc&&o.scene===s.id)?'Saved in Decision log · browser only':'Saved here in your browser; export from Files'}</span></details>`);
  }
 }
 async function showReference(id,label){
@@ -136,6 +147,12 @@ async function showReference(id,label){
  $('#fields').insertAdjacentHTML('beforeend',`<details><summary>Advanced</summary><p>${esc(id)}</p><p>Context comes from local preparation, not a live Graph query.</p></details>`);
  document.querySelectorAll('[data-reference-scene]').forEach(b=>b.onclick=()=>{$('#editor').close();state.view='cards';go(b.dataset.referenceScene,+b.dataset.referenceDoc)});
  $('#apply').hidden=true;$('#errors').textContent='';$('#editor').showModal();
+}
+async function showHybrid(){
+ $('#editorTitle').textContent='Fleshborn Hybrid';$('#editorHelp').textContent='Monster statblock · CR 3';$('#apply').hidden=true;$('#errors').textContent='';
+ const text=await (await fetch('./node-sources/fleshborn-hybrid.md')).text();
+ $('#fields').innerHTML='<section id="nodeBody">'+md(text.replace(/^---\n[\s\S]*?\n---\n/,''))+'</section><details><summary>Source & binding</summary><p>Imported Fleshborn Hybrid.pdf rules export. This is a corpus statblock reference; a live Graph binding to the transformed refugees has not been verified.</p></details>';
+ $('#editor').showModal();
 }
 async function showLysandra(label){
  $('#editorTitle').textContent=label;$('#editorHelp').textContent='Mirathorn Guard · Mireward roots';$('#apply').hidden=true;$('#errors').textContent='';
