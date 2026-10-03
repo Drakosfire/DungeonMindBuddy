@@ -4,7 +4,7 @@
 **Owner:** DEMO steward  
 **Re-anchor:** Buddy `main@67b0df1a478f50ff324b919d13f299c276b89198` (PR #878 merge), checked 2026-10-02 through the GitHub repository connector. Shell `git fetch origin main` was unavailable because this environment could not resolve GitHub.  
 **MIND contract:** DungeonMind `619329c2c8586572ffd04558a79b3555c2ca3764` (PR #96, current MIND main at re-anchor).  
-**Topology after activation:** serial; one implementation PR for this capability. Keep the paused Rules #763 dependency work behind this slice while it owns `pyproject.toml` / `uv.lock`; re-anchor it after the dependency decision lands.  
+**Topology after activation:** serial; one implementation PR for this capability. Keep open but paused Rules #763 behind this slice because its branch also changes `pyproject.toml` / `uv.lock`; re-anchor #763 after the J3 dependency decision lands.  
 **Predecessor:** Buddy PR #826 remains paused and is not a merge, cherry-pick, or rebase candidate. It must not be treated as active authority.
 
 ## User capability and boundary
@@ -15,7 +15,7 @@ This slice does not bind or modify an existing native Graph; import or migrate E
 
 ## Why #826 is held
 
-The old #826 implementation was written against a V1-only World record with flat `space_*` fields. Current Buddy main uses strict V2 registry records and already stores a typed `native_graph_binding`; applying the old model to a V2 record can fail validation and lose the independent Graph relationship. Rebuild the implementation on the current V2 record shape.
+The old #826 implementation was written against a V1-only World record with flat `space_*` fields. Current Buddy main uses strict V2 registry records and already stores a typed `native_graph_binding`; applying the old model to a V2 record can fail validation and does not preserve the independent Graph relationship. Rebuild the implementation on the current V2 record shape.
 
 Buddy main currently pins DungeonMind #85 at `7c69e447f6d4acc963ac09c6fb9cb48cc1c5b9cc`, which does not export MIND #96's `create_empty_space` provisioning API. MIND #96 is the current MIND main and defines the required MIND-minted ID and `KnowledgeSpaceProvisioningReceipt`. The #96 dependency upgrade is intentional. Prove Buddy's existing Graph adapters and binding still work with that pin before accepting it.
 
@@ -30,7 +30,7 @@ The private binding must preserve enough immutable intent to recover the exact s
 - a server-generated, stable `allocation_id` created before the MIND call;
 - the exact domain-contract and semantic-profile inputs, or immutable references plus content digests that resolve to those exact inputs;
 - the canonical MIND request digest for those inputs;
-- after success, the MIND-minted `space_id` and the exact durable provisioning/publication receipt.
+- after success, the MIND-minted `space_id` and the exact `KnowledgeSpaceProvisioningReceipt`, including its allocation ID, request digest, Space ID, and publication receipt.
 
 Do not accept a client-provided Space ID, allocation ID, domain/profile choice, or arbitrary receipt. Do not use the managed World ID as MIND's allocation key.
 
@@ -43,15 +43,15 @@ There is no local deactivate, transfer, delete, or rebind operation in this slic
 1. Under the existing registry mutation lock, load the current registry, verify the managed World and its source root, and persist a unique pending allocation with the frozen semantic request. Validate a newly constructed full V2 document before saving; do not rely on `model_copy(update=...)` alone to run document validators.
 2. Release the Buddy registry lock before any MIND call or database work.
 3. Call MIND #96 `create_empty_space` with the exact saved allocation and semantic inputs. MIND's operation owns atomic minting and genesis creation.
-4. Reacquire the lock and reload the latest registry. Confirm the same managed World, verified source root, pending allocation, binding version, and request digest. Finalize only the Space field on that latest record, preserving any concurrent `native_graph_binding` and unrelated registry updates.
+4. Reacquire the lock and reload the latest registry. Confirm the same managed World identity (`world_id`, `created_at`, and source-root path), verified source root, pending allocation, binding version, and request digest. Finalize only the Space field on that latest record, preserving any concurrent `native_graph_binding` and unrelated registry updates.
 5. If the pending owner or version changed, do not attach the receipt to a replacement. Leave the durable MIND result recoverable under the original allocation and report a conflict for retry/reconciliation. Same-World concurrent requests with identical intent converge on the same allocation and receipt; different intent conflicts.
-6. Enforce uniqueness of active MIND Space IDs and allocation IDs across managed Worlds before every persisted mutation. An allocator collision must not write a registry document that later becomes unreadable.
+6. Enforce uniqueness of active MIND Space IDs and of allocation IDs across all pending/active bindings before every persisted mutation. An allocator collision must not write a registry document that later becomes unreadable.
 
 The public World DTO may expose a separate KnowledgeSpace `status` (`unbound | pending | active`) and `binding_version` only. Keep allocation IDs, Space IDs, semantic descriptors/digests, and receipts private. Reads of legacy V1 registry data remain read-only and must not rewrite it; a V2 mutation must preserve every existing Graph binding.
 
 ## API and authorization
 
-Use one empty-body endpoint: `POST /api/live/world-containers/{managed_world_id}/knowledge-space`. The server generates the allocation identity and chooses the pinned domain/profile. Reject unexpected body fields.
+Use one endpoint with a strict empty request model: `POST /api/live/world-containers/{managed_world_id}/knowledge-space`. Accept `{}` only; reject every other body field. The server generates the allocation identity and chooses the pinned domain/profile.
 
 Reuse the existing accepted `enforce_native_graph_gm(request)` guard at the route before World lookup, registry/file access, MIND access, or any durable mutation. Do not add an auth framework. A mounted route test must show missing and invalid credentials fail before registry or MIND calls; valid authorization reaches only the provisioning operation. The response uses the public DTO and contains no private Space identity or receipt.
 
@@ -67,7 +67,7 @@ This list is a design proposal, not an active lease:
 - `pyproject.toml` and `uv.lock` for the exact MIND #96 pin, after PRIME confirms serial ownership relative to #763.
 - `tests/test_world_container_registry.py`, `tests/test_world_space_binding.py`, route tests, and `tests/integration/test_world_space_binding_postgres.py`.
 
-Do not edit `Docs/Roadmaps/ROADMAP-demo.md) in this lease proposal: open PR #869 also touches it. If the roadmap needs a status change before #869 settles, re-anchor and resolve that collision first.
+Do not edit `Docs/Roadmaps/ROADMAP-demo.md` in this lease proposal: open PR #869 also touches it. If the roadmap needs a status change before #869 settles, re-anchor and resolve that collision first.
 
 ## Required verification after activation
 
