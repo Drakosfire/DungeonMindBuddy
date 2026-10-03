@@ -2,16 +2,16 @@
 
 **Status:** BLOCKED — concrete redesign; no implementation or runtime lease  
 **Owner:** DEMO steward  
-**Design source:** Buddy `main@67b0df1a478f50ff324b919d13f299c276b89198` (PR #878 merge). **Latest re-anchor:** Buddy `main@312a9a3b33d2381d74049daeb8be6846c93b7fb4` (PR #879 merge), checked 2026-10-03 through GitHub. PR #879 changes only recap-review UI/test files and leaves this J3 contract unchanged. Local `git fetch origin main` is unavailable because this environment cannot resolve GitHub.  
+**Re-anchor:** Buddy `main@312a9a3b33d2381d74049daeb8be6846c93b7fb4` (PR #879 merge), checked 2026-10-02 (America/Denver). PR #879 changed recap-review UI/test files and left this J3 contract unchanged.  
 **MIND contract:** DungeonMind `619329c2c8586572ffd04558a79b3555c2ca3764` (PR #96, current MIND main at re-anchor).  
-**Topology after activation:** serial; one implementation PR for this capability. Keep open but paused Rules #763 behind this slice because its branch also changes `pyproject.toml` / `uv.lock`; re-anchor #763 after the J3 dependency decision lands.  
+**Topology after activation:** serial; one implementation PR for this capability. PRIME confirmed dependency ownership: J3 carries the exact MIND #96 pin and Graph compatibility proof; paused Rules #763 reanchors after J3 settles.  
 **Predecessor:** Buddy PR #826 remains paused and is not a merge, cherry-pick, or rebase candidate. It must not be treated as active authority.
 
 ## User capability and boundary
 
 Provision one empty MIND VNext KnowledgeSpace for an already verified managed Buddy World. Persist the relationship on that World and expose only its safe operational status. MIND owns minting the Space ID and atomically creating its empty genesis. Buddy owns the managed-World-to-Space relationship.
 
-This slice does not bind or modify an existing native Graph; import or migrate Elderwyld/C1/C2 data; admit source material; add retrieval or citations; or claim J3/full-demo acceptance. A managed `world_id`, native Graph `world_id`, and VNext `space_id` remain distinct identities.
+This slice does not bind, replace, or recreate an existing native Graph; import or migrate Elderwyld/C1/C2 data; change live data; admit source material; or add retrieval or citations. It does not resolve the existing Elderwyld recap/run-to-managed-World association. A managed `world_id`, native Graph `world_id`, and VNext `space_id` remain distinct identities. It does not claim J3/full-demo acceptance.
 
 ## Why #826 is held
 
@@ -90,8 +90,8 @@ No providers, model calls, source admission, existing-Graph writes, or persisten
 
 ## Gates before this design may become ACTIVE
 
-- PRIME accepts this redesign and issues one exact implementation handoff with current branch/base, path allowlist, verification commands, and disposable PostgreSQL lease.
-- Re-anchor all open PRs and leases immediately before activation. Keep #826 held. Resolve the shared `pyproject.toml`/`uv.lock` order with paused #763; the #96 pin and Graph compatibility tests belong to this single J3 implementation PR.
+- PRIME has accepted the substantive design and confirmed dependency ownership order. Before code starts, PRIME must issue a separate exact implementation handoff with current branch/base, path allowlist, verification commands, and disposable PostgreSQL lease.
+- Re-anchor all open PRs and leases immediately before activation. Keep #826 held and #763 paused through J3. Per PRIME's serial ruling, the #96 pin and Graph compatibility tests belong to this single J3 implementation PR; #763 reanchors afterward.
 - Obtain the dedicated disposable DSN and clean MIND #96 source needed for the no-skip test. Do not start a database or service for this design-only phase.
 - If any source contract, World record lifecycle, or auth guard differs from the stated current evidence, stop and revise the handoff before code changes.
 
