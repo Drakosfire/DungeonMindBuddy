@@ -1,6 +1,6 @@
 # DOGFOOD — Restore recap entry
 
-Status: ACTIVE. Authority: operator directly requested restoration on 2026-10-02; PRIME scope approval is not a gate.
+Status: COMPLETE. PR873 merged at a0e080404d97b9d6fec8438de8be5cea00e36bf8 after independent 43-test verification; no outstanding write lease. Authority: operator directly requested restoration on 2026-10-02; PRIME scope approval is not a gate.
 
 Topology: serial, one restoration PR. Base: origin/main at 1e050dc8a856743748c315b68e1e6d799932af33. Branch: codex/dogfood-restore-recap-workbench. Checkout: /home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy.
 
