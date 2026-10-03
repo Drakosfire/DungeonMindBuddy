@@ -178,7 +178,7 @@ export function WorldGraphRecapProjectionView({
   );
 
   return (
-    <div className="recap-reader-root world-graph-recap-root">
+    <div className="recap-reader-root world-graph-recap-root" data-object-open={objectOpen}>
       {reviewToolbar}
       {readAuthorityError ? <p role="alert">{readAuthorityError}</p> : worldLensProjection && !lensSnapshot ? (
         <p role="note">World lens unavailable; node inspection uses this recap's verified native snapshot.</p>
