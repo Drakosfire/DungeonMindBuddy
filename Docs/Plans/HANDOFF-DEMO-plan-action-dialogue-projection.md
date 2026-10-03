@@ -1,6 +1,6 @@
 # HANDOFF — DEMO: project typed Plan action dialogue
 
-**Status:** PREPARED — design-only amendment to merged PR #859. Implementation remains BLOCKED until the AGENT-INTERACTION runtime is accepted and PRIME activates the exact lease below. No lease for this Plan-action capability is active.
+**Status:** PREPARED — design-only amendment to merged PR #859. The AGENT-INTERACTION runtime predecessor, PR #865, is accepted and merged at `1c0320d18c53037308cd7412719fb3e2f0610d99`; this does not activate Plan-action implementation. Implementation remains BLOCKED pending APP-STATE's explicit migration review and PRIME's exact lease below. No lease for this Plan-action capability is active.
 
 **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 
@@ -8,7 +8,7 @@
 
 **Preparation base:** Buddy `main@327bdb5a899178eef2c16f3e9198219eb8e79773` (PR #863 merge).
 
-**Amendment base:** Buddy `main@e4d02ca03003877064f7a323a20b8230325d11cf`.
+**Amendment base:** Buddy `main@1c0320d18c53037308cd7412719fb3e2f0610d99` (PR #865 merge).
 
 **Accepted design:** PR #859 merged at `43c4c4daa8e1c17b22953681fe817e6881242b36` from reviewed head `c78feb94f37f7612200e2d0962d26d0f5a1326cf`. This amendment narrows the action-record scope and records the shared-migration ownership ruling; it does not activate implementation.
 
@@ -67,6 +67,10 @@ packages is the expected fit; PRIME must pin its exact path in the lease.
 - Buddy #858 repaired the separate `PlanAgentInteractionBar.test.tsx` fixture
   against the current selected-World document API. It changed no Plan proposal
   or World Plan Agent production code, so this boundary audit is unchanged.
+- Buddy PR #865 merged at `1c0320d18c53037308cd7412719fb3e2f0610d99` from
+  reviewed head `097107324e0be5f5e7aa45e9633f70c09c4794e5`. Its runtime
+  acceptance does not establish a live consumer/provider/operator witness or
+  J1–J6 acceptance, and does not grant this Plan-action implementation lease.
 - A local `plan_edit` turn contains the instruction, visible response summary,
   replacement Markdown, and an `applied` flag, but no exact committed
   WorkRevision/content basis. It cannot safely be attached to the selected
@@ -121,6 +125,8 @@ transaction. Each row contains:
   must reuse with an identical request and basis on uncertain network retry;
 - a canonical request fingerprint covering the verified basis and all
   generation inputs whose identity affects the result;
+- a Plan-owned dispatch owner/token, monotonically advancing fence/version, and
+  database-time lease expiry for the pending reservation;
 - server order/sequence, accepted timestamp, and truthful request outcome;
 - verified World, Plan document, and full committed-basis tuple above;
 - the user's instruction text;
@@ -140,18 +146,38 @@ Apply/Save receipts, traces, provider session IDs, or hidden provider state.
 The client creates one stable idempotency key per user intent and resends that
 key with the identical request and basis on every uncertain network retry. The
 server assigns a separate action ID when it reserves the row. Same-key,
-same-fingerprint retries return or reconcile that row; same-key reuse with a
-changed instruction, basis, draft witness, or other fingerprinted input
-conflicts. Stale or invalid basis fails before provider work. Persist the
-truthful state as `pending`, `completed`, `failed`, or `indeterminate`. A
-completed row includes the safe assistant summary; other states do not.
+same-fingerprint retries return or reconcile that row but never dispatch the
+provider again. Only the request that atomically creates the reservation may
+dispatch, using the recorded owner/token and fence; every idempotency hit is a
+read/reconciliation path. Same-key reuse with a changed instruction, basis,
+draft witness, or other fingerprinted input conflicts. Stale or invalid basis
+fails before provider work. Persist the truthful state as `pending`,
+`completed`, `failed`, or `indeterminate`. A completed row includes the safe
+assistant summary; other states do not.
 
 Provider dispatch and database commit cannot be one exactly-once transaction.
-If a provider result is uncertain, retain `indeterminate` and reconcile by a
-known provider correlation only when the runtime supports it; otherwise require
-an explicit new user intent instead of blindly redispatching. A persistence
-failure after dispatch must not fabricate a completed action. Never silently
-fall back to client history as authority.
+While a `pending` reservation's database-time lease is live, same-key retries
+and status reads return `pending`. On a same-key retry or status read after
+expiry, lock the row and atomically transition it to `indeterminate`, advancing
+its fence/version exactly once. No sweeper or background worker is used. An
+expired reservation is never reclaimed or redispatched automatically; an
+unknown provider outcome requires a fresh explicit user intent. Terminal
+success and definite-failure writes are compare-and-set operations that require
+the row still be `pending`, the same dispatch token and fence, and an unexpired
+lease according to database time. A late worker that loses this check cannot
+write a terminal state or expose a completed summary. If its failed compare-
+and-set observes an expired pending row, it uses the same atomic expiry
+reconciliation and returns `indeterminate`; if another caller already
+reconciled the row, it returns that state. A persistence failure after
+dispatch must not fabricate a completed action. Never silently fall back to
+client history as authority.
+
+Before activation, inspect the current provider request deadline and its
+configuration, then prove it is bounded and strictly shorter than the selected
+database lease duration. Do not invent a deadline or lease duration. If the
+provider deadline cannot be established or is not shorter, this remains an
+activation gate. Provider correlation does not authorize automatic reclaim or
+redispatch in this capability.
 
 The record is a Plan-owned action dialogue, not an APP-STATE generic Agent
 turn, tool result, or proposal receipt. Its visible dialogue text is the
@@ -169,7 +195,10 @@ basis:
    matching action records with truthful `pending`, `completed`, `failed`, and
    `indeterminate` status for the UI. A completed record pairs one user
    instruction with its assistant summary; other states have no fabricated
-   assistant response. This read serves status and recovery display only.
+   assistant response. This read serves status and recovery display only. The
+   proposed route is `GET /api/live/world-plan-edit/actions`; it resolves the
+   World, Plan, and committed basis server-side and reconciles expired pending
+   rows using the atomic rule above.
 2. The **completed-context projection** first filters to `status=completed`, a
    safe assistant summary, and the exact World ID, Plan document ID, object
    revision, WorkRevision ID and number, and content SHA-256; only then does it
@@ -234,12 +263,14 @@ prove:
    non-completed states have no assistant summary. Replacement Markdown,
    draft bytes, Apply/Save receipts, traces, provider IDs, and hidden history
    are absent from projection output.
-4. Same-key/same-fingerprint retries do not duplicate rows; reuse of the same
-   idempotency key with a changed fingerprint conflicts. A `pending` row is
-   reconciled without blind redispatch; a definite failure or indeterminate
-   result remains visible and requires a deliberate new user intent if it
-   cannot be reconciled. Projection persistence failure retains explicit
-   truthful state and does not fabricate dialogue.
+4. Same-key/same-fingerprint retries do not duplicate rows or dispatch again;
+   reuse of the same idempotency key with a changed fingerprint conflicts. A
+   live `pending` row remains pending. An expired pending row becomes
+   `indeterminate` atomically on retry/status read, advances its fence exactly
+   once under concurrency, and is never automatically reclaimed or
+   redispatched. A definite failure or indeterminate result remains visible
+   and requires a deliberate new user intent. Projection persistence failure
+   retains explicit truthful state and does not fabricate dialogue.
 5. Projection queries reject another World, Plan, or committed basis; preserve
    stable order; return at most six action turns; and isolate Plan A from B.
 6. A late response remains bound to the originating action ID and basis after
@@ -250,6 +281,13 @@ prove:
    hide older completed exact-basis pairs from the completed-context
    projection; filtering to completed exact-basis pairs happens before its
    six-item limit.
+8. Concurrent expiry reads transition one pending row to `indeterminate` and
+   advance its fence/version once; a live-lease read leaves it pending. A stale
+   completion or definite-failure write after expiry reconciles it to
+   `indeterminate` and cannot expose a summary. A terminal write with the
+   matching token/fence and an unexpired lease can win only once.
+9. Provider invocation is strictly bounded by the observed configured request
+   deadline, which is shorter than the chosen lease duration.
 
 Use an isolated fake provider/runtime and only a disposable persistence
 fixture explicitly named by PRIME's implementation lease. No production
@@ -262,8 +300,10 @@ configured provider/model, finite retries, and honest unknown cost receipts.
 
 This handoff is PREPARED and stays BLOCKED until PRIME:
 
-1. Accepts the AGENT-INTERACTION runtime PR/base/head and its owning-boundary
-   evidence.
+1. ~~Accepts the AGENT-INTERACTION runtime PR/base/head and its
+   owning-boundary evidence.~~ **Satisfied:** PR #865 merged at
+   `1c0320d18c53037308cd7412719fb3e2f0610d99` from reviewed head
+   `097107324e0be5f5e7aa45e9633f70c09c4794e5`.
 2. Uses the existing Content read
    `get_committed_playable_revision(document_id, kind="plan",
    expected_world_id=...)` to select the coherent committed-basis snapshot
@@ -271,22 +311,49 @@ This handoff is PREPARED and stays BLOCKED until PRIME:
    Content resolver, shared unit of work, or current-at-insert validation is
    required.
 3. Obtains APP-STATE's explicit review/authorization of the Plan-owned
-   migration using the shared Alembic authority.
-4. Re-anchors Buddy main, inspects open PRs/active leases, and grants an exact
+   migration using the shared Alembic authority, including shared migration
+   and unit-of-work integration boundaries.
+4. Proves the current provider request deadline is strictly shorter than the
+   proposed database lease; select no duration until this is evidenced.
+5. Re-anchors Buddy main, inspects open PRs/active leases, and grants an exact
    exclusive file/path allowlist, disposable persistence/provider fixtures,
    verification boundary, and one serial implementation PR.
 
-Candidate source paths for future investigation only: the World Plan proposal
-model/service/route and their owning tests; a Plan-owned package under
-`src/application_state`; one additive migration under
-`src/application_state/migrations/versions`; and the minimum Plan UI request
-correlation needed to create and reuse a stable idempotency key. The fixture
-candidate is the unique-database `application_state_dsn` test helper against
-the PRIME-owned disposable PostgreSQL 16 service, subject to PRIME's exact
-lease. `routes/live.py` is a shared collision hotspot and must not be changed
-while another lease owns it. These are candidates, not an allowlist or write
-authority. If implementation needs another owner, path, schema, or API, stop
-and return the exact contract gap to PRIME.
+The following is the proposed exact implementation file set for PRIME's future
+lease, not current write authority:
+
+- `apps/live_control_server/models/plan_document_edit_proposal.py`
+- `apps/live_control_server/routes/live.py`, limited to
+  `post_world_plan_document_edit_proposal` for
+  `POST /api/live/world-plan-edit/propose` and the new status handler for
+  `GET /api/live/world-plan-edit/actions`; leave campaign proposal handlers
+  untouched.
+- `apps/live_control_server/services/plan_document_edit_proposal.py`, limited
+  to the World-owned proposal/action flow; leave the legacy campaign flow
+  untouched.
+- `src/application_state/plan_action_dialogue/__init__.py`
+- `src/application_state/plan_action_dialogue/types.py`
+- `src/application_state/plan_action_dialogue/repository.py`
+- `src/application_state/plan_action_dialogue/service.py`
+- `src/application_state/migrations/versions/20261003_0014_plan_action_dialogue.py`,
+  only if the migration head is still `20261002_0013` at activation.
+- `apps/live-control-ui/src/api/liveApi.ts`
+- `apps/live-control-ui/src/api/liveApi.test.ts`
+- `apps/live-control-ui/src/api/types.ts`
+- `apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx`
+- `apps/live-control-ui/src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx`
+- `tests/test_world_plan_edit_proposal.py`
+- `tests/application_state/test_plan_action_dialogue_postgres.py`
+
+Use the existing unique-database `application_state_dsn` fixture with the
+PRIME-assigned disposable PostgreSQL service; do not edit
+`tests/application_state/conftest.py`. This proposed set excludes shared
+`unit_of_work.py`, migration runner/environment, global fixtures, configuration,
+lockfiles, roadmap, provider/runtime infrastructure, and unrelated routes. APP
+must review how the new Plan-owned store is wired through its shared unit of
+work; if implementation requires any excluded path or another contract, stop
+and return the exact expansion to PRIME before editing. The above paths are
+not an allowlist or write authority until PRIME grants the exclusive lease.
 
 The implementation PR for this capability must merge and its read/write
 contract be reviewed before the DEMO Plan consumer cutover can activate. The
@@ -298,12 +365,13 @@ connected J1–J6 acceptance stay open.
 Buddy PR #859 merged at main `43c4c4daa8e1c17b22953681fe817e6881242b36`
 from reviewed head `c78feb94f37f7612200e2d0962d26d0f5a1326cf` after PRIME's
 exact-diff review. It accepts this bounded capability's design only. The
-present amendment records ARCHITECTURE's clarified private action-record state
-machine and shared-migration boundary, plus PRIME's decision to exclude
-proposal bytes and Apply/Save lifecycle from this slice. Implementation remains
-BLOCKED until the AGENT-INTERACTION runtime is accepted, APP-STATE reviews the
-Plan-owned migration, and PRIME grants an exclusive path and verification
-lease. The existing Content snapshot read selects each action's committed
-basis; no separate Content resolver or Content-specific transaction is
-required. No provider, database, service, runtime, or product-state authority
-was granted by #859.
+2026-10-03 amendment records PRIME's accepted Plan-owned expiry/fence rule,
+ARCHITECTURE's review of that state machine, and the exact proposed
+implementation package and tests. PR #865 is accepted and merged at
+`1c0320d18c53037308cd7412719fb3e2f0610d99`; it does not provide live
+consumer/provider/operator evidence or J1–J6 acceptance. APP-STATE's explicit
+review of the Plan-owned migration and shared unit-of-work boundary and PRIME's
+exclusive implementation lease remain open. The existing Content snapshot
+read selects each action's committed basis; no separate Content resolver or
+Content-specific transaction is required. No provider, database, service,
+runtime, or product-state authority is granted by this amendment.
