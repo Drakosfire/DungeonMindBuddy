@@ -100,6 +100,8 @@ async function worldResponseFor(
 ) {
   return {
     schema_version: "dmb_world_plan_document_edit_proposal_v1" as const,
+    action_id: "00000000-0000-4000-8000-000000000001",
+    idempotency_key: "00000000-0000-4000-8000-000000000002",
     document_id: captured.request.document_id,
     world_id: captured.request.world_id,
     base_revision: captured.request.base_revision,

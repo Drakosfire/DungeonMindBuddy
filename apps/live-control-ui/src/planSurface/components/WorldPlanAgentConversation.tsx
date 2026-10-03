@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
-import { getWorldOwnedPlanCommittedRevision, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, setNativeGraphAccessToken } from "../../api/liveApi";
+import { getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, setNativeGraphAccessToken } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -9,6 +9,7 @@ import type {
   WorldPlanAgentContentBasisV1,
   WorldPlanAgentTurnRequestV1,
   WorldPlanAgentTurnResolvedSummary,
+  WorldPlanActionProjection,
 } from "../../api/types";
 import { AgentTraceInspector } from "../../agentInteraction/trace/AgentTraceInspector";
 import { useAskPluginSlotOptional, useRegisterAskPluginPresence } from "../../agentInteraction/AskPluginSlot";
@@ -391,8 +392,11 @@ export function WorldPlanAgentConversation({
   const [sectionTargets, setSectionTargets] = useState<PlanSectionOption[]>([]);
   const [selectedSectionTargetId, setSelectedSectionTargetId] = useState("");
   const [sectionTargetStatus, setSectionTargetStatus] = useState<PlanSectionTargetStatus | null>(null);
+  const [actionHistory, setActionHistory] = useState<WorldPlanActionProjection[]>([]);
+  const [actionHistoryError, setActionHistoryError] = useState<string | null>(null);
   const requestRef = useRef<{ token: symbol; threadId: string; fenceKey: string } | null>(null);
   const proposalRequestRef = useRef<{ token: symbol; threadId: string; fenceKey: string; providerThreadId: string | null } | null>(null);
+  const proposalIntentRef = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
   const editReviewRef = useRef<WorldPlanEditReview | null>(null);
   const sectionScanRef = useRef<PlanSectionScan | null>(null);
   const sectionOperationRef = useRef<symbol | null>(null);
@@ -404,6 +408,8 @@ export function WorldPlanAgentConversation({
     providerThreadId: agent.activeThread?.threadId ?? null,
     scopeMatches,
     verifiedWorldId,
+    documentId,
+    revision,
     scope: agent.scope ? {
       campaignId: agent.scope.campaignId,
       surfaceId: agent.scope.surfaceId ?? null,
@@ -419,6 +425,8 @@ export function WorldPlanAgentConversation({
   latestRef.current.providerThreadId = agent.activeThread?.threadId ?? null;
   latestRef.current.scopeMatches = scopeMatches;
   latestRef.current.verifiedWorldId = verifiedWorldId;
+  latestRef.current.documentId = documentId;
+  latestRef.current.revision = revision;
   latestRef.current.scope = agent.scope ? {
     campaignId: agent.scope.campaignId,
     surfaceId: agent.scope.surfaceId ?? null,
@@ -446,6 +454,25 @@ export function WorldPlanAgentConversation({
     setSelectedSectionTargetId("");
     setSectionTargetStatus(null);
   }, [worldId, documentId, surfaceInstanceId, revision, draftGeneration]);
+
+  useEffect(() => {
+    let active = true;
+    setActionHistory([]);
+    setActionHistoryError(null);
+    if (!scopeMatches || !verifiedWorldId || !documentId) return () => { active = false; };
+    void getWorldPlanDocumentEditActions(verifiedWorldId, documentId)
+      .then((page) => {
+        if (active && page.schema_version === "dmb_world_plan_action_projection_v1"
+          && page.basis.world_id === verifiedWorldId && page.basis.document_id === documentId
+          && page.basis.object_revision === revision) {
+          setActionHistory(page.actions);
+        }
+      })
+      .catch((reason: unknown) => {
+        if (active) setActionHistoryError(reason instanceof Error ? reason.message : "Could not load Plan edit action status.");
+      });
+    return () => { active = false; };
+  }, [scopeMatches, verifiedWorldId, documentId, revision]);
 
   useLayoutEffect(() => {
     requestRef.current = null;
@@ -699,6 +726,29 @@ export function WorldPlanAgentConversation({
     }
   }
 
+  async function refreshActionHistory() {
+    if (!verifiedWorldId || !documentId || !scopeMatches) return;
+    setActionHistoryError(null);
+    try {
+      const page = await getWorldPlanDocumentEditActions(verifiedWorldId, documentId);
+      if (page.schema_version === "dmb_world_plan_action_projection_v1"
+        && page.basis.world_id === verifiedWorldId && page.basis.document_id === documentId
+        && page.basis.object_revision === revision
+        && latestRef.current.verifiedWorldId === verifiedWorldId
+        && latestRef.current.documentId === documentId
+        && latestRef.current.revision === revision) {
+        setActionHistory(page.actions);
+      }
+    } catch (reason) {
+      if (latestRef.current.scopeMatches
+        && latestRef.current.verifiedWorldId === verifiedWorldId
+        && latestRef.current.documentId === documentId
+        && latestRef.current.revision === revision) {
+        setActionHistoryError(reason instanceof Error ? reason.message : "Could not load Plan edit action status.");
+      }
+    }
+  }
+
   async function selectPlanSection(sectionId: string) {
     setSelectedSectionTargetId(sectionId);
     if (!sectionId) {
@@ -797,13 +847,26 @@ export function WorldPlanAgentConversation({
         { role: "user" as const, content: turn.question.slice(0, 4000) },
         { role: "assistant" as const, content: turn.answer.slice(0, 4000) },
       ]);
-      const request: WorldPlanDocumentEditProposalRequest = {
+      const requestWithoutKey = {
         ...captured.request,
         instruction,
         conversation_history: conversationHistory,
       };
+      const fingerprint = JSON.stringify(requestWithoutKey);
+      const idempotencyKey = proposalIntentRef.current?.fingerprint === fingerprint
+        ? proposalIntentRef.current.idempotencyKey
+        : crypto.randomUUID();
+      proposalIntentRef.current = { fingerprint, idempotencyKey };
+      const request: WorldPlanDocumentEditProposalRequest = {
+        ...requestWithoutKey,
+        idempotency_key: idempotencyKey,
+      };
       const response = await postWorldPlanDocumentEditProposal(request);
       if (!isCurrent()) return;
+      if (response.idempotency_key !== request.idempotency_key
+        || typeof response.action_id !== "string" || !response.action_id.trim()) {
+        throw new Error("DungeonBuddy's Plan action response did not match this edit request. No proposal was opened.");
+      }
       const admitted = await admitWorldPlanEditProposal(captured, response);
       if (!isCurrent()) return;
 
@@ -854,6 +917,21 @@ export function WorldPlanAgentConversation({
       editReviewRef.current = nextReview;
       setEditReview(nextReview);
       setEditInstruction("");
+      proposalIntentRef.current = null;
+      void getWorldPlanDocumentEditActions(worldId, documentId)
+        .then((page) => {
+          if (page.schema_version === "dmb_world_plan_action_projection_v1"
+            && page.basis.world_id === worldId
+            && page.basis.document_id === documentId
+            && page.basis.object_revision === revision
+            && latestRef.current.scopeMatches
+            && latestRef.current.verifiedWorldId === worldId
+            && latestRef.current.documentId === documentId
+            && latestRef.current.revision === revision) {
+            setActionHistory(page.actions);
+          }
+        })
+        .catch(() => undefined);
     } catch (reason) {
       if (isCurrent()) setEditError(reason instanceof Error ? reason.message : "The Plan edit proposal failed. Try again.");
     } finally {
@@ -1012,7 +1090,45 @@ export function WorldPlanAgentConversation({
               {composing ? "Composing…" : "Compose proposal"}
             </button>
           </form>
-          {currentReview ? (
+          <section aria-label="Plan edit action status">
+            <h4>Recent Plan edit actions</h4>
+            <button type="button" onClick={() => { void refreshActionHistory(); }} disabled={!scopeMatches || composing}>
+              Refresh action status
+            </button>
+            {actionHistoryError ? <p role="alert">{actionHistoryError}</p> : null}
+            {actionHistory.length ? (
+              <ol>
+                {actionHistory.map((action) => (
+                  <li key={action.action_id}>
+                    <strong>{action.status}</strong> · {action.instruction}
+                    {action.status === "completed" && action.assistant_summary
+                      ? <p>{action.assistant_summary}</p>
+                      : action.status === "pending"
+                        ? <p>This action is still running; it will not be dispatched again.</p>
+                        : action.status === "indeterminate"
+                          ? <p>The outcome is unknown. Start a new edit action if you still want to try again.</p>
+                          : action.status === "failed"
+                            ? <p>This action failed. Start a new edit action to try again.</p>
+                            : null}
+                    {action.status !== "pending" ? (
+                      <button
+                        type="button"
+                        disabled={composing || currentReview !== null}
+                        onClick={() => {
+                          proposalIntentRef.current = null;
+                          setEditInstruction(action.instruction);
+                          setEditError(null);
+                        }}
+                      >
+                        Start a new edit attempt
+                      </button>
+                    ) : null}
+                </li>
+                ))}
+              </ol>
+            ) : null}
+          </section>
+      {currentReview ? (
             <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
               <h4>Review proposal</h4>
               <p>{currentReview.admitted.response.summary}</p>

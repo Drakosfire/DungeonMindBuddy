@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -35,6 +36,7 @@ class WorldPlanDocumentEditProposalRequest(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    idempotency_key: UUID
     document_id: str = Field(min_length=1, max_length=128)
     world_id: str = Field(min_length=1, max_length=128)
     base_revision: int = Field(ge=1)
@@ -88,6 +90,8 @@ class WorldPlanDocumentEditProposalResponse(BaseModel):
     schema_version: Literal["dmb_world_plan_document_edit_proposal_v1"] = (
         "dmb_world_plan_document_edit_proposal_v1"
     )
+    action_id: UUID
+    idempotency_key: UUID
     document_id: str
     world_id: str
     base_revision: int

@@ -47,6 +47,7 @@ import {
   postLiveQuery,
   postIndexAgentTurn,
   postWorldPlanDocumentEditProposal,
+  getWorldPlanDocumentEditActions,
   postWorldPlanAgentTurn,
   postThreatQueryHydration,
   postWorldGraphProjection,
@@ -205,6 +206,7 @@ describe("World Plan edit proposal transport", () => {
 
   it("posts the exact session-free World proposal contract to its separate endpoint", async () => {
     const request: WorldPlanDocumentEditProposalRequest = {
+      idempotency_key: "00000000-0000-4000-8000-000000000020",
       document_id: "document-1",
       world_id: "world-a",
       base_revision: 3,
@@ -226,6 +228,26 @@ describe("World Plan edit proposal transport", () => {
     expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
     expect(JSON.stringify(request)).not.toContain("session");
     expect(JSON.stringify(request)).not.toContain("campaign_id");
+  });
+
+  it("reads the bounded World Plan action status projection by exact route identity", async () => {
+    const response = {
+      schema_version: "dmb_world_plan_action_projection_v1",
+      basis: {
+        world_id: "world-a",
+        document_id: "document-1",
+        object_revision: 3,
+        work_revision_id: "00000000-0000-4000-8000-000000000021",
+        revision_n: 1,
+        content_sha256: "a".repeat(64),
+      },
+      actions: [],
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(response));
+    await expect(getWorldPlanDocumentEditActions("world a", "document/1")).resolves.toEqual(response);
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe(
+      "/api/live/world-plan-edit/actions?world_id=world+a&document_id=document%2F1",
+    );
   });
 });
 

@@ -872,6 +872,7 @@ export interface PlanDocumentEditProposalResponse {
 }
 
 export interface WorldPlanDocumentEditProposalRequest {
+  idempotency_key: string;
   document_id: string;
   world_id: string;
   base_revision: number;
@@ -886,6 +887,8 @@ export interface WorldPlanDocumentEditProposalRequest {
 
 export interface WorldPlanDocumentEditProposalResponse {
   schema_version: "dmb_world_plan_document_edit_proposal_v1";
+  action_id: string;
+  idempotency_key: string;
   document_id: string;
   world_id: string;
   base_revision: number;
@@ -901,6 +904,33 @@ export interface WorldPlanDocumentEditProposalResponse {
   model_latency_ms: number;
   wall_latency_ms: number;
   usage: Record<string, number> | null;
+}
+
+export interface WorldPlanActionBasis {
+  world_id: string;
+  document_id: string;
+  object_revision: number;
+  work_revision_id: string;
+  revision_n: number;
+  content_sha256: string;
+}
+
+export interface WorldPlanActionProjection {
+  action_id: string;
+  action_type: "compose" | "revise";
+  status: "pending" | "completed" | "failed" | "indeterminate";
+  basis: WorldPlanActionBasis;
+  instruction: string;
+  assistant_summary: string | null;
+  action_sequence: number;
+  accepted_at: string;
+  completed_at: string | null;
+}
+
+export interface WorldPlanActionProjectionPage {
+  schema_version: "dmb_world_plan_action_projection_v1";
+  basis: WorldPlanActionBasis;
+  actions: WorldPlanActionProjection[];
 }
 
 export interface AgentInteractionThread {
