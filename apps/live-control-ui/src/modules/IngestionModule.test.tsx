@@ -383,7 +383,7 @@ describe("IngestionModule", () => {
       status: "breadcrumb_required",
       states: ["normalized_reused", "recap_reused", "graph_candidate_ready"],
       entity_spelling_audit: [],
-      ingest_report: { graph_preview: { status: "candidate_validation_ready", candidate_node_count: 37, candidate_edge_count: 23 } },
+      ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: "saved-run", candidate_node_count: 37, candidate_edge_count: 23 } },
     });
     const spy = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(result);
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
@@ -392,6 +392,10 @@ describe("IngestionModule", () => {
     expect(await screen.findByText("Extraction ready for review")).toBeInTheDocument();
     expect(screen.getByText(/Review and admission are still required/)).toBeInTheDocument();
     expect(screen.queryByText("Ingest complete")).not.toBeInTheDocument();
+    vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: "saved-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Exact saved recap" });
+    await user.click(screen.getByRole("button", { name: "Review saved extraction" }));
+    expect(await screen.findByText("Exact saved recap")).toBeInTheDocument();
+    expect(screen.getByText("Extraction details and file diagnostics").parentElement).not.toHaveAttribute("open");
     expect(spy.mock.calls.filter(([body]) => body.operation === "generate_recap_memory")).toHaveLength(1);
   });
 

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { getRecapArtifacts, postCitationSource } from "../api/liveApi";
+import { getRecapArtifacts, getHistoricalRecapInspection, postCitationSource } from "../api/liveApi";
 import { postRecapIngest } from "../api/recapIngestApi";
 import type {
   NormalizedRecapCandidate,
@@ -739,6 +739,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [reviewSource, setReviewSource] = useState<string | null>(null);
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
   const [forceStage, setForceStage] = useState(false);
   const [forceRecap, setForceRecap] = useState(false);
   const [forceGraphRun, setForceGraphRun] = useState(false);
@@ -1796,6 +1799,22 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
     }
   }
 
+  async function reviewSavedExtraction() {
+    const runId = graphPreview?.extraction_run_id;
+    if (!runId) return;
+    setReviewLoading(true);
+    setReviewError(null);
+    setReviewSource(null);
+    try {
+      const inspection = await getHistoricalRecapInspection(runId);
+      if (inspection.runId !== runId || inspection.campaignId !== ingestCampaignId || inspection.sessionId !== `session-${recapSession}`) throw new Error("Saved extraction does not match this session.");
+      if (inspection.sourceStatus !== "available" || !inspection.sourceProse) throw new Error(inspection.unavailableReason || "Saved source is unavailable.");
+      setReviewSource(inspection.sourceProse);
+    } catch (error) {
+      setReviewError(error instanceof Error ? error.message : "Unable to open saved extraction.");
+    } finally { setReviewLoading(false); }
+  }
+
   function openGraphReviewWorkbench() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -2152,6 +2171,11 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
                 "Run ingest"
               )}
             </button>
+            {graphPreview?.status === "candidate_validation_ready" && graphPreview.extraction_run_id ? (
+              <button type="button" className="primary" disabled={reviewLoading} onClick={() => void reviewSavedExtraction()}>
+                {reviewLoading ? "Opening review…" : "Review saved extraction"}
+              </button>
+            ) : null}
             {isIngestSurfacePath() && hasPreviewUnionStore ? (
               <button
                 type="button"
@@ -2491,6 +2515,17 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
             dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(rawText) }}
           />
 
+          {reviewError ? <p role="alert" className="module-error">{reviewError}</p> : null}
+          {reviewSource !== null ? (
+            <section aria-label="Saved extraction source review">
+              <h3>Session {recapSession} · Saved extraction source</h3>
+              <p>{graphPreview?.candidate_node_count ?? 0} nodes · {graphPreview?.candidate_edge_count ?? 0} edges. World Graph admission is pending.</p>
+              <p className="module-muted">Exact saved source. Candidate admission requires a verified campaign-to-World association.</p>
+              <div className="md-content md-theme-command" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(reviewSource) }} />
+              <button type="button" onClick={() => setReviewSource(null)}>Close review</button>
+            </section>
+          ) : null}
+          <details><summary>Extraction details and file diagnostics</summary>
           <section className="ingestion-proof-card" aria-label="Graph preview status">
             <h4>Graph</h4>
             <p className="module-muted">Preview supergraph only. No canon graph write.</p>
@@ -2684,6 +2719,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
           ) : (
             <p className="module-muted">No ingestion result yet.</p>
           )}
+          </details>
         </aside>
       </div>
     </div>
