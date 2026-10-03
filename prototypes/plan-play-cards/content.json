@@ -1,0 +1,792 @@
+[
+  {
+    "name": "Session 29",
+    "markdown": "# Campaign 2 — Session 29\n\n## Session Intent\n\nSession 29 is about **giving the table ownership again**.\n\nThe last several sessions have been dominated by a long, escalating siege. The immediate threat should end quickly. What follows is not another chain of emergencies. Mireward has survived long enough for the [Questionable Company](dmb-node:party:questionable-company) to decide what survival means.\n\nThe players should have opportunities to:\n\n- Save the remaining people endangered by the attack.\n- See concrete evidence that their earlier choices mattered.\n- Help Mireward become capable of surviving without them.\n- Reconnect with [Mirathorn](dmb-node:location:mirathorn) and receive genuinely good news.\n- Learn that [Thrin](dmb-node:node:thrin-branchborn) is changing.\n- Pursue personal interests.\n- Decide what problem they actually want to solve next.\n\nDo **not** run every optional Beat. Offer them and follow player interest.\n\nBy the end of the session, the party should have changed the world in several small ways and chosen the shape of the next section of the campaign.\n\n---\n\n## Status Key\n\n**ESTABLISHED** — Existing play/corpus fact.\n\n**PREP LOCK** — GM decision for Session 29. Treat as true if it appears at the table, but it has not happened yet.\n\n**PROPOSED MECHANIC** — Table-facing tool introduced by this runbook. No existing mechanical ID/reference located.\n\n**UNRESOLVED** — Deliberately unanswered. Do not silently canonize.\n\n---\n\n# Opening State\n\n**ESTABLISHED**\n\n- [Mireward Reach](dmb-node:loc_4) has suffered attacks above and below the walls.\n- A section of wall near [Ironveil Warehouse](dmb-node:loc:ironveil-warehouse) has collapsed.\n- Flesh creatures repeatedly attempted to abduct [Thrin](dmb-node:node:thrin-branchborn).\n- [Thrin](dmb-node:node:thrin-branchborn) has heard a psychic presence that wants him and somehow wants the migrating forest.\n- The [Edge](dmb-node:loc_3) support column originally contained 55 refugees.\n- Sleeping potion was already pursued as a means of preventing transformation.\n\n**PREP LOCK**\n\nOf the 55 refugees:\n\n- 30 were not infected.\n- 25 showed infection.\n- 12 infected children received divided sleeping potion.\n- 4 infected adults received divided sleeping potion.\n- 9 infected refugees transformed.\n- 7 of those transformations have already been killed, destroyed, or otherwise accounted for during the fighting.\n- 2 transformed refugees remain active at the start of Session 29.\n- Those two are dragging sleeping refugees away from the warehouse area.\n\nNo additional transformation wave occurs unless the players create circumstances that justify one.\n\nThe sleepers are not secretly ticking toward an inevitable transformation during this session.\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:aftershock beat_kind=spine -->\n## The Last Hands of the Siege\n\n**Objective:** End the immediate crisis fast and show that the battle is actually ending.\n\n**Pressure:** Two transformed refugees are escaping with sleeping victims.\n\n**Role:** Spine.\n\nThis should feel like the last thirty seconds of a disaster, not the first round of another encounter.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:warehouse-tail -->\n### Something Is Still Moving\n\n**Situation**\n\nThe main assault has broken.\n\nSmoke, churned mud, broken wall timbers, burned flesh, and exhausted townsfolk fill the [Ironveil Warehouse](dmb-node:loc:ironveil-warehouse) yard.\n\nTwo transformed refugees remain active. Each is dragging an unconscious victim away from the warehouse and toward broken ground or a tunnel route.\n\n**Read aloud**\n\n> For the first time in what feels like hours, nothing new is crawling out of the ground.\n>\n> The quiet almost lands.\n>\n> Then someone screams.\n>\n> Beyond the smoke, two of the things that used to be refugees are moving away from the warehouse. Not charging. Not attacking.\n>\n> Leaving.\n>\n> Each has someone limp in its arms.\n\n**Do now**\n\nAsk:\n\n> “They are getting away with people. What do you do?”\n\nDo not immediately roll initiative unless the players choose direct combat and initiative would clarify resolution.\n\nReasonable actions include:\n\n- Attack the transformed refugees.\n- Cut off their escape.\n- Rescue the sleepers instead of pursuing the creatures.\n- Collapse or block the route ahead.\n- Organize townsfolk into a rescue line.\n- Follow them to discover where they are going.\n- Use magic to separate carrier from victim.\n- Let one go deliberately and track it.\n- Something stranger.\n\n**GM only**\n\n- No reinforcements arrive.\n- Do not inflate the creatures’ HP to extend the scene.\n- Their objective is **escape with victims**, not defeating the party.\n- A successful player idea can end this immediately.\n- If one escapes, that is a consequence, not failure of the runbook.\n\n**Relevant**\n\nNPCs: [Lysandra Ironveil](dmb-node:node:captain-lysandra-ironveil), Lysandro Ironveil, Brin Holloway, surviving refugees, Mireward defenders.\n\nLocation: [Ironveil Warehouse](dmb-node:loc:ironveil-warehouse) yard / collapsed western wall.\n\nThreat: transformed refugee creatures.\n\n**Missing reference**\n\nNo specific statblock/ID is locked for these final transformed refugees in this runbook. Use the creature reference already used for the transformations in Session 28. Do not generate a new statblock merely for this scene.\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:last-abduction scene=scene:warehouse-tail -->\n### Do they stop the creatures, save the victims, or learn where they are going?\n\nMultiple actions may occur. These are not exclusive unless circumstances make them so.\n\n<!-- dmb-playable-element:v2 kind=option id=option:save-sleepers activates=beat:refugee-care -->\n- **Prioritize the sleepers.**\n\n  Consequence: the victims are recovered first. One or both transformed creatures may escape if nobody stops them.\n\n  Later effect: immediately foregrounds refugee recovery.\n\n<!-- dmb-playable-element:v2 kind=option id=option:kill-carriers activates=beat:refugee-care -->\n- **Destroy the transformed refugees.**\n\n  Consequence: the immediate local threat ends cleanly.\n\n  Later effect: the party gets an uncontested recovery window.\n\n<!-- dmb-playable-element:v2 kind=option id=option:track-carrier activates=beat:meat-mind -->\n- **Let or force one creature to flee, then track it.**\n\n  Consequence: the party gains a live trail toward the underground network.\n\n  Later effect: the Meat Mind material becomes immediately relevant.\n\n<!-- dmb-playable-element:v2 kind=option id=option:rally-mireward activates=beat:mireward-recovery -->\n- **Turn the rescue into a town effort.**\n\n  Consequence: locals participate directly rather than watching the heroes solve the final problem.\n\n  Later effect: Mireward begins the recovery phase with confidence and organization already forming.\n\n<!-- dmb-playable-element:v2 kind=option id=option:last-abduction-other -->\n- **Something else.**\n\n  Consequence: resolve according to the fiction. Preserve any clever route, restraint, bait, magic, or social solution.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:count-living -->\n### Count the Living\n\n**Situation**\n\nOnce the immediate danger ends, people finally begin counting instead of fighting.\n\n**Read aloud**\n\n> The silence this time lasts.\n>\n> Somewhere beyond the warehouse somebody is crying. Somewhere else, someone laughs once, much too loudly, and cannot stop.\n>\n> Then the practical voices begin.\n>\n> Names.\n>\n> Injuries.\n>\n> Water.\n>\n> Blankets.\n>\n> “Who have we got?”\n>\n> “Who are we missing?”\n\n**Do now**\n\nEstablish the refugee count at the table.\n\nBaseline if the opening rescue succeeds completely:\n\n- 30 clear-eyed refugees remain.\n- 16 infected refugees remain asleep.\n  - 12 children.\n  - 4 adults.\n- 9 infected refugees transformed during the siege.\n- None remain actively attacking.\n\nIf a carrier escaped with someone, alter the count openly.\n\n**GM only**\n\nThis count exists partly to validate the earlier potion decision.\n\nThe players did not save everyone.\n\nThey **did save sixteen people from transforming during the attack.**\n\nMake that legible.\n\nDo not immediately reveal whether the sleepers are cured, curable, permanently infected, or safe indefinitely.\n\nThe current answer is simply:\n\n**Sleeping bought time.**\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:breathing-room beat_kind=spine -->\n## The Hours They Bought\n\n**Objective:** Move from reaction to agency.\n\n**Pressure:** Mireward has needs, but nothing requires the [Questionable Company](dmb-node:party:questionable-company) to solve all of them.\n\n**Role:** Spine.\n\nThis Beat should explicitly tell the players that the tempo has changed.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:town-breathes -->\n### Mireward After the Attack\n\n**Situation**\n\nThe town is damaged but functioning.\n\nMireward already has people capable of taking responsibility:\n\n- Nera Coalstep — wall defense.\n- Reeve Salla Vey — stores, rationing, lists, logistics.\n- Lysandro Ironveil — neighbor-scale mutual aid and repair crews.\n- Mayor Orric Tane — civilian coordination and morale.\n- Delwen Rast — ferry/causeway routes.\n- [Lysandra Ironveil](dmb-node:node:captain-lysandra-ironveil) — experienced field command and Shepherd knowledge.\n\nThe party is valuable.\n\nThey are not the only adults in town.\n\n**Read aloud**\n\n> Mireward looks terrible in daylight.\n>\n> A wall is broken. Smoke drifts from the warehouse quarter. People carry doors to use as stretchers and broken furniture to use as braces.\n>\n> But the town is moving.\n>\n> Nobody is waiting for you to tell them how.\n>\n> Chalk marks appear on doors. Water lines form. Someone has already started rebuilding the barricade you watched collapse.\n>\n> For the first time since the north gate bell rang, there is no immediate thing trying to kill you.\n\n**GM only**\n\nGive them permission to stop.\n\nIf players immediately ask, “What needs doing?” answer with several possibilities.\n\nDo not answer with a single quest.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:claim-hours -->\n### What Do You Do With the Time You Bought?\n\n**Situation**\n\nThis is the participation engine for the session.\n\nGo around the table.\n\nAsk every player:\n\n> “You have a few hours where nobody is forcing your hand. What is one thing your character wants to do, learn, fix, arrange, or talk about?”\n\nPlayers may pair up.\n\nThe party does not need to stay together.\n\nA player who has no immediate idea can choose from the options below.\n\n**GM only**\n\nTry to give every player one meaningful primary action before forcing a group decision about departure.\n\nThe following optional Beats can occur in any order.\n\nRun only what the players activate.\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:claim-hours scene=scene:claim-hours -->\n### Where does each character put their attention?\n\nThese options are **not mutually exclusive**. Different players can activate different Beats.\n\n<!-- dmb-playable-element:v2 kind=option id=option:claim-refugees activates=beat:refugee-care -->\n- **Help the sleeping refugees.**\n\n  Opportunity: medicine, alchemy, protection, investigation, comfort, logistics.\n\n<!-- dmb-playable-element:v2 kind=option id=option:claim-town activates=beat:mireward-recovery -->\n- **Help Mireward prepare for whatever happens next.**\n\n  Opportunity: walls, tunnels, supplies, watches, ferry, evacuation, engineering.\n\n<!-- dmb-playable-element:v2 kind=option id=option:claim-call activates=beat:mirathorn-call -->\n- **Contact [Mirathorn](dmb-node:location:mirathorn).**\n\n  Opportunity: learn what happened, exchange intelligence, request aid, talk to someone specific.\n\n<!-- dmb-playable-element:v2 kind=option id=option:claim-thrin activates=beat:thrin-seed -->\n- **Spend time with [Thrin](dmb-node:node:thrin-branchborn).**\n\n  Opportunity: psychic changes, Witness Seed, forest, fear, communication.\n\n<!-- dmb-playable-element:v2 kind=option id=option:claim-personal activates=beat:personal-hours -->\n- **Pursue something personal.**\n\n  Opportunity: relationships, artifacts, messages, research, craft, unresolved character business.\n\n<!-- dmb-playable-element:v2 kind=option id=option:claim-enemy activates=beat:meat-mind -->\n- **Investigate the tunnels or the enemy.**\n\n  Opportunity: find where the burrowers came from, scout, track, collapse routes, hunt the coordinator.\n\n<!-- dmb-playable-element:v2 kind=option id=option:claim-rest activates=scene:rest-rearm -->\n- **Rest, eat, repair gear, recover spells, and do absolutely nothing heroic for a while.**\n\n  Consequence: they recover according to normal rules and enter the next section less depleted.\n\n  This is a valid choice. Do not punish it.\n\n<!-- dmb-playable-element:v2 kind=option id=option:claim-other -->\n- **Something else.**\n\n  Build around it.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:rest-rearm -->\n### Food, Bandages, Sleep\n\n**Situation**\n\nCharacters who choose recovery can actually recover.\n\n**Read aloud**\n\n> Somebody eventually puts hot food in front of you without asking permission.\n>\n> It is not good.\n>\n> It may be the best thing you have ever eaten.\n\n**Actionable details**\n\nPlayers can:\n\n- Take whatever rest the current timeline allows.\n- Repair mundane equipment.\n- Replace arrows, rope, oil, food, and other ordinary supplies from whatever Mireward can reasonably spare.\n- Clean blood and meat off themselves.\n- Sleep.\n- Sit somewhere quiet.\n- Talk privately.\n\n**GM only**\n\nDo not introduce an attack during the rest just because the table became quiet.\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:refugee-care beat_kind=optional -->\n## Sixteen People Still Sleeping\n\n**Objective:** Let the players turn a previous emergency improvisation into an actual rescue.\n\n**Pressure:** The sleeping potion is temporary; Mireward needs a treatment plan.\n\n**Role:** Optional.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:field-clinic -->\n### The Warehouse Becomes a Clinic\n\n**Situation**\n\nTwelve infected children and four infected adults remain asleep.\n\nThey are alive.\n\nThey have not transformed.\n\n**Read aloud**\n\n> The warehouse is quieter than it has any right to be.\n>\n> Sixteen people sleep on blankets, coats, sacks of grain, and whatever else could be found.\n>\n> Twelve of them are children.\n>\n> Someone has written each name in chalk on the floor beside them.\n\n**Do now**\n\nAsk what the players want to know or accomplish.\n\nPossible actions:\n\n- Examine the infection.\n- Maintain sedation.\n- Create safer spacing and restraints.\n- Move the sleepers somewhere better.\n- Prepare antidote doses.\n- Contact [Mirathorn](dmb-node:location:mirathorn).\n- Bring Hesta into the effort.\n- Assign guards.\n- Speak with surviving family.\n- Investigate whether sleep changed the corruption.\n- Attempt something entirely different.\n\n**Relevant**\n\nNPCs: Brin Holloway, Lysandra, Salla Vey, Hesta, family members.\n\nLocation: [Ironveil Warehouse](dmb-node:loc:ironveil-warehouse).\n\n**Name note**\n\nThe recap calls the local apothecary Hesta Bramblewood; later planning material used Hesta Fenwick. Surname is unresolved. Use **Hesta** at the table unless the GM locks one.\n\n**GM only**\n\nNo automatic failure clock.\n\nSleeping potion bought meaningful time.\n\nThe point of the scene is deciding how to use it.\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:refugee-plan scene=scene:field-clinic -->\n### What becomes the plan for the sleepers?\n\n<!-- dmb-playable-element:v2 kind=option id=option:refugee-local-treatment activates=beat:mireward-recovery -->\n- **Build a local treatment effort.**\n\n  Consequence: Hesta and local helpers become responsible for continued sedation/treatment.\n\n  Later effect: Mireward gains medical independence, especially if the party also contacts [Mirathorn](dmb-node:location:mirathorn).\n\n<!-- dmb-playable-element:v2 kind=option id=option:refugee-mirathorn activates=beat:mirathorn-call -->\n- **Ask [Mirathorn](dmb-node:location:mirathorn) for cure instructions or supplies.**\n\n  Consequence: Zilla/Tealeaf can explain the aerosolized treatment breakthrough.\n\n  Later effect: Mireward may be able to reproduce or adapt it if ingredients are available.\n\n<!-- dmb-playable-element:v2 kind=option id=option:refugee-guard -->\n- **Keep them sedated and guarded until better help arrives.**\n\n  Consequence: simple, safe, resource-dependent.\n\n  Later effect: the party can leave without resolving the entire infection problem personally.\n\n<!-- dmb-playable-element:v2 kind=option id=option:refugee-move -->\n- **Move them somewhere else.**\n\n  Consequence: requires transport and protection but may reduce danger to the crowded warehouse.\n\n  Later effect: activates whatever route/logistical plan the players create.\n\n<!-- dmb-playable-element:v2 kind=option id=option:refugee-experiment -->\n- **Try another treatment or magical approach.**\n\n  Consequence: adjudicate from the actual spell/item used.\n\n  Do not invent hidden resistance or immunity merely to preserve the prepared cure path.\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:mirathorn-call beat_kind=optional -->\n## The Rock Finally Brings Good News\n\n**Objective:** Reverse the assumption that [Mirathorn](dmb-node:location:mirathorn) is collapsing and turn the city back into a source of support.\n\n**Pressure:** Mireward has problems [Mirathorn](dmb-node:location:mirathorn) may now know how to solve.\n\n**Role:** Optional.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:rocky-talkie -->\n### “Oh Shit, the Rock”\n\n**Situation**\n\nSomeone calls Grobnok.\n\nSomeone else answers.\n\nIt is Professor Zilla Cinderbranch.\n\nThere is obvious fighting or violent cleanup happening nearby, but she insists the city is no longer losing control.\n\n**Read aloud**\n\n> The rock answers into scraping metal, shouting, and something heavy smashing against stone.\n>\n> A distant voice:\n>\n> “Oh shit, the rock. Shit. Gotta answer the rock.”\n>\n> Something clatters.\n>\n> Then a breathless gnome voice comes clearly through.\n>\n> “Cinderbranch. Hello? Yes. I can hear you.”\n>\n> From farther away:\n>\n> “Professor! Left!”\n>\n> “I see him, Grobnok. Keep him upright.”\n>\n> There is a long hiss, a crash, and several people coughing.\n>\n> Zilla returns to the stone.\n>\n> “Despite how this sounds, things are actually quite under control.”\n\nContinue naturally.\n\nZilla explains:\n\n- They discovered the cure potion can be aerosolized.\n- Teams are rounding up infected people and dosing them.\n- The cure effort is working.\n- [Mirathorn](dmb-node:location:mirathorn) remains damaged and busy, but this is containment and cleanup rather than uncontrolled collapse.\n- Grobnok and Zilla have effectively become operational liaisons during the crisis.\n\nSuggested lines:\n\n> “Tealeaf’s potion works as a mist. We do not have to persuade every glassy-eyed idiot in [Mirathorn](dmb-node:location:mirathorn) to drink something anymore.”\n>\n> “We’re moving block by block.”\n>\n> “You do not need to turn around and rescue us.”\n>\n> “Tell me what is happening where you are.”\n\nOptional Grobnok beat:\n\n> “You are distractingly good at this, Professor.”\n>\n> “Then stop standing in front of the nozzle.”\n>\n> A pause.\n>\n> Grobnok laughs.\n>\n> Zilla does too, despite herself.\n\n**GM only**\n\n**PREP LOCK:** [Mirathorn](dmb-node:location:mirathorn) has genuinely gained control.\n\nThe soundscape should initially make players think the opposite.\n\nThe payoff is relief.\n\nDo not immediately attach a new emergency request to the good news.\n\nProfessor Tealeaf can be brought onto the communication if the party needs technical cure information.\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:call-priority scene=scene:rocky-talkie -->\n### What does the party use the call for?\n\n<!-- dmb-playable-element:v2 kind=option id=option:call-cure activates=beat:refugee-care -->\n- **Explain the sixteen sleepers and ask for treatment guidance.**\n\n  Consequence: Zilla/Tealeaf explain how the existing cure was aerosolized and what ingredients/process matter.\n\n  Later effect: Mireward can attempt its own version if it has resources.\n\n<!-- dmb-playable-element:v2 kind=option id=option:call-city -->\n- **Ask for a full [Mirathorn](dmb-node:location:mirathorn) status report.**\n\n  Consequence: learn that cleanup is continuing, the cure operation is expanding, and the city does not currently require the [Questionable Company](dmb-node:party:questionable-company) to return.\n\n<!-- dmb-playable-element:v2 kind=option id=option:call-edge -->\n- **Ask what [Mirathorn](dmb-node:location:mirathorn) knows about [Edge](dmb-node:loc_3) or the Fen.**\n\n  Consequence: provide only information already established or intentionally prepared.\n\n  **UNRESOLVED:** No new current reconnaissance from [Edge](dmb-node:loc_3) is presently locked. Do not fabricate certainty.\n\n<!-- dmb-playable-element:v2 kind=option id=option:call-field-intel -->\n- **Report Mireward’s siege tactics and vulnerabilities.**\n\n  Consequence: [Mirathorn](dmb-node:location:mirathorn) gains knowledge about burrowing attacks, fire weakness, [Thrin](dmb-node:node:thrin-branchborn) targeting, and sleep as temporary containment.\n\n  The fact that cure potion harmed a swarm is especially useful field information.\n\n<!-- dmb-playable-element:v2 kind=option id=option:call-personal activates=beat:personal-hours -->\n- **Ask for a specific person.**\n\n  Consequence: use the call as a character scene—Winna, Tealeaf, Torbin, or another established contact if reachable.\n\n<!-- dmb-playable-element:v2 kind=option id=option:call-other -->\n- **Use the communication for something unexpected.**\n\n  Let [Mirathorn](dmb-node:location:mirathorn) become a tool rather than a quest dispatcher.\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:thrin-seed beat_kind=optional -->\n## Thrin Hears Too Much\n\n**Objective:** Turn [Thrin](dmb-node:node:thrin-branchborn) from repeated rescue target into a character with a changing relationship to the party and the forest.\n\n**Pressure:** Psychic exposure has changed how the Witness Seed communicates.\n\n**Role:** Optional.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:thrin-first-echo -->\n### The Thought He Answers\n\n**Situation**\n\nDuring a quiet interaction, [Thrin](dmb-node:node:thrin-branchborn) responds to something nobody said aloud.\n\nDo not choose an intimate secret for a PC.\n\nGive the player control over what leaked.\n\n**Read aloud**\n\n> [Thrin](dmb-node:node:thrin-branchborn) is staring at nothing again.\n>\n> His hand is pressed over the strange place beneath his collarbone.\n>\n> Then he looks directly at you.\n>\n> “No.”\n>\n> A pause.\n>\n> “Not… no to words.”\n>\n> He frowns.\n>\n> “No to thing you thought.”\n\nAsk that player:\n\n> “What harmless thought, image, memory, or feeling might [Thrin](dmb-node:node:thrin-branchborn) have accidentally caught?”\n\nIf the player does not want to supply one, default to something surface-level from the scene:\n\n- Exhaustion.\n- Hunger.\n- Worry about the sleepers.\n- Wanting a bath.\n- Anger at the monsters.\n- Wanting to leave.\n\n**GM only**\n\n**PREP LOCK:** The psychic attacks have disturbed the boundary between [Thrin](dmb-node:node:thrin-branchborn) and the Witness Seed.\n\n**PROPOSED MECHANIC — Surface Thought Echo**\n\n[Thrin](dmb-node:node:thrin-branchborn) can sometimes receive:\n\n- A strong image.\n- An immediate intention.\n- A dominant emotion.\n- A deliberately projected simple thought.\n\nHe does **not** automatically receive:\n\n- Full sentences.\n- Private history.\n- Hidden memories.\n- Objective truth.\n- Reliable lies.\n- Perfect identity or context.\n\nTreat this as communication, not Detect Thoughts.\n\nIf used repeatedly under stress, he becomes overwhelmed rather than omniscient.\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:respond-thrin scene=scene:thrin-first-echo -->\n### How do they respond to the new connection?\n\n<!-- dmb-playable-element:v2 kind=option id=option:thrin-test activates=scene:seed-meaning -->\n- **Deliberately test it.**\n\n  Consequence: a PC can intentionally send an image or concept.\n\n  Later effect: [Thrin](dmb-node:node:thrin-branchborn) becomes easier to communicate with despite language barriers.\n\n<!-- dmb-playable-element:v2 kind=option id=option:thrin-boundaries -->\n- **Help [Thrin](dmb-node:node:thrin-branchborn) establish boundaries.**\n\n  Consequence: focus on “ask before listening,” interruption, grounding, or how to tell his own thoughts from others.\n\n  Later effect: increases trust and makes the ability less frightening.\n\n<!-- dmb-playable-element:v2 kind=option id=option:thrin-forest activates=scene:seed-meaning -->\n- **Ask about the seed and the forest.**\n\n  Consequence: [Thrin](dmb-node:node:thrin-branchborn) tries to explain what little he understands.\n\n  Later effect: opens Witness Seed lore without requiring a full exposition dump.\n\n<!-- dmb-playable-element:v2 kind=option id=option:thrin-fear -->\n- **Treat the ability as dangerous.**\n\n  Consequence: [Thrin](dmb-node:node:thrin-branchborn) withdraws and attempts not to use it.\n\n  This is not punished.\n\n<!-- dmb-playable-element:v2 kind=option id=option:thrin-other -->\n- **Respond another way.**\n\n  Follow the relationship.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:seed-meaning -->\n### What the Witness Seed Wants\n\n**Situation**\n\nOnly use this if the players pursue the subject.\n\n[Thrin](dmb-node:node:thrin-branchborn) does not possess a clean explanation.\n\n**GM-only truth**\n\n**ESTABLISHED/DEEPER WORLD LORE**\n\nThe Witness Seed is a living Fey construct tied to memory, continuity, thresholds, and eventual growth into a new forest node.\n\n**PREP LOCK**\n\nThe deeper purpose in [Thrin](dmb-node:node:thrin-branchborn)’s case is larger:\n\n[Thrin](dmb-node:node:thrin-branchborn) was chosen to wander beyond the existing migrating forest, eventually find a place where another forest could begin, and act as the living bridge through which that new forest learns how to exist.\n\n[Thrin](dmb-node:node:thrin-branchborn) does not understand this.\n\n[Thrin](dmb-node:node:thrin-branchborn) does not want this.\n\nThe forest does not understand why he does not want this.\n\nHe and the forest are effectively talking past one another.\n\nHis incomplete synchronization is one reason the deeper forest/druidic abilities have not fully manifested.\n\n**Do not tell the players all of this automatically.**\n\nFragments [Thrin](dmb-node:node:thrin-branchborn) might express:\n\n> “Seed remembers roads.”\n>\n> “Forest says leave. Then angry when I leave.”\n>\n> “Seed wants… place?”\n>\n> “New trees. Maybe.”\n>\n> “I don’t want become tree.”\n>\n> “I don’t know if that is what it means.”\n\n**UNRESOLVED**\n\n- Does [Thrin](dmb-node:node:thrin-branchborn) eventually accept the role?\n- Can he redefine it?\n- Can the seed become something else?\n- Are his future druidic powers unlocked by obedience, understanding, refusal, or a new relationship?\n- Is the psychic presence pursuing him specifically trying to hijack this future?\n\nDo not answer until play earns it.\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:mireward-recovery beat_kind=optional -->\n## Leave Something Standing\n\n**Objective:** Let player effort create persistent changes in Mireward.\n\n**Pressure:** The town must become safer whether the party stays or leaves.\n\n**Role:** Optional.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:recovery-table -->\n### Chalk, Rope, Grain, and Mud\n\n**Situation**\n\nMireward’s local leaders are already dividing the recovery work.\n\nNera wants defensible ground.\n\nSalla wants counts and supplies.\n\nLysandro wants neighbors organized.\n\nOrric wants the town functioning as a community rather than a camp.\n\nDelwen wants routes that remain usable.\n\nLysandra understands the enemy better than any of them.\n\n**Read aloud**\n\n> Nobody calls it a council meeting.\n>\n> It is just five people arguing over a chalkboard balanced on a broken barrel while three different work crews interrupt them.\n>\n> Nera has marked the wall.\n>\n> Salla has marked the food.\n>\n> Lysandro has marked which houses have tools.\n>\n> Somebody has already crossed out half the plan and written, “NO, WATER HERE.”\n>\n> Lysandra looks at all of it for a long moment.\n>\n> “Good,” she says.\n>\n> “Now what did we miss?”\n\n**Do now**\n\nInvite players into the problem.\n\nAnything they meaningfully improve becomes a persistent **Mireward Asset**.\n\n**PROPOSED MECHANIC — Mireward Assets**\n\nNo numeric bonus is required.\n\nAn Asset means future scenes should respect that preparation.\n\nExamples:\n\n- **Shored Wall**\n- **Sealed Burrow Routes**\n- **Trained Civil Watch**\n- **Field Clinic**\n- **Mapped Tunnel Mouths**\n- **Protected Granary**\n- **Open Ferry Fallback**\n- **Firebreak Stores**\n- **Rocky-Talkie Relay**\n- Anything players create.\n\nRecord player-created assets by their actual names.\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:mireward-investment scene=scene:recovery-table -->\n### What do they help Mireward become better at?\n\n<!-- dmb-playable-element:v2 kind=option id=option:recovery-wall -->\n- **Repair or redesign the damaged wall.**\n\n  Consequence: create an appropriate defensive Asset.\n\n  Later effect: local attacks are less likely to recreate the same breach.\n\n<!-- dmb-playable-element:v2 kind=option id=option:recovery-tunnels activates=beat:meat-mind -->\n- **Map, trap, collapse, or watch the tunnels.**\n\n  Consequence: create a tunnel-related Asset.\n\n  Later effect: may expose signs of the Meat Mind or its routes.\n\n<!-- dmb-playable-element:v2 kind=option id=option:recovery-watch -->\n- **Train townsfolk or establish alarms.**\n\n  Consequence: create a civil-defense Asset.\n\n  Later effect: Mireward becomes less dependent on professional guards.\n\n<!-- dmb-playable-element:v2 kind=option id=option:recovery-clinic activates=beat:refugee-care -->\n- **Build a real refugee/treatment operation.**\n\n  Consequence: create a Field Clinic or related Asset.\n\n<!-- dmb-playable-element:v2 kind=option id=option:recovery-ferry -->\n- **Prepare evacuation or fallback routes.**\n\n  Consequence: Delwen can keep an organized route open.\n\n  Later effect: future [Edge](dmb-node:loc_3) survivors have somewhere to go.\n\n<!-- dmb-playable-element:v2 kind=option id=option:recovery-supplies -->\n- **Organize food, oil, weapons, medicine, or transport.**\n\n  Consequence: create a logistics Asset.\n\n<!-- dmb-playable-element:v2 kind=option id=option:recovery-other -->\n- **Solve a problem nobody on the chalkboard noticed.**\n\n  Reward the observation by making it persist.\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:personal-hours beat_kind=optional -->\n## One Thing That Is Yours\n\n**Objective:** Give every player permission to pursue character material unrelated to the next emergency.\n\n**Pressure:** None beyond available time.\n\n**Role:** Optional.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:personal-doors -->\n### Six Open Doors\n\n**Situation**\n\nAsk each player what their character wants.\n\nOnly use the prompts below if someone wants inspiration.\n\nThese are not assignments.\n\n**Stafl**\n\nPossible prompts:\n\n- Does being back among Reach military culture stir anything from his previous service?\n- Does he want to play music for survivors?\n- Does he inspect his ancient dragon scale in relation to the storm?\n- Does he want a private conversation with Lysandra after previous magical coercion?\n- Something else entirely?\n\n**Caelynn**\n\nPossible prompts:\n\n- Does she want to speak with Tealeaf?\n- Study the infection?\n- Study the storm?\n- Think about her father?\n- Help [Thrin](dmb-node:node:thrin-branchborn) understand what is happening?\n- Brew something simply because she wants to?\n\n**Ephanna**\n\nPossible prompts:\n\n- Does Ogonob react to [Thrin](dmb-node:node:thrin-branchborn)’s changed Fey state?\n- Does Ephanna test the psychic communication?\n- Scout the tunnels?\n- Ask their Fey connection a question?\n- Work on the strange silver key?\n- Something unrelated?\n\n**[Karsemine](dmb-node:pc:karsemine)**\n\nPossible prompts:\n\n- Contact Winna.\n- Track the creatures.\n- Help the children.\n- Scout north.\n- Follow her danger sense.\n- Spend time somewhere nobody needs anything from her.\n\n**Baergrom**\n\nPossible prompts:\n\n- Repair defenses.\n- Work with local smiths.\n- Send the Silver Raven somewhere.\n- Think about the people from his old village.\n- Make or repair something practical.\n\n**Bonogo**\n\nPossible prompts:\n\n- Scout something nobody else can reach.\n- Investigate the tunnels.\n- Find valuables in the wreckage.\n- Follow a suspicious trail.\n- Help somebody in the strange, intensely Bonogo way he tends to help people.\n- Ignore all of that and do something unpredictable.\n\n**GM only**\n\nDo not make a PC’s personal scene secretly become another Shepherd emergency unless the player actively pursues danger.\n\nIf they contact someone far away, let the result be relationship development, useful information, or preparation.\n\nNot every hook needs to advance the main plot.\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:choose-road beat_kind=spine -->\n## What Is the Questionable Company For Now?\n\n**Objective:** Let the party define the next campaign direction.\n\n**Pressure:** The wider threat still exists, but no single destination is mandatory.\n\n**Role:** Spine.\n\nDo not run this Beat until players have had meaningful downtime choices.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:lysandra-stays -->\n### Lysandra Chooses Mireward\n\n**Situation**\n\nLysandra has concluded that Mireward needs her more than the [Questionable Company](dmb-node:party:questionable-company) does.\n\nThis is a chance to let her exist independently of the party.\n\n**Read aloud**\n\n> Eventually Lysandra finds all of you—or enough of you to make the point.\n>\n> Her armor is filthy. She has a fresh strip of cloth tied around one forearm. Behind her, two townsfolk are arguing over lumber and somebody is shouting for more nails.\n>\n> “I’m staying.”\n>\n> She waits for the obvious objection.\n>\n> “They need somebody who knows what these things do. Somebody who can organize the next few days instead of the next thirty seconds.”\n>\n> She looks back toward the damaged wall.\n>\n> “You can stay. You can go north. You can go home. You can crawl into those tunnels if you’ve lost your minds.”\n>\n> “But I’m staying.”\n>\n> A beat.\n>\n> “Tell me what you’re trying to accomplish before you leave. I might actually be able to help.”\n\n**GM only**\n\nThis is not Lysandra abandoning the party.\n\nIt is her choosing responsibility.\n\nHer existing relationships with Nera, Salla, Lysandro, and Mireward’s local systems let her contribute without becoming mayor or taking over the town.\n\nHer presence makes leaving Mireward a credible choice.\n\nIf players strongly want her to accompany them, hear the argument.\n\nHer default remains staying.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:company-plan -->\n### Pick the Problem\n\n**Situation**\n\nThe Company now has several legitimate directions.\n\nNone is presented as the correct one.\n\nAsk:\n\n> “What are you actually trying to accomplish next?”\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:next-direction scene=scene:company-plan -->\n### What problem does the Company choose?\n\n<!-- dmb-playable-element:v2 kind=option id=option:direction-stay activates=scene:stay-mireward suppresses=scene:north-road-exit,scene:south-road-exit,scene:tunnel-entry -->\n- **Stay in Mireward.**\n\n  Possible goals: reconstruction, treatment, defense, tunnel mapping, refugee care, leadership support.\n\n  Consequence: the party can materially strengthen the town and determine what local recovery looks like.\n\n  Wider effect: [Edge](dmb-node:loc_3) and the Fen continue evolving without them.\n\n  Do not treat this as a wrong choice.\n\n<!-- dmb-playable-element:v2 kind=option id=option:direction-north activates=scene:north-road-exit,beat:meat-mind,beat:storm suppresses=scene:stay-mireward,scene:south-road-exit,scene:tunnel-entry -->\n- **Go north toward [Edge](dmb-node:loc_3) / the Fen.**\n\n  Possible goals: find survivors, contact Commander Vale, scout the siege, identify the source, locate the tower from Lysandra’s drawing.\n\n  Consequence: Mireward recovery passes to Lysandra and local leadership.\n\n  Later effect: the Meat Mind can cross their route if useful, but need not become an unavoidable combat.\n\n<!-- dmb-playable-element:v2 kind=option id=option:direction-tunnels activates=scene:tunnel-entry,beat:meat-mind suppresses=scene:north-road-exit,scene:south-road-exit,scene:stay-mireward -->\n- **Follow the underground network.**\n\n  Possible goals: find the local intelligence, destroy burrow routes, learn where they lead, rescue anyone taken below.\n\n  Consequence: transitions directly from siege recovery into investigation/horror.\n\n<!-- dmb-playable-element:v2 kind=option id=option:direction-south activates=scene:south-road-exit,beat:storm suppresses=scene:north-road-exit,scene:stay-mireward,scene:tunnel-entry -->\n- **Return toward [Mirathorn](dmb-node:location:mirathorn).**\n\n  Consequence: they return to a city that is damaged but increasingly under control.\n\n  Possible goals can be personal rather than emergency-driven.\n\n  Wider effect: the northern situation continues without them.\n\n<!-- dmb-playable-element:v2 kind=option id=option:direction-other -->\n- **Choose another objective entirely.**\n\n  Ask where they want to go and what they are trying to change.\n\n  Reuse prepared Beats only where they naturally intersect that objective.\n\n  The prepared branches are tools, not rails.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:stay-mireward -->\n### If They Stay\n\n**Situation**\n\nDo not create another sudden assault.\n\nMove into player-led projects.\n\nUse:\n\n- `beat:mireward-recovery`\n- `beat:refugee-care`\n- `beat:thrin-seed`\n- `beat:personal-hours`\n- `beat:meat-mind` only if they actively investigate underground.\n\n**Closing image if needed**\n\n> By evening, Mireward is still wounded.\n>\n> But several things now exist that did not exist that morning because you built them.\n\nName the Assets the players created.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:north-road-exit -->\n### If They Go North\n\n**Situation**\n\nLet departure feel earned.\n\nLysandra stays behind.\n\n[Thrin](dmb-node:node:thrin-branchborn) travels with the party unless something in play changes that.\n\n**Read aloud**\n\n> Mireward’s north gate opens onto a road that looks much smaller in daylight.\n>\n> Beyond it: churned earth, abandoned gear, distant wetland haze, and the route toward [Edge](dmb-node:loc_3).\n>\n> Behind you, hammers are already striking new timber into the wall.\n>\n> Nobody asks you to save Mireward.\n>\n> They ask you to come back.\n\nUse `beat:storm` or `beat:meat-mind` later only if pacing benefits.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:tunnel-entry -->\n### If They Go Below\n\n**Situation**\n\nThe party deliberately enters the burrow network.\n\n**Read aloud**\n\n> The tunnel does not look ancient.\n>\n> It looks made.\n>\n> Wet soil. Root fibers. Smears of flesh.\n>\n> Something dug this place recently, quickly, and with purpose.\n\nActivate `beat:meat-mind`.\n\nDo not decide that every tunnel leads directly to the Meat Mind.\n\nInvestigation determines the route.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:south-road-exit -->\n### If They Go South\n\n**Situation**\n\nThe party chooses [Mirathorn](dmb-node:location:mirathorn) or another southern destination despite the city no longer being in immediate collapse.\n\n**Read aloud**\n\n> South is the road you already know.\n>\n> That does not make it safe.\n>\n> It does make it yours.\n\n[Mirathorn](dmb-node:location:mirathorn) is not waiting helplessly for them.\n\nTheir return can therefore be driven by relationships, research, politics, personal quests, or whatever the players actually want.\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:meat-mind beat_kind=optional -->\n## Something Beneath the Route\n\n**Objective:** Keep the underground intelligence available as an adaptable pressure without forcing another boss fight immediately after the siege.\n\n**Pressure:** Something coordinated the burrowing assault and showed sustained interest in [Thrin](dmb-node:node:thrin-branchborn).\n\n**Role:** Optional.\n\n**PREP STATUS:** Proposed direction.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:meat-mind-wake -->\n### The Meat Mind’s Wake\n\n**Situation**\n\nUse when players:\n\n- Track a fleeing transformed refugee.\n- Investigate tunnels.\n- Travel away from Mireward and you want the underground threat to cross their route.\n- Deliberately hunt the source of the psychic pressure.\n\nThey first find **evidence**, not necessarily the creature.\n\nPossible evidence:\n\n- Multiple tunnels converging and then diverging as if routes were being assigned.\n- Flesh pressed flat against tunnel walls in deliberate patterns.\n- A patch where every root points the same direction.\n- Psychic pressure that [Thrin](dmb-node:node:thrin-branchborn) notices before anyone else.\n- Drag marks from abducted people.\n- Burrowers that abandoned useful attack positions simultaneously.\n- A chamber that was occupied recently but is now empty.\n\n**Read aloud**\n\n> The tunnel changes.\n>\n> Until now it has looked like something dug through the earth.\n>\n> Here, it looks like something **thought** through it.\n\n**GM only**\n\n**UNRESOLVED**\n\n- Is the Meat Mind itself the intelligence [Thrin](dmb-node:node:thrin-branchborn) heard?\n- Is it a relay for Maelthor?\n- Is it a siege-organism built for command?\n- Does it want the Witness Seed for itself?\n- Does it understand what the Witness Seed actually is?\n\nDo not answer until useful.\n\nIts location may remain flexible until the players establish it through observation.\n\nOnce observed, lock the location.\n\n**Missing reference**\n\nNo authoritative Meat Mind statblock/ID is attached to this runbook.\n\nIf players force a direct combat before a statblock is added:\n\n- Use an existing approved reference if one exists elsewhere in the project.\n- Otherwise treat discovery as the scene climax and prepare the combat before resolving it.\n- Do not silently invent a boss statblock inside PLAY.\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:meat-mind-response scene=scene:meat-mind-wake -->\n### What do they do with evidence of the intelligence below?\n\n<!-- dmb-playable-element:v2 kind=option id=option:mind-hunt -->\n- **Hunt it.**\n\n  Consequence: move toward direct confrontation.\n\n  Requirement: attach or identify the appropriate statblock before combat.\n\n<!-- dmb-playable-element:v2 kind=option id=option:mind-study -->\n- **Observe and learn first.**\n\n  Consequence: gain information about movement, target selection, or tunnel behavior.\n\n  Later effect: makes a future confrontation more intentional.\n\n<!-- dmb-playable-element:v2 kind=option id=option:mind-collapse -->\n- **Collapse or poison the route behind them.**\n\n  Consequence: deny local access without necessarily killing the intelligence.\n\n  Later effect: Mireward benefits if this connects back to town.\n\n<!-- dmb-playable-element:v2 kind=option id=option:mind-bypass -->\n- **Avoid it.**\n\n  Consequence: the party preserves resources and keeps moving.\n\n  The Meat Mind survives and remains available later.\n\n<!-- dmb-playable-element:v2 kind=option id=option:mind-bait -->\n- **Use [Thrin](dmb-node:node:thrin-branchborn) or another lure deliberately.**\n\n  Consequence: potentially powerful, potentially dangerous.\n\n  Make the terms explicit before resolving.\n\n  Do not secretly force [Thrin](dmb-node:node:thrin-branchborn) to agree.\n\n<!-- dmb-playable-element:v2 kind=option id=option:mind-other -->\n- **Something stranger.**\n\n  Follow the plan.\n\n---\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:storm beat_kind=interrupt -->\n## Shimmering Rain\n\n**Objective:** Keep the storms strange and hazardous without turning every exposure into an infection scare.\n\n**Pressure:** Weather complicates travel.\n\n**Role:** Interrupt.\n\nOnly use if the party travels and the session needs environmental pressure.\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:shimmering-storm -->\n### The Failed Rain\n\n**Situation**\n\nAnother magical storm moves over the Reach.\n\nPrevious storms have produced:\n\n- Shimmering rain.\n- Savory smell.\n- Strange planar/conjuration effects.\n- Delayed reflections.\n- Heavy hail.\n\nUse one or two features.\n\nDo not stack all of them every time.\n\n**Read aloud**\n\n> Rain begins as a fine silver sheen across the road.\n>\n> The first drops smell faintly wrong—less like wet earth and more like broth left too long over a fire.\n>\n> In the nearest puddle, your reflection moves a heartbeat after you do.\n\n**GM only**\n\n**PREP LOCK**\n\nThe storms are an early Maelthor strategy for distributing meat spores.\n\nIt largely failed.\n\nThe rain dilutes the material too heavily for ordinary exposure to reliably cause transformation.\n\nThe storm is currently:\n\n- Bad weather.\n- Planar contamination.\n- A transport mechanism that did not work as intended.\n\nIt is **not** a hidden infection save.\n\nDo not make players paranoid about every raindrop unless later campaign developments change the mechanism.\n\nUseful travel hazards:\n\n- Slick road.\n- Flooded low ground.\n- Hail.\n- Reduced visibility.\n- Frightened animals.\n- Washed-away tracks.\n- Difficult shelter decisions.\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:storm-response scene=scene:shimmering-storm -->\n### How do they use or endure the storm?\n\n<!-- dmb-playable-element:v2 kind=option id=option:storm-shelter -->\n- **Shelter and wait.**\n\n  Consequence: lose travel time, preserve safety.\n\n<!-- dmb-playable-element:v2 kind=option id=option:storm-push -->\n- **Push through.**\n\n  Consequence: maintain time at the cost of environmental difficulty.\n\n<!-- dmb-playable-element:v2 kind=option id=option:storm-cover -->\n- **Use the storm as cover.**\n\n  Consequence: stealth or pursuit may become easier while navigation becomes harder.\n\n<!-- dmb-playable-element:v2 kind=option id=option:storm-sample -->\n- **Collect and study samples.**\n\n  Consequence: careful analysis can eventually reveal that the contaminant is heavily diluted.\n\n  This may be the first clue that the storm tactic itself is ineffective.\n\n<!-- dmb-playable-element:v2 kind=option id=option:storm-other -->\n- **Use magic, engineering, or another plan.**\n\n  Resolve naturally.\n\n---\n\n# GM Running Notes\n\n## Protect the Change in Tempo\n\nThe main danger of this session is accidentally rebuilding the slog.\n\nAvoid:\n\n- Another surprise wave.\n- A new mandatory council meeting.\n- Six NPCs each assigning a quest.\n- “Good news, but actually…” reversals.\n- Punishing the party for taking a rest.\n- Treating staying in Mireward as wasted time.\n- Treating leaving Mireward as abandoning helpless people.\n\nMireward is hurt.\n\nMireward is also capable.\n\n[Mirathorn](dmb-node:location:mirathorn) is hurt.\n\n[Mirathorn](dmb-node:location:mirathorn) is also recovering.\n\nThe party has earned a moment in which their choices define the pressure instead of pressure defining their choices.\n\n---\n\n## Player Participation Target\n\nBefore `choice:next-direction`, try to make sure every player has done at least one of:\n\n- Made a decision that changes Mireward.\n- Had a personal conversation.\n- Pursued a character interest.\n- Learned something they chose to investigate.\n- Created an Asset.\n- Sent or received a meaningful message.\n- Changed their relationship with [Thrin](dmb-node:node:thrin-branchborn).\n- Chosen rest deliberately.\n\nIf someone has mostly watched other scenes, point the spotlight toward them before the final group decision.\n\n---\n\n## Likely Session End States\n\nAny of these are successful endings.\n\n**Mireward Recovery**\n\nThe party stays and begins turning the damaged settlement into a defensible refuge.\n\n**Northbound**\n\nThe party leaves for [Edge](dmb-node:loc_3)/Fen with [Thrin](dmb-node:node:thrin-branchborn) while Lysandra remains behind.\n\n**Into the Earth**\n\nThe party chooses the burrow network and begins hunting the intelligence underneath the siege.\n\n**Southbound**\n\nThe party returns toward [Mirathorn](dmb-node:location:mirathorn) for reasons they chose themselves.\n\n**Unexpected**\n\nThe party decides the interesting problem is something else.\n\nPreserve it.\n\nThe Session 29 success condition is not a destination.\n\nIt is:\n\n**The players should feel that the next part of the campaign exists because of decisions they made during this session.**\n",
+    "sha256": "a7674ace660d7d3c4b82847a3486cf15e0df8f4a357333ad3c9185ef8f698dd7",
+    "elements": [
+      {
+        "kind": "beat",
+        "id": "beat:aftershock",
+        "beat_kind": "spine",
+        "start": 2730,
+        "bodyStart": 2807,
+        "end": 3129
+      },
+      {
+        "kind": "scene",
+        "id": "scene:warehouse-tail",
+        "start": 3129,
+        "bodyStart": 3196,
+        "end": 5314
+      },
+      {
+        "kind": "choice",
+        "id": "choice:last-abduction",
+        "scene": "scene:warehouse-tail",
+        "start": 5314,
+        "bodyStart": 5410,
+        "end": 5581
+      },
+      {
+        "kind": "option",
+        "id": "option:save-sleepers",
+        "activates": "beat:refugee-care",
+        "start": 5581,
+        "bodyStart": 5677,
+        "end": 5885
+      },
+      {
+        "kind": "option",
+        "id": "option:kill-carriers",
+        "activates": "beat:refugee-care",
+        "start": 5885,
+        "bodyStart": 5981,
+        "end": 6144
+      },
+      {
+        "kind": "option",
+        "id": "option:track-carrier",
+        "activates": "beat:meat-mind",
+        "start": 6144,
+        "bodyStart": 6237,
+        "end": 6442
+      },
+      {
+        "kind": "option",
+        "id": "option:rally-mireward",
+        "activates": "beat:mireward-recovery",
+        "start": 6442,
+        "bodyStart": 6544,
+        "end": 6791
+      },
+      {
+        "kind": "option",
+        "id": "option:last-abduction-other",
+        "start": 6791,
+        "bodyStart": 6866,
+        "end": 7016
+      },
+      {
+        "kind": "scene",
+        "id": "scene:count-living",
+        "start": 7016,
+        "bodyStart": 7081,
+        "end": 8252
+      },
+      {
+        "kind": "beat",
+        "id": "beat:breathing-room",
+        "beat_kind": "spine",
+        "start": 8252,
+        "bodyStart": 8333,
+        "end": 8640
+      },
+      {
+        "kind": "scene",
+        "id": "scene:town-breathes",
+        "start": 8640,
+        "bodyStart": 8706,
+        "end": 9954
+      },
+      {
+        "kind": "scene",
+        "id": "scene:claim-hours",
+        "start": 9954,
+        "bodyStart": 10018,
+        "end": 10660
+      },
+      {
+        "kind": "choice",
+        "id": "choice:claim-hours",
+        "scene": "scene:claim-hours",
+        "start": 10660,
+        "bodyStart": 10750,
+        "end": 10898
+      },
+      {
+        "kind": "option",
+        "id": "option:claim-refugees",
+        "activates": "beat:refugee-care",
+        "start": 10898,
+        "bodyStart": 10995,
+        "end": 11113
+      },
+      {
+        "kind": "option",
+        "id": "option:claim-town",
+        "activates": "beat:mireward-recovery",
+        "start": 11113,
+        "bodyStart": 11211,
+        "end": 11351
+      },
+      {
+        "kind": "option",
+        "id": "option:claim-call",
+        "activates": "beat:mirathorn-call",
+        "start": 11351,
+        "bodyStart": 11446,
+        "end": 11603
+      },
+      {
+        "kind": "option",
+        "id": "option:claim-thrin",
+        "activates": "beat:thrin-seed",
+        "start": 11603,
+        "bodyStart": 11695,
+        "end": 11836
+      },
+      {
+        "kind": "option",
+        "id": "option:claim-personal",
+        "activates": "beat:personal-hours",
+        "start": 11836,
+        "bodyStart": 11935,
+        "end": 12070
+      },
+      {
+        "kind": "option",
+        "id": "option:claim-enemy",
+        "activates": "beat:meat-mind",
+        "start": 12070,
+        "bodyStart": 12161,
+        "end": 12312
+      },
+      {
+        "kind": "option",
+        "id": "option:claim-rest",
+        "activates": "scene:rest-rearm",
+        "start": 12312,
+        "bodyStart": 12404,
+        "end": 12640
+      },
+      {
+        "kind": "option",
+        "id": "option:claim-other",
+        "start": 12640,
+        "bodyStart": 12706,
+        "end": 12755
+      },
+      {
+        "kind": "scene",
+        "id": "scene:rest-rearm",
+        "start": 12755,
+        "bodyStart": 12818,
+        "end": 13494
+      },
+      {
+        "kind": "beat",
+        "id": "beat:refugee-care",
+        "beat_kind": "optional",
+        "start": 13494,
+        "bodyStart": 13576,
+        "end": 13809
+      },
+      {
+        "kind": "scene",
+        "id": "scene:field-clinic",
+        "start": 13809,
+        "bodyStart": 13874,
+        "end": 15232
+      },
+      {
+        "kind": "choice",
+        "id": "choice:refugee-plan",
+        "scene": "scene:field-clinic",
+        "start": 15232,
+        "bodyStart": 15324,
+        "end": 15370
+      },
+      {
+        "kind": "option",
+        "id": "option:refugee-local-treatment",
+        "activates": "beat:mireward-recovery",
+        "start": 15370,
+        "bodyStart": 15481,
+        "end": 15748
+      },
+      {
+        "kind": "option",
+        "id": "option:refugee-mirathorn",
+        "activates": "beat:mirathorn-call",
+        "start": 15748,
+        "bodyStart": 15850,
+        "end": 16113
+      },
+      {
+        "kind": "option",
+        "id": "option:refugee-guard",
+        "start": 16113,
+        "bodyStart": 16181,
+        "end": 16392
+      },
+      {
+        "kind": "option",
+        "id": "option:refugee-move",
+        "start": 16392,
+        "bodyStart": 16459,
+        "end": 16669
+      },
+      {
+        "kind": "option",
+        "id": "option:refugee-experiment",
+        "start": 16669,
+        "bodyStart": 16742,
+        "end": 16948
+      },
+      {
+        "kind": "beat",
+        "id": "beat:mirathorn-call",
+        "beat_kind": "optional",
+        "start": 16948,
+        "bodyStart": 17032,
+        "end": 17345
+      },
+      {
+        "kind": "scene",
+        "id": "scene:rocky-talkie",
+        "start": 17345,
+        "bodyStart": 17410,
+        "end": 19501
+      },
+      {
+        "kind": "choice",
+        "id": "choice:call-priority",
+        "scene": "scene:rocky-talkie",
+        "start": 19501,
+        "bodyStart": 19594,
+        "end": 19638
+      },
+      {
+        "kind": "option",
+        "id": "option:call-cure",
+        "activates": "beat:refugee-care",
+        "start": 19638,
+        "bodyStart": 19730,
+        "end": 19987
+      },
+      {
+        "kind": "option",
+        "id": "option:call-city",
+        "start": 19987,
+        "bodyStart": 20051,
+        "end": 20328
+      },
+      {
+        "kind": "option",
+        "id": "option:call-edge",
+        "start": 20328,
+        "bodyStart": 20392,
+        "end": 20711
+      },
+      {
+        "kind": "option",
+        "id": "option:call-field-intel",
+        "start": 20711,
+        "bodyStart": 20782,
+        "end": 21127
+      },
+      {
+        "kind": "option",
+        "id": "option:call-personal",
+        "activates": "beat:personal-hours",
+        "start": 21127,
+        "bodyStart": 21225,
+        "end": 21379
+      },
+      {
+        "kind": "option",
+        "id": "option:call-other",
+        "start": 21379,
+        "bodyStart": 21444,
+        "end": 21599
+      },
+      {
+        "kind": "beat",
+        "id": "beat:thrin-seed",
+        "beat_kind": "optional",
+        "start": 21599,
+        "bodyStart": 21679,
+        "end": 21969
+      },
+      {
+        "kind": "scene",
+        "id": "scene:thrin-first-echo",
+        "start": 21969,
+        "bodyStart": 22038,
+        "end": 23584
+      },
+      {
+        "kind": "choice",
+        "id": "choice:respond-thrin",
+        "scene": "scene:thrin-first-echo",
+        "start": 23584,
+        "bodyStart": 23681,
+        "end": 23730
+      },
+      {
+        "kind": "option",
+        "id": "option:thrin-test",
+        "activates": "scene:seed-meaning",
+        "start": 23730,
+        "bodyStart": 23824,
+        "end": 24038
+      },
+      {
+        "kind": "option",
+        "id": "option:thrin-boundaries",
+        "start": 24038,
+        "bodyStart": 24109,
+        "end": 24376
+      },
+      {
+        "kind": "option",
+        "id": "option:thrin-forest",
+        "activates": "scene:seed-meaning",
+        "start": 24376,
+        "bodyStart": 24472,
+        "end": 24699
+      },
+      {
+        "kind": "option",
+        "id": "option:thrin-fear",
+        "start": 24699,
+        "bodyStart": 24764,
+        "end": 24923
+      },
+      {
+        "kind": "option",
+        "id": "option:thrin-other",
+        "start": 24923,
+        "bodyStart": 24989,
+        "end": 25051
+      },
+      {
+        "kind": "scene",
+        "id": "scene:seed-meaning",
+        "start": 25051,
+        "bodyStart": 25116,
+        "end": 26869
+      },
+      {
+        "kind": "beat",
+        "id": "beat:mireward-recovery",
+        "beat_kind": "optional",
+        "start": 26869,
+        "bodyStart": 26956,
+        "end": 27157
+      },
+      {
+        "kind": "scene",
+        "id": "scene:recovery-table",
+        "start": 27157,
+        "bodyStart": 27224,
+        "end": 28650
+      },
+      {
+        "kind": "choice",
+        "id": "choice:mireward-investment",
+        "scene": "scene:recovery-table",
+        "start": 28650,
+        "bodyStart": 28751,
+        "end": 28802
+      },
+      {
+        "kind": "option",
+        "id": "option:recovery-wall",
+        "start": 28802,
+        "bodyStart": 28870,
+        "end": 29046
+      },
+      {
+        "kind": "option",
+        "id": "option:recovery-tunnels",
+        "activates": "beat:meat-mind",
+        "start": 29046,
+        "bodyStart": 29142,
+        "end": 29306
+      },
+      {
+        "kind": "option",
+        "id": "option:recovery-watch",
+        "start": 29306,
+        "bodyStart": 29375,
+        "end": 29539
+      },
+      {
+        "kind": "option",
+        "id": "option:recovery-clinic",
+        "activates": "beat:refugee-care",
+        "start": 29539,
+        "bodyStart": 29637,
+        "end": 29743
+      },
+      {
+        "kind": "option",
+        "id": "option:recovery-ferry",
+        "start": 29743,
+        "bodyStart": 29812,
+        "end": 29995
+      },
+      {
+        "kind": "option",
+        "id": "option:recovery-supplies",
+        "start": 29995,
+        "bodyStart": 30067,
+        "end": 30170
+      },
+      {
+        "kind": "option",
+        "id": "option:recovery-other",
+        "start": 30170,
+        "bodyStart": 30239,
+        "end": 30350
+      },
+      {
+        "kind": "beat",
+        "id": "beat:personal-hours",
+        "beat_kind": "optional",
+        "start": 30350,
+        "bodyStart": 30434,
+        "end": 30634
+      },
+      {
+        "kind": "scene",
+        "id": "scene:personal-doors",
+        "start": 30634,
+        "bodyStart": 30701,
+        "end": 32769
+      },
+      {
+        "kind": "beat",
+        "id": "beat:choose-road",
+        "beat_kind": "spine",
+        "start": 32769,
+        "bodyStart": 32847,
+        "end": 33138
+      },
+      {
+        "kind": "scene",
+        "id": "scene:lysandra-stays",
+        "start": 33138,
+        "bodyStart": 33205,
+        "end": 34601
+      },
+      {
+        "kind": "scene",
+        "id": "scene:company-plan",
+        "start": 34601,
+        "bodyStart": 34666,
+        "end": 34855
+      },
+      {
+        "kind": "choice",
+        "id": "choice:next-direction",
+        "scene": "scene:company-plan",
+        "start": 34855,
+        "bodyStart": 34949,
+        "end": 34993
+      },
+      {
+        "kind": "option",
+        "id": "option:direction-stay",
+        "activates": "scene:stay-mireward",
+        "suppresses": "scene:north-road-exit,scene:south-road-exit,scene:tunnel-entry",
+        "start": 34993,
+        "bodyStart": 35166,
+        "end": 35528
+      },
+      {
+        "kind": "option",
+        "id": "option:direction-north",
+        "activates": "scene:north-road-exit,beat:meat-mind,beat:storm",
+        "suppresses": "scene:stay-mireward,scene:south-road-exit,scene:tunnel-entry",
+        "start": 35528,
+        "bodyStart": 35728,
+        "end": 36107
+      },
+      {
+        "kind": "option",
+        "id": "option:direction-tunnels",
+        "activates": "scene:tunnel-entry,beat:meat-mind",
+        "suppresses": "scene:north-road-exit,scene:south-road-exit,scene:stay-mireward",
+        "start": 36107,
+        "bodyStart": 36298,
+        "end": 36543
+      },
+      {
+        "kind": "option",
+        "id": "option:direction-south",
+        "activates": "scene:south-road-exit,beat:storm",
+        "suppresses": "scene:north-road-exit,scene:stay-mireward,scene:tunnel-entry",
+        "start": 36543,
+        "bodyStart": 36728,
+        "end": 37006
+      },
+      {
+        "kind": "option",
+        "id": "option:direction-other",
+        "start": 37006,
+        "bodyStart": 37076,
+        "end": 37312
+      },
+      {
+        "kind": "scene",
+        "id": "scene:stay-mireward",
+        "start": 37312,
+        "bodyStart": 37378,
+        "end": 37852
+      },
+      {
+        "kind": "scene",
+        "id": "scene:north-road-exit",
+        "start": 37852,
+        "bodyStart": 37920,
+        "end": 38536
+      },
+      {
+        "kind": "scene",
+        "id": "scene:tunnel-entry",
+        "start": 38536,
+        "bodyStart": 38601,
+        "end": 39008
+      },
+      {
+        "kind": "scene",
+        "id": "scene:south-road-exit",
+        "start": 39008,
+        "bodyStart": 39076,
+        "end": 39591
+      },
+      {
+        "kind": "beat",
+        "id": "beat:meat-mind",
+        "beat_kind": "optional",
+        "start": 39591,
+        "bodyStart": 39670,
+        "end": 40044
+      },
+      {
+        "kind": "scene",
+        "id": "scene:meat-mind-wake",
+        "start": 40044,
+        "bodyStart": 40111,
+        "end": 41901
+      },
+      {
+        "kind": "choice",
+        "id": "choice:meat-mind-response",
+        "scene": "scene:meat-mind-wake",
+        "start": 41901,
+        "bodyStart": 42001,
+        "end": 42064
+      },
+      {
+        "kind": "option",
+        "id": "option:mind-hunt",
+        "start": 42064,
+        "bodyStart": 42128,
+        "end": 42271
+      },
+      {
+        "kind": "option",
+        "id": "option:mind-study",
+        "start": 42271,
+        "bodyStart": 42336,
+        "end": 42520
+      },
+      {
+        "kind": "option",
+        "id": "option:mind-collapse",
+        "start": 42520,
+        "bodyStart": 42588,
+        "end": 42784
+      },
+      {
+        "kind": "option",
+        "id": "option:mind-bypass",
+        "start": 42784,
+        "bodyStart": 42850,
+        "end": 42987
+      },
+      {
+        "kind": "option",
+        "id": "option:mind-bait",
+        "start": 42987,
+        "bodyStart": 43051,
+        "end": 43314
+      },
+      {
+        "kind": "option",
+        "id": "option:mind-other",
+        "start": 43314,
+        "bodyStart": 43379,
+        "end": 43432
+      },
+      {
+        "kind": "beat",
+        "id": "beat:storm",
+        "beat_kind": "interrupt",
+        "start": 43432,
+        "bodyStart": 43508,
+        "end": 43781
+      },
+      {
+        "kind": "scene",
+        "id": "scene:shimmering-storm",
+        "start": 43781,
+        "bodyStart": 43850,
+        "end": 45046
+      },
+      {
+        "kind": "choice",
+        "id": "choice:storm-response",
+        "scene": "scene:shimmering-storm",
+        "start": 45046,
+        "bodyStart": 45144,
+        "end": 45187
+      },
+      {
+        "kind": "option",
+        "id": "option:storm-shelter",
+        "start": 45187,
+        "bodyStart": 45255,
+        "end": 45332
+      },
+      {
+        "kind": "option",
+        "id": "option:storm-push",
+        "start": 45332,
+        "bodyStart": 45397,
+        "end": 45490
+      },
+      {
+        "kind": "option",
+        "id": "option:storm-cover",
+        "start": 45490,
+        "bodyStart": 45556,
+        "end": 45674
+      },
+      {
+        "kind": "option",
+        "id": "option:storm-sample",
+        "start": 45674,
+        "bodyStart": 45741,
+        "end": 45947
+      },
+      {
+        "kind": "option",
+        "id": "option:storm-other",
+        "start": 45947,
+        "bodyStart": 46013,
+        "end": 48165
+      }
+    ]
+  },
+  {
+    "name": "Ironveil House",
+    "markdown": "<!-- dmb-playable-element:v2 kind=beat id=beat:ironveil-home beat_kind=spine -->\n## The Ironveil House\n\n**Objective:** Establish the party’s recovery space as Lysandra’s childhood home and let the environment reveal parts of her life before Mirathorn.\n\n**Pressure:** None. This is sanctuary.\n\n**Role:** Spine.\n\nThe Ironveil house should become the party's temporary base while they decide what happens next.\n\nThis is not a dungeon.\n\nThere are no secret cult chambers underneath it unless later play deliberately creates that fact.\n\nThere should be things to touch, ask about, eat, repair, laugh at, and notice.\n\n---\n\n### Established family context\n\n**ESTABLISHED**\n\nThe Ironveils are an old Mireward family tied to the wall, local responsibility, farming, craft, and civic vigilance.\n\nKnown family:\n\n- **Lysandro Ironveil** — Lysandra's father. Precision-parts maker and merchant. Loud, affectionate, anti-authoritarian, mechanically minded.\n- **Merrow Ironveil** — Lysandra's mother. Fuller. Known for mocking reeve speeches and expressing pride through criticism.\n- **Torr Ironveil** — Lysandra's grandfather. Retired tithe clerk. Quiet. Has a hidden framed commendation connected to Lysandra.\n- **Calyx Ironveil** — Lysandra's younger brother, approximately 22. Wants to join the Mirathorn Guard; his petitions have gone unanswered.\n- **Sibil “Bib” Ironveil** — Lysandra's aunt. Shrine worker and patrol widow. Her husband Hest Voss remains associated with the long fen patrol.\n- **Delwen Rast** — not family, but part of Lysandra's Mireward history; former almost-fiancée, now married to Orrin Kettle.\n\n**UNRESOLVED**\n\nThe corpus does not establish exactly which relatives currently live under Lysandro's roof.\n\nFor Session 29, choose who is physically present according to the scenes you want. Do not assume every named Ironveil lives here.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:ironveil-arrival -->\n### Back to the Ironveil House\n\n**Situation**\n\nAfter the immediate fighting and triage, the Questionable Company returns to the house where they have been staying.\n\nThis is Lysandra's childhood home.\n\nShe knows where everything is without looking.\n\nThat should be obvious before anybody says it.\n\n**Read aloud**\n\n> The Ironveil house is still standing.\n>\n> At this point, that feels luxurious.\n>\n> Mud has been tracked across the entry. Someone has stacked three borrowed shields beside the door. Damp coats hang from hooks that clearly existed long before tonight.\n>\n> Lysandra enters ahead of you.\n>\n> She does not look around.\n>\n> She reaches past a cabinet without breaking stride, takes a key from a hook hidden behind it, opens the inner door, catches a loose floorboard with her heel before anyone trips over it, and says:\n>\n> “Boots there.”\n>\n> Then she stops.\n>\n> For just a moment, Lieutenant Ironveil looks embarrassed.\n>\n> “Sorry. Habit.”\n\n**GM only**\n\nDo not explain that this is her childhood home after the read-aloud unless a player asks.\n\nLet recognition land through behavior.\n\nLysandra:\n\n- Knows which chair wobbles.\n- Knows where the good cups are kept.\n- Automatically ducks beneath something taller PCs do not need to duck beneath.\n- Knows where Lysandro keeps tools he insists are “not lost.”\n- Can navigate the house in darkness.\n- Occasionally begins doing something from childhood muscle memory and catches herself.\n\nThis is one of the few environments where **“Lieutenant Ironveil” is visibly not the oldest version of her identity.**\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:ironveil-house-map -->\n### The House\n\n**PREP LOCK — physical layout**\n\nThe exact house layout was previously undefined. Use this for Session 29.\n\nThe Ironveil house is an old, heavily modified **two-story stone-and-timber home** built near one of Mireward's older wall roads.\n\nIt has been expanded repeatedly rather than designed as a whole.\n\nNothing quite lines up.\n\n#### Ground floor\n\n**Front Mudroom**\n\n- Heavy benches.\n- Too many boots.\n- Wall hooks at several heights.\n- Old lanterns.\n- A rack for walking sticks, spears, umbrellas, and things that are ambiguously all four.\n- Chalkboard beside the door currently covered in wall-watch notes.\n\nA faded set of height marks runs up one doorframe.\n\nSeveral have names and dates.\n\nOne line marked **LYSA** jumps upward dramatically one year and has:\n\n> “LIAR — BOOTS” \n\nwritten beside it in a different hand.\n\nDo not explain who wrote it unless asked.\n\n---\n\n**Family Kitchen**\n\nThe emotional center of the house.\n\n- Large scarred wooden table.\n- Mismatched chairs.\n- Iron stove.\n- Drying herbs.\n- Kettle always somewhere near boiling.\n- Shelves filled with preserved food, chipped crockery, mechanical odds and ends, and objects that migrated here from other rooms years ago.\n- Hooks under the table where children once hung bags and tools.\n- A large window looking toward the road.\n\nThis is where planning naturally happens.\n\nNot because it is a council chamber.\n\nBecause this family solves problems at the kitchen table.\n\n---\n\n**Sitting Room**\n\nSmall and overfull.\n\n- Patched furniture.\n- Family photographs / magical portrait plates.\n- Maps of Mireward from several generations.\n- Shelves holding books, old repair manuals, civic records, cheap novels, and things Lysandro swears he will return to their rightful owners.\n- One wall has framed family objects that are not arranged with any aesthetic discipline whatsoever.\n\nInclude:\n\n- An old section of wall-stake.\n- A retired patrol whistle.\n- One of Lysandro's first precision gears.\n- A child's badly made wooden sword.\n- A school slate with **Lysandra Ironveil** written with absurdly careful handwriting.\n\n---\n\n**Lysandro's Workshop**\n\nAttached to the rear of the house and accessible from both inside and outside.\n\nThis is not the Ironveil Warehouse.\n\nIt is his precision shop.\n\nThe room smells of:\n\n- Cutting oil.\n- Hot metal.\n- Wood.\n- Brass.\n- Tea someone forgot about.\n\nWorkbenches are covered with:\n\n- Gear teeth.\n- Pressure screws.\n- Bell fittings.\n- Latches.\n- Valve assemblies.\n- Springs.\n- Half-repaired household objects neighbors dropped off.\n\nEverything appears chaotic.\n\nLysandro knows exactly where everything is.\n\nProbably.\n\nUseful downtime affordances:\n\n- Repair damaged mundane gear.\n- Improvise brackets, locks, braces, signaling devices, or mechanisms.\n- Work beside Lysandro.\n- Search for tools.\n- Ask what a strange piece does and receive a twenty-minute answer.\n- Let Baergrom or another mechanically inclined PC make something.\n- Build improvements for Mireward.\n\n**No free magical crafting is implied.**\n\n---\n\n**Back Yard**\n\nSmall, practical, partially overtaken by emergency supplies.\n\nFeatures:\n\n- Clothesline.\n- Rain barrel.\n- Vegetable beds.\n- Scrap metal.\n- An old practice post scarred by weapons.\n- A short section of freestanding timber wall used for testing hinges, brackets, and repair designs.\n\nThe practice post has old marks lower down than expected.\n\nLysandra learned to fight here.\n\nWhether Lysandro, another relative, or Mireward's general culture taught her is **UNRESOLVED**.\n\n---\n\n#### Upper floor\n\n**Parents' Room**\n\nPrivate unless invited.\n\nNo important plot object.\n\nIt should remain ordinary.\n\n---\n\n**Calyx's Room**\n\nIf Calyx still lives here:\n\n- Half practical young adult.\n- Half kid trying very hard to look like he has already left home.\n- Guard manuals.\n- Clean boots.\n- Training gear.\n- Drafts of applications to the Mirathorn Guard.\n- Several unanswered or returned petitions.\n\nThis creates an immediate tension with Lysandra:\n\nCalyx wants the life she chose.\n\nLysandro is not thrilled.\n\nLysandra now knows exactly what that life costs.\n\nDo not decide for her how she responds.\n\n---\n\n**Torr's Room / Study**\n\nIf Torr resides here, this is the neatest space in the house.\n\n- Ledgers.\n- Fine pen nibs.\n- Old tithe records.\n- Perfectly folded clothes.\n- Small repair kit.\n- Nothing displayed frivolously.\n\nOne drawer contains a framed commendation or notice concerning Lysandra.\n\n**ESTABLISHED HANDLE:** Torr keeps a framed commendation hidden.\n\n**UNRESOLVED:** What exact achievement it commemorates.\n\nIf discovered, choose an innocuous early-career achievement rather than secretly inserting a major historical event.\n\nExample:\n\n> “For distinguished service during the East Dock evacuation.”\n\nOnly use a specific text if the GM chooses to make it canon.\n\n---\n\n**Lysandra's Old Room**\n\nThis room matters.\n\nNobody converted it into a shrine.\n\nNobody preserved it untouched.\n\nBut nobody really erased her either.\n\n**PREP LOCK**\n\nThe room has slowly become a spare room and storage space, but several unmistakably Lysandra things remain.\n\nCurrent contents:\n\n- A narrow bed.\n- Folded spare blankets.\n- Boxes of household storage.\n- An old desk.\n- A cracked washbasin.\n- A window looking toward part of the wall.\n\nStill hers:\n\n- Small knife marks measuring distances along the desk edge.\n- A faded map of Mireward drawn by hand.\n- A cheap wooden practice sword with several careful repairs.\n- An old civic-watch handbook filled with notes correcting it.\n- A row of pegs where equipment used to hang.\n- One badly painted little wooden soldier with its uniform painted the wrong color.\n\nInside the desk is a stack of childhood and adolescent papers.\n\nDo not fill all of them in advance.\n\nUse them responsively when players investigate.\n\nPossible finds:\n\n- Precise maps.\n- Lists of chores.\n- Arguments written in margins.\n- Early attempts at guard procedure.\n- A furious essay about a rule she thought was stupid.\n- A very orderly plan for running away.\n- A letter she started to someone and never sent.\n- Training scores.\n- An embarrassing drawing.\n- Evidence she was funny before she learned not to show it so readily.\n\nThe key tone:\n\n**Lysandra did not emerge fully formed as “the serious guard.”**\n\nThe room should contain contradictions.\n\n---\n\n<!-- dmb-playable-element:v2 kind=choice id=choice:lysandra-room scene=scene:ironveil-house-map -->\n### What happens when someone realizes this was Lysandra's room?\n\n<!-- dmb-playable-element:v2 kind=option id=option:room-ask -->\n- **Ask Lysandra about something openly.**\n\n  Consequence: she answers selectively.\n\n  She is more likely to answer concrete questions than “what were you like as a child?”\n\n<!-- dmb-playable-element:v2 kind=option id=option:room-snoop -->\n- **Snoop.**\n\n  Consequence: there are absolutely embarrassing things available.\n\n  If caught, Lysandra reacts according to the intrusiveness rather than turning it into a dramatic betrayal.\n\n  Bonogo should be allowed to Bonogo.\n\n<!-- dmb-playable-element:v2 kind=option id=option:room-family -->\n- **Ask a relative instead.**\n\n  Consequence: different family members tell different versions.\n\n  Nobody possesses the authoritative interpretation of Lysandra.\n\n<!-- dmb-playable-element:v2 kind=option id=option:room-leave -->\n- **Leave it alone.**\n\n  Consequence: nothing bad happens.\n\n  Respecting privacy is also characterization.\n\n<!-- dmb-playable-element:v2 kind=option id=option:room-other -->\n- **Do something unexpected.**\n\n  Follow it.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:ironveil-kitchen -->\n### The Kitchen Table\n\n**Situation**\n\nThis should be the default location for downtime conversations, planning, the Rocky Talkie call, eating, arguing, and deciding what happens next.\n\nIt is materially different from a council meeting.\n\nPeople can get up.\n\nPeople can cook.\n\nPeople can leave halfway through.\n\nCharacters can split into side conversations.\n\nSomeone can fall asleep at the table.\n\n**Read aloud**\n\n> The table has probably hosted a thousand arguments.\n>\n> There are knife marks, ink stains, one burned corner, and a repaired split running almost the full length.\n>\n> Lysandro pushes aside a bowl full of loose springs, puts food where the springs were, puts the springs into somebody's empty cup, and says:\n>\n> “Right. Anybody bleeding badly enough that we care before breakfast?”\n\n**GM only**\n\nMake the kitchen **interactive**.\n\nThings can happen concurrently:\n\n- Rocky Talkie conversation with Zilla and Grobnok.\n- Someone cooks.\n- Someone cleans weapons.\n- Thrin stares suspiciously at a mechanical egg timer.\n- Lysandra falls quiet looking at something familiar.\n- Lysandro works on a broken latch while talking.\n- A local knocks asking to borrow a tool.\n- A runner leaves a note and refuses to interrupt breakfast.\n- Players wander into other rooms.\n\nThis is an excellent place to ask:\n\n> “While everyone is settling in, where in the house do you end up?”\n\nThen follow them.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:ironveil-family-soap -->\n### Everyone Knows Lysa\n\n**Situation**\n\nIf family members are present, they know Lysandra in ways the Questionable Company does not.\n\nUse lightly.\n\nThe joke should never be “Lysandra's family humiliates her for an hour.”\n\nThe useful effect is perspective.\n\n**Lysandro**\n\nAlready established.\n\nCalls her **Lysa**.\n\nTeases rank.\n\nRespects her competence.\n\nCan say:\n\n> “She always did like a rule. Didn't have to be a good rule.”\n\nOr:\n\n> “First barricade she ever built blocked our own pantry.”\n\n---\n\n**Merrow — if present**\n\n**PREP interpretation from established handle**\n\nMerrow expresses pride through criticism.\n\nShe is not cold.\n\nShe is devastatingly maternal.\n\nPossible greeting after the siege:\n\n> “You look terrible.”\n>\n> Beat.\n>\n> “Good work.”\n\nPossible line to the party:\n\n> “She was exactly like this at twelve. Smaller. Worse at lying.”\n\nPotential player interaction:\n\nMerrow is willing to tell childhood stories if asked, especially ones Lysandra would prefer be forgotten.\n\nShe should also be genuinely interested in the people who have been traveling with her daughter.\n\n---\n\n**Torr — if present**\n\nQuiet.\n\nMinimal fuss.\n\nMaybe he notices a torn strap on Lysandra's armor while everyone is talking.\n\nWithout interrupting, he removes it, fixes it, and hands it back.\n\nIf she says:\n\n> “Granddad, I need that.”\n\nHe says:\n\n> “Then stop breaking it.”\n\nNo emotional speech required.\n\n---\n\n**Calyx — if present**\n\nThis is the most immediately playable relationship.\n\nHe wants into the Mirathorn Guard.\n\nHe admires Lysandra.\n\nHe may admire the Questionable Company even more.\n\nHe wants stories.\n\nHe wants practical advice.\n\nHe wants to know what the city is really like.\n\nHe may ask:\n\n> “Is Commander Ashenvale as terrifying as people say?”\n\nOr:\n\n> “How many times have you actually fought inside the city?”\n\nOr, to a PC:\n\n> “Does she really order you around?”\n\nHe creates a difficult question for Lysandra without intending to:\n\n> “Do you think I could make it there?”\n\nDo not prewrite her answer.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:house-small-discoveries -->\n### Small Things Players Can Find\n\nUse these as rewards for interacting with the house.\n\nDo not force Perception checks for ordinary visible things.\n\n| d10 | Detail |\n|---|---|\n| 1 | Height marks including **LYSA** and **CALYX**, with generations of earlier marks beneath them. |\n| 2 | A bent practice sword repaired so many times that the repairs are more substantial than the original. |\n| 3 | A childhood map of Mireward with several places labeled incorrectly but confidently. |\n| 4 | A household rule list with one rule crossed out and “THIS IS NOT A RULE” written beside it in careful adolescent handwriting. |\n| 5 | A tiny brass mechanism Lysandro says Lysandra built and she insists Lysandro built. Neither will yield. |\n| 6 | A family portrait in which young Lysandra is visibly trying not to smile while Calyx is ruining the picture. |\n| 7 | A wall-hook labeled **LYSA — STOP LEAVING THIS ON FLOOR**. Nobody remembers what “this” was. |\n| 8 | An old slate covered with calculations for wall patrol timing. She was doing scheduling problems as a teenager. Disturbing. |\n| 9 | A box containing medals, ribbons, school notices, and completely mundane family junk. |\n| 10 | A hidden stash spot that Lysandra checks reflexively. It is empty. When questioned: “Calyx.” |\n\nThese are **PREP DETAILS**, not prior canon.\n\nOnce used at the table, keep them.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:lysandra-alone-at-home -->\n### If Someone Finds Lysandra Alone\n\n**Situation**\n\nUse only if a player seeks her out or notices her withdrawing.\n\nDo not force an emotional confession.\n\nPossible locations:\n\n- Her old room.\n- Workshop doorway.\n- Back yard practice post.\n- Kitchen after everyone leaves.\n- Front steps.\n\n**Read aloud**\n\n> Lysandra is sitting somewhere you have not seen her sit before.\n>\n> Not alert.\n>\n> Not on watch.\n>\n> Not positioned to see every entrance.\n>\n> Just sitting.\n>\n> She notices you.\n>\n> “What?”\n\n**GM only**\n\nHer being home does not suddenly make her emotionally articulate.\n\nThe change is that she has fewer defenses available because everything around her remembers her.\n\nGood questions may get good answers.\n\nBad questions may get:\n\n> “No.”\n\nPossible subjects if players raise them:\n\n- Why she left.\n- Whether she wanted to come back.\n- Calyx wanting to follow her.\n- Her relationship with her father.\n- Her promotion.\n- Staying in Mireward.\n- Stafl's Suggestion.\n- What she wants rather than what the mission requires.\n\nDo not turn this into mandatory trauma processing.\n\n---\n\n<!-- dmb-playable-element:v2 kind=scene id=scene:home-as-base -->\n### Use the House as the Downtime Menu\n\nWhen the party reaches the open portion of Session 29, frame choices spatially instead of listing quests.\n\nExample:\n\n> The Ironveil house settles into a strange temporary rhythm.\n>\n> Lysandro is in the workshop.\n>\n> There are people coming and going from the kitchen with news from the wall.\n>\n> The Rocky Talkie is sitting on the table.\n>\n> Thrin has found the back yard and is staring at the vegetable beds like they have personally offended him.\n>\n> Lysandra disappeared upstairs a few minutes ago.\n>\n> From outside, you can hear reconstruction already starting.\n>\n> You finally have time.\n>\n> Where do you go?\n\nThen let player choices activate:\n\n- **Workshop** → Mireward recovery / crafting / Baergrom / Lysandro.\n- **Kitchen / Rocky Talkie** → Mirathorn call.\n- **Back yard / Thrin** → Witness Seed.\n- **Upstairs / Lysandra** → family or personal material.\n- **Town** → refugees / reconstruction / investigation.\n- **Bed** → actual rest.\n- **Somewhere else** → follow them.\n\nThis replaces an abstract downtime menu with a physical place the players can move through.\n\n---\n\n## House Tone\n\nThe Ironveil house should communicate three things without exposition.\n\n### 1. Lysandra came from people who care deeply about responsibility\n\nThis explains part of her.\n\n### 2. She chose hierarchy more strongly than the family around her did\n\nThis explains part of the conflict with Lysandro.\n\n### 3. She was a person before she became the version the party met\n\nThis gives the players something new to discover.\n\nThe house is not here to reveal a secret tragedy.\n\nIt is here to reveal **ordinary history**.\n\nThat is more useful right now.\n",
+    "sha256": "8fa097b221b93445629a3688e8ce086827cd77d491dc41edab8a49f60749dc43",
+    "elements": [
+      {
+        "kind": "beat",
+        "id": "beat:ironveil-home",
+        "beat_kind": "spine",
+        "start": 0,
+        "bodyStart": 80,
+        "end": 1852
+      },
+      {
+        "kind": "scene",
+        "id": "scene:ironveil-arrival",
+        "start": 1852,
+        "bodyStart": 1921,
+        "end": 3490
+      },
+      {
+        "kind": "scene",
+        "id": "scene:ironveil-house-map",
+        "start": 3490,
+        "bodyStart": 3561,
+        "end": 9842
+      },
+      {
+        "kind": "choice",
+        "id": "choice:lysandra-room",
+        "scene": "scene:ironveil-house-map",
+        "start": 9842,
+        "bodyStart": 9941,
+        "end": 10008
+      },
+      {
+        "kind": "option",
+        "id": "option:room-ask",
+        "start": 10008,
+        "bodyStart": 10071,
+        "end": 10246
+      },
+      {
+        "kind": "option",
+        "id": "option:room-snoop",
+        "start": 10246,
+        "bodyStart": 10311,
+        "end": 10543
+      },
+      {
+        "kind": "option",
+        "id": "option:room-family",
+        "start": 10543,
+        "bodyStart": 10609,
+        "end": 10773
+      },
+      {
+        "kind": "option",
+        "id": "option:room-leave",
+        "start": 10773,
+        "bodyStart": 10838,
+        "end": 10947
+      },
+      {
+        "kind": "option",
+        "id": "option:room-other",
+        "start": 10947,
+        "bodyStart": 11012,
+        "end": 11064
+      },
+      {
+        "kind": "scene",
+        "id": "scene:ironveil-kitchen",
+        "start": 11064,
+        "bodyStart": 11133,
+        "end": 12534
+      },
+      {
+        "kind": "scene",
+        "id": "scene:ironveil-family-soap",
+        "start": 12534,
+        "bodyStart": 12607,
+        "end": 14618
+      },
+      {
+        "kind": "scene",
+        "id": "scene:house-small-discoveries",
+        "start": 14618,
+        "bodyStart": 14694,
+        "end": 16058
+      },
+      {
+        "kind": "scene",
+        "id": "scene:lysandra-alone-at-home",
+        "start": 16058,
+        "bodyStart": 16133,
+        "end": 17216
+      },
+      {
+        "kind": "scene",
+        "id": "scene:home-as-base",
+        "start": 17216,
+        "bodyStart": 17281,
+        "end": 18957
+      }
+    ]
+  }
+]
