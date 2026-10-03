@@ -77,14 +77,14 @@ function render(){
  if($('#roomSelect'))$('#roomSelect').onchange=e=>{state.block=+e.target.value;state.detail=0;save();render()};
  document.querySelectorAll('[data-detail]').forEach(b=>b.onclick=()=>{state.detail=+b.dataset.detail;save();render()});
  document.querySelectorAll('[data-option]').forEach(b=>b.onchange=()=>{b.checked?choices.add(b.dataset.option):choices.delete(b.dataset.option);state.actions[draftKey]=[...choices];save()});
- document.querySelectorAll('[data-other-note]').forEach(field=>field.oninput=()=>{state.otherNotes[draftKey]=field.value;const id=field.dataset.otherNote;if(field.value.trim())choices.add(id);else choices.delete(id);state.actions[draftKey]=[...choices];const checkbox=document.querySelector(`[data-option="${id}"]`);if(checkbox)checkbox.checked=choices.has(id);save()});
+ document.querySelectorAll('[data-other-note]').forEach(field=>field.oninput=()=>{const id=field.dataset.otherNote;state.otherNotes[draftKey+':'+id]=field.value;if(field.value.trim())choices.add(id);else choices.delete(id);state.actions[draftKey]=[...choices];const checkbox=document.querySelector(`[data-option="${id}"]`);if(checkbox)checkbox.checked=choices.has(id);save()});
  document.querySelectorAll('.log-direction').forEach(button=>button.onclick=()=>{
   const status=button.nextElementSibling;
   if(!choices.size){status.textContent='Check the actions the players took first.';return}
   const last=state.outcomes.filter(o=>o.document===state.doc&&o.scene===s.id).at(-1);
-  if(last&&last.choices.length===choices.size&&last.choices.every(id=>choices.has(id))&&(last.otherNote??'')===(state.otherNotes[draftKey]?.trim()??'')){status.textContent='These decisions are already logged.';return}
-  const labels=[...choices].map(id=>{const option=parsed.elements.find(e=>e.id===id);return text.slice(option.bodyStart,option.end).match(/- \*\*([^*]+)\*\*/)?.[1]??id});
-  const extra=state.otherNotes[draftKey]?.trim()??'';
+  if(last&&last.choices.length===choices.size&&last.choices.every(id=>choices.has(id))&&(last.otherNote??'')===([...choices].map(id=>state.otherNotes[draftKey+':'+id]?.trim()).filter(Boolean).join('; ')||state.otherNotes[draftKey]?.trim()||'')){status.textContent='These decisions are already logged.';return}
+  const labels=[...choices].map(id=>{const option=parsed.elements.find(e=>e.id===id);if(!option)return 'Something else.';return text.slice(option.bodyStart,option.end).match(/- \*\*([^*]+)\*\*/)?.[1]??id});
+  const extra=[...choices].map(id=>state.otherNotes[draftKey+':'+id]?.trim()).filter(Boolean).join('; ')||state.otherNotes[draftKey]?.trim()||'';
   state=recordOutcome(state,state.doc,s.id,[...choices],labels.join('; ')+(extra?' — '+extra:''));
   state.outcomes.at(-1).otherNote=extra;state.outcomes.at(-1).kind='player-direction';state.outcomes.at(-1).choiceLabels=labels;
   state.actions[draftKey]=[...choices];save();render();
@@ -109,7 +109,9 @@ function followups(outcome){
 function renderChoices(text,nested,s){
  for(const c of nested.filter(e=>e.kind==='choice')){
   const opts=nested.filter(e=>e.kind==='option'&&e.start>c.start&&e.start<(nested.find(x=>x.kind==='choice'&&x.start>c.start)?.start??s.end));
-  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary><span class="choice-callout">Choices <span class="choice-hint">Click to expand</span></span></summary><p class="choice-prompt">${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'What do they do?')}</p>${md(text.slice(c.bodyStart,c.end).replace(/^\s*### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^\s*- \*\*[^*]+\*\*[^\n]*(?:\n|$)/,'');return `<div class="option"><label><input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> ${esc(title)}</label>${/something (else|unexpected)/i.test(title)?`<label class="other-action">What did they do?<textarea data-other-note="${o.id}" placeholder="Describe the unexpected action…">${esc(state.otherNotes[state.doc+':'+s.id]??'')}</textarea></label>`:''}<details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}<button type="button" class="log-direction">Log player direction</button><span class="direction-status" role="status">${state.outcomes.some(o=>o.document===state.doc&&o.scene===s.id)?'Saved in Decision log · browser only':'Saved here in your browser; export from Files'}</span></details>`);
+  const other=opts.find(o=>/something (else|unexpected)|another objective/i.test(text.slice(o.bodyStart,o.end)));
+  if(!other)opts.push({id:c.id+':unexpected',bodyStart:0,end:0,unexpected:true});
+  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary><span class="choice-callout">Choices <span class="choice-hint">Click to expand</span></span></summary><p class="choice-prompt">${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'What do they do?')}</p>${md(text.slice(c.bodyStart,c.end).replace(/^\s*### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=o.unexpected?'Something else.':raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^\s*- \*\*[^*]+\*\*[^\n]*(?:\n|$)/,'');return `<div class="option"><label><input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> ${esc(title)}</label>${/something (else|unexpected)|another objective/i.test(title)?`<label class="other-action">What did they do?<textarea data-other-note="${o.id}" placeholder="Describe the unexpected action…">${esc(state.otherNotes[state.doc+':'+s.id+':'+o.id]??state.otherNotes[state.doc+':'+s.id]??'')}</textarea></label>`:''}<details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}<button type="button" class="log-direction">Log player direction</button><span class="direction-status" role="status">${state.outcomes.some(o=>o.document===state.doc&&o.scene===s.id)?'Saved in Decision log · browser only':'Saved here in your browser; export from Files'}</span></details>`);
  }
 }
 function showReference(id,label){
@@ -149,3 +151,11 @@ $('#create').onclick=()=>{
  }
  show();$('#editor').showModal();
 };render();
+state.playPad??={text:'',open:false};
+function showPlayPad(open){state.playPad.open=open;$('#playPad').hidden=!open;$('#togglePlayPad').setAttribute('aria-expanded',String(open));save();if(open)$('#playPadText').focus()}
+$('#playPadText').value=state.playPad.text;
+$('#playPadText').oninput=()=>{state.playPad.text=$('#playPadText').value;save();$('#playPadStatus').textContent='Saved in this browser'};
+$('#togglePlayPad').onclick=()=>showPlayPad(!state.playPad.open);
+$('#closePlayPad').onclick=()=>showPlayPad(false);
+$('#exportPlayPad').onclick=()=>download('play-notes.md',state.playPad.text,'text/markdown');
+showPlayPad(state.playPad.open);

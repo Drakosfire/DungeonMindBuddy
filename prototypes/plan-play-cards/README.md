@@ -41,3 +41,5 @@ Standalone static UI and small purpose-built Markdown renderer. It preserves the
 Choice checkboxes are available in both Plan and Play. Log player direction saves selected IDs, readable labels, scene and timestamp as a separate local outcome, exportable through Files → Export outcomes for future recap work. Existing activates/suppresses links flag future scenes in the outline without disabling navigation. Recorded order determines the latest explicit status; later activation restores relevance. This is a local prototype log, not an ingestion or Graph write.
 
 Logged selections stay checked on return. Something else accepts an unexpected-action note; typing selects that option, and Log player direction includes it in the saved record. Decision log is the optional history view of that same recording flow, not a second recording destination.
+
+The floating Notes button opens one resizable writing pad shared across all cards/documents. It saves on input in browser-local storage and exports Markdown independently. Every choice group supplies a Something else note field, using the existing source option when present or a local fallback when absent.
