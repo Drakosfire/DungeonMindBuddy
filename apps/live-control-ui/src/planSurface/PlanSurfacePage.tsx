@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Editor, JSONContent } from "@tiptap/core";
 import { EditorContent } from "@tiptap/react";
 
@@ -18,7 +18,8 @@ import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
 import { PlanSurfaceShell } from "./PlanSurfaceShell";
-import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
+import { markdownToTiptapDoc, type MarkdownImportDiagnostic } from "../tiptap/markdown/markdownToTiptap";
+import { semanticMarkdownSerializationDiagnostics } from "../tiptap/markdown/semanticMarkdownSafety";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { WorldPlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
@@ -39,6 +40,37 @@ import "../tiptap/prepMarkdownThemes.css";
 import "../tiptap/tiptapSpike.css";
 
 type LoadStatus = "loading" | "ready" | "error";
+
+function markdownFidelityWarnings(
+  importDiagnostics: readonly MarkdownImportDiagnostic[],
+  editorDocument: JSONContent,
+): string[] {
+  const importWarnings = importDiagnostics
+    .filter((diagnostic) => diagnostic.level === "warning")
+    .map((diagnostic) => `${diagnostic.line != null ? `Line ${diagnostic.line}: ` : ""}${diagnostic.message}`);
+  let serializationWarnings: string[];
+  try {
+    serializationWarnings = semanticMarkdownSerializationDiagnostics(editorDocument)
+      .map((diagnostic) => diagnostic.message);
+  } catch {
+    serializationWarnings = ["The editor could not verify this document's Markdown serialization safely."];
+  }
+  return [...new Set([...importWarnings, ...serializationWarnings])];
+}
+
+function markdownFidelityDetails(warnings: readonly string[]): string {
+  const details = warnings.slice(0, 4).map((warning) => `• ${warning}`).join(" ");
+  const remainder = warnings.length > 4 ? ` ${warnings.length - 4} more issue(s) are not shown.` : "";
+  return `${details}${remainder}`;
+}
+
+function markdownFidelityWarningText(warnings: readonly string[]): string {
+  return `This Plan contains Markdown the editor cannot safely preserve. Editing and Save are disabled to protect the saved text; the original and local recovery copy remain unchanged. Resolve these constructs in the source and reopen the Plan. ${markdownFidelityDetails(warnings)}`;
+}
+
+function markdownFidelityRejectionText(warnings: readonly string[]): string {
+  return `This edit was reverted to protect the saved Plan. The editor was restored from the last safe Markdown, and the saved text and local recovery copy are unchanged. ${markdownFidelityDetails(warnings)}`;
+}
 
 export function PlanSurfacePage() {
   const selectedWorld = useSelectedWorld();
@@ -278,7 +310,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [editorGeneration, setEditorGeneration] = useState(0);
   const [selectionGeneration, setSelectionGeneration] = useState(0);
   const [editor, setEditor] = useState<Editor | null>(null);
-  const editorContent = useMemo(() => markdownToTiptapDoc(markdown).doc, [markdown]);
+  const importedMarkdown = useMemo(() => markdownToTiptapDoc(markdown), [markdown]);
+  const editorContent = importedMarkdown.doc;
+  const fidelityWarnings = useMemo(
+    () => markdownFidelityWarnings(importedMarkdown.diagnostics, editorContent),
+    [importedMarkdown, editorContent],
+  );
+  const fidelityBlocked = fidelityWarnings.length > 0;
   const [status, setStatus] = useState<LoadStatus>("loading");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -302,6 +340,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const serverTitleRef = useRef("");
   const serverMarkdownRef = useRef("");
   const editorRef = useRef<Editor | null>(null);
+  const getLiveFidelityWarnings = useCallback((editorDocument?: JSONContent) => {
+    const currentMarkdown = markdownRef.current;
+    const currentImport = currentMarkdown === markdown
+      ? importedMarkdown
+      : markdownToTiptapDoc(currentMarkdown);
+    return markdownFidelityWarnings(
+      currentImport.diagnostics,
+      editorDocument ?? editorRef.current?.getJSON() ?? currentImport.doc,
+    );
+  }, [importedMarkdown, markdown]);
   const workObject = useMemo(() => worldPlanWorkObject({ worldId, documentId, localDraftId }), [worldId, documentId, localDraftId]);
   const surfaceIdentity = useMemo(() => buildWorldPlanSurfaceIdentity({ worldId, documentId, localDraftId }), [worldId, documentId, localDraftId]);
   const activePublication = useMemo<SurfaceInteractionPublication | null>(() => status === "ready" ? {
@@ -387,6 +435,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       && !createUncertain
       && !recoveryConflict
       && pendingWriteRef.current === null
+      && getLiveFidelityWarnings(editorRef.current?.getJSON()).length === 0
     ),
   });
   const worldPlanEditBridge = useMemo<WorldPlanEditBridge>(() => ({
@@ -410,9 +459,14 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       onClick: () => {
         const active = editorRef.current;
         if (!active || !isCurrentEditTarget() || disabled) return;
+        const fidelityIssues = getLiveFidelityWarnings(active.getJSON());
+        if (fidelityIssues.length) {
+          setError(markdownFidelityWarningText(fidelityIssues));
+          return;
+        }
         invoke(active);
       },
-      disabled: !editor || status !== "ready" || saving || disabled,
+      disabled: !editor || status !== "ready" || saving || fidelityBlocked || disabled,
     });
     return {
       sections: [
@@ -438,7 +492,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         },
       ],
     };
-  }, [editor, isCurrentEditTarget, saving, status]);
+  }, [editor, fidelityBlocked, getLiveFidelityWarnings, isCurrentEditTarget, saving, status]);
 
   useEffect(() => {
     let cancelled = false;
@@ -625,6 +679,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   };
 
   const save = async () => {
+    const fidelityIssues = getLiveFidelityWarnings(editorRef.current?.getJSON());
+    if (fidelityIssues.length) {
+      if (!fidelityBlocked) setError(markdownFidelityWarningText(fidelityIssues));
+      return;
+    }
     if (savingRef.current || createUncertain || recoveryConflict
       || (uncertainCreateDraftRef.current && !documentIdRef.current)
       || !markdownRef.current.trim()) return;
@@ -1114,7 +1173,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   persistEditorDraftRef.current = persistEditorDraft;
   const documentActions = useMemo(() => ({
     onTitleChange: (next: string) => {
-      if (!isCurrentEditTarget(true)) return;
+      if (!isCurrentEditTarget(true) || getLiveFidelityWarnings(editorRef.current?.getJSON()).length > 0) return;
       titleRef.current = next;
       const generation = ++editGenerationRef.current;
       setTitle(next);
@@ -1123,7 +1182,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     onSave: () => {
       if (isCurrentEditTarget()) void saveRef.current();
     },
-  }), [isCurrentEditTarget]);
+  }), [getLiveFidelityWarnings, isCurrentEditTarget]);
   const editorToolsGeneration = useMemo(() => status === "ready" ? toAppChromeToolsGeneration({
     sections: [
       {
@@ -1134,16 +1193,16 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           id: "world-plan-save",
           label: saving ? "Saving…" : "Save Plan",
           onClick: documentActions.onSave,
-          disabled: saving || createUncertain || recoveryConflict
+          disabled: saving || fidelityBlocked || createUncertain || recoveryConflict
             || Boolean(uncertainCreateDraft && !documentId) || !markdown.trim(),
         }],
         panel: <label className="world-plan-edit-panel">Plan title
-          <input value={title} onChange={(event) => documentActions.onTitleChange(event.target.value)} />
+          <input value={title} disabled={fidelityBlocked} onChange={(event) => documentActions.onTitleChange(event.target.value)} />
         </label>,
       },
       ...(toolbarModel.sections ?? []),
     ],
-  }, workObject) : null, [status, saving, createUncertain, recoveryConflict, uncertainCreateDraft,
+  }, workObject) : null, [status, saving, fidelityBlocked, createUncertain, recoveryConflict, uncertainCreateDraft,
     documentId, markdown, title, documentActions, toolbarModel, workObject]);
 
   return (
@@ -1186,6 +1245,12 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <button type="button" onClick={useServerVersion}>Use saved Plan version</button>
           </section>
         ) : null}
+        {fidelityWarnings.length ? (
+          <section role="alert" aria-label="Markdown preservation warning">
+            <p>This Plan contains Markdown the editor cannot safely preserve. Editing and Save are disabled to protect the saved text; the original and local recovery copy remain unchanged. Resolve these constructs in the source and reopen the Plan.</p>
+            <ul>{fidelityWarnings.map((warning, index) => <li key={`${index}:${warning}`}>{warning}</li>)}</ul>
+          </section>
+        ) : null}
         <PlanSurfaceCanvasFrame
           className="world-owned-plan__canvas"
           testId="world-owned-plan-editor"
@@ -1195,18 +1260,34 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           <MarkdownEditorCore
             content={editorContent}
             documentKey={editorIdentity}
-            editable={status === "ready"}
+            editable={status === "ready" && !fidelityBlocked}
             extensions={[SemanticMarkdownPaste]}
             onEditorChange={setCurrentEditor}
             dataTestId="world-owned-plan-markdown-editor"
             onUpdate={(json: JSONContent, updatedEditor: Editor, meta) => {
               if (!meta.programmatic && !switchingDocumentRef.current && status === "ready" && updatedEditor === editorRef.current) {
+                const currentFidelityIssues = getLiveFidelityWarnings(json);
+                if (currentFidelityIssues.length) {
+                  if (!fidelityBlocked) {
+                    setError(markdownFidelityRejectionText(currentFidelityIssues));
+                  }
+                  setEditorGeneration((value) => value + 1);
+                  return;
+                }
                 const next = defaultMarkdownDocumentAdapter.exportMarkdown(json);
+                const nextImport = markdownToTiptapDoc(next);
+                const nextFidelityIssues = markdownFidelityWarnings(nextImport.diagnostics, json);
+                if (nextFidelityIssues.length) {
+                  setError(markdownFidelityRejectionText(nextFidelityIssues));
+                  setEditorGeneration((value) => value + 1);
+                  return;
+                }
                 if (next === markdownRef.current) return;
                 markdownRef.current = next;
                 const generation = ++editGenerationRef.current;
                 setMarkdown(next);
                 persistEditorDraft(titleRef.current, next, generation);
+                setError(null);
               }
             }}
           >

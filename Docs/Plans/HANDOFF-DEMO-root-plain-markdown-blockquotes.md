@@ -1,11 +1,20 @@
 # DEMO handoff — root plain Markdown blockquotes
 
-- **Status:** ACTIVE — PRIME-authorized, bounded grammar slice
+- **Status:** MERGED — Buddy PR #888; parser lease closed on 2026-10-03
 - **Owner:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
 - **Authority:** PRIME activation on 2026-10-03; this handoff records the exact implementation lease
 - **Repository/base:** `Drakosfire/DungeonMindBuddy`, `origin/main@1ded2275349f4e9ada1b67a6ab4f6061f9c2465e`
 - **Branch:** `codex/demo-root-markdown-blockquotes`
 - **Topology:** One independent grammar PR; no unmerged behavioral dependency on #886 or another open PR
+
+## Merge settlement
+
+PR #888 merged at `ea331ffee4e7f6b8603dcc8d2d2b18d4827f88cd` from reviewed code
+head `0aa89e758bbe62014c23c20d112f7bad430aa118`. The parser lease is closed.
+PRIME independently reported all 235 focused importer, serializer, safety, and
+ingress-corpus tests passing. This closes only root plain-blockquote support;
+unsupported Markdown still requires the separate World Plan Save guard in
+[`HANDOFF-DEMO-world-plan-save-fidelity-guard.md`](HANDOFF-DEMO-world-plan-save-fidelity-guard.md).
 
 ## User-facing outcome
 
