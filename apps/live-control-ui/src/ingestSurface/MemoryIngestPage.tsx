@@ -15,6 +15,37 @@ type LoadStatus = "loading" | "ready" | "error";
 
 export function MemoryIngestPage() {
   const selectedWorld = useSelectedWorld();
+  const selectionError = selectedWorld.kind === "error" ? selectedWorld.message : null;
+  const blockedContext = useMemo(() => selectedWorld.kind === "managed" ? null : {
+    surfaceId: "ingest",
+    label: "Memory Ingest",
+    campaignId: null,
+    documentId: null,
+    sessionNumber: null,
+    ambientSummary: selectedWorld.kind === "loading"
+      ? "Loading World selection…"
+      : selectedWorld.kind === "error" ? selectedWorld.message : "Select a World to use Ingest.",
+    sourceEnvelope: null,
+  }, [selectedWorld.kind, selectionError]);
+  usePublishAgentSurfaceContext(blockedContext);
+  if (selectedWorld.kind === "managed") return <SelectedWorldMemoryIngestPage key={selectedWorld.worldId} />;
+  return (
+    <AppChrome activeRoute="ingest">
+      <main className={`app-status${selectedWorld.kind === "loading" ? "" : " app-error"}`}>
+        <h1>Memory Ingest</h1>
+        {selectedWorld.kind === "loading" ? <p role="status">Loading World selection…</p> : (
+          <div role="alert">
+            <p>{selectedWorld.kind === "error" ? selectedWorld.message : "No World selected."}</p>
+            <p>Select a World using the World picker in the navigation to continue.</p>
+          </div>
+        )}
+      </main>
+    </AppChrome>
+  );
+}
+
+function SelectedWorldMemoryIngestPage() {
+  const selectedWorld = useSelectedWorld();
   const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
   const catalog = useIngestRunCatalogInformation();
   const [status, setStatus] = useState<LoadStatus>("loading");

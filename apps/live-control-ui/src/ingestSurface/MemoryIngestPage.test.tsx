@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { getExtractionRun, getPlanView } from "../api/liveApi";
+import type { SelectedWorldState } from "../selectedWorld/SelectedWorldContext";
 import { mockPlanView } from "../test/fixtures";
 import { MemoryIngestPage } from "./MemoryIngestPage";
 
@@ -10,9 +11,8 @@ vi.mock("../api/liveApi", async (importOriginal) => ({
   getPlanView: vi.fn(),
   getExtractionRun: vi.fn(),
 }));
-vi.mock("../selectedWorld/SelectedWorldContext", () => ({
-  useSelectedWorld: () => ({ kind: "managed", worldId: "world-b", name: "World B", documentId: null }),
-}));
+const selection = vi.hoisted(() => ({ current: { kind: "managed", worldId: "world-b", name: "World B", documentId: null } as SelectedWorldState }));
+vi.mock("../selectedWorld/SelectedWorldContext", () => ({ useSelectedWorld: () => selection.current }));
 vi.mock("../agentInteraction/usePublishAgentSurfaceContext", () => ({ usePublishAgentSurfaceContext: () => undefined }));
 vi.mock("../chrome/AppChrome", () => ({ AppChrome: ({ children }: { children: React.ReactNode }) => <div>{children}</div> }));
 vi.mock("./useIngestRunCatalogInformation", () => ({
@@ -32,8 +32,34 @@ const planView = {
 describe("managed-World Ingest boundary", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    selection.current = { kind: "managed", worldId: "world-b", name: "World B", documentId: null };
     vi.mocked(getPlanView).mockResolvedValue(planView);
     window.history.replaceState({}, "", "/ingest?world=world-b");
+  });
+
+  it("requires a World before any legacy or exact-run reads", async () => {
+    selection.current = { kind: "legacy" };
+    window.history.replaceState({}, "", "/ingest?campaign=longmont-c2&session=session-22");
+    render(<MemoryIngestPage />);
+    expect(screen.getByRole("alert")).toHaveTextContent("No World selected.");
+    expect(screen.getByRole("alert")).toHaveTextContent("World picker");
+    expect(getPlanView).not.toHaveBeenCalled();
+    expect(getExtractionRun).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+  });
+
+  it("waits for World verification without reading legacy context", () => {
+    selection.current = { kind: "loading", requestedWorldId: "world-b" };
+    render(<MemoryIngestPage />);
+    expect(screen.getByRole("status")).toHaveTextContent("Loading World selection");
+    expect(getPlanView).not.toHaveBeenCalled();
+  });
+
+  it("shows a failed World selection without reading legacy context", () => {
+    selection.current = { kind: "error", message: "Unknown managed World: world-b" };
+    render(<MemoryIngestPage />);
+    expect(screen.getByRole("alert")).toHaveTextContent("Unknown managed World");
+    expect(getPlanView).not.toHaveBeenCalled();
   });
 
   it("does not mount the C1/C2 recap browser on a bare managed landing", async () => {

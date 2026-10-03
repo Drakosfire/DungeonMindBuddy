@@ -217,6 +217,11 @@ export function AppChromeWorldGraphStatus() {
         title="World Graph"
         align="end"
       >
+        {selectedWorld.kind === "managed" && presentation.tone === "error" && projection?.projectionError?.trim() ? (
+          <p className="app-world-graph-status__detail" role="alert">
+            {projection.projectionError.trim()}
+          </p>
+        ) : null}
         {projection && lens ? (
           <>
             <p className="app-world-graph-status__detail" data-testid="app-world-graph-node-count">
