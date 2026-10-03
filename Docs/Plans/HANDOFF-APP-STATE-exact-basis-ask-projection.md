@@ -4,10 +4,13 @@
 and an exact write lease are required. No implementation, provider, database,
 or runtime lease is active.
 
-**Owner:** APP-STATE  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Preparation base:** `main@d5de2072f90c27b031f9f55157504915f98a189f`
-(`#897` merged).  
+**Owner:** APP-STATE
+
+**Repository:** `Drakosfire/DungeonMindBuddy`
+
+**Preparation base:** `main@d5de2072f90c27b031f9f55157504915f98a189f` (`#897`
+merged).
+
 **Topology:** one serial APP-STATE source-projection PR after the merged
 AGENT-INTERACTION runtime code (#865) and Plan action projection (#897), before
 the separate DEMO Plan conversation consumer. PRIME owns activation, path
