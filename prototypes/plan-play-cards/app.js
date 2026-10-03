@@ -1,6 +1,7 @@
 import {parse,validate,editCard,recordOutcome,sceneBlocks,rooms,roomBlocks,createScene,directionEffects} from './model.js?v=direction-log-1';
 const fixtures=await (await fetch('./content.json')).json();
 const verifiedRefs=[...new Map(fixtures.flatMap(f=>[...f.markdown.matchAll(/\[([^\]]+)\]\(dmb-node:([^)]+)\)/g)].map(m=>[m[2],{id:m[2],label:m[1]}]))).values()];
+const sceneFlavor=await (await fetch('./scene-flavor.json')).json();
 const storage='dmb-plan-play-cards-v1';
 const $=s=>document.querySelector(s);
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -57,6 +58,11 @@ function render(){
   const leadingLabel=displayText.match(/^\*\*([^*]+)\*\*\s*\n/);
   if(leadingLabel&&leadingLabel[1]===selected.title)displayText=displayText.slice(leadingLabel[0].length);
   $('#content').innerHTML=`<div class="block-tabs">${isHouseMap?`<button data-block="0">Room map</button><select id="roomSelect" aria-label="House space">${items.map((b,i)=>`<option value="${i}" ${i===slot?'selected':''}>${esc(b.title)}</option>`).join('')}</select>`:items.map((b,i)=>`<button data-block="${i}" class="${i===slot?'active':''}">${esc(b.title)}</button>`).join('')}</div>${roomParts&&roomParts.length>1?`<div class="room-tabs">${roomParts.map((b,i)=>`<button data-detail="${i}" class="${i===detailSlot?'active':''}">${esc(b.title)}</button>`).join('')}</div>`:''}<section class="focused-block">${md(displayText)}</section>`;
+  if(selected.title==='Situation'||(isHouseMap&&slot===0)){
+   const readAloud=blocks.find(b=>b.title==='Read aloud')?.text.match(/^>.*$/gm)?.map(l=>l.replace(/^> ?/,'')).join('\n').trim();
+   const flavor=sceneFlavor[s.id]??readAloud;
+   if(flavor)$('#content .focused-block').insertAdjacentHTML('beforeend',`<section class="scene-flavor"><h3>At the table</h3>${md(flavor)}${sceneFlavor[s.id]?'<small>Preparation flavor · use or adapt</small>':''}</section>`);
+  }
   if(isHouseMap&&slot===0)$('#content').insertAdjacentHTML('beforeend',`<section class="room-map"><h3>Ground floor</h3><div>${items.slice(1,6).map((b,i)=>`<button data-block="${i+1}">${esc(b.title)}</button>`).join('')}</div><h3>Upper floor</h3><div>${items.slice(6).map((b,i)=>`<button data-block="${i+6}">${esc(b.title)}</button>`).join('')}</div><p class="map-note">Source-described spaces by floor. Positions imply no physical adjacency. Residence remains unresolved.</p></section>`);
   if(state.doc===1&&s.id==='scene:ironveil-house-map'&&[2,9].includes(slot))$('#content').insertAdjacentHTML('beforeend',`<button data-scene="${slot===2?'scene:ironveil-kitchen':'scene:lysandra-alone-at-home'}">Related interaction: ${slot===2?'Kitchen Table':'Lysandra alone'} →</button>`);
   const location=body.match(/^Location:\s*(.+)$/m)?.[1];

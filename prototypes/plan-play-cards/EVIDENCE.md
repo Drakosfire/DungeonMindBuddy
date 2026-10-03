@@ -79,3 +79,7 @@ Added a reversible Complete checkbox to the scene toolbar. Browser verified open
 ## Full session backup
 
 Added Files → Back up full session. Browser downloaded the operator snapshot into Downloads; file validation confirmed format and drafts/outcomes/actions/completedScenes/playPad/otherNotes keys. Private backup contents are not committed. Restore-file UI is not yet implemented.
+
+## Sensory situation prose
+
+Situation cards now include an At the table passage using existing quoted read-aloud text. Added preparation flavor for nine scenes without read-aloud passages in scene-flavor.json; source fixtures and operator drafts remain unchanged. Browser verified both clinic source prose and newly authored claim-hours prose. Screenshot: evidence/sensory-situation.png.

@@ -19,3 +19,5 @@ aside{grid-column:1}main{grid-column:2}#journal{grid-column:3}
 .node-tabs{flex-wrap:wrap;margin-bottom:18px}.node-tabs button{font-size:12px}.node-tabs .active{background:#496257}#nodeBody{font-size:15px;line-height:1.55}#nodeBody li{margin:8px 0}#nodeBody h3{font-size:17px}.coverage-note{color:#b8caca;font-size:13px}#nodeBody .table-row{display:flex;gap:16px}
 
 .scene-complete .scene-title{text-decoration:line-through;color:#9eada8}.scene-completion{display:flex;align-items:center;gap:5px;font-size:12px;white-space:nowrap}.scene-completion input{width:auto;margin:0;accent-color:#799a80}
+
+.scene-flavor{margin-top:18px;padding:14px 18px;background:#e5dac2;border-left:3px solid #9c835b;border-radius:0 7px 7px 0}.scene-flavor h3{font:600 13px system-ui;margin:0 0 10px;text-transform:uppercase;letter-spacing:.05em}.scene-flavor small{letter-spacing:0;color:#75664c;font-size:10px}.scene-flavor p{font-family:Georgia,serif;line-height:1.5}
