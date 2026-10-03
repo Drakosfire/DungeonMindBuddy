@@ -22,6 +22,11 @@ vi.mock("../planSurface/graphReviewWorkbench/GraphReviewWorkbenchModule", () => 
   GraphReviewWorkbenchModule: () => <div data-testid="exact-graph-review" />,
 }));
 
+vi.mock("../modules/IngestionModule", () => ({
+  IngestionModule: ({ campaignId, session }: { campaignId: string; session: number }) =>
+    <div data-testid="recap-workbench">{campaignId} · {session}</div>,
+}));
+
 const planView = {
   ...mockPlanView,
   campaign_id: "world-b",
@@ -66,6 +71,15 @@ describe("managed-World Ingest boundary", () => {
     render(<MemoryIngestPage />);
     expect(await screen.findByText("No exact extraction run is selected for this World.")).toBeInTheDocument();
     expect(getPlanView).toHaveBeenCalledWith("world-b");
+    expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
+  });
+
+  it.each(["", "&campaign=longmont-c2", "&campaign=longmont-c1"])("restores the Elderwyld recap entry with campaign URL %s", async (query) => {
+    selection.current = { kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null };
+    vi.mocked(getPlanView).mockResolvedValue({ ...planView, world_id: "elderwyld", campaign_id: "elderwyld" });
+    window.history.replaceState({}, "", `/ingest?world=elderwyld${query}`);
+    render(<MemoryIngestPage />);
+    expect(await screen.findByTestId("recap-workbench")).toHaveTextContent("longmont-c2 · 29");
     expect(screen.queryByTestId("exact-graph-review")).not.toBeInTheDocument();
   });
 
