@@ -33,29 +33,33 @@ A saved Plan in a verified managed World displays and continues the server-owned
 
 The client consumes these existing routes and their currently accepted wire contracts:
 
-- GET /api/live/worlds/{world_id}/conversation
-- POST /api/live/worlds/{world_id}/conversation/new
+- GET /api/live/agent/worlds/{world_id}/conversation
+- POST /api/live/agent/worlds/{world_id}/conversation/new
 - POST /api/live/agent/turn
 
-At activation, read the exact current route schemas and reuse them. Do not invent a second conversation API or derive server authority from a browser key. The server-issued conversation ID and durable turn receipt remain canonical. The accepted Plan Ask contract continues to resolve the verified World, saved Plan, committed WorkRevision, and exact content digest on the server; mounted draft bytes stay excluded and Graph remains not requested.
+The first two paths include the existing Agent router prefix. At activation, read the exact current route schemas and reuse them. Do not invent a second conversation API or derive server authority from a browser key. The server-issued conversation ID and durable turn receipt remain canonical. The accepted Plan Ask contract continues to resolve the verified World, saved Plan, committed WorkRevision, and exact content digest on the server; mounted draft bytes stay excluded and Graph remains not requested.
 
 ### Canonical history and New Conversation
 
-- On entry to a verified World Plan, load the visible World transcript from the server. Render its accepted surface and work provenance; do not flatten turns from another surface into Plan-owned turns.
-- Fence late history reads against the current World/Plan scope. A response from an old route cannot populate the newly selected World.
-- New Conversation sends the existing expected pointer revision, expected active conversation identity, and durable command ID required by the server CAS contract. Persist and replay the exact command envelope after an uncertain transport result. Do not silently mint a replacement command ID. On a pointer conflict, retain the visible current state, fetch the current server state, and require a deliberate new command.
+- On entry to a verified World Plan, load the latest bounded visible World transcript page from the server. Render its accepted surface and work provenance; do not flatten turns from another surface into Plan-owned turns.
+- Use the existing limit, before_sequence, and next_before_sequence paging fields. Clearly identify that only the latest page is loaded and offer an Older turns action when next_before_sequence is present. Older-page reads use that cursor. Merge by server sequence and deduplicate by durable server turn identity. Do not claim the page is the full transcript while older turns remain.
+- Fence each history-page response against the current World, active server conversation pointer/revision, and mounted request generation. A pointer change while an older page is loading discards that stale page. Switching Plans within the same World does not relabel World-wide history as Plan-owned.
+- New Conversation sends the existing expected pointer revision, expected active conversation identity, and durable command ID required by the server CAS contract. Persist and replay the exact command envelope after an uncertain transport result. Do not silently mint a replacement command ID. On a pointer conflict, retain visible current state, fetch the current server state, and require a deliberate new command.
 - A confirmed new conversation hydrates from the server response or a fresh server history read. It does not create a parallel browser conversation or clear unrelated pending envelopes.
 
 ### Ask and durable uncertain retry
 
 - Resolve the current committed Plan basis using the existing server read before preparing a turn.
-- Persist the exact normalized WorldPlanAgentTurnRequestV1 envelope before dispatch, including its original client_thread_id, turn_id, World, Plan, full expected committed basis, message, graph_request=none, and graph_selection=null.
-- Key pending envelopes by verified World, Plan document, the full basis tuple (object revision, WorkRevision ID, revision number, content digest), and the original turn identity. Keep distinct envelopes for other Worlds, Plans, bases, or turns. Store any server-issued origin conversation/pointer ID as metadata; never treat a client thread ID as canonical conversation identity.
-- After an uncertain result or reload, show an explicit recovery action and replay the exact stored request. Do not automatically create a fresh turn ID, client thread ID, or changed intent. A deliberate new user question gets a new durable turn identity.
+- Persist the exact normalized wire request plus its separate local origin metadata before dispatch. The current WorldPlanAgentTurnRequestV1 wire body keeps its accepted fields: client_thread_id, turn_id, surface, owner_scope, primary_work (object_id, expected_revision, expected_revision_n, expected_content_sha256), client_work_state, graph_request=none, graph_selection=null, and message. Do not add a WorkRevision UUID or other field to the public request. Store the server-read WorkRevision ID and full basis tuple (World, document, object revision, WorkRevision ID, revision number, content digest) only as local origin metadata.
+- Key pending envelopes by verified World, Plan document, full local basis tuple, and original durable turn identity. Keep distinct envelopes for other Worlds, Plans, bases, or turns. Store any server-issued origin conversation/pointer ID as metadata; never treat a client thread ID as canonical conversation identity.
+- If exact request persistence fails or browser storage is unavailable, show an actionable error and do not dispatch the turn. A malformed pending envelope is not repaired by minting a new request.
+- After an uncertain result or reload, show an explicit recovery action and replay the exact stored wire request. Do not automatically create a fresh turn ID, client thread ID, or changed intent. A deliberate new user question gets a new durable turn identity.
 - Reconcile a confirmed result under its originating conversation only. Navigation, basis advance, or New Conversation cannot overwrite the pending envelope or place an old receipt in the newly active conversation. If the accepted server contract cannot retrieve or resolve an old pending receipt after a pointer change, stop and return the contract gap to PRIME; do not expand the Buddy client lease into server changes.
 - Remove a pending envelope only after the durable server receipt/result is confirmed. An unavailable history service or ambiguous result has an actionable pending/error state; it never falls back to browser transcript as canonical history.
 
-This envelope is local transport-recovery state, not a second conversation store: it contains only the exact outbound request and origin key, is not rendered as a completed transcript, and is not sent as extra context.
+This envelope is local transport-recovery state, not a second conversation store: it contains only the exact outbound request and separate origin key, is not rendered as a completed transcript, and is not sent as extra context.
+
+The existing Plan action request remains an independent durable operation. Empty history applies only when preparing a new Slice A proposal. If a proposal request is already in flight, preserve its captured request body, original idempotency key, and retry intent across conversation changes. Do not rewrite that submitted request or automatically redispatch it.
 
 ### Legacy browser history
 
@@ -88,13 +92,14 @@ Proposed exclusive source write set:
 Proposed documentation write set for the implementation PR:
 
 - Docs/Plans/HANDOFF-DEMO-plan-world-conversation-cutover.md — sync this handoff to the authorized ACTIVE lease, actual merged predecessor facts, exact implementation evidence, and actual current status. Never pre-mark Slice A complete or invent a merge SHA.
-- Docs/Roadmaps/ROADMAP-demo.md — record the already-merged #865, #897, and #898 predecessor facts in the consuming implementation PR, and later record only actual Slice A status/evidence. This path is currently in open PR #869's changed-file set. Do not edit or claim it until #869 settles and the file lease is clear; re-anchor and recheck all PRs before activation. If that collision remains, PRIME must explicitly transfer/serialize the path before an ACTIVE lease is issued.
+
+Docs/Roadmaps/ROADMAP-demo.md is not in the Slice A write set. Its predecessor/status truth-sync is deferred to a separately cleared path lease after the current #869 roadmap edit settles. That unrelated documentation collision does not block the client capability.
 
 No other paths are included. In particular, do not edit routes/agent.py, APP-STATE storage/projection code, Plan action service code, migrations, shared Agent providers, PlanSurfacePage.tsx or its tests, AppChrome, shared CSS, or any path owned by another lane. If source inspection shows the exact client implementation needs an unlisted path or an owner contract change, stop before editing and return to PRIME for a transfer or split.
 
 ### Current collision check
 
-Re-anchored to Buddy main at 402390ca051553a09e844ea57ddf8be3f6217fef. Current open PR filenames were checked against this proposed set. PR #886 touches PlanSurfacePage/AppChrome/shell paths but none of the proposed source paths. PR #887 is isolated to the DOGFOOD prototype/evidence and none of the proposed source paths. PR #869 also edits ROADMAP-demo.md and is an explicit documentation-path collision. Other currently listed open PRs have no overlap with the proposed source paths or handoff path. Recheck before activation; this is not a permanent lease clearance.
+Re-anchored to Buddy main at 402390ca051553a09e844ea57ddf8be3f6217fef. Current open PR filenames were checked against the proposed source and handoff paths. PR #886 touches PlanSurfacePage/AppChrome/shell paths but none of the proposed source paths. PR #887 is isolated to the DOGFOOD prototype/evidence and none of the proposed source paths. PR #869 edits ROADMAP-demo.md, which is explicitly excluded from this implementation write set; it does not block Slice A. Other currently listed open PRs have no overlap with the proposed source paths or handoff path. Recheck all paths and leases before activation; this is not permanent clearance.
 
 ## Verification and acceptance plan
 
@@ -103,22 +108,22 @@ The implementation owning boundary is the Plan UI consumer of the existing serve
 Required focused evidence for the implementation PR:
 
 - Run apps/live-control-ui/src/api/liveApi.worldConversation.test.ts and apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx with the repository Vitest runner.
+- Prove the wrappers call the exact /api/live/agent/worlds/{world_id}/conversation and /api/live/agent/worlds/{world_id}/conversation/new routes with the accepted limit/before_sequence and CAS command fields.
+- Prove the latest page is clearly identified, older-page retrieval uses next_before_sequence, turns remain in server order without duplicates, and a pointer change during paging fences the stale response.
 - Prove server history is the sole source of canonical visible turns after reload/remount; each turn retains historical provenance.
 - Prove New Conversation uses the current server pointer/CAS command and hydrates server state. An uncertain command retry reuses the same command identity and expected pointer snapshot.
+- Prove Ask pending-envelope persistence precedes dispatch and reload recovery sends byte-for-byte equivalent normalized wire intent, client_thread_id, turn_id, and accepted committed-basis fields. Verify the WorkRevision UUID stays in local origin metadata and is not added to the request body. A changed intent cannot reuse the old key.
+- Simulate unavailable or throwing local recovery storage and prove no Ask dispatch occurs.
 - Prove World A → World B → World A, Plan/basis changes, and deferred responses cannot cross the visible active conversation. A completed old receipt is reconciled only to its origin.
-- Prove Ask pending-envelope persistence precedes dispatch and reload recovery sends byte-for-byte equivalent normalized intent, client_thread_id, turn_id, and committed basis. A changed intent cannot reuse the old key.
 - Prove history/API failure does not show local history as canonical or dispatch a local-history fallback.
-- Prove pre-existing local bytes are unchanged, explicitly labelled local-only and exportable; neither Ask nor proposal requests contain legacy rows. Prove every Slice A proposal request has empty conversation_history while Review/Apply/Save behavior remains.
+- Prove pre-existing local bytes are unchanged, explicitly labelled local-only and exportable; neither Ask nor proposal requests contain legacy rows. Prove every newly prepared Slice A proposal request has empty conversation_history while Review/Apply/Save behavior remains.
+- Hold an existing PlanAction request across a conversation change. Prove its captured body and idempotency key are unchanged, no automatic second dispatch occurs, and the existing same-key uncertain retry reuses the original request.
 - Run targeted TypeScript validation and cumulative base-to-head diff checks. Report the known inherited full-app TS2503 error at ThreatPublicationPanel.tsx:553 if it remains; do not modify outside the lease to clear it.
 - Report test commands, exact base/head, all failures and whether they are inherited. Do not describe mocked client tests as a live backend or configured-provider witness.
 
 ## Runtime, database, and provider resources
 
-No runtime resource is leased by this design. Focused Vitest tests should use deterministic API fakes and must not start services.
-
-If PRIME requires a real-route consumer witness before implementation acceptance, PRIME must first pin a disposable Application State PostgreSQL fixture, unique port, exact migrations/source revision, Buddy API/UI ports, process owner/PIDs, and teardown procedure. Do not use persistent ports 54330 or 54331. Do not assume PR #898's prior fixture port 55459 remains free. Do not start, stop, migrate, or repoint any shared service without that exact resource pin.
-
-No provider call is needed for the focused UI/transport witness. If a later acceptance gate requires a configured-provider Plan turn, use the established DEMO provider/model budget and record the exact model/runtime evidence; do not substitute a different provider or make an open-ended commitment.
+No runtime resource is leased or required for the Slice A acceptance plan. Focused wrapper and mounted consumer tests use deterministic API fakes and do not start services, databases, or providers. The already accepted server-owned storage/runtime tests remain the evidence for server persistence/idempotency behavior. This client slice does not claim a live backend, configured-provider witness, or product acceptance. Do not use persistent ports 54330 or 54331 or start/stop/repoint any shared service. Configured-provider and full live-demo acceptance remain separate DEMO gates after Slice A.
 
 ## Failure cases Slice A must preserve
 
@@ -138,9 +143,9 @@ No provider call is needed for the focused UI/transport witness. If a later acce
 PRIME owns activation, review, and merge coordination. Before assigning the Slice A ACTIVE lease, PRIME must:
 
 1. Independently review and accept this exact bounded design head, including the Slice A temporary empty proposal-history behavior and the legacy preservation/export boundary.
-2. Re-anchor the newest Buddy main, inspect current open PRs and all active leases, and pin the exact implementation base/head topology. The current #869 ROADMAP overlap must be cleared or explicitly transferred before including ROADMAP-demo.md in the exclusive write set.
-3. Confirm the exact source allowlist above, with the conditional roadmap path handled explicitly, and confirm no server/APP-STATE owner path is needed. If an existing route cannot provide required recovery behavior, return the contract gap to the owning steward instead of expanding this lease.
-4. Pin test/runtime resource owners and unique isolated ports if any real-route witness is required. Otherwise confirm the deterministic API-fake test plan and that no shared service will be started.
+2. Re-anchor the newest Buddy main, inspect current open PRs and all active leases, and pin the exact implementation base/head topology. The implementation write set excludes ROADMAP-demo.md; route any later roadmap truth-sync through its own cleared path lease.
+3. Confirm the exact source allowlist above and that no server/APP-STATE owner path is needed. If an existing route cannot provide required recovery behavior, return the contract gap to the owning steward instead of expanding this lease.
+4. Confirm the deterministic API-fake test plan and that no shared service, database, or provider is required or will be started for Slice A acceptance.
 5. Issue one serial ACTIVE lease with verification evidence, required PR topology, and any exact provider/database/runtime pins. Until that explicit lease exists, this handoff remains BLOCKED and implementation must not start.
 
 The existing main source/design remains useful history if this amendment is superseded. Slice B is not dispatched by Slice A completion; PRIME must re-anchor and grant its own later lease.
