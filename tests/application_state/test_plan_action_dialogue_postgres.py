@@ -46,11 +46,17 @@ def _reservation(
     )
 
 
-def _expire(dsn: str, action_id: UUID) -> None:
+def _expire(dsn: str, action_id: UUID, *, stale_updated_at: bool = False) -> None:
     with psycopg.connect(dsn) as conn:
         conn.execute(
-            "UPDATE plan_action.action SET lease_expires_at = clock_timestamp() - interval '1 second' WHERE action_id = %s",
-            (action_id,),
+            """
+            UPDATE plan_action.action
+            SET lease_expires_at = clock_timestamp() - interval '1 second',
+                updated_at = CASE WHEN %s
+                    THEN clock_timestamp() - interval '1 hour' ELSE updated_at END
+            WHERE action_id = %s
+            """,
+            (stale_updated_at, action_id),
         )
 
 
@@ -113,6 +119,7 @@ def test_terminal_compare_and_set_wins_once_before_expiry(application_state_dsn:
         summary="A warning appears at dusk.",
     )
     assert done.status == "completed"
+    assert done.completed_at is not None
     again = service.finish(
         action_id=reserved.action_id,
         token=reserved.dispatch_token,
@@ -128,6 +135,43 @@ def test_terminal_compare_and_set_wins_once_before_expiry(application_state_dsn:
     assert context[0].assistant_summary == "A warning appears at dusk."
 
 
+def test_failed_terminal_write_keeps_completed_at_null_and_updates_timestamp(
+    application_state_dsn: str,
+) -> None:
+    service = PlanActionDialogueService()
+    request = _reservation()
+    reserved, created = service.reserve(request)
+    assert created and reserved.dispatch_token is not None
+
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE plan_action.action SET updated_at = clock_timestamp() - interval '1 hour' WHERE action_id = %s",
+            (reserved.action_id,),
+        )
+        stale_updated_at, transition_start = conn.execute(
+            "SELECT updated_at, clock_timestamp() FROM plan_action.action WHERE action_id = %s",
+            (reserved.action_id,),
+        ).fetchone()
+
+    failed = service.finish(
+        action_id=reserved.action_id,
+        token=reserved.dispatch_token,
+        fence=reserved.fence,
+        status="failed",
+        failure_code="provider_failed",
+    )
+    with psycopg.connect(application_state_dsn) as conn:
+        completed_at, updated_at, transition_end = conn.execute(
+            "SELECT completed_at, updated_at, clock_timestamp() FROM plan_action.action WHERE action_id = %s",
+            (reserved.action_id,),
+        ).fetchone()
+
+    assert failed.status == "failed"
+    assert failed.completed_at is None
+    assert completed_at is None
+    assert stale_updated_at < transition_start <= updated_at <= transition_end
+
+
 @pytest.mark.parametrize("terminal_status", ["completed", "failed"])
 def test_expired_terminal_write_becomes_indeterminate_without_summary(
     application_state_dsn: str, terminal_status: str
@@ -136,7 +180,12 @@ def test_expired_terminal_write_becomes_indeterminate_without_summary(
     request = _reservation()
     reserved, created = service.reserve(request)
     assert created and reserved.dispatch_token is not None
-    _expire(application_state_dsn, reserved.action_id)
+    _expire(application_state_dsn, reserved.action_id, stale_updated_at=True)
+    with psycopg.connect(application_state_dsn) as conn:
+        stale_updated_at = conn.execute(
+            "SELECT updated_at FROM plan_action.action WHERE action_id = %s",
+            (reserved.action_id,),
+        ).fetchone()[0]
 
     stale = service.finish(
         action_id=reserved.action_id,
@@ -149,6 +198,14 @@ def test_expired_terminal_write_becomes_indeterminate_without_summary(
     assert stale.status == "indeterminate"
     assert stale.fence == reserved.fence + 1
     assert stale.assistant_summary is None
+    assert stale.completed_at is None
+    with psycopg.connect(application_state_dsn) as conn:
+        completed_at, updated_at = conn.execute(
+            "SELECT completed_at, updated_at FROM plan_action.action WHERE action_id = %s",
+            (reserved.action_id,),
+        ).fetchone()
+    assert completed_at is None
+    assert updated_at > stale_updated_at
     assert "STALE-SUMMARY-SENTINEL" not in str(service.list_status(request.basis).model_dump())
     assert service.completed_context(request.basis) == []
 

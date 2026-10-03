@@ -57,9 +57,9 @@ def upgrade() -> None:
                     AND assistant_summary IS NOT NULL AND btrim(assistant_summary) <> ''
                     AND failure_code IS NULL AND completed_at IS NOT NULL)
                 OR (status = 'failed' AND dispatch_token IS NULL AND lease_expires_at IS NULL
-                    AND assistant_summary IS NULL AND failure_code IS NOT NULL AND completed_at IS NOT NULL)
+                    AND assistant_summary IS NULL AND failure_code IS NOT NULL AND completed_at IS NULL)
                 OR (status = 'indeterminate' AND dispatch_token IS NULL AND lease_expires_at IS NULL
-                    AND assistant_summary IS NULL AND failure_code IS NOT NULL AND completed_at IS NOT NULL)
+                    AND assistant_summary IS NULL AND failure_code IS NOT NULL AND completed_at IS NULL)
             ),
             CONSTRAINT plan_action_selection_witness_check CHECK (
                 (target_kind = 'replace_selection' AND selected_text_sha256 IS NOT NULL)

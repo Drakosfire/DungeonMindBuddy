@@ -91,7 +91,7 @@ def _reconcile_expiry(conn: psycopg.Connection, action_id: UUID) -> PlanActionRe
             SET status = 'indeterminate', failure_code = 'lease_expired',
                 assistant_summary = NULL, dispatch_token = NULL,
                 fence = fence + 1, lease_expires_at = NULL,
-                completed_at = clock_timestamp(), updated_at = clock_timestamp()
+                updated_at = clock_timestamp()
             WHERE action_id = %s AND status = 'pending'
               AND lease_expires_at <= clock_timestamp()
             RETURNING {_RETURNING}
@@ -169,13 +169,14 @@ def finish(
             UPDATE plan_action.action
             SET status = %s, assistant_summary = %s, failure_code = %s,
                 dispatch_token = NULL, lease_expires_at = NULL,
-                completed_at = clock_timestamp(), updated_at = clock_timestamp()
+                completed_at = CASE WHEN %s THEN clock_timestamp() ELSE NULL END,
+                updated_at = clock_timestamp()
             WHERE action_id = %s AND status = 'pending'
               AND dispatch_token = %s AND fence = %s
               AND lease_expires_at > clock_timestamp()
             RETURNING {_RETURNING}
             """,
-            (status, summary, failure_code, action_id, token, fence),
+            (status, summary, failure_code, status == "completed", action_id, token, fence),
         )
         row = cur.fetchone()
     if row is not None:
