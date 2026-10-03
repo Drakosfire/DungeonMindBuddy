@@ -103,3 +103,7 @@ Added a toolbar creature view with the saved Session 26 round 4 provisional 155/
 ## Scene threat browser
 
 Replaced the single Meat Mind toolbar shortcut with Threats: scene threats are distinguished from session references, with creature/HP and Hybrid statblock views and return navigation. Presence is limited to explicit prepared warehouse and Meat Mind investigation scenes; conditional references do not imply an active encounter. Browser verified opening the roster, Meat Mind details and return without changing active play state. Syntax, model and fixture checks passed.
+
+## Creature notes
+
+Meat Mind, Fleshborn Hybrid and Lysandra creature views now offer creature-specific autosaved notes shared across scenes. The maps and save timestamps are serialized with existing full-session backups; storage failures display a copy-your-note warning. Notes remain outside imported statblocks and preparation. Browser verified Hybrid notes are visible without touching operator data. Syntax, model and fixture checks passed.

@@ -7,7 +7,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let state;try{state=JSON.parse(localStorage.getItem(storage))}catch{}
 state??={drafts:fixtures.map(x=>x.markdown),outcomes:[],doc:0,scene:'scene:warehouse-tail',mode:'plan',view:'cards',block:0,room:null};
-state.sceneNotes??={};state.sceneNoteSavedAt??={};state.completedScenes??={};state.actions??={};state.noteDrafts??={};state.otherNotes??={};state.otherNoteSavedAt??={};state.panels??={outline:true,notes:false};
+state.creatureNotes??={};state.creatureNoteSavedAt??={};state.sceneNotes??={};state.sceneNoteSavedAt??={};state.completedScenes??={};state.actions??={};state.noteDrafts??={};state.otherNotes??={};state.otherNoteSavedAt??={};state.panels??={outline:true,notes:false};
 if(state.selectionVersion!==2){for(const outcome of state.outcomes){const key=outcome.document+':'+outcome.scene;state.actions[key]=[...outcome.choices]}state.selectionVersion=2;save()}
 let choices=new Set();
 function inline(s){return esc(s).replace(/\[([^\]]+)\]\(dmb-node:([^)]+)\)/g,'<button class="node" data-node="$2">$1</button>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');}
@@ -156,6 +156,7 @@ async function showHybrid(){
  const text=await (await fetch('./node-sources/fleshborn-hybrid.md')).text();
  $('#fields').innerHTML='<section id="nodeBody">'+md(text.replace(/^---\n[\s\S]*?\n---\n/,''))+'</section><details><summary>Source & binding</summary><p>Imported Fleshborn Hybrid.pdf rules export. This is a corpus statblock reference; a live Graph binding to the transformed refugees has not been verified.</p></details>';
  $('#fields').insertAdjacentHTML('afterbegin','<button type="button" id="backThreats">← Threats</button>');$('#backThreats').onclick=()=>{$('#editor').close();showThreats()};
+ attachCreatureNotes('corpus:fleshborn-hybrid','Fleshborn Hybrid');
  $('#editor').showModal();
 }
 async function showLysandra(label){
@@ -177,7 +178,7 @@ async function showLysandra(label){
    $('#nodeBody').innerHTML=md(display)+(tab==='statblock4'?'<p><a href="./node-sources/statblock2.md" target="_blank">Open baseline CR 2 source</a></p>':'');
   }
  }
- document.querySelectorAll('[data-node-tab]').forEach(b=>b.onclick=()=>view(b.dataset.nodeTab));await view('overview');$('#editor').showModal();
+ document.querySelectorAll('[data-node-tab]').forEach(b=>b.onclick=()=>view(b.dataset.nodeTab));await view('overview');attachCreatureNotes('node:captain-lysandra-ironveil','Lysandra Ironveil');$('#editor').showModal();
 }
 function openEdit(s,text){
  $('#apply').hidden=false;$('#apply').textContent='Apply preparation';$('#editorTitle').textContent='Edit · '+s.title;$('#editorHelp').textContent='Edit one scene in the local preparation copy. Existing stable markers must remain intact.';
@@ -228,6 +229,7 @@ async function showMeatMind(){
  $('#fields').insertAdjacentHTML('afterbegin','<button type="button" id="backThreats">← Threats</button>');$('#backThreats').onclick=()=>{$('#editor').close();showThreats()};
  const compare=()=>{const hp=state.meatMindHP?.hp;$('#meatComparison').textContent=hp==null?'Enter the current HP to compare it with the saved encounter.':`${hp} HP now · ${hp-Number(source.historical.hp)>0?'+':''}${hp-Number(source.historical.hp)} HP compared with the saved ${source.historical.hp}.`};compare();
  $('#meatCurrentHP').oninput=()=>{const field=$('#meatCurrentHP');if(!field.validity.valid)return;state.meatMindHP={hp:field.value===''?null:Number(field.value),savedAt:new Date().toISOString()};try{save();$('#meatHPReceipt').textContent=choiceSaveReceipt(state.meatMindHP.savedAt);compare()}catch{$('#meatHPReceipt').textContent='Not saved · browser storage unavailable.'}};
+ attachCreatureNotes('threat:authored:d60f9863b0faf7f586d69182a0882f1f','Meat Mind');
  $('#editor').showModal();
 }
 
@@ -241,4 +243,10 @@ function showThreats(){
  $('#fields').innerHTML=`<h3>In this scene</h3>${hybridHere?'<section class="reference-context"><h4>Transformed refugees</h4><p>Active in the warehouse yard. Fleshborn Hybrid is the available rules reference; the creature binding is not confirmed.</p><button type="button" data-threat-open="hybrid">View Hybrid statblock · CR 3</button></section>':mindHere?'<section class="reference-context"><h4>Meat Mind</h4><p>Underground threat being investigated. Its exact position and encounter status remain unresolved.</p><button type="button" data-threat-open="mind">View creature & HP</button></section>':'<p>No creature threat is explicitly identified for this scene in this prototype.</p>'}<h3>Session threat references</h3>${!mindHere?`<section class="reference-context"><h4>Meat Mind</h4><p>${mindRelated?'Mentioned in this scene as a possible connection or later consequence.':'Underground core · available for reference across the session.'}</p><button type="button" data-threat-open="mind">View creature & HP</button></section>`:''}${!hybridHere?'<section class="reference-context"><h4>Fleshborn Hybrid</h4><p>Rules reference for transformed creatures near the warehouse.</p><button type="button" data-threat-open="hybrid">View statblock · CR 3</button></section>':''}<details><summary>Coverage</summary><p>This list uses the current preparation and imported creature references. It is not a live Graph or combat roster.</p></details>`;
  document.querySelectorAll('[data-threat-open]').forEach(button=>button.onclick=()=>{$('#editor').close();button.dataset.threatOpen==='mind'?showMeatMind():showHybrid()});
  $('#editor').showModal();
+}
+
+function attachCreatureNotes(id,label){
+ $('#fields').insertAdjacentHTML('beforeend',`<section class="scene-notes"><h3>Creature notes</h3><label for="creatureNotesText">Notes for ${esc(label)} · shared across scenes</label><textarea id="creatureNotesText" placeholder="Tactics, damage, discoveries, reminders…">${esc(state.creatureNotes[id]??'')}</textarea><small id="creatureNotesStatus" role="status">${choiceSaveReceipt(state.creatureNoteSavedAt[id])}</small></section>`);
+ let timer;const field=$('#creatureNotesText'),status=$('#creatureNotesStatus');
+ field.oninput=()=>{clearTimeout(timer);state.creatureNotes[id]=field.value;const previous=state.creatureNoteSavedAt[id];state.creatureNoteSavedAt[id]=new Date().toISOString();status.textContent='Saving…';status.dataset.status='saving';try{save();timer=setTimeout(()=>{status.textContent=choiceSaveReceipt(state.creatureNoteSavedAt[id]);status.dataset.status='saved'},350)}catch{state.creatureNoteSavedAt[id]=previous;status.textContent='Not saved · browser storage unavailable. Copy your note.';status.dataset.status='error'}};
 }
