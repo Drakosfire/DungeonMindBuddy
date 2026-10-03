@@ -2,10 +2,10 @@
 
 **Status:** BLOCKED — bounded design only. This handoff grants no implementation, provider, database, service, process, Graph, or runtime lease.
 
-**Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`  
-**Repository:** `Drakosfire/DungeonMindBuddy`  
-**Design base:** Buddy `main@c8a32aba3d0e050b351ab28be41d9046b9a2aef2`  
-**Topology:** serial successor after the saved managed-World Plan conversation cutover. PRIME owns activation and any exact implementation lease.
+- **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
+- **Repository:** `Drakosfire/DungeonMindBuddy`
+- **Design base:** Buddy `main@c8a32aba3d0e050b351ab28be41d9046b9a2aef2`
+- **Topology:** serial successor after the saved managed-World Plan conversation cutover. PRIME owns activation and any exact implementation lease.
 
 ## One user-visible capability
 
