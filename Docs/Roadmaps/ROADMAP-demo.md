@@ -1257,6 +1257,39 @@ that their foundations are absent. Historical slices retain their IDs.
   acceptance, image selection/reopen, Plan association, or graph/product
   read-after-write was proven. The UI reported World Graph unavailable; the
   World-only publication guard was proven by tests only. J4 remains open.
+- **DEMO-J4 movement-control checkpoint (2026-10-02):** draft Buddy PR #869,
+  `DEMO: typed movement reference editing`, adds candidate-local movement key,
+  kind, distance and qualifier controls plus explicit references in every
+  direct movement-effect array from the generated v1 contract (composite,
+  passive, phase-transition, attack hit/miss and save success/failure). The
+  exact-head ARCHITECTURE review initially held code head
+  `7ad826d144b3116dbfc460b01d1073ce26e53ad6` because the attack/save arrays
+  were protected; those typed controls and editor/mounted regressions are on
+  code head `fa7b27e6cf1682bfbdbffd1e9abc792c845366f3`, which ARCHITECTURE
+  reviewed PASS. ARCHITECTURE confirmed that PASS also carries to cumulative PR
+  head `9e7647053df6dbf51a842c0b6b914d2f2af18d45`: that later commit changed
+  only this roadmap, and the three UI files are byte-identical. The two
+  owning Vitest files pass **150/150**; cumulative diff check passes. UI
+  typecheck still reports only the inherited `ThreatPublicationPanel.tsx:553`
+  `TS2503` JSX namespace error. PRIME allocated a fresh disposable J4 lane at
+  `/tmp/j4-dms-buddy-pr869-20261002`. SERVER's isolated DMS/PostgreSQL packet is
+  live: DMS main `a79a52123c1d72caa87be3eec10b6b9a6da7df22`, PostgreSQL migrated
+  through Alembic head `20261002_0012`, and the Firestore emulator health check
+  passed. DMS authenticated readiness returned `ready` with read routes enabled,
+  generation disabled, and no readiness errors. No provider call or candidate/
+  revision write occurred. The Buddy API and UI were started from PR head
+  `2f47b3e6816094367ae53e6a9dd399ce826edb4a` on the reserved lane ports 17861 and
+  15202; `syntheticWorld` was registered and the Workbench layout survived save
+  and reload in the isolated DB. The surrounding legacy surface still reports
+  graph authentication unavailable, so this does not prove graph behavior.
+  At the DMS validator boundary, a synthetic `swim` reference with no matching
+  local movement mode returned `UNKNOWN_MOVEMENT_REFERENCE`; changing only the
+  reference to existing local key `hover` returned no issues. This is validator
+  evidence only: a real Buddy UI preview → explicit edit → preview → save → reload
+  witness, including the saved revision/readback, remains pending. Generation is
+  disabled under PRIME's current runtime direction. The retained candidate body
+  is not in checked-in evidence, so a synthetic same-schema witness cannot be
+  called its repair or full J4 acceptance. This checkpoint does not close J4.
 - **DEMO-J1 input-pin and full-source browser witness:** the local purchased
   `/home/drakosfire/Downloads/of-conks-cons-v21-gold/specimens/01-cleaned-single-column.md`
   is still 48,778 bytes / 565 lines, SHA-256
