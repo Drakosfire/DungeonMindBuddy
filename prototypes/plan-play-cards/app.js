@@ -33,7 +33,7 @@ function render(){
  for(const key of ['plan','play','cards','long'])$('#'+key).classList.toggle('active',state.mode===key||state.view===key);
  $('#create').hidden=state.mode!=='plan';$('#indexTitle').textContent=state.doc?'House · scene / room index':'Adventure · Beats / Scenes';
  let beat='';
- $('#index').innerHTML=parsed.scenes.map(x=>{let heading='';if(x.beat!==beat){beat=x.beat;const e=parsed.elements.find(y=>y.id===beat);heading=`<div class="beat">${esc(text.slice(e?.bodyStart??0,e?.end??0).match(/^## (.+)/m)?.[1]??'Scenes')}</div>`}return heading+`<button data-scene="${x.id}" class="${x.id===s.id?'active':''}">${esc(x.title)}</button>`}).join('')+(state.doc===0?'<div class="beat">Connected place</div><button id="house">Ironveil House →</button>':'<button id="session">← Session 29 aftermath</button>');
+ $('#index').innerHTML=parsed.scenes.map(x=>{let heading='';if(x.beat!==beat){beat=x.beat;const e=parsed.elements.find(y=>y.id===beat);heading=`<div class="beat">${esc(text.slice(e?.bodyStart??0,e?.end??0).match(/^## (.+)/m)?.[1]??'Scenes')}</div>`}return heading+`<button data-scene="${x.id}" class="${x.id===s.id?'active':''}">${esc(x.title)}</button>`}).join('')+'<div class="beat">Reference</div><button id="overview">Intent / source context</button>'+(state.doc===0?'<div class="beat">Connected place</div><button id="house">Ironveil House →</button>':'<button id="session">← Session 29 aftermath</button>');
  $('#context').innerHTML=`<span class="badge">${state.mode==='plan'?'PREPARATION · LOCAL COPY':'PLAY · LOCAL SESSION'}</span><span title="${esc(s.id)}">${esc(s.title)}</span>${state.mode==='plan'?'<button id="edit">Edit this card</button>':''}`;
  if(state.view==='long'){
   $('#content').innerHTML=md(text);$('#context').innerHTML+='<button id="returnCard">Return to focused card</button>';
@@ -72,6 +72,7 @@ function render(){
  $('#exportPrep').onclick=()=>download(fixtures[state.doc].name+' - local prep.md',state.drafts[state.doc],'text/markdown');
  $('#exportOutcomes').onclick=()=>download('prototype-outcomes.json',JSON.stringify(state.outcomes,null,2),'application/json');
  if($('#returnCard'))$('#returnCard').onclick=()=>{state.view='cards';save();render()};
+ $('#overview').onclick=()=>{state.view='long';save();render();window.scrollTo({top:0,behavior:'smooth'})};
  if($('#house'))$('#house').onclick=()=>go('scene:ironveil-arrival',1);
  if($('#session'))$('#session').onclick=()=>go('scene:town-breathes',0);
 }
@@ -84,7 +85,7 @@ function followups(outcome){
 function renderChoices(text,nested,s){
  for(const c of nested.filter(e=>e.kind==='choice')){
   const opts=nested.filter(e=>e.kind==='option'&&e.start>c.start&&e.start<(nested.find(x=>x.kind==='choice'&&x.start>c.start)?.start??s.end));
-  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary>${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'Choices')} <small>Multiple actions allowed</small></summary>${md(text.slice(c.bodyStart,c.end).replace(/^### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,o.end),title=raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^- \*\*[^*]+\*\*.*\n?/,'');return `<div class="option"><label>${state.mode==='play'?`<input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> `:''}${esc(title)}</label><details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}</details>`);
+  $('#content').insertAdjacentHTML('beforeend',`<details class="choice"><summary>${esc(text.slice(c.bodyStart,c.end).match(/^### (.+)/m)?.[1]??'Choices')} <small>Multiple actions allowed</small></summary>${md(text.slice(c.bodyStart,c.end).replace(/^### [^\n]+\n?/,''))}${opts.map(o=>{const raw=text.slice(o.bodyStart,Math.min(o.end,s.end)),title=raw.match(/- \*\*([^*]+)\*\*/)?.[1]??o.id,consequence=raw.replace(/^- \*\*[^*]+\*\*.*\n?/,'');return `<div class="option"><label>${state.mode==='play'?`<input style="width:auto" type="checkbox" aria-label="${esc(title)}" data-option="${o.id}" ${choices.has(o.id)?'checked':''}> `:''}${esc(title)}</label><details><summary>Consequences / later relevance</summary>${md(consequence)}</details></div>`}).join('')}</details>`);
  }
 }
 function showReference(id,label){$('#editorTitle').textContent=label;$('#editorHelp').textContent='Verified source reference · prototype inspection, not live Graph access.';$('#fields').innerHTML=`<p>${esc(id)}</p><p>This reference came from the independently read native World projection. No entity or statblock is created here.</p>`;$('#apply').hidden=true;$('#errors').textContent='';$('#editor').showModal()}

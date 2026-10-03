@@ -21,3 +21,5 @@ console.log('PASS: guided creation required blocks, structured consequences, une
 assert.ok(validate(session+'\n[Invented](dmb-node:node:made-up)',session).some(x=>x.includes('Unverified node')));
 assert.deepEqual(validate(house+'\n[Lysandra](dmb-node:node:captain-lysandra-ironveil)',house,['node:captain-lysandra-ironveil']),[]);
 console.log('PASS: unknown node link rejected; explicit verified identity accepted across documents');
+const last=p.scenes.at(-1),lastBody=session.slice(last.bodyStart,last.end);assert.ok(!lastBody.includes('# GM Running Notes'));const lastEdited=editCard(session,last.id,lastBody+'\nLocal test.');assert.ok(lastEdited.includes('# GM Running Notes'));assert.deepEqual(markerSignature(lastEdited),markerSignature(session));const houseLast=parse(house).scenes.at(-1);assert.ok(!house.slice(houseLast.bodyStart,houseLast.end).includes('## House Tone'));assert.ok(editCard(house,houseLast.id,house.slice(houseLast.bodyStart,houseLast.end)+'\nLocal test.').includes('## House Tone'));
+console.log('PASS: global running notes/tone remain outside scene-edit boundaries');
