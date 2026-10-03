@@ -494,6 +494,39 @@ describe("IngestionModule", () => {
     expect(ingest.mock.calls.every(([body]) => body.operation === "inspect_status")).toBe(true);
   });
 
+  it("keeps the route-selected saved run when deferred disk inspection finds a newer run", async () => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld&campaign=longmont-c2&session=session-29&view=recap&recapReviewRunId=run-A");
+    let finish!: (value: RecapIngestStatus) => void;
+    const ingest = vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const inspection = vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: "run-A", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source-A", campaignId: "longmont-c2", sessionId: "session-29", sourceStatus: "available", sourceProse: "Selected run A story" });
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockRejectedValue(new Error("graph_auth_required"));
+    render(<IngestionModule campaignId="longmont-c2" session={30} />);
+    await waitFor(() => expect(ingest).toHaveBeenCalled());
+    await act(async () => finish(makeStatus({ session: 29, ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: "run-B" } } })));
+    expect(await screen.findByLabelText("Loaded recap")).toHaveTextContent("Selected run A story");
+    expect(inspection.mock.calls).toEqual([["run-A"]]);
+    expect(new URLSearchParams(window.location.search).get("recapReviewRunId")).toBe("run-A");
+    expect(ingest.mock.calls.every(([body]) => body.operation === "inspect_status")).toBe(true);
+  });
+
+  it("does not read the previous campaign's normalized path during a deferred campaign switch", async () => {
+    const user = setupIngestUser();
+    window.history.replaceState({}, "", "/ingest");
+    let finish!: (value: RecapIngestStatus) => void;
+    vi.mocked(recapIngestApi.postRecapIngest).mockImplementation(async (body) => body.campaign_id === "longmont-c1" ? new Promise((resolve) => { finish = resolve; }) : makeStatus({ states: ["normalized_reused"] }));
+    const source = vi.spyOn(liveApi, "postCitationSource").mockResolvedValue({ schema_version: "dmb_citation_source_v1", path: "recap.md", content_type: "text/markdown", content: "C2 source", truncated: false, highlight: { match_source: "none" }, diagnostics: [] });
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockRejectedValue(new Error("graph_auth_required"));
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(await screen.findByRole("button", { name: "Review recap canvas" }));
+    expect(await screen.findByLabelText("Loaded recap")).toHaveTextContent("C2 source");
+    source.mockClear();
+    await user.selectOptions(screen.getByLabelText("Campaign"), "longmont-c1");
+    expect(source).not.toHaveBeenCalled();
+    expect(screen.queryByText("C2 source")).not.toBeInTheDocument();
+    await act(async () => finish(makeStatus({ campaign_id: "longmont-c1", paths: {} })));
+    expect(source).not.toHaveBeenCalled();
+  });
+
   it.each(["mismatch", "invalid-session"])("rejects %s reader routes without displaying a foreign source", async (failure) => {
     window.history.replaceState({}, "", `/ingest?world=elderwyld&campaign=longmont-c2&session=${failure === "invalid-session" ? "oops" : "session-29"}&view=recap&recapReviewRunId=route-run`);
     vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({ session: 29 }));
