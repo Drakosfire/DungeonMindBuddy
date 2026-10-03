@@ -5680,6 +5680,13 @@ body.surface-projection-open .plan-agent-shell {
   pointer-events: auto;
 }
 
+/* The node inspector owns secondary context until it closes. Keep the
+ * authoring draft mounted, but suspend its fixed chrome to prevent overlap. */
+.world-graph-recap-root[data-object-open="true"] .graph-review-author-node[data-mode="published-local"] .graph-review-author-node-toggle,
+.world-graph-recap-root[data-object-open="true"] .graph-review-author-node[data-mode="published-local"] .graph-review-author-node-drawer {
+  display: none;
+}
+
 /* Published recap dogfood keeps the source projection readable while the
  * existing Author Node tool docks beside it. Exact-run authoring retains the
  * full-surface presentation above. */

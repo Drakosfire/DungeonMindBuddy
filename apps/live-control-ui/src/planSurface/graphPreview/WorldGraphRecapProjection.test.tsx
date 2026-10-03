@@ -7,6 +7,8 @@ import {
   WorldGraphLensProjectionProvider,
   WorldGraphLensProvider,
 } from "../../graphLens";
+import { readFileSync } from "node:fs";
+import { URL as NodeURL } from "node:url";
 import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
 import { session23WorldGraphRecapFixture } from "./worldGraphRecapFixture";
@@ -393,5 +395,38 @@ describe("WorldGraphRecapProjectionView", () => {
     fireEvent.click(within(peek).getByRole("button", { name: /Open related object.*Mirathorn/i }));
     expect(screen.getByTestId("recap-graph-related-object-expansion")).toHaveTextContent("Mirathorn");
   }, 15000);
+
+  it("suspends authoring chrome during inspection and restores the mounted draft on close", async () => {
+    sessionStorage.setItem("graph-object-authoring-staged:longmont-c2:session-23", JSON.stringify([{
+      localProposalId: "preserved-draft", proposalKind: "object", status: "staged_local",
+      selection: { campaignId: "longmont-c2", sessionId: "session-23", selectionKind: "text_span", selectedText: "Unmatched draft phrase", normalizedSelectedText: "unmatched draft phrase", graphId: session23WorldGraphRecapFixture.graphId, laneRole: "live" },
+      objectRef: { label: "Preserved local draft", kind: "concept", role: null, aliases: [], summary: "Local staged draft" },
+      visibility: { visibility: "gm_private", revealState: "unrevealed", visibilityNote: null }, graphScopes: ["recap_graph", "campaign_memory_graph"],
+      provenancePreview: { origin: "human_authored", authoringSurface: "memory_ingest_graph_authoring", sourceGraphId: session23WorldGraphRecapFixture.graphId, sourceArtifactPath: null, operatorNote: null },
+    }]));
+    const style = document.createElement("style");
+    style.textContent = readFileSync(new NodeURL("../planSurface.css", import.meta.url), "utf8").match(/\.world-graph-recap-root\[data-object-open="true"\][^{]+\{[^}]+\}/)?.[0] ?? "";
+    document.head.appendChild(style);
+    try {
+      render(<WorldGraphRecapProjectionView payload={session23WorldGraphRecapFixture} selectedSessionId="session-23" sessionOptions={["session-23"]} selectedCampaignId="longmont-c2" onSelectSession={vi.fn()} onSelectCampaign={vi.fn()} />);
+      fireEvent.click(screen.getByRole("button", { name: "Author Node" }));
+
+      const drawer = document.querySelector(".graph-review-author-node-drawer");
+      const pill = await waitFor(() => { const token = document.querySelector("button.recap-node-token") as HTMLButtonElement; expect(token).toBeTruthy(); return token; });
+      fireEvent.click(pill);
+
+      expect(screen.queryByRole("button", { name: "Author Node" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("textbox", { name: "Label" })).not.toBeInTheDocument();
+      expect(document.querySelector(".graph-review-author-node-drawer")).toBe(drawer);
+      const peek = await screen.findByLabelText("Caelynn graph object");
+      await waitFor(() => expect(within(peek).getByRole("button", { name: /Open related object.*Mirathorn/i })).toBeInTheDocument());
+      fireEvent.click(within(peek).getByRole("button", { name: /Open related object.*Mirathorn/i }));
+      expect(screen.getByTestId("recap-graph-related-object-expansion")).toHaveTextContent("Mirathorn");
+      fireEvent.click(within(peek).getByRole("button", { name: /Close Caelynn/i }));
+      expect(screen.getByRole("button", { name: "Author Node" })).toHaveAttribute("aria-expanded", "true");
+      expect(document.querySelector(".graph-review-author-node-drawer")).toBe(drawer);
+      expect(screen.getByTestId("published-recap-local-authoring")).toHaveAttribute("data-local-proposal-count", "1");
+    } finally { style.remove(); }
+  });
 
 });
