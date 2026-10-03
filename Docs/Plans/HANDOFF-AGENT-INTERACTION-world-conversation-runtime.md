@@ -5,10 +5,12 @@
 - **Owner:** PRIME owns cross-slice sequencing; the merged #865 implementation lease is released. ARCHITECTURE's accepted mapping decisions below remain the response/provenance contract.
 - **Repository:** `Drakosfire/DungeonMindBuddy`.
 - **Design origin:** Buddy `main@672d18b059eaeceff20555374170ec2679f79082`.
-- **Re-anchored base:** Buddy `main@2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c` (2026-10-03).
-- **Topology:** serial — APP-STATE storage/domain service (#822/#827 complete),
-  AGENT-INTERACTION runtime adoption, DEMO Plan consumer cutover, then Play
-  and remaining surface cutovers.
+- **Code merge base:** Buddy `main@2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c`.
+- **Settlement re-anchor:** Buddy `main@8c4671c2769067af3ee46abff1ce675434d62916` after #895 (2026-10-03).
+- **Topology:** serial — APP-STATE storage/domain service (#822/#827) →
+  AGENT-INTERACTION runtime (#865, merged) → Plan-owned action dialogue (#859,
+  design-only) → separate APP-STATE exact-basis Ask projection → DEMO Plan
+  conversation cutover (#857) → later automatic World context (#893).
 - **Design authority:** APP-STATE World conversation contract, ARCHITECTURE's
   2026-10-02 ruling, and PRIME's runtime-owner routing decision.
 
@@ -179,12 +181,19 @@ protection contexts were reported.
   output retry/error mapping without provider redispatch.
 - **Path lease released:** the original five implementation/test paths plus
   the explicitly authorized test-only `tests/test_agent_graph_auth.py` path
-  are merged. No new migration or API/schema path was added.
+  are merged. No APP-STATE database schema or migration path was added. The
+  existing Agent route/model surface changed additively within the explicit
+  lease, including the authorized `Graph.status="replayed"` value.
 - **Boundary:** the merged code closes the code-level #865 repair. It does not
   claim the later configured-provider consumer witness, human operator
   acceptance, or J1–J6 product acceptance. Those are activation/product gates,
   not prerequisites for merging this code-only PR. No such live witness or
   activation authority was exercised or granted.
+
+The downstream sequence remains held and separate: #859's design-only
+Plan-owned action dialogue (amended by #895) → the APP-STATE exact-basis Ask
+projection → DEMO's Plan conversation cutover (#857) → later World auto-context
+(#893). This settlement authorizes none of those successor capabilities.
 
 The bounded replay mapping and response decision below are the accepted
 consumer contract for the merged implementation. The original cross-surface
@@ -213,8 +222,10 @@ tests/test_agent_graph_auth.py
 
 `tests/test_agent_turn_service.py` was outside the implementation write lease;
 PRIME ran it read-only as part of independent regression verification. The
-implementation did not edit `src/application_state/agent_conversation/service.py`,
-the database schema/migrations, or introduce a new public API.
+implementation did not edit `src/application_state/agent_conversation/service.py`
+or the APP-STATE database schema/migrations. The Agent route and response
+models were updated additively within the explicit lease, including the
+`Graph.status="replayed"` response value.
 
 Existing primitives available to that lease:
 
@@ -268,9 +279,10 @@ evidence and open status; do not claim #869 merged or full J4 acceptance. This
 handoff now records only the actual #865 merge/head and reported code evidence;
 it does not invent a consumer witness or operator acceptance.
 
-No other source, schema, migration, MIND/Graph adapter, UI/Plan consumer,
+No APP-STATE database schema/migration, MIND/Graph adapter, UI/Plan consumer,
 provider deployment/configuration, lockfile, root configuration, or frozen
-dirty checkout path is in this lease. In particular, preserve the suspended
+dirty checkout path was in this lease. The explicit Agent API route/model
+changes above were in scope. In particular, preserve the suspended
 `codex/agent-world-conversation-backend` checkout; do not edit or transplant
 it.
 
