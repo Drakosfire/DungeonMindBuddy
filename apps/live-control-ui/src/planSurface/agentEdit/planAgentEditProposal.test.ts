@@ -1,5 +1,7 @@
-import { Editor } from "@tiptap/core";
+import { Editor, type JSONContent } from "@tiptap/core";
 import { webcrypto } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
@@ -17,6 +19,7 @@ import {
   type WorldPlanEditAgentBinding,
   type WorldPlanEditEditorState,
 } from "./planAgentEditProposal";
+import { planSectionTargets } from "./planSectionTarget";
 
 const BASE_SHA = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
 const editors: Editor[] = [];
@@ -136,6 +139,44 @@ function expectedAgentBinding(): ExpectedWorldPlanEditAgentBinding {
     threadId: "thread-1",
     namespace: "world-plan-agent:world:world-1:document:plan-1",
   };
+}
+
+const SECTION_MARKER = "<!-- dmb-playable-element:v2 kind=scene id=scene:town-breathes -->";
+const SECTION_LINK = "[Lysandra Ironveil](dmb-node:node:captain-lysandra-ironveil)";
+const SESSION_29_MARKDOWN = readFileSync(resolve(
+  process.cwd(),
+  "../..",
+  "corpus",
+  "eldyrwild-markdown",
+  "Longmont Campaign",
+  "Campaign 2",
+  "Session Prep",
+  "Session 29 - Buddy Plan.md",
+), "utf8");
+const WORLD_SECTION_MARKDOWN = [
+  "# World Plan",
+  "",
+  "## Mireward",
+  `${SECTION_MARKER}`,
+  "### After the attack",
+  "",
+  `${SECTION_LINK} is present.`,
+  "",
+  "### Recovery",
+  "The town regroups.",
+  "",
+  "## North Road",
+  "A different route.",
+].join("\n");
+
+async function captureWorldSection(markdown = WORLD_SECTION_MARKDOWN, heading = "Mireward") {
+  const { editor, state } = mountedState(markdown);
+  const target = planSectionTargets(editor).find((candidate) => candidate.heading === heading);
+  if (!target) throw new Error(`World Plan heading not found: ${heading}`);
+  editor.commands.setTextSelection({ from: target.from, to: target.to });
+  const current = worldState(state);
+  const captured = await captureWorldPlanEditTarget(current, () => current);
+  return { editor, current, captured };
 }
 
 afterEach(() => {
@@ -331,6 +372,160 @@ describe("reviewed Plan edit admission", () => {
 });
 
 describe("reviewed World-only Plan edit admission and Apply", () => {
+  it("captures a whole heading section with an exact digest and typed protected identities", async () => {
+    const { captured } = await captureWorldSection();
+    expect(captured.sectionTarget).toBeDefined();
+    expect(captured.request.selected_text).toContain(SECTION_MARKER);
+    expect(captured.request.selected_text).toContain(SECTION_LINK);
+    expect(captured.request.selected_text).toContain("### Recovery");
+    expect(captured.request.selected_text).not.toContain("North Road");
+    expect(captured.sectionTarget?.protectedInventory.map((entry) => entry.kind)).toEqual([
+      "playable-marker",
+      "graph-reference",
+    ]);
+    const response = await worldResponseFor(captured, captured.request.selected_text);
+    expect(response.selected_text_sha256).toBe(await sha256Hex(captured.request.selected_text));
+    await expect(admitWorldPlanEditProposal(captured, response)).resolves.toMatchObject({
+      response,
+      canonicalMarkdown: expect.stringContaining(SECTION_MARKER),
+    });
+  });
+
+  it("preserves section prose marks and quotes after Markdown reload", async () => {
+    const { editor, current, captured } = await captureWorldSection();
+    const replacement = [
+      "## Mireward",
+      "",
+      SECTION_MARKER,
+      "### After the attack",
+      "",
+      "The **watcher** waits for *a signal*.",
+      "",
+      "> A voice carries over the water.",
+      "",
+      `${SECTION_LINK} is present.`,
+      "",
+      "### Recovery",
+      "The town regroups.",
+    ].join("\n");
+    const admitted = await admitWorldPlanEditProposal(
+      captured,
+      await worldResponseFor(captured, replacement),
+    );
+    await applyWorldPlanEditProposal({
+      captured,
+      admitted,
+      getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(),
+      getAgentBinding: matchingAgentBinding,
+    });
+
+    const savedMarkdown = tiptapJsonToSemanticMarkdown(editor.getJSON());
+    const reloaded = markdownToTiptapDoc(savedMarkdown);
+    const root = reloaded.doc.content ?? [];
+    const headingText = (node: JSONContent) => (node.content ?? []).map((child) => child.text ?? "").join("");
+    const start = root.findIndex((node) => node.type === "heading" && headingText(node) === "Mireward");
+    const end = root.findIndex((node, index) => index > start && node.type === "heading" && headingText(node) === "North Road");
+    expect(start).toBeGreaterThanOrEqual(0);
+    expect(end).toBeGreaterThan(start);
+    const reloadedSection = root.slice(start, end);
+    expect(tiptapJsonToSemanticMarkdown({ type: "doc", content: reloadedSection })).toBe(admitted.canonicalMarkdown);
+
+    let bold = false;
+    let italic = false;
+    let quote = false;
+    const inspect = (node: JSONContent) => {
+      bold ||= Boolean(node.marks?.some((mark) => mark.type === "bold"));
+      italic ||= Boolean(node.marks?.some((mark) => mark.type === "italic"));
+      quote ||= node.type === "blockquote";
+      node.content?.forEach(inspect);
+    };
+    reloadedSection.forEach(inspect);
+    expect(bold).toBe(true);
+    expect(italic).toBe(true);
+    expect(quote).toBe(true);
+  });
+
+  it("rejects selected-section semantic drift before mutating the mounted editor", async () => {
+    const { editor, current, captured } = await captureWorldSection();
+    const admitted = await admitWorldPlanEditProposal(
+      captured,
+      await worldResponseFor(captured, captured.request.selected_text),
+    );
+    admitted.content = [
+      ...admitted.content,
+      { type: "paragraph", content: [{ type: "text", text: "Unreviewed drift." }] },
+    ];
+    const before = editor.getJSON();
+
+    await expect(applyWorldPlanEditProposal({
+      captured,
+      admitted,
+      getCurrent: () => current,
+      expectedAgentBinding: expectedAgentBinding(),
+      getAgentBinding: matchingAgentBinding,
+    })).rejects.toThrow(/reviewed World Plan edit changed after it was prepared/);
+    expect(editor.getJSON()).toEqual(before);
+  });
+
+  it.each([
+    ["changed marker", (selected: string) => selected.replace("scene:town-breathes", "scene:invented")],
+    ["removed marker", (selected: string) => selected.replace(`${SECTION_MARKER}\n`, "")],
+    ["duplicated reference", (selected: string) => `${selected}\n\n${SECTION_LINK}`],
+    ["moved reference to another heading", (selected: string) => selected
+      .replace(`${SECTION_LINK} is present.`, "Lysandra is present.")
+      .replace("### Recovery\n", `### Recovery\n\n${SECTION_LINK} is present.\n`)],
+    ["moved marker to another heading", (selected: string) => selected
+      .replace(`${SECTION_MARKER}\n`, "")
+      .replace("### Recovery", `${SECTION_MARKER}\n### Recovery`)],
+  ] as const)("rejects a section proposal with a %s", async (_label, mutate) => {
+    const { captured } = await captureWorldSection();
+    const response = await worldResponseFor(captured, mutate(captured.request.selected_text));
+    await expect(admitWorldPlanEditProposal(captured, response)).rejects.toThrow();
+  });
+
+  it("keeps protected markup strict for arbitrary World text selections", async () => {
+    const { editor, state } = mountedState(WORLD_SECTION_MARKDOWN);
+    let paragraphFrom = -1;
+    let paragraphSize = 0;
+    editor.state.doc.descendants((node, position) => {
+      if (node.type.name === "paragraph" && node.textContent.includes("is present.")) {
+        paragraphFrom = position;
+        paragraphSize = node.nodeSize;
+      }
+    });
+    expect(paragraphFrom).toBeGreaterThan(0);
+    editor.commands.setTextSelection({ from: paragraphFrom + 1, to: paragraphFrom + paragraphSize - 1 });
+    const current = worldState(state);
+    const captured = await captureWorldPlanEditTarget(current, () => current);
+    expect(captured.sectionTarget).toBeUndefined();
+    const response = await worldResponseFor(captured, `Rewrite this: ${SECTION_LINK}`);
+    await expect(admitWorldPlanEditProposal(captured, response)).rejects.toThrow(/unsupported markup/);
+  });
+
+  it("refuses duplicate ambiguous section excerpts and sections over the provider cap", async () => {
+    const duplicate = "# Plan\n\n## Repeated\n\nSame excerpt.\n\n## Repeated\n\nSame excerpt.\n";
+    const { editor, state } = mountedState(duplicate);
+    const repeatedTargets = planSectionTargets(editor).filter((target) => target.heading === "Repeated");
+    expect(repeatedTargets).toHaveLength(2);
+    editor.commands.setTextSelection({ from: repeatedTargets[1]!.from, to: repeatedTargets[1]!.to });
+    await expect(captureWorldPlanEditTarget(worldState(state))).rejects.toThrow(/unique exact location/);
+
+    const oversized = `# Plan\n\n## Large\n\n${"Long section prose. ".repeat(500)}\n\n## Small\n\nDone.`;
+    await expect(captureWorldSection(oversized, "Large")).rejects.toThrow(/8,000-character proposal limit/);
+  });
+
+  it("refuses a selected Session 29 parent Beat before the proposal call can be made", async () => {
+    const { editor, state } = mountedState(SESSION_29_MARKDOWN);
+    const parentBeat = planSectionTargets(editor).find((target) => target.heading === "The Hours They Bought");
+    expect(parentBeat).toBeDefined();
+    editor.commands.setTextSelection({ from: parentBeat!.from, to: parentBeat!.to });
+
+    await expect(captureWorldPlanEditTarget(worldState(state))).rejects.toThrow(
+      /changes editor structure during Markdown round-trip, so it is unavailable for Agent proposals/,
+    );
+  });
+
   it("captures a session-free World target and applies only to the same mounted editor", async () => {
     const { editor, state } = mountedState();
     editor.commands.setTextSelection(1);

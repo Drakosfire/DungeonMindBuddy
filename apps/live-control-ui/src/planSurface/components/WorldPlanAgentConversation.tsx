@@ -21,7 +21,9 @@ import {
   type CapturedWorldPlanEditTarget,
   type ExpectedWorldPlanEditAgentBinding,
   type WorldPlanEditBridge,
+  worldPlanSectionUnavailableReason,
 } from "../agentEdit/planAgentEditProposal";
+import { planSectionTargets, type PlanSectionTarget } from "../agentEdit/planSectionTarget";
 import {
   AGENT_TURN_HISTORY_CAP,
   createAgentInteractionThread,
@@ -57,6 +59,21 @@ interface WorldPlanEditReview {
   threadId: string;
   turnId: string;
   fenceKey: string;
+}
+
+interface PlanSectionScan {
+  captured: CapturedWorldPlanEditTarget;
+  worldId: string;
+  documentId: string;
+}
+
+interface PlanSectionOption extends PlanSectionTarget {
+  unavailableReason: string | null;
+}
+
+interface PlanSectionTargetStatus {
+  kind: "status" | "error";
+  message: string;
 }
 
 type ValidationResult =
@@ -371,9 +388,14 @@ export function WorldPlanAgentConversation({
   const [sending, setSending] = useState(false);
   const [composing, setComposing] = useState(false);
   const [editReview, setEditReview] = useState<WorldPlanEditReview | null>(null);
+  const [sectionTargets, setSectionTargets] = useState<PlanSectionOption[]>([]);
+  const [selectedSectionTargetId, setSelectedSectionTargetId] = useState("");
+  const [sectionTargetStatus, setSectionTargetStatus] = useState<PlanSectionTargetStatus | null>(null);
   const requestRef = useRef<{ token: symbol; threadId: string; fenceKey: string } | null>(null);
   const proposalRequestRef = useRef<{ token: symbol; threadId: string; fenceKey: string; providerThreadId: string | null } | null>(null);
   const editReviewRef = useRef<WorldPlanEditReview | null>(null);
+  const sectionScanRef = useRef<PlanSectionScan | null>(null);
+  const sectionOperationRef = useRef<symbol | null>(null);
   const sanitizedPointerRef = useRef<string | null>(null);
   const latestRef = useRef({
     fenceKey: requestFenceKey,
@@ -412,8 +434,18 @@ export function WorldPlanAgentConversation({
       requestRef.current = null;
       proposalRequestRef.current = null;
       editReviewRef.current = null;
+      sectionScanRef.current = null;
+      sectionOperationRef.current = null;
     };
   }, []);
+
+  useLayoutEffect(() => {
+    sectionScanRef.current = null;
+    sectionOperationRef.current = null;
+    setSectionTargets([]);
+    setSelectedSectionTargetId("");
+    setSectionTargetStatus(null);
+  }, [worldId, documentId, surfaceInstanceId, revision, draftGeneration]);
 
   useLayoutEffect(() => {
     requestRef.current = null;
@@ -626,6 +658,113 @@ export function WorldPlanAgentConversation({
       && proposalRequestRef.current?.token === token;
   }
 
+  async function refreshPlanSections() {
+    if (!editBridge || !documentId || !scopeMatches || composing || sending || saveInFlight || editReviewRef.current) return;
+    const token = Symbol("world-plan-section-scan");
+    const fenceKey = proposalFenceKey;
+    sectionOperationRef.current = token;
+    sectionScanRef.current = null;
+    setSectionTargets([]);
+    setSelectedSectionTargetId("");
+    setSectionTargetStatus({ kind: "status", message: "Reading safe headings from the mounted Plan…" });
+    try {
+      const captured = await editBridge.capture();
+      if (!latestRef.current.mounted || sectionOperationRef.current !== token) return;
+      if (latestRef.current.proposalFenceKey !== fenceKey) {
+        setSectionTargetStatus({ kind: "error", message: "The Plan or editor selection changed while reading headings. Refresh the section list." });
+        return;
+      }
+      const targets = planSectionTargets(captured.editor).map((target) => ({
+        ...target,
+        unavailableReason: worldPlanSectionUnavailableReason(captured.editor, target),
+      }));
+      const availableCount = targets.filter((target) => !target.unavailableReason).length;
+      const unavailableCount = targets.length - availableCount;
+      sectionScanRef.current = { captured, worldId, documentId };
+      setSectionTargets(targets);
+      setSectionTargetStatus({
+        kind: "status",
+        message: targets.length
+          ? `${availableCount} of ${targets.length} heading sections are available for proposals.${unavailableCount ? ` ${unavailableCount} section${unavailableCount === 1 ? " is" : "s are"} unavailable because their Markdown round-trip is not safe; unavailable sections are labeled in the list.` : ""} Text before the first heading stays outside the list; select it directly in the editor.`
+          : "This safe Plan draft has no nonempty root-level headings. Select text or place a caret directly in the editor.",
+      });
+    } catch (reason) {
+      if (!latestRef.current.mounted || sectionOperationRef.current !== token) return;
+      setSectionTargetStatus({
+        kind: "error",
+        message: reason instanceof Error ? reason.message : "Could not read headings from this mounted Plan.",
+      });
+    } finally {
+      if (sectionOperationRef.current === token) sectionOperationRef.current = null;
+    }
+  }
+
+  async function selectPlanSection(sectionId: string) {
+    setSelectedSectionTargetId(sectionId);
+    if (!sectionId) {
+      setSectionTargetStatus(null);
+      return;
+    }
+    const scan = sectionScanRef.current;
+    if (!editBridge || !scan) {
+      setSelectedSectionTargetId("");
+      setSectionTargetStatus({ kind: "error", message: "Refresh the section list before selecting a Plan heading." });
+      return;
+    }
+    const sectionOption = sectionTargets.find((candidate) => candidate.id === sectionId);
+    if (!sectionOption) {
+      setSelectedSectionTargetId("");
+      setSectionTargetStatus({ kind: "error", message: "That Plan heading is no longer available. Refresh the section list." });
+      return;
+    }
+    if (sectionOption.unavailableReason) {
+      setSelectedSectionTargetId("");
+      setSectionTargetStatus({ kind: "error", message: sectionOption.unavailableReason });
+      return;
+    }
+    const token = Symbol("world-plan-section-selection");
+    const fenceKey = proposalFenceKey;
+    sectionOperationRef.current = token;
+    setSectionTargetStatus({ kind: "status", message: "Selecting this Plan section…" });
+    try {
+      const current = await editBridge.capture();
+      if (!latestRef.current.mounted || sectionOperationRef.current !== token) return;
+      if (latestRef.current.proposalFenceKey !== fenceKey) {
+        throw new Error("The Plan or editor selection changed while choosing a section. Refresh the section list.");
+      }
+      if (current.editor.isDestroyed
+        || current.editor !== scan.captured.editor
+        || current.editorJson !== scan.captured.editorJson
+        || current.draftGeneration !== scan.captured.draftGeneration
+        || current.request.world_id !== scan.worldId
+        || current.request.document_id !== scan.documentId
+        || current.request.base_revision !== scan.captured.request.base_revision
+        || current.request.draft_sha256 !== scan.captured.request.draft_sha256) {
+        throw new Error("The mounted Plan draft changed. Refresh the section list before selecting a heading.");
+      }
+      const target = planSectionTargets(current.editor).find((candidate) => candidate.id === sectionId);
+      if (!target) throw new Error("That Plan heading is no longer available. Refresh the section list.");
+      const unavailableReason = worldPlanSectionUnavailableReason(current.editor, target);
+      if (unavailableReason) throw new Error(unavailableReason);
+      if (!current.editor.commands.setTextSelection({ from: target.from, to: target.to })) {
+        throw new Error("The Plan editor could not select that heading section.");
+      }
+      setSectionTargetStatus({
+        kind: "status",
+        message: `${target.label} selected. Compose a proposal to review a replacement; Save remains separate.`,
+      });
+    } catch (reason) {
+      if (!latestRef.current.mounted || sectionOperationRef.current !== token) return;
+      setSelectedSectionTargetId("");
+      setSectionTargetStatus({
+        kind: "error",
+        message: reason instanceof Error ? reason.message : "Could not select that Plan section.",
+      });
+    } finally {
+      if (sectionOperationRef.current === token) sectionOperationRef.current = null;
+    }
+  }
+
   async function composeEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const instruction = editInstruction.trim();
@@ -831,6 +970,40 @@ export function WorldPlanAgentConversation({
               maxLength={4000}
               disabled={composing || sending || saveInFlight || !scopeMatches || currentReview !== null}
             />
+            <div role="group" aria-label="Target a Plan section">
+              <label htmlFor="world-plan-agent-plan-section">Plan heading section</label>
+              <select
+                id="world-plan-agent-plan-section"
+                value={selectedSectionTargetId}
+                disabled={composing || sending || saveInFlight || !scopeMatches || currentReview !== null || sectionTargets.length === 0}
+                onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
+              >
+                <option value="">Select a heading section</option>
+                {sectionTargets.map((target) => (
+                  <option
+                    key={target.id}
+                    value={target.id}
+                    disabled={Boolean(target.unavailableReason)}
+                    title={target.unavailableReason ?? undefined}
+                  >
+                    {target.unavailableReason
+                      ? `${target.label} — unavailable (Markdown round-trip not safe)`
+                      : target.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => { void refreshPlanSections(); }}
+                disabled={composing || sending || saveInFlight || !scopeMatches || currentReview !== null}
+              >
+                Refresh section list
+              </button>
+              <p role="note">A section pick selects text in the editor. Compose uses the editor’s current selection; direct edits or selections take precedence.</p>
+              {sectionTargetStatus ? (
+                <p role={sectionTargetStatus.kind === "error" ? "alert" : "status"}>{sectionTargetStatus.message}</p>
+              ) : null}
+            </div>
             {editError ? <p role="alert">{editError}</p> : null}
             <button
               type="submit"
