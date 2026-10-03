@@ -155,6 +155,7 @@ async function showHybrid(){
  $('#editorTitle').textContent='Fleshborn Hybrid';$('#editorHelp').textContent='Monster statblock · CR 3';$('#apply').hidden=true;$('#errors').textContent='';
  const text=await (await fetch('./node-sources/fleshborn-hybrid.md')).text();
  $('#fields').innerHTML='<section id="nodeBody">'+md(text.replace(/^---\n[\s\S]*?\n---\n/,''))+'</section><details><summary>Source & binding</summary><p>Imported Fleshborn Hybrid.pdf rules export. This is a corpus statblock reference; a live Graph binding to the transformed refugees has not been verified.</p></details>';
+ $('#fields').insertAdjacentHTML('afterbegin','<button type="button" id="backThreats">← Threats</button>');$('#backThreats').onclick=()=>{$('#editor').close();showThreats()};
  $('#editor').showModal();
 }
 async function showLysandra(label){
@@ -218,13 +219,26 @@ $('#closePlayPad').onclick=()=>showPlayPad(false);
 $('#exportPlayPad').onclick=()=>download('play-notes.md',state.playPad.text,'text/markdown');
 showPlayPad(state.playPad.open);
 
-$('#meatMind').onclick=showMeatMind;
+$('#threats').onclick=showThreats;
 async function showMeatMind(){
  const source=await(await fetch('./node-sources/meat-mind.json')).json();
  $('#editorTitle').textContent='Meat Mind';$('#editorHelp').textContent='Core mass · HP fuels spawning';$('#apply').hidden=true;$('#errors').textContent='';
  const current=state.meatMindHP??{};
  $('#fields').innerHTML=`<p>A hidden core beneath the breach. It spends its own mass to spawn lesser forms and feeds on bodies to rebuild it.</p><h3>HP across encounters</h3><p><strong>Saved Session ${source.session} · round ${source.round}: ${source.historical.hp} / ${source.historical.maxHp} HP</strong><br>Historical snapshot · ${esc(source.exportedAt)} · HP and AC were provisional.</p><label for="meatCurrentHP">Current HP · your local play record</label><input id="meatCurrentHP" type="number" min="0" step="1" placeholder="Not recorded" value="${current.hp??''}"><small id="meatHPReceipt" role="status">${current.savedAt?choiceSaveReceipt(current.savedAt):'Current combat HP has not been loaded.'}</small><p id="meatComparison"></p><h3>Spawning and recovery</h3><ul><li>Spawn actions spend core HP.</li><li>Feeding restores or grows HP.</li><li>Burning the core prevents reform and may shut down spawning.</li></ul><p>The exact spawn cost and thresholds are not verified here. No remaining-spawn count can be calculated yet.</p><details><summary>Creature description</summary>${md(source.description)}</details><details><summary>Sources & statblock binding</summary><p>${esc(source.source)}</p><p>Known statblock: ${esc(source.historical.statblockId)}<br>Revision: ${esc(source.historical.revisionId)}</p><p>The bound statblock rules and live combat state are not loaded. Editing this field saves a prototype play record; it does not update the combat tracker.</p></details>`;
+ $('#fields').insertAdjacentHTML('afterbegin','<button type="button" id="backThreats">← Threats</button>');$('#backThreats').onclick=()=>{$('#editor').close();showThreats()};
  const compare=()=>{const hp=state.meatMindHP?.hp;$('#meatComparison').textContent=hp==null?'Enter the current HP to compare it with the saved encounter.':`${hp} HP now · ${hp-Number(source.historical.hp)>0?'+':''}${hp-Number(source.historical.hp)} HP compared with the saved ${source.historical.hp}.`};compare();
  $('#meatCurrentHP').oninput=()=>{const field=$('#meatCurrentHP');if(!field.validity.valid)return;state.meatMindHP={hp:field.value===''?null:Number(field.value),savedAt:new Date().toISOString()};try{save();$('#meatHPReceipt').textContent=choiceSaveReceipt(state.meatMindHP.savedAt);compare()}catch{$('#meatHPReceipt').textContent='Not saved · browser storage unavailable.'}};
+ $('#editor').showModal();
+}
+
+function showThreats(){
+ const text=state.drafts[state.doc],scene=parse(text).scenes.find(s=>s.id===state.scene);
+ const body=scene?text.slice(scene.bodyStart,scene.end):'';
+ const hybridHere=scene?.id==='scene:warehouse-tail';
+ const mindHere=scene?.id==='scene:meat-mind-wake';
+ const mindRelated=/meat mind/i.test(body);
+ $('#editorTitle').textContent='Threats';$('#editorHelp').textContent=scene?.title??'Current preparation';$('#apply').hidden=true;$('#errors').textContent='';
+ $('#fields').innerHTML=`<h3>In this scene</h3>${hybridHere?'<section class="reference-context"><h4>Transformed refugees</h4><p>Active in the warehouse yard. Fleshborn Hybrid is the available rules reference; the creature binding is not confirmed.</p><button type="button" data-threat-open="hybrid">View Hybrid statblock · CR 3</button></section>':mindHere?'<section class="reference-context"><h4>Meat Mind</h4><p>Underground threat being investigated. Its exact position and encounter status remain unresolved.</p><button type="button" data-threat-open="mind">View creature & HP</button></section>':'<p>No creature threat is explicitly identified for this scene in this prototype.</p>'}<h3>Session threat references</h3>${!mindHere?`<section class="reference-context"><h4>Meat Mind</h4><p>${mindRelated?'Mentioned in this scene as a possible connection or later consequence.':'Underground core · available for reference across the session.'}</p><button type="button" data-threat-open="mind">View creature & HP</button></section>`:''}${!hybridHere?'<section class="reference-context"><h4>Fleshborn Hybrid</h4><p>Rules reference for transformed creatures near the warehouse.</p><button type="button" data-threat-open="hybrid">View statblock · CR 3</button></section>':''}<details><summary>Coverage</summary><p>This list uses the current preparation and imported creature references. It is not a live Graph or combat roster.</p></details>`;
+ document.querySelectorAll('[data-threat-open]').forEach(button=>button.onclick=()=>{$('#editor').close();button.dataset.threatOpen==='mind'?showMeatMind():showHybrid()});
  $('#editor').showModal();
 }

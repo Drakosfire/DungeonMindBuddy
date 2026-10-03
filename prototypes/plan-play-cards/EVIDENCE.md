@@ -99,3 +99,7 @@ Added Scene notes under each card, keyed by document and scene. Browser verified
 ## Meat Mind HP comparison
 
 Added a toolbar creature view with the saved Session 26 round 4 provisional 155/200 HP snapshot, graph-backed creature description, known statblock binding, and an autosaved operator current-HP field included in full-session backups. Current HP is explicitly a local play record, not live combat synchronization. Exact spawn costs remain unverified; no capacity is invented. Separate browser tab verified the snapshot, empty-current state and mechanics disclosure without editing active play data. Module syntax, model tests, fixture verification and diff whitespace checks passed.
+
+## Scene threat browser
+
+Replaced the single Meat Mind toolbar shortcut with Threats: scene threats are distinguished from session references, with creature/HP and Hybrid statblock views and return navigation. Presence is limited to explicit prepared warehouse and Meat Mind investigation scenes; conditional references do not imply an active encounter. Browser verified opening the roster, Meat Mind details and return without changing active play state. Syntax, model and fixture checks passed.
