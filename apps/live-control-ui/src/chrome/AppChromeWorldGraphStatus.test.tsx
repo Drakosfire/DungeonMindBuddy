@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
@@ -11,7 +11,7 @@ import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
 import { AppChrome } from "./AppChrome";
 import { WORLD_GRAPH_LENS_DEFAULT_CAMPAIGN_ID } from "./appChromeConfig";
-import { presentWorldGraphChromeStatus } from "./AppChromeWorldGraphStatus";
+import { AppChromeWorldGraphStatus, presentWorldGraphChromeStatus } from "./AppChromeWorldGraphStatus";
 
 vi.mock("../api/liveApi", async () => {
   const actual = await vi.importActual<typeof import("../api/liveApi")>("../api/liveApi");
@@ -172,5 +172,28 @@ describe("AppChromeWorldGraphStatus", () => {
     expect(await screen.findByTestId("surface-context-popover")).toBeInTheDocument();
     expect(screen.getByText("Graph campaigns")).toBeInTheDocument();
     expect(screen.getByLabelText("Focus session")).toBeInTheDocument();
+  });
+});
+
+
+describe("managed World error detail", () => {
+  it("reveals the projection failure in the expanded status", async () => {
+    // Mock only the provider hooks so the real popover and error presentation mount.
+    const selected = await import("../selectedWorld/SelectedWorldContext");
+    const projection = await import("../graphLens/useWorldGraphLensProjection");
+    vi.spyOn(selected, "useSelectedWorld").mockReturnValue({ kind: "managed", worldId: "elderwyld", name: "Elderwyld", documentId: null });
+    vi.spyOn(projection, "useOptionalWorldGraphLensProjection").mockReturnValue({
+      projectionState: "error",
+      projectionError: "A valid local operator credential is required for native Graph access. (graph_auth_required)",
+      nodeCount: 0,
+    } as ReturnType<typeof projection.useOptionalWorldGraphLensProjection>);
+    try {
+      render(<SurfaceContextProvider><AppChromeWorldGraphStatus /></SurfaceContextProvider>);
+      fireEvent.click(screen.getByTestId("app-chrome-world-graph-status"));
+      expect(screen.getByRole("alert")).toHaveTextContent("graph_auth_required");
+      expect(screen.getByTestId("app-chrome-world-graph-status")).toHaveTextContent("Elderwyld · Needs attention");
+    } finally {
+      vi.restoreAllMocks();
+    }
   });
 });
