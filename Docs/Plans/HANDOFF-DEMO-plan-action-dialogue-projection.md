@@ -8,9 +8,11 @@
 
 **Preparation base:** Buddy `main@327bdb5a899178eef2c16f3e9198219eb8e79773` (PR #863 merge).
 
+**Amendment base:** Buddy `main@e4d02ca03003877064f7a323a20b8230325d11cf`.
+
 **Accepted design:** PR #859 merged at `43c4c4daa8e1c17b22953681fe817e6881242b36` from reviewed head `c78feb94f37f7612200e2d0962d26d0f5a1326cf`. This amendment narrows the action-record scope and records the shared-migration ownership ruling; it does not activate implementation.
 
-**Topology:** serial — APP-STATE World conversation storage/receipts (#822/#827 complete) → AGENT-INTERACTION production runtime adoption → this Plan-owned action-dialogue projection capability → DEMO Plan World-conversation cutover in [HANDOFF-DEMO-plan-world-conversation-cutover.md](HANDOFF-DEMO-plan-world-conversation-cutover.md). The action projection is a separate capability and PR, not an expansion of the consumer lease.
+**Topology:** serial — APP-STATE World conversation storage/receipts (#822/#827 complete) → AGENT-INTERACTION production runtime adoption (#865) → this Plan-owned action-dialogue projection capability (#859) → separate APP-STATE exact-basis Ask projection → DEMO Plan World-conversation cutover in [HANDOFF-DEMO-plan-world-conversation-cutover.md](HANDOFF-DEMO-plan-world-conversation-cutover.md). The two projections are separate capabilities and PRs, not an expansion of either implementation lease.
 
 **Future implementation PR title:** `DEMO: persist Plan action dialogue projection`.
 
@@ -159,17 +161,28 @@ private filtering metadata.
 
 ## Read and ordering contract
 
-The Plan owner provides an authoritative server-side read/projection for the
-consumer. It accepts a server-verified World, Plan document, and committed
-basis and returns only records matching all three, ordered by server accepted
-time/sequence with a stable tie break. It includes truthful `pending`,
-`failed`, and `indeterminate` status items for UI recovery. A completed item
-contains one user instruction paired with its assistant summary; other states
-have no fabricated assistant response. The projection is bounded to at most
-six action records. Only completed instruction/summary pairs are eligible for
-the later conversational context. The consumer merges those with eligible
-APP-STATE Ask turns, applies the overall six-turn cap after ordering, and never
-supplies an authoritative client `conversation_history` array.
+The Plan owner provides two distinct authoritative server-side projections,
+both scoped by the server-verified World, Plan document, and complete committed
+basis:
+
+1. The **status/recovery projection** returns a bounded, stably ordered set of
+   matching action records with truthful `pending`, `completed`, `failed`, and
+   `indeterminate` status for the UI. A completed record pairs one user
+   instruction with its assistant summary; other states have no fabricated
+   assistant response. This read serves status and recovery display only.
+2. The **completed-context projection** first filters to `status=completed`, a
+   safe assistant summary, and the exact World ID, Plan document ID, object
+   revision, WorkRevision ID and number, and content SHA-256; only then does it
+   apply its maximum-six eligible-pair limit. It returns the instruction and
+   assistant summary with safe typed metadata and stable ordering. Newer
+   pending, failed, or indeterminate actions never consume this context limit
+   or hide older eligible completed pairs.
+
+The later Plan consumer merges the completed-context projection with the
+separate APP-STATE exact-basis Ask projection, orders both sources stably, and
+applies the overall six-turn cap after that merge. The status/recovery read is
+not a context source. The consumer never treats client `conversation_history`
+as authoritative.
 
 A new object revision, WorkRevision ID/number, or content hash starts a
 different eligible basis. Old action dialogue may remain historical in the
@@ -232,6 +245,11 @@ prove:
 6. A late response remains bound to the originating action ID and basis after
    Plan/World switch. Existing proposal review, Apply-to-editor, and ordinary
    Save behavior still pass.
+7. Six newer matching actions in `pending`, `failed`, or `indeterminate`
+   states remain visible through the status/recovery projection but do not
+   hide older completed exact-basis pairs from the completed-context
+   projection; filtering to completed exact-basis pairs happens before its
+   six-item limit.
 
 Use an isolated fake provider/runtime and only a disposable persistence
 fixture explicitly named by PRIME's implementation lease. No production
