@@ -1,9 +1,11 @@
 # DOGFOOD — restore recap canvas
 
 Status: ACTIVE under direct operator instruction: recap projection with node pills and World lens, one closed Advanced metadata disclosure.
-Base: origin/main 312a9a3b33d2381d74049daeb8be6846c93b7fb4. Branch: codex/dogfood-recap-canvas. Topology: serial successor to merged PR879.
-Write lease: this handoff, IngestionModule.tsx and IngestionModule.test.tsx. No overlap found with current open lanes. Existing WorldGraphRecapProjectionView and API contracts reused unchanged.
+Base: origin/main 6d4644237a38a4aa04ab24c5430e203a1b486737 after PR880; follows merged PR879. Branch: codex/dogfood-recap-canvas. Topology: serial successor to merged PR879.
+Write lease: this handoff; IngestionModule.tsx and IngestionModule.test.tsx; planSurface/graphPreview/WorldGraphRecapProjection.tsx and its test; new chrome/NativeGraphAccessControl.tsx. PRIME explicitly extended this bounded lease after review for native read identity and existing in-memory Graph credential reuse. No overlap found with current open lanes. Existing WorldGraphRecapProjectionView and API contracts reused unchanged.
 Runtime: owned DOGFOOD UI5202/API7866, UI-only hot reload; no restart, provider calls or Graph writes.
 Invariant: validate exact saved-source identity, read established canonical recap projection with existing campaign mapping, verify World/campaign/session, retain request epoch fencing. Canvas shows canonical recap against current admitted World context, not newly admitted extraction. Admission pending remains visible. Frontmatter, paths, readiness, extraction diagnostics and advanced controls share one closed Advanced disclosure.
 Evidence: exact historical run projection returns409 world_binding_unavailable; canonical projection returns200,80nodeviews/102mentions for Session29. No fake binding or guard bypass. Authoritative exact-run association remains a separate contract gap.
 Verification: targeted mounted source/projection/race/error and real node-pill read interaction; existing projection component lens tests; cumulative diff review. Preserve inherited JSX namespace typecheck failure.
+
+Review correction: pill read authority comes from verified native projection snapshot, including campaign/scope/focus/admissibility/revision. Cross-native-World lens fails closed; unavailable lens explicitly falls back to native recap snapshot. Shared projection integrity verifier gates display. Existing credential API is exposed in Advanced with no storage/logging or new auth system; setting retries recap reads only, clearing invalidates review. Conversation owner files unchanged.

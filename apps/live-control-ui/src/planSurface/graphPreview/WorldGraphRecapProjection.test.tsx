@@ -7,6 +7,7 @@ import {
   WorldGraphLensProjectionProvider,
   WorldGraphLensProvider,
 } from "../../graphLens";
+import { SelectedWorldProvider } from "../../selectedWorld/SelectedWorldContext";
 import { WorldGraphRecapProjectionView } from "./WorldGraphRecapProjection";
 import { session23WorldGraphRecapFixture } from "./worldGraphRecapFixture";
 
@@ -365,4 +366,32 @@ describe("WorldGraphRecapProjectionView", () => {
       );
     });
   }, 15000);
+  it.each(["ready", "unavailable", "mismatched"])("uses verified native read identity under a %s managed lens", async (state) => {
+    window.history.replaceState({}, "", "/ingest?world=elderwyld");
+    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({ schema_version: "dmb_world_container_registry_v1", records: [{ schema_version: "dmb_world_container_record_v1", world_id: "elderwyld", name: "Elderwyld", source_root_relpath: "corpus/elderwyld", created_at: "2026-01-01T00:00:00Z" }] });
+    vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({ schema: "dmb_ingestion_source_bundle_v1", campaigns: {} } as never);
+    const snapshot = { ...session23WorldGraphRecapFixture.snapshot, worldId: state === "mismatched" ? "other-native-world" : "eldyrwild", campaignId: "", scopeMode: "world" as const, focus: { kind: "none" as const, sessionId: null }, revisionId: "managed-native-head", headRevisionId: "managed-native-head" };
+    const projection: WorldGraphProjection = { schema: "dmb_world_graph_projection_v1", snapshot, summary: { nodeCount: 2, relationshipCount: 1, attributeCount: 0, evidenceCount: 0, sourceArtifactCount: 0, projectionTruncated: false }, nodes: Object.values(session23WorldGraphRecapFixture.nodeViews), relationships: [], attributes: [], evidence: [], sourceArtifacts: [], diagnostics: [] };
+    const managed = vi.spyOn(liveApi, "postManagedWorldGraphProjection");
+    if (state === "unavailable") managed.mockRejectedValue(new Error("Lens unavailable"));
+    else managed.mockResolvedValue({ schema: "dmb_managed_world_graph_projection_v1", managedWorldId: "elderwyld", nativeWorldId: snapshot.worldId, bindingVersion: 1, projection });
+    vi.mocked(liveApi.postWorldGraphCompleteObject).mockImplementation(async (request) => ({ schema: "dmb_world_graph_object_projection_v1", found: true, completeness: { status: "complete", truncatedFields: [] }, snapshot: state === "unavailable" ? session23WorldGraphRecapFixture.snapshot : snapshot, requestedNodeId: request.nodeId, resolvedNodeId: request.nodeId, node: session23WorldGraphRecapFixture.nodeViews[request.nodeId], relatedNodes: [session23WorldGraphRecapFixture.nodeViews.loc_mirathorn], semanticFingerprint: "test" }));
+    render(<SelectedWorldProvider locationSnapshot={window.location.href}><WorldGraphLensProvider planCampaignId="elderwyld"><WorldGraphLensProjectionProvider defaultCampaignId="elderwyld"><WorldGraphRecapProjectionView payload={session23WorldGraphRecapFixture} selectedSessionId="session-23" sessionOptions={["session-23"]} onSelectSession={vi.fn()} selectedCampaignId="longmont-c2" onSelectCampaign={vi.fn()} /></WorldGraphLensProjectionProvider></WorldGraphLensProvider></SelectedWorldProvider>);
+    await waitFor(() => expect(managed).toHaveBeenCalled());
+    if (state === "mismatched") {
+      expect(await screen.findByText(/World lens does not match/)).toBeInTheDocument();
+    } else if (state === "unavailable") {
+      expect(await screen.findByText(/World lens unavailable; node inspection/)).toBeInTheDocument();
+    }
+    const pill = await waitFor(() => { const value = document.querySelector("button.recap-node-token") as HTMLButtonElement; expect(value).toBeTruthy(); return value; });
+    fireEvent.click(pill);
+    if (state === "mismatched") { expect(liveApi.postWorldGraphCompleteObject).not.toHaveBeenCalled(); return; }
+    const expected = state === "unavailable" ? session23WorldGraphRecapFixture.snapshot : snapshot;
+    await waitFor(() => expect(liveApi.postWorldGraphCompleteObject).toHaveBeenCalledWith(expect.objectContaining({ worldId: "eldyrwild", campaignId: expected.campaignId, scopeMode: expected.scopeMode, revisionPin: expected.revisionId, focus: expected.focus, admissibility: expected.admissibility })));
+    const peek = await screen.findByLabelText("Caelynn graph object");
+    await waitFor(() => expect(within(peek).getByRole("button", { name: /Open related object.*Mirathorn/i })).toBeInTheDocument());
+    fireEvent.click(within(peek).getByRole("button", { name: /Open related object.*Mirathorn/i }));
+    expect(screen.getByTestId("recap-graph-related-object-expansion")).toHaveTextContent("Mirathorn");
+  }, 15000);
+
 });

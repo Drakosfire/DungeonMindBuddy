@@ -8,6 +8,7 @@ import type {
   RecapGraphPreviewReport,
   RecapIngestStatus,
   WorldGraphRecapProjection,
+  WorldGraphProjection,
 } from "../api/types";
 import {
   filterNumericRecapArtifactRecords,
@@ -26,7 +27,10 @@ import { buildIngestReadiness } from "./ingestReadiness";
 import { mergeInspectResult } from "./ingestResultMerge";
 
 import { WorldGraphRecapProjectionView } from "../planSurface/graphPreview/WorldGraphRecapProjection";
+import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
 import { buildWorldGraphRecapProjectionRequest } from "../worldGraph/worldGraphSurfaceContext";
+
+import { NativeGraphAccessControl } from "../chrome/NativeGraphAccessControl";
 
 interface IngestionModuleProps {
   campaignId: string;
@@ -1842,6 +1846,14 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
       if (projection.campaignId !== ingestCampaignId || projection.sessionId !== `session-${capturedSession}` || projection.snapshot.worldId !== request.worldId) {
         throw new Error("Recap projection does not match the selected World and session.");
       }
+      if (!projection.snapshot.revisionId || !projection.snapshot.headRevisionId) throw new Error("Recap projection has no verified revision identity.");
+      const integrityError = verifyWorldGraphProjectionResponse({
+        request,
+        // Shared verifier reads only the common snapshot contract.
+        response: projection as unknown as WorldGraphProjection,
+        revisionKind: "head",
+      });
+      if (integrityError) throw new Error(integrityError);
       setReviewSource({ prose: inspection.sourceProse, identity, session: capturedSession, nodes, edges, projection });
     } catch (error) {
       if (isCurrent()) setReviewError(error instanceof Error ? error.message : "Unable to open saved source.");
@@ -2237,7 +2249,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
         </section>
 
         <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">
-          {reviewError ? <p role="alert" className="module-error">{reviewError}</p> : null}
+          {reviewError ? <p role="alert" className="module-error">{reviewError} {reviewError.includes("credential") || reviewError.includes("graph_auth_required") ? "Open Advanced → Native Graph access to set the local operator credential." : ""}</p> : null}
           {reviewSource !== null && reviewSource.identity === reviewIdentity ? (
             <section aria-label="Saved extraction source review">
               <p>Current World Graph context. This extraction is awaiting Graph admission.</p>
@@ -2253,6 +2265,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
             </section>
           ) : null}
           <details><summary>Advanced</summary>
+          <NativeGraphAccessControl onChanged={(available) => {
+            reviewEpoch.current += 1;
+            setReviewSource(null);
+            setReviewError(null);
+            setReviewLoading(false);
+            if (available) void reviewSavedSource();
+          }} />
           {reviewSource ? <pre aria-label="Recap frontmatter">{reviewSource.projection.markdown.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0] ?? "No frontmatter"}</pre> : null}
         <ol className="ingestion-flow-steps ingestion-readiness-lanes">
           {readinessLanes.map((lane) => (

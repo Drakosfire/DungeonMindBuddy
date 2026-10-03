@@ -59,13 +59,13 @@ export function WorldGraphRecapProjectionView({
   const worldLensProjection = useOptionalWorldGraphLensProjection();
   const governedWorldNodeViews = useMemo(() => {
     if (worldLensProjection == null) return undefined;
-    if (worldLensProjection.projection == null) return null;
+    if (worldLensProjection.projection == null || worldLensProjection.projection.snapshot.worldId !== payload.snapshot.worldId) return null;
     return adaptWorldGraphNodeViewMap(
       Object.fromEntries(
         worldLensProjection.projection.nodes.map((node) => [node.nodeId, node]),
       ),
     );
-  }, [worldLensProjection]);
+  }, [worldLensProjection, payload.snapshot.worldId]);
   const authoringDraft = useGraphObjectAuthoringDraft({
     campaignId: selectedCampaignId,
     sessionId: selectedSessionId,
@@ -82,22 +82,27 @@ export function WorldGraphRecapProjectionView({
   const [activeNodeId, setActiveNodeId] = useState<string | null>(null);
   const [selectedRelationshipId, setSelectedRelationshipId] = useState<string | null>(null);
   const [expandedRelatedNodeId, setExpandedRelatedNodeId] = useState<string | null>(null);
-  const revisionId = payload.snapshot.revisionId;
   const objectOpen = Boolean(activeNodeId);
   const activeWorkingNode = activeNodeId ? workingProjection.nodeViews[activeNodeId] ?? null : null;
   const activeIsLocal = Boolean(activeWorkingNode?.authored && activeNodeId?.startsWith("local-authoring:"));
+  // The managed request identity is not the native Graph read authority.
+  const lensSnapshot = worldLensProjection?.projection?.snapshot;
+  const readSnapshot = lensSnapshot ?? payload.snapshot;
+  const readAuthorityError = lensSnapshot && lensSnapshot.worldId !== payload.snapshot.worldId
+    ? "The World lens does not match this recap's native World. Reload the matching World before inspecting nodes."
+    : !readSnapshot.worldId || !readSnapshot.revisionId
+      ? "Verified native World snapshot is unavailable."
+      : null;
   const complete = useCompleteWorldObject({
-    enabled: objectOpen && !activeIsLocal,
-    worldId: worldLensProjection?.request?.worldId ?? payload.snapshot.worldId,
-    campaignId: worldLensProjection?.request?.campaignId ?? selectedCampaignId,
+    enabled: objectOpen && !activeIsLocal && !readAuthorityError,
+    worldId: readSnapshot.worldId,
+    campaignId: readSnapshot.campaignId,
+    scopeMode: readSnapshot.scopeMode,
     nodeId: activeNodeId,
-    revisionPin: worldLensProjection?.projection?.snapshot.revisionId ?? revisionId,
+    revisionPin: readSnapshot.revisionId,
     originSurface: recapOriginSurface(),
-    focus: worldLensProjection?.request?.focus ?? {
-      kind: "session",
-      sessionId: selectedSessionId,
-      campaignId: selectedCampaignId,
-    },
+    focus: readSnapshot.focus,
+    admissibility: readSnapshot.admissibility as "gm" | "player",
   });
 
   const handleInspectNode = useCallback((nodeId: string) => {
@@ -175,6 +180,9 @@ export function WorldGraphRecapProjectionView({
   return (
     <div className="recap-reader-root world-graph-recap-root">
       {reviewToolbar}
+      {readAuthorityError ? <p role="alert">{readAuthorityError}</p> : worldLensProjection && !lensSnapshot ? (
+        <p role="note">World lens unavailable; node inspection uses this recap's verified native snapshot.</p>
+      ) : null}
       <PublishedRecapLocalAuthoring
         campaignId={selectedCampaignId}
         sessionId={selectedSessionId}
