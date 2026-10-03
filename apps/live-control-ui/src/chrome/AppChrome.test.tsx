@@ -91,6 +91,10 @@ describe("AppChrome Ingest peek composition", () => {
     measure?.([], {} as ResizeObserver);
     expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe("142px");
 
+    bottom = -18;
+    measure?.([], {} as ResizeObserver);
+    expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe("0px");
+
     bottom = 226;
     measure?.([], {} as ResizeObserver);
     expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe("226px");

@@ -153,8 +153,8 @@ export function AppChrome({
     const previousPriority = rootStyle.getPropertyPriority("--app-chrome-top");
     const updateChromeOffset = () => {
       const headerBottom = header.getBoundingClientRect().bottom;
-      if (!Number.isFinite(headerBottom) || headerBottom <= 0) return;
-      rootStyle.setProperty("--app-chrome-top", `${Math.ceil(headerBottom)}px`);
+      if (!Number.isFinite(headerBottom)) return;
+      rootStyle.setProperty("--app-chrome-top", `${Math.max(0, Math.ceil(headerBottom))}px`);
     };
 
     updateChromeOffset();

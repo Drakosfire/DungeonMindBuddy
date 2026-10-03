@@ -700,8 +700,12 @@ code {
   box-sizing: border-box;
 }
 
-.app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-shell-layout {
-  padding-left: var(--app-edit-host-dock-width);
+.app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+  /* Keep the shared navigation/context band in place; reserve dock space only
+     for the Plan workspace below it. */
+  width: calc(100% - var(--app-edit-host-dock-width));
+  max-width: none;
+  margin-left: var(--app-edit-host-dock-width);
 }
 
 .app-shell--edit-dock .app-edit-toolbox--docked {
@@ -2397,11 +2401,12 @@ button:disabled {
     box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
   }
 
-  /* The narrow layout overlays EditHost, so desktop dock reservation and
-     stacking must not squeeze the center or block taps. Match open-state
-     selector specificity so these mobile values win. */
-  .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-shell-layout {
-    padding-left: 0;
+  /* Narrow Edit overlays the page, so the document workspace keeps its full
+     width and the shared navigation/context band stays stable. */
+  .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-wrap :is(.plan-surface-root, .world-owned-plan) {
+    width: 100%;
+    max-width: none;
+    margin-left: 0;
   }
 
   .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
