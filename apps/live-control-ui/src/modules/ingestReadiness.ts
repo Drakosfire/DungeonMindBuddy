@@ -86,8 +86,9 @@ function memoryDetail(result: RecapIngestStatus | null | undefined, ready: boole
 }
 
 function formatGraphCounts(preview: RecapGraphPreviewReport): string | null {
-  const nodes = preview.node_count;
-  const edges = preview.edge_count;
+  const candidateReady = preview.status === "candidate_validation_ready";
+  const nodes = candidateReady ? preview.candidate_node_count ?? preview.node_count : preview.node_count;
+  const edges = candidateReady ? preview.candidate_edge_count ?? preview.edge_count : preview.edge_count;
   if (typeof nodes !== "number" && typeof edges !== "number") return null;
   const nodePart = typeof nodes === "number" ? `${nodes} node${nodes === 1 ? "" : "s"}` : null;
   const edgePart = typeof edges === "number" ? `${edges} edge${edges === 1 ? "" : "s"}` : null;
@@ -100,6 +101,10 @@ function graphDetail(preview: RecapGraphPreviewReport | null, ready: boolean, bl
     return counts
       ? `Preview union on disk (${counts}). Open Graph Review to judge coverage.`
       : "Preview union store is on disk. Open Graph Review to judge coverage.";
+  }
+  if (preview?.status === "candidate_validation_ready" && !blocked) {
+    const counts = formatGraphCounts(preview);
+    return `Extracted candidate ready for review${counts ? ` (${counts})` : ""}. World Graph admission is pending.`;
   }
   if (blocked) return preview?.blocked_reason?.trim() || "Graph extraction blocked.";
   if (!preview || preview.status === "missing" || preview.status === "graph_preview_missing") {
@@ -124,6 +129,9 @@ function buildNextAction(options: {
   }
   if (blocked) {
     return `Graph projection blocked: ${preview?.blocked_reason?.trim() || "unknown reason"}.`;
+  }
+  if (preview?.status === "candidate_validation_ready" && !blocked) {
+    return "Next: Review the extracted candidate. World Graph admission is pending.";
   }
   if (!memoryIsReady) {
     if (hasState(result, "breadcrumb_found")) return "Next: Materialize Session Memory.";

@@ -1,6 +1,6 @@
 # DOGFOOD — Confined recap snapshot storage
 
-Status: ACTIVE. Direct operator authority: patch the failing Run ingest workflow, 2026-10-02. Topology: serial successor to merged PR875. Base: fetched origin/main 420b59b1629b9399dbb480baa9479d654f1ed659; branch codex/dogfood-recap-content-root; owning checkout /home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy.
+Status: COMPLETE. PR877 merged at a4e1166a16906d411e6864221513632a90dc2dae after independent guarded registry and mounted-route verification; no outstanding write lease. Direct operator authority: patch the failing Run ingest workflow, 2026-10-02. Topology: serial successor to merged PR875. Base: fetched origin/main 420b59b1629b9399dbb480baa9479d654f1ed659; branch codex/dogfood-recap-content-root; owning checkout /home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy.
 
 Write lease: this handoff; HANDOFF-DOGFOOD-recap-runs-root.md (predecessor settlement); apps/live_control_server/services/source_artifact_registry.py; tests/test_recap_source_content_root.py; tests/test_live_recap_ingest_graph_preview_api.py (configured immutable snapshot route witness).
 

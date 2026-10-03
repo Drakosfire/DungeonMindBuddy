@@ -374,7 +374,10 @@ def _generate_recap_memory_from_request(body: RecapIngestRequest, corpus: Path |
                     manifest_path=graph.get("manifest_path"),
                     session_id=f"session-{body.session}",
                 )
-            if status.get("status") not in {"error", "needs_reconciliation"}:
+            if (
+                status.get("status") not in {"error", "needs_reconciliation"}
+                and graph.get("status") == "preview_union_store_ready"
+            ):
                 status["status"] = "ready_for_planning_activation"
         else:
             _add_unique(
