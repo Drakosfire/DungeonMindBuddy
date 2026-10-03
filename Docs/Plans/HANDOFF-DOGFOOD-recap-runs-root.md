@@ -1,6 +1,6 @@
 # DOGFOOD — Confined recap runs root
 
-Status: ACTIVE. Authority: operator ongoing patch-it-up / do-not-ask direction, 2026-10-02. Topology: serial successor to merged PR873 and PR874. Base: fetched origin/main e4d02ca03003877064f7a323a20b8230325d11cf. Branch: codex/dogfood-recap-runs-root. Checkout: /home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy.
+Status: COMPLETE. PR875 merged at c2d9078b8d700c9a6c3f081d87c50cf7967ddfb5 after independent 28-test verification; no outstanding write lease. Authority: operator ongoing patch-it-up / do-not-ask direction, 2026-10-02. Topology: serial successor to merged PR873 and PR874. Base: fetched origin/main e4d02ca03003877064f7a323a20b8230325d11cf. Branch: codex/dogfood-recap-runs-root. Checkout: /home/drakosfire/.codex/worktrees/996b/DungeonMindBuddy.
 
 Expected write lease: this handoff; HANDOFF-DOGFOOD-restore-recap-entry.md (truthful predecessor settlement); apps/live_control_server/services/graph_ingest_run_registry.py; apps/live_control_server/services/recap_graph_preview_ingest.py; tests/test_recap_graph_runs_root.py; tests/test_live_recap_ingest_graph_preview_api.py (configured-root mounted route witness).
 

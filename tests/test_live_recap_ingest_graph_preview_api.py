@@ -1012,3 +1012,24 @@ def test_recap_writer_and_discovery_use_configured_root(client_env, monkeypatch)
         assert any(run.manifest_path == graph["manifest_path"] for run in runs)
     finally:
         shutil.rmtree(ROOT / configured, ignore_errors=True)
+
+
+def test_recap_preview_uses_configured_immutable_content_root(client_env, monkeypatch):
+    client, _corpus, _candidate = client_env
+    configured = "out/test_recap_ingest_graph_preview/recap-content"
+    monkeypatch.setenv("DUNGEONMIND_RECAP_SOURCE_CONTENT_ROOT", configured)
+    _prepare_normalized(client)
+    try:
+        response = client.post("/api/live/recap-ingest", json={
+            "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22,
+        })
+        assert response.status_code == 200, response.text
+        graph = response.json()["ingest_report"]["graph_preview"]
+        assert graph["status"] == "source_span_bundle_ready"
+        snapshots = list((ROOT / configured / "longmont-c2/session-22").glob("*.md"))
+        assert len(snapshots) == 1
+        assert "Mireward road" in snapshots[0].read_text()
+        registry = json.loads((ROOT / "out/registries/source_artifacts.json").read_text())
+        assert any(record["uri"].startswith("repo://" + configured + "/") for record in registry["records"])
+    finally:
+        shutil.rmtree(ROOT / configured, ignore_errors=True)
