@@ -91,3 +91,7 @@ The writing pad displays Saving… then a successful save timestamp in operator 
 ## Choice-note autosave and Hybrid reference
 
 Something else fields show Saving… then a saved timestamp, with per-choice receipt persistence and explicit storage failure feedback. Browser verified the transition with exact operator note text preserved; private screenshot stays outside Git. Opening scene now exposes Fleshborn Hybrid CR3 through a monster-reference pill. Source copied verbatim with provenance; browser verified AC13, HP45, actions including Flesh Lash and Consume the Weak. This is a corpus reference, not verified native Graph binding to the transformed refugees.
+
+## Scene-specific notes
+
+Added Scene notes under each card, keyed by document and scene. Browser verified text field and save receipt survives refresh. Removed only verification text; operator writing pad remains unchanged. Scene note state is included in full-session backup. Private screenshot stays outside Git.

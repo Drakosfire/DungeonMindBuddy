@@ -27,3 +27,5 @@ aside{grid-column:1}main{grid-column:2}#journal{grid-column:3}
 .choice-save-status{letter-spacing:0;color:#496257;font-size:11px;margin-top:4px}.choice-save-status[data-status="saving"]{color:#75664c}.choice-save-status[data-status="error"]{color:#a32f25}
 
 .monster-reference{font-size:12px;margin-bottom:8px;color:#496257}
+
+.scene-notes{margin-top:20px;border-top:1px solid #bcaf98;padding-top:12px}.scene-notes summary{cursor:pointer;font-weight:600}.scene-notes label{display:block;font-size:12px;margin:12px 0 6px}.scene-notes textarea{background:#f5efdf;color:#30342c;min-height:110px}.scene-notes small{letter-spacing:0;color:#496257;margin-top:5px}#sceneNotesStatus[data-status="error"]{color:#a32f25}

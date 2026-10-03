@@ -47,3 +47,5 @@ The floating Notes button opens one resizable writing pad shared across all card
 Use Complete in the scene toolbar to mark/unmark a scene. The outline shows a checkmark and crossed-out title. Completed scenes remain navigable; status persists per document/scene in browser storage.
 
 Files → Back up full session downloads a versioned JSON snapshot containing all current browser state: document drafts, decisions, pending choices/notes, shared writing pad and completion marks. Keep a separate copy for recovery; this prototype does not yet offer a restore-file UI.
+
+Each card has a Scene notes disclosure at the bottom. Notes autosave independently by document/scene with visible saving/saved/error receipts; full-session backups include them. The floating pad remains shared.

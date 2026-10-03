@@ -7,7 +7,7 @@ const $=s=>document.querySelector(s);
 const esc=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let state;try{state=JSON.parse(localStorage.getItem(storage))}catch{}
 state??={drafts:fixtures.map(x=>x.markdown),outcomes:[],doc:0,scene:'scene:warehouse-tail',mode:'plan',view:'cards',block:0,room:null};
-state.completedScenes??={};state.actions??={};state.noteDrafts??={};state.otherNotes??={};state.otherNoteSavedAt??={};state.panels??={outline:true,notes:false};
+state.sceneNotes??={};state.sceneNoteSavedAt??={};state.completedScenes??={};state.actions??={};state.noteDrafts??={};state.otherNotes??={};state.otherNoteSavedAt??={};state.panels??={outline:true,notes:false};
 if(state.selectionVersion!==2){for(const outcome of state.outcomes){const key=outcome.document+':'+outcome.scene;state.actions[key]=[...outcome.choices]}state.selectionVersion=2;save()}
 let choices=new Set();
 function inline(s){return esc(s).replace(/\[([^\]]+)\]\(dmb-node:([^)]+)\)/g,'<button class="node" data-node="$2">$1</button>').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>');}
@@ -75,6 +75,8 @@ function render(){
   $('#content').insertAdjacentHTML('beforeend',`<div class="next"><button id="previous" ${i===0?'disabled':''}>← Previous scene</button><button id="next" ${i===parsed.scenes.length-1?'disabled':''}>Next scene →</button></div>`);
   $('#previous').onclick=()=>go(parsed.scenes[i-1].id);$('#next').onclick=()=>go(parsed.scenes[i+1].id);
  }
+ $('#content').insertAdjacentHTML('beforeend',`<details class="scene-notes"><summary>Scene notes</summary><label for="sceneNotesText">Notes for ${esc(s.title)}</label><textarea id="sceneNotesText" placeholder="What happened here? What should you remember?">${esc(state.sceneNotes[draftKey]??'')}</textarea><small id="sceneNotesStatus" role="status">${choiceSaveReceipt(state.sceneNoteSavedAt[draftKey])}</small></details>`);
+ let sceneSaveTimer;$('#sceneNotesText').oninput=()=>{clearTimeout(sceneSaveTimer);state.sceneNotes[draftKey]=$('#sceneNotesText').value;const prior=state.sceneNoteSavedAt[draftKey];state.sceneNoteSavedAt[draftKey]=new Date().toISOString();const status=$('#sceneNotesStatus');status.textContent='Saving…';status.dataset.status='saving';try{save();sceneSaveTimer=setTimeout(()=>{status.textContent=choiceSaveReceipt(state.sceneNoteSavedAt[draftKey]);status.dataset.status='saved'},350)}catch(error){state.sceneNoteSavedAt[draftKey]=prior;status.textContent='Not saved · browser storage unavailable. Copy your note.';status.dataset.status='error'}};
  $('#outcomes').innerHTML=state.outcomes.filter(o=>o.document===state.doc).map(o=>`<div class="outcome"><span class="badge">${o.kind==='player-direction'?'PLAYER DIRECTION':'PLAY NOTE'} · LOCAL</span><strong>${esc(parsed.scenes.find(s=>s.id===o.scene)?.title??o.scene)}</strong><p>${esc(o.note)}</p><details><summary>Advanced</summary><small>${esc(o.at??'')} · ${esc(o.choices.join(', '))}</small></details>${followups(o)}</div>`).join('')+(state.mode==='play'?'<label>What happened? Include unexpected actions.<textarea id="outcomeNote" placeholder="Record what players actually did…"></textarea></label><button id="record">Record local outcome</button>':'<p>Optional details can be added in Play.</p>');
  $('#completeScene').onchange=e=>{state.completedScenes[draftKey]=e.target.checked;save();render()};
  $('#toggleOutline').onclick=()=>{state.panels.outline=!state.panels.outline;save();render()};
