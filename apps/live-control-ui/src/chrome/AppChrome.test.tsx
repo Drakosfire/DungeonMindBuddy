@@ -57,7 +57,7 @@ describe("AppChrome Ingest peek composition", () => {
     expect(screen.getByTestId("app-peek-region")).toHaveAttribute("hidden");
   });
 
-  it("measures the shared chrome edge and tracks wrapped navigation height", () => {
+  it("measures the shared chrome edge and resets it when scrolled above the viewport", () => {
     const callbacks: ResizeObserverCallback[] = [];
     class TestResizeObserver implements ResizeObserver {
       constructor(callback: ResizeObserverCallback) {
@@ -92,7 +92,7 @@ describe("AppChrome Ingest peek composition", () => {
     expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe("142px");
 
     bottom = -18;
-    measure?.([], {} as ResizeObserver);
+    window.dispatchEvent(new Event("scroll"));
     expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe("0px");
 
     bottom = 226;
@@ -100,6 +100,10 @@ describe("AppChrome Ingest peek composition", () => {
     expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe("226px");
 
     view.unmount();
+    expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe(previousTop);
+
+    bottom = 48;
+    window.dispatchEvent(new Event("scroll"));
     expect(document.documentElement.style.getPropertyValue("--app-chrome-top")).toBe(previousTop);
   });
 
