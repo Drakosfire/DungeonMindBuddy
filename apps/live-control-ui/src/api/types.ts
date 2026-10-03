@@ -1240,6 +1240,7 @@ export interface RecapGraphExtractedNode {
 
 export interface RecapGraphPreviewReport {
   status: string;
+  extraction_run_id?: string | null;
   run_dir?: string | null;
   manifest_path?: string | null;
   candidate_graph_path?: string | null;

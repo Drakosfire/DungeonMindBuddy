@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -383,7 +383,7 @@ describe("IngestionModule", () => {
       status: "breadcrumb_required",
       states: ["normalized_reused", "recap_reused", "graph_candidate_ready"],
       entity_spelling_audit: [],
-      ingest_report: { graph_preview: { status: "candidate_validation_ready", candidate_node_count: 37, candidate_edge_count: 23 } },
+      ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: "saved-run", candidate_node_count: 37, candidate_edge_count: 23 } },
     });
     const spy = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(result);
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
@@ -392,7 +392,59 @@ describe("IngestionModule", () => {
     expect(await screen.findByText("Extraction ready for review")).toBeInTheDocument();
     expect(screen.getByText(/Review and admission are still required/)).toBeInTheDocument();
     expect(screen.queryByText("Ingest complete")).not.toBeInTheDocument();
+    vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: "saved-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Exact saved recap" });
+    await user.click(screen.getByRole("button", { name: "Review saved source" }));
+    expect(await screen.findByText("Exact saved recap")).toBeInTheDocument();
+    expect(screen.getByText("Extraction details and file diagnostics").parentElement).not.toHaveAttribute("open");
     expect(spy.mock.calls.filter(([body]) => body.operation === "generate_recap_memory")).toHaveLength(1);
+    fireEvent.change(screen.getByLabelText("Recap/source session"), { target: { value: "29" } });
+    expect(screen.queryByText("Exact saved recap")).not.toBeInTheDocument();
+  });
+
+  it.each(["session", "campaign", "run", "unmount"])("discards deferred source review after %s changes", async (change) => {
+    const user = setupIngestUser();
+    const candidate = (runId: string) => makeStatus({ status: "breadcrumb_required", states: ["normalized_reused", "recap_reused", "graph_candidate_ready"], ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: runId, candidate_node_count: 37, candidate_edge_count: 23 } } });
+    const ingest = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(candidate("old-run"));
+    let resolve!: (value: Awaited<ReturnType<typeof liveApi.getHistoricalRecapInspection>>) => void;
+    const inspection = vi.spyOn(liveApi, "getHistoricalRecapInspection").mockImplementation(() => new Promise((done) => { resolve = done; }));
+    const view = render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run ingest" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Run ingest" }));
+    await user.click(await screen.findByRole("button", { name: "Review saved source" }));
+    await waitFor(() => expect(inspection).toHaveBeenCalledWith("old-run"));
+    const resolveOld = resolve;
+    if (change === "session") fireEvent.change(screen.getByLabelText("Recap/source session"), { target: { value: "29" } });
+    if (change === "campaign") await user.selectOptions(screen.getByLabelText("Campaign"), "longmont-c1");
+    if (change === "run") {
+      ingest.mockResolvedValue(candidate("new-run"));
+      await user.click(screen.getByRole("button", { name: "Run ingest" }));
+      await waitFor(() => expect(ingest.mock.calls.filter(([body]) => body.operation === "generate_recap_memory")).toHaveLength(2));
+      await user.click(await screen.findByRole("button", { name: "Review saved source" }));
+      await waitFor(() => expect(inspection).toHaveBeenLastCalledWith("new-run"));
+    }
+    if (change === "unmount") view.unmount();
+    await act(async () => { resolveOld({ schema: "dmb_historical_recap_inspection_v1", runId: "old-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Stale source must not appear" }); });
+    await waitFor(() => expect(screen.queryByText("Stale source must not appear")).not.toBeInTheDocument());
+    expect(screen.queryByRole("region", { name: "Saved extraction source review" })).not.toBeInTheDocument();
+    if (change === "run") {
+      expect(screen.getByRole("button", { name: "Opening review…" })).toBeDisabled();
+      await act(async () => { resolve({ schema: "dmb_historical_recap_inspection_v1", runId: "new-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "new-source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Current run source" }); });
+      expect(await screen.findByText("Current run source")).toBeInTheDocument();
+    }
+  });
+
+  it.each(["mismatch", "unavailable"])("reports %s saved source without running extraction again", async (failure) => {
+    const user = setupIngestUser();
+    const ingest = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({ status: "breadcrumb_required", states: ["normalized_reused", "recap_reused", "graph_candidate_ready"], ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: "saved-run" } } }));
+    vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: failure === "mismatch" ? "different-run" : "saved-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: failure === "unavailable" ? "unavailable" : "available", sourceProse: "Unverified prose" });
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run ingest" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Run ingest" }));
+    const callsBeforeReview = ingest.mock.calls.length;
+    await user.click(await screen.findByRole("button", { name: "Review saved source" }));
+    expect(await screen.findByText(failure === "mismatch" ? "Saved extraction does not match this session." : "Saved source is unavailable.")).toBeInTheDocument();
+    expect(screen.queryByText("Unverified prose")).not.toBeInTheDocument();
+    expect(ingest.mock.calls).toHaveLength(callsBeforeReview);
   });
 
   it("runs the full ingest pipeline through backend orchestration", async () => {
