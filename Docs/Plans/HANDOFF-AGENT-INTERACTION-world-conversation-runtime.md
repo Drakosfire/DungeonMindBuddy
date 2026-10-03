@@ -196,6 +196,15 @@ an accepted runtime revision.
 - **Owner:** PRIME to assign after accepting this packet.
 - **Topology:** one serial implementation PR, resumed from the refreshed base.
   No second runtime capability or PR is included.
+- **Architecture decision pending:** confirm that existing local operator/GM
+  authorization gates World conversation and turn routes before any World
+  lookup, receipt/database access, or provider work, including Graph mode
+  `none`; Graph mode `none` skips Graph resolution only. The route lease and its
+  tests must close the frozen #865 turn-only authorization asymmetry, where
+  authorization currently occurs only inside the Graph resolver. This closes
+  the existing route boundary within the proposed paths; it adds no auth
+  system, UI, or file/path scope. Do not activate implementation until
+  Architecture confirms this boundary and PRIME accepts the packet.
 
 ### Proposed exclusive expected-path allowlist
 
@@ -237,13 +246,17 @@ it.
 
 ### Runtime ordering and receipt contract
 
-First independently verify World authority and validate the normalized
-request's syntactic scope without resolving today's Plan, Graph, selected-work
-authority, or conversation pointer. Construct the canonical submitted intent
-from that original normalized request envelope and reconcile the World/key
-receipt before any current-work resolution. An exact receipt returns the
-original conversation, turn status/result, and frozen typed provenance without
-depending on today's Plan, Graph, or active pointer. A changed semantic intent
+First apply the existing local operator/GM authorization to conversation and
+turn routes, including Graph mode `none`, before any World lookup, receipt or
+database access, or provider work. Graph mode `none` skips Graph resolution;
+it does not skip authorization. Then independently verify World authority and
+validate the normalized request's syntactic scope without resolving today's
+Plan, Graph, selected-work authority, or conversation pointer. Construct the
+canonical submitted intent from that original normalized request envelope and
+reconcile the World/key receipt before any current-work resolution. An exact
+receipt returns the original conversation, turn status/result, and frozen
+typed provenance without depending on today's Plan, Graph, or active pointer.
+A changed semantic intent
 conflicts; a different `client_thread_id` alone does not. Only the no-receipt
 path resolves today's work basis and selected-work authority, then calls
 APP-STATE acceptance with the required v1 submitted-intent fingerprint. A
@@ -293,7 +306,11 @@ answer or claim exactly-once provider calls.
   provider output.
 - **Route tests** (`tests/test_agent_turn_route.py`): prove authorization,
   ordering, request normalization, response/status behavior, and zero provider
-  work for invalid World/work scope or an unverifiable receipt.
+  work for invalid World/work scope or an unverifiable receipt. Prove existing
+  local operator/GM authorization runs before World lookup/receipt/DB/provider
+  access for both graph-backed and Graph mode `none` requests, and for
+  turn-only requests. Missing or invalid authorization returns without those
+  accesses; do not add an auth system or UI.
 - **PostgreSQL tests**
   (`tests/application_state/test_agent_conversation_postgres.py`): exercise
   durable restart/recovery, transaction and lock boundaries, exact historical
