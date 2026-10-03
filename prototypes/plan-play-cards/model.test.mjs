@@ -23,3 +23,9 @@ assert.deepEqual(validate(house+'\n[Lysandra](dmb-node:node:captain-lysandra-iro
 console.log('PASS: unknown node link rejected; explicit verified identity accepted across documents');
 const last=p.scenes.at(-1),lastBody=session.slice(last.bodyStart,last.end);assert.ok(!lastBody.includes('# GM Running Notes'));const lastEdited=editCard(session,last.id,lastBody+'\nLocal test.');assert.ok(lastEdited.includes('# GM Running Notes'));assert.deepEqual(markerSignature(lastEdited),markerSignature(session));const houseLast=parse(house).scenes.at(-1);assert.ok(!house.slice(houseLast.bodyStart,houseLast.end).includes('## House Tone'));assert.ok(editCard(house,houseLast.id,house.slice(houseLast.bodyStart,houseLast.end)+'\nLocal test.').includes('## House Tone'));
 console.log('PASS: global running notes/tone remain outside scene-edit boundaries');
+const {directionEffects}=await import('./model.js');
+const directions='<!-- dmb-playable-element:v2 kind=beat id=beat:b -->\n## B\n<!-- dmb-playable-element:v2 kind=scene id=scene:a -->\n### A\n<!-- dmb-playable-element:v2 kind=option id=option:a suppresses=beat:b -->\n- **Go elsewhere**\n<!-- dmb-playable-element:v2 kind=option id=option:b activates=beat:b -->\n- **Return**';
+assert.equal(directionEffects(directions,[{document:0,scene:'scene:a',id:'1',choices:['option:a']}],0)[0].effect.status,'not-planned');
+assert.equal(directionEffects(directions,[{document:0,id:'1',choices:['option:a']},{document:0,id:'2',choices:['option:b']}],0)[0].effect.status,'available');
+assert.equal(directionEffects(directions,[{document:1,id:'1',choices:['option:a']}],0).length,0);
+console.log('PASS: recorded directions flag Beat scenes, later activation restores relevance, documents stay isolated');

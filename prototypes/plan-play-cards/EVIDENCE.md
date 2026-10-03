@@ -55,3 +55,7 @@ Syntax, model and fixture checks pass. This follow-up could not receive fresh br
 ## Node context and choice clarity follow-up
 
 Browser connectivity recovered. Verified Warehouse inspection shows two connected scenes with source excerpts and scene navigation controls; IDs/provenance are behind Advanced. Choice disclosure has an Explore choices callout and explicit expansion hint. Expanded rescue consequences show victims recovered / possible creature escape and later effect, with no repeated option label or choice title. Source Markdown remains unchanged. Screenshots: `evidence/node-context.png`, `evidence/choice-callout.png`. Syntax, model and fixture checks pass.
+
+## Direction checklist follow-up
+
+Compact single-line Choices disclosure; source Location remains visible across block tabs. Browser checked a rescue option in Plan and logged it, showing a new separate local direction record and preserved prior notes. Fixture/model checks pass, including suppression across Beat scenes, later activation and document isolation. Export retains stable choice IDs plus readable labels/timestamps for later recap input. Flags never disable scene navigation.
