@@ -187,7 +187,9 @@ an accepted runtime revision.
   `21af97cdc5fe4d10c10032b35c9b26c9ff23ac2b`, from reviewed head
   `7c8cf2951dd5c47b76297aee1bbdbd34d2c33ce9`. Its four owning suites passed
   34 tests in about 52.96 seconds; architecture accepted. Re-read the merged
-  handoff and cumulative main diff before implementation.
+  handoff and cumulative main diff before implementation. Its storage-boundary
+  evidence does not substitute for the HTTP ordering and provider behavior
+  witnesses required below.
 - **Open work preserved:** #869 remains open. Its draft control coverage,
   149-test result, inherited typecheck failure, and pending real witness are
   not #865 acceptance evidence. The #869 branch retains its own implementation
@@ -308,9 +310,11 @@ answer or claim exactly-once provider calls.
   ordering, request normalization, response/status behavior, and zero provider
   work for invalid World/work scope or an unverifiable receipt. Prove existing
   local operator/GM authorization runs before World lookup/receipt/DB/provider
-  access for both graph-backed and Graph mode `none` requests, and for
-  turn-only requests. Missing or invalid authorization returns without those
-  accesses; do not add an auth system or UI.
+  access on each existing conversation-history, New Conversation, and turn
+  route shape, including graph-backed, Graph mode `none`, and turn-only
+  requests. Missing or invalid authorization returns without those accesses;
+  Graph mode `none` skips Graph resolution only. Do not add an auth system or
+  UI.
 - **PostgreSQL tests**
   (`tests/application_state/test_agent_conversation_postgres.py`): exercise
   durable restart/recovery, transaction and lock boundaries, exact historical
