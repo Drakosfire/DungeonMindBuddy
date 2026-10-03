@@ -43,3 +43,5 @@ Choice checkboxes are available in both Plan and Play. Log player direction save
 Logged selections stay checked on return. Something else accepts an unexpected-action note; typing selects that option, and Log player direction includes it in the saved record. Decision log is the optional history view of that same recording flow, not a second recording destination.
 
 The floating Notes button opens one resizable writing pad shared across all cards/documents. It saves on input in browser-local storage and exports Markdown independently. Every choice group supplies a Something else note field, using the existing source option when present or a local fallback when absent.
+
+Use Complete in the scene toolbar to mark/unmark a scene. The outline shows a checkmark and crossed-out title. Completed scenes remain navigable; status persists per document/scene in browser storage.

@@ -71,3 +71,7 @@ Added a bottom floating Notes button and resizable non-modal writing pad, shared
 ## Lysandra character view
 
 Replaced the preparation-only Lysandra popup with a source-backed character view: role, formatted family/ally ties, dossier, Mireward family/place history, saved routed Session 20 timeline and CR4 statblock with baseline CR2 link. Copied sources verbatim into node-sources, with original paths in provenance.json. Browser verified character and statblock tabs. Timeline explicitly declares partial saved coverage; this is not live Graph integration, current statblock lifecycle resolution or a full cross-session chronology. Rank disagreement is preserved in Sources & coverage. Generic context excerpts now use Markdown formatting. Screenshot: evidence/lysandra-character.png.
+
+## Scene completion
+
+Added a reversible Complete checkbox to the scene toolbar. Browser verified opening scene shows a checkmark and computed line-through style after refresh and remains clickable after navigation. State keys include document and scene identity; no source or decision record is changed. Screenshot: evidence/scene-completion.png.
