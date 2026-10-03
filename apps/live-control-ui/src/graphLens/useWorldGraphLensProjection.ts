@@ -8,8 +8,17 @@ import {
   type ReactNode,
 } from "react";
 
-import { LiveApiError, postWorldGraphProjection } from "../api/liveApi";
-import type { WorldGraphProjection, WorldGraphProjectionRequest } from "../api/types";
+import {
+  LiveApiError,
+  NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT,
+  postManagedWorldGraphProjection,
+  postWorldGraphProjection,
+} from "../api/liveApi";
+import type {
+  ManagedWorldGraphProjectionResponse,
+  WorldGraphProjection,
+  WorldGraphProjectionRequest,
+} from "../api/types";
 import type { GraphReferenceProjectionState } from "../graphReference/types";
 import {
   createSurfaceInformationChannel,
@@ -17,6 +26,7 @@ import {
 } from "../surfaceInformation";
 import { worldGraphProjectionRequestKey } from "../worldGraph/worldGraphProjectionRequestKey";
 import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
+import { verifyManagedWorldGraphProjectionResponse } from "../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { isFocusValidationBlocking } from "./planGraphFocusOptions";
 import { useOptionalWorldGraphLens } from "./WorldGraphLensContext";
@@ -143,9 +153,10 @@ function formatProjectionLoadError(error: unknown): string {
 function channelMatchesDesiredRequest(
   channel: SurfaceInformationChannel<WorldGraphProjection> | null,
   request: WorldGraphProjectionRequest | null,
+  ownerKind: "managed" | "native",
 ): channel is SurfaceInformationChannel<WorldGraphProjection> {
   if (!channel || !request) return false;
-  return channel.descriptor.channelId === worldGraphLensInformationDescriptor(request).channelId;
+  return channel.descriptor.channelId === worldGraphLensInformationDescriptor(request, ownerKind).channelId;
 }
 
 export function WorldGraphLensProjectionProvider({
@@ -159,6 +170,8 @@ export function WorldGraphLensProjectionProvider({
 }) {
   const graphLens = useOptionalWorldGraphLens();
   const selectedWorld = useSelectedWorld();
+  const managedWorldId = selectedWorld.kind === "managed" ? selectedWorld.worldId : null;
+  const ownerKind = managedWorldId ? "managed" : "native";
   const [stored, setStored] = useState<StoredProjectionLoad | null>(null);
   const [revisionEventBump, setRevisionEventBump] = useState(0);
 
@@ -186,8 +199,10 @@ export function WorldGraphLensProjectionProvider({
   }, [context]);
 
   const desiredRequestKey = useMemo(
-    () => (desiredRequest ? worldGraphProjectionRequestKey(desiredRequest) : null),
-    [desiredRequest],
+    () => (desiredRequest
+      ? `${ownerKind}:${worldGraphProjectionRequestKey(desiredRequest)}`
+      : null),
+    [desiredRequest, ownerKind],
   );
 
   const [informationChannel, setInformationChannel] = useState<
@@ -200,22 +215,24 @@ export function WorldGraphLensProjectionProvider({
       return;
     }
     const channel = createSurfaceInformationChannel<WorldGraphProjection>(
-      worldGraphLensInformationDescriptor(desiredRequest),
+      worldGraphLensInformationDescriptor(desiredRequest, ownerKind),
     );
     setInformationChannel(channel);
     return () => {
       channel.dispose();
     };
-  }, [desiredRequest, desiredRequestKey]);
+  }, [desiredRequest, desiredRequestKey, ownerKind]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onRevisionCommitted = () => {
+    const onProjectionRefresh = () => {
       setRevisionEventBump((previous) => previous + 1);
     };
-    window.addEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onRevisionCommitted);
+    window.addEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onProjectionRefresh);
+    window.addEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, onProjectionRefresh);
     return () => {
-      window.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onRevisionCommitted);
+      window.removeEventListener(WORLD_GRAPH_REVISION_COMMITTED_EVENT, onProjectionRefresh);
+      window.removeEventListener(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT, onProjectionRefresh);
     };
   }, []);
 
@@ -226,7 +243,7 @@ export function WorldGraphLensProjectionProvider({
 
     async function loadProjection() {
       if (focusValidationPending) {
-        if (channelMatchesDesiredRequest(informationChannel, desiredRequest)) {
+        if (channelMatchesDesiredRequest(informationChannel, desiredRequest, ownerKind)) {
           informationChannel.beginObservation();
         }
         return;
@@ -237,7 +254,7 @@ export function WorldGraphLensProjectionProvider({
         return;
       }
 
-      if (!channelMatchesDesiredRequest(informationChannel, desiredRequest)) {
+      if (!channelMatchesDesiredRequest(informationChannel, desiredRequest, ownerKind)) {
         return;
       }
 
@@ -263,23 +280,45 @@ export function WorldGraphLensProjectionProvider({
       const commitObservation = (
         response: WorldGraphProjection | null,
         error?: unknown,
+        managedResponse?: ManagedWorldGraphProjectionResponse | null,
       ): void => {
         loadChannel.commit(
           ticket,
-          mapWorldGraphLensObservation({ request: loadRequest, response, error }),
+          mapWorldGraphLensObservation({ request: loadRequest, response, managedResponse, error }),
         );
       };
 
       try {
-        const response = await postWorldGraphProjection(loadRequest);
-        commitObservation(response);
+        let managedResponse: ManagedWorldGraphProjectionResponse | null = null;
+        let response: WorldGraphProjection;
+        if (managedWorldId) {
+          managedResponse = await postManagedWorldGraphProjection({
+            schema: "dmb_managed_world_graph_projection_request_v1",
+            managedWorldId,
+            revisionPin: loadRequest.revisionPin ?? null,
+            queryText: loadRequest.queryText ?? null,
+          });
+          response = managedResponse.projection;
+        } else {
+          response = await postWorldGraphProjection(loadRequest);
+        }
+        commitObservation(response, undefined, managedResponse);
         if (cancelled) return;
-        const mismatch = verifyWorldGraphProjectionResponse({
-          request: loadRequest,
-          response,
-          revisionKind: "head",
-          pinnedRevisionId: loadRequest.revisionPin ?? null,
-        });
+        const revisionKind = loadRequest.revisionPin ? "pinned" : "head";
+        const mismatch = managedResponse
+          ? verifyManagedWorldGraphProjectionResponse({
+              managedWorldId: loadRequest.worldId,
+              request: loadRequest,
+              response: managedResponse,
+              revisionKind,
+              pinnedRevisionId: loadRequest.revisionPin ?? null,
+            })
+          : verifyWorldGraphProjectionResponse({
+              request: loadRequest,
+              response,
+              revisionKind,
+              pinnedRevisionId: loadRequest.revisionPin ?? null,
+            });
         if (mismatch) {
           setStored({
             requestKey: loadRequestKey,
@@ -343,6 +382,8 @@ export function WorldGraphLensProjectionProvider({
     desiredRequestKey,
     focusValidationPending,
     informationChannel,
+    managedWorldId,
+    ownerKind,
     projectionRefreshKey,
   ]);
 

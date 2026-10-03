@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import { LiveApiError } from "../api/liveApi";
-import type { WorldGraphProjection, WorldGraphProjectionRequest } from "../api/types";
+import type {
+  ManagedWorldGraphProjectionResponse,
+  WorldGraphProjection,
+  WorldGraphProjectionRequest,
+} from "../api/types";
 import {
   WORLD_GRAPH_LENS_INFORMATION_KIND,
   WORLD_GRAPH_LENS_PROVIDER_ID,
@@ -109,6 +113,14 @@ describe("worldGraphLensInformationDescriptor", () => {
     expect(JSON.stringify(descriptor)).not.toContain("rev:abc");
   });
 
+  it("keeps managed and native projection channel identities distinct", () => {
+    const managedRequest = request({ worldId: "elderwyld", campaignId: "", scopeMode: "world" });
+    const managed = worldGraphLensInformationDescriptor(managedRequest, "managed");
+    const native = worldGraphLensInformationDescriptor(managedRequest, "native");
+    expect(managed.subject).toEqual({ kind: "world", id: "elderwyld" });
+    expect(managed.channelId).not.toBe(native.channelId);
+  });
+
   it("preserves exact session focus campaign and session identity", () => {
     const descriptor = worldGraphLensInformationDescriptor(
       request({
@@ -159,6 +171,56 @@ describe("mapWorldGraphLensObservation", () => {
       { kind: "campaign", id: "longmont-c2" },
       { kind: "world_graph_revision", id: "rev:abc" },
     ]);
+  });
+
+  it("maps the exact native projection under a verified managed owner envelope", () => {
+    const managedRequest = request({ worldId: "elderwyld", campaignId: "", scopeMode: "world" });
+    const nativeProjection = projection({ nodes: [glowkindleNode] }, {
+      worldId: "eldyrwild",
+      campaignId: "",
+      scopeMode: "world",
+    });
+    const managedResponse: ManagedWorldGraphProjectionResponse = {
+      schema: "dmb_managed_world_graph_projection_v1",
+      managedWorldId: "elderwyld",
+      nativeWorldId: "eldyrwild",
+      bindingVersion: 1,
+      projection: nativeProjection,
+    };
+    const state = mapWorldGraphLensObservation({
+      request: managedRequest,
+      managedResponse,
+    });
+    expect(state.status).toBe("ready");
+    if (state.status !== "ready") return;
+    expect(state.value).toBe(nativeProjection);
+    expect(state.inspectionTargets).toEqual([
+      { kind: "world", id: "eldyrwild" },
+      { kind: "world_graph_revision", id: "rev:abc" },
+    ]);
+    expect(managedResponse.projection.snapshot.worldId).toBe("eldyrwild");
+  });
+
+  it("marks an envelope owner mismatch as an integrity error", () => {
+    const managedRequest = request({ worldId: "elderwyld", campaignId: "", scopeMode: "world" });
+    const state = mapWorldGraphLensObservation({
+      request: managedRequest,
+      managedResponse: {
+        schema: "dmb_managed_world_graph_projection_v1",
+        managedWorldId: "other-world",
+        nativeWorldId: "eldyrwild",
+        bindingVersion: 1,
+        projection: projection({}, {
+          worldId: "eldyrwild",
+          campaignId: "",
+          scopeMode: "world",
+        }),
+      },
+    });
+    expect(state.status).toBe("integrity_error");
+    if (state.status === "integrity_error") {
+      expect(state.reason).toMatch(/does not match selected World elderwyld/);
+    }
   });
 
   it("maps a verified zero-node projection to EMPTY at the exact revision", () => {

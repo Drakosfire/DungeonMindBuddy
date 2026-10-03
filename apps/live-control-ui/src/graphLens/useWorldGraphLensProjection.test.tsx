@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi, type ReactNode } from "vitest";
 import { createElement } from "react";
 
 import * as liveApi from "../api/liveApi";
-import type { WorldGraphProjection } from "../api/types";
+import type { ManagedWorldGraphProjectionResponse, WorldGraphProjection } from "../api/types";
 import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import {
   WorldGraphLensProvider,
@@ -63,6 +63,7 @@ function wrapper({ children }: { children: ReactNode }) {
 describe("WorldGraphLensProjectionProvider", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+    liveApi.setNativeGraphAccessToken(null);
     window.history.pushState({}, "", "/plan");
     vi.spyOn(liveApi, "getSourceBundle").mockResolvedValue({
       schema: "dmb_ingestion_source_bundle_v1",
@@ -158,9 +159,14 @@ describe("WorldGraphLensProjectionProvider", () => {
         created_at: "2026-01-01T00:00:00Z",
       }],
     });
-    const spy = vi.spyOn(liveApi, "postWorldGraphProjection").mockResolvedValue(
-      headProjection({ worldId, campaignId: "", scopeMode: "world" }),
-    );
+    const spy = vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_managed_world_graph_projection_v1",
+      managedWorldId: worldId,
+      nativeWorldId: "eldyrwild",
+      bindingVersion: 1,
+      projection: headProjection({ worldId: "eldyrwild", campaignId: "", scopeMode: "world" }),
+    });
+    const nativeSpy = vi.spyOn(liveApi, "postWorldGraphProjection");
     const managedWrapper = ({ children }: { children: ReactNode }) =>
       createElement(
         SelectedWorldProvider,
@@ -175,12 +181,97 @@ describe("WorldGraphLensProjectionProvider", () => {
     const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper: managedWrapper });
     await waitFor(() => expect(result.current.projectionState).toBe("ready"));
     expect(spy).toHaveBeenCalledWith(expect.objectContaining({
-      worldId,
-      campaignId: "",
-      scopeMode: "world",
+      schema: "dmb_managed_world_graph_projection_request_v1",
+      managedWorldId: worldId,
     }));
     expect(spy).toHaveBeenCalledTimes(1);
+    expect(nativeSpy).not.toHaveBeenCalled();
+    expect(result.current.projection?.snapshot.worldId).toBe("eldyrwild");
     expect(result.current.projection?.snapshot.campaignId).toBe("");
+  });
+
+  it("retries a managed projection after the local Graph credential changes", async () => {
+    const worldId = "elderwyld";
+    window.history.pushState({}, "", `/plan?world=${worldId}`);
+    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{
+        schema_version: "dmb_world_container_record_v1",
+        world_id: worldId,
+        name: "Elderwyld",
+        source_root_relpath: "corpus/elderwyld",
+        created_at: "2026-01-01T00:00:00Z",
+      }],
+    });
+    const successfulResponse: ManagedWorldGraphProjectionResponse = {
+      schema: "dmb_managed_world_graph_projection_v1",
+      managedWorldId: worldId,
+      nativeWorldId: "eldyrwild",
+      bindingVersion: 1,
+      projection: headProjection({ worldId: "eldyrwild", campaignId: "", scopeMode: "world" }),
+    };
+    const managedProjectionSpy = vi.spyOn(liveApi, "postManagedWorldGraphProjection")
+      .mockRejectedValueOnce(
+        new liveApi.LiveApiError("Graph credential required", 401, { code: "graph_auth_required" }),
+      )
+      .mockResolvedValueOnce(successfulResponse);
+    const managedWrapper = ({ children }: { children: ReactNode }) =>
+      createElement(
+        SelectedWorldProvider,
+        { locationSnapshot: window.location.href },
+        createElement(
+          WorldGraphLensProvider,
+          { planCampaignId: worldId },
+          createElement(WorldGraphLensProjectionProvider, { defaultCampaignId: worldId }, children),
+        ),
+      );
+
+    const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper: managedWrapper });
+    await waitFor(() => expect(result.current.projectionState).toBe("error"));
+    expect(managedProjectionSpy).toHaveBeenCalledTimes(1);
+
+    act(() => liveApi.setNativeGraphAccessToken("test-local-graph-token"));
+
+    await waitFor(() => expect(result.current.projectionState).toBe("ready"));
+    expect(managedProjectionSpy).toHaveBeenCalledTimes(2);
+    expect(result.current.projection?.snapshot.worldId).toBe("eldyrwild");
+  });
+
+  it("rejects a managed projection envelope for a different selected World", async () => {
+    const worldId = "elderwyld";
+    window.history.pushState({}, "", `/plan?world=${worldId}`);
+    vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
+      schema_version: "dmb_world_container_registry_v1",
+      records: [{
+        schema_version: "dmb_world_container_record_v1",
+        world_id: worldId,
+        name: "Elderwyld",
+        source_root_relpath: "corpus/elderwyld",
+        created_at: "2026-01-01T00:00:00Z",
+      }],
+    });
+    vi.spyOn(liveApi, "postManagedWorldGraphProjection").mockResolvedValue({
+      schema: "dmb_managed_world_graph_projection_v1",
+      managedWorldId: "other-world",
+      nativeWorldId: "eldyrwild",
+      bindingVersion: 1,
+      projection: headProjection({ worldId: "eldyrwild", campaignId: "", scopeMode: "world" }),
+    });
+    const managedWrapper = ({ children }: { children: ReactNode }) =>
+      createElement(
+        SelectedWorldProvider,
+        { locationSnapshot: window.location.href },
+        createElement(
+          WorldGraphLensProvider,
+          { planCampaignId: worldId },
+          createElement(WorldGraphLensProjectionProvider, { defaultCampaignId: worldId }, children),
+        ),
+      );
+
+    const { result } = renderHook(() => useWorldGraphLensProjection(), { wrapper: managedWrapper });
+    await waitFor(() => expect(result.current.projectionState).toBe("error"));
+    expect(result.current.projection).toBeNull();
+    expect(result.current.projectionError).toMatch(/does not match selected World elderwyld/);
   });
 
   it("fails closed when head claim is inconsistent", async () => {

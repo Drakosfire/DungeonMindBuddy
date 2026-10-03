@@ -66,6 +66,13 @@ def _graph_route_requests() -> list[tuple[str, dict[str, Any]]]:
             },
         ),
         (
+            "/api/live/world-graph/managed-projection",
+            {
+                "schema": "dmb_managed_world_graph_projection_request_v1",
+                "managedWorldId": "the-glass-orchard",
+            },
+        ),
+        (
             "/api/live/world-graph/recap-projection",
             {
                 "schema": "dmb_world_graph_projection_request_v1",
@@ -195,6 +202,7 @@ def test_every_public_native_graph_route_has_the_shared_gm_dependency() -> None:
     }
     protected_routes = [
         "/api/live/world-graph/projection",
+        "/api/live/world-graph/managed-projection",
         "/api/live/world-graph/recap-projection",
         "/api/live/world-graph/retrieval/search",
         "/api/live/world-graph/retrieval/object",
@@ -241,6 +249,9 @@ def test_route_matrix_payloads_validate_before_the_auth_gate() -> None:
     from apps.live_control_server.services.agent_world_graph_query_context import (
         AgentWorldGraphQueryContextRequest,
     )
+    from apps.live_control_server.services.managed_world_graph_projection import (
+        ManagedWorldGraphProjectionRequest,
+    )
     from graph_memory.projection.world_projection import WorldGraphProjectionRequest
     from graph_memory.retrieval.models import (
         WorldGraphEvidenceRequest,
@@ -254,6 +265,7 @@ def test_route_matrix_payloads_validate_before_the_auth_gate() -> None:
         "/api/live/agent/turn": AgentTurnRequest,
         "/api/live/query": LiveQueryRequest,
         "/api/live/world-graph/projection": WorldGraphProjectionRequest,
+        "/api/live/world-graph/managed-projection": ManagedWorldGraphProjectionRequest,
         "/api/live/world-graph/recap-projection": WorldGraphProjectionRequest,
         "/api/live/world-graph/retrieval/search": WorldGraphSearchRequest,
         "/api/live/world-graph/retrieval/object": WorldGraphObjectRequest,

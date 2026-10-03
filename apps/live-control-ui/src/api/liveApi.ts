@@ -125,6 +125,8 @@ import type {
   UnionSupergraphProjectionResponse,
   WorldGraphProjection,
   WorldGraphProjectionRequest,
+  ManagedWorldGraphProjectionRequest,
+  ManagedWorldGraphProjectionResponse,
   WorldGraphObjectProjectionRequest,
   WorldGraphObjectProjectionResult,
   WorldGraphRecapProjection,
@@ -169,11 +171,16 @@ import { withProjectionRequestCache } from "../planSurface/reference/projectionR
 
 const baseUrl = (import.meta.env.VITE_LIVE_API_BASE_URL as string | undefined) ?? "";
 let nativeGraphAccessToken: string | null = null;
+export const NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT = "dmb:native-graph-access-token-changed";
 
 /** Keep the local operator credential in this module's memory only. */
 export function setNativeGraphAccessToken(token: string | null): void {
   const normalized = token?.trim() ?? "";
+  const changed = normalized !== (nativeGraphAccessToken ?? "");
   nativeGraphAccessToken = normalized || null;
+  if (changed && typeof window !== "undefined") {
+    window.dispatchEvent(new Event(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT));
+  }
 }
 
 function requestBodyRecord(body: BodyInit | null | undefined): Record<string, unknown> | null {
@@ -194,6 +201,7 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
     return true;
   }
   if (pathname === "/api/live/world-graph/projection"
+    || pathname === "/api/live/world-graph/managed-projection"
     || pathname === "/api/live/world-graph/recap-projection"
     || pathname.startsWith("/api/live/world-graph/retrieval/")
     || pathname === "/api/live/threats/query-hydration") return true;
@@ -1120,6 +1128,18 @@ export async function postWorldGraphProjection(
       method: "POST",
       body: JSON.stringify(request),
     }),
+  );
+}
+
+export async function postManagedWorldGraphProjection(
+  request: ManagedWorldGraphProjectionRequest,
+): Promise<ManagedWorldGraphProjectionResponse> {
+  return apiFetch<ManagedWorldGraphProjectionResponse>(
+    "/api/live/world-graph/managed-projection",
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
   );
 }
 
