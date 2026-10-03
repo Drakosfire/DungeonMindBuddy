@@ -23,6 +23,7 @@ import type {
   PlanDocumentEditProposalResponse,
   WorldPlanDocumentEditProposalRequest,
   WorldPlanDocumentEditProposalResponse,
+  WorldPlanActionProjectionPage,
   LiveSurfaceResponse,
   AddGeneratedStatblockCombatRequest,
   AddGeneratedStatblockCombatResponse,
@@ -1432,6 +1433,14 @@ export async function postWorldPlanDocumentEditProposal(
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+export async function getWorldPlanDocumentEditActions(
+  worldId: string,
+  documentId: string,
+): Promise<WorldPlanActionProjectionPage> {
+  const query = new URLSearchParams({ world_id: worldId, document_id: documentId });
+  return apiFetch<WorldPlanActionProjectionPage>(`/api/live/world-plan-edit/actions?${query.toString()}`);
 }
 
 export async function putSurfaceLayout(

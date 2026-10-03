@@ -6,7 +6,7 @@ import { resolve } from "node:path";
 import { afterEach, beforeAll, expect, it, vi } from "vitest";
 
 import * as liveApi from "../api/liveApi";
-import type { WorldOwnedPlanRecordV2, WorldPlanDocumentEditProposalRequest, WorldPlanDocumentEditProposalResponse } from "../api/types";
+import type { WorldOwnedPlanRecordV2, WorldPlanActionProjectionPage, WorldPlanDocumentEditProposalRequest, WorldPlanDocumentEditProposalResponse } from "../api/types";
 import { SelectedWorldProvider, useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionProvider";
 import { useAgentInteraction } from "../agentInteraction/useAgentInteraction";
@@ -227,6 +227,18 @@ function setupWorldApi() {
     file_exists: true,
     loaded_revision: savedRevision,
   }));
+  vi.spyOn(liveApi, "getWorldPlanDocumentEditActions").mockResolvedValue({
+    schema_version: "dmb_world_plan_action_projection_v1",
+    basis: {
+      world_id: worldId,
+      document_id: documentId,
+      object_revision: savedRevision,
+      work_revision_id: "00000000-0000-4000-8000-000000000010",
+      revision_n: 1,
+      content_sha256: savedDigest,
+    },
+    actions: [],
+  });
 }
 
 beforeAll(() => {
@@ -248,6 +260,8 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
   setupWorldApi();
   const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
     schema_version: "dmb_world_plan_document_edit_proposal_v1",
+    action_id: "00000000-0000-4000-8000-000000000001",
+    idempotency_key: request.idempotency_key,
     document_id: request.document_id,
     world_id: request.world_id,
     base_revision: request.base_revision,
@@ -420,6 +434,8 @@ it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply with
     expectedAfterApply = section.replace(canonicalReplacement);
     return {
       schema_version: "dmb_world_plan_document_edit_proposal_v1",
+      action_id: "00000000-0000-4000-8000-000000000002",
+      idempotency_key: request.idempotency_key,
       document_id: request.document_id,
       world_id: request.world_id,
       base_revision: request.base_revision,
@@ -602,6 +618,8 @@ it("reviews, applies, saves, and reloads rich content inside one selected World 
   const canonicalReplacement = tiptapJsonToSemanticMarkdown(markdownToTiptapDoc(replacementMarkdown).doc);
   const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
     schema_version: "dmb_world_plan_document_edit_proposal_v1",
+    action_id: "00000000-0000-4000-8000-000000000003",
+    idempotency_key: request.idempotency_key,
     document_id: request.document_id,
     world_id: request.world_id,
     base_revision: request.base_revision,
@@ -730,6 +748,8 @@ it("drops a delayed proposal that completes after the mounted Plan conversation 
   await act(async () => {
     release({
       schema_version: "dmb_world_plan_document_edit_proposal_v1",
+      action_id: "00000000-0000-4000-8000-000000000004",
+      idempotency_key: request.idempotency_key,
       document_id: request.document_id,
       world_id: request.world_id,
       base_revision: request.base_revision,
@@ -753,10 +773,157 @@ it("drops a delayed proposal that completes after the mounted Plan conversation 
   expect(localStorage.getItem(threadIndexStorageKey(namespace, "plan", documentId))).toBeNull();
 });
 
+it("keeps an indeterminate late action out of Review and offers an explicit fresh attempt", async () => {
+  setupWorldApi();
+  const statusPage: WorldPlanActionProjectionPage = {
+    schema_version: "dmb_world_plan_action_projection_v1" as const,
+    basis: {
+      world_id: worldId,
+      document_id: documentId,
+      object_revision: savedRevision,
+      work_revision_id: "00000000-0000-4000-8000-000000000010",
+      revision_n: 1,
+      content_sha256: savedDigest,
+    },
+    actions: [],
+  };
+  vi.spyOn(liveApi, "getWorldPlanDocumentEditActions").mockImplementation(async () => statusPage);
+  let rejectProposal!: (reason: unknown) => void;
+  const pending = new Promise<WorldPlanDocumentEditProposalResponse>((_resolve, reject) => { rejectProposal = reject; });
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockReturnValue(pending);
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  const originalText = editorSurface.textContent;
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.change(await screen.findByLabelText("What should DungeonBuddy change?"), {
+    target: { value: "Add a distant bell." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
+  expect(proposal.mock.calls[0][0].idempotency_key).toMatch(/^[0-9a-f-]{36}$/i);
+
+  statusPage.actions = [{
+    action_id: "00000000-0000-4000-8000-000000000030",
+    action_type: "compose",
+    status: "indeterminate",
+    basis: statusPage.basis,
+    instruction: "Add a distant bell.",
+    assistant_summary: null,
+    action_sequence: 1,
+    accepted_at: "2026-10-03T12:00:00Z",
+    completed_at: null,
+  }];
+  await act(async () => {
+    rejectProposal(Object.assign(new Error("The Plan action outcome is indeterminate."), { status: 409 }));
+    await pending.catch(() => undefined);
+  });
+  expect(await screen.findByRole("alert")).toHaveTextContent("indeterminate");
+  expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply to mounted draft" })).not.toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("button", { name: "Refresh action status" }));
+  expect(await screen.findByText("indeterminate", { exact: true })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Start a new edit attempt" }));
+  expect(screen.getByLabelText("What should DungeonBuddy change?")).toHaveValue("Add a distant bell.");
+  expect(editorSurface.textContent).toBe(originalText);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  view.unmount();
+});
+
+it("reuses the same action key after a network-uncertain retry of an identical intent", async () => {
+  setupWorldApi();
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal")
+    .mockRejectedValueOnce(new TypeError("Network response was lost."))
+    .mockImplementationOnce(async (request) => ({
+      schema_version: "dmb_world_plan_document_edit_proposal_v1",
+      action_id: "00000000-0000-4000-8000-000000000031",
+      idempotency_key: request.idempotency_key,
+      document_id: request.document_id,
+      world_id: request.world_id,
+      base_revision: request.base_revision,
+      base_content_sha256: request.base_content_sha256,
+      draft_sha256: request.draft_sha256,
+      target_kind: request.target_kind,
+      selected_text_sha256: await sha256Hex(request.selected_text),
+      replacement_markdown: "A distant bell sounds.",
+      summary: "Add a distant bell.",
+      assumptions: [],
+      model: "gpt-6-luna",
+      model_observed: true,
+      model_latency_ms: 1,
+      wall_latency_ms: 1,
+      usage: null,
+    }));
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  await screen.findByTestId("world-owned-plan-markdown-editor");
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.change(await screen.findByLabelText("What should DungeonBuddy change?"), {
+    target: { value: "Add a distant bell." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
+  const firstKey = proposal.mock.calls[0][0].idempotency_key;
+  await screen.findByRole("alert");
+  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
+  expect(proposal).toHaveBeenCalledTimes(2);
+  expect(proposal.mock.calls[1][0].idempotency_key).toBe(firstKey);
+});
+
+it("rejects a proposal response that is not correlated to the submitted action key", async () => {
+  setupWorldApi();
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
+    schema_version: "dmb_world_plan_document_edit_proposal_v1",
+    action_id: "00000000-0000-4000-8000-000000000032",
+    idempotency_key: "00000000-0000-4000-8000-000000000033",
+    document_id: request.document_id,
+    world_id: request.world_id,
+    base_revision: request.base_revision,
+    base_content_sha256: request.base_content_sha256,
+    draft_sha256: request.draft_sha256,
+    target_kind: request.target_kind,
+    selected_text_sha256: await sha256Hex(request.selected_text),
+    replacement_markdown: "FOREIGN-ACTION-REPLACEMENT",
+    summary: "FOREIGN-ACTION-SUMMARY",
+    assumptions: [],
+    model: "gpt-6-luna",
+    model_observed: true,
+    model_latency_ms: 1,
+    wall_latency_ms: 1,
+    usage: null,
+  }));
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  await screen.findByTestId("world-owned-plan-markdown-editor");
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.change(await screen.findByLabelText("What should DungeonBuddy change?"), {
+    target: { value: "Add a distant bell." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
+  expect(await screen.findByRole("alert")).toHaveTextContent("did not match this edit request");
+  expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply to mounted draft" })).not.toBeInTheDocument();
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+});
+
 it("rejects a thread switch during deferred Apply without changing the mounted editor", async () => {
   setupWorldApi();
   vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
     schema_version: "dmb_world_plan_document_edit_proposal_v1",
+    action_id: "00000000-0000-4000-8000-000000000005",
+    idempotency_key: request.idempotency_key,
     document_id: request.document_id,
     world_id: request.world_id,
     base_revision: request.base_revision,

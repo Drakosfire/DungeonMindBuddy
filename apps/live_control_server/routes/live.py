@@ -25,6 +25,7 @@ from apps.live_control_server.models.plan_document_edit_proposal import (
 )
 from apps.live_control_server.services.plan_document_edit_proposal import (
     PlanDocumentEditProposalError,
+    get_world_plan_action_projection,
     propose_plan_document_edit,
     propose_world_plan_document_edit,
 )
@@ -1083,6 +1084,22 @@ def post_world_plan_document_edit_proposal(
 ) -> WorldPlanDocumentEditProposalResponse:
     try:
         return propose_world_plan_document_edit(root=repo_root(), request=body)
+    except PlanDocumentEditProposalError as exc:
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": str(exc)},
+        ) from exc
+
+
+@router.get("/world-plan-edit/actions")
+def get_world_plan_document_edit_actions(
+    world_id: str = Query(min_length=1, max_length=128),
+    document_id: str = Query(min_length=1, max_length=128),
+) -> dict[str, Any]:
+    try:
+        return get_world_plan_action_projection(
+            root=repo_root(), world_id=world_id, document_id=document_id
+        ).model_dump(mode="json")
     except PlanDocumentEditProposalError as exc:
         raise HTTPException(
             status_code=exc.status_code,

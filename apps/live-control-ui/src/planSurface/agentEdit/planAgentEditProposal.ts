@@ -69,7 +69,7 @@ export interface WorldPlanEditEditorState {
 
 export interface CapturedWorldPlanEditTarget {
   editor: Editor;
-  request: Omit<WorldPlanDocumentEditProposalRequest, "instruction" | "conversation_history">;
+  request: Omit<WorldPlanDocumentEditProposalRequest, "idempotency_key" | "instruction" | "conversation_history">;
   from: number;
   to: number;
   editorJson: string;
@@ -715,6 +715,8 @@ export async function admitWorldPlanEditProposal(
   const request = captured.request;
   if (
     response.schema_version !== "dmb_world_plan_document_edit_proposal_v1"
+    || typeof response.action_id !== "string"
+    || !response.action_id.trim()
     || response.document_id !== request.document_id
     || response.world_id !== request.world_id
     || response.base_revision !== request.base_revision
