@@ -162,15 +162,31 @@ projection excludes replacement Markdown, proposal bytes, Apply/Save receipts,
 and provider state. Existing `plan_edit` localStorage rows lack exact
 committed-basis provenance and are not safe input by themselves.
 
-For each submitted Ask, retry after an uncertain response with the original
-idempotency key and original normalized intent, including its originating
-Plan/basis request snapshot. Preserve that retry identity across reload. An
-exact retry returns the original receipt without another provider dispatch;
-reusing the key with changed intent conflicts. If the World or committed Plan
-basis changes while the request is pending, keep its eventual response tied to
-the originating turn and out of the newly selected context. Compose/Revise
-retains its current user-entered instruction, mounted draft, selection/caret,
-proposal validation, review, Apply-to-editor, and ordinary Save behavior.
+For each submitted Ask, preserve the original idempotency key and normalized
+intent, including its originating Plan/basis request snapshot, through an
+uncertain response and reload. Never silently create a fresh key for an
+automatic retry; reusing the key with changed intent conflicts. APP-STATE PR
+#867 guarantees durable turn identity and honest recovery, but explicitly does
+not promise exactly-once provider invocation across crashes:
+
+- Replaying a completed durable receipt returns the original result without a
+  provider dispatch.
+- Replaying while a claim is still valid does not start a second provider
+  dispatch; return or resume the pending state according to the accepted
+  runtime contract.
+- Retrying persistence after the provider output is known reuses that output
+  and does not dispatch the provider again.
+- If the provider outcome was lost or remains indeterminate, or an expired /
+  fenced claim is reclaimed, follow the accepted runtime recovery contract.
+  Provider re-dispatch may occur and must be reported honestly; never describe
+  it as impossible or exactly-once. A new key is reserved for a deliberate new
+  user intent, not an automatic retry.
+
+If the World or committed Plan basis changes while the request is pending,
+keep its eventual response tied to the originating turn and out of the newly
+selected context. Compose/Revise retains its current user-entered instruction,
+mounted draft, selection/caret, proposal validation, review, Apply-to-editor,
+and ordinary Save behavior.
 
 ## Legacy Plan history cutover
 
@@ -210,9 +226,13 @@ unavailable.
 - A deferred Ask response after a managed-World switch or same-Plan
   committed-basis advance remains tied to the originating turn and never
   enters the new World/basis context or current response.
-- An uncertain Ask retry after reload reuses the original idempotency key and
-  normalized intent and returns the original receipt without duplicate
-  provider dispatch; a changed intent with that key conflicts.
+- An uncertain Ask retry after reload retains the original idempotency key
+  and normalized intent; changed intent with that key conflicts. Completed
+  receipt replay, a still-valid pending claim, and persistence retry with known
+  output do not dispatch again. Lost/indeterminate provider outcome or
+  expired/fenced claim recovery follows APP-STATE #867's at-least-once contract
+  and may re-dispatch; report that possibility honestly rather than promising
+  exactly-once invocation.
 - APP-STATE/runtime unavailability produces an explicit error. No browser
   localStorage fallback can create a second authority or an unreceipted turn.
 - Compose/Revise still requires review before Apply; Apply changes only the
@@ -251,14 +271,20 @@ fixtures explicitly named by that lease. Prove:
    per-source limit, and enforce the total six-item cap after merge at the
    authoritative boundary. Six newer unresolved actions remain visible in the
    separate status/recovery read without hiding older completed context.
-6. Ask retries across uncertain response and reload reuse the same key and
-   original normalized intent, do not dispatch twice, and conflict if that key
-   is reused with changed intent. World-switch and basis-advance deferred
-   responses remain fenced to their originating turn.
+6. Ask retry evidence preserves the same key and original normalized intent
+   across uncertain response and reload, and conflicts if that key is reused
+   with changed intent. Distinguish (a) completed durable receipt replay, (b)
+   a still-valid pending claim, and (c) persistence retry with known provider
+   output, each of which avoids another provider dispatch, from lost or
+   indeterminate provider output and expired/fenced claim recovery. For the
+   latter, exercise the accepted APP-STATE #867 recovery behavior and report
+   possible provider re-dispatch; do not assert exactly-once invocation or
+   silently mint a new key. World-switch and basis-advance deferred responses
+   remain fenced to their originating turn.
 7. Preserve the #828/#829 proposal, review, Apply-to-draft, ordinary Save, and
    stale-thread fences. Service/runtime failures, protocol mismatch, pending
-   save, and changed Plan/World/basis fail safely without duplicate, mislabeled,
-   or cross-Plan results.
+   save, and changed Plan/World/basis fail safely without duplicate durable
+   turn records, mislabeled results, or cross-Plan results.
 
 A configured-provider witness is required for the Plan consumer acceptance
 only under PRIME's exact provider/model/spend authorization. No production
