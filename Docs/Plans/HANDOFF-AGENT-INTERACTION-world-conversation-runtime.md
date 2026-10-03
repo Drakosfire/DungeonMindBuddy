@@ -6,7 +6,7 @@
 - **Repository:** `Drakosfire/DungeonMindBuddy`.
 - **Design origin:** Buddy `main@672d18b059eaeceff20555374170ec2679f79082`.
 - **Code merge base:** Buddy `main@2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c`.
-- **Settlement re-anchor:** Buddy `main@8c4671c2769067af3ee46abff1ce675434d62916` after #895 (2026-10-03).
+- **Settlement re-anchor:** Buddy `main@147ab904a961392da043e3282ab666362fade891` after #896 (2026-10-03).
 - **Topology:** serial — APP-STATE storage/domain service (#822/#827) →
   AGENT-INTERACTION runtime (#865, merged) → Plan-owned action dialogue (#859,
   design-only) → separate APP-STATE exact-basis Ask projection → DEMO Plan
@@ -264,20 +264,9 @@ Existing primitives available to that lease:
   public history route only resolves the active conversation. Do not add a
   public archived-history query/route without an explicit contract transfer.
 
-The final four paths below are restricted to backward-looking status/evidence
-settlement and remain outside the released runtime implementation paths:
-
-~~~text
-Docs/Plans/HANDOFF-AGENT-INTERACTION-world-conversation-runtime.md
-Docs/Plans/HANDOFF-APP-STATE-agent-turn-claim-recovery-v1.md
-Docs/Roadmaps/ROADMAP-application-state.md
-Docs/Roadmaps/ROADMAP-demo.md
-~~~
-
-The #869-to-#865 roadmap transfer remains status-only. Preserve #869's current
-evidence and open status; do not claim #869 merged or full J4 acceptance. This
-handoff now records only the actual #865 merge/head and reported code evidence;
-it does not invent a consumer witness or operator acceptance.
+No source, schema, or documentation write lease remains active from #865.
+Any later roadmap status settlement requires a fresh bounded release from its
+owning steward.
 
 No APP-STATE database schema/migration, MIND/Graph adapter, UI/Plan consumer,
 provider deployment/configuration, lockfile, root configuration, or frozen
@@ -342,8 +331,10 @@ evidence gates.
    or the fence is lost, return a truthful indeterminate/pending outcome; do
    not redispatch, fabricate success, or mark a stale fence completed.
 
-Keep the five implementation paths, current schema, and current public API
-unchanged unless PRIME explicitly transfers a missing contract.
+The historical #865 implementation lease covered six cumulative paths and is
+released. The merged facts, accepted additive Agent API changes, and held
+activation gates above define the current status; no source or schema write
+lease remains active.
 
 ### Runtime ordering and receipt contract
 
@@ -403,15 +394,18 @@ the reviewed head; the source lease has been released. The bullets preserve
 the owning-boundary contract for future consumers and do not open an active
 implementation lease.
 
-- **Service/claim behavior, within this five-path lease:** exercise these
-  owning-boundary cases in `tests/test_agent_turn_route.py` and
+- **Service/claim behavior — historical six-path merge contract:** the #865
+  owning-boundary checklist covered these cases in
+  `tests/test_agent_turn_route.py` and
   `tests/application_state/test_agent_conversation_postgres.py`: exact completed
   receipt after Plan/head and active-pointer rotation; semantic conflict versus
   routing-only `client_thread_id`; live claim pending without a second dispatch;
   expiry/reclaim advancing revision and attempt; renew returning the current
   fence; stale completion/failure before and after reclaim; and bounded
-  same-output persistence retry with no provider redispatch. Do not add the
-  unleased `tests/test_agent_turn_service.py` path.
+  same-output persistence retry with no provider redispatch. The six-path
+  implementation lease is released; no active implementation authority follows
+  from this historical checklist. `tests/test_agent_turn_service.py` remained
+  outside that write lease and was used read-only for regression verification.
 - **Route tests** (`tests/test_agent_turn_route.py`): prove authorization,
   ordering, request normalization, response/status behavior, and zero provider
   work for invalid World/work scope or an unverifiable receipt. Prove existing
