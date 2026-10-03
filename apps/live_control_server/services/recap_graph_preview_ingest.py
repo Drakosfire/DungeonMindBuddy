@@ -682,33 +682,11 @@ def materialize_recap_preview_supergraph(
         return status
 
 
-    logger.info(
-        "preview union materialization starting campaign=%s session=session-%s manifest=%s",
-        campaign_id,
-        session,
-        summary.manifest_path,
-    )
-    result = _materialize_preview_union_store_from_graph_ingest_run(
-        _PreviewUnionMaterializeOptions(
-            manifest_path=(repo / summary.manifest_path).resolve(),
-            repo_root=repo,
-            update_manifest=True,
-        )
-    )
-    updated = _summary_for_manifest(repo, result.manifest_path)
-    ensure_graph_ingest_projection_payload(
-        repo_root=repo,
-        manifest_path=_repo_relative(result.manifest_path, repo),
-        session_id=f"session-{session}",
-    )
-    logger.info(
-        "preview union materialization finished campaign=%s session=session-%s manifest=%s union_store=%s",
-        campaign_id,
-        session,
-        updated.manifest_path,
-        updated.preview_union_store_path,
-    )
-    return _status_from_summary(repo, updated, normalized_recap_path=normalized_recap_path)
+    # D.3B retired UnionSupergraph materialization. A validated candidate is
+    # the current completion boundary; native admission remains a later action.
+    status = _status_from_summary(repo, summary, normalized_recap_path=normalized_recap_path)
+    status["next_actions"] = ["review_candidate"]
+    return status
 
 
 def ensure_graph_ingest_projection_payload(

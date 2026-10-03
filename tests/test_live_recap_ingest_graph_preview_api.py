@@ -683,7 +683,7 @@ def test_recap_ingest_generate_recap_memory_with_graph_extraction_fake_client(
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["status"] == "ready_for_planning_activation"
+    assert body["status"] != "ready_for_planning_activation"
     assert "graph_candidate_ready" in body["states"]
     graph = body["ingest_report"]["graph_preview"]
     assert graph["status"] == "candidate_validation_ready"
@@ -777,7 +777,7 @@ def test_generate_recap_memory_reuses_staged_notes_and_still_materializes_graph(
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["status"] == "ready_for_planning_activation"
+    assert body["status"] != "ready_for_planning_activation"
     assert "staged_raw_notes_conflict" in body["states"]
     assert "graph_candidate_ready" in body["states"]
     assert body["ingest_report"]["staged_raw_notes_reused_existing"] is True
@@ -814,7 +814,7 @@ def test_recap_ingest_generate_recap_memory_with_blocked_graph_preserves_recap_s
 
     assert response.status_code == 200
     body = response.json()
-    assert body["status"] == "ready_for_planning_activation"
+    assert body["status"] != "ready_for_planning_activation"
     graph = body["ingest_report"]["graph_preview"]
     assert graph["status"] == "source_span_bundle_ready"
     assert graph["extraction_mode"] == "llm_blocked"
@@ -1033,3 +1033,45 @@ def test_recap_preview_uses_configured_immutable_content_root(client_env, monkey
         assert any(record["uri"].startswith("repo://" + configured + "/") for record in registry["records"])
     finally:
         shutil.rmtree(ROOT / configured, ignore_errors=True)
+
+
+def test_unmocked_candidate_completion_recovers_without_provider_replay(client_env, monkeypatch):
+    import src.graph_memory.extraction.graph_preview_runner as production
+    from apps.live_control_server.services import recap_graph_preview_ingest as service
+
+    client, _corpus, _candidate = client_env
+    _prepare_normalized(client)
+    _patch_fake_category_extract(monkeypatch)
+    built = client.post("/api/live/recap-ingest", json={
+        "operation": "build_graph_preview_bundle", "campaign_id": "longmont-c2", "session": 22,
+        "extract_graph": True, "graph_model_id": "gpt-5.4-mini",
+    })
+    assert built.status_code == 200, built.text
+    initial = built.json()["ingest_report"]["graph_preview"]
+    assert initial["status"] == "candidate_validation_ready"
+    assert initial["extraction_run_status"] == "reviewable"
+
+    def forbidden(*args, **kwargs):
+        pytest.fail("Recovery must not dispatch a provider or invoke retired materialization")
+
+    monkeypatch.setattr(production, "extract_category_candidate_graph", forbidden)
+    monkeypatch.setattr(service, "_materialize_preview_union_store_from_graph_ingest_run", forbidden)
+    monkeypatch.setattr(service, "_PreviewUnionMaterializeOptions", forbidden)
+    request = {"operation": "generate_recap_memory", "campaign_id": "longmont-c2", "session": 22,
+               "include_graph_extraction": True, "include_legacy_breadcrumb": False,
+               "graph_model_id": "gpt-5.4-mini"}
+    for _ in range(2):
+        response = client.post("/api/live/recap-ingest", json=request)
+        assert response.status_code == 200, response.text
+        body = response.json()
+        graph = body["ingest_report"]["graph_preview"]
+        assert graph["status"] == "candidate_validation_ready"
+        assert graph["extraction_run_id"] == initial["extraction_run_id"]
+        assert graph["source_artifact_id"] == initial["source_artifact_id"]
+        assert graph["candidate_graph_path"] == initial["candidate_graph_path"]
+        assert graph["next_actions"] == ["review_candidate"]
+        assert not graph["can_open_union_graph"]
+        assert not graph["preview_union_store_path"]
+        assert not graph["blocked_reason"]
+        assert body["status"] != "ready_for_planning_activation"
+        assert "session_memory_materialized" not in body["states"]

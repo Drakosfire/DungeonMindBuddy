@@ -111,3 +111,18 @@ describe("buildIngestReadiness", () => {
     expect(readiness.nextAction).toMatch(/Materialize Session Memory/i);
   });
 });
+
+
+it("keeps a validated candidate distinct from memory and native Graph readiness", () => {
+  const readiness = buildIngestReadiness(makeStatus({
+    status: "breadcrumb_required",
+    states: ["normalized_reused", "graph_candidate_ready"],
+    ingest_report: { graph_preview: { status: "candidate_validation_ready", candidate_node_count: 37, candidate_edge_count: 23 } },
+  }));
+  expect(readiness.memoryReady).toBe(false);
+  expect(readiness.graphReady).toBe(false);
+  expect(readiness.isComplete).toBe(false);
+  expect(readiness.graph.detail).toContain("37 nodes, 23 edges");
+  expect(readiness.nextAction).toContain("admission is pending");
+  expect(readiness.nextAction).not.toMatch(/Run ingest/i);
+});

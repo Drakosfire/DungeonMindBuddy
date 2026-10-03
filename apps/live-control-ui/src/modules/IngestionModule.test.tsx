@@ -377,6 +377,24 @@ describe("IngestionModule", () => {
     expect(screen.getByRole("button", { name: "Materialize Session Memory" })).toBeDisabled();
   });
 
+  it("reports a saved candidate as review pending without claiming Graph admission", async () => {
+    const user = setupIngestUser();
+    const result = makeStatus({
+      status: "breadcrumb_required",
+      states: ["normalized_reused", "recap_reused", "graph_candidate_ready"],
+      entity_spelling_audit: [],
+      ingest_report: { graph_preview: { status: "candidate_validation_ready", candidate_node_count: 37, candidate_edge_count: 23 } },
+    });
+    const spy = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(result);
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Run ingest" })).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Run ingest" }));
+    expect(await screen.findByText("Extraction ready for review")).toBeInTheDocument();
+    expect(screen.getByText(/Review and admission are still required/)).toBeInTheDocument();
+    expect(screen.queryByText("Ingest complete")).not.toBeInTheDocument();
+    expect(spy.mock.calls.filter(([body]) => body.operation === "generate_recap_memory")).toHaveLength(1);
+  });
+
   it("runs the full ingest pipeline through backend orchestration", async () => {
     const user = userEvent.setup();
     const spy = mockRecapIngestWithInspect((body) => {

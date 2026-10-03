@@ -1359,6 +1359,20 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
         return;
       }
 
+      const candidate = result.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
+      if (candidate?.status === "candidate_validation_ready" && !candidate.blocked_reason) {
+        setState(derivePaneStateFromResult(result));
+        publishPrimaryToast({
+          tone: "success",
+          title: "Extraction ready for review",
+          detail: "The extracted candidate is saved. Review and admission are still required before it is written to the World Graph.",
+          nextSteps: ["Review extracted candidate"],
+          sticky: true,
+        });
+        jumpToStep(3);
+        return;
+      }
+
       if (result.status === "ready_for_planning_activation" || result.states.includes("session_memory_materialized")) {
         const preview = result.ingest_report?.graph_preview as RecapGraphPreviewReport | undefined;
         const graphBlocked =
