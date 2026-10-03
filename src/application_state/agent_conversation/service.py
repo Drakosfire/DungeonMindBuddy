@@ -13,12 +13,14 @@ from application_state.agent_conversation.types import (
     Conversation,
     ConversationCommand,
     ConversationCommandReceipt,
+    CompletedPlanAskPair,
     Draft,
     DraftSave,
     DraftSubmit,
     DraftSubmitReceipt,
     LegacyImport,
     LegacyImportReceipt,
+    PlanAskContextBasis,
     ReopenCommand,
     SubmittedTurnIntentV1,
     Turn,
@@ -454,6 +456,30 @@ class AgentConversationService:
                 conversation_id,
                 limit=limit,
                 before_sequence=before_sequence,
+            )
+
+    def list_completed_plan_ask_context(
+        self,
+        verified_world_id: str,
+        basis: PlanAskContextBasis,
+        *,
+        limit: int = 6,
+    ) -> list[CompletedPlanAskPair]:
+        """Read the newest eligible completed Ask pairs for an exact Plan basis."""
+
+        world_id = _world_id(verified_world_id)
+        if world_id != basis.world_id:
+            raise ApplicationStateValidationError(
+                "Plan Ask basis World must match the verified World"
+            )
+        if isinstance(limit, bool) or not isinstance(limit, int) or not 1 <= limit <= 6:
+            raise ApplicationStateValidationError(
+                "Plan Ask context limit must be between 1 and 6"
+            )
+        dsn = _ready_dsn()
+        with unit_of_work(dsn) as conn:
+            return repo.list_completed_plan_ask_context(
+                conn, world_id, basis, limit=limit
             )
 
     def begin_turn(self, world_id: str, conversation_id: UUID, turn_id: UUID, *, expected_revision: int) -> Turn:

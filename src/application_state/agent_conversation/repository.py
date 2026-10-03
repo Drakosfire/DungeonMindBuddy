@@ -12,9 +12,11 @@ from psycopg.rows import dict_row
 from application_state.agent_conversation.types import (
     Conversation,
     ConversationCommandReceipt,
+    CompletedPlanAskPair,
     Draft,
     HistoricalReference,
     LegacyImportReceipt,
+    PlanAskContextBasis,
     Turn,
     TurnProvenance,
     WorldPointer,
@@ -541,6 +543,71 @@ def list_turns(
         )
         rows = cur.fetchall()
     return [_turn_from_row(conn, row) for row in reversed(rows)]
+
+
+def list_completed_plan_ask_context(
+    conn: psycopg.Connection,
+    verified_world_id: str,
+    basis: PlanAskContextBasis,
+    *,
+    limit: int,
+) -> list[CompletedPlanAskPair]:
+    """Read eligible visible Ask pairs from the active World conversation.
+
+    Pointer selection, completed-turn filtering, surface/basis eligibility, and
+    the source limit deliberately share one statement snapshot.
+    """
+
+    with conn.cursor(row_factory=dict_row) as cur:
+        cur.execute(
+            """
+            SELECT t.turn_id, t.sequence, t.accepted_at, t.user_text, t.assistant_text
+            FROM agent.world_state AS w
+            JOIN agent.conversation AS c
+              ON c.world_id = w.world_id
+             AND c.conversation_id = w.active_conversation_id
+             AND c.status = 'active'
+            JOIN agent.turn AS t
+              ON t.world_id = c.world_id
+             AND t.conversation_id = c.conversation_id
+            JOIN agent.turn_reference AS r
+              ON r.turn_id = t.turn_id
+             AND r.reference_role = 'primary'
+            WHERE w.world_id = %s
+              AND t.status = 'completed'
+              AND t.user_text IS NOT NULL AND btrim(t.user_text) <> ''
+              AND t.assistant_text IS NOT NULL AND btrim(t.assistant_text) <> ''
+              AND t.surface_resolution = 'resolved' AND t.surface_id = 'plan'
+              AND r.resolution = 'resolved' AND r.kind = 'plan'
+              AND r.object_id = %s
+              AND r.object_revision = %s
+              AND r.work_revision_id = %s
+              AND r.revision_n = %s
+              AND r.content_sha256 = %s
+            ORDER BY t.accepted_at DESC, t.sequence DESC, t.turn_id DESC
+            LIMIT %s
+            """,
+            (
+                verified_world_id,
+                basis.document_id,
+                basis.object_revision,
+                basis.work_revision_id,
+                basis.revision_n,
+                basis.content_sha256,
+                limit,
+            ),
+        )
+        rows = cur.fetchall()
+    return [
+        CompletedPlanAskPair(
+            source_sequence=row["sequence"],
+            source_record_id=row["turn_id"],
+            accepted_at=row["accepted_at"],
+            question=row["user_text"],
+            answer=row["assistant_text"],
+        )
+        for row in reversed(rows)
+    ]
 
 
 def insert_turn(
