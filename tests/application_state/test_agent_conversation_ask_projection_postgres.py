@@ -211,6 +211,49 @@ def test_exact_basis_filters_every_field_before_limit_and_returns_safe_pairs(
     }
 
 
+def test_newer_exact_basis_rows_in_another_world_do_not_consume_source_cap(
+    application_state_dsn: str,
+) -> None:
+    service = AgentConversationService()
+    basis = _basis()
+    target_conversation = _new_conversation(service, basis.world_id)
+    target_turns = [
+        _add_turn(
+            service,
+            basis.world_id,
+            target_conversation.conversation_id,
+            basis,
+            sequence=sequence,
+            question=f"target world {sequence}",
+        )
+        for sequence in range(1, 3)
+    ]
+
+    other_world_id = "ask-projection-other-world"
+    other_basis = basis.model_copy(update={"world_id": other_world_id})
+    other_conversation = _new_conversation(service, other_world_id)
+    for sequence in range(1, 5):
+        other_turn = _add_turn(
+            service,
+            other_world_id,
+            other_conversation.conversation_id,
+            other_basis,
+            sequence=sequence,
+            question=f"other world {sequence}",
+        )
+        _set_accepted_at(
+            application_state_dsn,
+            other_turn.turn_id,
+            datetime.now(UTC) + timedelta(days=1, seconds=sequence),
+        )
+
+    pairs = service.list_completed_plan_ask_context(basis.world_id, basis, limit=2)
+    assert [pair.source_record_id for pair in pairs] == [
+        turn.turn_id for turn in target_turns
+    ]
+    assert [pair.question for pair in pairs] == ["target world 1", "target world 2"]
+
+
 def test_eligibility_precedes_cap_and_newest_six_are_returned_oldest_first(
     application_state_dsn: str,
 ) -> None:
