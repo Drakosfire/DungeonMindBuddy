@@ -6,9 +6,8 @@
   line-height: 1.45;
   background: #12141a;
   color: #e8eaef;
-  /* Chrome band: ToolHost / EditHost / ProjectionHost / Author Node sit
-     outside .app-shell, so the inset lives on :root. Sidebars consume
-     these; do not restate per-host pixel heights. */
+  /* Fallback chrome band until AppChrome publishes the rendered header edge.
+     Root scope also reaches ToolHost / ProjectionHost / Author Node portals. */
   --app-chrome-top: 5.5rem;
   --app-chrome-bottom: 0rem;
   --app-ask-open-height: min(64vh, 680px);
@@ -687,6 +686,10 @@ code {
   transform: translateX(0);
 }
 
+.app-shell--edit-dock {
+  --app-edit-host-dock-width: min(380px, 32vw);
+}
+
 .app-shell--edit-dock:has(.plan-surface-root) {
   --plan-agent-bar-height: var(--app-chrome-bottom);
   --plan-agent-open-chrome-height: var(--app-ask-open-height);
@@ -698,7 +701,7 @@ code {
 }
 
 .app-shell--edit-dock:has(.app-edit-toolbox--docked.open) .app-shell-layout {
-  padding-left: min(380px, 32vw);
+  padding-left: var(--app-edit-host-dock-width);
 }
 
 .app-shell--edit-dock .app-edit-toolbox--docked {
@@ -711,7 +714,7 @@ code {
   left: 0;
   bottom: var(--app-chrome-bottom);
   z-index: 30;
-  width: min(380px, 32vw);
+  width: var(--app-edit-host-dock-width);
   height: auto;
   max-height: none;
   transform: none;
@@ -2374,6 +2377,10 @@ button:disabled {
     background: #171b24;
   }
 
+  .app-shell--edit-dock {
+    --app-edit-host-dock-width: min(440px, 94vw);
+  }
+
   .app-shell--edit-dock .app-shell-layout {
     display: block;
   }
@@ -2384,7 +2391,7 @@ button:disabled {
     left: 0;
     bottom: var(--app-chrome-bottom);
     z-index: 860;
-    width: min(440px, 94vw);
+    width: var(--app-edit-host-dock-width);
     max-height: none;
     transform: translateX(-100%);
     box-shadow: 12px 0 40px rgba(0, 0, 0, 0.35);
@@ -2400,7 +2407,7 @@ button:disabled {
   .app-shell--edit-dock:has(.app-edit-toolbox--docked.open)
     .app-edit-toolbox--docked
     .app-edit-toolbox-drawer {
-    width: min(440px, 94vw);
+    width: var(--app-edit-host-dock-width);
     z-index: 860;
   }
 

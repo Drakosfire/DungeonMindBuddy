@@ -140,7 +140,42 @@ export function AppChrome({
   secondaryKindRef.current = secondaryContext?.kind ?? null;
   const savedNarrowScrollYRef = useRef<number | null>(null);
   const centerRef = useRef<HTMLDivElement | null>(null);
+  const chromeHeaderRef = useRef<HTMLElement | null>(null);
   const savedCenterScrollRef = useRef<{ element: HTMLElement; top: number } | null>(null);
+
+  // Fixed Edit/Tool/inspector hosts share the actual wrapped navigation edge.
+  useLayoutEffect(() => {
+    const header = chromeHeaderRef.current;
+    if (!header) return;
+
+    const rootStyle = document.documentElement.style;
+    const previousTop = rootStyle.getPropertyValue("--app-chrome-top");
+    const previousPriority = rootStyle.getPropertyPriority("--app-chrome-top");
+    const updateChromeOffset = () => {
+      const headerBottom = header.getBoundingClientRect().bottom;
+      if (!Number.isFinite(headerBottom) || headerBottom <= 0) return;
+      rootStyle.setProperty("--app-chrome-top", `${Math.ceil(headerBottom)}px`);
+    };
+
+    updateChromeOffset();
+    const observer = typeof ResizeObserver === "undefined"
+      ? null
+      : new ResizeObserver(updateChromeOffset);
+    observer?.observe(header);
+    window.addEventListener("resize", updateChromeOffset, { passive: true });
+    window.addEventListener("scroll", updateChromeOffset, { passive: true });
+
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", updateChromeOffset);
+      window.removeEventListener("scroll", updateChromeOffset);
+      if (previousTop) {
+        rootStyle.setProperty("--app-chrome-top", previousTop, previousPriority);
+      } else {
+        rootStyle.removeProperty("--app-chrome-top");
+      }
+    };
+  }, []);
 
   useLayoutEffect(() => {
     const center = centerRef.current;
@@ -317,7 +352,7 @@ export function AppChrome({
 
   const mainContent = (
     <div className="app-wrap">
-      <header className="app-chrome-header" data-testid="app-chrome-header">
+      <header ref={chromeHeaderRef} className="app-chrome-header" data-testid="app-chrome-header">
         <nav className="app-site-nav" aria-label="Command board navigation">
           <div className="app-site-nav__routes">
             {APP_NAV_ITEMS.map((item) => (

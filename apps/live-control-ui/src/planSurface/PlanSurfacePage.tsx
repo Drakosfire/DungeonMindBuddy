@@ -1217,14 +1217,17 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         onSelect={(nextId) => { void openPlan(nextId); }}
         onNewPlan={resetBlankPlan}
       />
-      <main className="app-status world-owned-plan" data-testid="world-owned-plan">
-        <header className="world-owned-plan__heading">
-          <div>
-            <p className="plan-surface-kicker">WORLD PLAN</p>
-            <h1>{documentId ? title || "Untitled Plan" : "New Plan"}</h1>
-            <p className="world-owned-plan__intro">A working space for this World. Your draft is local until you save it.</p>
-          </div>
-        </header>
+      <main
+        className="app-status world-owned-plan"
+        data-testid="world-owned-plan"
+        aria-labelledby="world-owned-plan-title"
+      >
+        <h1 id="world-owned-plan-title" className="sr-only">
+          {documentId ? title || "Untitled Plan" : "New Plan"}
+        </h1>
+        <p className="world-owned-plan__intro">
+          Plan changes stay local until you choose Save Plan.
+        </p>
         {createUncertain ? (
           <section role="alert">
             <p>Plan creation may have succeeded, but its response was lost. Refresh Saved Plans and open a candidate if one appears. Its identity is not assumed; the recovered text stays separate until you explicitly restore it into a Plan or discard it. Automatic creation retry is blocked to avoid duplicates.</p>
@@ -1254,7 +1257,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         <PlanSurfaceCanvasFrame
           className="world-owned-plan__canvas"
           testId="world-owned-plan-editor"
-          identityLabel={documentId ? `Editing Plan · ${title || "Untitled"}` : "Unsaved Plan draft"}
+          identityLabel={documentId ? "Plan editor" : "Unsaved Plan draft"}
           themeId="mireward-runbook"
         >
           <MarkdownEditorCore
