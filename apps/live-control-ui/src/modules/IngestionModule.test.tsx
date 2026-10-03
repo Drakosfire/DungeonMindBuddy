@@ -7,6 +7,7 @@ import * as recapIngestApi from "../api/recapIngestApi";
 import type { RecapIngestStatus } from "../api/types";
 import { mockCatalog, mockLayout, mockPlanView, mockState } from "../test/fixtures";
 import { SurfaceShell } from "../surface/SurfaceShell";
+import { session23WorldGraphRecapFixture } from "../planSurface/graphPreview/worldGraphRecapFixture";
 import { IngestionModule } from "./IngestionModule";
 
 function makeStatus(overrides: Partial<RecapIngestStatus> = {}): RecapIngestStatus {
@@ -99,6 +100,7 @@ describe("IngestionModule", () => {
   beforeEach(() => {
     window.history.replaceState({}, "", "/");
     window.localStorage.clear();
+    vi.spyOn(liveApi, "postWorldGraphRecapProjection").mockResolvedValue({ ...session23WorldGraphRecapFixture, campaignId: "longmont-c2", sessionId: "session-22", snapshot: { ...session23WorldGraphRecapFixture.snapshot, focus: { kind: "session", sessionId: "session-22", campaignId: "longmont-c2" } } });
     vi.spyOn(liveApi, "getRecapArtifacts").mockResolvedValue({
       schema_version: "dmb_recap_artifacts_registry_v1",
       version: "1",
@@ -393,9 +395,17 @@ describe("IngestionModule", () => {
     expect(screen.getByText(/Review and admission are still required/)).toBeInTheDocument();
     expect(screen.queryByText("Ingest complete")).not.toBeInTheDocument();
     vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: "saved-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Exact saved recap" });
-    await user.click(screen.getByRole("button", { name: "Review saved source" }));
-    expect(await screen.findByText("Exact saved recap")).toBeInTheDocument();
-    expect(screen.getByText("Extraction details and file diagnostics").parentElement).not.toHaveAttribute("open");
+    await user.click(screen.getByRole("button", { name: "Review recap canvas" }));
+    expect(await screen.findByText("Current World Graph context. This extraction is awaiting Graph admission.")).toBeInTheDocument();
+    expect(screen.getByText("Advanced").parentElement).not.toHaveAttribute("open");
+    const completeRead = vi.spyOn(liveApi, "postWorldGraphCompleteObject").mockRejectedValue(new Error("Read unavailable"));
+    const pill = await waitFor(() => {
+      const token = document.querySelector("button.recap-node-token") as HTMLButtonElement;
+      expect(token).toBeTruthy();
+      return token;
+    });
+    fireEvent.click(pill);
+    await waitFor(() => expect(completeRead).toHaveBeenCalled());
     expect(spy.mock.calls.filter(([body]) => body.operation === "generate_recap_memory")).toHaveLength(1);
     fireEvent.change(screen.getByLabelText("Recap/source session"), { target: { value: "29" } });
     expect(screen.queryByText("Exact saved recap")).not.toBeInTheDocument();
@@ -410,7 +420,7 @@ describe("IngestionModule", () => {
     const view = render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await waitFor(() => expect(screen.getByRole("button", { name: "Run ingest" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Run ingest" }));
-    await user.click(await screen.findByRole("button", { name: "Review saved source" }));
+    await user.click(await screen.findByRole("button", { name: "Review recap canvas" }));
     await waitFor(() => expect(inspection).toHaveBeenCalledWith("old-run"));
     const resolveOld = resolve;
     if (change === "session") fireEvent.change(screen.getByLabelText("Recap/source session"), { target: { value: "29" } });
@@ -419,7 +429,7 @@ describe("IngestionModule", () => {
       ingest.mockResolvedValue(candidate("new-run"));
       await user.click(screen.getByRole("button", { name: "Run ingest" }));
       await waitFor(() => expect(ingest.mock.calls.filter(([body]) => body.operation === "generate_recap_memory")).toHaveLength(2));
-      await user.click(await screen.findByRole("button", { name: "Review saved source" }));
+      await user.click(await screen.findByRole("button", { name: "Review recap canvas" }));
       await waitFor(() => expect(inspection).toHaveBeenLastCalledWith("new-run"));
     }
     if (change === "unmount") view.unmount();
@@ -429,24 +439,70 @@ describe("IngestionModule", () => {
     if (change === "run") {
       expect(screen.getByRole("button", { name: "Opening review…" })).toBeDisabled();
       await act(async () => { resolve({ schema: "dmb_historical_recap_inspection_v1", runId: "new-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "new-source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Current run source" }); });
-      expect(await screen.findByText("Current run source")).toBeInTheDocument();
+      expect(await screen.findByText("Current World Graph context. This extraction is awaiting Graph admission.")).toBeInTheDocument();
     }
   });
 
-  it.each(["mismatch", "unavailable"])("reports %s saved source without running extraction again", async (failure) => {
+  it.each(["mismatch", "unavailable", "projection-mismatch"])("reports %s saved source without running extraction again", async (failure) => {
     const user = setupIngestUser();
     const ingest = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({ status: "breadcrumb_required", states: ["normalized_reused", "recap_reused", "graph_candidate_ready"], ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: "saved-run" } } }));
     vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: failure === "mismatch" ? "different-run" : "saved-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: failure === "unavailable" ? "unavailable" : "available", sourceProse: "Unverified prose" });
+    if (failure === "projection-mismatch") vi.mocked(liveApi.postWorldGraphRecapProjection).mockResolvedValue({ ...session23WorldGraphRecapFixture, campaignId: "longmont-c1", sessionId: "session-22" });
     render(<IngestionModule campaignId="longmont-c2" session={23} />);
     await waitFor(() => expect(screen.getByRole("button", { name: "Run ingest" })).toBeEnabled());
     await user.click(screen.getByRole("button", { name: "Run ingest" }));
     const callsBeforeReview = ingest.mock.calls.length;
-    await user.click(await screen.findByRole("button", { name: "Review saved source" }));
-    expect(await screen.findByText(failure === "mismatch" ? "Saved extraction does not match this session." : "Saved source is unavailable.")).toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Review recap canvas" }));
+    expect(await screen.findByText(failure === "mismatch" ? "Saved extraction does not match this session." : failure === "projection-mismatch" ? "Recap projection does not match the selected World and session." : "Saved source is unavailable.")).toBeInTheDocument();
     expect(screen.queryByText("Unverified prose")).not.toBeInTheDocument();
     expect(ingest.mock.calls).toHaveLength(callsBeforeReview);
   });
 
+
+  it.each(["revision", "head", "admissibility", "focus", "scope"])("rejects invalid recap projection %s before display", async (field) => {
+    const user = setupIngestUser();
+    vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({ status: "breadcrumb_required", states: ["normalized_reused", "recap_reused", "graph_candidate_ready"], ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: "saved-run" } } }));
+    vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: "saved-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Saved source" });
+    const payload = await vi.mocked(liveApi.postWorldGraphRecapProjection).getMockImplementation()!({} as never);
+    const snapshot = { ...payload.snapshot };
+    if (field === "revision") snapshot.headRevisionId = "different-head";
+    if (field === "head") snapshot.isHead = false;
+    if (field === "admissibility") snapshot.admissibility = "player";
+    if (field === "focus") snapshot.focus = { kind: "none", sessionId: null };
+    if (field === "scope") snapshot.scopeMode = "world";
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockResolvedValue({ ...payload, snapshot });
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(await screen.findByRole("button", { name: "Review recap canvas" }));
+    expect(await screen.findByText(/Projection (head claim|admissibility|focus|scopeMode)|Requested current head/)).toBeInTheDocument();
+    expect(screen.queryByText("Current World Graph context. This extraction is awaiting Graph admission.")).not.toBeInTheDocument();
+  });
+
+  it("sets tab-local Graph access, clears the password and retries only recap reads", async () => {
+    const user = setupIngestUser();
+    const ingest = vi.mocked(recapIngestApi.postRecapIngest).mockResolvedValue(makeStatus({ status: "breadcrumb_required", states: ["normalized_reused", "recap_reused", "graph_candidate_ready"], ingest_report: { graph_preview: { status: "candidate_validation_ready", extraction_run_id: "saved-run" } } }));
+    vi.spyOn(liveApi, "getHistoricalRecapInspection").mockResolvedValue({ schema: "dmb_historical_recap_inspection_v1", runId: "saved-run", runStatus: "reviewable", sourceDomain: "recap", sourceArtifactId: "source", campaignId: "longmont-c2", sessionId: "session-22", sourceStatus: "available", sourceProse: "Saved source" });
+    const credential = vi.spyOn(liveApi, "setNativeGraphAccessToken");
+    vi.mocked(liveApi.postWorldGraphRecapProjection).mockRejectedValueOnce(new Error("A valid local operator credential is required for native Graph access."));
+    render(<IngestionModule campaignId="longmont-c2" session={23} />);
+    await user.click(await screen.findByRole("button", { name: "Review recap canvas" }));
+    expect(await screen.findByText(/Open Advanced → Native Graph access/)).toBeInTheDocument();
+    const ingestCalls = ingest.mock.calls.length;
+    await user.click(screen.getByText("Advanced", { exact: true }));
+    const input = screen.getByLabelText("Local operator Graph credential");
+    expect(input).toHaveAttribute("type", "password");
+    await user.type(input, "test-local-credential");
+    await user.click(screen.getByRole("button", { name: "Set Graph access" }));
+    expect(credential).toHaveBeenLastCalledWith("test-local-credential");
+    expect(input).toHaveValue("");
+    expect(await screen.findByText("Current World Graph context. This extraction is awaiting Graph admission.")).toBeInTheDocument();
+    expect(ingest.mock.calls).toHaveLength(ingestCalls);
+    expect(JSON.stringify(window.localStorage)).not.toContain("test-local-credential");
+    expect(JSON.stringify(window.sessionStorage)).not.toContain("test-local-credential");
+    await user.click(screen.getByRole("button", { name: "Clear Graph access" }));
+    expect(credential).toHaveBeenLastCalledWith(null);
+    expect(screen.queryByText("Current World Graph context. This extraction is awaiting Graph admission.")).not.toBeInTheDocument();
+    expect(ingest.mock.calls).toHaveLength(ingestCalls);
+  });
   it("runs the full ingest pipeline through backend orchestration", async () => {
     const user = userEvent.setup();
     const spy = mockRecapIngestWithInspect((body) => {

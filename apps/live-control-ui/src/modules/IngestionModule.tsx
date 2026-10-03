@@ -1,12 +1,14 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { getRecapArtifacts, getHistoricalRecapInspection, postCitationSource } from "../api/liveApi";
+import { getRecapArtifacts, getHistoricalRecapInspection, postWorldGraphRecapProjection, postCitationSource } from "../api/liveApi";
 import { postRecapIngest } from "../api/recapIngestApi";
 import type {
   NormalizedRecapCandidate,
   RecapArtifactRecord,
   RecapGraphPreviewReport,
   RecapIngestStatus,
+  WorldGraphRecapProjection,
+  WorldGraphProjection,
 } from "../api/types";
 import {
   filterNumericRecapArtifactRecords,
@@ -23,6 +25,12 @@ import {
 import { GRAPH_REVIEW_RUNS_CHANGED_EVENT } from "../planSurface/graphReviewWorkbench/graphReviewWorkbenchUtils";
 import { buildIngestReadiness } from "./ingestReadiness";
 import { mergeInspectResult } from "./ingestResultMerge";
+
+import { WorldGraphRecapProjectionView } from "../planSurface/graphPreview/WorldGraphRecapProjection";
+import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
+import { buildWorldGraphRecapProjectionRequest } from "../worldGraph/worldGraphSurfaceContext";
+
+import { NativeGraphAccessControl } from "../chrome/NativeGraphAccessControl";
 
 interface IngestionModuleProps {
   campaignId: string;
@@ -739,7 +747,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [reviewSource, setReviewSource] = useState<{ prose: string; identity: string; session: number; nodes: number; edges: number } | null>(null);
+  const [reviewSource, setReviewSource] = useState<{ prose: string; identity: string; session: number; nodes: number; edges: number; projection: WorldGraphRecapProjection } | null>(null);
   const reviewEpoch = useRef(0);
   const currentReviewIdentity = useRef("");
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -1831,7 +1839,22 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
       if (inspection.sourceStatus !== "available" || !inspection.sourceProse) {
         throw new Error(inspection.unavailableReason || "Saved source is unavailable.");
       }
-      setReviewSource({ prose: inspection.sourceProse, identity, session: capturedSession, nodes, edges });
+      const request = buildWorldGraphRecapProjectionRequest({ campaignId: ingestCampaignId, sessionId: `session-${capturedSession}` });
+      if (!request) throw new Error("World Graph mapping is unavailable for this recap.");
+      const projection = await postWorldGraphRecapProjection(request);
+      if (!isCurrent()) return;
+      if (projection.campaignId !== ingestCampaignId || projection.sessionId !== `session-${capturedSession}` || projection.snapshot.worldId !== request.worldId) {
+        throw new Error("Recap projection does not match the selected World and session.");
+      }
+      if (!projection.snapshot.revisionId || !projection.snapshot.headRevisionId) throw new Error("Recap projection has no verified revision identity.");
+      const integrityError = verifyWorldGraphProjectionResponse({
+        request,
+        // Shared verifier reads only the common snapshot contract.
+        response: projection as unknown as WorldGraphProjection,
+        revisionKind: "head",
+      });
+      if (integrityError) throw new Error(integrityError);
+      setReviewSource({ prose: inspection.sourceProse, identity, session: capturedSession, nodes, edges, projection });
     } catch (error) {
       if (isCurrent()) setReviewError(error instanceof Error ? error.message : "Unable to open saved source.");
     } finally {
@@ -1985,26 +2008,6 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
           <h3>Current next action</h3>
           <p role="status" aria-live="polite">{workflowNextAction}</p>
         </div>
-        <ol className="ingestion-flow-steps ingestion-readiness-lanes">
-          {readinessLanes.map((lane) => (
-            <li
-              key={lane.id}
-              className={`ingestion-flow-step ingestion-flow-step-${lane.state === "ready" ? "done" : lane.state === "blocked" ? "active" : lane.state === "not_ready" ? "active" : "locked"}`}
-            >
-              <span>{lane.label}</span>
-              <strong>
-                {lane.state === "ready"
-                  ? "Ready"
-                  : lane.state === "blocked"
-                    ? "Blocked"
-                    : lane.state === "not_ready"
-                      ? "Not ready"
-                      : "Idle"}
-              </strong>
-              <p className="ingestion-readiness-detail">{lane.detail}</p>
-            </li>
-          ))}
-        </ol>
       </section>
 
       <div className="ingestion-command-grid">
@@ -2197,7 +2200,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
             </button>
             {graphPreview?.status === "candidate_validation_ready" && graphPreview.extraction_run_id ? (
               <button type="button" className="primary" disabled={reviewLoading} onClick={() => void reviewSavedSource()}>
-                {reviewLoading ? "Opening review…" : "Review saved source"}
+                {reviewLoading ? "Opening review…" : "Review recap canvas"}
               </button>
             ) : null}
             {isIngestSurfacePath() && hasPreviewUnionStore ? (
@@ -2240,6 +2243,56 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
             </p>
           </div>
 
+          {state.status === "error" ? (
+            <p className="module-error">{state.message ?? "Ingestion operation failed."}</p>
+          ) : null}
+        </section>
+
+        <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">
+          {reviewError ? <p role="alert" className="module-error">{reviewError} {reviewError.includes("credential") || reviewError.includes("graph_auth_required") ? "Open Advanced → Native Graph access to set the local operator credential." : ""}</p> : null}
+          {reviewSource !== null && reviewSource.identity === reviewIdentity ? (
+            <section aria-label="Saved extraction source review">
+              <p>Current World Graph context. This extraction is awaiting Graph admission.</p>
+              <WorldGraphRecapProjectionView
+                payload={{ ...reviewSource.projection, markdown: reviewSource.projection.markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "") }}
+                selectedSessionId={`session-${reviewSource.session}`}
+                sessionOptions={[`session-${reviewSource.session}`]}
+                onSelectSession={(value) => setRecapSession(Number(value.replace("session-", "")))}
+                selectedCampaignId={ingestCampaignId}
+                onSelectCampaign={setIngestCampaignId}
+              />
+              <button type="button" onClick={() => setReviewSource(null)}>Close review</button>
+            </section>
+          ) : null}
+          <details><summary>Advanced</summary>
+          <NativeGraphAccessControl onChanged={(available) => {
+            reviewEpoch.current += 1;
+            setReviewSource(null);
+            setReviewError(null);
+            setReviewLoading(false);
+            if (available) void reviewSavedSource();
+          }} />
+          {reviewSource ? <pre aria-label="Recap frontmatter">{reviewSource.projection.markdown.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0] ?? "No frontmatter"}</pre> : null}
+        <ol className="ingestion-flow-steps ingestion-readiness-lanes">
+          {readinessLanes.map((lane) => (
+            <li
+              key={lane.id}
+              className={`ingestion-flow-step ingestion-flow-step-${lane.state === "ready" ? "done" : lane.state === "blocked" ? "active" : lane.state === "not_ready" ? "active" : "locked"}`}
+            >
+              <span>{lane.label}</span>
+              <strong>
+                {lane.state === "ready"
+                  ? "Ready"
+                  : lane.state === "blocked"
+                    ? "Blocked"
+                    : lane.state === "not_ready"
+                      ? "Not ready"
+                      : "Idle"}
+              </strong>
+              <p className="ingestion-readiness-detail">{lane.detail}</p>
+            </li>
+          ))}
+        </ol>
           <details className="ingestion-advanced-fold">
             <summary>Advanced file controls</summary>
             <label>
@@ -2426,12 +2479,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
             </pre>
           </details>
 
-          {state.status === "error" ? (
-            <p className="module-error">{state.message ?? "Ingestion operation failed."}</p>
-          ) : null}
-        </section>
 
-        <aside className="ingestion-evidence-pane" aria-label="Ingestion evidence and proof">
           <div className="ingestion-evidence-header">
             <div>
               <p className="ingestion-flow-kicker">Evidence / Preview</p>
@@ -2539,17 +2587,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
             dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(rawText) }}
           />
 
-          {reviewError ? <p role="alert" className="module-error">{reviewError}</p> : null}
-          {reviewSource !== null && reviewSource.identity === reviewIdentity ? (
-            <section aria-label="Saved extraction source review">
-              <h3>Session {reviewSource.session} · Saved extraction source</h3>
-              <p>{reviewSource.nodes} nodes · {reviewSource.edges} edges. World Graph admission is pending.</p>
-              <p className="module-muted">Exact saved source. Candidate admission requires a verified campaign-to-World association.</p>
-              <div className="md-content md-theme-command" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(reviewSource.prose) }} />
-              <button type="button" onClick={() => setReviewSource(null)}>Close review</button>
-            </section>
-          ) : null}
-          <details><summary>Extraction details and file diagnostics</summary>
+
           <section className="ingestion-proof-card" aria-label="Graph preview status">
             <h4>Graph</h4>
             <p className="module-muted">Preview supergraph only. No canon graph write.</p>
