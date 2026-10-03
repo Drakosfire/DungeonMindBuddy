@@ -1,8 +1,8 @@
 # HANDOFF — APP-STATE: exact-basis Plan Ask projection
 
-**Status:** BLOCKED — bounded implementation packet prepared; PRIME activation
-and an exact write lease are required. No implementation, provider, database,
-or runtime lease is active.
+**Status:** COMPLETE — the exact-basis Ask projection merged in PR #898 at
+`402390ca051553a09e844ea57ddf8be3f6217fef`. The implementation lease is
+released. The later Plan conversation consumer and legacy import remain separate.
 
 **Owner:** APP-STATE
 
@@ -77,7 +77,7 @@ existing UoW and migration runner. Add an index only if an owning-boundary query
 plan or measured fixture demonstrates a real need; return that requirement to
 PRIME before expanding the lease.
 
-## Candidate implementation allowlist — inactive until PRIME grants it
+## Implementation allowlist — delivered by PR #898; write lease released
 
 1. `src/application_state/agent_conversation/types.py` — validated basis and
    safe Ask-pair projection types.
@@ -116,8 +116,9 @@ do not connect to any database.
 - Rotate the World active pointer from conversation A to B, then prove the read
   for the new pointer never returns archived A pairs. Prove an empty read does
   not create a World pointer or conversation. Prove request/basis World
-  mismatch fails closed. Confirm the projection contains only question,
-  visible answer, accepted time, sequence, and source UUID.
+  mismatch fails closed, and newer exact-basis rows in another World do not
+  appear or consume the source cap. Confirm the projection contains only
+  question, visible answer, accepted time, sequence, and source UUID.
 - Prove equal accepted timestamps remain deterministic by source sequence and
   UUID. Leave source-rank tie handling and the merged six-pair cap to the
   future Plan boundary owning tests; do not implement or test that consumer
@@ -152,7 +153,10 @@ do not connect to any database.
   consumer merges both sources and applies the total-six cap; this packet does
   not implement that consumer.
 
-**Activation gate:** PRIME must confirm the exact base, open-PR/path census,
-the current conversation/basis caller contract, the no-migration decision,
-verification fixture resources and owner, and the four-path exclusive write
-lease. Until then this handoff is design only.
+## Implementation settlement
+
+- PRIME activated the bounded four-path lease at `main@d5de2072f90c27b031f9f55157504915f98a189f`; PR #898 merged at `402390ca051553a09e844ea57ddf8be3f6217fef` from reviewed head `5b8daaa6c8d8fcc825da626de3c0499539cafadd`.
+- The dedicated PostgreSQL projection module passed 8 tests, including the cross-World source-cap regression. Ruff and cumulative `git diff --check` passed; the existing typed-provenance and fresh-service regressions passed.
+- No migration, schema, route, runtime, or consumer change was made. The APP-STATE implementation write lease ended at merge.
+- The assigned disposable PostgreSQL tests are complete. SERVER retains ownership of fixture cleanup.
+- DEMO owns the later Plan consumer; legacy import remains a separate contract ruling.
