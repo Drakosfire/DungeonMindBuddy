@@ -13,6 +13,11 @@ from apps.live_control_server.services.world_graph_projection import (
     WorldGraphProjectionServiceError,
     project_world_graph,
 )
+from apps.live_control_server.services.managed_world_graph_projection import (
+    ManagedWorldGraphProjectionRequest,
+    ManagedWorldGraphProjectionResponse,
+    project_managed_world_graph,
+)
 from apps.live_control_server.services.agent_graph_auth import (
     native_graph_gm_dependency,
 )
@@ -107,6 +112,31 @@ def post_world_graph_projection(
         return _error_response(
             WorldGraphProjectionServiceError(
                 "World graph projection failed unexpectedly.",
+                code="projection_internal_error",
+                status_code=500,
+            )
+        )
+    return response.model_dump(mode="json", by_alias=True)
+
+
+@router.post(
+    "/managed-projection",
+    response_model=ManagedWorldGraphProjectionResponse,
+)
+def post_managed_world_graph_projection(
+    request_context: Request,
+    request: ManagedWorldGraphProjectionRequest,
+) -> dict[str, Any] | JSONResponse:
+    """Read a managed World through Buddy's private native Graph binding."""
+    try:
+        _reject_query_params(request_context)
+        response = project_managed_world_graph(request)
+    except WorldGraphProjectionServiceError as exc:
+        return _error_response(exc)
+    except Exception:
+        return _error_response(
+            WorldGraphProjectionServiceError(
+                "Managed World graph projection failed unexpectedly.",
                 code="projection_internal_error",
                 status_code=500,
             )

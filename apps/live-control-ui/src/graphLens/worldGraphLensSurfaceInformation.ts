@@ -6,7 +6,11 @@
  */
 
 import { LiveApiError } from "../api/liveApi";
-import type { WorldGraphProjection, WorldGraphProjectionRequest } from "../api/types";
+import type {
+  ManagedWorldGraphProjectionResponse,
+  WorldGraphProjection,
+  WorldGraphProjectionRequest,
+} from "../api/types";
 import type {
   SurfaceInformationDescriptor,
   SurfaceInformationDiagnostic,
@@ -15,6 +19,7 @@ import type {
   SurfaceInformationState,
 } from "../surfaceInformation";
 import { verifyWorldGraphProjectionResponse } from "../worldGraph/verifyWorldGraphProjectionResponse";
+import { verifyManagedWorldGraphProjectionResponse } from "../worldGraph/verifyManagedWorldGraphProjectionResponse";
 import { worldGraphProjectionRequestKey } from "../worldGraph/worldGraphProjectionRequestKey";
 
 export const WORLD_GRAPH_LENS_INFORMATION_KIND = "world_graph_projection";
@@ -28,8 +33,10 @@ export function worldGraphLensRequestKey(request: WorldGraphProjectionRequest): 
 
 export function worldGraphLensInformationDescriptor(
   request: WorldGraphProjectionRequest,
+  ownerKind: "managed" | "native" = "native",
 ): SurfaceInformationDescriptor {
   const requestKey = worldGraphLensRequestKey(request);
+  const identityKey = ownerKind === "managed" ? `managed:${requestKey}` : requestKey;
   const scope: SurfaceInformationReference[] = [
     ...(request.scopeMode === "world" && !request.campaignId.trim()
       ? []
@@ -45,7 +52,7 @@ export function worldGraphLensInformationDescriptor(
     scope.push({ kind: "focus_session", id: request.focus.sessionId });
   }
   return {
-    channelId: `world-graph-lens:${requestKey}`,
+    channelId: `world-graph-lens:${identityKey}`,
     informationKind: WORLD_GRAPH_LENS_INFORMATION_KIND,
     providerId: WORLD_GRAPH_LENS_PROVIDER_ID,
     authority: "dungeonmind",
@@ -109,9 +116,11 @@ function observedMetadata(
 export function mapWorldGraphLensObservation(input: {
   request: WorldGraphProjectionRequest;
   response?: WorldGraphProjection | null;
+  managedResponse?: ManagedWorldGraphProjectionResponse | null;
   error?: unknown;
 }): Exclude<SurfaceInformationState<WorldGraphProjection>, { status: "loading" }> {
-  if (input.response == null) {
+  const response = input.managedResponse?.projection ?? input.response ?? null;
+  if (response == null) {
     const failure = formatFailureReason(input.error);
     return {
       status: "unavailable",
@@ -120,13 +129,20 @@ export function mapWorldGraphLensObservation(input: {
     };
   }
 
-  const response = input.response;
-  const mismatch = verifyWorldGraphProjectionResponse({
-    request: input.request,
-    response,
-    revisionKind: input.request.revisionPin ? "pinned" : "head",
-    pinnedRevisionId: input.request.revisionPin ?? null,
-  });
+  const mismatch = input.managedResponse
+    ? verifyManagedWorldGraphProjectionResponse({
+        managedWorldId: input.request.worldId,
+        request: input.request,
+        response: input.managedResponse,
+        revisionKind: input.request.revisionPin ? "pinned" : "head",
+        pinnedRevisionId: input.request.revisionPin ?? null,
+      })
+    : verifyWorldGraphProjectionResponse({
+        request: input.request,
+        response,
+        revisionKind: input.request.revisionPin ? "pinned" : "head",
+        pinnedRevisionId: input.request.revisionPin ?? null,
+      });
   if (mismatch) {
     return {
       status: "integrity_error",

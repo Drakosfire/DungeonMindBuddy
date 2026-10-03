@@ -29,6 +29,7 @@ import {
   getLatestGraphIngestRun,
   getUnionSupergraphProjection,
   LiveApiError,
+  NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT,
   listWorldContainers,
   listWorkspaceDocuments,
   putPlayRun,
@@ -49,6 +50,7 @@ import {
   postWorldPlanAgentTurn,
   postThreatQueryHydration,
   postWorldGraphProjection,
+  postManagedWorldGraphProjection,
   postWorldGraphCompleteObject,
   postWorldGraphSourceAnchorRead,
   setNativeGraphAccessToken,
@@ -1171,6 +1173,51 @@ describe("liveApi artifact/capability helpers", () => {
       "focus",
       "admissibility",
     ]);
+  });
+
+  it("postManagedWorldGraphProjection sends only managed identity and native Graph auth", async () => {
+    setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const request = {
+      schema: "dmb_managed_world_graph_projection_request_v1" as const,
+      managedWorldId: "elderwyld",
+      revisionPin: null,
+      queryText: null,
+    };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({
+        schema: "dmb_managed_world_graph_projection_v1",
+        managedWorldId: "elderwyld",
+        nativeWorldId: "eldyrwild",
+        bindingVersion: 1,
+        projection: { schema: "dmb_world_graph_projection_v1", snapshot: {} },
+      }),
+    );
+
+    await postManagedWorldGraphProjection(request);
+
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(String(url)).toBe("/api/live/world-graph/managed-projection");
+    expect(init?.method).toBe("POST");
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer test-only-local-operator-credential-value",
+    );
+    expect(JSON.parse(String(init?.body))).toEqual(request);
+    expect(JSON.stringify(JSON.parse(String(init?.body)))).not.toContain("eldyrwild");
+    expect(Object.keys(JSON.parse(String(init?.body)))).toEqual([
+      "schema",
+      "managedWorldId",
+      "revisionPin",
+      "queryText",
+    ]);
+  });
+
+  it("emits a value-free event when the in-memory Graph credential changes", () => {
+    const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+    setNativeGraphAccessToken("private-test-credential");
+    const event = dispatchSpy.mock.calls[0]?.[0];
+    expect(event?.type).toBe(NATIVE_GRAPH_ACCESS_TOKEN_CHANGED_EVENT);
+    expect("detail" in (event ?? {})).toBe(false);
+    expect(JSON.stringify(event)).not.toContain("private-test-credential");
   });
 
   it("postWorldGraphCompleteObject posts the complete-object request contract", async () => {

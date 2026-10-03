@@ -2986,6 +2986,13 @@ export interface WorldGraphProjectionRequest {
   queryText?: string | null;
 }
 
+export interface ManagedWorldGraphProjectionRequest {
+  schema: "dmb_managed_world_graph_projection_request_v1";
+  managedWorldId: string;
+  revisionPin?: string | null;
+  queryText?: string | null;
+}
+
 export interface WorldGraphProjectionSnapshot {
   worldId: string;
   campaignId: string;
@@ -3107,6 +3114,14 @@ export interface WorldGraphProjection {
   evidence: unknown[];
   sourceArtifacts: unknown[];
   diagnostics: Array<{ code: string; message: string; severity: "error" | "warning" | "info" }>;
+}
+
+export interface ManagedWorldGraphProjectionResponse {
+  schema: "dmb_managed_world_graph_projection_v1";
+  managedWorldId: string;
+  nativeWorldId: string;
+  bindingVersion: number;
+  projection: WorldGraphProjection;
 }
 
 export interface WorldGraphObjectProjectionRequest {
