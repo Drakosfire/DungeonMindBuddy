@@ -739,7 +739,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
     () => draftStorageKey(ingestCampaignId, session),
     [ingestCampaignId, session],
   );
-  const requestedRecapSession = requestedRecapSessionFromLocation();
+  const [requestedRecapSession] = useState(requestedRecapSessionFromLocation);
   const initialRecapSession = requestedRecapSession ?? initialSourceSession ?? defaultRecapSession(session);
   const [activeStep, setActiveStep] = useState<number>(1);
   const [rawText, setRawText] = useState("");
@@ -747,7 +747,10 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
   const [slug, setSlug] = useState("");
   const [title, setTitle] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [reviewSource, setReviewSource] = useState<{ prose: string; identity: string; session: number; nodes: number; edges: number; projection: WorldGraphRecapProjection } | null>(null);
+  const [reviewSource, setReviewSource] = useState<{ prose: string; identity: string; session: number; nodes: number; edges: number; projection: WorldGraphRecapProjection | null; runId?: string } | null>(null);
+  const [readerMode, setReaderMode] = useState(() => new URLSearchParams(window.location.search).get("view") === "recap");
+  const readerAttempt = useRef<string | null>(null);
+  const restoreReaderRoute = useRef(true);
   const reviewEpoch = useRef(0);
   const currentReviewIdentity = useRef("");
   const [reviewError, setReviewError] = useState<string | null>(null);
@@ -869,6 +872,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
     setReviewLoading(false);
     return () => { reviewEpoch.current += 1; };
   }, [reviewIdentity]);
+  useEffect(() => {
+    if (!readerMode || !hydrated || loadingPriorIngestion || readerAttempt.current === reviewIdentity) return;
+    const restore = restoreReaderRoute.current;
+    restoreReaderRoute.current = false;
+    readerAttempt.current = reviewIdentity;
+    void reviewSavedSource(restore);
+  }, [readerMode, hydrated, loadingPriorIngestion, reviewIdentity, latestResult?.session]);
   // Trust live graph_preview.status only — draft states must not claim materialized.
   const hasPreviewUnionStore = graphPreview?.status === "preview_union_store_ready";
   const hasNormalizedRecap = hasApplied;
@@ -1196,7 +1206,21 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
     setActiveStep(Math.min(3, Math.max(1, step)));
   }
 
+  function closeSavedReader() {
+    reviewEpoch.current += 1;
+    setReviewSource(null);
+    setReviewError(null);
+    setReviewLoading(false);
+    setReaderMode(false);
+    readerAttempt.current = null;
+    const params = new URLSearchParams(window.location.search);
+    params.delete("view");
+    params.delete("recapReviewRunId");
+    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+  }
+
   function resetWizardFlow(nextStep = 1) {
+    closeSavedReader();
     lastToastKeyRef.current = null;
     window.localStorage.removeItem(storageKey);
     setRawText("");
@@ -1297,11 +1321,13 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
       }
 
       setIgnoreDiskResume(false);
+      readerAttempt.current = null;
+      setReaderMode(true);
       setToast({
         tone: "info",
         title: "Loaded processed recap",
-        detail: `Session ${sessionNumber} normalized recap is packaged on disk. Next: Run ingest.`,
-        nextSteps: ["Run ingest"],
+        detail: `Reading the saved recap for Session ${sessionNumber}.`,
+        nextSteps: [],
       });
     } catch (error) {
       setSourceMode("raw");
@@ -1818,9 +1844,23 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
     }
   }
 
-  async function reviewSavedSource() {
-    const runId = graphPreview?.extraction_run_id;
-    if (!runId) return;
+  async function reviewSavedSource(restore = false) {
+    restoreReaderRoute.current = false;
+    const params = new URLSearchParams(window.location.search);
+    const sameSelection = params.get("campaign") === ingestCampaignId && params.get("session") === `session-${recapSession}`;
+    const currentRun = latestResult?.session === recapSession ? graphPreview?.extraction_run_id : undefined;
+    const runId = (restore && sameSelection ? params.get("recapReviewRunId") || currentRun : currentRun) ?? undefined;
+    if (restore && (!sameSelection || !requestedRecapSessionFromLocation())) {
+      setReviewError("Saved recap route has an invalid campaign or session.");
+      return;
+    }
+    params.set("campaign", ingestCampaignId);
+    params.set("session", `session-${recapSession}`);
+    params.set("view", "recap");
+    if (runId) params.set("recapReviewRunId", runId); else params.delete("recapReviewRunId");
+    window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+    readerAttempt.current = reviewIdentity;
+    setReaderMode(true);
     const identity = reviewIdentity;
     const epoch = ++reviewEpoch.current;
     const capturedSession = recapSession;
@@ -1831,14 +1871,24 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
     setReviewError(null);
     setReviewSource(null);
     try {
-      const inspection = await getHistoricalRecapInspection(runId);
-      if (!isCurrent()) return;
-      if (inspection.runId !== runId || inspection.campaignId !== ingestCampaignId || inspection.sessionId !== `session-${capturedSession}`) {
-        throw new Error("Saved extraction does not match this session.");
+      let prose: string;
+      if (runId) {
+        const inspection = await getHistoricalRecapInspection(runId);
+        if (!isCurrent()) return;
+        if (inspection.runId !== runId || inspection.campaignId !== ingestCampaignId || inspection.sessionId !== `session-${capturedSession}`) {
+          throw new Error("Saved extraction does not match this session.");
+        }
+        if (inspection.sourceStatus !== "available" || !inspection.sourceProse) throw new Error(inspection.unavailableReason || "Saved source is unavailable.");
+        prose = inspection.sourceProse;
+      } else {
+        const record = priorIngestionArtifacts.find((item) => item.campaign_id === ingestCampaignId && item.session_id === `session-${capturedSession}`);
+        const path = latestResult?.session === capturedSession ? latestResult.paths?.normalized_recap : null;
+        if (!record && !path) throw new Error("No saved recap is available for this session.");
+        const source = await postCitationSource({ path: corpusCitationPath(path || record!.source_recap_path) });
+        if (!isCurrent()) return;
+        prose = source.content;
       }
-      if (inspection.sourceStatus !== "available" || !inspection.sourceProse) {
-        throw new Error(inspection.unavailableReason || "Saved source is unavailable.");
-      }
+      setReviewSource({ prose, identity, session: capturedSession, nodes, edges, runId, projection: null });
       const request = buildWorldGraphRecapProjectionRequest({ campaignId: ingestCampaignId, sessionId: `session-${capturedSession}` });
       if (!request) throw new Error("World Graph mapping is unavailable for this recap.");
       const projection = await postWorldGraphRecapProjection(request);
@@ -1854,7 +1904,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
         revisionKind: "head",
       });
       if (integrityError) throw new Error(integrityError);
-      setReviewSource({ prose: inspection.sourceProse, identity, session: capturedSession, nodes, edges, projection });
+      setReviewSource({ prose, identity, session: capturedSession, nodes, edges, runId, projection });
     } catch (error) {
       if (isCurrent()) setReviewError(error instanceof Error ? error.message : "Unable to open saved source.");
     } finally {
@@ -2198,7 +2248,7 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
                 "Run ingest"
               )}
             </button>
-            {graphPreview?.status === "candidate_validation_ready" && graphPreview.extraction_run_id ? (
+            {hasNormalizedRecap ? (
               <button type="button" className="primary" disabled={reviewLoading} onClick={() => void reviewSavedSource()}>
                 {reviewLoading ? "Opening review…" : "Review recap canvas"}
               </button>
@@ -2252,16 +2302,21 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
           {reviewError ? <p role="alert" className="module-error">{reviewError} {reviewError.includes("credential") || reviewError.includes("graph_auth_required") ? "Open Advanced → Native Graph access to set the local operator credential." : ""}</p> : null}
           {reviewSource !== null && reviewSource.identity === reviewIdentity ? (
             <section aria-label="Saved extraction source review">
-              <p>Current World Graph context. This extraction is awaiting Graph admission.</p>
+              {reviewSource.projection ? <>
+              <p>{reviewSource.runId ? "Current World Graph context. This extraction is awaiting Graph admission." : "Canonical saved recap with current World Graph context."}</p>
               <WorldGraphRecapProjectionView
                 payload={{ ...reviewSource.projection, markdown: reviewSource.projection.markdown.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "") }}
                 selectedSessionId={`session-${reviewSource.session}`}
-                sessionOptions={[`session-${reviewSource.session}`]}
+                sessionOptions={Array.from(new Set([`session-${reviewSource.session}`, ...priorIngestionArtifacts.filter((item) => item.campaign_id === ingestCampaignId).map((item) => item.session_id)])).sort((a, b) => Number(a.replace("session-", "")) - Number(b.replace("session-", "")))}
                 onSelectSession={(value) => setRecapSession(Number(value.replace("session-", "")))}
                 selectedCampaignId={ingestCampaignId}
                 onSelectCampaign={setIngestCampaignId}
               />
-              <button type="button" onClick={() => setReviewSource(null)}>Close review</button>
+              </> : <article aria-label="Loaded recap">
+                <h3>Session {reviewSource.session}</h3>
+                <div className="md-content md-theme-command" dangerouslySetInnerHTML={{ __html: renderSimpleMarkdown(reviewSource.prose.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n/, "")) }} />
+              </article>}
+              <button type="button" onClick={closeSavedReader}>Close review</button>
             </section>
           ) : null}
           <details><summary>Advanced</summary>
@@ -2270,9 +2325,9 @@ export function IngestionModule({ campaignId: planCampaignId, session, initialSo
             setReviewSource(null);
             setReviewError(null);
             setReviewLoading(false);
-            if (available) void reviewSavedSource();
+            if (available) void reviewSavedSource(true);
           }} />
-          {reviewSource ? <pre aria-label="Recap frontmatter">{reviewSource.projection.markdown.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0] ?? "No frontmatter"}</pre> : null}
+          {reviewSource ? <pre aria-label="Recap frontmatter">{reviewSource.projection?.markdown.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0] ?? "No frontmatter"}</pre> : null}
         <ol className="ingestion-flow-steps ingestion-readiness-lanes">
           {readinessLanes.map((lane) => (
             <li
