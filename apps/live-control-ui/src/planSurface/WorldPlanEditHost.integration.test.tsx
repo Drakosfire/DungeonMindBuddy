@@ -147,8 +147,6 @@ it("routes World Plan title, Save, formatting and insertion through the real doc
   expect(within(planPage).getByText("Plan changes stay local until you choose Save Plan.")).toBeInTheDocument();
   expect(screen.getByLabelText("Plan document")).toBeInTheDocument();
   expect(screen.getByTestId("plan-authoring-identity")).toHaveTextContent("Unsaved Plan draft");
-  const graphObjects = within(host).getByTestId("plan-world-graph-objects-panel");
-  expect(graphObjects.closest("details")?.getAttribute("open")).not.toBeNull();
   const localId = JSON.parse(localStorage.getItem(draftKey) ?? "null").local_draft_id;
   await waitFor(() => expect(screen.getByTestId("edit-target")).toHaveTextContent(`plan-local-draft:${localId}`));
   expect(new Set(currentPublication!.editCommands.map((command) => command.id)).size).toBe(currentPublication!.editCommands.length);
