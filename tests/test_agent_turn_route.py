@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from types import SimpleNamespace
@@ -15,6 +16,13 @@ from apps.live_control_server.services.agent_runtime import (
     AgentRuntimeDescriptor,
     AgentRuntimeResult,
 )
+from application_state.agent_conversation.types import (
+    HistoricalReference,
+    Turn,
+    TurnClaimReceipt,
+    TurnProvenance,
+)
+from uuid import uuid4
 
 
 class FakeRuntime:
@@ -43,6 +51,43 @@ def _payload() -> dict[str, Any]:
         "graph_selection": None,
         "message": "What can you help me with?",
     }
+
+
+def _durable_turn(
+    *,
+    world_id: str,
+    status: str,
+    provenance: TurnProvenance | None = None,
+    revision: int = 1,
+    assistant_text: str | None = None,
+) -> Turn:
+    now = datetime.now(UTC)
+    return Turn(
+        turn_id=uuid4(),
+        conversation_id=uuid4(),
+        world_id=world_id,
+        idempotency_key=uuid4(),
+        sequence=1,
+        revision=revision,
+        status=status,
+        user_text="What can you help me with?",
+        assistant_text=assistant_text,
+        failure_code=None,
+        provenance=provenance
+        or TurnProvenance(
+            world_id=world_id,
+            surface_resolution="resolved",
+            surface_id="index",
+            primary_work=HistoricalReference(resolution="absent"),
+            selected_object=HistoricalReference(resolution="absent"),
+        ),
+        submitted_intent_fingerprint_v1=None,
+        attempt=1 if status in {"running", "completed"} else 0,
+        claim_expires_at=None,
+        accepted_at=now,
+        completed_at=now if status == "completed" else None,
+        updated_at=now,
+    )
 
 
 @pytest.fixture(autouse=True)
@@ -218,6 +263,436 @@ def test_legacy_receipt_conflict_does_not_load_runtime_or_resolve_work(
 
     assert exc_info.value.code == "turn_receipt_unverifiable"
     assert exc_info.value.status_code == 409
+
+
+def test_completed_graph_receipt_replays_frozen_snapshot_projection(
+    tmp_path: Path,
+) -> None:
+    from apps.live_control_server.services.agent_turn_service import execute_agent_turn
+    from apps.live_control_server.services.hermes_session_store import (
+        HermesSessionPointerStore,
+    )
+
+    world_id = "world-replay-test"
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="index",
+        primary_work=HistoricalReference(resolution="absent"),
+        supporting_work=[
+            HistoricalReference(
+                resolution="resolved",
+                kind="world_graph_revision",
+                object_id=world_id,
+                revision="graph-revision-7",
+            )
+        ],
+        selected_object=HistoricalReference(
+            resolution="resolved",
+            kind="character",
+            object_id="node-42",
+            revision="graph-revision-7",
+        ),
+    )
+    completed = _durable_turn(
+        world_id=world_id,
+        status="completed",
+        provenance=provenance,
+        revision=2,
+        assistant_text="The stored answer.",
+    )
+
+    class ReceiptService:
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Turn:
+            return completed
+
+    payload = {
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": world_id},
+        "graph_request": {
+            "mode": "world",
+            "world_id": world_id,
+            "campaign_id": None,
+            "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+        "graph_selection": {"node_id": "node-42"},
+    }
+    response = execute_agent_turn(
+        AgentTurnRequest.model_validate(payload),
+        root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+        owner_resolver=lambda _request: {
+            "kind": "world",
+            "id": world_id,
+            "name": "Replay World",
+        },
+        work_resolver=lambda *_args: pytest.fail("replay resolved current work"),
+        graph_resolver=lambda *_args: pytest.fail("replay re-ran Graph retrieval"),
+        runtime_factory=lambda: pytest.fail("replay loaded provider runtime"),
+        conversation_service=ReceiptService(),
+    )
+
+    assert response.answer.text == "The stored answer."
+    assert response.primary_work.content_basis is None
+    assert response.graph.status == "replayed"
+    assert response.graph.world_id == world_id
+    assert response.graph.scope_mode == "world"
+    assert response.graph.revision_id == "graph-revision-7"
+    assert response.graph.selection_found is True
+    assert response.graph.head_revision_id is None
+    assert response.graph.is_head is None
+
+
+def test_graph_provenance_persists_actual_snapshot_and_selected_node() -> None:
+    from apps.live_control_server.services.agent_runtime import AgentWorldScope
+    from apps.live_control_server.services.agent_turn_service import (
+        _conversation_provenance,
+    )
+
+    world_id = "world-graph-provenance-test"
+    payload = {
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": world_id},
+        "graph_request": {
+            "mode": "world",
+            "world_id": world_id,
+            "campaign_id": None,
+            "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+        "graph_selection": {"node_id": "node-42"},
+    }
+    request = AgentTurnRequest.model_validate(payload)
+    provenance = _conversation_provenance(
+        request,
+        world_id=world_id,
+        work=None,
+        graph_scope=AgentWorldScope(
+            world_id=world_id,
+            campaign_id="",
+            focus={"kind": "none", "session_id": None, "campaign_id": None},
+            admissibility="gm",
+            revision_id="snapshot-a",
+            scope_mode="world",
+        ),
+        graph_envelope={
+            "revision_id": "snapshot-a",
+            "nodes": [{"node_id": "node-42", "kind": "character"}],
+        },
+    )
+
+    assert provenance.supporting_work[0].kind == "world_graph_revision"
+    assert provenance.supporting_work[0].object_id == world_id
+    assert provenance.supporting_work[0].revision == "snapshot-a"
+    assert provenance.selected_object.kind == "character"
+    assert provenance.selected_object.object_id == "node-42"
+    assert provenance.selected_object.revision == "snapshot-a"
+
+
+def test_historical_plan_retry_loads_exact_work_revision(
+    monkeypatch: Any,
+) -> None:
+    from apps.live_control_server.routes import agent as agent_route
+
+    world_id = "world-historical-plan-test"
+    document_id = str(uuid4())
+    work_revision_id = uuid4()
+    digest = "a" * 64
+    payload = {
+        **_payload(),
+        "surface": {"surface_id": "plan", "instance_id": "plan-main"},
+        "owner_scope": {"kind": "world", "world_id": world_id},
+        "primary_work": {
+            "kind": "plan",
+            "object_id": document_id,
+            "expected_revision": 7,
+            "expected_revision_n": 4,
+            "expected_content_sha256": digest,
+        },
+        "client_work_state": "saved_dirty",
+    }
+    request = AgentTurnRequest.model_validate(payload)
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id=document_id,
+            revision="7",
+            content_sha256=digest,
+            object_revision=7,
+            work_revision_id=work_revision_id,
+            revision_n=4,
+        ),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    calls: list[dict[str, Any]] = []
+
+    def exact_revision(actual_id: str, **kwargs: Any) -> Any:
+        calls.append({"document_id": actual_id, **kwargs})
+        return SimpleNamespace(
+            document_id=actual_id,
+            work_revision_id=str(work_revision_id),
+            revision_n=4,
+            content_sha256=digest,
+            world_id=world_id,
+            target_session=None,
+            campaign_id=None,
+            markdown="# Historical Plan",
+        )
+
+    monkeypatch.setattr(agent_route, "get_committed_playable_revision", exact_revision)
+    resolved = agent_route._historical_work_resolver(
+        request, {"kind": "world", "id": world_id}, provenance
+    )
+
+    assert calls == [
+        {
+            "document_id": document_id,
+            "revision_n": 4,
+            "expected_sha256": digest,
+            "kind": "plan",
+            "expected_world_id": world_id,
+        }
+    ]
+    assert resolved is not None
+    assert resolved.revision == 7
+    assert resolved.plan_markdown == "# Historical Plan"
+    assert resolved.content_basis is None
+
+
+def test_world_turn_claim_pending_does_not_dispatch_provider(tmp_path: Path) -> None:
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+        execute_agent_turn,
+    )
+    from apps.live_control_server.services.hermes_session_store import (
+        HermesSessionPointerStore,
+    )
+
+    world_id = "world-pending-test"
+    running = _durable_turn(world_id=world_id, status="running", revision=2)
+
+    class ReceiptService:
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Turn:
+            return running
+
+        def claim_turn(self, *_args: Any, **_kwargs: Any) -> TurnClaimReceipt:
+            return TurnClaimReceipt(disposition="pending", turn=running)
+
+    payload = {
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": world_id},
+    }
+    with pytest.raises(AgentTurnServiceError) as exc_info:
+        execute_agent_turn(
+            AgentTurnRequest.model_validate(payload),
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _request: {"kind": "world", "id": world_id},
+            work_resolver=lambda *_args: None,
+            graph_resolver=lambda *_args: pytest.fail("no Graph requested"),
+            runtime_factory=lambda: pytest.fail("pending turn loaded runtime"),
+            conversation_service=ReceiptService(),
+        )
+
+    assert exc_info.value.code == "turn_already_running"
+    assert exc_info.value.status_code == 409
+
+
+def test_retry_graph_resolution_is_pinned_to_stored_snapshot(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from apps.live_control_server.services import agent_turn_service
+    from apps.live_control_server.services.agent_runtime import AgentWorldScope
+    from apps.live_control_server.services.hermes_session_store import (
+        HermesSessionPointerStore,
+    )
+
+    world_id = "world-pinned-retry-test"
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="index",
+        primary_work=HistoricalReference(resolution="absent"),
+        supporting_work=[
+            HistoricalReference(
+                resolution="resolved",
+                kind="world_graph_revision",
+                object_id=world_id,
+                revision="snapshot-frozen-8",
+            )
+        ],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    accepted = _durable_turn(
+        world_id=world_id, status="accepted", provenance=provenance
+    )
+    resolved_pins: list[str | None] = []
+
+    class ReceiptService:
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Turn:
+            return accepted
+
+        def claim_turn(self, *_args: Any, **_kwargs: Any) -> TurnClaimReceipt:
+            return TurnClaimReceipt(
+                disposition="pending",
+                turn=accepted.model_copy(update={"status": "running"}),
+            )
+
+    def resolve_graph(request: AgentTurnRequest, *_args: Any) -> tuple[dict[str, Any], AgentWorldScope]:
+        resolved_pins.append(request.graph_request.revision_pin)
+        return (
+            {"status": "ready", "revision_id": "snapshot-frozen-8", "nodes": []},
+            AgentWorldScope(
+                world_id=world_id,
+                campaign_id="",
+                focus={"kind": "none", "session_id": None, "campaign_id": None},
+                admissibility="gm",
+                revision_id="snapshot-frozen-8",
+                scope_mode="world",
+            ),
+        )
+
+    monkeypatch.setattr(
+        agent_turn_service,
+        "assemble_agent_graph_context",
+        lambda **_kwargs: SimpleNamespace(invocation=object(), trace_summary={}),
+    )
+    payload = {
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": world_id},
+        "graph_request": {
+            "mode": "world",
+            "world_id": world_id,
+            "campaign_id": None,
+            "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+    }
+    with pytest.raises(agent_turn_service.AgentTurnServiceError) as exc_info:
+        agent_turn_service.execute_agent_turn(
+            AgentTurnRequest.model_validate(payload),
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _request: {"kind": "world", "id": world_id},
+            work_resolver=lambda *_args: None,
+            graph_resolver=resolve_graph,
+            runtime_factory=lambda: pytest.fail("pending turn loaded runtime"),
+            conversation_service=ReceiptService(),
+        )
+
+    assert resolved_pins == ["snapshot-frozen-8"]
+    assert exc_info.value.code == "turn_already_running"
+
+
+def test_provider_output_is_retried_without_redispatch(tmp_path: Path) -> None:
+    from application_state.agent_conversation.types import TurnResult
+    from application_state.errors import ApplicationStateUnavailableError
+    from apps.live_control_server.services.agent_turn_service import execute_agent_turn
+    from apps.live_control_server.services.hermes_session_store import (
+        HermesSessionPointerStore,
+    )
+
+    world_id = "world-completion-retry-test"
+    accepted = _durable_turn(world_id=world_id, status="accepted")
+    runtime = FakeRuntime()
+
+    class ReceiptService:
+        attempts = 0
+        completions: list[TurnResult] = []
+
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Turn:
+            return accepted
+
+        def claim_turn(self, *_args: Any, **_kwargs: Any) -> TurnClaimReceipt:
+            running = accepted.model_copy(
+                update={"status": "running", "revision": accepted.revision + 1}
+            )
+            return TurnClaimReceipt(disposition="claimed", turn=running)
+
+        def complete_turn(self, result: TurnResult) -> Turn:
+            self.completions.append(result)
+            self.attempts += 1
+            if self.attempts == 1:
+                raise ApplicationStateUnavailableError("temporary write failure")
+            return accepted.model_copy(
+                update={
+                    "status": "completed",
+                    "revision": result.expected_revision + 1,
+                    "assistant_text": result.assistant_text,
+                    "completed_at": datetime.now(UTC),
+                    "updated_at": datetime.now(UTC),
+                }
+            )
+
+    service = ReceiptService()
+    payload = {
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": world_id},
+    }
+    response = execute_agent_turn(
+        AgentTurnRequest.model_validate(payload),
+        root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+        owner_resolver=lambda _request: {"kind": "world", "id": world_id},
+        work_resolver=lambda *_args: None,
+        graph_resolver=lambda *_args: pytest.fail("no Graph requested"),
+        runtime=runtime,
+        conversation_service=service,
+    )
+
+    assert response.answer.text == "A simple answer."
+    assert len(runtime.invocations) == 1
+    assert [item.assistant_text for item in service.completions] == [
+        "A simple answer.",
+        "A simple answer.",
+    ]
+    assert {item.expected_revision for item in service.completions} == {2}
+
+
+def test_claim_renewer_serializes_latest_revision_fence() -> None:
+    from threading import Event
+
+    from apps.live_control_server.services.agent_turn_service import _TurnClaimRenewer
+
+    initial = _durable_turn(
+        world_id="world-renew-worker-test", status="running", revision=5
+    )
+
+    class ClaimService:
+        revisions: list[int] = []
+
+        def renew_turn_claim(
+            self,
+            _world_id: str,
+            _conversation_id: Any,
+            _turn_id: Any,
+            *,
+            expected_revision: int,
+            lease_seconds: int,
+        ) -> Turn:
+            assert lease_seconds == 7
+            self.revisions.append(expected_revision)
+            return initial.model_copy(
+                update={"revision": expected_revision + 1}
+            )
+
+    service = ClaimService()
+    renewer = _TurnClaimRenewer(
+        service, initial, lease_seconds=7, renewal_interval_seconds=0.01
+    )
+    Event().wait(0.04)
+    final_turn, error = renewer.stop_and_join()
+
+    assert error is None
+    assert len(service.revisions) >= 2
+    assert service.revisions[0] == initial.revision
+    assert service.revisions == sorted(service.revisions)
+    assert service.revisions[-1] == final_turn.revision - 1
 
 
 def test_request_validation_rejects_unknown_or_contradictory_fields() -> None:

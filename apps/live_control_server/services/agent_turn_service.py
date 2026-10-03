@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import re
+import psycopg
 from dataclasses import dataclass, replace
 from datetime import datetime
 from hashlib import sha256
 from pathlib import Path
+from threading import Event, Lock, Thread
 from typing import Any, Callable, Mapping
 from uuid import NAMESPACE_URL, UUID, uuid5
 
@@ -196,10 +198,76 @@ OwnerResolver = Callable[[AgentTurnRequest], Mapping[str, Any] | None]
 WorkResolver = Callable[
     [AgentTurnRequest, Mapping[str, Any] | None], AgentTurnResolvedWork | None
 ]
+HistoricalWorkResolver = Callable[
+    [AgentTurnRequest, Mapping[str, Any] | None, TurnProvenance],
+    AgentTurnResolvedWork | None,
+]
 GraphResolver = Callable[
     [AgentTurnRequest, Mapping[str, Any] | None, AgentTurnResolvedWork | None],
     tuple[dict[str, Any], AgentWorldScope],
 ]
+
+
+class _TurnClaimRenewer:
+    """Renew a live APP claim and serialize its moving fence with finalization."""
+
+    def __init__(
+        self,
+        service: AgentConversationService,
+        turn: Turn,
+        *,
+        lease_seconds: int = 120,
+        renewal_interval_seconds: int = 30,
+    ) -> None:
+        self._service = service
+        self._turn = turn
+        self._lease_seconds = lease_seconds
+        self._renewal_interval_seconds = renewal_interval_seconds
+        self._stop = Event()
+        self._lock = Lock()
+        self._error: Exception | None = None
+        self._thread = Thread(target=self._run, name="agent-turn-claim-renewer", daemon=True)
+        self._thread.start()
+
+    def _run(self) -> None:
+        while not self._stop.wait(self._renewal_interval_seconds):
+            with self._lock:
+                if self._stop.is_set():
+                    return
+                try:
+                    self._turn = self._service.renew_turn_claim(
+                        self._turn.world_id,
+                        self._turn.conversation_id,
+                        self._turn.turn_id,
+                        expected_revision=self._turn.revision,
+                        lease_seconds=self._lease_seconds,
+                    )
+                except Exception as exc:
+                    self._error = exc
+                    self._stop.set()
+                    return
+
+    def stop_and_join(self) -> tuple[Turn, Exception | None]:
+        self._stop.set()
+        self._thread.join()
+        with self._lock:
+            return self._turn, self._error
+
+
+def _stop_claim_renewer(
+    renewer: _TurnClaimRenewer | None,
+    fallback_turn: Turn | None,
+) -> Turn | None:
+    if renewer is None:
+        return fallback_turn
+    turn, error = renewer.stop_and_join()
+    if error is not None:
+        raise AgentTurnServiceError(
+            "The World turn claim could not be renewed; its completion state is indeterminate.",
+            code="turn_claim_indeterminate",
+            status_code=409 if isinstance(error, ApplicationStateConflictError) else 503,
+        ) from error
+    return turn
 
 
 def _selection_found(
@@ -271,6 +339,8 @@ def _conversation_provenance(
     *,
     world_id: str,
     work: AgentTurnResolvedWork | None,
+    graph_scope: AgentWorldScope | None = None,
+    graph_envelope: Mapping[str, Any] | None = None,
 ) -> TurnProvenance:
     primary_work = HistoricalReference(resolution="absent")
     if work is not None:
@@ -299,16 +369,61 @@ def _conversation_provenance(
             work_revision_id=work_revision_id,
             revision_n=None if content_basis is None else content_basis.revision_n,
         )
+    supporting_work: list[HistoricalReference] = []
+    selected_object = HistoricalReference(
+        resolution=("unresolved" if request.graph_selection is not None else "absent")
+    )
+    if graph_scope is not None:
+        revision = str(graph_envelope.get("revision_id") or "") if graph_envelope else ""
+        if not revision:
+            raise AgentTurnServiceError(
+                "The resolved Graph snapshot has no immutable revision identity.",
+                code="graph_revision_unavailable",
+                status_code=503,
+            )
+        supporting_work.append(
+            HistoricalReference(
+                resolution="resolved",
+                kind="world_graph_revision",
+                object_id=graph_scope.world_id,
+                revision=revision,
+            )
+        )
+        if request.graph_selection is None:
+            selected_object = HistoricalReference(resolution="absent")
+        else:
+            selected_id = request.graph_selection.node_id
+            selected_node = next(
+                (
+                    node
+                    for node in (graph_envelope or {}).get("nodes", [])
+                    if isinstance(node, Mapping)
+                    and str(node.get("node_id")) == selected_id
+                    and isinstance(node.get("kind"), str)
+                    and node.get("kind")
+                ),
+                None,
+            )
+            if selected_node is None:
+                raise AgentTurnServiceError(
+                    "The selected Graph node was not admissible in the resolved snapshot.",
+                    code="graph_selection_unavailable",
+                    status_code=422,
+                )
+            selected_object = HistoricalReference(
+                resolution="resolved",
+                kind=str(selected_node["kind"]),
+                object_id=selected_id,
+                revision=revision,
+            )
     return TurnProvenance(
         world_id=world_id,
         surface_resolution="resolved",
         surface_id=request.surface.surface_id,
         surface_instance_id=request.surface.instance_id,
         primary_work=primary_work,
-        supporting_work=[],
-        selected_object=HistoricalReference(
-            resolution=("unresolved" if request.graph_selection is not None else "absent")
-        ),
+        supporting_work=supporting_work,
+        selected_object=selected_object,
     )
 
 
@@ -360,6 +475,21 @@ def _turn_idempotency_key(world_id: str, turn_id: str) -> UUID:
     return uuid5(NAMESPACE_URL, f"dmb-agent-turn:{world_id}:{turn_id}")
 
 
+def _stored_graph_reference(provenance: TurnProvenance) -> HistoricalReference | None:
+    references = [
+        reference
+        for reference in provenance.supporting_work
+        if reference.kind == "world_graph_revision"
+    ]
+    if len(references) > 1:
+        raise AgentTurnServiceError(
+            "The turn receipt contains duplicate frozen Graph snapshots.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+    return references[0] if references else None
+
+
 def _completed_turn_replay(
     request: AgentTurnRequest,
     *,
@@ -385,6 +515,48 @@ def _completed_turn_replay(
         observed_model_call_count=0,
     )
     primary = turn.provenance.primary_work
+    graph_reference = _stored_graph_reference(turn.provenance)
+    selected_reference = turn.provenance.selected_object
+    graph_requested = request.graph_request.mode != "none"
+    if not graph_requested and graph_reference is not None:
+        raise AgentTurnServiceError(
+            "The completed receipt contains Graph provenance for a non-Graph intent.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+    if graph_requested and (
+        graph_reference is None
+        or graph_reference.resolution != "resolved"
+        or graph_reference.object_id != owner.get("id")
+        or not graph_reference.revision
+    ):
+        raise AgentTurnServiceError(
+            "The completed receipt has no verifiable frozen Graph snapshot.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+    selected_node_id = (
+        None if request.graph_selection is None else request.graph_selection.node_id
+    )
+    selection_found: bool | None = None
+    if selected_node_id is not None:
+        if (
+            selected_reference.resolution != "resolved"
+            or selected_reference.object_id != selected_node_id
+            or selected_reference.revision != graph_reference.revision
+        ):
+            raise AgentTurnServiceError(
+                "The completed receipt has no verifiable frozen selected Graph object.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            )
+        selection_found = True
+    elif selected_reference.resolution != "absent":
+        raise AgentTurnServiceError(
+            "The completed receipt contains an unexpected selected Graph object.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
     primary_status = (
         "absent"
         if primary.resolution == "absent"
@@ -427,11 +599,25 @@ def _completed_turn_replay(
                 if request.graph_request.mode == "none"
                 else "replayed"
             ),
-            "selection_node_id": (
-                None
-                if request.graph_selection is None
-                else request.graph_selection.node_id
+            "world_id": None if graph_reference is None else graph_reference.object_id,
+            "campaign_id": (
+                None if not graph_requested else request.graph_request.campaign_id
             ),
+            "scope_mode": (
+                None if not graph_requested else request.graph_request.mode
+            ),
+            "revision_id": None if graph_reference is None else graph_reference.revision,
+            "focus": (
+                None
+                if not graph_requested
+                else request.graph_request.focus.model_dump(mode="json")
+            ),
+            "selection_node_id": selected_node_id,
+            "selection_found": selection_found,
+            # A replay has only the originally stored snapshot, not a current
+            # head observation. Do not look up today's Graph head here.
+            "head_revision_id": None,
+            "is_head": None,
         },
         conversation={
             "client_thread_id": request.client_thread_id,
@@ -555,6 +741,7 @@ def execute_agent_turn(
     pointer_store: HermesSessionPointerStore,
     owner_resolver: OwnerResolver,
     work_resolver: WorkResolver,
+    historical_work_resolver: HistoricalWorkResolver | None = None,
     graph_resolver: GraphResolver,
     runtime: AgentRuntime | None = None,
     runtime_factory: Callable[[], AgentRuntime | None] | None = None,
@@ -619,19 +806,71 @@ def execute_agent_turn(
                     code="conversation_unavailable",
                     status_code=503,
                 ) from exc
-            if durable_turn is not None and durable_turn.status == "running":
-                raise AgentTurnServiceError(
-                    "This World turn is already running; its provider will not be dispatched twice.",
-                    code="turn_already_running",
-                    status_code=409,
-                )
             if durable_turn is not None and durable_turn.status == "completed":
                 return _completed_turn_replay(
                     request, owner=owner, turn=durable_turn
                 )
 
+    graph_reference = None
+    if durable_turn is not None:
+        graph_reference = _stored_graph_reference(durable_turn.provenance)
+        if (request.graph_request.mode == "none") != (graph_reference is None):
+            raise AgentTurnServiceError(
+                "The retry receipt does not match the submitted Graph intent.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            )
+        selected_reference = durable_turn.provenance.selected_object
+        if (
+            request.graph_selection is None
+            and selected_reference.resolution != "absent"
+        ) or (
+            request.graph_selection is not None
+            and (
+                selected_reference.resolution != "resolved"
+                or selected_reference.object_id != request.graph_selection.node_id
+            )
+        ):
+            raise AgentTurnServiceError(
+                "The retry receipt does not match the submitted Graph selection.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            )
+    resolution_request = request
+    if graph_reference is not None and request.graph_request.mode != "none":
+        if (
+            graph_reference.resolution != "resolved"
+            or not graph_reference.revision
+            or graph_reference.object_id != canonical_world_id
+        ):
+            raise AgentTurnServiceError(
+                "The retry receipt has no verifiable frozen Graph snapshot.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            )
+        resolution_request = request.model_copy(
+            update={
+                "graph_request": request.graph_request.model_copy(
+                    update={"revision_pin": graph_reference.revision}
+                )
+            }
+        )
     try:
-        work = work_resolver(request, owner)
+        if durable_turn is not None:
+            if historical_work_resolver is not None:
+                work = historical_work_resolver(
+                    request, owner, durable_turn.provenance
+                )
+            elif durable_turn.provenance.primary_work.resolution == "absent":
+                work = None
+            else:
+                raise AgentTurnServiceError(
+                    "The retry receipt requires an owning historical work resolver.",
+                    code="historical_work_unavailable",
+                    status_code=503,
+                )
+        else:
+            work = work_resolver(request, owner)
     except AgentTurnServiceError:
         raise
     except Exception as exc:
@@ -647,7 +886,9 @@ def execute_agent_turn(
         and request.primary_work.kind == "plan"
     )
     if plan_content_required and (
-        work is None or work.plan_markdown is None or work.content_basis is None
+        work is None
+        or work.plan_markdown is None
+        or (durable_turn is None and work.content_basis is None)
     ):
         raise AgentTurnServiceError(
             "The exact committed Plan content basis could not be verified.",
@@ -656,7 +897,10 @@ def execute_agent_turn(
         )
     runtime_message = request.message
     if work is not None and work.plan_markdown is not None:
-        if work.content_basis is None or request.surface.surface_id != "plan":
+        if (
+            (work.content_basis is None and durable_turn is None)
+            or request.surface.surface_id != "plan"
+        ):
             raise AgentTurnServiceError(
                 "Committed Plan content was resolved outside the Plan surface.",
                 code="plan_content_scope_rejected",
@@ -685,91 +929,17 @@ def execute_agent_turn(
     pointer_work_kind = work_kind
     pointer_work_id = work_id
     pointer_thread_id = request.client_thread_id
-    if conversation_service is not None and canonical_world_id is not None:
-        if durable_turn is None:
-            if submitted_intent is None:
-                raise AgentTurnServiceError(
-                    "The normalized submitted World intent is unavailable.",
-                    code="turn_intent_unavailable",
-                    status_code=503,
-                )
-            provenance = _conversation_provenance(
-                request,
-                world_id=canonical_world_id,
-                work=work,
-            )
-            durable_turn = _accept_world_turn(
-                conversation_service,
-                request,
-                world_id=canonical_world_id,
-                provenance=provenance,
-                submitted_intent=submitted_intent,
-            )
-        else:
-            # Accepted/failed/interrupted receipts are retryable lifecycle
-            # states. Continue using their frozen conversation/provenance;
-            # never retarget a retry through today's World pointer.
-            provenance = durable_turn.provenance
-        segment_thread_id = _provider_segment_thread_id(
-            durable_turn.provenance, conversation_id=durable_turn.conversation_id
-        )
-        pointer_owner_kind = "world"
-        pointer_owner_id = canonical_world_id
-        pointer_work_kind = "agent_conversation_segment"
-        pointer_work_id = segment_thread_id
-        pointer_thread_id = segment_thread_id
-        if durable_turn.status == "running":
-            raise AgentTurnServiceError(
-                "This World turn is already running; its provider will not be dispatched twice.",
-                code="turn_already_running",
-                status_code=409,
-            )
-        if durable_turn.status == "completed":
-            return _completed_turn_replay(
-                request, owner=owner or {}, turn=durable_turn
-            )
-
-    pointer = pointer_store.resolve_structured_for_request(
-        owner_kind=pointer_owner_kind,
-        owner_id=pointer_owner_id,
-        work_kind=pointer_work_kind,
-        work_id=pointer_work_id,
-        agent_thread_id=pointer_thread_id,
-        pointer_id=None,
-    )
-    if pointer.pointer_status == "rejected" and plan_continuity:
-        raise AgentTurnServiceError(
-            "Saved conversation continuity is unavailable or expired. "
-            "Choose New conversation to start fresh; the saved work was not changed.",
-            code="hermes_continuity_unavailable",
-            status_code=409,
-        )
-    if pointer.pointer_status == "rejected" or (plan_binding and not plan_continuity):
-        pointer = HermesStructuredPointerResolution(
-            continuity_session_id=None,
-            pointer_status="recovered",
-            pointer_in_request=pointer.pointer_in_request,
-            recovery_message=pointer.recovery_message,
-        )
-
     graph_result: dict[str, Any]
     scope: AgentWorldScope | None = None
-    graph_status = "not_requested"
+    envelope: Mapping[str, Any] | None = None
     selected_node_id = (
         None if request.graph_selection is None else request.graph_selection.node_id
     )
     if request.graph_request.mode == "none":
-        assembly = assemble_agent_conversation_context(
-            question=runtime_message,
-            runtime_session_id=pointer.continuity_session_id,
-            thread_id=pointer_thread_id,
-            turn_id=request.turn_id,
-            surface_context=surface_context,
-        )
         graph_result = {"status": "not_requested", "selection_found": None}
     else:
         try:
-            envelope, scope = graph_resolver(request, owner, work)
+            envelope, scope = graph_resolver(resolution_request, owner, work)
         except AgentTurnServiceError:
             raise
         except Exception as exc:
@@ -785,6 +955,144 @@ def execute_agent_turn(
                 code="graph_unavailable",
                 status_code=503,
             )
+        resolved_graph_revision = str(
+            envelope.get("revision_id") or scope.revision_id or ""
+        )
+        if conversation_service is not None and canonical_world_id is not None and (
+            not envelope.get("revision_id")
+            or scope.revision_id != resolved_graph_revision
+            or scope.world_id != canonical_world_id
+            or (
+                durable_turn is not None
+                and resolved_graph_revision != graph_reference.revision
+            )
+        ):
+            raise AgentTurnServiceError(
+                "The graph resolver did not return the pinned immutable World snapshot.",
+                code="graph_revision_unavailable",
+                status_code=503,
+            )
+        found_selection = _selection_found(envelope, selected_node_id)
+        if selected_node_id is not None and found_selection is not True:
+            raise AgentTurnServiceError(
+                "The selected Graph node was not admissible in the resolved snapshot.",
+                code="graph_selection_unavailable",
+                status_code=422,
+            )
+        if durable_turn is not None:
+            stored_selection = durable_turn.provenance.selected_object
+            resolved_node = next(
+                (
+                    node
+                    for node in envelope.get("nodes", [])
+                    if isinstance(node, Mapping)
+                    and selected_node_id is not None
+                    and str(node.get("node_id")) == selected_node_id
+                ),
+                None,
+            )
+            if selected_node_id is None:
+                selection_matches_receipt = stored_selection.resolution == "absent"
+            else:
+                selection_matches_receipt = (
+                    stored_selection.resolution == "resolved"
+                    and stored_selection.object_id == selected_node_id
+                    and stored_selection.revision == resolved_graph_revision
+                    and resolved_node is not None
+                    and stored_selection.kind == resolved_node.get("kind")
+                )
+            if not selection_matches_receipt:
+                raise AgentTurnServiceError(
+                    "The selected Graph object does not match its frozen receipt.",
+                    code="turn_receipt_unverifiable",
+                    status_code=409,
+                )
+        graph_result = {
+            "status": graph_status,
+            "world_id": scope.world_id,
+            "campaign_id": scope.campaign_id,
+            "scope_mode": scope.scope_mode,
+            "revision_id": resolved_graph_revision,
+            "focus": dict(scope.focus),
+            "selection_node_id": selected_node_id,
+            "selection_found": found_selection,
+            "head_revision_id": envelope.get("head_revision_id"),
+            "is_head": envelope.get("is_head"),
+        }
+
+    running_turn: Turn | None = None
+    if conversation_service is not None and canonical_world_id is not None:
+        if durable_turn is None:
+            if submitted_intent is None:
+                raise AgentTurnServiceError(
+                    "The normalized submitted World intent is unavailable.",
+                    code="turn_intent_unavailable",
+                    status_code=503,
+                )
+            provenance = _conversation_provenance(
+                request,
+                world_id=canonical_world_id,
+                work=work,
+                graph_scope=scope,
+                graph_envelope=envelope,
+            )
+            durable_turn = _accept_world_turn(
+                conversation_service,
+                request,
+                world_id=canonical_world_id,
+                provenance=provenance,
+                submitted_intent=submitted_intent,
+            )
+        segment_thread_id = _provider_segment_thread_id(
+            durable_turn.provenance, conversation_id=durable_turn.conversation_id
+        )
+        pointer_owner_kind = "world"
+        pointer_owner_id = canonical_world_id
+        pointer_work_kind = "agent_conversation_segment"
+        pointer_work_id = segment_thread_id
+        pointer_thread_id = segment_thread_id
+
+    pointer = pointer_store.resolve_structured_for_request(
+        owner_kind=pointer_owner_kind,
+        owner_id=pointer_owner_id,
+        work_kind=pointer_work_kind,
+        work_id=pointer_work_id,
+        agent_thread_id=pointer_thread_id,
+        pointer_id=None,
+    )
+    if pointer.pointer_status == "rejected" and plan_continuity:
+        if running_turn is not None and conversation_service is not None:
+            conversation_service.fail_turn(
+                TurnFailure(
+                    world_id=running_turn.world_id,
+                    conversation_id=running_turn.conversation_id,
+                    turn_id=running_turn.turn_id,
+                    expected_revision=running_turn.revision,
+                    failure_code="hermes_continuity_unavailable",
+                )
+            )
+        raise AgentTurnServiceError(
+            "Saved conversation continuity is unavailable or expired. "
+            "Choose New conversation to start fresh; the saved work was not changed.",
+            code="hermes_continuity_unavailable",
+            status_code=409,
+        )
+    if pointer.pointer_status == "rejected" or (plan_binding and not plan_continuity):
+        pointer = HermesStructuredPointerResolution(
+            continuity_session_id=None,
+            pointer_status="recovered",
+            pointer_in_request=pointer.pointer_in_request,
+            recovery_message=pointer.recovery_message,
+        )
+    if envelope is None:
+        assembly = assemble_agent_conversation_context(
+            question=runtime_message,
+            runtime_session_id=pointer.continuity_session_id,
+            thread_id=pointer_thread_id,
+            turn_id=request.turn_id,
+            surface_context=surface_context,
+        )
+    else:
         assembly = assemble_agent_graph_context(
             question=runtime_message,
             graph_envelope=envelope,
@@ -794,25 +1102,69 @@ def execute_agent_turn(
             runtime_session_id=pointer.continuity_session_id,
             surface_context=surface_context,
         )
-        graph_result = {
-            "status": graph_status,
-            "world_id": scope.world_id,
-            "campaign_id": scope.campaign_id,
-            "scope_mode": scope.scope_mode,
-            "revision_id": scope.revision_id,
-            "focus": dict(scope.focus),
-            "selection_node_id": selected_node_id,
-            "selection_found": _selection_found(envelope, selected_node_id),
-            "head_revision_id": envelope.get("head_revision_id"),
-            "is_head": envelope.get("is_head"),
-        }
+
+    renewer: _TurnClaimRenewer | None = None
+    if conversation_service is not None and durable_turn is not None:
+        try:
+            claim = conversation_service.claim_turn(
+                durable_turn.world_id,
+                durable_turn.conversation_id,
+                durable_turn.turn_id,
+                expected_revision=durable_turn.revision,
+                lease_seconds=120,
+            )
+        except ApplicationStateConflictError as exc:
+            raise AgentTurnServiceError(
+                str(exc), code="turn_lifecycle_conflict", status_code=409
+            ) from exc
+        except ApplicationStateError as exc:
+            raise AgentTurnServiceError(
+                "The durable turn claim could not be acquired.",
+                code="conversation_unavailable",
+                status_code=exc.status_code,
+            ) from exc
+        if claim.disposition == "pending":
+            raise AgentTurnServiceError(
+                "This World turn is already running; its provider will not be dispatched twice.",
+                code="turn_already_running",
+                status_code=409,
+            )
+        if claim.disposition == "completed":
+            return _completed_turn_replay(request, owner=owner or {}, turn=claim.turn)
+        running_turn = claim.turn
+        renewer = _TurnClaimRenewer(conversation_service, running_turn)
 
     # Delay runtime lookup/construction until authorization, receipt replay,
     # current work, pointer, and graph validation have all succeeded.
-    selected_runtime = runtime or (
-        runtime_factory() if runtime_factory is not None else None
-    ) or default_hermes_agent_runtime()
-    descriptor = descriptor_for_runtime(selected_runtime)
+    try:
+        selected_runtime = runtime or (
+            runtime_factory() if runtime_factory is not None else None
+        ) or default_hermes_agent_runtime()
+        descriptor = descriptor_for_runtime(selected_runtime)
+    except Exception as exc:
+        running_turn = _stop_claim_renewer(renewer, running_turn)
+        if running_turn is not None and conversation_service is not None:
+            try:
+                conversation_service.fail_turn(
+                    TurnFailure(
+                        world_id=running_turn.world_id,
+                        conversation_id=running_turn.conversation_id,
+                        turn_id=running_turn.turn_id,
+                        expected_revision=running_turn.revision,
+                        failure_code="runtime_unavailable",
+                    )
+                )
+            except ApplicationStateError as persist_exc:
+                raise AgentTurnServiceError(
+                    "Runtime construction failed and the APP lifecycle result is indeterminate.",
+                    code="turn_persistence_indeterminate",
+                    status_code=persist_exc.status_code,
+                ) from persist_exc
+        raise AgentTurnServiceError(
+            "The Agent runtime could not be constructed.",
+            code="runtime_unavailable",
+            status_code=503,
+        ) from exc
     trace = AgentTurnTraceBuilder(
         agent_thread_id=pointer_thread_id,
         turn_id=request.turn_id,
@@ -822,24 +1174,11 @@ def execute_agent_turn(
     )
     trace.context_summary = dict(assembly.trace_summary)
     runtime_dispatch_span_id: str | None = None
-    running_turn: Turn | None = None
     result = None
     replayed_completed_turn = (
         durable_turn is not None and durable_turn.status == "completed"
     )
     if not replayed_completed_turn:
-        if durable_turn is not None and conversation_service is not None:
-            try:
-                running_turn = conversation_service.begin_turn(
-                    durable_turn.world_id,
-                    durable_turn.conversation_id,
-                    durable_turn.turn_id,
-                    expected_revision=durable_turn.revision,
-                )
-            except ApplicationStateError as exc:
-                raise AgentTurnServiceError(
-                    str(exc), code="turn_lifecycle_conflict", status_code=exc.status_code
-                ) from exc
         runtime_dispatch_span_id = trace.start_phase("runtime_dispatch")
         try:
             invocation = replace(
@@ -873,48 +1212,89 @@ def execute_agent_turn(
                         status_code=409,
                     )
         except AgentTurnServiceError as exc:
+            running_turn = _stop_claim_renewer(renewer, running_turn)
             if running_turn is not None and conversation_service is not None:
-                conversation_service.fail_turn(
-                    TurnFailure(
-                        world_id=running_turn.world_id,
-                        conversation_id=running_turn.conversation_id,
-                        turn_id=running_turn.turn_id,
-                        expected_revision=running_turn.revision,
-                        failure_code=exc.code,
-                    )
-                )
-            trace.complete_phase(runtime_dispatch_span_id, status="error")
-            raise
-        except Exception:
-            if running_turn is not None and conversation_service is not None:
-                conversation_service.fail_turn(
-                    TurnFailure(
-                        world_id=running_turn.world_id,
-                        conversation_id=running_turn.conversation_id,
-                        turn_id=running_turn.turn_id,
-                        expected_revision=running_turn.revision,
-                        failure_code="runtime_interrupted",
-                    ),
-                    interrupted=True,
-                )
-            trace.complete_phase(runtime_dispatch_span_id, status="error")
-            raise
-        else:
-            trace.complete_phase(runtime_dispatch_span_id)
-
-        if running_turn is not None and conversation_service is not None:
-            try:
-                if result.status == "ok" and result.final_text:
-                    durable_turn = conversation_service.complete_turn(
-                        TurnResult(
+                try:
+                    conversation_service.fail_turn(
+                        TurnFailure(
                             world_id=running_turn.world_id,
                             conversation_id=running_turn.conversation_id,
                             turn_id=running_turn.turn_id,
                             expected_revision=running_turn.revision,
-                            assistant_text=result.final_text,
+                            failure_code=exc.code,
                         )
                     )
-                else:
+                except ApplicationStateError as persist_exc:
+                    raise AgentTurnServiceError(
+                        "The turn failed but its APP lifecycle result is indeterminate.",
+                        code="turn_persistence_indeterminate",
+                        status_code=persist_exc.status_code,
+                    ) from persist_exc
+            trace.complete_phase(runtime_dispatch_span_id, status="error")
+            raise
+        except Exception:
+            running_turn = _stop_claim_renewer(renewer, running_turn)
+            if running_turn is not None and conversation_service is not None:
+                try:
+                    conversation_service.fail_turn(
+                        TurnFailure(
+                            world_id=running_turn.world_id,
+                            conversation_id=running_turn.conversation_id,
+                            turn_id=running_turn.turn_id,
+                            expected_revision=running_turn.revision,
+                            failure_code="runtime_interrupted",
+                        ),
+                        interrupted=True,
+                    )
+                except ApplicationStateError as persist_exc:
+                    raise AgentTurnServiceError(
+                        "The interrupted turn's APP lifecycle result is indeterminate.",
+                        code="turn_persistence_indeterminate",
+                        status_code=persist_exc.status_code,
+                    ) from persist_exc
+            trace.complete_phase(runtime_dispatch_span_id, status="error")
+            raise
+        else:
+            running_turn = _stop_claim_renewer(renewer, running_turn)
+            trace.complete_phase(runtime_dispatch_span_id)
+
+        if running_turn is not None and conversation_service is not None:
+            if result.status == "ok" and result.final_text:
+                completion = TurnResult(
+                    world_id=running_turn.world_id,
+                    conversation_id=running_turn.conversation_id,
+                    turn_id=running_turn.turn_id,
+                    expected_revision=running_turn.revision,
+                    assistant_text=result.final_text,
+                )
+                for attempt in range(3):
+                    try:
+                        durable_turn = conversation_service.complete_turn(completion)
+                        break
+                    except ApplicationStateConflictError as exc:
+                        raise AgentTurnServiceError(
+                            "The provider returned, but the turn claim fence changed before its result was confirmed.",
+                            code="turn_persistence_indeterminate",
+                            status_code=409,
+                        ) from exc
+                    except (ApplicationStateError, psycopg.OperationalError) as exc:
+                        transient = isinstance(exc, psycopg.OperationalError) or (
+                            isinstance(exc, ApplicationStateError)
+                            and exc.status_code >= 500
+                        )
+                        if not transient or attempt == 2:
+                            raise AgentTurnServiceError(
+                                "The provider returned, but its stored result is indeterminate.",
+                                code="turn_persistence_indeterminate",
+                                status_code=(
+                                    503
+                                    if transient
+                                    else getattr(exc, "status_code", 500)
+                                ),
+                            ) from exc
+                        Event().wait(0.05 * (attempt + 1))
+            else:
+                try:
                     durable_turn = conversation_service.fail_turn(
                         TurnFailure(
                             world_id=running_turn.world_id,
@@ -924,10 +1304,12 @@ def execute_agent_turn(
                             failure_code=result.error_code or "agent_runtime_error",
                         )
                     )
-            except ApplicationStateError as exc:
-                raise AgentTurnServiceError(
-                    str(exc), code="turn_persistence_failed", status_code=exc.status_code
-                ) from exc
+                except ApplicationStateError as exc:
+                    raise AgentTurnServiceError(
+                        "The provider failed and its APP lifecycle result is indeterminate.",
+                        code="turn_persistence_indeterminate",
+                        status_code=exc.status_code,
+                    ) from exc
 
     if result is not None:
         host_phase_spans = result.runtime_metadata.get("host_phase_spans", [])
@@ -1160,6 +1542,6 @@ def build_existing_graph_context(
         campaign_id=campaign_id,
         focus=nested.focus.model_dump(mode="json"),
         admissibility="gm",
-        revision_id=graph.revision_pin or str(envelope.get("revision_id") or ""),
+        revision_id=str(envelope.get("revision_id") or ""),
         scope_mode=graph.mode,
     )

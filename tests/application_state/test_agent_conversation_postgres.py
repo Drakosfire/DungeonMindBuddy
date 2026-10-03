@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 from types import SimpleNamespace
 from threading import Barrier
+from time import sleep
 from uuid import uuid4
 
 import pytest
@@ -20,6 +21,8 @@ from application_state.agent_conversation.types import (
     SubmittedTurnIntentV1,
     TurnProvenance,
     TurnSubmission,
+    TurnFailure,
+    TurnResult,
 )
 from application_state.cli import _current_and_head
 from application_state.errors import ApplicationStateConflictError
@@ -1076,3 +1079,115 @@ def test_interrupted_provider_attempt_can_retry_same_durable_turn(
     assert turns[0].attempt == 2
     assert turns[0].sequence == 1
     assert runtime.invocations == 2
+
+
+def test_turn_claim_renewal_expiry_reclaim_and_stale_fences(
+    application_state_dsn: str,
+) -> None:
+    assert application_state_dsn
+    service = AgentConversationService()
+    world_id = "claim-renew-reclaim-world"
+    conversation = _new(service, world_id)
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="index",
+        primary_work=HistoricalReference(resolution="absent"),
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    intent = SubmittedTurnIntentV1(
+        world_id=world_id,
+        client_thread_id="claim-test-thread",
+        message="Exercise claim fencing.",
+        surface_id="index",
+        surface_instance_id="index-home",
+        client_work_state="none",
+        primary_work=None,
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    accepted = service.accept_turn(
+        TurnSubmission(
+            world_id=world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=intent.message,
+            provenance=provenance,
+            submitted_intent_v1=intent,
+        )
+    )
+
+    first_claim = service.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+        lease_seconds=1,
+    )
+    assert first_claim.disposition == "claimed"
+    pending = service.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=first_claim.turn.revision,
+        lease_seconds=1,
+    )
+    assert pending.disposition == "pending"
+
+    renewed = service.renew_turn_claim(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=first_claim.turn.revision,
+        lease_seconds=1,
+    )
+    assert renewed.revision == first_claim.turn.revision + 1
+    stale_result = TurnResult(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id,
+        expected_revision=first_claim.turn.revision,
+        assistant_text="Must not commit on a stale fence.",
+    )
+    stale_failure = TurnFailure(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id,
+        expected_revision=first_claim.turn.revision,
+        failure_code="stale-before-expiry",
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        service.complete_turn(stale_result)
+    with pytest.raises(ApplicationStateConflictError):
+        service.fail_turn(stale_failure)
+
+    sleep(1.1)
+    reclaimed = service.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=renewed.revision,
+        lease_seconds=1,
+    )
+    assert reclaimed.disposition == "claimed"
+    assert reclaimed.turn.revision == renewed.revision + 1
+    assert reclaimed.turn.attempt == first_claim.turn.attempt + 1
+    stale_after_reclaim = stale_result.model_copy(
+        update={"expected_revision": renewed.revision}
+    )
+    stale_failure_after_reclaim = stale_failure.model_copy(
+        update={"expected_revision": renewed.revision}
+    )
+    with pytest.raises(ApplicationStateConflictError):
+        service.complete_turn(stale_after_reclaim)
+    with pytest.raises(ApplicationStateConflictError):
+        service.fail_turn(stale_failure_after_reclaim)
+
+    completed = service.complete_turn(
+        stale_result.model_copy(
+            update={"expected_revision": reclaimed.turn.revision}
+        )
+    )
+    assert completed.status == "completed"
+    assert completed.assistant_text == stale_result.assistant_text
