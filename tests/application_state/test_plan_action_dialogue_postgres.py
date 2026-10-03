@@ -111,6 +111,16 @@ def test_terminal_compare_and_set_wins_once_before_expiry(application_state_dsn:
     reserved, created = service.reserve(request)
     assert created and reserved.dispatch_token is not None
 
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE plan_action.action SET updated_at = clock_timestamp() - interval '1 hour' WHERE action_id = %s",
+            (reserved.action_id,),
+        )
+        stale_updated_at, transition_start = conn.execute(
+            "SELECT updated_at, clock_timestamp() FROM plan_action.action WHERE action_id = %s",
+            (reserved.action_id,),
+        ).fetchone()
+
     done = service.finish(
         action_id=reserved.action_id,
         token=reserved.dispatch_token,
@@ -118,8 +128,15 @@ def test_terminal_compare_and_set_wins_once_before_expiry(application_state_dsn:
         status="completed",
         summary="A warning appears at dusk.",
     )
+    with psycopg.connect(application_state_dsn) as conn:
+        completed_at, updated_at, transition_end = conn.execute(
+            "SELECT completed_at, updated_at, clock_timestamp() FROM plan_action.action WHERE action_id = %s",
+            (reserved.action_id,),
+        ).fetchone()
     assert done.status == "completed"
     assert done.completed_at is not None
+    assert completed_at is not None
+    assert stale_updated_at < transition_start <= updated_at <= transition_end
     again = service.finish(
         action_id=reserved.action_id,
         token=reserved.dispatch_token,

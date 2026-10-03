@@ -815,7 +815,7 @@ it("keeps an indeterminate late action out of Review and offers an explicit fres
     assistant_summary: null,
     action_sequence: 1,
     accepted_at: "2026-10-03T12:00:00Z",
-    completed_at: "2026-10-03T12:02:00Z",
+    completed_at: null,
   }];
   await act(async () => {
     rejectProposal(Object.assign(new Error("The Plan action outcome is indeterminate."), { status: 409 }));
