@@ -1043,6 +1043,17 @@ def execute_agent_turn(
                 provenance=provenance,
                 submitted_intent=submitted_intent,
             )
+            if durable_turn.provenance != provenance:
+                # A concurrent identical submission may win acceptance after
+                # this request's early reconciliation missed. Its immutable
+                # receipt is authoritative; never dispatch the context this
+                # request resolved against a potentially newer head. A retry
+                # will resolve from the stored historical references.
+                raise AgentTurnServiceError(
+                    "The accepted turn's frozen context changed during preparation; retry to resolve its stored basis.",
+                    code="turn_basis_changed",
+                    status_code=409,
+                )
         segment_thread_id = _provider_segment_thread_id(
             durable_turn.provenance, conversation_id=durable_turn.conversation_id
         )
@@ -1154,11 +1165,11 @@ def execute_agent_turn(
                         failure_code="runtime_unavailable",
                     )
                 )
-            except ApplicationStateError as persist_exc:
+            except (ApplicationStateError, psycopg.OperationalError) as persist_exc:
                 raise AgentTurnServiceError(
                     "Runtime construction failed and the APP lifecycle result is indeterminate.",
                     code="turn_persistence_indeterminate",
-                    status_code=persist_exc.status_code,
+                    status_code=getattr(persist_exc, "status_code", 503),
                 ) from persist_exc
         raise AgentTurnServiceError(
             "The Agent runtime could not be constructed.",
@@ -1224,11 +1235,14 @@ def execute_agent_turn(
                             failure_code=exc.code,
                         )
                     )
-                except ApplicationStateError as persist_exc:
+                except (
+                    ApplicationStateError,
+                    psycopg.OperationalError,
+                ) as persist_exc:
                     raise AgentTurnServiceError(
                         "The turn failed but its APP lifecycle result is indeterminate.",
                         code="turn_persistence_indeterminate",
-                        status_code=persist_exc.status_code,
+                        status_code=getattr(persist_exc, "status_code", 503),
                     ) from persist_exc
             trace.complete_phase(runtime_dispatch_span_id, status="error")
             raise
@@ -1246,11 +1260,14 @@ def execute_agent_turn(
                         ),
                         interrupted=True,
                     )
-                except ApplicationStateError as persist_exc:
+                except (
+                    ApplicationStateError,
+                    psycopg.OperationalError,
+                ) as persist_exc:
                     raise AgentTurnServiceError(
                         "The interrupted turn's APP lifecycle result is indeterminate.",
                         code="turn_persistence_indeterminate",
-                        status_code=persist_exc.status_code,
+                        status_code=getattr(persist_exc, "status_code", 503),
                     ) from persist_exc
             trace.complete_phase(runtime_dispatch_span_id, status="error")
             raise
@@ -1304,11 +1321,14 @@ def execute_agent_turn(
                             failure_code=result.error_code or "agent_runtime_error",
                         )
                     )
-                except ApplicationStateError as exc:
+                except (
+                    ApplicationStateError,
+                    psycopg.OperationalError,
+                ) as exc:
                     raise AgentTurnServiceError(
                         "The provider failed and its APP lifecycle result is indeterminate.",
                         code="turn_persistence_indeterminate",
-                        status_code=exc.status_code,
+                        status_code=getattr(exc, "status_code", 503),
                     ) from exc
 
     if result is not None:

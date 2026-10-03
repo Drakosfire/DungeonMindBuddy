@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
@@ -454,38 +453,41 @@ def test_credential_config_token_and_loopback_enforcement() -> None:
                 os.environ[key] = value
 
 
-def test_graphless_agent_turn_skips_the_graph_guard(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_graphless_agent_turn_requires_auth_before_world_or_runtime_access(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     from apps.live_control_server.models.agent_turn import AgentTurnRequest
     from apps.live_control_server.routes import agent as agent_route
-    from apps.live_control_server.services.agent_runtime import (
-        AgentRuntimeDescriptor,
-        AgentRuntimeResult,
+    from apps.live_control_server.services.agent_graph_auth import (
+        AUTH_ENVIRONMENT_ENV,
+        AUTH_MODE_ENV,
+        LOCAL_OPERATOR_TOKEN_ENV,
     )
 
     _clear_auth_environment(monkeypatch)
+    monkeypatch.setenv(AUTH_MODE_ENV, "local_operator")
+    monkeypatch.setenv(AUTH_ENVIRONMENT_ENV, "local")
+    monkeypatch.setenv(
+        LOCAL_OPERATOR_TOKEN_ENV, "test-local-operator-token-with-adequate-length"
+    )
+    touched: list[str] = []
 
-    class Runtime:
-        descriptor = AgentRuntimeDescriptor("fake", "fake", "test", "conversation")
+    def forbidden_resolution(*_args: Any, **_kwargs: Any) -> Any:
+        touched.append("world_or_work_resolution")
+        raise AssertionError("unauthorized Graphless turn reached authority resolution")
 
-        def run(self, _invocation: Any) -> AgentRuntimeResult:
-            return AgentRuntimeResult(
-                status="ok",
-                final_text="Graphless answer.",
-                runtime_session_id="runtime",
+    monkeypatch.setattr(agent_route, "_conversation_service", forbidden_resolution)
+    monkeypatch.setattr(agent_route, "_owner_resolver", forbidden_resolution)
+    monkeypatch.setattr(agent_route, "_work_resolver", forbidden_resolution)
+    request = _request(
+        path="/api/live/agent/turn",
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                agent_turn_runtime=SimpleNamespace(
+                    run=lambda *_args: pytest.fail("unauthorized turn dispatched runtime")
+                )
             )
-
-    def forbidden_guard(_request: Request) -> Any:
-        raise AssertionError("graphless Agent turn invoked the graph guard")
-
-    monkeypatch.setattr(agent_route, "enforce_native_graph_gm", forbidden_guard)
-    monkeypatch.setattr(agent_route, "repo_root", lambda: tmp_path)
-    monkeypatch.setattr(agent_route, "session_dir", lambda: tmp_path / "sessions")
-    monkeypatch.setattr(agent_route, "_owner_resolver", lambda _body: None)
-    monkeypatch.setattr(agent_route, "_work_resolver", lambda _body, _owner: None)
-    request = SimpleNamespace(
-        app=SimpleNamespace(state=SimpleNamespace(agent_turn_runtime=Runtime()))
+        ),
     )
     payload = {
         "schema": "dmb_agent_turn_request_v1",
@@ -499,7 +501,9 @@ def test_graphless_agent_turn_skips_the_graph_guard(
         "graph_selection": None,
         "message": "Can you help?",
     }
-    response = agent_route.post_agent_turn(
-        AgentTurnRequest.model_validate(payload), request
-    )
-    assert response["answer"]["text"] == "Graphless answer."
+    with pytest.raises(HTTPException) as exc_info:
+        agent_route.post_agent_turn(AgentTurnRequest.model_validate(payload), request)
+
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail["code"] == "graph_auth_required"
+    assert touched == []

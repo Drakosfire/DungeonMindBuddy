@@ -20,7 +20,9 @@ from application_state.agent_conversation.types import (
     HistoricalReference,
     Turn,
     TurnClaimReceipt,
+    TurnFailure,
     TurnProvenance,
+    TurnSubmission,
 )
 from uuid import uuid4
 
@@ -589,6 +591,226 @@ def test_retry_graph_resolution_is_pinned_to_stored_snapshot(
     assert exc_info.value.code == "turn_already_running"
 
 
+def test_accept_race_never_dispatches_context_different_from_winner_receipt(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    from apps.live_control_server.services import agent_turn_service
+    from apps.live_control_server.services.agent_runtime import (
+        AgentContextPacket,
+        AgentRunOptions,
+        AgentRuntimeInvocation,
+        AgentWorldScope,
+        WORLD_GRAPH_READ_POLICY,
+    )
+    from apps.live_control_server.services.hermes_session_store import (
+        HermesSessionPointerStore,
+    )
+    from application_state.agent_conversation.types import TurnResult
+
+    world_id = "world-accept-race-test"
+    request_payload = {
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": world_id},
+        "graph_request": {
+            "mode": "world",
+            "world_id": world_id,
+            "campaign_id": None,
+            "revision_pin": None,
+            "focus": {"kind": "none", "session_id": None, "campaign_id": None},
+        },
+    }
+    request = AgentTurnRequest.model_validate(request_payload)
+
+    def graph_provenance(revision: str) -> TurnProvenance:
+        return TurnProvenance(
+            world_id=world_id,
+            surface_resolution="resolved",
+            surface_id="index",
+            primary_work=HistoricalReference(resolution="absent"),
+            supporting_work=[
+                HistoricalReference(
+                    resolution="resolved",
+                    kind="world_graph_revision",
+                    object_id=world_id,
+                    revision=revision,
+                )
+            ],
+            selected_object=HistoricalReference(resolution="absent"),
+        )
+
+    winning_provenance = graph_provenance("snapshot-r1")
+    winning_receipt = _durable_turn(
+        world_id=world_id,
+        status="accepted",
+        provenance=winning_provenance,
+        revision=1,
+    )
+
+    class ConcurrentReceiptService:
+        reconciliations = 0
+        submissions: list[TurnSubmission] = []
+        claims = 0
+        completions: list[TurnResult] = []
+
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Turn | None:
+            self.reconciliations += 1
+            # Model two callers that both miss before either can observe the
+            # winning R1 receipt. The third lookup is the matching retry.
+            return None if self.reconciliations <= 2 else winning_receipt
+
+        def get_active_conversation(self, _world_id: str) -> Any:
+            return SimpleNamespace(
+                conversation_id=winning_receipt.conversation_id,
+                revision=1,
+            )
+
+        def accept_turn(self, submission: TurnSubmission) -> Turn:
+            assert (
+                submission.provenance.supporting_work[0].revision == "snapshot-r2"
+            )
+            self.submissions.append(submission)
+            return winning_receipt
+
+        def claim_turn(self, *_args: Any, **_kwargs: Any) -> TurnClaimReceipt:
+            self.claims += 1
+            running = winning_receipt.model_copy(
+                update={"status": "running", "revision": winning_receipt.revision + 1}
+            )
+            return TurnClaimReceipt(disposition="claimed", turn=running)
+
+        def complete_turn(self, result: TurnResult) -> Turn:
+            self.completions.append(result)
+            return winning_receipt.model_copy(
+                update={
+                    "status": "completed",
+                    "revision": result.expected_revision + 1,
+                    "assistant_text": result.assistant_text,
+                    "completed_at": datetime.now(UTC),
+                    "updated_at": datetime.now(UTC),
+                }
+            )
+
+    service = ConcurrentReceiptService()
+    runtime = FakeRuntime()
+    graph_pins: list[str | None] = []
+    assembled_revisions: list[str] = []
+    segment_bases: list[TurnProvenance] = []
+    original_segment_id = agent_turn_service._provider_segment_thread_id
+
+    def resolve_graph(
+        graph_request: AgentTurnRequest, *_args: Any
+    ) -> tuple[dict[str, Any], AgentWorldScope]:
+        pin = graph_request.graph_request.revision_pin
+        graph_pins.append(pin)
+        revision = pin or "snapshot-r2"
+        return (
+            {"status": "ready", "revision_id": revision, "nodes": []},
+            AgentWorldScope(
+                world_id=world_id,
+                campaign_id="",
+                focus={"kind": "none", "session_id": None, "campaign_id": None},
+                admissibility="gm",
+                revision_id=revision,
+                scope_mode="world",
+            ),
+        )
+
+    def assemble_graph(**kwargs: Any) -> Any:
+        revision = str(kwargs["graph_envelope"]["revision_id"])
+        assembled_revisions.append(revision)
+        scope = AgentWorldScope(
+            world_id=world_id,
+            campaign_id="",
+            focus={"kind": "none", "session_id": None, "campaign_id": None},
+            admissibility="gm",
+            revision_id=revision,
+            scope_mode="world",
+        )
+        return SimpleNamespace(
+            invocation=AgentRuntimeInvocation(
+                thread_id=kwargs["thread_id"],
+                turn_id=kwargs["turn_id"],
+                message=kwargs["question"],
+                conversation_history=None,
+                context_packet=AgentContextPacket(
+                    world_scope=scope,
+                    retrieval_session=None,
+                    surface_context=kwargs["surface_context"],
+                ),
+                capability_policy=WORLD_GRAPH_READ_POLICY,
+                run_options=AgentRunOptions(),
+            ),
+            trace_summary={},
+        )
+
+    monkeypatch.setattr(
+        agent_turn_service,
+        "assemble_agent_graph_context",
+        assemble_graph,
+    )
+    monkeypatch.setattr(
+        agent_turn_service,
+        "_provider_segment_thread_id",
+        lambda provenance, *, conversation_id: (
+            segment_bases.append(provenance)
+            or original_segment_id(provenance, conversation_id=conversation_id)
+        ),
+    )
+    pointer_store = HermesSessionPointerStore(tmp_path / "sessions")
+    assert service.reconcile_turn() is None  # competing caller's early miss
+
+    with pytest.raises(agent_turn_service.AgentTurnServiceError) as exc_info:
+        agent_turn_service.execute_agent_turn(
+            request,
+            root=tmp_path,
+            pointer_store=pointer_store,
+            owner_resolver=lambda _request: {
+                "kind": "world",
+                "id": world_id,
+                "name": "Race World",
+            },
+            work_resolver=lambda *_args: None,
+            graph_resolver=resolve_graph,
+            runtime=runtime,
+            conversation_service=service,
+        )
+
+    assert exc_info.value.code == "turn_basis_changed"
+    assert service.submissions[0].provenance.supporting_work[0].revision == "snapshot-r2"
+    assert winning_receipt.provenance.supporting_work[0].revision == "snapshot-r1"
+    assert runtime.invocations == []
+    assert service.claims == 0
+    assert graph_pins == [None]
+    assert assembled_revisions == []
+    assert segment_bases == []
+
+    # The matching retry must rebuild context and provider continuity from the
+    # winning immutable receipt, never the loser's newly observed Graph head.
+    response = agent_turn_service.execute_agent_turn(
+        request,
+        root=tmp_path,
+        pointer_store=pointer_store,
+        owner_resolver=lambda _request: {
+            "kind": "world",
+            "id": world_id,
+            "name": "Race World",
+        },
+        work_resolver=lambda *_args: None,
+        graph_resolver=resolve_graph,
+        runtime=runtime,
+        conversation_service=service,
+    )
+
+    assert response.graph.revision_id == "snapshot-r1"
+    assert graph_pins == [None, "snapshot-r1"]
+    assert service.reconciliations == 3
+    assert assembled_revisions == ["snapshot-r1"]
+    assert segment_bases == [winning_provenance]
+    assert len(runtime.invocations) == 1
+    assert service.claims == 1
+    assert len(service.completions) == 1
+
+
 def test_provider_output_is_retried_without_redispatch(tmp_path: Path) -> None:
     from application_state.agent_conversation.types import TurnResult
     from application_state.errors import ApplicationStateUnavailableError
@@ -652,6 +874,75 @@ def test_provider_output_is_retried_without_redispatch(tmp_path: Path) -> None:
         "A simple answer.",
     ]
     assert {item.expected_revision for item in service.completions} == {2}
+
+
+def test_interrupted_runtime_persistence_outage_is_reported_indeterminate(
+    tmp_path: Path,
+) -> None:
+    import psycopg
+
+    from apps.live_control_server.services.agent_runtime import AgentRuntimeDescriptor
+    from apps.live_control_server.services.agent_turn_service import (
+        AgentTurnServiceError,
+        execute_agent_turn,
+    )
+    from apps.live_control_server.services.hermes_session_store import (
+        HermesSessionPointerStore,
+    )
+
+    world_id = "world-interruption-outage-test"
+    accepted = _durable_turn(world_id=world_id, status="accepted")
+
+    class InterruptedRuntime:
+        descriptor = AgentRuntimeDescriptor("fake", "fake", "test", "conversation")
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def run(self, _invocation: Any) -> Any:
+            self.calls += 1
+            raise RuntimeError("provider transport disconnected")
+
+    class ReceiptService:
+        failures: list[tuple[TurnFailure, bool]] = []
+
+        def reconcile_turn(self, *_args: Any, **_kwargs: Any) -> Turn:
+            return accepted
+
+        def claim_turn(self, *_args: Any, **_kwargs: Any) -> TurnClaimReceipt:
+            running = accepted.model_copy(
+                update={"status": "running", "revision": accepted.revision + 1}
+            )
+            return TurnClaimReceipt(disposition="claimed", turn=running)
+
+        def fail_turn(self, failure: TurnFailure, *, interrupted: bool = False) -> Any:
+            self.failures.append((failure, interrupted))
+            raise psycopg.OperationalError("database connection lost")
+
+    runtime = InterruptedRuntime()
+    service = ReceiptService()
+    payload = {
+        **_payload(),
+        "owner_scope": {"kind": "world", "world_id": world_id},
+    }
+
+    with pytest.raises(AgentTurnServiceError) as exc_info:
+        execute_agent_turn(
+            AgentTurnRequest.model_validate(payload),
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "sessions"),
+            owner_resolver=lambda _request: {"kind": "world", "id": world_id},
+            work_resolver=lambda *_args: None,
+            graph_resolver=lambda *_args: pytest.fail("no Graph requested"),
+            runtime=runtime,
+            conversation_service=service,
+        )
+
+    assert exc_info.value.code == "turn_persistence_indeterminate"
+    assert exc_info.value.status_code == 503
+    assert runtime.calls == 1
+    assert len(service.failures) == 1
+    assert service.failures[0][1] is True
 
 
 def test_claim_renewer_serializes_latest_revision_fence() -> None:
