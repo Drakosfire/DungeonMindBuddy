@@ -54,7 +54,8 @@ create one.
   joining the APP-owned World pointer, active conversation, turns, and primary
   references. Do not resolve the pointer in one statement and query turns in a
   later snapshot; a concurrent conversation switch must not make an archived
-  conversation look active to this projection.
+  conversation look active to this projection. Keep this as one coherent read
+  statement: no row locks, pointer updates, or wider/global transaction scope.
 - Return a small typed projection containing only the visible user question,
   visible assistant answer, and the metadata above. Do not return complete
   `Turn` records, idempotency keys/fingerprints, failure data, provider state,
@@ -99,6 +100,9 @@ decision, stop and return the exact need to PRIME before editing.
 
 Use only the repository's explicitly assigned disposable Application State
 PostgreSQL fixture after activation; do not use shared runtime/database state.
+Activation waits until SERVER/PRIME pins the exact dedicated fixture resources
+(including connection/port and lifecycle owner) in the active lease. Until then,
+do not connect to any database.
 
 - Prove exact completed Ask pairs are returned with all six basis fields
   matching. Seed more than six eligible pairs and confirm the newest six are
@@ -106,11 +110,14 @@ PostgreSQL fixture after activation; do not use shared runtime/database state.
   sequence, and turn UUID.
 - Seed newer completed Ask rows that differ one at a time by World, Plan
   document, object revision, WorkRevision ID, revision number, content digest,
-  and surface; also seed accepted/running/failed rows. Confirm these are
-  filtered before the eligible limit and cannot crowd older matching pairs out.
-- Prove no active conversation yields an empty result without a write. Prove
-  request/basis World mismatch fails closed. Confirm the projection contains
-  only question, visible answer, accepted time, sequence, and source UUID.
+  and surface; also seed accepted/running/failed rows, supporting-only matches,
+  and unresolved primary references. Confirm these are filtered before the
+  eligible limit and cannot crowd older matching pairs out.
+- Rotate the World active pointer from conversation A to B, then prove the read
+  for the new pointer never returns archived A pairs. Prove an empty read does
+  not create a World pointer or conversation. Prove request/basis World
+  mismatch fails closed. Confirm the projection contains only question,
+  visible answer, accepted time, sequence, and source UUID.
 - Prove equal accepted timestamps remain deterministic by source sequence and
   UUID. Leave source-rank tie handling and the merged six-pair cap to the
   future Plan boundary owning tests; do not implement or test that consumer
@@ -147,5 +154,5 @@ PostgreSQL fixture after activation; do not use shared runtime/database state.
 
 **Activation gate:** PRIME must confirm the exact base, open-PR/path census,
 the current conversation/basis caller contract, the no-migration decision,
-verification fixture ownership, and the four-path exclusive write lease. Until
-then this handoff is design only.
+verification fixture resources and owner, and the four-path exclusive write
+lease. Until then this handoff is design only.
