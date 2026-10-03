@@ -1,20 +1,22 @@
 # HANDOFF — AGENT-INTERACTION: production World conversation runtime
 
-- **Status:** BLOCKED — design contract only; no implementation, provider, database, or runtime lease.
+- **Status:** HOLD — PR #865 is open at `5674cf6f792c3516c4b99fdd2a2a6ac3eeab6991`; the original runtime acceptance remains incomplete. No merge, live-provider, production-database, or consumer-cutover authority.
 - **Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`.
-- **Owner:** PRIME to assign an AGENT-INTERACTION implementation task/owner.
+- **Owner:** PRIME owns the bounded #865 runtime repair; ARCHITECTURE must resolve the mapping decisions below before the remaining five-path implementation proceeds.
 - **Repository:** `Drakosfire/DungeonMindBuddy`.
 - **Design origin:** Buddy `main@672d18b059eaeceff20555374170ec2679f79082`.
-- **Prepared re-entry base:** Buddy `main@6a17c852971ad087eca1b8d43450a31f67cf2c3d` (2026-10-02).
+- **Re-anchored base:** Buddy `main@2e1a8184ac63ad3bfdd3af428c4ea6df907a7c0c` (2026-10-03).
 - **Topology:** serial — APP-STATE storage/domain service (#822/#827 complete),
   AGENT-INTERACTION runtime adoption, DEMO Plan consumer cutover, then Play
   and remaining surface cutovers.
 - **Design authority:** APP-STATE World conversation contract, ARCHITECTURE's
   2026-10-02 ruling, and PRIME's runtime-owner routing decision.
 
-This handoff pins the missing production runtime contract and the prepared
-resumed-#865 packet below. It does not activate implementation. The packet is
-pending PRIME acceptance; no implementation lease is active.
+This handoff pins the original production runtime contract and the current
+acceptance disposition for resumed #865. The five-path implementation lease
+was authorized and used to publish a partial repair. That publication does not
+close the original acceptance or authorize a sixth path, schema/API change,
+provider/live-production witness, consumer cutover, or merge.
 
 ## Mission
 
@@ -156,61 +158,44 @@ placement. A separate later Play consumer witness will prove Run/Runbook
 selection, cross-surface history, and late-result placement. Neither is
 operator acceptance of J1–J6.
 
-## Activation gates and return contract
+## Resumed #865 implementation and current disposition
 
-This handoff is BLOCKED until PRIME:
+PR #865 remains open and is **HOLD / not merge-ready** against this handoff.
+PRIME authorized a bounded repair on the existing five implementation/test
+paths. The repair was published on `codex/agent-interaction-world-runtime-v2`
+at `5674cf6f792c3516c4b99fdd2a2a6ac3eeab6991`, based on the re-anchored main
+above. The frozen pre-repair source head was
+`b8aa42c3b4b6b5201d39b19aa62c2bef364cc94c`.
 
-1. Names the AGENT-INTERACTION owner/task and exact checkout/head.
-2. Reconciles the suspended dirty checkout before choosing files or transplanting
-   any work.
-3. Pins an exclusive expected-path allowlist, test boundary, provider/DB/runtime
-   lease, and one-PR serial topology on a refreshed Buddy base.
-4. Confirms no overlapping runtime, schema, or dependency lease and accepts this
-   contract's provenance and provider-segment rules.
+- **Implemented subset:** route authorization for every turn, normalized World
+  receipt reconciliation before mutable work/runtime resolution, completed
+  answer replay, and concurrent acceptance fencing.
+- **Observed verification:** the implementation checkout passed 25 Agent
+  route/PostgreSQL tests, Ruff, and `git diff --check`. DEMO independently
+  reports 19 `tests/test_agent_turn_service.py` tests passed at the same head.
+  Its expired cases exercise Hermes pointer TTL, not APP claim expiry/reclaim.
+  These results do not prove the outstanding historical-pin, APP lease, or
+  retained-output gates below.
+- **Remaining acceptance:** Graph typed-provenance mapping, exact historical
+  replay basis, archived-history consumer contract, APP claim renewal/reclaim,
+  and bounded same-output persistence retry remain open. Do not call the 44
+  reported passing tests full runtime acceptance.
+- **No merge or live witness:** PRIME review, the DEMO consumer witness, human
+  operator acceptance, and later cutover gates remain separate. No configured
+  provider, production database, or product state was used by this repair.
 
-The owner returns the exact base/head, cumulative diff, owning-boundary test
-results and preserved failures, runtime/API contract, retry and migration
-behavior, provider-segment behavior, and unresolved acceptance gates. PRIME
-reviews and controls merge. Only then may DEMO pin its Plan consumer lease.
+## Five-path repair lease and owning APIs
 
-## Resumed #865 activation packet — prepared, pending PRIME acceptance
+The current implementation lease is exactly these five paths; tests for the
+remaining boundary behavior must stay in the two leased test files:
 
-This packet records the bounded successor proposed after APP-STATE #867 and
-does not grant a code, provider, database, service, port, or product-state
-lease. The frozen #865 source head below is evidence/reference only; it is not
-an accepted runtime revision.
-
-- **Re-anchored base:** Buddy `origin/main@6a17c852971ad087eca1b8d43450a31f67cf2c3d`.
-- **Frozen #865 reference:** PR #865 head
-  `b8aa42c3b4b6b5201d39b19aa62c2bef364cc94c`; five original runtime/test paths.
-- **Recovery predecessor:** APP-STATE #867 merged at
-  `21af97cdc5fe4d10c10032b35c9b26c9ff23ac2b`, from reviewed head
-  `7c8cf2951dd5c47b76297aee1bbdbd34d2c33ce9`. Its four owning suites passed
-  34 tests in about 52.96 seconds; architecture accepted. Re-read the merged
-  handoff and cumulative main diff before implementation. Its storage-boundary
-  evidence does not substitute for the HTTP ordering and provider behavior
-  witnesses required below.
-- **Open work preserved:** #869 remains open. Its draft control coverage,
-  149-test result, inherited typecheck failure, and pending real witness are
-  not #865 acceptance evidence. The #869 branch retains its own implementation
-  paths; PRIME transferred only the exclusive status-only
-  `Docs/Roadmaps/ROADMAP-demo.md` path to the future #865 successor.
-- **Owner:** PRIME to assign after accepting this packet.
-- **Topology:** one serial implementation PR, resumed from the refreshed base.
-  No second runtime capability or PR is included.
-- **Architecture decision pending:** confirm that existing local operator/GM
-  authorization gates World conversation and turn routes before any World
-  lookup, receipt/database access, or provider work, including Graph mode
-  `none`; Graph mode `none` skips Graph resolution only. The route lease and its
-  tests must close the frozen #865 turn-only authorization asymmetry, where
-  authorization currently occurs only inside the Graph resolver. This closes
-  the existing route boundary within the proposed paths; it adds no auth
-  system, UI, or file/path scope. Do not activate implementation until
-  Architecture confirms this boundary and PRIME accepts the packet.
-
-### Proposed exclusive expected-path allowlist
-
-Runtime and owning-boundary tests:
+APP-STATE #867 remains the recovery predecessor. Its storage-boundary evidence
+does not substitute for the HTTP ordering, historical-pin, claim, or provider
+retry witnesses listed here. #869 remains open and separate; preserve its
+evidence and branch. PRIME owns the serial #865 repair. The turn route now
+applies the existing authorization before resolution, including Graph mode
+`none`; the remaining authorization-order tests must prove this on all route
+shapes within the two leased test files.
 
 ~~~text
 apps/live_control_server/models/agent_turn.py
@@ -218,13 +203,55 @@ apps/live_control_server/routes/agent.py
 apps/live_control_server/services/agent_turn_service.py
 tests/application_state/test_agent_conversation_postgres.py
 tests/test_agent_turn_route.py
-tests/test_agent_turn_service.py
 ~~~
 
+`tests/test_agent_turn_service.py` is not part of this five-path lease; the
+specified service/claim evidence must be exercised through the two leased
+route and PostgreSQL test files. The implementation may call existing owning
+APIs but must not edit `src/application_state/agent_conversation/service.py`,
+the database schema/migrations, or current public API models/routes beyond the
+existing five-path boundary.
+
+Existing primitives available to that lease:
+
+- Exact Plan recovery: `workspace_document_registry.get_committed_playable_revision`
+  accepts `revision_n`, `expected_sha256`, `kind="plan"`, and
+  `expected_world_id`; it delegates to
+  `application_state.content.service.exact_committed_revision` and returns the
+  retained Markdown, WorkRevision UUID, revision number, digest, and object
+  revision. Retry must compare the stored WorkRevision UUID/number/SHA and must
+  not require the old object revision to still be today's pointer.
+- Exact Graph recovery: `WorldGraphAuthority.read_revision(world_id,
+  revision_id)` loads an immutable World Graph revision. The existing Agent
+  Graph query/projection path accepts `revision_pin`; selected-object projection
+  also carries that pin. Resolve the actual envelope/identity/selection before
+  first acceptance, persist its resolved revision, and restore that pin on a
+  retry rather than substituting the current head.
+- Claim and fence: `AgentConversationService.claim_turn` distinguishes
+  `claimed`, `pending`, and `completed`; it can reclaim expired `running`
+  claims and advances revision/attempt. `renew_turn_claim` is bounded to a
+  1–300 second lease and advances revision; `complete_turn` and `fail_turn`
+  require the current revision fence and unexpired claim. `begin_turn` is a
+  convenience wrapper that throws for pending/completed and therefore cannot
+  be the route's only running-receipt decision.
+- Runtime bound: the APP default lease is 60 seconds and maximum is 300
+  seconds. The current Hermes host default turn wait is 120 seconds, with
+  readiness and accept waits in addition. The route must renew and carry the
+  latest fence through completion/failure, or prove the full selected runtime
+  bound is below the chosen lease. No such proof or renewal currently exists.
+- Same-output completion retry: `complete_turn` is idempotent when the same
+  assistant text has already committed at the same fence. The runtime can
+  retry a bounded transient completion write using the retained in-process
+  `final_text` without provider redispatch while the fence remains valid; a
+  stale/nontransient failure must return a truthful indeterminate/pending
+  result and must not be rewritten as a second provider attempt.
+- Archived transcript read: APP-STATE `list_turns(world_id,
+  conversation_id)` supports an explicit conversation ID, while the existing
+  public history route only resolves the active conversation. Do not add a
+  public archived-history query/route without an explicit contract transfer.
+
 The final four paths below are restricted to backward-looking status/evidence
-settlement after the implementation result is known. They authorize no
-behavioral edits and do not authorize edits before the successor lease is
-activated:
+settlement and remain outside the five implementation paths:
 
 ~~~text
 Docs/Plans/HANDOFF-AGENT-INTERACTION-world-conversation-runtime.md
@@ -233,18 +260,86 @@ Docs/Roadmaps/ROADMAP-application-state.md
 Docs/Roadmaps/ROADMAP-demo.md
 ~~~
 
-The #869-to-#865 roadmap transfer is status-only and exclusive for the
-successor's settlement. Preserve #869's current evidence and open status; do
-not claim #869 merged or full J4 acceptance. APP-STATE's recovery handoff and
-roadmap record only the already-merged #867 result. Do not pre-mark the
-in-flight runtime slice complete or invent its merge SHA, review count, or
-witness.
+The #869-to-#865 roadmap transfer remains status-only. Preserve #869's current
+evidence and open status; do not claim #869 merged or full J4 acceptance. Do
+not pre-mark this runtime slice complete or invent a merge SHA, review count,
+consumer witness, or operator acceptance.
 
 No other source, schema, migration, MIND/Graph adapter, UI/Plan consumer,
 provider deployment/configuration, lockfile, root configuration, or frozen
 dirty checkout path is in this lease. In particular, preserve the suspended
 `codex/agent-world-conversation-backend` checkout; do not edit or transplant
 it.
+
+### Open mapping and response-contract decisions
+
+The following decisions block completion and must be resolved before more
+behavioral edits:
+
+1. **Graph provenance mapping:** `HistoricalReference` is generic enough to
+   name a real immutable Graph revision and a real selected Graph object, but
+   there is no accepted mapping for Graph mode, campaign/world scope, focus,
+   and optional head/freshness identity across `supporting_work` and
+   `selected_object`. The submitted-intent fingerprint is one-way and cannot
+   substitute for stored provenance. ARCHITECTURE must ratify the exact
+   `kind`/`object_id`/`revision` meaning and which absence/presence denotes
+   mode, scope, focus, selection, and head. Do not invent pseudo-work refs or
+   serialize context options into identity fields. If the existing typed
+   references cannot express the truthful mapping, return that concrete
+   insufficiency for owner/contract transfer; do not add a schema field here.
+
+   **Candidate mapping for ARCHITECTURE review, not yet accepted:** Graph
+   mode `none` stores no Graph reference and an absent selection. A Graph
+   request stores one `supporting_work` reference to the real World Graph
+   snapshot (`kind="world_graph_snapshot_world"` or
+   `kind="world_graph_snapshot_campaign"` to identify the query lens,
+   `object_id=world_id`, `revision=resolved_snapshot_revision_id`). If a
+   campaign lens/focus is present, store references to the actual campaign and
+   session objects at that same snapshot revision; if a head/freshness pin is
+   needed, store the actual World Graph head revision separately. Set
+   `selected_object` to the actual selected Graph node's kind and ID at the
+   resolved snapshot revision, or absent when no node was selected. The
+   original caller mode/scope/revision-pin/focus/selected-node remain in the
+   submitted-intent fingerprint for retry equality. ARCHITECTURE must confirm
+   that these kind values and snapshot-scoped campaign/session references are
+   truthful `HistoricalReference` semantics; do not implement this candidate
+   until ratified.
+2. **Replay divergence:** the existing response's
+   `AgentTurnContentBasis.has_divergent_working_copy` is not present in the
+   durable `HistoricalReference`; it is not equivalent to the client's
+   `client_work_state`. A replay cannot fabricate it or consult today's
+   working copy and still claim to return the original exact basis. ARCH and
+   DEMO must decide whether exact-basis successor compatibility requires this
+   original boolean. If yes, the current durable type/lease is insufficient
+   without an explicitly authorized persistence contract change. Do not
+   silently return a current value or map client state into it. The existing
+   `object_revision`, WorkRevision UUID/number, and content SHA can reconstruct
+   the immutable content identity, but not this original divergence value.
+3. **Archived history:** `AgentConversationService.list_turns` can read a
+   specified conversation, but the existing public history route only reads
+   the active pointer. After New Conversation, the old transcript is not
+   accessible through that route. Decide whether the existing POST replay's
+   response fields suffice for the successor or whether an authenticated
+   archived-conversation history contract is required. Any new query parameter,
+   route, or response field needs explicit public API authority and a named
+   owner; it is not part of the five-path lease.
+4. **Claim/runtime bound:** use `claim_turn` directly so a live claim is
+   pending and an expired claim can be reclaimed. Renew under the existing
+   bounded lease, tracking each renewed revision as the only valid fence for
+   completion/failure, or provide an owning-boundary proof that the full
+   configured runtime is shorter than the chosen lease. The default Hermes
+   turn wait (120s) already exceeds the 60s default lease; readiness and accept
+   waits also count. Test both renew and stale-fence outcomes.
+5. **Completion persistence:** retry transient `complete_turn` writes with
+   the same in-memory provider output and same live fence for a bounded number
+   of attempts. The existing completion method recognizes the same result if
+   a prior commit succeeded but its acknowledgment was lost. If retries exhaust
+   or the fence is lost, return a truthful indeterminate/pending outcome; do
+   not redispatch, fabricate success, or mark a stale fence completed.
+
+These are exact acceptance gates, not a request to narrow the original runtime
+mission. Keep the five implementation paths, current schema, and current
+public API unchanged unless PRIME explicitly transfers the missing contract.
 
 ### Runtime ordering and receipt contract
 
@@ -298,14 +393,15 @@ answer or claim exactly-once provider calls.
 
 ### Required owning-boundary evidence
 
-- **Service tests** (`tests/test_agent_turn_service.py`): exact completed
-  receipt after Plan/head and active-pointer rotation returns the old result
-  without current Plan/Graph/provider lookup or another dispatch; changed
-  semantic fields conflict while changed `client_thread_id` does not. A live
-  claim returns pending with zero second dispatch; expiry/reclaim advances
-  revision and attempt; renew returns the current fence; stale completion and
-  failure fail before and after reclaim; persistence retry reuses the same
-  provider output.
+- **Service/claim behavior, within this five-path lease:** exercise these
+  owning-boundary cases in `tests/test_agent_turn_route.py` and
+  `tests/application_state/test_agent_conversation_postgres.py`: exact completed
+  receipt after Plan/head and active-pointer rotation; semantic conflict versus
+  routing-only `client_thread_id`; live claim pending without a second dispatch;
+  expiry/reclaim advancing revision and attempt; renew returning the current
+  fence; stale completion/failure before and after reclaim; and bounded
+  same-output persistence retry with no provider redispatch. Do not add the
+  unleased `tests/test_agent_turn_service.py` path.
 - **Route tests** (`tests/test_agent_turn_route.py`): prove authorization,
   ordering, request normalization, response/status behavior, and zero provider
   work for invalid World/work scope or an unverifiable receipt. Prove existing
@@ -334,9 +430,35 @@ answer or claim exactly-once provider calls.
   the existing #833 witness remains historically complete but is not full J4
   or J1–J6 acceptance.
 
-No test result is presumed by this packet. Record exact commands, environments,
-failures, and evidence on the successor before requesting review.
+### Exact-head evidence and known limits
 
-Until activation, this design grants no write, provider, database, service,
-port, shared-runtime, or product-state authority. D0 appearance and J1–J6
-acceptance remain independent open gates.
+At PR head `5674cf6f792c3516c4b99fdd2a2a6ac3eeab6991`:
+
+- The implementation checkout ran the route and PostgreSQL suites with the
+  provisioned disposable PostgreSQL 16 fixture using the mode-0600
+  `/tmp/prime-app-state-pr865-20261003.dsn` file:
+  `set -a; . /tmp/prime-app-state-pr865-20261003.dsn; set +a; timeout 240s /home/drakosfire/.codex/worktrees/agent-world-conversation-backend/DungeonMindBuddy/.venv/bin/pytest -p no:cacheprovider -q tests/test_agent_turn_route.py tests/application_state/test_agent_conversation_postgres.py`
+  — **25 passed in 24.28s**. Ruff and `git diff --check` passed on the five
+  changed paths. The run used uniquely named `dungeonbuddy_app_state_test_*`
+  databases; it did not use a configured provider, production database, or
+  live product state. Eleven existing Pydantic `schema`-shadow warnings were
+  emitted.
+- DEMO independently reports **19 passed** in
+  `tests/test_agent_turn_service.py` at the same head. Its “expired” cases are
+  Hermes pointer TTL cases, not APP claim expiry/reclaim evidence; this file is
+  not part of the current five-path lease.
+- These results verify the implemented subset only. Historical Graph/Plan
+  recovery, claim expiry/reclaim/renewal/fencing, maximum-runtime versus lease,
+  retained-output persistence retry, replay divergence semantics, and archived
+  conversation consumer compatibility remain open. The PR description records
+  HOLD; no merge, DEMO cutover, operator acceptance, or live-provider witness
+  is claimed.
+
+Do not treat the 44 reported test passes as full acceptance. Record new exact
+commands, environment, failures, and owning-boundary evidence on this handoff
+before requesting another review.
+
+The bounded five-path repair lease does not grant live-provider, production
+database, shared-runtime, or product-state authority. D0 appearance, the DEMO
+consumer witness, operator acceptance, and J1–J6 acceptance remain independent
+open gates. No merge is authorized.
