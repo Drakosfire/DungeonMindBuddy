@@ -5,6 +5,8 @@ import { usePublishSurfaceInteraction } from "../agentInteraction/usePublishSurf
 import { PeekRegionProvider, PeekRegionSlot } from "../surfaceInteraction/peekHost";
 import { ToolHostView, type ToolHostViewGroup } from "../surfaceInteraction/toolHost/ToolHostView";
 import type { SurfaceInteractionPublication } from "../surfaceInteraction/types";
+import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
+import { WorldPlanSurfaceContext } from "../planSurface/components/PlanSurfaceContext";
 import "../styles.css";
 
 const groups: readonly ToolHostViewGroup[] = [{
@@ -120,11 +122,24 @@ function EditHostDockFixture({ surfaceId }: { surfaceId: "index" | "plan" }) {
 
 function EditHostDockStory({ surfaceId }: { surfaceId: "index" | "plan" }) {
   return (
-    <AgentInteractionProvider>
-      <PeekRegionProvider>
-        <EditHostDockFixture surfaceId={surfaceId} />
-      </PeekRegionProvider>
-    </AgentInteractionProvider>
+    <SurfaceContextProvider>
+      {surfaceId === "plan" ? (
+        <WorldPlanSurfaceContext
+          worldId="visual-fixture-world"
+          worldName="Visual fixture World"
+          documentId={null}
+          localDraftId="visual-fixture-draft"
+          records={[]}
+          onSelect={noAction}
+          onNewPlan={noAction}
+        />
+      ) : null}
+      <AgentInteractionProvider>
+        <PeekRegionProvider>
+          <EditHostDockFixture surfaceId={surfaceId} />
+        </PeekRegionProvider>
+      </AgentInteractionProvider>
+    </SurfaceContextProvider>
   );
 }
 
