@@ -60,6 +60,36 @@ describe("Tiptap rich text Markdown export", () => {
     ).toBe("> [!RULES]\n> **Gate**, *Civilians*, and `Cure Line`\n");
   });
 
+  it("serializes root blockquotes with paragraph and blank-line boundaries", () => {
+    expect(
+      tiptapJsonToSemanticMarkdown({
+        type: "doc",
+        content: [{
+          type: "blockquote",
+          content: [
+            {
+              type: "paragraph",
+              content: [
+                { type: "text", text: "First ", marks: [{ type: "bold" }] },
+                { type: "text", text: "paragraph." },
+              ],
+            },
+            {
+              type: "paragraph",
+              content: [
+                {
+                  type: "graphNodeReference",
+                  attrs: { nodeId: "node:captain-lysandra-ironveil", label: "Lysandra" },
+                },
+                { type: "text", text: " returns." },
+              ],
+            },
+          ],
+        }],
+      }),
+    ).toBe("> **First **paragraph.\n>\n> [Lysandra](dmb-node:node:captain-lysandra-ironveil) returns.\n");
+  });
+
   it("escapes Markdown controls and hardens code spans containing backticks", () => {
     expect(
       tiptapJsonToSemanticMarkdown({

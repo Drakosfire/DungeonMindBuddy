@@ -10,6 +10,7 @@ export interface SemanticMarkdownSerializationDiagnostic {
 
 type JsonNode = {
   type?: unknown;
+  text?: unknown;
   attrs?: Record<string, unknown> | null;
   content?: unknown;
   marks?: unknown;
@@ -37,6 +38,7 @@ const LIST_ITEM_CHILD_TYPES = new Set([
   "decisionConsequence",
   // Tables stay out: markdownAdmission.visitTable blocks list-item tables.
 ]);
+const BLOCKQUOTE_CHILD_TYPES = new Set(["paragraph"]);
 const DECISION_CONSEQUENCE_CHILD_TYPES = new Set(["decisionPane", "consequencePane"]);
 const PANE_CHILD_TYPES = new Set([
   "paragraph",
@@ -126,6 +128,30 @@ export function semanticMarkdownSerializationDiagnostics(
       case "runbookReference":
       case "graphNodeReference":
       case "horizontalRule":
+        return;
+      case "blockquote":
+        if (parentType !== "doc") {
+          diagnostics.push(warning("Plain blockquotes are only supported at the document root.", type));
+        }
+        if (children.length === 0) {
+          diagnostics.push(warning("Plain blockquotes must contain at least one paragraph.", type));
+        }
+        for (const child of children) {
+          const childType = typeof child.type === "string" ? child.type : "unknown";
+          if (!BLOCKQUOTE_CHILD_TYPES.has(childType)) {
+            diagnostics.push(warning(
+              `Plain blockquote child ${childType} is not supported by semantic Markdown.`,
+              childType,
+            ));
+          } else {
+            const inlineChildren = childNodes(child);
+            if (inlineChildren.length === 0 || inlineChildren.every((inline) =>
+              inline.type === "text" && (typeof inline.text !== "string" || inline.text.trim() === ""))) {
+              diagnostics.push(warning("Plain blockquote paragraphs must contain inline content.", childType));
+            }
+          }
+          visit(child, type);
+        }
         return;
       case "bulletList":
       case "orderedList":

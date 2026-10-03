@@ -36,6 +36,54 @@ describe("markdownToTiptapDoc", () => {
     ]);
   });
 
+  it("preserves root plain quotes, blank quote lines, marks, and graph links", () => {
+    const markdown = [
+      "> Read *boldly*, then [Lysandra](dmb-node:node:captain-lysandra-ironveil).",
+      ">",
+      "> Second **paragraph**.",
+      "",
+    ].join("\n");
+
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+    expect(imported.doc.content).toEqual([{
+      type: "blockquote",
+      content: [
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Read " },
+            { type: "text", text: "boldly", marks: [{ type: "italic" }] },
+            { type: "text", text: ", then " },
+            {
+              type: "graphNodeReference",
+              attrs: { nodeId: "node:captain-lysandra-ironveil", label: "Lysandra" },
+            },
+            { type: "text", text: "." },
+          ],
+        },
+        {
+          type: "paragraph",
+          content: [
+            { type: "text", text: "Second " },
+            { type: "text", text: "paragraph", marks: [{ type: "bold" }] },
+            { type: "text", text: "." },
+          ],
+        },
+      ],
+    }]);
+
+    const exported = tiptapJsonToSemanticMarkdown(imported.doc);
+    expect(exported).toBe([
+      "> Read *boldly*, then [Lysandra](dmb-node:node:captain-lysandra-ironveil).",
+      ">",
+      "> Second **paragraph**.",
+      "",
+    ].join("\n"));
+    expect(semanticMarkdownSerializationDiagnostics(imported.doc)).toEqual([]);
+    expect(markdownToTiptapDoc(exported).doc).toEqual(imported.doc);
+  });
+
   it("imports H1-H6 symmetrically with the serializer", () => {
     const markdown = ["# One", "## Two", "### Three", "#### Four", "##### Five", "###### Six", ""].join("\n");
     const imported = markdownToTiptapDoc(markdown);
@@ -611,6 +659,14 @@ describe("markdownToTiptapDoc", () => {
     expect(imported.diagnostics).toEqual(expect.arrayContaining([
       expect.objectContaining({ level: "warning", message: "Plain blockquotes are not supported yet." }),
     ]));
+  });
+
+  it("still blocks an indented root plain blockquote", () => {
+    const imported = markdownToTiptapDoc(" > indented quote\n");
+    expect(imported.diagnostics).toEqual(expect.arrayContaining([
+      expect.objectContaining({ level: "warning", message: "Indented or list-nested blockquotes/callouts are not supported yet." }),
+    ]));
+    expect(JSON.stringify(imported.doc)).not.toContain('"type":"blockquote"');
   });
 
   it("still blocks nested callout inside callout", () => {

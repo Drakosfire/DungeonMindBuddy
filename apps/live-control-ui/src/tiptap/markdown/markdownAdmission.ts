@@ -5,6 +5,7 @@ import type {
   Link,
   List,
   ListItem,
+  Paragraph,
   PhrasingContent,
   RootContent,
   Table,
@@ -588,8 +589,9 @@ type CalloutSegment = {
 /**
  * Classify a parser-established root blockquote as DungeonBuddy callout
  * segment(s). A marker line starts a new sibling segment (stacked sibling
- * callouts are existing clean behavior); content before any marker makes the
- * whole blockquote an unsupported plain quote.
+ * callouts are existing clean behavior). A blockquote with no marker returns
+ * no segments for the root plain-quote path; content before a later marker
+ * makes the whole blockquote an unsupported mixed callout.
  */
 function splitCalloutSegments(node: Blockquote, state: VisitorState): CalloutSegment[] | null {
   const stripped = spanLines(node, state).map((line) => line.replace(/^\s{0,3}> ?/, ""));
@@ -615,7 +617,9 @@ function splitCalloutSegments(node: Blockquote, state: VisitorState): CalloutSeg
       sawOrphanContent = true;
     }
   });
-  return sawOrphanContent ? null : segments;
+  // A plain quote has no markers at all. Orphan content is only a mixed
+  // callout classification failure when a later marker is present.
+  return sawOrphanContent && segments.length > 0 ? null : segments;
 }
 
 /** Marker classification for a nested blockquote, read from its parsed first paragraph. */
@@ -1008,16 +1012,48 @@ function visitPaneBlockquote(node: Blockquote, state: VisitorState): TiptapNode[
   return content.length > 0 ? content : [{ type: "paragraph", content: [] }];
 }
 
+function plainBlockquoteFallback(node: Blockquote, state: VisitorState): TiptapNode[] {
+  const stripped = spanLines(node, state).map((line) => line.replace(/^\s{0,3}> ?/, ""));
+  return [paragraphFromText(stripped.join("\n"))];
+}
+
+function visitPlainBlockquote(node: Blockquote, state: VisitorState): TiptapNode[] {
+  const children = node.children ?? [];
+  const paragraphs = children.filter((child): child is Paragraph => child.type === "paragraph");
+  if (paragraphs.length === 0 || paragraphs.length !== children.length) {
+    warn(state, "Plain blockquotes only support paragraph children yet.", nodeStartLine(node));
+    return plainBlockquoteFallback(node, state);
+  }
+  if (paragraphs.some((paragraph) => paragraph.children.length === 0
+    || paragraph.children.every((child) => child.type === "text" && child.value.trim() === ""))) {
+    warn(state, "Plain blockquote paragraphs must contain inline content.", nodeStartLine(node));
+    return plainBlockquoteFallback(node, state);
+  }
+
+  const diagnosticCount = state.diagnostics.length;
+  const content = paragraphs.map((child) => visitParagraph(child, "nested", state));
+  if (state.diagnostics.length !== diagnosticCount) {
+    // Keep the former sealed projection for unsupported inline constructs. The
+    // diagnostics prevent Save, while avoiding a quote node that the semantic
+    // serializer cannot faithfully recreate.
+    return plainBlockquoteFallback(node, state);
+  }
+  return [{ type: "blockquote", content }];
+}
+
 function visitBlockquote(node: Blockquote, context: AdmissionContext, state: VisitorState): TiptapNode[] {
   if (context === "document") {
-    if ((node.position?.start.column ?? 1) !== 1) {
+    const isRootSourceForm = (node.position?.start.column ?? 1) === 1;
+    if (!isRootSourceForm) {
       warn(state, "Indented or list-nested blockquotes/callouts are not supported yet.", nodeStartLine(node));
     }
     const segments = splitCalloutSegments(node, state);
-    if (segments === null || segments.length === 0) {
+    if (segments === null) {
       warn(state, "Plain blockquotes are not supported yet.", nodeStartLine(node));
-      const stripped = spanLines(node, state).map((line) => line.replace(/^\s{0,3}> ?/, ""));
-      return [paragraphFromText(stripped.join("\n"))];
+      return plainBlockquoteFallback(node, state);
+    }
+    if (segments.length === 0) {
+      return isRootSourceForm ? visitPlainBlockquote(node, state) : plainBlockquoteFallback(node, state);
     }
     return segments.map((segment) => visitCalloutSegment(segment, state));
   }
