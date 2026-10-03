@@ -59,3 +59,7 @@ Browser connectivity recovered. Verified Warehouse inspection shows two connecte
 ## Direction checklist follow-up
 
 Compact single-line Choices disclosure; source Location remains visible across block tabs. Browser checked a rescue option in Plan and logged it, showing a new separate local direction record and preserved prior notes. Fixture/model checks pass, including suppression across Beat scenes, later activation and document isolation. Export retains stable choice IDs plus readable labels/timestamps for later recap input. Flags never disable scene navigation.
+
+## Retained decisions and unexpected action notes
+
+Fixed clearing of logged checklist selections; migrated existing logs back into scene selections once. Browser verified Prioritize the sleepers remains checked after Next → Previous and refresh. Renamed the optional sidebar Decision log and explained browser-local storage / Files export. Logging no longer forces the sidebar open; unchanged repeated submissions are guarded. Something else has a persistent note field that selects that action while typing and stores its text with the direction record. Screenshot: `evidence/retained-decisions.png`.
