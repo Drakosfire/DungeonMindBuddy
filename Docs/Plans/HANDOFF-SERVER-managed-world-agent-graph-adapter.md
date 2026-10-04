@@ -8,13 +8,13 @@
 
 ## Re-anchored basis
 
-- DungeonMindBuddy main: `d8e861661716d2fa8c1fb1e3e56ef08268d32da8` (includes merged #904 at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` and merged #907).
+- DungeonMindBuddy main: `a1d2424a986328a9459631c0634da67bc91d1620` (includes merged #904 at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` and merged #907; latest Plan-to-Play settlement is included).
 - DungeonOverMind architecture and ownership authorities were refreshed at `9a80ab328a687039519569855c2b25a4ee7df07b`.
 - Open Buddy PRs rechecked for collisions:
   - #886 remains open and owns Plan navigation/shell paths; `PlanSurfacePage.test.tsx` belongs to its mounted-harness repair follow-up. No path overlap with this handoff.
   - #826 remains open and owns managed World/KnowledgeSpace provisioning, registry, and binding implementation paths. No path overlap with this handoff.
   - #904 Agent composer merged as `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0`; it preserves graphless exact-basis Plan Ask.
-  - #907 Plan-to-Playable design merged at current main `d8e861661716d2fa8c1fb1e3e56ef08268d32da8`; it does not alter Graph receipt ownership or replay semantics.
+  - #907 Plan-to-Playable design and its follow-up settlement are merged at current main `a1d2424a986328a9459631c0634da67bc91d1620`; it does not alter Graph receipt ownership or replay semantics.
   - Merged #898 remains an APP-STATE Plan Ask projection and does not change the Graph receipt contract.
 - This proposed handoff file is still absent from main. Recheck current heads, leases, and path collisions before activation.
 
