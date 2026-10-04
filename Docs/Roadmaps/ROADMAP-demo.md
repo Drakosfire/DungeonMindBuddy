@@ -191,9 +191,12 @@ lease is released. The inherited UI typecheck failure at
 - Operator UI 5202/API 8000 and DOGFOOD 5203 remain reserved; no dispatch
   authorizes replacing those runtimes.
 
-**Saved-Plan card projection — ACTIVE (2026-10-04):** DEMO is implementing the
-single serial card/document projection PR from `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`
-on `codex/demo-first-saved-plan-card-projection`. The view is a read-only lens
+**Saved-Plan card projection — ACTIVE (2026-10-04):** DEMO delivered the single
+serial card/document projection in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909),
+opened against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190` from
+`codex/demo-first-saved-plan-card-projection`. Its initial implementation head
+is `ffd83e424bb238dc2331cf55ab6237993bc0762e`; the PR's current exact head is
+authoritative in GitHub metadata. The view is a read-only lens
 over the same mounted editor draft; supported edits stay in Document and use
 ordinary Save plus a fresh reopen. It adds no card store, parser admission,
 Run, Graph, or J1–J6 acceptance. Focused suites pass 238/238: the new model and
@@ -205,8 +208,8 @@ typecheck still reports only
 On the isolated synthetic preview, desktop 1280×800 had no horizontal overflow
 (document width 1265px); mobile 390×844 had body width 375px and a 335px card
 region with 20px side insets. The mobile heading/grid styles applied. Exact
-cumulative-diff review and PR publication remain before this lane is handed to
-PRIME. Ports 5202, 8000, and 5203 remain untouched.
+cumulative-diff review is complete; PRIME's independent review remains. No
+merge or J1–J6 acceptance is claimed. Ports 5202, 8000, and 5203 remain untouched.
 
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at

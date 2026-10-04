@@ -10,7 +10,7 @@ design_base: "Buddy main 4efada56aa93d529bf49128d82ba2d097b074af1"
 activation_base: "Buddy main e7b1464af6474e64a0f36c8a2fc57927b85db190"
 pr_topology: serial
 implementation_branch: codex/demo-first-saved-plan-card-projection
-implementation_pr: one_serial_pr_authorized
+implementation_pr: "https://github.com/Drakosfire/DungeonMindBuddy/pull/909"
 ---
 
 # HANDOFF — DEMO: saved World Plan card projection
@@ -365,5 +365,8 @@ World/Plan data:
   `/api/live/query` route does not establish canonical World conversation or
   Graph provenance. No clean-draft Graph basis is adopted by this slice.
 
-The ACTIVE lease remains open for cumulative diff review, final handoff evidence,
-commit, push, and the one assigned PR. PRIME owns review and merge.
+The implementation was delivered in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909)
+against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`, initially at head
+`ffd83e424bb238dc2331cf55ab6237993bc0762e`. The PR is open for PRIME's
+independent review; GitHub PR metadata carries its current exact head. The ACTIVE
+lease remains in review and PRIME owns merge.
