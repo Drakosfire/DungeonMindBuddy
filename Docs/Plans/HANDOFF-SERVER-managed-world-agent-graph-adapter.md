@@ -1,10 +1,10 @@
 # Handoff: Managed World Agent Graph Adapter
 
-**Status:** BLOCKED — reviewed design only; no implementation lease is active.  
+**Status:** BLOCKED — proposal only; no implementation lease is active.  
 **Implementation owner:** DungeonMindBuddy owns Agent orchestration and its runtime adapter.  
 **Receipt owner:** APP-STATE owns durable Agent conversation/provenance contracts.  
 **Authority owners:** Buddy owns managed World verification/binding; DungeonMind owns native graph authority and reads.  
-**Design reference:** Server PR #36 at exact head `be6cf4789500949aa58562b09304d7b7d9b5cd0b` (temporary steward-side copy; this Buddy handoff supersedes it).
+**Historical design source:** Server PR #36 at exact head `be6cf4789500949aa58562b09304d7b7d9b5cd0b` was a steward-side proposal held by PRIME for incorrect repository ownership and replay semantics; it was not formally accepted. This Buddy handoff carries forward its useful source analysis with corrected ownership and replay rules.
 
 ## Re-anchored basis
 
