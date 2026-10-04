@@ -41,6 +41,86 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
   Existing review, live-witness and owner/lease holds remain prerequisites;
   this assignment does not approve #785 or any other pending PR.
 
+## Card adoption direction — operator decision, 2026-10-03
+
+**Status:** ADOPTED product direction and sequencing; production card implementation
+requires a bounded Buddy-owned ACTIVE handoff. The operator authorized PRIME to
+publish this documentation directly to remote main. This records direction,
+not completion or approval of an unreviewed runtime change.
+
+Adopt the useful interaction model demonstrated by DOGFOOD: connected scene cards,
+scene lenses, choices, a grouped outline, location/map navigation, readable source
+material and contextual writing. Plan is the editable preparation view; Play is
+the interactive view of the same authored material. Preserve the prototype and
+its private source/media/state snapshots as design and regression evidence.
+Buddy PR #887 at `5e2ef9f144e18f643dc1caa8316904dbfc801236` is the current
+preserved reference, not an accepted production implementation or frozen gold.
+
+### Delivery order
+
+1. Finish the active bounded Agent panel usability slice: one shared message
+   composer with Discuss / Propose edit intent, inline proposal review/apply,
+   Settings for memory-only credentials and collapsed advanced diagnostics.
+   Apply changes the draft; Save keeps the changes. Preserve existing exact-basis,
+   recovery and save-fidelity protections. No new backend intent-routing contract
+   is implied. Plan Ask remains graphless until its separately reviewed integration.
+2. Bring J5 card presentation forward alongside J2. DEMO designs and pins the
+   first production adoption slice against an existing saved World Plan, using
+   Session 29 as the primary operator example. Prove card/document view equivalence,
+   supported edits, source/marker/link preservation, explicit Save and fresh reopen.
+   Consume the accepted document/edit controllers; do not copy browser-local
+   prototype persistence into production. Reuse the scene/block grammar where it
+   fits; justify a missing contract before changing it. Full adventure ingestion,
+   sound cues and all style controls are not prerequisites to this first slice.
+3. Attach the shared World conversation to the selected card through the generic
+   active-surface context contract. Define target identity and revision fences,
+   then prove conversational proposal → inline review → Apply → Save → reopen.
+   The Agent knows the current surface and selection, not a separate Plan-only
+   identity. Card-targeting work follows the first card contract and is its own
+   bounded slice if it needs another capability or public contract.
+4. Connect the same authored content to a pinned Playable/Run. Keep current scene,
+   choices and inspection navigation coherent; record live notes, submitted rolls,
+   selected results and outcomes as durable Run state. Preparation and rehearsal
+   must remain distinguishable from actual session outcomes and graph canon.
+5. Enrich the board through independently advancing J3 Graph and J4 asset lanes,
+   then admit reviewed COMPOSITOR packages into that same production board. Use
+   Conks and Sheep as comparative source-backed examples after the saved-Plan
+   projection is proven. Do not make the first card renderer wait on full ingestion.
+
+### Existing milestones retain their meaning
+
+- J1: usable World preparation and source/document identity, including a card view.
+- J2: multi-turn collaboration and durable reviewed card/document edits.
+- J3: admitted Graph knowledge, reliable retrieval/citation and governed read-after-write.
+- J4: real generation, accepted statblock/image versions and usable references.
+- J5: cards/lenses/maps/choices make preparation a playable instrument.
+- J6: choices, rolls, combat state and outcomes survive navigation/restart/resume.
+
+No J1–J6 gate is closed by prototype screenshots or this reprioritization. Existing
+#886 geometry, #869 movement and independent Graph/auth acceptance holds remain.
+The operator's live 5202 session is reserved; coordinate any replacement with
+SERVER and PRIME rather than restarting it for a fixture.
+
+### Ownership and next dispatch
+
+DEMO owns the product contract, first bounded production card handoff and
+implementation sequence. ARCHITECTURE critiques reuse of document/Playable,
+surface targeting, media and presentation contracts. APP-STATE owns any required
+durable Run/notes/action-state change after the relevant contract is bounded;
+no schema implementation is activated by this direction. SERVER owns runtime,
+local credentials and Graph adapter integration. DungeonMind remains Graph
+knowledge/evidence authority; COMPOSITOR produces source-backed packages for
+DungeonMind admission and Buddy projection, not a competing knowledge store.
+
+DOGFOOD supplies the pinned behavior inventory, representative fixtures and
+observed usability evidence, and preserves private corpora/media outside Git.
+RAKE DUTY advances the next free slice through targeted reconnaissance and
+bounded tasks delegated by owners, without editing active leases or becoming a
+passive status watcher. PRIME reviews exact implementation heads and coordinates
+merges. Each new runtime slice declares its paths, contracts, resource ownership
+and owning-boundary evidence before implementation. Product acceptance includes
+operator use; visual polish alone does not establish durable or Graph behavior.
+
 ## Current execution checkpoint
 
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps

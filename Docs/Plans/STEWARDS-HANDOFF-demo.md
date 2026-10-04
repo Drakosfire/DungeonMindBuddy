@@ -5,7 +5,7 @@
 **Owner:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`, appointed by the operator. The prior DEMO tasks `01a0885e-375c-7501-9f6e-a58528b39894` and `01a0edf2-b1e1-7281-9448-1d5524f8d4f8` retain history only; PRIME has frozen their #793 implementation and runtime authority.
 
 **Repository:** `Drakosfire/DungeonMindBuddy`  
-**Mandate amended:** 2026-09-29 — fresh DEMO transfer, three bounded World Plan slices and PRIME model routing
+**Mandate amended:** 2026-10-03 — production card adoption and J2/J5 sequencing; prior transfer and PRIME model routing retained
 **Execution state:** [ROADMAP-demo.md](../Roadmaps/ROADMAP-demo.md) only  
 **Transfer evidence:** [reconciliation report](../Reports/REPORT-DEMO-roadmap-reconciliation-2026-09-26.md)
 
@@ -31,7 +31,7 @@ Every navigable surface uses the global navbar and composable/configurable
 surface-specific subnav. World/document context belongs in that context area;
 node search stays in its existing toolbar. Formatting and component insertion
 belong in the existing edit host; tools belong in the existing tool host. Preserve
-the central space as a clean content canvas. Place advanced developer/agent
+the central space for the authored content. Place advanced developer/agent
 metadata in collapsed details. Keep actionable errors and recovery decisions
 visible where the user can resolve them.
 
@@ -49,6 +49,30 @@ controllers/contracts; it must not create competing stores of graph truth.
 Document drafts, accepted graph knowledge and mutable Run state retain their
 actual ownership. A fresh blank World must be usable before campaign, corpus or
 published graph-head existence.
+
+## Current card adoption mandate — 2026-10-03
+
+The operator adopted connected cards, scene lenses, choices, map/location
+navigation and contextual writing as the production Plan/Play direction.
+[The roadmap's card adoption section](../Roadmaps/ROADMAP-demo.md#card-adoption-direction--operator-decision-2026-10-03)
+is the current delivery order and supersedes any unstarted ordering in the
+historical transfer section below. Completed work and existing holds remain.
+
+Finish the active single-composer Agent panel slice, then design/pin one bounded
+production card projection over an existing saved World Plan. Bring J5's
+presentation forward alongside J2; do not wait for the full ingestion program.
+Use Session 29 for operator acceptance and preserved DOGFOOD #887 behavior as
+reference. Preserve accepted document/controllers, revisions, save fidelity,
+shared surface context and Run ownership. Prove Save/reopen, not browser-local
+prototype persistence. Card-targeted Agent edits, durable Play notes/outcomes,
+Graph enrichment, media and COMPOSITOR package admission follow in separately
+bounded slices where their contracts require it.
+
+Coordinate contract critique with ARCHITECTURE and state changes with APP-STATE;
+use DOGFOOD evidence and RAKE's forward reconnaissance. No prototype source is
+accepted automatically as production code or frozen gold. This mandate permits
+DEMO to design and deliver the named Buddy slices under repository policy;
+it does not grant another owner's schema/write lease or waive PRIME review.
 
 ## Immediate delivery order and sequencing
 
