@@ -1,7 +1,7 @@
 ---
 title: Selected Playable-card body editing in a managed-World Plan
 document_class: design
-status: BLOCKED
+status: accepted
 created_at: "2026-10-04"
 workstream: DEMO
 design_base: "Buddy main 60e1f672441c509f45561f717611af767ece20a1"
@@ -10,11 +10,7 @@ pr_topology: serial
 
 # DESIGN — Selected Playable-card body editing
 
-> **Status: BLOCKED.** The current proposal action receipt does not identify a
-> selected Playable card. Correct replay and durable history require typed target
-> identity in the request, response, fingerprint and action record. SERVER and
-> APP-STATE contract reviews, exact path lease and activation are outstanding.
-> This document authorizes no implementation or migration.
+**Status: accepted.** #912 reviewed head `44acb1420ee8edadef4201e6f510a29718df172b` merged at `de82370d1a33ada648e22ec087b6eb02aa28532a`, with final SERVER, APP-STATE and ARCHITECTURE acceptance. Execution authority and exact path/resource lease live in the companion implementation handoff. Required parity/protected-structure/race and migration evidence is a pre-implementation-merge gate; this design claims no implemented capability or operator acceptance.
 
 ## 1. User outcome
 
@@ -299,9 +295,7 @@ replay is outside this design.
 
 APP-STATE accepted the storage shape on original packet head
 `8f023095ef3a6b26ddf35f831a0282b31f8edbbc`; SERVER reviewed head
-`649b87df28ea209bca9cb23e54a6a4bf437e28e2`. Final owner acceptance of this
-exact amendment remains pending. PRIME has authorized the bounded design and
-draft PR, but not implementation or migration. If an owner requires
+`649b87df28ea209bca9cb23e54a6a4bf437e28e2`. SERVER, APP-STATE and ARCHITECTURE accepted the exact final amendment. PRIME separately activated the bounded implementation and isolated-test migration under the companion handoff; no operator/shared-database migration is authorized. If an owner requires
 marker/relationship mutation, Run/parser admission changes, new Graph behavior,
 unrelated persistence or a second user capability, stop and return to PRIME
 for a scope decision.

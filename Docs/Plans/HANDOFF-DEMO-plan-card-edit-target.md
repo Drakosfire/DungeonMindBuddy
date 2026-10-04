@@ -1,55 +1,31 @@
 ---
 title: Managed-World Plan selected-card body Compose, Review and Apply
 document_class: implementation_handoff
-status: BLOCKED
+status: ACTIVE
 created_at: "2026-10-04"
 workstream: DEMO
 design_authority: "../Design/DESIGN-world-plan-card-edit-target.md"
 design_base: "Buddy main 60e1f672441c509f45561f717611af767ece20a1"
 pr_topology: serial
-implementation_branch: not_assigned
-implementation_pr: not_authorized
+implementation_branch: codex/demo-selected-card-body-edit
+implementation_pr: authorized_one_serial_pr
 ---
 
 # HANDOFF — Compose and Apply an edit to one Plan Playable body
 
-> This is a BLOCKED design packet. It grants no code, storage, migration,
-> runtime or implementation lease.
+## PRIME activation — 2026-10-04
 
-## Status and activation gate
+**Status: ACTIVE.** PRIME activates one selected-card body Compose/Review/Apply implementation PR from fresh Buddy remote main `de82370d1a33ada648e22ec087b6eb02aa28532a` (design #912 merge, reviewed head `44acb1420ee8edadef4201e6f510a29718df172b`). SERVER, APP-STATE and ARCHITECTURE accepted that exact design. This activation is pinned by the commit publishing this handoff; fetch and start from that commit before implementation.
 
-**Status: BLOCKED.** Buddy main 60e1f672441c509f45561f717611af767ece20a1 is
-the fresh design base. PR #911 is merged and its implementation handoff is
-SETTLED. The roadmap names selected-card Compose/Review/Apply as a serial
-successor, but the current World Plan proposal action receipt does not store a
-Playable target.
+**Owner/path contract:** DEMO is the sole writer for the exact §5 allowlist, including its co-owned SERVER and APP-STATE work. SERVER independently reviews canonical body/admission/fingerprint/response/race evidence. APP-STATE independently reviews nullable target storage, migration compatibility, constraints and fresh-service history. ARCHITECTURE retains the range/codec contract. PRIME independently reviews the cumulative diff and owning-boundary evidence before merge. No competing write lease is assigned to the reviewers.
 
-ARCHITECTURE determined that selected identity must bind proposal request,
-response, Apply and durable action history. The current fingerprint binds exact
-saved basis, draft digest, target kind and selected-text digest only. Two cards
-with identical bodies in the same draft therefore alias unless identity is
-added to request fingerprint and durable target provenance. APP-STATE's
-storage ruling on original packet head `8f023095ef3a6b26ddf35f831a0282b31f8edbbc`
-accepts one nullable typed receipt on the existing `plan_action.action` row,
-with no new table or Agent-conversation change. SERVER reviewed head
-`649b87df28ea209bca9cb23e54a6a4bf437e28e2` and required server-owned
-fingerprinting and conflict checks before current Plan/provider work. This
-amendment records the exact nullable receipt fields and candidate migration;
-final owner review of this exact version and implementation activation remain
-pending.
+**Fresh census:** PRIME fetched remote main, checked all eleven open PRs and their changed paths (#887/#869/#844/#826/#798/#781/#765/#764/#763/#761/#760), and found no overlap with §5. #887 is prototype-only. #911 is merged and SETTLED. Graph adapter #905 and Graph conversation remain BLOCKED and acquire no paths or migration lane here.
 
-Before activation, PRIME must record final SERVER and APP-STATE acceptance of
-this exact target request/response and durable action identity, including
-legacy no-target compatibility and pending/completed/uncertain behavior;
-approve the exact helper/test/path allowlist and migration; and re-anchor main,
-open PRs, active leases and test/runtime state. PRIME may then publish a fresh
-ACTIVE handoff. Until then, no implementation branch, code PR or migration is
-authorized under this document.
+**Migration:** current code chain ends at `20261003_0014`; APP-STATE accepted one nullable typed receipt on the existing action row. This lease authorizes exactly `20261004_0015_plan_action_playable_target.py`, parent `20261003_0014`, plus the named codec/constraints/history changes and two migration-head test assertions. Do not edit historical migrations, add tables, change conversation behavior, upgrade dependencies or run this migration against operator/shared data. Verify upgrade of populated 0014 fixtures preserves legacy no-target actions and their IDs/history, as well as fresh target persistence and malformed receipt rejection.
 
-The intended topology after all gates resolve is **serial**, with one
-implementation PR for the selected-card edit capability. It is not stacked on
-an unmerged behavior PR. This topology is proposed only; PRIME records the
-final activation order and exact active lane.
+**Topology/resources:** one serial implementation PR on `codex/demo-selected-card-body-edit`. Reuse the clean closed-Ask checkout `/tmp/dmb-demo-card-ask-02fa1188` after fetching this activation and switching to that branch. Provider fakes/synthetic fixtures only. Approved isolated PostgreSQL fixture: `/tmp/dmb-demo-appstate-pg`, loopback `127.0.0.1:55461`, per-test UUID databases, tests own migration state; coordinate its start/stop with PRIME. It is currently stopped. No operator 5202/8000/5203 or application database lease, live provider/corpus call, credential change or restart. Shared codec vectors live only in the exact fixture path in §5; test logs/output stay under `/tmp`.
+
+The parity/protected-structure/retry/race/migration and mounted Apply→Save→fresh-reopen evidence below is required before the implementation merges. Activation permits the code needed to produce that evidence. Stop for any extra path, new capability, schema head collision or inability to preserve canonical body/protected structure.
 
 ## 1. User action and invariant
 
@@ -204,8 +180,7 @@ cause an automatic second provider call.
 
 APP-STATE accepts the one nullable `playable_target_receipt` extension and the
 candidate `0015` migration stated above, conditional on a fresh activation
-re-anchor confirming the migration head is still `20261003_0014`. No
-implementation or migration is active. No Agent-conversation schema or
+re-anchor confirming the migration head is still `20261003_0014`. The exact implementation and isolated-test migration lease is active under PRIME activation above. No Agent-conversation schema or
 behavior change is part of this Plan-action receipt.
 
 ## 4. Owner boundaries
@@ -227,14 +202,11 @@ behavior change is part of this Plan-action receipt.
 
 APP-STATE accepted the storage shape on original packet head
 `8f023095ef3a6b26ddf35f831a0282b31f8edbbc`; SERVER reviewed head
-`649b87df28ea209bca9cb23e54a6a4bf437e28e2`. Final owner acceptance of this
-exact amendment is still pending. No owner may treat this design proposal as
-authority to implement its component.
+`649b87df28ea209bca9cb23e54a6a4bf437e28e2`. SERVER, APP-STATE and ARCHITECTURE accepted the exact final amendment; PRIME activation above governs the sole implementation lane.
 
-## 5. Candidate implementation paths for PRIME review
+## 5. Finalized ACTIVE exclusive write allowlist
 
-These are candidates, not a write lease. PRIME must re-check every path and
-active PR before activation and narrow or amend the list with each owner.
+Only these paths are leased. New helpers/tests are limited to the named body-target contract; no directory-wide write authority is granted.
 
 **DEMO / UI**
 
@@ -261,8 +233,7 @@ active PR before activation and narrow or amend the list with each owner.
 - tests/test_plan_playable_body_target.py
 - tests/test_world_plan_edit_proposal.py
 - tests/test_plan_document_edit_proposal.py
-- tests/fixtures/plan_playable_body_codec_v1.json, proposed shared UI/SERVER
-  golden vectors; PRIME must confirm this exact path in the ACTIVE lease
+- tests/fixtures/plan_playable_body_codec_v1.json — shared UI/SERVER golden vectors
 
 **APP-STATE**
 
@@ -270,25 +241,17 @@ active PR before activation and narrow or amend the list with each owner.
 - src/application_state/plan_action_dialogue/service.py
 - src/application_state/plan_action_dialogue/repository.py
 - tests/application_state/test_plan_action_dialogue_postgres.py
-- src/application_state/migrations/versions/20261004_0015_plan_action_playable_target.py,
-  only if fresh main still ends at revision 0014
+- src/application_state/migrations/versions/20261004_0015_plan_action_playable_target.py — exact accepted additive migration, parent 0014
 - tests/application_state/test_agent_conversation_postgres.py:146, update only
-  its migration-head assertion if 0015 is activated
+  its migration-head assertion for 0015
 - tests/application_state/test_agent_conversation_service.py:781-782, update
-  only its migration-head assertion if 0015 is activated
+  only its migration-head assertion for 0015
 
-APP-STATE accepted the nullable typed receipt storage direction. The candidate
-migration and head-assertion paths above are conditional, not an active lease.
-If migration head or exact test paths change at activation, return to PRIME.
-Do not modify migration 0014 or acquire conversation behavior paths; the two
-head assertions are the only allowed conversation-test changes if 0015 is
-activated.
+The migration and two head-assertion changes above are now included in the exclusive lease. No historical migration or conversation behavior change is authorized. A new remote schema head or competing migration requires re-sequencing with PRIME.
 
 **Mutable authority paths for activation and settlement**
 
-The future ACTIVE handoff must include these authority paths in its exact
-write lease so the successor can synchronize them coherently when the
-implementation completes:
+These authority paths are included for truthful contract and post-merge settlement:
 
 - Docs/Design/DESIGN-world-plan-card-edit-target.md
 - Docs/Plans/HANDOFF-DEMO-plan-card-edit-target.md
@@ -351,24 +314,15 @@ explicitly approves. No second implementation PR.
 Stop and return to PRIME if target validation requires Run readiness/admission,
 the range model cannot preserve adjacent Plan content, the proposal API needs a
 broader context contract, APP-STATE cannot preserve existing fingerprint
-compatibility, or SERVER/APP-STATE requests a different scope. Any schema or
-migration change remains blocked until APP-STATE accepts the contract and PRIME
-activates the exact path.
+compatibility, or SERVER/APP-STATE requests a different scope. Any additional schema or migration change requires a revised owner-approved contract and PRIME lease.
 
 ## 8. Runtime/state lane
 
-No ports, service process, live Plan, Graph, provider credentials or database
-are part of this blocked design lane. Future deterministic UI/server tests use
-fakes; APP-STATE database tests use its isolated test target only. At
-activation, name branch/base, checkout, services, ports, database, schema,
-output directories and runtime owner. Do not use the operator's 5202/8000/5203
-session or the prototype in #887.
+The activation block owns the exact isolated checkout/test database/output lane. No live Plan, operator service, Graph, provider credentials, prototype import or shared database is leased. Per-test database migrations and deterministic fixtures are authorized; no operator migration/deployment is implied.
 
 ## 9. Completion and settlement
 
-This design packet closes no roadmap milestone or J1–J6 gate. After owner
-contract acceptance, PRIME must publish a fresh ACTIVE handoff with an exact
-path lease and PR order. After implementation merges, record the exact reviewed
+This design packet closes no roadmap milestone or J1–J6 gate. Owner contract acceptance and the exact ACTIVE path lease are recorded above. After implementation merges, record the exact reviewed
 head, merge commit, owner reviews, test provenance, any accepted migration and
 remaining live/operator evidence in this handoff and ROADMAP-demo.md. Keep the
 connected DEMO journey unaccepted until its required rehearsal and operator
