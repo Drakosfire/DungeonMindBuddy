@@ -5,14 +5,15 @@
 **Original activation base:** Buddy `origin/main@1ded2275349f4e9ada1b67a6ab4f6061f9c2465e` (merged #885).
 **Current branch/worktree:** `codex/demo-plan-nav-shell-geometry-head` at `/home/drakosfire/.codex/worktrees/plan-nav-shell-restack/DungeonMindBuddy`.
 **Assigned PR:** #886, `DEMO: stabilize Plan navigation and Edit shell`.
-**PR topology:** serial. PRIME reviewed and merged #886 before successor work; the first saved-Plan card projection remains BLOCKED on RAKE's parser-conformance gate and a fresh ACTIVE handoff.
+**PR topology:** serial. PRIME reviewed and merged #886 before successor work. RAKE #908 settled the bounded duplicate-edge gate; PRIME then activated the saved-Plan card projection at `main@e7b1464af6474e64a0f36c8a2fc57927b85db190` under [its own handoff](HANDOFF-DEMO-saved-plan-card-projection.md). This historical #886 lease grants no card implementation authority.
 
 ## 2026-10-04 lease reconciliation
 
 The earlier #889 fidelity-guard freeze ended when #889 merged at
 `8dc639f06e05cf1809f42ecaba4c791ef21af66b`; #886 then owned the bounded Page
-and shell geometry slice. Current Buddy main is
-`4efada56aa93d529bf49128d82ba2d097b074af1`.
+and shell geometry slice. Before #908, Buddy main was
+`4efada56aa93d529bf49128d82ba2d097b074af1`; current main after #908 is
+`e7b1464af6474e64a0f36c8a2fc57927b85db190`.
 It includes #904 at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0`, #906 at
 `6feb3059b2da4d2ec29966ce9723f0effc70108f`, #907 at
 `d8e861661716d2fa8c1fb1e3e56ef08268d32da8`, and #905 plus its follow-up
@@ -25,9 +26,11 @@ integration, and prove desktop/mobile geometry on the isolated synthetic Ladle
 story. #886 merged at `4efada56aa93d529bf49128d82ba2d097b074af1` from tested
 head `502b54d713e32e48f160182170c87b4f41fca990`. The focused eight-file suite
 passed 187/187 and the mounted geometry gate passed 1/1. `PlanSurfacePage.tsx`
-and the shell/test paths are released from this lease. The first-card handoff is
-still BLOCKED: PRIME assigned RAKE the editor/server parser-conformance repair
-after a v2 duplicate-edge mismatch was found; no card code is active.
+and the shell/test paths were released from this lease. RAKE #908 later merged
+the bounded v2 duplicate-edge correction at `e7b1464af6474e64a0f36c8a2fc57927b85db190`;
+the fixture does not claim full grammar parity. PRIME activated the serial
+first-card implementation as a separate lease at that exact base. No card code
+was part of #886.
 
 At the start of final publication, remote #886 was Draft at
 `717727c33fe70fc154aee291e4397e2d53ac425c` and its body described an earlier

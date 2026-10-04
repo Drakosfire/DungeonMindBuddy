@@ -24,6 +24,8 @@ import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { WorldPlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
 import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
+import { WorldPlanCardProjection } from "./components/WorldPlanCardProjection";
+import "./components/WorldPlanCardProjection.css";
 import {
   applyWorldPlanEditProposal,
   captureWorldPlanEditTarget,
@@ -310,6 +312,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [editorGeneration, setEditorGeneration] = useState(0);
   const [selectionGeneration, setSelectionGeneration] = useState(0);
   const [editor, setEditor] = useState<Editor | null>(null);
+  const [selectedCardViewIdentity, setSelectedCardViewIdentity] = useState<string | null>(null);
   const importedMarkdown = useMemo(() => markdownToTiptapDoc(markdown), [markdown]);
   const editorContent = importedMarkdown.doc;
   const fidelityWarnings = useMemo(
@@ -1204,6 +1207,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     ],
   }, workObject) : null, [status, saving, fidelityBlocked, createUncertain, recoveryConflict, uncertainCreateDraft,
     documentId, markdown, title, documentActions, toolbarModel, workObject]);
+  const cardsViewActive = Boolean(documentId) && status === "ready"
+    && selectedCardViewIdentity === editorIdentity;
+  const cardProjectionDocument = editor?.getJSON() ?? editorContent;
+  const cardProjectionDirty = documentId !== null
+    && (markdown !== serverMarkdownRef.current || title !== serverTitleRef.current);
 
   return (
     <AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock">
@@ -1254,49 +1262,83 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             <ul>{fidelityWarnings.map((warning, index) => <li key={`${index}:${warning}`}>{warning}</li>)}</ul>
           </section>
         ) : null}
-        <PlanSurfaceCanvasFrame
-          className="world-owned-plan__canvas"
-          testId="world-owned-plan-editor"
-          identityLabel={documentId ? "Plan editor" : "Unsaved Plan draft"}
-          themeId="mireward-runbook"
+        <nav className="world-plan-view-switch" role="group" aria-label="Plan view" data-testid="world-plan-view-switch">
+          <button
+            type="button"
+            aria-pressed={!cardsViewActive}
+            onClick={() => setSelectedCardViewIdentity(null)}
+          >Document</button>
+          <button
+            type="button"
+            aria-pressed={cardsViewActive}
+            disabled={!documentId || status !== "ready" || !editor}
+            onClick={() => setSelectedCardViewIdentity(editorIdentity)}
+          >Cards</button>
+        </nav>
+        <div
+          className="world-plan-document-view"
+          data-testid="world-plan-document-view"
+          hidden={cardsViewActive}
+          aria-hidden={cardsViewActive}
         >
-          <MarkdownEditorCore
-            content={editorContent}
-            documentKey={editorIdentity}
-            editable={status === "ready" && !fidelityBlocked}
-            extensions={[SemanticMarkdownPaste]}
-            onEditorChange={setCurrentEditor}
-            dataTestId="world-owned-plan-markdown-editor"
-            onUpdate={(json: JSONContent, updatedEditor: Editor, meta) => {
-              if (!meta.programmatic && !switchingDocumentRef.current && status === "ready" && updatedEditor === editorRef.current) {
-                const currentFidelityIssues = getLiveFidelityWarnings(json);
-                if (currentFidelityIssues.length) {
-                  if (!fidelityBlocked) {
-                    setError(markdownFidelityRejectionText(currentFidelityIssues));
-                  }
-                  setEditorGeneration((value) => value + 1);
-                  return;
-                }
-                const next = defaultMarkdownDocumentAdapter.exportMarkdown(json);
-                const nextImport = markdownToTiptapDoc(next);
-                const nextFidelityIssues = markdownFidelityWarnings(nextImport.diagnostics, json);
-                if (nextFidelityIssues.length) {
-                  setError(markdownFidelityRejectionText(nextFidelityIssues));
-                  setEditorGeneration((value) => value + 1);
-                  return;
-                }
-                if (next === markdownRef.current) return;
-                markdownRef.current = next;
-                const generation = ++editGenerationRef.current;
-                setMarkdown(next);
-                persistEditorDraft(titleRef.current, next, generation);
-                setError(null);
-              }
-            }}
+          <PlanSurfaceCanvasFrame
+            className="world-owned-plan__canvas"
+            testId="world-owned-plan-editor"
+            identityLabel={documentId ? "Plan editor" : "Unsaved Plan draft"}
+            themeId="mireward-runbook"
           >
-            {(editor) => <EditorContent editor={editor} aria-label="Markdown plan" />}
-          </MarkdownEditorCore>
-        </PlanSurfaceCanvasFrame>
+            <MarkdownEditorCore
+              content={editorContent}
+              documentKey={editorIdentity}
+              editable={status === "ready" && !fidelityBlocked}
+              extensions={[SemanticMarkdownPaste]}
+              onEditorChange={setCurrentEditor}
+              dataTestId="world-owned-plan-markdown-editor"
+              onUpdate={(json: JSONContent, updatedEditor: Editor, meta) => {
+                if (!meta.programmatic && !switchingDocumentRef.current && status === "ready" && updatedEditor === editorRef.current) {
+                  const currentFidelityIssues = getLiveFidelityWarnings(json);
+                  if (currentFidelityIssues.length) {
+                    if (!fidelityBlocked) {
+                      setError(markdownFidelityRejectionText(currentFidelityIssues));
+                    }
+                    setEditorGeneration((value) => value + 1);
+                    return;
+                  }
+                  const next = defaultMarkdownDocumentAdapter.exportMarkdown(json);
+                  const nextImport = markdownToTiptapDoc(next);
+                  const nextFidelityIssues = markdownFidelityWarnings(nextImport.diagnostics, json);
+                  if (nextFidelityIssues.length) {
+                    setError(markdownFidelityRejectionText(nextFidelityIssues));
+                    setEditorGeneration((value) => value + 1);
+                    return;
+                  }
+                  if (next === markdownRef.current) return;
+                  markdownRef.current = next;
+                  const generation = ++editGenerationRef.current;
+                  setMarkdown(next);
+                  persistEditorDraft(titleRef.current, next, generation);
+                  setError(null);
+                }
+              }}
+            >
+              {(editor) => <EditorContent editor={editor} aria-label="Markdown plan" />}
+            </MarkdownEditorCore>
+          </PlanSurfaceCanvasFrame>
+        </div>
+        {cardsViewActive && documentId ? (
+          <WorldPlanCardProjection
+            key={editorIdentity}
+            worldId={worldId}
+            documentId={documentId}
+            document={cardProjectionDocument}
+            markdown={markdown}
+            sourceWarnings={fidelityWarnings}
+            revision={revisionRef.current}
+            contentSha256={serverDigestRef.current}
+            isDirty={cardProjectionDirty}
+            onReturnToDocument={() => setSelectedCardViewIdentity(null)}
+          />
+        ) : null}
         {status === "loading" ? <p role="status">Loading World Plan…</p> : null}
         {message ? <p role="status">{message}</p> : null}
         {error ? <p role="alert">{error}</p> : null}

@@ -331,3 +331,39 @@ Return to PRIME before writing code if:
 No acceptance claim may exceed the exact mounted Save/reopen tests, isolated
 preview, and operator use actually completed. This ACTIVE lease does not close
 J1–J6 or the operator acceptance gate.
+
+## DEMO implementation verification — 2026-10-04
+
+The following evidence is on the active serial branch and uses only synthetic
+World/Plan data:
+
+- `WorldPlanCardProjection.model.test.ts` and
+  `WorldPlanCardProjection.integration.test.tsx`, together with
+  `PlanSurfacePage.test.tsx`, `WorldPlanEditHost.integration.test.tsx`,
+  `playableStructureIndex.test.ts`, and `playableEdgeConformance.test.ts`:
+  **105/105 passed** across six files. The mounted witness confirms the same
+  editor node and selection survive view switching, the card lens reflects its
+  dirty draft, no prepare/commit runs before Save, exact marker order survives
+  the ordinary writer, and fresh reopen shows revision 6 and its returned
+  digest. A second mounted test confirms document/World changes retire the old
+  projection.
+- `markdownIngressCorpus.test.ts` and `usePlanMarkdownSave.test.ts`:
+  **133/133 passed** across two files. Total focused evidence is **238/238**.
+- The production Vite build succeeds into `/tmp/dmb-demo-card-build`; Vite emits
+  the repository's existing advisory about a JavaScript chunk above 500 kB.
+- `tsc -p tsconfig.app.json --noEmit --pretty false
+  --tsBuildInfoFile /tmp/dmb-demo-card-tsbuildinfo` reports only the inherited
+  `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503 Cannot
+  find namespace 'JSX'` error, outside this ten-path lease.
+- Synthetic browser preview on UI/API ports 54126/54127 uses no live service.
+  At desktop 1280×800, the card region measures 608px wide and the document
+  width is 1265px. At mobile 390×844, body width is 375px, the card region is
+  335px wide at a 20px inset, the one-column heading/grid styles apply, and the
+  document does not overflow the viewport. Operator UI/API 5202/8000 and
+  DOGFOOD 5203 were not opened or contacted; no Save was performed in preview.
+- The separate graphless Ask path was not exercised or changed. The legacy
+  `/api/live/query` route does not establish canonical World conversation or
+  Graph provenance. No clean-draft Graph basis is adopted by this slice.
+
+The ACTIVE lease remains open for cumulative diff review, final handoff evidence,
+commit, push, and the one assigned PR. PRIME owns review and merge.
