@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -12,6 +13,8 @@ from uuid import UUID
 from generationengine import GenerationClient, TextRequest
 from pydantic import ValidationError
 
+from application_state.agent_conversation import AgentConversationService
+from application_state.agent_conversation.types import PlanAskContextBasis
 from application_state.errors import ApplicationStateConflictError, ApplicationStateError
 from application_state.plan_action_dialogue import PlanActionDialogueService
 from application_state.plan_action_dialogue.types import (
@@ -24,6 +27,7 @@ from apps.live_control_server.models.plan_document_edit_proposal import (
     GeneratedPlanEditProposal,
     PlanDocumentEditProposalRequest,
     PlanDocumentEditProposalResponse,
+    PlanEditHistoryMessage,
     WorldPlanDocumentEditProposalRequest,
     WorldPlanDocumentEditProposalResponse,
 )
@@ -89,6 +93,10 @@ cannot_complete_reason and return empty replacement_markdown. Distinguish actual
 supplied context from proposed invention in assumptions. Never output an entire
 replacement document.
 """
+
+_PROPOSAL_CONTEXT_PAIR_LIMIT = 6
+_PROPOSAL_CONTEXT_MESSAGE_LIMIT = 4000
+_PROPOSAL_CONTEXT_TRUNCATION_SUFFIX = " …[truncated]"
 
 
 def _digest(text: str) -> str:
@@ -184,6 +192,8 @@ def _verified_world(root: Path, world_id: str) -> Any:
 def _action_fingerprint(
     request: WorldPlanDocumentEditProposalRequest, basis: PlanActionBasis
 ) -> str:
+    # Client conversation_history and server-projected context are mutable
+    # history, not explicit action intent. Keep them out of new action identity.
     return action_request_fingerprint(
         {
             "basis": basis.model_dump(mode="json"),
@@ -192,9 +202,202 @@ def _action_fingerprint(
             "target_kind": request.target_kind,
             "selected_text_sha256": _digest(request.selected_text),
             "instruction": request.instruction,
-            "conversation_history": [item.model_dump(mode="json") for item in request.conversation_history],
         }
     )
+
+
+def _matches_world_action_receipt(
+    action: Any, request: WorldPlanDocumentEditProposalRequest
+) -> bool:
+    """Compare typed intent while accepting old and new fingerprint versions.
+
+    WorkRevision identity is server-owned and is recovered from the saved basis.
+    The request carries only the World, document, object revision, and content
+    digest coordinates checked below. The stored request fingerprint is not a
+    replay witness because the previous algorithm included mutable history.
+    """
+    basis = getattr(action, "basis", None)
+    if basis is None:
+        return False
+    if (
+        getattr(action, "idempotency_key", None) != request.idempotency_key
+        or getattr(basis, "world_id", None) != request.world_id
+        or getattr(basis, "document_id", None) != request.document_id
+        or getattr(basis, "object_revision", None) != request.base_revision
+        or getattr(basis, "content_sha256", None) != request.base_content_sha256
+        or getattr(basis, "work_revision_id", None) is None
+        or getattr(basis, "revision_n", None) is None
+    ):
+        return False
+
+    expected_action_type = (
+        "compose" if request.target_kind == "insert_at_caret" else "revise"
+    )
+    expected_draft_matches_basis = request.draft_sha256 == basis.content_sha256
+    if (
+        getattr(action, "action_type", None) != expected_action_type
+        or getattr(action, "target_kind", None) != request.target_kind
+        or getattr(action, "instruction", None) != request.instruction
+        or getattr(action, "draft_sha256", None) != request.draft_sha256
+        or getattr(action, "draft_matches_basis", None) is not expected_draft_matches_basis
+    ):
+        return False
+
+    stored_selection_digest = getattr(action, "selected_text_sha256", object())
+    if request.target_kind == "insert_at_caret":
+        # #897 records no selection digest for a caret action. The new
+        # fingerprint still hashes the empty string; None has this meaning
+        # only with the matching target and validated empty request selection.
+        return request.selected_text == "" and stored_selection_digest is None
+    return (
+        bool(request.selected_text.strip())
+        and isinstance(stored_selection_digest, str)
+        and stored_selection_digest == _digest(request.selected_text)
+    )
+
+
+def _raise_for_action_status(action: Any) -> None:
+    code = {
+        "pending": "action_pending",
+        "completed": "action_already_completed",
+        "failed": "action_already_failed",
+        "indeterminate": "action_indeterminate",
+    }[action.status]
+    message = {
+        "pending": "This Plan action is still pending; it was not dispatched again.",
+        "completed": "This Plan action already completed; its proposal payload is not replayable.",
+        "failed": "This Plan action already failed; start a new action to try again.",
+        "indeterminate": "This Plan action has an unknown outcome; start a new action to try again.",
+    }[action.status]
+    raise PlanDocumentEditProposalError(code, message, status_code=409)
+
+
+def _bounded_context_text(text: str) -> str:
+    if len(text) <= _PROPOSAL_CONTEXT_MESSAGE_LIMIT:
+        return text
+    prefix_length = (
+        _PROPOSAL_CONTEXT_MESSAGE_LIMIT - len(_PROPOSAL_CONTEXT_TRUNCATION_SUFFIX)
+    )
+    return text[:prefix_length] + _PROPOSAL_CONTEXT_TRUNCATION_SUFFIX
+
+
+def _context_timestamp_utc(value: datetime) -> datetime:
+    if value.tzinfo is None or value.utcoffset() is None:
+        raise ValueError("completed context timestamp must include a timezone")
+    return value.astimezone(timezone.utc)
+
+
+def _server_owned_proposal_history(
+    action_store: Any, basis: PlanActionBasis
+) -> list[PlanEditHistoryMessage]:
+    """Read, merge, and bound completed pairs owned by the two source domains."""
+    try:
+        plan_pairs = action_store.completed_context(
+            basis, limit=_PROPOSAL_CONTEXT_PAIR_LIMIT
+        )
+    except Exception as exc:
+        raise PlanDocumentEditProposalError(
+            "proposal_context_unavailable",
+            "Completed Plan-action context is unavailable; no proposal was generated.",
+            status_code=503,
+        ) from exc
+
+    try:
+        ask_basis = PlanAskContextBasis.model_validate(
+            basis.model_dump(mode="python")
+        )
+    except Exception as exc:
+        raise PlanDocumentEditProposalError(
+            "proposal_context_invalid",
+            "The exact Plan basis could not be supplied to Ask context storage.",
+            status_code=503,
+        ) from exc
+    if ask_basis.model_dump(mode="json") != basis.model_dump(mode="json"):
+        raise PlanDocumentEditProposalError(
+            "proposal_context_invalid",
+            "The Ask context basis differs from the resolved Plan basis.",
+            status_code=503,
+        )
+    try:
+        ask_pairs = AgentConversationService().list_completed_plan_ask_context(
+            basis.world_id, ask_basis, limit=_PROPOSAL_CONTEXT_PAIR_LIMIT
+        )
+    except Exception as exc:
+        raise PlanDocumentEditProposalError(
+            "proposal_context_unavailable",
+            "Completed Plan Ask context is unavailable; no proposal was generated.",
+            status_code=503,
+        ) from exc
+
+    if (
+        not isinstance(plan_pairs, list)
+        or len(plan_pairs) > _PROPOSAL_CONTEXT_PAIR_LIMIT
+        or not isinstance(ask_pairs, list)
+        or len(ask_pairs) > _PROPOSAL_CONTEXT_PAIR_LIMIT
+    ):
+        raise PlanDocumentEditProposalError(
+            "proposal_context_invalid",
+            "A completed context projection exceeded its accepted result shape.",
+            status_code=503,
+        )
+
+    # (UTC acceptance time, source rank, source-local sequence, canonical UUID,
+    # user text, assistant text). Ask wins exact cross-source ties.
+    ordered_pairs: list[tuple[datetime, int, int, str, str, str]] = []
+    try:
+        for pair in plan_pairs:
+            if pair.basis != basis:
+                raise ValueError("Plan-action context returned a mismatched basis")
+            if not pair.instruction.strip() or not pair.assistant_summary.strip():
+                raise ValueError("Plan-action context returned empty visible text")
+            ordered_pairs.append(
+                (
+                    _context_timestamp_utc(pair.accepted_at),
+                    1,
+                    pair.action_sequence,
+                    str(pair.action_id),
+                    pair.instruction,
+                    pair.assistant_summary,
+                )
+            )
+        for pair in ask_pairs:
+            if pair.source_kind != "ask":
+                raise ValueError("Ask context returned a non-Ask source kind")
+            if not pair.question.strip() or not pair.answer.strip():
+                raise ValueError("Ask context returned empty visible text")
+            ordered_pairs.append(
+                (
+                    _context_timestamp_utc(pair.accepted_at),
+                    0,
+                    pair.source_sequence,
+                    str(pair.source_record_id),
+                    pair.question,
+                    pair.answer,
+                )
+            )
+    except Exception as exc:
+        raise PlanDocumentEditProposalError(
+            "proposal_context_invalid",
+            "A completed context projection returned invalid basis or pair data.",
+            status_code=503,
+        ) from exc
+
+    ordered_pairs.sort(key=lambda item: item[:4])
+    messages: list[PlanEditHistoryMessage] = []
+    for _, _, _, _, question_or_instruction, answer_or_summary in ordered_pairs[
+        -_PROPOSAL_CONTEXT_PAIR_LIMIT :
+    ]:
+        messages.extend(
+            (
+                PlanEditHistoryMessage(
+                    role="user", content=_bounded_context_text(question_or_instruction)
+                ),
+                PlanEditHistoryMessage(
+                    role="assistant", content=_bounded_context_text(answer_or_summary)
+                ),
+            )
+        )
+    return messages
 
 
 def _validate_world_authority(
@@ -262,15 +465,19 @@ def _prompt(request: PlanDocumentEditProposalRequest) -> str:
     return json.dumps(context, ensure_ascii=False, separators=(",", ":"))
 
 
-def _world_prompt(request: WorldPlanDocumentEditProposalRequest) -> str:
-    # This body is exclusively the client's explicit mounted-draft context.
-    # The committed snapshot is read only for authority/digest validation.
+def _world_prompt(
+    request: WorldPlanDocumentEditProposalRequest,
+    *,
+    server_history: list[PlanEditHistoryMessage],
+) -> str:
+    # The mounted draft and selection are explicit request inputs. Dialogue
+    # history comes only from the completed server-owned context projections.
     context = {
         "gm_instruction": request.instruction,
         "target_kind": request.target_kind,
         "selected_text": request.selected_text,
         "current_plan_markdown": request.draft_markdown,
-        "conversation_history": [item.model_dump() for item in request.conversation_history],
+        "conversation_history": [item.model_dump(mode="json") for item in server_history],
     }
     return json.dumps(context, ensure_ascii=False, separators=(",", ":"))
 
@@ -412,31 +619,11 @@ def propose_world_plan_document_edit(
             "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
         ) from exc
     if existing is not None:
-        basis = existing.basis
-        fingerprint = _action_fingerprint(request, basis)
-        if (
-            basis.world_id != request.world_id
-            or basis.document_id != request.document_id
-            or basis.object_revision != request.base_revision
-            or basis.content_sha256 != request.base_content_sha256
-            or fingerprint != existing.request_fingerprint
-        ):
+        if not _matches_world_action_receipt(existing, request):
             raise PlanDocumentEditProposalError(
                 "action_idempotency_conflict", "This action key was already used for a different request.", status_code=409
             )
-        code = {
-            "pending": "action_pending",
-            "completed": "action_already_completed",
-            "failed": "action_already_failed",
-            "indeterminate": "action_indeterminate",
-        }[existing.status]
-        message = {
-            "pending": "This Plan action is still pending; it was not dispatched again.",
-            "completed": "This Plan action already completed; its proposal payload is not replayable.",
-            "failed": "This Plan action already failed; start a new action to try again.",
-            "indeterminate": "This Plan action has an unknown outcome; start a new action to try again.",
-        }[existing.status]
-        raise PlanDocumentEditProposalError(code, message, status_code=409)
+        _raise_for_action_status(existing)
 
     basis = _validate_world_authority(root, request, world=world)
     fingerprint = _action_fingerprint(request, basis)
@@ -454,9 +641,21 @@ def propose_world_plan_document_edit(
     try:
         action, created = store.reserve(reservation)
     except ApplicationStateConflictError as exc:
-        raise PlanDocumentEditProposalError(
-            "action_idempotency_conflict", "This action key was already used for a different request.", status_code=409
-        ) from exc
+        # A row may have won the reservation race with the prior fingerprint
+        # algorithm. Re-read its receipt and compare typed intent, never history.
+        try:
+            raced_action = store.get_by_key(request.world_id, request.idempotency_key)
+        except Exception as lookup_exc:
+            raise PlanDocumentEditProposalError(
+                "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
+            ) from lookup_exc
+        if raced_action is None or not _matches_world_action_receipt(
+            raced_action, request
+        ):
+            raise PlanDocumentEditProposalError(
+                "action_idempotency_conflict", "This action key was already used for a different request.", status_code=409
+            ) from exc
+        action, created = raced_action, False
     except ApplicationStateError as exc:
         raise PlanDocumentEditProposalError(
             "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
@@ -466,19 +665,11 @@ def propose_world_plan_document_edit(
             "action_store_unavailable", "Plan action storage is unavailable.", status_code=503
         ) from exc
     if not created:
-        code = {
-            "pending": "action_pending",
-            "completed": "action_already_completed",
-            "failed": "action_already_failed",
-            "indeterminate": "action_indeterminate",
-        }[action.status]
-        message = {
-            "pending": "This Plan action is still pending; it was not dispatched again.",
-            "completed": "This Plan action already completed; its proposal payload is not replayable.",
-            "failed": "This Plan action already failed; start a new action to try again.",
-            "indeterminate": "This Plan action has an unknown outcome; start a new action to try again.",
-        }[action.status]
-        raise PlanDocumentEditProposalError(code, message, status_code=409)
+        if not _matches_world_action_receipt(action, request):
+            raise PlanDocumentEditProposalError(
+                "action_idempotency_conflict", "This action key was already used for a different request.", status_code=409
+            )
+        _raise_for_action_status(action)
     if action.dispatch_token is None:
         raise PlanDocumentEditProposalError(
             "action_reservation_invalid", "Plan action reservation has no dispatch token.", status_code=503
@@ -505,12 +696,18 @@ def propose_world_plan_document_edit(
             ) from exc
 
     try:
+        server_history = _server_owned_proposal_history(store, basis)
+    except PlanDocumentEditProposalError as exc:
+        finish_failure(exc)
+        raise
+
+    try:
         resolved_model = model or _resolve_model()
     except PlanDocumentEditProposalError as exc:
         finish_failure(exc)
         raise
     text_request = TextRequest(
-        user_prompt=_world_prompt(request),
+        user_prompt=_world_prompt(request, server_history=server_history),
         system_prompt=_world_system_prompt(request),
         provider="openai",
         model=resolved_model,

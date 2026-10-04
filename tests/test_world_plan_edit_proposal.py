@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from threading import Event, Lock
@@ -24,7 +25,26 @@ from apps.live_control_server.services.workspace_document_registry import (
     WorldOwnedCommittedRevisionV2,
 )
 from apps.live_control_server.services.world_container_registry import create_world_container
+from application_state.agent_conversation.types import (
+    CompletedPlanAskPair,
+    ConversationCommand,
+    HistoricalReference,
+    PlanAskContextBasis,
+    SubmittedGraphRequestIntentV1,
+    SubmittedPrimaryWorkIntentV1,
+    SubmittedTurnIntentV1,
+    TurnProvenance,
+    TurnResult,
+    TurnSubmission,
+)
+from application_state.agent_conversation import AgentConversationService
+from application_state.errors import ApplicationStateConflictError
 from application_state.plan_action_dialogue.service import PlanActionDialogueService
+from application_state.plan_action_dialogue.types import (
+    CompletedPlanActionContext,
+    PlanActionBasis,
+    PlanActionReservation,
+)
 
 
 def _sha(text: str) -> str:
@@ -80,20 +100,55 @@ class _FakeActionStore:
         self.finished = []
         self.action_id = None
         self.existing = None
+        self.lookup_results = None
+        self.race_action = None
+        self.reserve_error = None
+        self.plan_context = []
+        self.context_calls = []
+        self.context_error = None
 
     def get_by_key(self, _world_id, _key):
+        if self.lookup_results:
+            return self.lookup_results.pop(0)
         return self.existing
 
     def reserve(self, request):
         self.reservations.append(request)
+        if self.reserve_error is not None:
+            raise self.reserve_error
+        if self.race_action is not None:
+            return self.race_action, False
         self.action_id = uuid4()
         return SimpleNamespace(
-            action_id=self.action_id, dispatch_token=uuid4(), fence=1, status="pending"
+            action_id=self.action_id,
+            idempotency_key=request.idempotency_key,
+            dispatch_token=uuid4(),
+            fence=1,
+            status="pending",
         ), True
+
+    def completed_context(self, basis, *, limit=6):
+        self.context_calls.append((basis, limit))
+        if self.context_error is not None:
+            raise self.context_error
+        return self.plan_context
 
     def finish(self, **kwargs):
         self.finished.append(kwargs)
         return SimpleNamespace(status=kwargs["status"])
+
+
+class _FakeAskContextService:
+    def __init__(self, pairs=None, *, error=None) -> None:
+        self.pairs = pairs or []
+        self.error = error
+        self.calls = []
+
+    def list_completed_plan_ask_context(self, world_id, basis, *, limit=6):
+        self.calls.append((world_id, basis, limit))
+        if self.error is not None:
+            raise self.error
+        return self.pairs
 
 
 def _authority(
@@ -121,7 +176,102 @@ def _authority(
     )
     monkeypatch.setattr(service, "get_world_container", lambda *_: world)
     monkeypatch.setattr(service, "get_committed_playable_revision", lambda *_args, **_kwargs: snapshot)
+    ask_reader = _FakeAskContextService()
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
     return snapshot
+
+
+def _plan_basis(snapshot) -> PlanActionBasis:
+    return PlanActionBasis(
+        world_id="world-1",
+        document_id="plan-1",
+        object_revision=snapshot.object_revision,
+        work_revision_id=UUID(snapshot.work_revision_id),
+        revision_n=snapshot.revision_n,
+        content_sha256=snapshot.content_sha256,
+    )
+
+
+def _stored_action(
+    request: WorldPlanDocumentEditProposalRequest,
+    basis: PlanActionBasis,
+    *,
+    status: str = "pending",
+    request_fingerprint: str | None = None,
+):
+    return SimpleNamespace(
+        action_id=uuid4(),
+        idempotency_key=request.idempotency_key,
+        request_fingerprint=request_fingerprint or service._action_fingerprint(request, basis),
+        action_type="compose" if request.target_kind == "insert_at_caret" else "revise",
+        basis=basis,
+        draft_matches_basis=request.draft_sha256 == basis.content_sha256,
+        draft_sha256=request.draft_sha256,
+        target_kind=request.target_kind,
+        selected_text_sha256=(
+            None if request.target_kind == "insert_at_caret" else _sha(request.selected_text)
+        ),
+        instruction=request.instruction,
+        status=status,
+        assistant_summary="Stored proposal summary" if status == "completed" else None,
+        dispatch_token=uuid4(),
+        fence=1,
+    )
+
+
+def _legacy_action_fingerprint(
+    request: WorldPlanDocumentEditProposalRequest, basis: PlanActionBasis
+) -> str:
+    return service.action_request_fingerprint(
+        {
+            "basis": basis.model_dump(mode="json"),
+            "action_type": "compose" if request.target_kind == "insert_at_caret" else "revise",
+            "draft_sha256": request.draft_sha256,
+            "target_kind": request.target_kind,
+            "selected_text_sha256": _sha(request.selected_text),
+            "instruction": request.instruction,
+            "conversation_history": [
+                item.model_dump(mode="json") for item in request.conversation_history
+            ],
+        }
+    )
+
+
+def _completed_plan_pair(
+    basis: PlanActionBasis,
+    *,
+    action_id: UUID,
+    sequence: int,
+    accepted_at: datetime,
+    instruction: str,
+    summary: str,
+) -> CompletedPlanActionContext:
+    return CompletedPlanActionContext(
+        action_id=action_id,
+        action_type="revise",
+        basis=basis,
+        instruction=instruction,
+        assistant_summary=summary,
+        action_sequence=sequence,
+        accepted_at=accepted_at,
+    )
+
+
+def _completed_ask_pair(
+    *,
+    record_id: UUID,
+    sequence: int,
+    accepted_at: datetime,
+    question: str,
+    answer: str,
+) -> CompletedPlanAskPair:
+    return CompletedPlanAskPair(
+        source_sequence=sequence,
+        source_record_id=record_id,
+        accepted_at=accepted_at,
+        question=question,
+        answer=answer,
+    )
 
 
 @pytest.mark.parametrize(
@@ -225,6 +375,8 @@ def test_world_proposal_uses_only_explicit_draft_context_and_returns_exact_ident
     snapshot = _authority(monkeypatch)
     fake = _FakeGenerationClient()
     action_store = _FakeActionStore()
+    ask_reader = _FakeAskContextService()
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
     result = service.propose_world_plan_document_edit(
         root=tmp_path,
         request=_request(),
@@ -253,20 +405,37 @@ def test_world_proposal_uses_only_explicit_draft_context_and_returns_exact_ident
     context = json.loads(fake.requests[0].user_prompt)
     assert context["current_plan_markdown"] == "# Current local draft\n"
     assert "SAVED SERVER PROSE" not in fake.requests[0].user_prompt
+    assert context["conversation_history"] == []
+    assert "Start the scene." not in fake.requests[0].user_prompt
+    basis = action_store.reservations[0].basis
+    assert action_store.context_calls == [(basis, 6)]
+    assert ask_reader.calls == [("world-1", PlanAskContextBasis.model_validate(
+        basis.model_dump(mode="python")
+    ), 6)]
 
 
-def test_same_key_retry_reconciles_original_basis_after_plan_advances(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+@pytest.mark.parametrize("fingerprint_version", ["legacy", "current"])
+def test_same_key_retry_reconciles_typed_receipt_after_plan_advances(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, fingerprint_version: str
 ) -> None:
     _authority(monkeypatch)
-    request = _request()
-    action_store = _FakeActionStore()
-    basis = service._validate_world_authority(tmp_path, request)
-    action_store.existing = SimpleNamespace(
-        status="pending",
-        basis=basis,
-        request_fingerprint=service._action_fingerprint(request, basis),
+    original_request = _request()
+    request = _request(
+        idempotency_key=str(original_request.idempotency_key),
+        conversation_history=[{"role": "user", "content": "changed untrusted history"}],
     )
+    action_store = _FakeActionStore()
+    basis = service._validate_world_authority(tmp_path, original_request)
+    fingerprint = (
+        _legacy_action_fingerprint(original_request, basis)
+        if fingerprint_version == "legacy"
+        else service._action_fingerprint(original_request, basis)
+    )
+    action_store.existing = _stored_action(
+        original_request, basis, request_fingerprint=fingerprint
+    )
+    ask_reader = _FakeAskContextService()
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
     monkeypatch.setattr(
         service,
         "get_committed_playable_revision",
@@ -283,6 +452,359 @@ def test_same_key_retry_reconciles_original_basis_after_plan_advances(
         )
     assert caught.value.code == "action_pending"
     assert fake.requests == []
+    assert action_store.reservations == []
+    assert action_store.context_calls == []
+    assert ask_reader.calls == []
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"instruction": "Change the scene in another way."},
+        {"draft_markdown": "# A different draft\n", "draft_sha256": _sha("# A different draft\n")},
+        {"selected_text": "different local selection"},
+        {"base_revision": 3},
+        {"base_content_sha256": "e" * 64},
+        {"document_id": "another-plan"},
+        {"target_kind": "insert_at_caret", "selected_text": ""},
+    ],
+)
+def test_same_key_retry_rejects_changed_typed_intent_before_context_or_generation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    changes: dict,
+) -> None:
+    _authority(monkeypatch)
+    original = _request()
+    basis = service._validate_world_authority(tmp_path, original)
+    store = _FakeActionStore()
+    store.existing = _stored_action(original, basis)
+    ask_reader = _FakeAskContextService()
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
+    fake = _FakeGenerationClient()
+
+    with pytest.raises(service.PlanDocumentEditProposalError) as caught:
+        service.propose_world_plan_document_edit(
+            root=tmp_path,
+            request=_request(
+                idempotency_key=str(original.idempotency_key),
+                **changes,
+            ),
+            generation_client=fake,
+            model="test-model",
+            action_store=store,
+        )
+
+    assert caught.value.code == "action_idempotency_conflict"
+    assert fake.requests == []
+    assert store.reservations == []
+    assert store.context_calls == []
+    assert ask_reader.calls == []
+
+
+def test_legacy_caret_receipt_uses_null_selection_digest_and_rejects_nonempty_selection(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _authority(monkeypatch)
+    original = _request(target_kind="insert_at_caret", selected_text="")
+    basis = service._validate_world_authority(tmp_path, original)
+    action = _stored_action(
+        original,
+        basis,
+        request_fingerprint=_legacy_action_fingerprint(original, basis),
+    )
+    store = _FakeActionStore()
+    store.existing = action
+    fake = _FakeGenerationClient()
+
+    with pytest.raises(service.PlanDocumentEditProposalError) as pending:
+        service.propose_world_plan_document_edit(
+            root=tmp_path,
+            request=_request(
+                idempotency_key=str(original.idempotency_key),
+                target_kind="insert_at_caret",
+                selected_text="",
+            ),
+            generation_client=fake,
+            model="test-model",
+            action_store=store,
+        )
+    assert pending.value.code == "action_pending"
+    assert action.selected_text_sha256 is None
+
+    with pytest.raises(service.PlanDocumentEditProposalError) as conflict:
+        service.propose_world_plan_document_edit(
+            root=tmp_path,
+            request=_request(
+                idempotency_key=str(original.idempotency_key),
+                target_kind="insert_at_caret",
+                selected_text="not empty",
+            ),
+            generation_client=fake,
+            model="test-model",
+            action_store=store,
+        )
+    assert conflict.value.code == "plan_target_invalid"
+    assert fake.requests == []
+
+
+@pytest.mark.parametrize("race_kind", ["reserve_loser", "legacy_fingerprint_conflict"])
+def test_reservation_race_reconciles_typed_receipt_without_reading_context(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    race_kind: str,
+) -> None:
+    _authority(monkeypatch)
+    request = _request()
+    basis = service._validate_world_authority(tmp_path, request)
+    fingerprint = (
+        _legacy_action_fingerprint(request, basis)
+        if race_kind == "legacy_fingerprint_conflict"
+        else service._action_fingerprint(request, basis)
+    )
+    raced_action = _stored_action(request, basis, request_fingerprint=fingerprint)
+    store = _FakeActionStore()
+    ask_reader = _FakeAskContextService()
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
+    if race_kind == "reserve_loser":
+        store.race_action = raced_action
+    else:
+        store.reserve_error = ApplicationStateConflictError("unique idempotency key")
+        store.lookup_results = [None, raced_action]
+    fake = _FakeGenerationClient()
+
+    with pytest.raises(service.PlanDocumentEditProposalError) as caught:
+        service.propose_world_plan_document_edit(
+            root=tmp_path,
+            request=request,
+            generation_client=fake,
+            model="test-model",
+            action_store=store,
+        )
+
+    assert caught.value.code == "action_pending"
+    assert fake.requests == []
+    assert store.context_calls == []
+    assert ask_reader.calls == []
+
+
+def test_proposal_merges_only_the_latest_six_server_owned_pairs(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _authority(monkeypatch)
+    request = _request(
+        conversation_history=[
+            {"role": "user", "content": "CLIENT-POISON-QUESTION"},
+            {"role": "assistant", "content": "CLIENT-POISON-ANSWER"},
+        ]
+    )
+    basis = service._validate_world_authority(tmp_path, request)
+    origin = datetime(2026, 1, 1, tzinfo=UTC)
+    store = _FakeActionStore()
+    store.plan_context = [
+        _completed_plan_pair(
+            basis,
+            action_id=UUID(int=100 + sequence),
+            sequence=sequence,
+            accepted_at=origin + timedelta(seconds=sequence * 2 - 1),
+            instruction=f"PLAN-USER-{sequence}",
+            summary=f"PLAN-ASSISTANT-{sequence}",
+        )
+        for sequence in range(1, 5)
+    ]
+    asks = [
+        _completed_ask_pair(
+            record_id=UUID(int=200 + sequence),
+            sequence=sequence,
+            accepted_at=origin + timedelta(seconds=sequence * 2),
+            question=f"ASK-USER-{sequence}",
+            answer=f"ASK-ASSISTANT-{sequence}",
+        )
+        for sequence in range(1, 5)
+    ]
+    ask_reader = _FakeAskContextService(asks)
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
+    fake = _FakeGenerationClient()
+
+    service.propose_world_plan_document_edit(
+        root=tmp_path,
+        request=request,
+        generation_client=fake,
+        model="test-model",
+        action_store=store,
+    )
+
+    context = json.loads(fake.requests[0].user_prompt)
+    history = context["conversation_history"]
+    assert [(item["role"], item["content"]) for item in history] == [
+        ("user", "PLAN-USER-2"),
+        ("assistant", "PLAN-ASSISTANT-2"),
+        ("user", "ASK-USER-2"),
+        ("assistant", "ASK-ASSISTANT-2"),
+        ("user", "PLAN-USER-3"),
+        ("assistant", "PLAN-ASSISTANT-3"),
+        ("user", "ASK-USER-3"),
+        ("assistant", "ASK-ASSISTANT-3"),
+        ("user", "PLAN-USER-4"),
+        ("assistant", "PLAN-ASSISTANT-4"),
+        ("user", "ASK-USER-4"),
+        ("assistant", "ASK-ASSISTANT-4"),
+    ]
+    assert "CLIENT-POISON" not in fake.requests[0].user_prompt
+    assert store.context_calls == [(basis, 6)]
+    assert ask_reader.calls == [("world-1", PlanAskContextBasis.model_validate(
+        basis.model_dump(mode="python")
+    ), 6)]
+
+
+def test_server_context_merge_uses_deterministic_ties_and_utc_timestamps(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _authority(monkeypatch)
+    basis = service._validate_world_authority(tmp_path, _request())
+    instant = datetime(2026, 1, 1, tzinfo=UTC)
+    store = _FakeActionStore()
+    store.plan_context = [
+        _completed_plan_pair(
+            basis,
+            action_id=UUID(int=4),
+            sequence=1,
+            accepted_at=instant,
+            instruction="PLAN-UUID-4",
+            summary="PLAN-ANSWER-4",
+        ),
+        _completed_plan_pair(
+            basis,
+            action_id=UUID(int=3),
+            sequence=1,
+            accepted_at=instant,
+            instruction="PLAN-UUID-3",
+            summary="PLAN-ANSWER-3",
+        ),
+    ]
+    ask_reader = _FakeAskContextService(
+        [
+            _completed_ask_pair(
+                record_id=UUID(int=2),
+                sequence=1,
+                accepted_at=instant.astimezone(timezone(timedelta(hours=5))),
+                question="ASK-UUID-2",
+                answer="ASK-ANSWER-2",
+            ),
+            _completed_ask_pair(
+                record_id=UUID(int=1),
+                sequence=1,
+                accepted_at=instant,
+                question="ASK-UUID-1",
+                answer="ASK-ANSWER-1",
+            ),
+        ]
+    )
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
+
+    history = service._server_owned_proposal_history(store, basis)
+
+    assert [item.content for item in history] == [
+        "ASK-UUID-1",
+        "ASK-ANSWER-1",
+        "ASK-UUID-2",
+        "ASK-ANSWER-2",
+        "PLAN-UUID-3",
+        "PLAN-ANSWER-3",
+        "PLAN-UUID-4",
+        "PLAN-ANSWER-4",
+    ]
+
+
+def test_server_context_bounds_each_visible_message_with_unicode_suffix(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    _authority(monkeypatch)
+    basis = service._validate_world_authority(tmp_path, _request())
+    store = _FakeActionStore()
+    plan_instruction = "界" * 4_100
+    plan_summary = "Ω" * 4_100
+    store.plan_context = [
+        _completed_plan_pair(
+            basis,
+            action_id=UUID(int=1),
+            sequence=1,
+            accepted_at=datetime(2026, 1, 1, tzinfo=UTC),
+            instruction=plan_instruction,
+            summary=plan_summary,
+        )
+    ]
+    ask_question = "é" * 4_100
+    ask_answer = "🜁" * 4_100
+    ask_reader = _FakeAskContextService(
+        [
+            _completed_ask_pair(
+                record_id=UUID(int=2),
+                sequence=1,
+                accepted_at=datetime(2026, 1, 2, tzinfo=UTC),
+                question=ask_question,
+                answer=ask_answer,
+            )
+        ]
+    )
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
+
+    history = service._server_owned_proposal_history(store, basis)
+
+    assert len(history) == 4
+    for item in history:
+        assert len(item.content) == 4_000
+        assert item.content.endswith(" …[truncated]")
+    assert store.plan_context[0].instruction == plan_instruction
+    assert ask_reader.pairs[0].question == ask_question
+
+
+@pytest.mark.parametrize("failure", ["plan_store", "ask_store", "basis_mismatch"])
+def test_context_failure_is_persisted_and_never_calls_generation(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    failure: str,
+) -> None:
+    snapshot = _authority(monkeypatch)
+    request = _request()
+    basis = service._validate_world_authority(tmp_path, request)
+    store = _FakeActionStore()
+    ask_reader = _FakeAskContextService()
+    if failure == "plan_store":
+        store.context_error = RuntimeError("projection unavailable")
+        expected_code = "proposal_context_unavailable"
+    elif failure == "ask_store":
+        ask_reader.error = RuntimeError("projection unavailable")
+        expected_code = "proposal_context_unavailable"
+    else:
+        store.plan_context = [
+            _completed_plan_pair(
+                basis.model_copy(update={"object_revision": snapshot.object_revision + 1}),
+                action_id=UUID(int=1),
+                sequence=1,
+                accepted_at=datetime(2026, 1, 1, tzinfo=UTC),
+                instruction="MISMATCH-USER",
+                summary="MISMATCH-ASSISTANT",
+            )
+        ]
+        expected_code = "proposal_context_invalid"
+    monkeypatch.setattr(service, "AgentConversationService", lambda: ask_reader)
+    fake = _FakeGenerationClient()
+
+    with pytest.raises(service.PlanDocumentEditProposalError) as caught:
+        service.propose_world_plan_document_edit(
+            root=tmp_path,
+            request=request,
+            generation_client=fake,
+            model="test-model",
+            action_store=store,
+        )
+
+    assert caught.value.code == expected_code
+    assert caught.value.status_code == 503
+    assert fake.requests == []
+    assert store.finished[0]["status"] == "failed"
+    assert store.finished[0]["failure_code"] == expected_code
 
 
 def test_completed_action_can_deliver_late_only_for_its_original_basis(
@@ -508,6 +1030,114 @@ def _create_saved_world_plan(
     return document_id, saved.json()
 
 
+def _seed_completed_proposal_context(
+    application_state_dsn: str, basis: PlanActionBasis
+) -> None:
+    plan_store = PlanActionDialogueService()
+    action, created = plan_store.reserve(
+        PlanActionReservation(
+            idempotency_key=uuid4(),
+            request_fingerprint="a" * 64,
+            action_type="revise",
+            basis=basis,
+            draft_matches_basis=True,
+            draft_sha256=basis.content_sha256,
+            target_kind="replace_selection",
+            selected_text_sha256=_sha("Saved passage"),
+            instruction="SERVER-PLAN-USER-SENTINEL",
+        )
+    )
+    assert created
+    plan_store.finish(
+        action_id=action.action_id,
+        token=action.dispatch_token,
+        fence=action.fence,
+        status="completed",
+        summary="SERVER-PLAN-ASSISTANT-SENTINEL",
+    )
+
+    ask_basis = PlanAskContextBasis.model_validate(basis.model_dump(mode="python"))
+    ask = AgentConversationService()
+    conversation = ask.new_conversation(
+        ConversationCommand(
+            world_id=basis.world_id,
+            command_id=uuid4(),
+            expected_pointer_revision=0,
+            expected_active_conversation_id=None,
+        )
+    )
+    plan_reference = HistoricalReference(
+        resolution="resolved",
+        kind="plan",
+        object_id=ask_basis.document_id,
+        content_sha256=ask_basis.content_sha256,
+        object_revision=ask_basis.object_revision,
+        work_revision_id=ask_basis.work_revision_id,
+        revision_n=ask_basis.revision_n,
+    )
+    provenance = TurnProvenance(
+        world_id=basis.world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        primary_work=plan_reference,
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    question = "SERVER-ASK-USER-SENTINEL"
+    intent = SubmittedTurnIntentV1(
+        world_id=basis.world_id,
+        client_thread_id="world-plan-proposal-test",
+        message=question,
+        surface_id="plan",
+        surface_instance_id="world-plan-proposal-test-pane",
+        client_work_state="saved_clean",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id=ask_basis.document_id,
+            expected_revision=ask_basis.object_revision,
+            expected_revision_n=ask_basis.revision_n,
+            expected_content_sha256=ask_basis.content_sha256,
+        ),
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    turn = ask.accept_turn(
+        TurnSubmission(
+            world_id=basis.world_id,
+            conversation_id=conversation.conversation_id,
+            idempotency_key=uuid4(),
+            expected_conversation_revision=1,
+            user_text=question,
+            provenance=provenance,
+            submitted_intent_v1=intent,
+        )
+    )
+    claimed = ask.begin_turn(
+        basis.world_id,
+        conversation.conversation_id,
+        turn.turn_id,
+        expected_revision=turn.revision,
+    )
+    ask.complete_turn(
+        TurnResult(
+            world_id=basis.world_id,
+            conversation_id=conversation.conversation_id,
+            turn_id=turn.turn_id,
+            expected_revision=claimed.revision,
+            assistant_text="SERVER-ASK-ASSISTANT-SENTINEL",
+        )
+    )
+
+    with psycopg.connect(application_state_dsn) as conn:
+        conn.execute(
+            "UPDATE plan_action.action SET accepted_at = %s WHERE action_id = %s",
+            (datetime(2026, 1, 1, tzinfo=UTC), action.action_id),
+        )
+        conn.execute(
+            "UPDATE agent.turn SET accepted_at = %s WHERE turn_id = %s",
+            (datetime(2026, 1, 2, tzinfo=UTC), turn.turn_id),
+        )
+
+
 def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -571,8 +1201,14 @@ def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
         "target_kind": "insert_at_caret",
         "selected_text": "",
         "instruction": "Add a tense opening.",
-        "conversation_history": [],
+        "conversation_history": [
+            {"role": "user", "content": "CLIENT-POISON-USER-SENTINEL"},
+            {"role": "assistant", "content": "CLIENT-POISON-ASSISTANT-SENTINEL"},
+        ],
     }
+    typed_request = WorldPlanDocumentEditProposalRequest.model_validate(request)
+    resolved_basis = service._validate_world_authority(tmp_path, typed_request)
+    _seed_completed_proposal_context(application_state_dsn, resolved_basis)
     response = client.post("/api/live/world-plan-edit/propose", json=request)
     assert response.status_code == 200, response.text
     assert response.json()["schema_version"] == "dmb_world_plan_document_edit_proposal_v1"
@@ -583,6 +1219,14 @@ def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
     assert len(fake.requests) == 1
     assert "Explicit unsaved editor draft" in fake.requests[0].user_prompt
     assert "Saved server-only prose" not in fake.requests[0].user_prompt
+    prompt_context = json.loads(fake.requests[0].user_prompt)
+    assert prompt_context["conversation_history"] == [
+        {"role": "user", "content": "SERVER-PLAN-USER-SENTINEL"},
+        {"role": "assistant", "content": "SERVER-PLAN-ASSISTANT-SENTINEL"},
+        {"role": "user", "content": "SERVER-ASK-USER-SENTINEL"},
+        {"role": "assistant", "content": "SERVER-ASK-ASSISTANT-SENTINEL"},
+    ]
+    assert "CLIENT-POISON" not in fake.requests[0].user_prompt
 
     retry = client.post("/api/live/world-plan-edit/propose", json=request)
     assert retry.status_code == 409
@@ -600,8 +1244,13 @@ def test_world_plan_route_uses_real_saved_world_plan_and_never_writes(
         params={"world_id": world.world_id, "document_id": document_id},
     )
     assert actions.status_code == 200
-    assert actions.json()["actions"][0]["status"] == "completed"
-    assert actions.json()["actions"][0]["assistant_summary"] == response.json()["summary"]
+    proposal_action = next(
+        item
+        for item in actions.json()["actions"]
+        if item["action_id"] == response.json()["action_id"]
+    )
+    assert proposal_action["status"] == "completed"
+    assert proposal_action["assistant_summary"] == response.json()["summary"]
     assert "draft_sha256" not in json.dumps(actions.json())
     assert "replacement_markdown" not in json.dumps(actions.json())
 
