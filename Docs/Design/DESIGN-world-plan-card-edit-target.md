@@ -12,6 +12,8 @@ pr_topology: serial
 
 **Status: accepted.** #912 reviewed head `44acb1420ee8edadef4201e6f510a29718df172b` merged at `de82370d1a33ada648e22ec087b6eb02aa28532a`, with final SERVER, APP-STATE and ARCHITECTURE acceptance. Execution authority and exact path/resource lease live in the companion implementation handoff. Required parity/protected-structure/race and migration evidence is a pre-implementation-merge gate; this design claims no implemented capability or operator acceptance.
 
+Implementation #913 merged at `f971931ebade4bc7e4550b6fc2f659276afb30d1` from reviewed head `110440433e6d350a0508fd99f554974f09ad3a36`. The companion handoff records owning evidence and closes its lease; this does not establish operator runtime adoption or full shared card-interface acceptance.
+
 ## 1. User outcome
 
 From the existing managed-World Plan Cards view, select one Playable card,

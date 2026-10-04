@@ -1,21 +1,31 @@
 ---
 title: Managed-World Plan selected-card body Compose, Review and Apply
 document_class: implementation_handoff
-status: ACTIVE
+status: SETTLED
 created_at: "2026-10-04"
 workstream: DEMO
 design_authority: "../Design/DESIGN-world-plan-card-edit-target.md"
 design_base: "Buddy main 60e1f672441c509f45561f717611af767ece20a1"
 pr_topology: serial
 implementation_branch: codex/demo-selected-card-body-edit
-implementation_pr: authorized_one_serial_pr
+implementation_pr: "#913 merged"
 ---
 
 # HANDOFF — Compose and Apply an edit to one Plan Playable body
 
+## PRIME settlement — 2026-10-04
+
+**Status: SETTLED; exclusive implementation write lease closed.** PR #913 merged at `f971931ebade4bc7e4550b6fc2f659276afb30d1` from reviewed head `110440433e6d350a0508fd99f554974f09ad3a36`, base `768dc85ca93b05d438c9f92d85a781c07f699ce4`. PRIME reviewed four distinct submitted heads; final SERVER and APP-STATE acceptance covers unchanged production code at `9414772e`, and independent UI review accepts the final test-only head. Final review: https://github.com/Drakosfire/DungeonMindBuddy/pull/913#issuecomment-5982512061.
+
+Independent owning evidence: 227/227 UI tests, then 14/14 affected mounted tests, then the final 1/1 same-card supersession witness; 86/86 SERVER/isolated PostgreSQL tests, then 56/56 affected tests including v1 Option typed receipt/proposal and fresh-service readback. Author final suites passed 283 UI and 88 SERVER/APP-STATE tests. Cumulative diff passed whitespace review. TypeScript still reports only the inherited unchanged `ThreatPublicationPanel.tsx:553` JSX namespace error. No required GitHub check was configured.
+
+The implemented flow selects a current v1/v2 card body, Compose→Review→explicit Apply to the draft, then ordinary Save and fresh reopen. It preserves marker identity, edges, siblings and protected references; mismatched, stale and late same-card responses fail without mutation. Ordinary HTTPS links unsupported by the mounted editor remain unavailable; supported typed references retain identity and label. Migration 0015 was verified only against isolated fixtures; the fixture is stopped. No operator runtime/database migration, provider/corpus call, Graph conversation, full prototype presentation adoption or J1–J6 acceptance is claimed.
+
+The activation and allowlist below are historical execution authority, not a continuing write lease. Projection fidelity repair and Graph-backed conversation require their own newly pinned bounded activation.
+
 ## PRIME activation — 2026-10-04
 
-**Status: ACTIVE.** PRIME activates one selected-card body Compose/Review/Apply implementation PR from fresh Buddy remote main `de82370d1a33ada648e22ec087b6eb02aa28532a` (design #912 merge, reviewed head `44acb1420ee8edadef4201e6f510a29718df172b`). SERVER, APP-STATE and ARCHITECTURE accepted that exact design. This activation is pinned by the commit publishing this handoff; fetch and start from that commit before implementation.
+**Historical activation (now SETTLED).** PRIME activated one selected-card body Compose/Review/Apply implementation PR from fresh Buddy remote main `de82370d1a33ada648e22ec087b6eb02aa28532a` (design #912 merge, reviewed head `44acb1420ee8edadef4201e6f510a29718df172b`). SERVER, APP-STATE and ARCHITECTURE accepted that exact design. This activation is pinned by the commit publishing this handoff; fetch and start from that commit before implementation.
 
 **Owner/path contract:** DEMO is the sole writer for the exact §5 allowlist, including its co-owned SERVER and APP-STATE work. SERVER independently reviews canonical body/admission/fingerprint/response/race evidence. APP-STATE independently reviews nullable target storage, migration compatibility, constraints and fresh-service history. ARCHITECTURE retains the range/codec contract. PRIME independently reviews the cumulative diff and owning-boundary evidence before merge. No competing write lease is assigned to the reviewers.
 
@@ -208,7 +218,7 @@ APP-STATE accepted the storage shape on original packet head
 `8f023095ef3a6b26ddf35f831a0282b31f8edbbc`; SERVER reviewed head
 `649b87df28ea209bca9cb23e54a6a4bf437e28e2`. SERVER, APP-STATE and ARCHITECTURE accepted the exact final amendment; PRIME activation above governs the sole implementation lane.
 
-## 5. Finalized ACTIVE exclusive write allowlist
+## 5. Settled implementation write allowlist (closed)
 
 Only these paths are leased. New helpers/tests are limited to the named body-target contract; no directory-wide write authority is granted.
 
