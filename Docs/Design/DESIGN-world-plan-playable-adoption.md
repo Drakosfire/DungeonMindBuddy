@@ -77,8 +77,12 @@ following:
 4. There is no divergent working copy. A dirty draft is not a startable saved
    basis, even if an older committed revision exists.
 5. The exact committed Markdown passes the existing server-owned Playable
-   structure and manifest admission. There is at least one runnable Beat and
-   all element IDs, containment, and authored edges are valid.
+   structure and manifest admission. All element IDs, containment, and authored
+   edges are valid, and the document satisfies the existing Run-readiness rule
+   for its admitted grammar. Do not silently narrow support to v2: the current
+   manifest parser also supports the v1 Scene-first grammar. In particular,
+   the v2 nonzero-Beat check is not a new v2-only filter for otherwise valid v1
+   content.
 6. The Run and sealed reference manifest are created atomically from that same
    WorkRevision, preserving the World, WorkObject ID, WorkRevision ID, revision
    number, and digest.
@@ -88,7 +92,11 @@ preflight. A stale revision, wrong World, non-Plan source, divergent draft,
 unsupported/malformed structure, or manifest failure creates no partial Run
 and no second content object. A retry for the same Run ID and same complete
 binding may return the existing exact Run; the same Run ID with any different
-World or source binding conflicts.
+World or source binding conflicts. A same-binding replay is historical
+idempotency: if that Run already exists, return its stored Run and manifest
+without rechecking whether the Plan is still current or clean and without
+rewriting the receipt. Current-and-clean admission applies only when creating a
+new Run ID.
 
 The first implementation should reuse the existing WorkObject, WorkRevision,
 Run, and manifest authorities. It must not add a copy table or new content
@@ -98,12 +106,14 @@ missing-capability argument and a separate review before activation.
 ## Structure and projection
 
 The existing server-side Playable marker/manifest derivation is the sole source
-of Run structure. It recognizes the repository's existing supported marker
-forms and rejects invalid identity, containment, duplicate IDs, malformed
-edges, mixed/unsupported grammar, and other states already rejected for
-Playable admission. Ordinary Plan headings and unmarked prose do not become
-Beats, Scenes, Choices, or Options by inference. No new grammar or automatic
-marker insertion is introduced here.
+of Run structure. It recognizes the repository's existing v1 Scene-first and
+v2 Beat-first forms and rejects invalid identity, containment, duplicate IDs,
+malformed edges, mixed/unsupported grammar, and other states already rejected
+for Playable admission. Preserve each form's current readiness behavior; do
+not translate v1 into v2 or reject valid v1 content solely for not using
+Beat-first organization. Ordinary Plan headings and unmarked prose do not
+become Beats, Scenes, Choices, or Options by inference. No new grammar or
+automatic marker insertion is introduced here.
 
 The manifest is an index of stable semantic element IDs, not a content copy.
 Play must continue to resolve the Run's exact pinned WorkRevision for its

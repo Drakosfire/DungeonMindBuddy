@@ -33,15 +33,34 @@ Implementation may be activated only after all of the following are true:
 2. PRIME has re-anchored the Demo roadmap and confirmed the prerequisites and
    ordering for the saved-Plan card projection and shared World-conversation
    work. The current roadmap places same-content-to-Run after those steps; do
-   not skip or silently resequence them.
-3. APP-STATE confirms that a WorkObject's kind cannot change during its
+   not skip or silently resequence them. Before the card projection is treated
+   as a satisfied predecessor, its owner must prove:
+   - The exact saved World Plan WorkRevision and digest are projection
+     authority. Cards derive from the existing versioned Markdown markers;
+     there is no parallel card store and no minted Playable identity for
+     unmarked prose.
+   - The initial projection is GM-only. Unsupported or malformed authored
+     Markdown remains readable in the Plan authoring surface but is never
+     silently admitted as playable structure.
+   - Marker identity, links, and card/document order remain equivalent through
+     one supported editor transaction, ordinary Save, and fresh reopen at the
+     resulting exact committed revision and digest.
+   These are card-projection predecessor proofs, not card implementation work
+   or paths leased by this handoff.
+3. Re-anchor current UI ownership before allocating any Plan/Play entry path.
+   #906's mounted-harness repair lease is closed. The mounted
+   PlanSurfacePage.test.tsx path now belongs to #904's successor UI-integration
+   lease; #886 retains production Plan Page/shell paths pending its own
+   accepted settlement or explicit handback. Neither path is available to this
+   implementation by implication; PRIME must resolve a nonoverlapping lease.
+4. APP-STATE confirms that a WorkObject's kind cannot change during its
    lifetime, so the existing Run-to-WorkObject identity preserves that the
    source was a Plan. If that invariant is false, stop for a versioned
    source-kind persistence design.
-4. DEMO, SERVER, and APP-STATE agree on the exact API/service contract and
+5. DEMO, SERVER, and APP-STATE agree on the exact API/service contract and
    individually owned paths. PRIME records the exact implementation path
    allowlist, path owners, active PR/lease conflicts, and completion sync set.
-5. Runtime/test resources are named and isolated. No active operator or
+6. Runtime/test resources are named and isolated. No active operator or
    dogfood runtime is reused or restarted.
 
 Until all gates are satisfied, do not create an implementation branch, PR,
@@ -77,6 +96,13 @@ Current implementation evidence at design time:
   **resolve_pinned_playable_revision** require **runbook**; both new-Run
   admission and existing-Run resume therefore need deliberate owner-reviewed
   widening.
+- Server manifest derivation already recognizes v1 Scene-first and v2
+  Beat-first structures. Preserve both forms' current parser/readiness
+  behavior; the existing v2 nonzero-Beat readiness check must not silently
+  become a blanket v2-only Plan filter. Relevant evidence is in
+  **apps/live_control_server/services/play_run_reference_manifest.py**,
+  **apps/live_control_server/services/play_run_registry.py**, and
+  **tests/test_live_play_run_reference_manifest.py**.
 - World Play Run persistence already records World, WorkObject ID, exact
   WorkRevision ID, revision number, and digest, and seals a manifest. Reuse
   this identity path if possible; do not create a parallel source store.
@@ -102,8 +128,10 @@ The implementation PR must prove, at the owning boundaries:
 | Active World Plan, current committed revision, no divergent working copy, valid existing Playable markers | One explicit Start Play creates one World Run bound to the exact source identity and sealed manifest. |
 | Save the Plan after Run creation | Plan gets a new WorkRevision; existing Run and manifest remain pinned to the old WorkRevision and bytes. |
 | Start a second Run after the new save | The new Run can bind the new current revision without modifying the first Run. |
+| Retry the existing Run ID with the original binding after the Plan changes, becomes dirty, or is discarded | Return the same historical Run/manifest binding without current/clean re-admission or receipt rewrite. |
 | Wrong World, Runbook passed where Plan was requested, Campaign-owned Plan, discarded Plan, dirty working copy, stale expected revision, wrong SHA | Fail closed; no Run, manifest, copy, or cross-World fallback is created. |
-| Missing/unsupported/mixed/malformed markers, duplicate IDs, orphan/invalid edges, or no runnable Beat | Fail closed before partial Run creation; no inferred headings or auto-added markers. |
+| Valid existing v1 Scene-first Plan structure | Preserve current parser and Run-readiness behavior; do not silently reject it for not being v2 Beat-first. |
+| Missing/unsupported/mixed/malformed markers, duplicate IDs, orphan/invalid edges, or no runnable structure under the existing readiness rule | Fail closed before partial Run creation; no inferred headings or auto-added markers. |
 | Existing Run opened after Plan edit/discard | Reads its exact historical Plan revision; never substitutes the latest Plan. |
 | Runtime choice and note mutation | Persists only to that Run; source Plan Markdown and WorkRevision remain byte-for-byte unchanged. |
 | Plan includes Graph/source refs | No implicit Graph read, publication, or canon mutation. |
@@ -111,9 +139,10 @@ The implementation PR must prove, at the owning boundaries:
 Required evidence includes:
 
 - APP-STATE PostgreSQL transaction tests for exact Plan admission, owner/kind,
-  current-revision and clean-working-copy fences, atomic Run+manifest creation,
-  idempotent same-binding replay, conflict on changed binding, and exact pinned
-  historical reads after later Plan saves.
+  current-revision and clean-working-copy fences for a new Run, atomic
+  Run+manifest creation, same-binding replay after current Plan state changes
+  without rewriting the original receipt, conflict on changed binding, and
+  exact pinned historical reads after later Plan saves.
 - Server/API tests for explicit World scoping, stale/dirty/unsupported Plan
   failure behavior, and no fallback to Campaign or Runbook routes.
 - Mounted UI tests proving selected Plan identity is retained through Start
@@ -165,10 +194,11 @@ met with current durable fields and PRIME re-reviews the changed contract.
 
 The final ACTIVE handoff must replace this candidate inventory with an exact
 exclusive write allowlist and explicitly name any transferred/shared paths.
-The mounted harness repair owns **PlanSurfacePage.test.tsx** until its owner
-closes or transfers that lease. #886 retains production Plan Page/shell paths
-until its own accepted settlement or explicit handback. Do not rely on Git
-conflicts to arbitrate either path.
+#906's mounted-harness repair lease is closed. **PlanSurfacePage.test.tsx**
+belongs to #904's successor UI-integration lease. #886 retains production Plan
+Page/shell paths pending its own accepted settlement or explicit handback.
+Re-anchor both leases again at activation, and do not rely on Git conflicts to
+arbitrate either path.
 
 ## §5 PR topology and state-authority sync
 
