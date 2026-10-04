@@ -1,9 +1,9 @@
 # Handoff: Managed World Agent Graph Adapter
 
-**Status:** BLOCKED — proposal only; no implementation lease is active.  
-**Implementation owner:** DungeonMindBuddy owns Agent orchestration and its runtime adapter.  
-**Receipt owner:** APP-STATE owns durable Agent conversation/provenance contracts.  
-**Authority owners:** Buddy owns managed World verification/binding; DungeonMind owns native graph authority and reads.  
+**Status:** BLOCKED — proposal only; no implementation lease is active.
+**Implementation owner:** DungeonMindBuddy owns Agent orchestration and its runtime adapter.
+**Receipt owner:** APP-STATE owns durable Agent conversation/provenance contracts.
+**Authority owners:** Buddy owns managed World verification/binding; DungeonMind owns native graph authority and reads.
 **Historical design source:** Server PR #36 at exact head `be6cf4789500949aa58562b09304d7b7d9b5cd0b` was a steward-side proposal held by PRIME for incorrect repository ownership and replay semantics; it was not formally accepted. This Buddy handoff carries forward its useful source analysis with corrected ownership and replay rules.
 
 ## Re-anchored basis
@@ -11,7 +11,7 @@
 - DungeonMindBuddy main: `a1d2424a986328a9459631c0634da67bc91d1620` (includes merged #904 at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` and merged #907; latest Plan-to-Play settlement is included).
 - DungeonOverMind architecture and ownership authorities were refreshed at `9a80ab328a687039519569855c2b25a4ee7df07b`.
 - Open Buddy PRs rechecked for collisions:
-  - #886 remains open and owns Plan navigation/shell paths; `PlanSurfacePage.test.tsx` belongs to its mounted-harness repair follow-up. No path overlap with this handoff.
+  - #886 remains open and owns Plan navigation/shell paths. The #906 mounted-harness repair has merged and #904's lease is settled; allocation of `PlanSurfacePage.test.tsx` follows #886's explicit geometry settlement and then the card slice. Do not assign it to another worker in this handoff. No path overlap with this handoff.
   - #826 remains open and owns managed World/KnowledgeSpace provisioning, registry, and binding implementation paths. No path overlap with this handoff.
   - #904 Agent composer merged as `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0`; it preserves graphless exact-basis Plan Ask.
   - #907 Plan-to-Playable design and its follow-up settlement are merged at current main `a1d2424a986328a9459631c0634da67bc91d1620`; it does not alter Graph receipt ownership or replay semantics.
@@ -44,10 +44,10 @@ graph_revision
 Keep those fields in server-owned durable provenance. Do not expose native authority as a client-selected request field.
 
 - **Completed durable replay:** return the immutable stored answer and its original Graph receipt. Do not require the active binding to still match, and do not perform a fresh Graph or provider read. The receipt describes historical evidence used for that completed answer; it does not claim that the same binding is still current.
-- **Pending or interrupted retry:** before any Graph source read or provider call, revalidate the recorded managed/native/binding/revision authority. If that authority no longer matches, stop with an explicit stale-authority outcome. Never silently substitute a current binding or a newer graph revision into the interrupted turn.
-- **Initial execution:** resolve the active binding from verified managed ownership, preserve the requested revision pin and supported scope, use the existing before/after binding fence, and persist the exact authority/revision used with the durable answer.
+- **Pending or interrupted retry:** before any Graph source read or provider call, revalidate that the original managed World still resolves to the recorded native World and binding version, and verify that the exact recorded Graph revision remains available. A newer Graph head alone is not binding drift: use the original historical revision if it remains available. If the binding changed or the pinned revision is unavailable, stop with an explicit stale/unavailable outcome. Never refresh the pin or silently substitute a newer revision.
+- **Initial execution:** resolve the active binding from verified managed ownership, preserve the requested revision pin and supported scope, and use the existing before/after binding fence. Once the exact Graph snapshot and citations are established, APP-STATE must durably freeze and attach their versioned receipt to the turn before provider dispatch. A retry reuses that immutable receipt. On success, commit the answer and validated citations atomically with the same receipt; never rewrite it across attempts. Preserve strict-v1 provenance.
 - Keep response/product ownership and turn invariants anchored to the managed World ID.
-- APP-STATE owns durable receipt representation and atomicity. Its proposed two-document receipt design has not been published: the APP-STATE thread reports its exact-file publication was blocked by review pending direct authorization. Treat the receipt shape below as this handoff's proposal, not as an APP-STATE accepted contract. Do not imply that a route-only in-memory receipt is durable across process restart.
+- APP-STATE owns the versioned durable receipt contract, its pre-dispatch freeze, and atomic answer/citation completion. Its proposed two-document design has not been published: the APP-STATE thread reports that publication was blocked pending direct authorization. Treat the receipt details below as this handoff's proposal, not as an APP-STATE accepted contract. Do not imply that a route-only in-memory receipt is durable across process restart.
 
 ## DungeonMind source-read and retention boundary
 
@@ -77,17 +77,17 @@ The exact write set requires PRIME approval after refreshed collision/lease revi
 - `tests/test_agent_turn_route.py`
 - `tests/test_managed_world_graph_projection.py` only if the projection service changes
 
-APP-STATE must separately approve and own any durable provenance type, repository, service, or persistence changes. Do not edit APP-STATE-owned files under the Buddy route lease. Do not edit #886's Page shell or transferred test file.
+APP-STATE must separately approve and own the versioned durable receipt type, repository, service, and persistence changes. Do not edit APP-STATE-owned files under the Buddy route lease. Do not edit #886-owned Page or shell paths; Page test allocation follows #886 geometry settlement, then the card slice.
 
 ## Acceptance witness
 
-A fake-owner full HTTP route test must use distinct managed and native IDs, an active binding, and a requested graph revision. It must prove that the native owner receives the resolved native ID and pin, while product scope and the durable reference remain managed-ID based and record the original binding/version/revision.
+A fake-owner full HTTP route test must use distinct managed and native IDs, an active binding, and a requested graph revision. It must prove that the native owner receives the resolved native ID and pin, while product scope remains managed-ID based. At the persistence boundary, prove the versioned receipt is durably attached before provider dispatch, preserves strict-v1 provenance, and records the original binding/revision/citations; prove successful completion atomically saves answer plus validated citations against that unchanged receipt.
 
 Add tests proving:
 
 1. Binding drift during initial projection is rejected before a result is accepted.
 2. Completed replay returns the stored answer and original receipt after the active binding changes, with no Graph or provider call.
-3. Pending/interrupted retry under changed binding stops before Graph/provider reads and does not replace the original authority.
+3. Pending/interrupted retry validates the original active managed/native/binding tuple and exact historical revision availability before reads; a newer Graph head alone is accepted when the pinned revision remains available, and the retry never replaces the receipt or pin.
 4. Existing authentication and scope denials happen before receipt/runtime work.
 5. Client native authority fields are rejected or ignored according to the current strict request contract.
 6. Plan Ask v1 stays graphless.
@@ -100,7 +100,7 @@ Before proposing code readiness, inspect the exact cumulative Buddy base-to-head
 
 This handoff remains **BLOCKED** until:
 
-1. APP-STATE publishes and confirms the durable receipt vocabulary and how original Graph authority/revision is committed with a completed answer, plus the pending/interrupted retry transition when authority is stale. Its current proposed two-document design is not published and is not an accepted dependency yet.
+1. APP-STATE publishes and confirms the versioned receipt contract, durable pre-dispatch freeze, strict-v1 provenance preservation, atomic answer/citation completion, immutable retry behavior, and exact pinned-revision availability check. Its current proposed two-document design is unpublished and is not an accepted dependency yet.
 2. PRIME reviews this Buddy-owned design and explicitly activates the implementation lease after fresh PR/path collision checks.
 3. The adapter mapping is confirmed for currently supported campaign/focus/selection fields and revision semantics, with a fake-owner test witness.
 
