@@ -33,7 +33,7 @@ function RichBlock({ node }: { node: JSONContent }): ReactNode {
   return <>{children ?? (node.attrs?.label ? String(node.attrs.label) : null)}</>;
 }
 
-export function FocusedPlanPrototype({ model, document, isDirty, selectableTargetKeys, editableTargetKeys, onSelectTarget, onReturnToDocument, selectedTarget, selectedEditTarget, onSelectEditTarget }: {
+export function FocusedPlanPrototype({ model, document, isDirty, selectableTargetKeys, onSelectTarget, onReturnToDocument, selectedTarget }: {
   selectedTarget: WorldPlanCardTarget | null; selectedEditTarget: WorldPlanCardTarget | null;
   model: WorldPlanCardProjectionModel; document: JSONContent; isDirty: boolean;
   selectableTargetKeys: ReadonlySet<string>; editableTargetKeys: ReadonlySet<string>;

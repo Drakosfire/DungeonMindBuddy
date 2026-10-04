@@ -1957,6 +1957,97 @@ export function WorldPlanAgentConversation({
     </article>
   );
 
+  const composer = (editBridge ? (
+        <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
+          <form onSubmit={submitComposer}>
+            <fieldset className="world-plan-agent-conversation__intent" disabled={intentBusy}>
+              <legend>What would you like to do?</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="world-plan-agent-intent"
+                  value="discuss"
+                  checked={composerIntent === "discuss"}
+                  onChange={() => { setComposerIntent("discuss"); setError(null); setEditError(null); }}
+                />
+                Discuss
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="world-plan-agent-intent"
+                  value="propose"
+                  checked={composerIntent === "propose"}
+                  onChange={() => { setComposerIntent("propose"); setError(null); setEditError(null); }}
+                />
+                Propose edit
+              </label>
+            </fieldset>
+            {composerIntent === "propose" ? (
+              <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
+                {playableEditTarget ? (
+                  <p role="note">The selected card body takes precedence over editor selection and Plan section. Clear the card target to use a different proposal target.</p>
+                ) : null}
+                <label htmlFor="world-plan-agent-plan-section">Plan section (optional)</label>
+                <select
+                  id="world-plan-agent-plan-section"
+                  value={selectedSectionTargetId}
+                  disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
+                  onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
+                >
+                  <option value="">Use the editor selection or caret</option>
+                  {sectionTargets.map((target) => (
+                    <option
+                      key={target.id}
+                      value={target.id}
+                      disabled={Boolean(target.unavailableReason)}
+                      title={target.unavailableReason ?? undefined}
+                    >
+                      {target.unavailableReason
+                        ? `${target.label} — unavailable (Markdown round-trip not safe)`
+                        : target.label}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
+                  Refresh sections
+                </button>
+                <p role="note">Choosing a section selects it in the editor. A direct editor selection takes precedence. With no selected text, the proposal inserts at the caret.</p>
+                {sectionTargetStatus ? (
+                  <p role={sectionTargetStatus.kind === "error" ? "alert" : "status"}>{sectionTargetStatus.message}</p>
+                ) : null}
+              </div>
+            ) : null}
+            <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
+            <textarea
+              id="world-plan-agent-message"
+              value={composerMessage}
+              onChange={(event) => setComposerMessage(event.currentTarget.value)}
+              maxLength={messageLimit}
+              disabled={focusedPrototype ? intentBusy : composerBusy}
+              placeholder={composerIntent === "discuss" ? "Ask about this Plan…" : "Describe the change you want…"}
+            />
+            {messageTooLong ? <p role="alert">Edit requests can be at most 4,000 characters. Shorten this message to continue.</p> : null}
+            {composerIntent === "discuss" && error && !authorizationBlocked ? <p role="alert">{error}</p> : null}
+            {composerIntent === "propose" && editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
+            <div className="world-plan-agent-conversation__composer-footer">
+              <p className="world-plan-agent-conversation__context">For proposed edits, Apply changes your draft. Save keeps the changes.</p>
+              <button type="submit" disabled={composerBusy || !composerMessage.trim() || messageTooLong
+                || (composerIntent === "discuss" && playableTargetStale)}>
+                {sending ? "Sending…" : composing ? "Preparing proposal…" : saveInFlight ? "Saving…" : composerIntent === "discuss" ? "Send message" : "Propose edit"}
+              </button>
+            </div>
+          </form>
+        </section>
+      ) : (
+        <form className="world-plan-agent-conversation__composer" onSubmit={submitComposer}>
+          <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
+          <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} maxLength={8000} disabled={focusedPrototype ? intentBusy : composerBusy} />
+          {error ? <p role="alert">{error}</p> : null}
+          <button type="submit" disabled={composerBusy || !composerMessage.trim() || playableTargetStale}>{sending ? "Sending…" : "Send message"}</button>
+        </form>
+      ));
+
   return createPortal(
     <section className="world-plan-agent-conversation" aria-label="Saved World Plan conversation">
       <header className="world-plan-agent-conversation__header">
@@ -1978,6 +2069,7 @@ export function WorldPlanAgentConversation({
           </button>
         </div>
       </header>
+      {focusedPrototype && composer}
       {authorizationBlocked ? (
         <section className="world-plan-agent-conversation__auth-notice" role="alert">
           <p>Local authorization was rejected. Check the credential in Settings, then refresh history or retry the saved request.</p>
@@ -2254,96 +2346,8 @@ export function WorldPlanAgentConversation({
           ) : null}
         </div>
       </details>
-      {editBridge ? (
-        <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
-          <form onSubmit={submitComposer}>
-            <fieldset className="world-plan-agent-conversation__intent" disabled={intentBusy}>
-              <legend>What would you like to do?</legend>
-              <label>
-                <input
-                  type="radio"
-                  name="world-plan-agent-intent"
-                  value="discuss"
-                  checked={composerIntent === "discuss"}
-                  onChange={() => { setComposerIntent("discuss"); setError(null); setEditError(null); }}
-                />
-                Discuss
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="world-plan-agent-intent"
-                  value="propose"
-                  checked={composerIntent === "propose"}
-                  onChange={() => { setComposerIntent("propose"); setError(null); setEditError(null); }}
-                />
-                Propose edit
-              </label>
-            </fieldset>
-            {composerIntent === "propose" ? (
-              <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
-                {playableEditTarget ? (
-                  <p role="note">The selected card body takes precedence over editor selection and Plan section. Clear the card target to use a different proposal target.</p>
-                ) : null}
-                <label htmlFor="world-plan-agent-plan-section">Plan section (optional)</label>
-                <select
-                  id="world-plan-agent-plan-section"
-                  value={selectedSectionTargetId}
-                  disabled={intentBusy || sectionTargets.length === 0 || Boolean(playableEditTarget)}
-                  onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
-                >
-                  <option value="">Use the editor selection or caret</option>
-                  {sectionTargets.map((target) => (
-                    <option
-                      key={target.id}
-                      value={target.id}
-                      disabled={Boolean(target.unavailableReason)}
-                      title={target.unavailableReason ?? undefined}
-                    >
-                      {target.unavailableReason
-                        ? `${target.label} — unavailable (Markdown round-trip not safe)`
-                        : target.label}
-                    </option>
-                  ))}
-                </select>
-                <button type="button" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
-                  Refresh sections
-                </button>
-                <p role="note">Choosing a section selects it in the editor. A direct editor selection takes precedence. With no selected text, the proposal inserts at the caret.</p>
-                {sectionTargetStatus ? (
-                  <p role={sectionTargetStatus.kind === "error" ? "alert" : "status"}>{sectionTargetStatus.message}</p>
-                ) : null}
-              </div>
-            ) : null}
-            <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
-            <textarea
-              id="world-plan-agent-message"
-              value={composerMessage}
-              onChange={(event) => setComposerMessage(event.currentTarget.value)}
-              maxLength={messageLimit}
-              disabled={focusedPrototype ? intentBusy : composerBusy}
-              placeholder={composerIntent === "discuss" ? "Ask about this Plan…" : "Describe the change you want…"}
-            />
-            {messageTooLong ? <p role="alert">Edit requests can be at most 4,000 characters. Shorten this message to continue.</p> : null}
-            {composerIntent === "discuss" && error && !authorizationBlocked ? <p role="alert">{error}</p> : null}
-            {composerIntent === "propose" && editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
-            <div className="world-plan-agent-conversation__composer-footer">
-              <p className="world-plan-agent-conversation__context">For proposed edits, Apply changes your draft. Save keeps the changes.</p>
-              <button type="submit" disabled={composerBusy || !composerMessage.trim() || messageTooLong
-                || (composerIntent === "discuss" && playableTargetStale)}>
-                {sending ? "Sending…" : composing ? "Preparing proposal…" : saveInFlight ? "Saving…" : composerIntent === "discuss" ? "Send message" : "Propose edit"}
-              </button>
-            </div>
-          </form>
-        </section>
-      ) : (
-        <form className="world-plan-agent-conversation__composer" onSubmit={submitComposer}>
-          <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
-          <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} maxLength={8000} disabled={focusedPrototype ? intentBusy : composerBusy} />
-          {error ? <p role="alert">{error}</p> : null}
-          <button type="submit" disabled={composerBusy || !composerMessage.trim() || playableTargetStale}>{sending ? "Sending…" : "Send message"}</button>
-        </form>
-      )}
+      {!focusedPrototype && composer}
+
     </section>,
     askSlot.hostElement,
   );

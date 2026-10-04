@@ -32,3 +32,5 @@ Instructions and target metadata are collapsed in the opt-in presentation. Unava
 The established release launcher was restarted without interrupting prototype UI5203. UI5202/API8000/DMS7860 health checks passed. Authenticated World history returned200, unauthorized returned401 graph_auth_required. The operator must enter the existing private credential through Settings in this tab. Managed Graph projection separately returned409 managed_world_unverified; no Graph or binding mutation was performed.
 
 Candidate adoption slice: focused Plan scene/lens presentation and shared conversation chrome, preserving existing review/apply/save and attribution contracts. This is a proposal, not formal adoption authority.
+
+Refinement: prototype conversation owns vertical scrolling, with composer immediately after header in DOM order, ahead of settings/context/history. Browser overflow witness: client height560px, content1131px, overflow-y auto; lower refresh control reachable by keyboard. Existing authorization and send guards unchanged.

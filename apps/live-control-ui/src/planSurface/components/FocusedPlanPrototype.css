@@ -30,3 +30,8 @@ body:has(.focused-prototype) .world-plan-agent-conversation__turns > h3 { displa
 body:has(.focused-prototype) .world-plan-agent-conversation__composer-footer > p { display:none; }
 
 body:has(.focused-prototype) .world-plan-agent-conversation__turns:has([aria-label="World history unavailable"]) { flex:0 0 auto; min-height:0; max-height:12rem; }
+
+/* The pane owns scrolling so controls remain reachable at short heights. */
+body:has(.focused-prototype) .world-plan-agent-conversation { height:100%; box-sizing:border-box; overflow-y:auto; overscroll-behavior:contain; }
+body:has(.focused-prototype) .world-plan-agent-conversation > * { flex-shrink:0; }
+body:has(.focused-prototype) .world-plan-agent-conversation__turns { flex:0 0 auto; max-height:none; overflow:visible; }
