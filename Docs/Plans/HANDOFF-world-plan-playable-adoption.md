@@ -164,6 +164,32 @@ The implementation PR must prove, at the owning boundaries:
 | Runtime choice and note mutation | Persists only to that Run; source Plan Markdown and WorkRevision remain byte-for-byte unchanged. |
 | Plan includes Graph/source refs | No implicit Graph read, publication, or canon mutation. |
 
+### Persisted v2 manifest integrity gate
+
+Read-only review at Buddy main
+`271e15177b5675c686b32f6ea1cfcd6fa25735a6` found a separate persisted-receipt
+validation gap: `PlayRunReferenceManifestV2._validate_membership()` validates
+edge references but does not require unique edge tuples, while
+`compare_v2_sealed_structure()` converts persisted and derived edges to sets.
+An extra identical persisted tuple can therefore disappear during comparison.
+The source Markdown parser already rejects duplicate targets within one Option
+edge list; ordinary derivation does not establish evidence of corrupted stored
+manifests. This persisted integrity gap is separate from the current editor
+source-admission repair and does not block the read-only card lens.
+
+Before this future Plan-to-Run implementation is accepted, each persisted
+`(option_id, effect, target_kind, target_id)` tuple must occur exactly once,
+and the duplicate-free tuples must match derivation from the exact pinned
+WorkRevision. Validation/comparison must not erase duplicate receipt tuples
+through set conversion. An owning regression must inject an otherwise-valid
+duplicate edge into the stored manifest and prove failure before READY or Play
+context, without rebuilding or rewriting the manifest, Run, source revision,
+or progress. A helper-only test is insufficient for that boundary claim.
+
+Re-check the future implementation lease before assigning manifest validation,
+registry/READY, Play context, or persistence-corruption test paths. This gate
+adds no current code lease, migration, v1 contract change, or card dependency.
+
 Required evidence includes:
 
 - APP-STATE PostgreSQL transaction tests for exact Plan admission, owner/kind,
@@ -304,6 +330,8 @@ requires all of §3 evidence. Block and return to design if:
 - a WorkRevision is not retained/readable by exact ID after later edits;
 - storage cannot atomically bind the Run and manifest to the Plan revision;
 - Plan structure cannot be validated through the existing owning parser;
+- persisted v2 manifest duplicates are hidden by set comparison or accepted
+  before READY/Play context;
 - serving the full pinned Plan would require a content copy or latest-pointer
   fallback;
 - preserving Run/Plan separation requires a schema/public contract not reviewed
