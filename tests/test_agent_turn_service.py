@@ -2,11 +2,21 @@ from __future__ import annotations
 
 import json
 import logging
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
+from application_state.agent_conversation.types import (
+    HistoricalReference,
+    PlanPlayableTargetReceiptV1,
+    SubmittedPlanPlayableTargetV1,
+    Turn,
+    TurnProvenance,
+    encode_plan_playable_target_reference,
+)
 from apps.live_control_server.models.agent_turn import (
     AgentTurnContentBasis,
     AgentTurnRequest,
@@ -154,6 +164,163 @@ def test_plan_turn_sends_exact_committed_markdown_and_returns_source_free_basis(
     )
     assert markdown not in response.model_dump_json(by_alias=True)
     assert response.answer.trace.get("context_summary", {}).get("content_basis") is None
+
+
+def test_targeted_plan_turn_sends_server_resolved_target_and_exact_basis_to_runtime(
+    tmp_path: Path,
+) -> None:
+    markdown = """# Saved Plan
+
+<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->
+## Arrival
+The keeper waits below the black arch.
+"""
+    request = _pinned_plan_request().model_copy(update={
+        "playable_target": SubmittedPlanPlayableTargetV1(
+            schema="dmb_plan_playable_target_v1", kind="scene", id="scene:arrival"
+        )
+    })
+    runtime = FakeRuntime()
+    response = execute_agent_turn(
+        request,
+        root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+        owner_resolver=lambda _request: {
+            "kind": "world", "id": "world:one", "name": "The Glass Orchard"
+        },
+        work_resolver=lambda _request, _owner: _pinned_plan_work(markdown),
+        graph_resolver=lambda *_args: pytest.fail("Targeted Plan Ask must not resolve Graph"),
+        runtime=runtime,
+    )
+
+    assert len(runtime.invocations) == 1
+    prefix, payload = runtime.invocations[0].message.split("\n", maxsplit=1)
+    assert prefix.startswith("Answer the user's question using the committed Plan")
+    assert json.loads(payload) == {
+        "committed_plan_markdown": markdown,
+        "user_question": "What is beneath the black arch?",
+        "focus_metadata": {
+            "playable_target": {
+                "kind": "scene",
+                "id": "scene:arrival",
+                "marker_grammar_version": "v1",
+            },
+            "work_revision": {
+                "work_revision_id": "work-revision-4",
+                "revision_n": 4,
+                "content_sha256": "b" * 64,
+                "object_revision": 7,
+            },
+        },
+    }
+    assert response.graph.status == "not_requested"
+    assert "focus_metadata" not in response.model_dump_json(by_alias=True)
+    assert request.model_dump_json(by_alias=True).find("The keeper waits") == -1
+
+
+def test_completed_targeted_retry_replays_frozen_receipt_without_resolving_or_dispatching(
+    tmp_path: Path,
+) -> None:
+    request = _pinned_plan_request().model_copy(update={
+        "playable_target": SubmittedPlanPlayableTargetV1(
+            schema="dmb_plan_playable_target_v1", kind="scene", id="scene:arrival"
+        )
+    })
+    work_revision_id = uuid4()
+    provenance = TurnProvenance(
+        world_id="world:one",
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-main",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="plan:one",
+            revision="7",
+            content_sha256="b" * 64,
+            object_revision=7,
+            work_revision_id=work_revision_id,
+            revision_n=4,
+        ),
+        supporting_work=[encode_plan_playable_target_reference(PlanPlayableTargetReceiptV1(
+            schema="dmb_plan_playable_target_receipt_v1",
+            kind="scene",
+            id="scene:arrival",
+            marker_grammar_version="v1",
+        ))],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    now = datetime.now(UTC)
+    completed = Turn(
+        turn_id=uuid4(),
+        conversation_id=uuid4(),
+        world_id="world:one",
+        idempotency_key=uuid4(),
+        sequence=3,
+        revision=4,
+        status="completed",
+        user_text=request.message,
+        assistant_text="The arrival is guarded.",
+        failure_code=None,
+        provenance=provenance,
+        submitted_intent_fingerprint_v1="a" * 64,
+        attempt=1,
+        accepted_at=now,
+        completed_at=now,
+        updated_at=now,
+    )
+
+    class CompletedConversationService:
+        submitted_intent = None
+
+        def reconcile_turn(self, _world_id: str, _key: Any, submitted_intent: Any) -> Turn:
+            self.submitted_intent = submitted_intent
+            return completed
+
+    conversation_service = CompletedConversationService()
+    runtime = FakeRuntime()
+    response = execute_agent_turn(
+        request,
+        root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+        owner_resolver=lambda _request: {"kind": "world", "id": "world:one", "name": "The Glass Orchard"},
+        work_resolver=lambda *_args: pytest.fail("Completed target replay must not resolve current Plan"),
+        graph_resolver=lambda *_args: pytest.fail("Target replay must not resolve Graph"),
+        runtime=runtime,
+        conversation_service=conversation_service,  # type: ignore[arg-type]
+    )
+
+    assert conversation_service.submitted_intent.playable_target.id == "scene:arrival"
+    assert response.answer.text == "The arrival is guarded."
+    assert response.conversation.conversation_id == completed.conversation_id
+    assert response.answer.trace["runtime"] == "durable_receipt"
+    assert response.primary_work.content_basis is None
+    assert runtime.invocations == []
+
+
+def test_target_absent_from_committed_revision_stops_before_runtime_dispatch(
+    tmp_path: Path,
+) -> None:
+    request = _pinned_plan_request().model_copy(update={
+        "playable_target": SubmittedPlanPlayableTargetV1(
+            schema="dmb_plan_playable_target_v1", kind="scene", id="scene:draft-only"
+        )
+    })
+    runtime = FakeRuntime()
+    with pytest.raises(AgentTurnServiceError) as error:
+        execute_agent_turn(
+            request,
+            root=tmp_path,
+            pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+            owner_resolver=lambda _request: {"kind": "world", "id": "world:one", "name": "The Glass Orchard"},
+            work_resolver=lambda _request, _owner: _pinned_plan_work(
+                "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\n"
+            ),
+            graph_resolver=lambda *_args: pytest.fail("Target validation must stay graphless"),
+            runtime=runtime,
+        )
+    assert error.value.code == "plan_playable_target_unavailable"
+    assert runtime.invocations == []
 
 
 def test_over_budget_committed_plan_stops_before_pointer_or_runtime_dispatch(

@@ -13,6 +13,7 @@ import type {
   WorldAgentConversationHistoryResponseV1,
   WorldAgentConversationHistoryTurnV1,
   WorldAgentNewConversationRequestV1,
+  WorldPlanSelectedPlayableTargetV1,
 } from "../../api/types";
 import { AgentTraceInspector } from "../../agentInteraction/trace/AgentTraceInspector";
 import { useAskPluginSlotOptional, useRegisterAskPluginPresence } from "../../agentInteraction/AskPluginSlot";
@@ -50,6 +51,10 @@ interface WorldPlanAgentConversationProps {
   savedDirty: boolean;
   pageReady: boolean;
   saveInFlight: boolean;
+  playableTarget?: Omit<WorldPlanSelectedPlayableTargetV1, "schema"> | null;
+  playableTargetBasis?: { revision: number; contentSha256: string } | null;
+  playableTargetStale?: boolean;
+  onClearPlayableTarget?: () => void;
 }
 
 interface ValidatedWorldPlanResponse {
@@ -216,6 +221,8 @@ function parsePendingAsk(
       || typeof primary.object_id !== "string" || primary.object_id !== documentId
       || !isRecord(request.graph_request) || request.graph_request.mode !== "none"
       || request.graph_selection !== null || typeof request.message !== "string"
+      || (Object.prototype.hasOwnProperty.call(request, "playable_target")
+        && !isPlanPlayableTarget(request.playable_target))
       || origin.worldId !== worldId || origin.documentId !== documentId
       || !Number.isSafeInteger(origin.objectRevision)
       || typeof origin.workRevisionId !== "string"
@@ -308,6 +315,16 @@ function mergeHistoryTurns(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPlanPlayableTarget(value: unknown): value is WorldPlanSelectedPlayableTargetV1 {
+  if (!isRecord(value)
+    || Object.keys(value).length !== 3
+    || value.schema !== "dmb_plan_playable_target_v1"
+    || !["scene", "beat", "choice", "option"].includes(String(value.kind))
+    || typeof value.id !== "string"
+    || !/^(scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}$/.test(value.id)) return false;
+  return value.id.startsWith(`${value.kind}:`);
 }
 
 function localProposalOrderStorageKey(namespace: string, threadId: string): string {
@@ -677,6 +694,10 @@ export function WorldPlanAgentConversation({
   savedDirty,
   pageReady,
   saveInFlight,
+  playableTarget = null,
+  playableTargetBasis = null,
+  playableTargetStale = false,
+  onClearPlayableTarget = () => undefined,
 }: WorldPlanAgentConversationProps) {
   const selectedWorld = useSelectedWorld();
   const agent = useAgentInteraction();
@@ -1222,9 +1243,12 @@ export function WorldPlanAgentConversation({
     event.preventDefault();
     const message = composerMessage.trim();
     const pointerSnapshot = historySnapshotRef.current;
+    const targetAtSubmit = playableTarget;
+    const targetBasisAtSubmit = playableTargetBasis;
     if (composerIntent !== "discuss" || !planReady || !scopeMatches || !namespace || !documentId || !surfaceInstanceId
       || !isPositiveRevision(revision) || saveInFlight || !message || sending || requestRef.current
-      || historyLoading || historyError || !pointerSnapshot) return;
+      || historyLoading || historyError || !pointerSnapshot || playableTargetStale
+      || (targetAtSubmit && (!targetBasisAtSubmit || targetBasisAtSubmit.revision !== revision))) return;
 
     const startingFenceKey = requestFenceKey;
     setSending(true);
@@ -1255,6 +1279,11 @@ export function WorldPlanAgentConversation({
       if (!contentBasis) {
         throw new Error("The committed Plan changed or could not be verified. Refresh the Plan before asking.");
       }
+      if (targetAtSubmit && targetBasisAtSubmit
+        && (contentBasis.object_revision !== targetBasisAtSubmit.revision
+          || contentBasis.content_sha256 !== targetBasisAtSubmit.contentSha256)) {
+        throw new Error("The selected card belongs to a different committed Plan revision. Select it again before asking.");
+      }
       const request: WorldPlanAgentTurnRequestV1 = {
         schema: "dmb_agent_turn_request_v1",
         client_thread_id: crypto.randomUUID(),
@@ -1271,6 +1300,9 @@ export function WorldPlanAgentConversation({
         client_work_state: savedDirty ? "saved_dirty" : "saved_clean",
         graph_request: { mode: "none" },
         graph_selection: null,
+        ...(targetAtSubmit ? {
+          playable_target: { schema: "dmb_plan_playable_target_v1" as const, ...targetAtSubmit },
+        } : {}),
         message,
       };
       const origin: WorldPlanPendingAskOrigin = {
@@ -1396,6 +1428,41 @@ export function WorldPlanAgentConversation({
       return `Historical surface: ${surface} · ${work.kind ?? "work"} ${work.object_id}${revision}`;
     }
     return `Historical surface: ${surface} · no primary work identity`;
+  }
+
+  function historyTurnPlayableTargetLabel(turn: WorldAgentConversationHistoryTurnV1): string | null {
+    const references = Array.isArray(turn.provenance.supporting_work)
+      ? turn.provenance.supporting_work.filter((reference) => reference.kind === "dmb_plan_playable_target_v1")
+      : [];
+    if (references.length === 0) return null;
+    if (references.length !== 1) return "Target receipt unavailable: duplicate Playable target references.";
+    const reference = references[0];
+    const primary = turn.provenance.primary_work;
+    const id = reference.object_id;
+    const targetKind = typeof id === "string" ? id.split(":", 1)[0] : "";
+    const validIdentity = typeof id === "string"
+      && ["scene", "beat", "choice", "option"].includes(targetKind)
+      && id.startsWith(`${targetKind}:`)
+      && /^(scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}$/.test(id)
+      && reference.resolution === "resolved"
+      && reference.revision !== null
+      && ["v1", "v2"].includes(reference.revision)
+      && reference.content_sha256 === null
+      && reference.object_revision === null
+      && reference.work_revision_id === null
+      && reference.revision_n === null;
+    const validBasis = primary.resolution === "resolved"
+      && primary.kind === "plan"
+      && typeof primary.object_id === "string"
+      && Number.isSafeInteger(primary.object_revision)
+      && typeof primary.work_revision_id === "string"
+      && Number.isSafeInteger(primary.revision_n)
+      && typeof primary.content_sha256 === "string"
+      && /^[0-9a-f]{64}$/.test(primary.content_sha256);
+    if (!validIdentity || !validBasis) {
+      return "Target receipt unavailable: the stored target or exact committed Plan basis is malformed.";
+    }
+    return `Playable target: ${targetKind} ${id} · marker grammar ${reference.revision} · committed Plan ${primary.object_id}, object revision ${primary.object_revision}, WorkRevision ${primary.work_revision_id}, revision ${primary.revision_n}, SHA-256 ${primary.content_sha256}`;
   }
 
   function getLiveEditAgentBinding() {
@@ -1884,6 +1951,20 @@ export function WorldPlanAgentConversation({
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
+      {playableTarget ? (
+        <section role="group" aria-label="Selected Playable card for Ask">
+          <h3>Selected card for Ask</h3>
+          <p><code>{playableTarget.kind} · {playableTarget.id}</code></p>
+          {playableTargetBasis ? (
+            <p>Committed Plan revision {playableTargetBasis.revision} · SHA-256 <code>{playableTargetBasis.contentSha256}</code></p>
+          ) : null}
+          <p role="note">Ask uses the committed Plan revision; unsaved edits are not included.</p>
+          {playableTargetStale ? (
+            <p role="alert">This card is stale or no longer uniquely matches the committed Plan. Select a card again or clear the target before asking.</p>
+          ) : null}
+          <button type="button" onClick={onClearPlayableTarget}>Clear selected card</button>
+        </section>
+      ) : null}
       <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
         <h3>Conversation</h3>
         {historyLoading ? <p role="status">Loading the latest World conversation page…</p> : null}
@@ -1916,6 +1997,12 @@ export function WorldPlanAgentConversation({
             <p className="world-plan-agent-conversation__context">
               Turn {event.turn.sequence} · {event.turn.lifecycle_status} · {historyTurnProvenanceLabel(event.turn)}
             </p>
+            {(() => {
+              const targetReceipt = historyTurnPlayableTargetLabel(event.turn);
+              return targetReceipt ? (
+                <p role={targetReceipt.startsWith("Target receipt unavailable") ? "alert" : "note"}>{targetReceipt}</p>
+              ) : null;
+            })()}
             <p><strong>You:</strong> {event.turn.user_text}</p>
             {event.turn.assistant_text ? (
               <p><strong>DungeonBuddy:</strong> {event.turn.assistant_text}</p>
@@ -2157,7 +2244,8 @@ export function WorldPlanAgentConversation({
             {composerIntent === "propose" && editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
             <div className="world-plan-agent-conversation__composer-footer">
               <p className="world-plan-agent-conversation__context">For proposed edits, Apply changes your draft. Save keeps the changes.</p>
-              <button type="submit" disabled={composerBusy || !composerMessage.trim() || messageTooLong}>
+              <button type="submit" disabled={composerBusy || !composerMessage.trim() || messageTooLong
+                || (composerIntent === "discuss" && playableTargetStale)}>
                 {sending ? "Sending…" : composing ? "Preparing proposal…" : saveInFlight ? "Saving…" : composerIntent === "discuss" ? "Send message" : "Propose edit"}
               </button>
             </div>
@@ -2168,7 +2256,7 @@ export function WorldPlanAgentConversation({
           <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
           <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} maxLength={8000} disabled={composerBusy} />
           {error ? <p role="alert">{error}</p> : null}
-          <button type="submit" disabled={composerBusy || !composerMessage.trim()}>{sending ? "Sending…" : "Send message"}</button>
+          <button type="submit" disabled={composerBusy || !composerMessage.trim() || playableTargetStale}>{sending ? "Sending…" : "Send message"}</button>
         </form>
       )}
     </section>,

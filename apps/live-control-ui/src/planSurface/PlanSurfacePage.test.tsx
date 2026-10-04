@@ -159,7 +159,12 @@ function planAgentNamespace(documentId = savedAgentPlanId) {
   return `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
 }
 
-function mockSavedPlanForAgent(documentId = savedAgentPlanId, revision = 7, committedObjectRevision = revision) {
+function mockSavedPlanForAgent(
+  documentId = savedAgentPlanId,
+  revision = 7,
+  committedObjectRevision = revision,
+  markdown = savedAgentPlanText,
+) {
   window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
   const record = worldPlanRecord(documentId, worldId, revision);
   record.title = "Of Conks Session Plan";
@@ -185,7 +190,7 @@ function mockSavedPlanForAgent(documentId = savedAgentPlanId, revision = 7, comm
   vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockResolvedValue({
     schema_version: "dmb_workspace_document_snapshot_v2",
     record,
-    markdown: savedAgentPlanText,
+    markdown,
     content_sha256: "b".repeat(64),
     file_fingerprint: "postgres",
     file_exists: true,
@@ -203,7 +208,7 @@ function mockSavedPlanForAgent(documentId = savedAgentPlanId, revision = 7, comm
     object_revision: committedObjectRevision,
     work_revision_id: "work-revision-plan-4",
     revision_n: 4,
-    markdown: savedAgentPlanText,
+    markdown,
     content_sha256: "b".repeat(64),
     has_divergent_working_copy: true,
     target_relpath: record.target_relpath,
@@ -227,7 +232,16 @@ function worldPlanAgentResponse(request: WorldPlanAgentTurnRequestV1): WorldPlan
         object_revision: request.primary_work.expected_revision,
         work_revision_id: "work-revision-plan-4", revision_n: request.primary_work.expected_revision_n,
       },
-      supporting_work: [],
+      supporting_work: request.playable_target ? [{
+        resolution: "resolved",
+        kind: "dmb_plan_playable_target_v1",
+        object_id: request.playable_target.id,
+        revision: request.playable_target.id.startsWith("beat:") ? "v2" : "v1",
+        content_sha256: null,
+        object_revision: null,
+        work_revision_id: null,
+        revision_n: null,
+      }] : [],
       selected_object: {
         resolution: "absent", kind: null, object_id: null, revision: null,
         content_sha256: null, object_revision: null, work_revision_id: null, revision_n: null,
@@ -445,6 +459,119 @@ it("pins Ask to the exact committed World Plan revision and excludes editor text
   expect(localStorage.getItem(threadStorageKey(planAgentNamespace(), request.client_thread_id))).toBeNull();
   expect(JSON.stringify(localStorage)).not.toContain(savedAgentPlanText);
   expect(JSON.stringify(localStorage)).not.toContain("MUST_NOT_BE_PERSISTED");
+});
+
+it.each([
+  {
+    grammar: "v1",
+    kind: "scene" as const,
+    id: "scene:arrival",
+    markdown: "# Saved Plan\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nThe keeper waits below the arch.\n",
+  },
+  {
+    grammar: "v2",
+    kind: "beat" as const,
+    id: "beat:arrival",
+    markdown: "# Saved Plan\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:arrival beat_kind=spine -->\n## Arrival\nThe keeper waits below the arch.\n<!-- dmb-playable-element:v2 kind=scene id=scene:gate -->\n### Gate\nA guard watches the passage.\n",
+  },
+])("targets one $grammar committed card and records its immutable basis", async ({ grammar, kind, id, markdown }) => {
+  mockSavedPlanForAgent(savedAgentPlanId, 7, 7, markdown);
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => worldPlanAgentResponse(request));
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const page = await screen.findByTestId("world-owned-plan");
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const cards = await screen.findByTestId("world-plan-cards");
+  const cardButtons = within(cards).getAllByRole("button", { name: "Select for Ask" });
+  const card = cardButtons.find((button) => button.getAttribute("data-target-id") === id)!;
+  await waitFor(() => expect(card).toBeEnabled());
+  fireEvent.click(card);
+
+  const conversation = savedWorldPlanConversation();
+  expect(within(conversation).getByText(`${kind} · ${id}`)).toBeInTheDocument();
+  expect(within(conversation).getByText(/Ask uses the committed Plan revision; unsaved edits are not included/)).toBeInTheDocument();
+  act(() => capturedPlanControls().changeTitle({ target: { value: "Unsaved local title" } }));
+  fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What happens at this card?" } });
+  sendDiscussMessage(conversation);
+
+  await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(1));
+  const request = postTurn.mock.calls[0]![0];
+  expect(request.playable_target).toEqual({ schema: "dmb_plan_playable_target_v1", kind, id });
+  expect(request).toMatchObject({
+    primary_work: {
+      object_id: savedAgentPlanId,
+      expected_revision: 7,
+      expected_revision_n: 4,
+      expected_content_sha256: "b".repeat(64),
+    },
+    client_work_state: "saved_dirty",
+    graph_request: { mode: "none" },
+    graph_selection: null,
+  });
+  expect(JSON.stringify(request)).not.toContain(markdown);
+  expect(JSON.stringify(request)).not.toContain("The keeper waits below the arch.");
+  expect(await within(conversation).findByText(new RegExp(`Playable target: ${kind} ${id} · marker grammar ${grammar} · committed Plan ${savedAgentPlanId}`))).toBeInTheDocument();
+  expect(within(conversation).getByText(/WorkRevision work-revision-plan-4, revision 4, SHA-256/)).toBeInTheDocument();
+});
+
+it("keeps the submitted card identity fixed while selection changes during basis verification", async () => {
+  const markdown = "# Saved Plan\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nThe keeper waits below the arch.\n<!-- dmb-playable-element:v1 kind=choice id=choice:route -->\n### Choose a route\nTwo paths are open.\n";
+  mockSavedPlanForAgent(savedAgentPlanId, 7, 7, markdown);
+  const getCommitted = vi.spyOn(liveApi, "getWorldOwnedPlanCommittedRevision");
+  let releaseBasis!: (basis: WorldOwnedCommittedRevisionV2) => void;
+  const pendingBasis = new Promise<WorldOwnedCommittedRevisionV2>((resolve) => { releaseBasis = resolve; });
+  getCommitted.mockImplementation(() => pendingBasis);
+  const postTurn = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => worldPlanAgentResponse(request));
+  render(
+    <SelectedWorldProvider locationSnapshot={`/plan?world=${worldId}&documentId=${savedAgentPlanId}`}>
+      <AgentEnabledPlanPage />
+    </SelectedWorldProvider>,
+  );
+
+  const page = await screen.findByTestId("world-owned-plan");
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const cards = await screen.findByTestId("world-plan-cards");
+  const selectById = (id: string) => within(cards).getAllByRole("button", { name: /Select for Ask|Selected for Ask/ })
+    .find((button) => button.getAttribute("data-target-id") === id)!;
+  fireEvent.click(selectById("scene:arrival"));
+  const conversation = savedWorldPlanConversation();
+  fireEvent.change(messageDungeonBuddyField(conversation), { target: { value: "What happens at the arrival?" } });
+  sendDiscussMessage(conversation);
+  await waitFor(() => expect(getCommitted).toHaveBeenCalledTimes(1));
+
+  fireEvent.click(selectById("choice:route"));
+  expect(within(conversation).getByText("choice · choice:route")).toBeInTheDocument();
+  await act(async () => releaseBasis({
+    schema_version: "dmb_workspace_committed_revision_v2",
+    scope_mode: "world",
+    world_id: worldId,
+    campaign_id: null,
+    document_id: savedAgentPlanId,
+    kind: "plan",
+    title: "Of Conks Session Plan",
+    status: "active",
+    object_revision: 7,
+    work_revision_id: "work-revision-plan-4",
+    revision_n: 4,
+    markdown,
+    content_sha256: "b".repeat(64),
+    has_divergent_working_copy: false,
+    target_relpath: `out/workspace/plan/${savedAgentPlanId}.md`,
+  }));
+
+  await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(1));
+  expect(postTurn.mock.calls[0]![0].playable_target).toEqual({
+    schema: "dmb_plan_playable_target_v1",
+    kind: "scene",
+    id: "scene:arrival",
+  });
+  expect(await within(conversation).findByText(/Playable target: scene scene:arrival · marker grammar v1/)).toBeInTheDocument();
 });
 
 it("accepts a local Graph credential in a password field and clears it from the form", async () => {

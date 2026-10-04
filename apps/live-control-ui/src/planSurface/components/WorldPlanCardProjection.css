@@ -90,6 +90,18 @@
   color: var(--text-secondary, #bec9c2);
 }
 
+.world-plan-cards__target-note,
+.world-plan-cards__target-warning {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border-left: 3px solid var(--accent, #c58b49);
+  background: var(--surface-raised, #18211e);
+}
+
+.world-plan-cards__target-warning {
+  border-left-color: #d28b6e;
+}
+
 .world-plan-card-roots,
 .world-plan-card-children {
   display: grid;
@@ -120,6 +132,16 @@
 
 .world-plan-card__header h3 {
   margin: 0.1rem 0 0.35rem;
+}
+
+.world-plan-card__ask-target {
+  justify-self: start;
+  margin-top: 0.6rem;
+}
+
+.world-plan-card__ask-target:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .world-plan-card__kind {

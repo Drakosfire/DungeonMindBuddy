@@ -10,6 +10,7 @@ import {
   parsePlayableHtmlComment,
   playableMarkerVersionProbe,
   PLAYABLE_ELEMENT_MARKER_PREFIX,
+  type PlayableElementKind,
 } from "../../tiptap/playable/playableElementIdentity";
 import { slicePlayableBodies } from "../../playSurface/runbook/nativeRunbookProjection";
 
@@ -20,6 +21,12 @@ export type WorldPlanCardBasis =
   | { status: "verified"; revision: number; contentSha256: string }
   | { status: "server-draft" }
   | { status: "unavailable" };
+
+export type WorldPlanCardTarget = { kind: PlayableElementKind; id: string };
+
+export function worldPlanCardTargetKey(target: WorldPlanCardTarget): string {
+  return `${target.kind}\u001f${target.id}`;
+}
 
 export type WorldPlanCardNode = {
   id: string;
@@ -39,6 +46,20 @@ export type WorldPlanCardProjectionModel =
   | { status: "empty" }
   | { status: "blocked"; diagnostics: ProjectionDiagnostic[] }
   | { status: "ready"; version: ProjectionVersion; roots: WorldPlanCardNode[] };
+
+export function worldPlanCardTargetKeys(model: WorldPlanCardProjectionModel): Set<string> {
+  if (model.status !== "ready") return new Set();
+  const counts = new Map<string, number>();
+  const visit = (nodes: readonly WorldPlanCardNode[]) => {
+    for (const node of nodes) {
+      const key = worldPlanCardTargetKey({ kind: node.kind, id: node.id });
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+      visit(node.children);
+    }
+  };
+  visit(model.roots);
+  return new Set([...counts].filter(([, count]) => count === 1).map(([key]) => key));
+}
 
 function scanSourceMarkers(markdown: string): { versions: Set<ProjectionVersion>; diagnostics: ProjectionDiagnostic[] } {
   const versions = new Set<ProjectionVersion>();
@@ -195,7 +216,20 @@ export function buildWorldPlanCardProjectionModel(input: {
   return { status: "ready", version, roots: projected.roots };
 }
 
-function CardNodeView({ node }: { node: WorldPlanCardNode }) {
+function CardNodeView({
+  node,
+  selectableTargetKeys,
+  selectedTarget,
+  onSelectTarget,
+}: {
+  node: WorldPlanCardNode;
+  selectableTargetKeys: ReadonlySet<string>;
+  selectedTarget: WorldPlanCardTarget | null;
+  onSelectTarget?: (target: WorldPlanCardTarget) => void;
+}) {
+  const target = { kind: node.kind, id: node.id };
+  const selected = selectedTarget?.kind === target.kind && selectedTarget.id === target.id;
+  const selectable = selectableTargetKeys.has(worldPlanCardTargetKey(target));
   return (
     <li className={`world-plan-card-node world-plan-card-node--${node.kind}`} data-element-id={node.id} data-element-kind={node.kind}>
       <article className="world-plan-card">
@@ -203,6 +237,18 @@ function CardNodeView({ node }: { node: WorldPlanCardNode }) {
           <p className="world-plan-card__kind">{node.kind}{node.beatKind ? ` · ${node.beatKind}` : ""}</p>
           <h3>{node.title || "Untitled marked element"}</h3>
           <code>{node.id}</code>
+          <button
+            type="button"
+            className="world-plan-card__ask-target"
+            data-target-kind={node.kind}
+            data-target-id={node.id}
+            aria-pressed={selected}
+            disabled={!selectable || !onSelectTarget}
+            title={selectable ? "Use this exact card from the committed Plan for Ask" : "A unique matching card is not available in both the saved Plan and this view"}
+            onClick={() => onSelectTarget?.(target)}
+          >
+            {selected ? "Selected for Ask" : "Select for Ask"}
+          </button>
         </header>
         {node.sceneId ? <p className="world-plan-card__relationship">Associated scene: <code>{node.sceneId}</code></p> : null}
         {node.bodyText ? <p className="world-plan-card__body">{node.bodyText}</p> : null}
@@ -215,7 +261,15 @@ function CardNodeView({ node }: { node: WorldPlanCardNode }) {
       </article>
       {node.children.length ? (
         <ol className="world-plan-card-children">
-          {node.children.map((child) => <CardNodeView key={child.id} node={child} />)}
+          {node.children.map((child) => (
+            <CardNodeView
+              key={child.id}
+              node={child}
+              selectableTargetKeys={selectableTargetKeys}
+              selectedTarget={selectedTarget}
+              onSelectTarget={onSelectTarget}
+            />
+          ))}
         </ol>
       ) : null}
     </li>
@@ -231,6 +285,10 @@ export function WorldPlanCardProjection({
   basis,
   isDirty,
   onReturnToDocument,
+  selectableTargetKeys = new Set<string>(),
+  selectedTarget = null,
+  onSelectTarget,
+  selectionStale = false,
 }: {
   worldId: string;
   documentId: string;
@@ -240,6 +298,10 @@ export function WorldPlanCardProjection({
   basis: WorldPlanCardBasis;
   isDirty: boolean;
   onReturnToDocument: () => void;
+  selectableTargetKeys?: ReadonlySet<string>;
+  selectedTarget?: WorldPlanCardTarget | null;
+  onSelectTarget?: (target: WorldPlanCardTarget) => void;
+  selectionStale?: boolean;
 }) {
   const model = useMemo(() => buildWorldPlanCardProjectionModel({ document, markdown, sourceWarnings }), [document, markdown, sourceWarnings]);
   if (model.status === "blocked") {
@@ -290,8 +352,29 @@ export function WorldPlanCardProjection({
         </dl>
       </details>
       <p className="world-plan-cards__source-note">Only marked elements appear as cards. Unmarked Plan prose stays in Document.</p>
+      <p className="world-plan-cards__target-note" role="note">
+        Select one uniquely matching card for Ask. A targeted answer uses the committed Plan revision; unsaved edits are not sent.
+      </p>
+      {basis.status !== "verified" ? (
+        <p className="world-plan-cards__target-warning" role="status">
+          Card targeting is unavailable until a committed Plan snapshot is verified.
+        </p>
+      ) : null}
+      {selectionStale ? (
+        <p className="world-plan-cards__target-warning" role="alert">
+          The selected card is no longer uniquely present in both this view and the committed Plan. Select a card again or clear the target before asking.
+        </p>
+      ) : null}
       <ol className="world-plan-card-roots">
-        {model.roots.map((node) => <CardNodeView key={node.id} node={node} />)}
+        {model.roots.map((node) => (
+          <CardNodeView
+            key={node.id}
+            node={node}
+            selectableTargetKeys={selectableTargetKeys}
+            selectedTarget={selectedTarget}
+            onSelectTarget={onSelectTarget}
+          />
+        ))}
       </ol>
     </section>
   );

@@ -203,6 +203,41 @@ describe("World Plan Agent turn transport", () => {
     expect(JSON.stringify(request)).not.toContain("local-plan:");
     expect(String(fetchSpy.mock.calls[0]?.[1]?.body)).not.toContain("test-only-local-operator-credential-value");
   });
+
+  it("transports only the versioned Playable identity with a committed Plan basis", async () => {
+    const request: WorldPlanAgentTurnRequestV1 = {
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: "thread-world-plan-target",
+      turn_id: "turn-world-plan-target",
+      surface: { surface_id: "plan", instance_id: "plan-instance" },
+      owner_scope: { kind: "world", world_id: "world-a" },
+      primary_work: {
+        kind: "plan",
+        object_id: "document-1",
+        expected_revision: 3,
+        expected_revision_n: 4,
+        expected_content_sha256: "b".repeat(64),
+      },
+      playable_target: {
+        schema: "dmb_plan_playable_target_v1",
+        kind: "scene",
+        id: "scene:arrival",
+      },
+      client_work_state: "saved_dirty",
+      graph_request: { mode: "none" },
+      graph_selection: null,
+      message: "What happens at arrival?",
+    };
+    const response = { schema: "dmb_agent_turn_response_v1", turn_id: request.turn_id };
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(mockJsonResponse(response));
+
+    await expect(postWorldPlanAgentTurn(request)).resolves.toEqual(response);
+
+    const body = String(fetchSpy.mock.calls[0]?.[1]?.body);
+    expect(JSON.parse(body)).toEqual(request);
+    expect(body).not.toContain("scene body text");
+    expect(body).not.toContain("committed_plan_markdown");
+  });
 });
 
 describe("World Plan edit proposal transport", () => {

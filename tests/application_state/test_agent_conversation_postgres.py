@@ -16,13 +16,16 @@ from application_state.agent_conversation.types import (
     ConversationCommand,
     DraftSave,
     HistoricalReference,
+    PlanPlayableTargetReceiptV1,
     SubmittedGraphRequestIntentV1,
+    SubmittedPlanPlayableTargetV1,
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
     TurnProvenance,
     TurnSubmission,
     TurnFailure,
     TurnResult,
+    encode_plan_playable_target_reference,
 )
 from application_state.cli import _current_and_head
 from application_state.errors import ApplicationStateConflictError
@@ -233,6 +236,111 @@ def test_turn_and_draft_round_trip_exact_typed_provenance(
     )
     assert loaded_draft.provenance == provenance
     assert loaded_draft.provenance.surface_instance_id == "plan-pane-7"
+
+
+def test_playable_target_receipt_persists_and_replays_immutable_plan_basis(
+    application_state_dsn: str,
+) -> None:
+    writer = AgentConversationService()
+    world_id = "playable-target-receipt-world"
+    conversation = _new(writer, world_id)
+    work_revision_id = uuid4()
+    target = SubmittedPlanPlayableTargetV1(
+        schema="dmb_plan_playable_target_v1", kind="scene", id="scene:arrival"
+    )
+    receipt = PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="scene",
+        id="scene:arrival",
+        marker_grammar_version="v1",
+    )
+    provenance = TurnProvenance(
+        world_id=world_id,
+        surface_resolution="resolved",
+        surface_id="plan",
+        surface_instance_id="plan-main",
+        primary_work=HistoricalReference(
+            resolution="resolved",
+            kind="plan",
+            object_id="plan-target-1",
+            revision="7",
+            content_sha256="b" * 64,
+            object_revision=7,
+            work_revision_id=work_revision_id,
+            revision_n=4,
+        ),
+        supporting_work=[encode_plan_playable_target_reference(receipt)],
+        selected_object=HistoricalReference(resolution="absent"),
+    )
+    intent = SubmittedTurnIntentV1(
+        world_id=world_id,
+        client_thread_id="target-thread",
+        message="What happens at arrival?",
+        surface_id="plan",
+        surface_instance_id="plan-main",
+        client_work_state="saved_dirty",
+        primary_work=SubmittedPrimaryWorkIntentV1(
+            kind="plan",
+            object_id="plan-target-1",
+            expected_revision=7,
+            expected_revision_n=4,
+            expected_content_sha256="b" * 64,
+        ),
+        playable_target=target,
+        graph_request=SubmittedGraphRequestIntentV1(mode="none"),
+        graph_selection=None,
+    )
+    submission = TurnSubmission(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        idempotency_key=uuid4(),
+        expected_conversation_revision=1,
+        user_text=intent.message,
+        provenance=provenance,
+        submitted_intent_v1=intent,
+    )
+
+    accepted = writer.accept_turn(submission)
+    recovered = AgentConversationService()
+    loaded = recovered.list_turns(world_id, conversation.conversation_id)[0]
+    assert loaded.provenance == provenance
+    assert loaded.provenance.primary_work.work_revision_id == work_revision_id
+    assert loaded.provenance.supporting_work == [encode_plan_playable_target_reference(receipt)]
+    assert recovered.reconcile_turn(world_id, submission.idempotency_key, intent) == accepted
+
+    claim = recovered.claim_turn(
+        world_id,
+        conversation.conversation_id,
+        accepted.turn_id,
+        expected_revision=accepted.revision,
+        lease_seconds=60,
+    )
+    assert claim.disposition == "claimed"
+    completed = recovered.complete_turn(TurnResult(
+        world_id=world_id,
+        conversation_id=conversation.conversation_id,
+        turn_id=accepted.turn_id,
+        expected_revision=claim.turn.revision,
+        assistant_text="The arrival is guarded.",
+    ))
+    fresh = AgentConversationService()
+    replay = fresh.reconcile_turn(world_id, submission.idempotency_key, intent)
+    assert replay == completed
+    assert replay.provenance == provenance
+    for changed_intent in (
+        intent.model_copy(update={
+            "playable_target": SubmittedPlanPlayableTargetV1(
+                schema="dmb_plan_playable_target_v1", kind="scene", id="scene:departure"
+            )
+        }),
+        intent.model_copy(update={
+            "primary_work": intent.primary_work.model_copy(
+                update={"expected_content_sha256": "c" * 64}
+            )
+        }),
+    ):
+        with pytest.raises(ApplicationStateConflictError, match="different submitted intent"):
+            fresh.reconcile_turn(world_id, submission.idempotency_key, changed_intent)
 
 
 def test_fresh_service_instance_reads_committed_world_conversation(

@@ -296,7 +296,12 @@ function setHarness() {
   return thread;
 }
 
-function mountComponent(revision = 7, editBridge: any = null) {
+function mountComponent(
+  revision = 7,
+  editBridge: any = null,
+  playableTarget: { kind: "scene" | "beat" | "choice" | "option"; id: string } | null = null,
+  playableTargetStale = false,
+) {
   return render(
     <WorldPlanAgentConversation
       worldId={worldId}
@@ -310,6 +315,9 @@ function mountComponent(revision = 7, editBridge: any = null) {
       savedDirty={false}
       pageReady
       saveInFlight={false}
+      playableTarget={playableTarget}
+      playableTargetBasis={playableTarget ? { revision: 7, contentSha256 } : null}
+      playableTargetStale={playableTargetStale}
     />,
   );
 }
@@ -399,6 +407,50 @@ afterEach(() => {
 });
 
 describe("World Plan conversation consumer", () => {
+  it("renders the immutable target, grammar, and exact WorkRevision from history", async () => {
+    const turn = makeTurn(1, "target-turn", "What happens at arrival?", "The arrival is guarded.");
+    turn.provenance.primary_work = {
+      ...turn.provenance.primary_work,
+      revision: "7",
+      content_sha256: contentSha256,
+      object_revision: 7,
+      work_revision_id: workRevisionId,
+      revision_n: 4,
+    };
+    turn.provenance.supporting_work = [{
+      resolution: "resolved",
+      kind: "dmb_plan_playable_target_v1",
+      object_id: "scene:arrival",
+      revision: "v1",
+      content_sha256: null,
+      object_revision: null,
+      work_revision_id: null,
+      revision_n: null,
+    }];
+    setupApi(history("conversation-a", 1, [turn]));
+
+    mountComponent();
+
+    expect(await screen.findByText(/Playable target: scene scene:arrival · marker grammar v1 · committed Plan saved-plan-test, object revision 7/)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`WorkRevision ${workRevisionId}, revision 4, SHA-256 ${contentSha256}`))).toBeInTheDocument();
+  });
+
+  it("blocks a stale targeted Ask before browser persistence or API dispatch", async () => {
+    setupApi(history("conversation-a", 1, []));
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn");
+
+    mountComponent(7, null, { kind: "scene", id: "scene:arrival" }, true);
+    await screen.findByText(/No messages here yet/);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+      target: { value: "Ask about the deleted card." },
+    });
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled();
+    fireEvent.submit(screen.getByLabelText("Message DungeonBuddy").closest("form")!);
+
+    expect(postAsk).not.toHaveBeenCalled();
+    expect(pendingAskKeys()).toHaveLength(0);
+  });
+
   it("loads the latest page, merges older turns by durable ID, and preserves server ordering", async () => {
     const api = setupApi(history("conversation-a", 5, [
       makeTurn(2, "turn-2", "Middle question", "Middle answer"),

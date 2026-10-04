@@ -18,9 +18,11 @@ from application_state.agent_conversation.types import (
     Conversation,
     ConversationCommand,
     HistoricalReference,
+    PlanPlayableTargetReceiptV1,
     SubmittedGraphFocusIntentV1,
     SubmittedGraphRequestIntentV1,
     SubmittedGraphSelectionIntentV1,
+    SubmittedPlanPlayableTargetV1,
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
     Turn,
@@ -28,6 +30,8 @@ from application_state.agent_conversation.types import (
     TurnProvenance,
     TurnResult,
     TurnSubmission,
+    decode_plan_playable_target_reference,
+    encode_plan_playable_target_reference,
 )
 from application_state.errors import (
     ApplicationStateConflictError,
@@ -42,6 +46,10 @@ from apps.live_control_server.models.agent_turn import (
 from apps.live_control_server.services.agent_context_assembler import (
     assemble_agent_conversation_context,
     assemble_agent_graph_context,
+)
+from apps.live_control_server.services.agent_plan_playable_target import (
+    AgentPlanPlayableTargetError,
+    resolve_agent_plan_playable_target,
 )
 from apps.live_control_server.services.agent_runtime import (
     AgentRuntime,
@@ -284,12 +292,39 @@ def _selection_found(
     return selected_node_id in ids
 
 
-def _plan_message(question: str, markdown: str) -> str:
+def _plan_message(
+    question: str,
+    markdown: str,
+    *,
+    playable_target: PlanPlayableTargetReceiptV1 | None = None,
+    content_basis: AgentTurnContentBasis | None = None,
+) -> str:
+    payload_data: dict[str, Any] = {
+        "committed_plan_markdown": markdown,
+        "user_question": question,
+    }
+    if playable_target is not None:
+        if content_basis is None:
+            raise AgentTurnServiceError(
+                "The selected Playable target has no exact committed Plan basis.",
+                code="plan_content_unavailable",
+                status_code=503,
+            )
+        payload_data["focus_metadata"] = {
+            "playable_target": {
+                "kind": playable_target.kind,
+                "id": playable_target.id,
+                "marker_grammar_version": playable_target.marker_grammar_version,
+            },
+            "work_revision": {
+                "work_revision_id": content_basis.work_revision_id,
+                "revision_n": content_basis.revision_n,
+                "content_sha256": content_basis.content_sha256,
+                "object_revision": content_basis.object_revision,
+            },
+        }
     payload = json.dumps(
-        {
-            "committed_plan_markdown": markdown,
-            "user_question": question,
-        },
+        payload_data,
         ensure_ascii=False,
         separators=(",", ":"),
     )
@@ -339,6 +374,7 @@ def _conversation_provenance(
     *,
     world_id: str,
     work: AgentTurnResolvedWork | None,
+    playable_target: PlanPlayableTargetReceiptV1 | None = None,
     graph_scope: AgentWorldScope | None = None,
     graph_envelope: Mapping[str, Any] | None = None,
 ) -> TurnProvenance:
@@ -370,6 +406,14 @@ def _conversation_provenance(
             revision_n=None if content_basis is None else content_basis.revision_n,
         )
     supporting_work: list[HistoricalReference] = []
+    if playable_target is not None:
+        if request.graph_request.mode != "none" or request.graph_selection is not None:
+            raise AgentTurnServiceError(
+                "Playable targets cannot be combined with Graph context.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            )
+        supporting_work.append(encode_plan_playable_target_reference(playable_target))
     selected_object = HistoricalReference(
         resolution=("unresolved" if request.graph_selection is not None else "absent")
     )
@@ -466,6 +510,13 @@ def _submitted_turn_intent(
         surface_instance_id=request.surface.instance_id,
         client_work_state=request.client_work_state,
         primary_work=primary_work,
+        playable_target=(
+            None
+            if request.playable_target is None
+            else SubmittedPlanPlayableTargetV1.model_validate(
+                request.playable_target.model_dump(mode="python", by_alias=True)
+            )
+        ),
         graph_request=graph_intent,
         graph_selection=graph_selection,
     )
@@ -490,6 +541,80 @@ def _stored_graph_reference(provenance: TurnProvenance) -> HistoricalReference |
     return references[0] if references else None
 
 
+def _stored_plan_playable_target(
+    provenance: TurnProvenance,
+) -> PlanPlayableTargetReceiptV1 | None:
+    references = [
+        reference
+        for reference in provenance.supporting_work
+        if reference.kind == "dmb_plan_playable_target_v1"
+    ]
+    if len(references) > 1:
+        raise AgentTurnServiceError(
+            "The turn receipt contains duplicate Playable target references.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+    if not references:
+        return None
+    try:
+        receipt = decode_plan_playable_target_reference(references[0])
+    except ValueError as exc:
+        raise AgentTurnServiceError(
+            "The stored Playable target receipt is malformed.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        ) from exc
+    if receipt is None:
+        raise AgentTurnServiceError(
+            "The stored Playable target receipt could not be decoded.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+    return receipt
+
+
+def _require_playable_target_receipt_matches_request(
+    request: AgentTurnRequest,
+    provenance: TurnProvenance,
+) -> PlanPlayableTargetReceiptV1 | None:
+    receipt = _stored_plan_playable_target(provenance)
+    target = request.playable_target
+    if (target is None) != (receipt is None):
+        raise AgentTurnServiceError(
+            "The retry receipt does not match the submitted Playable target.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+    if receipt is None:
+        return None
+    primary = provenance.primary_work
+    requested_work = request.primary_work
+    if (
+        target is None
+        or requested_work is None
+        or receipt.kind != target.kind
+        or receipt.id != target.id
+        or request.graph_request.mode != "none"
+        or request.graph_selection is not None
+        or provenance.selected_object.resolution != "absent"
+        or primary.resolution != "resolved"
+        or primary.kind != "plan"
+        or primary.object_id != requested_work.object_id
+        or primary.revision != str(requested_work.expected_revision)
+        or primary.object_revision != requested_work.expected_revision
+        or primary.revision_n != requested_work.expected_revision_n
+        or primary.content_sha256 != requested_work.expected_content_sha256
+        or primary.work_revision_id is None
+    ):
+        raise AgentTurnServiceError(
+            "The retry receipt does not match the submitted Playable target and exact Plan basis.",
+            code="turn_receipt_unverifiable",
+            status_code=409,
+        )
+    return receipt
+
+
 def _completed_turn_replay(
     request: AgentTurnRequest,
     *,
@@ -497,6 +622,7 @@ def _completed_turn_replay(
     turn: Turn,
 ) -> AgentTurnResponse:
     """Project a completed durable receipt without loading runtime/current state."""
+    _require_playable_target_receipt_matches_request(request, turn.provenance)
     segment_thread_id = _provider_segment_thread_id(
         turn.provenance, conversation_id=turn.conversation_id
     )
@@ -811,6 +937,12 @@ def execute_agent_turn(
                     request, owner=owner, turn=durable_turn
                 )
 
+    stored_playable_target: PlanPlayableTargetReceiptV1 | None = None
+    if durable_turn is not None:
+        stored_playable_target = _require_playable_target_receipt_matches_request(
+            request, durable_turn.provenance
+        )
+
     graph_reference = None
     if durable_turn is not None:
         graph_reference = _stored_graph_reference(durable_turn.provenance)
@@ -895,6 +1027,44 @@ def execute_agent_turn(
             code="plan_content_unavailable",
             status_code=503,
         )
+    playable_target_receipt = stored_playable_target
+    if request.playable_target is not None:
+        basis = None if work is None else work.content_basis
+        if (
+            work is None
+            or work.kind != "plan"
+            or work.object_id != request.primary_work.object_id
+            or basis is None
+            or basis.object_revision != request.primary_work.expected_revision
+            or basis.revision_n != request.primary_work.expected_revision_n
+            or basis.content_sha256 != request.primary_work.expected_content_sha256
+            or (
+                durable_turn is not None
+                and str(basis.work_revision_id)
+                != str(durable_turn.provenance.primary_work.work_revision_id)
+            )
+            or work.changed_since_expected
+        ):
+            raise AgentTurnServiceError(
+                "The selected Playable target could not be bound to the exact committed Plan basis.",
+                code="plan_content_unavailable",
+                status_code=409,
+            )
+        if durable_turn is None:
+            try:
+                playable_target_receipt = resolve_agent_plan_playable_target(
+                    request.playable_target, work.plan_markdown
+                )
+            except AgentPlanPlayableTargetError as exc:
+                raise AgentTurnServiceError(
+                    str(exc), code="plan_playable_target_unavailable", status_code=422
+                ) from exc
+        elif playable_target_receipt is None:
+            raise AgentTurnServiceError(
+                "The retry receipt has no frozen Playable target.",
+                code="turn_receipt_unverifiable",
+                status_code=409,
+            )
     runtime_message = request.message
     if work is not None and work.plan_markdown is not None:
         if (
@@ -906,7 +1076,12 @@ def execute_agent_turn(
                 code="plan_content_scope_rejected",
                 status_code=403,
             )
-        runtime_message = _plan_message(request.message, work.plan_markdown)
+        runtime_message = _plan_message(
+            request.message,
+            work.plan_markdown,
+            playable_target=playable_target_receipt,
+            content_basis=work.content_basis,
+        )
 
     owner_kind = (
         str(owner.get("kind"))
@@ -1033,6 +1208,7 @@ def execute_agent_turn(
                 request,
                 world_id=canonical_world_id,
                 work=work,
+                playable_target=playable_target_receipt,
                 graph_scope=scope,
                 graph_envelope=envelope,
             )
