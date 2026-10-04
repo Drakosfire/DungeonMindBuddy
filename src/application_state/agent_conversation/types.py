@@ -147,6 +147,81 @@ class HistoricalReference(StrictModel):
         return self
 
 
+PlanPlayableKind = Literal["scene", "beat", "choice", "option"]
+PlayableMarkerGrammarVersion = Literal["v1", "v2"]
+PLAN_PLAYABLE_TARGET_SCHEMA = "dmb_plan_playable_target_v1"
+PLAN_PLAYABLE_TARGET_REFERENCE_KIND = "dmb_plan_playable_target_v1"
+_PLAN_PLAYABLE_ID_PATTERN = r"^(scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}$"
+
+
+class SubmittedPlanPlayableTargetV1(StrictModel):
+    """Client-supplied identity only; marker grammar remains server-derived."""
+
+    schema_: Literal["dmb_plan_playable_target_v1"] = Field(alias="schema")
+    kind: PlanPlayableKind
+    id: str = Field(min_length=6, max_length=135, pattern=_PLAN_PLAYABLE_ID_PATTERN)
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "SubmittedPlanPlayableTargetV1":
+        if not self.id.startswith(f"{self.kind}:"):
+            raise ValueError("Playable target id prefix must match its kind")
+        return self
+
+
+class PlanPlayableTargetReceiptV1(StrictModel):
+    """Server-validated target plus the grammar version of its pinned Plan."""
+
+    schema_: Literal["dmb_plan_playable_target_receipt_v1"] = Field(alias="schema")
+    kind: PlanPlayableKind
+    id: str = Field(min_length=6, max_length=135, pattern=_PLAN_PLAYABLE_ID_PATTERN)
+    marker_grammar_version: PlayableMarkerGrammarVersion
+
+    @model_validator(mode="after")
+    def validate_target(self) -> "PlanPlayableTargetReceiptV1":
+        if not self.id.startswith(f"{self.kind}:"):
+            raise ValueError("Playable target id prefix must match its kind")
+        return self
+
+
+def encode_plan_playable_target_reference(
+    receipt: PlanPlayableTargetReceiptV1,
+) -> HistoricalReference:
+    """Encode a typed receipt in an existing supporting-reference row."""
+    return HistoricalReference(
+        resolution="resolved",
+        kind=PLAN_PLAYABLE_TARGET_REFERENCE_KIND,
+        object_id=receipt.id,
+        revision=receipt.marker_grammar_version,
+    )
+
+
+def decode_plan_playable_target_reference(
+    reference: HistoricalReference,
+) -> PlanPlayableTargetReceiptV1 | None:
+    """Decode only the reserved target codec; reject malformed stored rows."""
+    if reference.kind != PLAN_PLAYABLE_TARGET_REFERENCE_KIND:
+        return None
+    if (
+        reference.resolution != "resolved"
+        or reference.object_id is None
+        or reference.revision not in {"v1", "v2"}
+        or reference.content_sha256 is not None
+        or reference.object_revision is not None
+        or reference.work_revision_id is not None
+        or reference.revision_n is not None
+    ):
+        raise ValueError("stored Playable target reference is malformed")
+    kind, separator, _ = reference.object_id.partition(":")
+    if not separator or kind not in {"scene", "beat", "choice", "option"}:
+        raise ValueError("stored Playable target identity is malformed")
+    return PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind=kind,
+        id=reference.object_id,
+        marker_grammar_version=reference.revision,
+    )
+
+
 class PlanAskContextBasis(StrictModel):
     """Server-resolved committed Plan basis used only to filter Ask history."""
 
@@ -218,6 +293,30 @@ class TurnProvenance(StrictModel):
                 )
         if self.surface_resolution == "absent" and self.surface_instance_id is not None:
             raise ValueError("absent surface cannot carry surface_instance_id")
+        target_references = [
+            reference
+            for reference in self.supporting_work
+            if reference.kind == PLAN_PLAYABLE_TARGET_REFERENCE_KIND
+        ]
+        if len(target_references) > 1:
+            raise ValueError("turn provenance cannot carry duplicate Playable targets")
+        if target_references:
+            decode_plan_playable_target_reference(target_references[0])
+            primary = self.primary_work
+            if (
+                self.surface_id != "plan"
+                or self.surface_resolution != "resolved"
+                or primary.resolution != "resolved"
+                or primary.kind != "plan"
+                or primary.object_revision is None
+                or primary.work_revision_id is None
+                or primary.revision_n is None
+                or primary.content_sha256 is None
+                or self.selected_object.resolution != "absent"
+            ):
+                raise ValueError(
+                    "Playable target provenance requires an exact Plan basis and no Graph selection"
+                )
         return self
 
 
@@ -295,6 +394,7 @@ class SubmittedTurnIntentV1(StrictModel):
     surface_instance_id: str = Field(min_length=1, max_length=128)
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
     primary_work: SubmittedPrimaryWorkIntentV1 | None
+    playable_target: SubmittedPlanPlayableTargetV1 | None = None
     graph_request: SubmittedGraphRequestIntentV1
     graph_selection: SubmittedGraphSelectionIntentV1 | None
 
@@ -318,16 +418,30 @@ class SubmittedTurnIntentV1(StrictModel):
             raise ValueError("submitted graph World must match submitted turn World")
         if self.graph_selection is not None and self.graph_request.mode == "none":
             raise ValueError("submitted graph selection requires a graph request")
+        if self.playable_target is not None and (
+            self.surface_id != "plan"
+            or self.primary_work is None
+            or self.primary_work.kind != "plan"
+            or self.client_work_state not in {"saved_clean", "saved_dirty"}
+            or self.graph_request.mode != "none"
+            or self.graph_selection is not None
+        ):
+            raise ValueError(
+                "Playable target intent requires a graphless saved Plan turn"
+            )
         return self
 
 
 def submitted_turn_intent_fingerprint_v1(intent: SubmittedTurnIntentV1) -> str:
     """Hash canonical submitted semantics, never current resolver output."""
-    return _fingerprint(
-        intent.model_dump(
-            mode="json", by_alias=True, exclude={"client_thread_id"}
-        )
+    payload = intent.model_dump(
+        mode="json", by_alias=True, exclude={"client_thread_id"}
     )
+    # Older no-target fingerprints were computed before this optional field
+    # existed. Omit its null shape byte-for-byte; targeted intents include it.
+    if payload.get("playable_target") is None:
+        payload.pop("playable_target", None)
+    return _fingerprint(payload)
 
 
 class WorldPointer(StrictModel):

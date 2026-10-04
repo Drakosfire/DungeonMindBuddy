@@ -7,7 +7,9 @@ import { AgentInteractionProvider } from "../agentInteraction/AgentInteractionPr
 import { SelectedWorldProvider } from "../selectedWorld/SelectedWorldContext";
 import { SurfaceContextProvider } from "../surfaceInteraction/contextHost";
 import { PeekRegionProvider } from "../surfaceInteraction/peekHost";
+import { markdownToTiptapDoc } from "../tiptap/markdown/markdownToTiptap";
 import { PlanSurfacePage } from "./PlanSurfacePage";
+import { buildWorldPlanCardProjectionModel, worldPlanCardTargetKeys } from "./components/WorldPlanCardProjection";
 
 vi.mock("./components/WorldPlanAgentConversation", () => ({
   WorldPlanAgentConversation: () => null,
@@ -173,6 +175,19 @@ afterEach(() => {
   vi.restoreAllMocks();
   localStorage.clear();
   window.history.replaceState({}, "", "/");
+});
+
+it("makes duplicate marker identities unavailable to target selection", () => {
+  const duplicateMarkdown = `${initialMarkdown}\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival again\nA duplicate scene.\n`;
+  const imported = markdownToTiptapDoc(duplicateMarkdown);
+  const model = buildWorldPlanCardProjectionModel({
+    document: imported.doc,
+    markdown: duplicateMarkdown,
+    sourceWarnings: [],
+  });
+
+  expect(model.status).toBe("blocked");
+  expect(worldPlanCardTargetKeys(model)).toEqual(new Set());
 });
 
 it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the exact committed revision", async () => {

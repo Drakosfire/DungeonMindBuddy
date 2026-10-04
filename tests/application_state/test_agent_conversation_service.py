@@ -22,6 +22,7 @@ from application_state.agent_conversation.types import (
     SubmittedGraphFocusIntentV1,
     SubmittedGraphRequestIntentV1,
     SubmittedGraphSelectionIntentV1,
+    SubmittedPlanPlayableTargetV1,
     SubmittedPrimaryWorkIntentV1,
     SubmittedTurnIntentV1,
     TurnFailure,
@@ -265,6 +266,13 @@ def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> N
         }
     )
     plan_fingerprint = submitted_turn_intent_fingerprint_v1(plan_intent)
+    pre_target_payload = plan_intent.model_dump(
+        mode="json", by_alias=True, exclude={"client_thread_id"}
+    )
+    pre_target_payload.pop("playable_target", None)
+    assert plan_fingerprint == hashlib.sha256(
+        json.dumps(pre_target_payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
     assert submitted_turn_intent_fingerprint_v1(
         plan_intent.model_copy(
             update={
@@ -274,6 +282,33 @@ def test_submitted_turn_intent_v1_fingerprint_covers_replayable_semantics() -> N
             }
         )
     ) != plan_fingerprint
+    targeted_intent = plan_intent.model_copy(update={
+        "playable_target": SubmittedPlanPlayableTargetV1(
+            schema="dmb_plan_playable_target_v1", kind="scene", id="scene:arrival"
+        )
+    })
+    with pytest.raises(ValueError, match="graphless saved Plan turn"):
+        SubmittedTurnIntentV1.model_validate({
+            **targeted_intent.model_dump(mode="python", by_alias=True),
+            "client_work_state": "new_unsaved",
+            "primary_work": None,
+        })
+    targeted_fingerprint = submitted_turn_intent_fingerprint_v1(targeted_intent)
+    assert targeted_fingerprint != plan_fingerprint
+    assert submitted_turn_intent_fingerprint_v1(
+        targeted_intent.model_copy(update={
+            "playable_target": SubmittedPlanPlayableTargetV1(
+                schema="dmb_plan_playable_target_v1", kind="scene", id="scene:departure"
+            )
+        })
+    ) != targeted_fingerprint
+    assert submitted_turn_intent_fingerprint_v1(
+        targeted_intent.model_copy(update={
+            "playable_target": SubmittedPlanPlayableTargetV1(
+                schema="dmb_plan_playable_target_v1", kind="beat", id="beat:arrival"
+            )
+        })
+    ) != targeted_fingerprint
     graph_intent = intent.model_copy(
         update={
             "graph_request": SubmittedGraphRequestIntentV1(

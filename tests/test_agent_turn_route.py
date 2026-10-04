@@ -1029,6 +1029,33 @@ def test_request_validation_rejects_unknown_or_contradictory_fields() -> None:
             "surface": {"surface_id": "plan", "instance_id": "plan-pane"},
             "owner_scope": {"kind": "world", "world_id": "world-1"},
             "primary_work": {
+                "kind": "plan", "object_id": "plan-1", "expected_revision": 1,
+                "expected_revision_n": 2, "expected_content_sha256": "b" * 64,
+            },
+            "client_work_state": "saved_clean",
+            "playable_target": {
+                "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:arrival",
+                "marker_grammar_version": "v1",
+            },
+        },
+        {
+            **payload,
+            "surface": {"surface_id": "plan", "instance_id": "plan-pane"},
+            "owner_scope": {"kind": "world", "world_id": "world-1"},
+            "primary_work": {
+                "kind": "plan", "object_id": "plan-1", "expected_revision": 1,
+                "expected_revision_n": 2, "expected_content_sha256": "b" * 64,
+            },
+            "client_work_state": "saved_clean",
+            "playable_target": {
+                "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "choice:arrival"
+            },
+        },
+        {
+            **payload,
+            "surface": {"surface_id": "plan", "instance_id": "plan-pane"},
+            "owner_scope": {"kind": "world", "world_id": "world-1"},
+            "primary_work": {
                 "kind": "plan",
                 "object_id": "plan-1",
                 "expected_revision": 1,
@@ -1064,6 +1091,22 @@ def test_request_validation_rejects_unknown_or_contradictory_fields() -> None:
             pass
         else:
             raise AssertionError("invalid turn request was accepted")
+
+    accepted_target = AgentTurnRequest.model_validate({
+        **payload,
+        "surface": {"surface_id": "plan", "instance_id": "plan-pane"},
+        "owner_scope": {"kind": "world", "world_id": "world-1"},
+        "primary_work": {
+            "kind": "plan", "object_id": "plan-1", "expected_revision": 1,
+            "expected_revision_n": 2, "expected_content_sha256": "b" * 64,
+        },
+        "client_work_state": "saved_clean",
+        "playable_target": {
+            "schema": "dmb_plan_playable_target_v1", "kind": "beat", "id": "beat:a"
+        },
+    })
+    assert accepted_target.playable_target is not None
+    assert accepted_target.playable_target.id == "beat:a"
 
 
 def test_plan_resolver_reads_exact_committed_world_revision_and_returns_basis(
@@ -1332,7 +1375,7 @@ def test_plan_agent_route_reads_actual_committed_content_and_excludes_divergent_
         title="Atomic Plan Ask",
         world_id=managed_world.world_id,
     )
-    markdown = "# Atomic Plan\n\nThe keeper waits below the black arch.\n"
+    markdown = "# Atomic Plan\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->\n## Arrival\nThe keeper waits below the black arch.\n"
     draft_markdown = "# Local draft\n\nThe draft says the arch is empty.\n"
     _committed_object, committed = commit_plan(
         str(created.work_object_id),
@@ -1367,6 +1410,11 @@ def test_plan_agent_route_reads_actual_committed_content_and_excludes_divergent_
                 "expected_content_sha256": current.content_sha256,
             },
             "client_work_state": "saved_dirty",
+            "playable_target": {
+                "schema": "dmb_plan_playable_target_v1",
+                "kind": "scene",
+                "id": "scene:arrival",
+            },
             "message": "What is beneath the black arch?",
         }
     )
@@ -1379,6 +1427,19 @@ def test_plan_agent_route_reads_actual_committed_content_and_excludes_divergent_
     assert json.loads(payload) == {
         "committed_plan_markdown": markdown,
         "user_question": "What is beneath the black arch?",
+        "focus_metadata": {
+            "playable_target": {
+                "kind": "scene",
+                "id": "scene:arrival",
+                "marker_grammar_version": "v1",
+            },
+            "work_revision": {
+                "work_revision_id": str(committed.work_revision_id),
+                "revision_n": committed.revision_n,
+                "content_sha256": committed.content_sha256,
+                "object_revision": current.object_revision,
+            },
+        },
     }
     assert draft_markdown not in runtime.invocations[0].message
     assert response["primary_work"]["content_basis"] == {

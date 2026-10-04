@@ -136,7 +136,7 @@ Owner boundaries:
 | Targeted Ask submitted | Canonical `/api/live/agent/turn` request retains existing World owner, Plan object revision, expected WorkRevision `revision_n` and content SHA, client thread/turn identity, `graph_request=none`, and `graph_selection=null`, with one typed target and no client source bytes. |
 | Server admission | Server independently resolves the exact current committed World Plan and actual WorkRevision ID, validates one matching canonical target in that same source, derives marker grammar version from that source, and forms server-resolved target provenance. No Graph resolver runs. |
 | Model-facing runtime boundary | The existing canonical Plan turn input contains the validated `{kind, id}` and actual pinned WorkRevision ID, `revision_n`, and digest as server-authored focus metadata alongside the unchanged committed Plan content and question. No client card/source bytes or new card excerpt is added. |
-| Same-ID body/title changed in a dirty editor; target kind/ID still exactly matches committed basis | Ask may proceed only with explicit UI disclosure that the answer uses the committed revision, not unsaved edits. The durable result reports that actual basis. |
+| Same-ID body/title changed in a dirty editor; target kind/ID remains unique in both the current mounted Cards projection and verified saved baseline | Ask may proceed only with explicit UI disclosure that the answer uses the committed revision, not unsaved edits. The durable result reports that actual basis. If uniqueness or correspondence cannot be proved in either projection, mark stale and block targeted Ask. |
 | World/document/committed-basis replacement; or a draft-generation change | Replacement clears target. A draft change revalidates against the already available verified saved baseline and retains only the same unique provable `{kind, id}`; otherwise clear/show stale or unavailable and fail closed. |
 | New/draft-only target, target absent from pinned committed basis, duplicate/malformed marker, wrong kind, stale basis, or UI cannot prove correspondence | Fail closed before provider dispatch; visible unavailable/stale-target state; never fall forward, use another card, or treat the request as an un-targeted success. |
 | Retry same World/turn ID, exact target and exact submitted Plan basis | Return the original completed receipt and answer; do not call the provider again or re-resolve a newer current target/basis. |
@@ -170,8 +170,10 @@ Required owning-boundary proof after activation:
   persisted while the original submitted-intent payload is not.
 - UI tests prove target state clears/fails closed on World/document/revision
   replacement, Card projection basis loss, target deletion/type change, and
-  selection invalidation; draft-generation changes revalidate against the
-  verified saved baseline and retain only a same unique identity. A dirty
+  selection invalidation; draft-generation changes revalidate against both the
+  current mounted Cards projection and verified saved baseline and retain only
+  the same unique `{kind, id}` present in both. An identity duplicated in the
+  draft or saved projection is unavailable and blocks targeted Ask. A dirty
   matching target is labeled as committed basis, never draft grounding.
 - Mounted conversation/history and receipt tests prove the submitted target
   and exact actual WorkRevision basis are displayed from the immutable returned
@@ -319,9 +321,10 @@ The implementation is merge-ready only when all are true:
   unchanged committed Plan and question, with no client bytes or added excerpt.
 - World/document/committed-basis replacement clears selection. Draft-generation
   changes revalidate against the already available verified saved baseline and
-  retain only the same unique provable `{kind, id}`; otherwise the UI clears or
-  shows stale/unavailable and fails closed before dispatch. No proof means no
-  targeted Ask; the server is final authority.
+  current mounted Cards projection, retaining only the same unique provable
+  `{kind, id}` in both; otherwise the UI clears or shows stale/unavailable and
+  fails closed before dispatch. Duplicate identities are not selectable or
+  askable. No proof means no targeted Ask; the server is final authority.
 - Same-key/different-target replay conflicts; same-key/same-target replay
   returns the immutable original target, server-resolved grammar version, and
   basis without provider redispatch. History/receipt display proves those

@@ -243,6 +243,10 @@ missing targets. If membership requires a Plan read, define a pinned committed-
 Plan read and nondisclosure behavior. The selected target must resolve against
 the same committed Plan basis the server uses for Ask; fail closed whenever the
 UI cannot prove that correspondence, including an unresolved dirty-draft case.
+During a dirty edit, the UI may retain the selection only while the exact
+`{kind, id}` remains unique in both the current mounted Cards projection and the
+verified saved baseline. Duplicate or missing identity in either projection
+marks the target stale and blocks Ask until the operator clears or reselects it.
 
 Preserve the existing authorized server-resolved committed Plan context in
 graphless Ask (`agent_turn_service.py` uses `_plan_message`). Send no client card,

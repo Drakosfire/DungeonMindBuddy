@@ -764,6 +764,12 @@ export interface WorldPlanAgentTurnResolvedSummary {
   pointerStatus: "absent" | "accepted" | "recovered" | "rejected" | "reused";
 }
 
+export interface WorldPlanSelectedPlayableTargetV1 {
+  schema: "dmb_plan_playable_target_v1";
+  kind: "scene" | "beat" | "choice" | "option";
+  id: string;
+}
+
 /** Accepted generic turn route, bound to one saved Plan in a verified World. */
 export interface WorldPlanAgentTurnRequestV1 {
   schema: "dmb_agent_turn_request_v1";
@@ -778,6 +784,7 @@ export interface WorldPlanAgentTurnRequestV1 {
     expected_revision_n: number;
     expected_content_sha256: string;
   };
+  playable_target?: WorldPlanSelectedPlayableTargetV1 | null;
   client_work_state: "saved_clean" | "saved_dirty";
   graph_request: { mode: "none" };
   graph_selection: null;

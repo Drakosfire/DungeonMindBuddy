@@ -7,7 +7,10 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from application_state.agent_conversation.types import TurnProvenance
+from application_state.agent_conversation.types import (
+    SubmittedPlanPlayableTargetV1,
+    TurnProvenance,
+)
 
 
 class AgentTurnSurface(BaseModel):
@@ -199,6 +202,7 @@ class AgentTurnRequest(BaseModel):
     surface: AgentTurnSurface
     owner_scope: AgentTurnOwner | None
     primary_work: AgentTurnPrimaryWork | None
+    playable_target: SubmittedPlanPlayableTargetV1 | None = None
     client_work_state: Literal["none", "saved_clean", "saved_dirty", "new_unsaved"]
     graph_request: AgentTurnGraphRequest
     graph_selection: AgentTurnGraphSelection | None
@@ -230,6 +234,17 @@ class AgentTurnRequest(BaseModel):
             "saved_dirty",
         }:
             raise ValueError("primary_work requires saved_clean or saved_dirty state")
+        if self.playable_target is not None and (
+            self.surface.surface_id != "plan"
+            or self.primary_work is None
+            or self.primary_work.kind != "plan"
+            or self.client_work_state not in {"saved_clean", "saved_dirty"}
+            or self.graph_request.mode != "none"
+            or self.graph_selection is not None
+        ):
+            raise ValueError(
+                "Playable target requires a graphless saved Plan turn"
+            )
         if (
             self.surface.surface_id == "plan"
             and self.primary_work is not None

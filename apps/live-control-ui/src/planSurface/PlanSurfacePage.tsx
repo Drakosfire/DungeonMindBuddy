@@ -24,7 +24,14 @@ import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { WorldPlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
 import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
-import { WorldPlanCardProjection, type WorldPlanCardBasis } from "./components/WorldPlanCardProjection";
+import {
+  buildWorldPlanCardProjectionModel,
+  WorldPlanCardProjection,
+  worldPlanCardTargetKey,
+  worldPlanCardTargetKeys,
+  type WorldPlanCardBasis,
+  type WorldPlanCardTarget,
+} from "./components/WorldPlanCardProjection";
 import "./components/WorldPlanCardProjection.css";
 import {
   applyWorldPlanEditProposal,
@@ -42,6 +49,15 @@ import "../tiptap/prepMarkdownThemes.css";
 import "../tiptap/tiptapSpike.css";
 
 type LoadStatus = "loading" | "ready" | "error";
+
+type SelectedWorldPlanPlayableTarget = {
+  target: WorldPlanCardTarget;
+  worldId: string;
+  documentId: string;
+  revision: number;
+  contentSha256: string;
+  stale: boolean;
+};
 
 function markdownFidelityWarnings(
   importDiagnostics: readonly MarkdownImportDiagnostic[],
@@ -331,6 +347,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [selectionGeneration, setSelectionGeneration] = useState(0);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [selectedCardViewIdentity, setSelectedCardViewIdentity] = useState<string | null>(null);
+  const [selectedPlayableTarget, setSelectedPlayableTarget] = useState<SelectedWorldPlanPlayableTarget | null>(null);
   const importedMarkdown = useMemo(() => markdownToTiptapDoc(markdown), [markdown]);
   const editorContent = importedMarkdown.doc;
   const fidelityWarnings = useMemo(
@@ -1256,6 +1273,70 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const cardProjectionDocument = editor?.getJSON() ?? editorContent;
   const cardProjectionDirty = documentId !== null
     && (markdown !== serverMarkdownRef.current || title !== serverTitleRef.current);
+  const currentCardProjection = useMemo(
+    () => buildWorldPlanCardProjectionModel({
+      document: cardProjectionDocument,
+      markdown,
+      sourceWarnings: fidelityWarnings,
+    }),
+    [cardProjectionDocument, markdown, fidelityWarnings],
+  );
+  const savedCardProjection = useMemo(() => {
+    if (savedBasis.status !== "verified" || !documentId) return null;
+    const imported = markdownToTiptapDoc(serverMarkdownRef.current);
+    return buildWorldPlanCardProjectionModel({
+      document: imported.doc,
+      markdown: serverMarkdownRef.current,
+      sourceWarnings: markdownFidelityWarnings(imported.diagnostics, imported.doc),
+    });
+  }, [documentId, savedBasis]);
+  const selectableTargetKeys = useMemo(() => {
+    if (savedBasis.status !== "verified" || !savedCardProjection) return new Set<string>();
+    const currentKeys = worldPlanCardTargetKeys(currentCardProjection);
+    const savedKeys = worldPlanCardTargetKeys(savedCardProjection);
+    return new Set([...currentKeys].filter((key) => savedKeys.has(key)));
+  }, [currentCardProjection, savedBasis, savedCardProjection]);
+  const selectedTargetBasisMatches = Boolean(selectedPlayableTarget
+    && selectedPlayableTarget.worldId === worldId
+    && selectedPlayableTarget.documentId === documentId
+    && savedBasis.status === "verified"
+    && selectedPlayableTarget.revision === savedBasis.revision
+    && selectedPlayableTarget.contentSha256 === savedBasis.contentSha256);
+  const selectedPlayableTargetStale = Boolean(selectedPlayableTarget
+    && (!selectedTargetBasisMatches
+      || selectedPlayableTarget.stale
+      || !selectableTargetKeys.has(worldPlanCardTargetKey(selectedPlayableTarget.target))));
+
+  useEffect(() => {
+    if (!selectedPlayableTarget) return;
+    if (selectedPlayableTarget.worldId !== worldId || selectedPlayableTarget.documentId !== documentId) {
+      setSelectedPlayableTarget(null);
+      return;
+    }
+    if (savedBasis.status === "verified"
+      && (selectedPlayableTarget.revision !== savedBasis.revision
+        || selectedPlayableTarget.contentSha256 !== savedBasis.contentSha256)) {
+      setSelectedPlayableTarget(null);
+      return;
+    }
+    if ((!selectedTargetBasisMatches || !selectableTargetKeys.has(worldPlanCardTargetKey(selectedPlayableTarget.target)))
+      && !selectedPlayableTarget.stale) {
+      setSelectedPlayableTarget({ ...selectedPlayableTarget, stale: true });
+    }
+  }, [documentId, savedBasis, selectableTargetKeys, selectedPlayableTarget, selectedTargetBasisMatches, worldId]);
+
+  const selectPlayableTarget = useCallback((target: WorldPlanCardTarget) => {
+    if (savedBasis.status !== "verified" || !documentId
+      || !selectableTargetKeys.has(worldPlanCardTargetKey(target))) return;
+    setSelectedPlayableTarget({
+      target,
+      worldId,
+      documentId,
+      revision: savedBasis.revision,
+      contentSha256: savedBasis.contentSha256,
+      stale: false,
+    });
+  }, [documentId, savedBasis, selectableTargetKeys, worldId]);
 
   return (
     <AppChrome activeRoute="plan" editorTools={editorToolsGeneration} editToolboxLayout="dock">
@@ -1380,6 +1461,10 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             basis={savedBasis}
             isDirty={cardProjectionDirty}
             onReturnToDocument={() => setSelectedCardViewIdentity(null)}
+            selectableTargetKeys={selectableTargetKeys}
+            selectedTarget={selectedPlayableTarget?.target ?? null}
+            onSelectTarget={selectPlayableTarget}
+            selectionStale={selectedPlayableTargetStale}
           />
         ) : null}
         {status === "loading" ? <p role="status">Loading World Plan…</p> : null}
@@ -1398,6 +1483,13 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         savedDirty={Boolean(documentId && (title !== serverTitleRef.current || markdown !== serverMarkdownRef.current))}
         pageReady={status === "ready"}
         saveInFlight={saving || pendingWriteRef.current !== null}
+        playableTarget={selectedPlayableTarget?.target ?? null}
+        playableTargetBasis={selectedPlayableTarget ? {
+          revision: selectedPlayableTarget.revision,
+          contentSha256: selectedPlayableTarget.contentSha256,
+        } : null}
+        playableTargetStale={selectedPlayableTargetStale}
+        onClearPlayableTarget={() => setSelectedPlayableTarget(null)}
       />
     </AppChrome>
   );
