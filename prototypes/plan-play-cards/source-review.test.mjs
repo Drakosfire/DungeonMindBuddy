@@ -1,0 +1,6 @@
+import assert from 'node:assert/strict';import {validateSourceCorrections,correctedItem} from './source-review.js';
+const correction={originalText:'Synthetic OCR typo',text:'Synthetic reviewed text',reviewer:'Source reviewer',packageHash:'a'.repeat(64),packageId:'synthetic',packageRevision:'revision',sourcePdfHash:'pdf'};
+const board={pdfHash:'pdf',units:[{id:'unit',text:correction.originalText}],sourceCorrections:{unit:correction}};
+assert.deepEqual(validateSourceCorrections(board),[]);const original={text:correction.originalText,refs:['unit'],status:'source_supported'};const revised=correctedItem(original,board);assert.equal(revised.text,correction.text);assert.equal(revised.status,'reviewed_inference');assert.equal(original.text,correction.originalText);assert.equal(board.units[0].text,correction.originalText);assert.equal(revised.sourceReview.packageHash,correction.packageHash);
+for(const item of [{...original,status:'proposed_connective'},{...original,text:'Authored adaptation'},{...original,refs:['unit','other']}])assert.equal(correctedItem(item,board),item);
+for(const patch of [{originalText:'wrong basis'},{sourcePdfHash:'wrong source'},{packageHash:'unknown'},{reviewer:''}])assert.equal(validateSourceCorrections({...board,sourceCorrections:{unit:{...correction,...patch}}}).length,1);

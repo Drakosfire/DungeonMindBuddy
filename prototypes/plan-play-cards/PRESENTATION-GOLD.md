@@ -57,3 +57,11 @@ Recovery follow-up: local file chooser loaded the exact private backup; Review e
 The same validated theme configuration now has color wells, built-in font menus, and bounded sliders for text size, line spacing, card padding, corner radius, and reading width. JSON sits in a closed Advanced disclosure and remains interchangeable with the controls. Apply uses the existing board/source/current-config basis guard. The action bar remains visible while the pane scrolls.
 
 Browser evidence: one arrow-key step and one font selection changed the actual canvas to 17px Georgia without JSON editing. Reading width reached 600px; Apply plus refresh retained typography. The first refresh exposed duplicated width constraints (528px instead of 600px); fixed the card-versus-container sizing, then verified 600px after refresh. Restore returned the unconfigured design-v1 baseline. This is usability evidence for observed tasks, not source or operator acceptance.
+
+## Iteration 6 — reviewed source corrections
+
+Audit reconciled the reviewed C045 source package with the Conks candidate. Its two corrections now render as explicit reviewed overlays against exact unchanged OCR-unit text. The derivative captures reviewer, package identity/revision/hash, source-PDF hash and visual-review metadata. Original readback retains the OCR plus the reviewed derivative. The old board revision is archived and remains a previous writing key; the new private candidate is separately pinned. No source package is rewritten or published.
+
+Browser checked the corrected statblock and its disclosure/readback. Model checks reject missing units, mismatched original text/source PDF, missing reviewer and invalid package digest; overlays do not change authored adaptations or contextual multi-span text. Both private boards validate; seven test files and Session29 fixture checks pass. This reconciles those two reviewed corrections only, not full source or gold acceptance.
+
+Completion audit remains partial: design-v1/Session29 and observed construction/style/recovery invariants have direct evidence; source hierarchy/media/identity coverage still needs wider review; native agent presentation integration is outside the current prototype contract; operator task acceptance and downloaded-file transport are not proven. Candidate remains active for those requirements.
