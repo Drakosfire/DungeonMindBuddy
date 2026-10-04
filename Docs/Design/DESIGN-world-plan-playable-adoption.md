@@ -33,10 +33,25 @@ ID; it must not imply a second Playable artifact or a kind conversion. The
 Run's World and exact WorkRevision pin remain explicit and authoritative.
 
 WorkObject kind is part of source identity: it remains **plan** before and after
-Start Play. Before implementation, APP-STATE must confirm that kind is
-immutable for a WorkObject's lifetime. If it is not, stop and re-review a
-versioned source-kind receipt; never infer historical source kind from a mutable
-latest value.
+Start Play. APP-STATE owner confirmation at Buddy main
+6feb3059b2da4d2ec29966ce9723f0effc70108f is that supported Content APIs keep
+kind stable: mutation guards check the locked kind, update SQL does not write
+kind, and imports assign it at creation. The design relies on this supported
+application-mutation invariant and its owning regression tests, not on a
+database trigger. Privileged direct SQL can bypass application contracts; that
+out-of-contract possibility alone does not block Plan-to-Play or justify a
+migration. No separate source-kind field is needed in the Run or manifest now.
+If a future supported writer can retag kind, stop and review the smallest
+versioned source-kind receipt with APP-STATE before admitting it.
+
+The confirming evidence is the kind check in
+**src/application_state/content/service.py**, the metadata update in
+**src/application_state/content/repository.py** which does not write kind, and
+the fixed-kind import/conflict behavior in
+**src/application_state/content/import_plans.py** and
+**src/application_state/content/import_runbooks.py**. The owning regression in
+**tests/application_state/test_runbook_work_object_postgres.py** proves that
+supported Plan/Runbook mutation APIs reject cross-kind operations.
 
 ## Why this is the minimum coherent model
 
@@ -130,6 +145,12 @@ explicit audience-classification contract and review.
 
 - Start requires the latest committed Plan revision and a clean working-copy
   boundary. No draft bytes or stale “last known good” revision are substituted.
+- Existing Run replay and read are a separate path from new-Run admission.
+  Replay returns the original Run/manifest binding without current/clean
+  re-admission. Opening an existing Run resolves its exact retained
+  WorkRevision ID, revision number, and digest; it does not require the Plan to
+  remain active or current. Wrong World or mismatched immutable identity still
+  fails closed.
 - Once created, a Run remains pinned to its exact historical Plan WorkRevision,
   even if the Plan is edited, saved, renamed, or later discarded. The exact
   pinned content remains readable or the Run fails closed; it never falls

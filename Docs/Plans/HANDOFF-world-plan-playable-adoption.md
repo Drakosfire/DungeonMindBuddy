@@ -53,10 +53,14 @@ Implementation may be activated only after all of the following are true:
    lease; #886 retains production Plan Page/shell paths pending its own
    accepted settlement or explicit handback. Neither path is available to this
    implementation by implication; PRIME must resolve a nonoverlapping lease.
-4. APP-STATE confirms that a WorkObject's kind cannot change during its
-   lifetime, so the existing Run-to-WorkObject identity preserves that the
-   source was a Plan. If that invariant is false, stop for a versioned
-   source-kind persistence design.
+4. Preserve the APP-STATE-confirmed supported Content mutation invariant:
+   WorkObject kind is fixed at creation, mutation guards check the locked kind,
+   and supported update SQL does not write kind. The implementation must
+   include or retain an owning regression for attempts to retag kind. This is
+   an application contract, not a database-trigger guarantee; privileged
+   direct SQL outside the supported API is not an activation blocker. If a new
+   supported writer can retag kind, stop and review the smallest versioned
+   source-kind receipt with APP-STATE before admitting that writer.
 5. DEMO, SERVER, and APP-STATE agree on the exact API/service contract and
    individually owned paths. PRIME records the exact implementation path
    allowlist, path owners, active PR/lease conflicts, and completion sync set.
@@ -96,6 +100,22 @@ Current implementation evidence at design time:
   **resolve_pinned_playable_revision** require **runbook**; both new-Run
   admission and existing-Run resume therefore need deliberate owner-reviewed
   widening.
+- At the Buddy main 6feb3059b2da4d2ec29966ce9723f0effc70108f re-anchor,
+  APP-STATE confirmed that supported Content
+  mutations preserve WorkObject kind (locked-kind mutation guard, update SQL
+  does not write kind, import assigns kind at creation). This is an API
+  invariant, not a database trigger; unsupported privileged SQL is not a
+  product mutation gate. Evidence is in
+  **src/application_state/content/service.py**,
+  **src/application_state/content/repository.py**,
+  **src/application_state/content/import_plans.py**,
+  **src/application_state/content/import_runbooks.py**, and the existing
+  wrong-kind regression in
+  **tests/application_state/test_runbook_work_object_postgres.py**.
+- Content retains exact WorkRevisions. Existing-Run resolution can read the
+  exact historical revision after edits or discard; a current Plan read still
+  requires an active object. New-Run current/active/clean admission and
+  existing-Run exact historical read are distinct paths.
 - Server manifest derivation already recognizes v1 Scene-first and v2
   Beat-first structures. Preserve both forms' current parser/readiness
   behavior; the existing v2 nonzero-Beat readiness check must not silently
@@ -129,7 +149,7 @@ The implementation PR must prove, at the owning boundaries:
 | Save the Plan after Run creation | Plan gets a new WorkRevision; existing Run and manifest remain pinned to the old WorkRevision and bytes. |
 | Start a second Run after the new save | The new Run can bind the new current revision without modifying the first Run. |
 | Retry the existing Run ID with the original binding after the Plan changes, becomes dirty, or is discarded | Return the same historical Run/manifest binding without current/clean re-admission or receipt rewrite. |
-| Wrong World, Runbook passed where Plan was requested, Campaign-owned Plan, discarded Plan, dirty working copy, stale expected revision, wrong SHA | Fail closed; no Run, manifest, copy, or cross-World fallback is created. |
+| New Run requested from the wrong World, a Runbook, Campaign-owned/discarded Plan, dirty working copy, stale expected revision, or wrong SHA | Fail closed; no Run, manifest, copy, or cross-World fallback is created. |
 | Valid existing v1 Scene-first Plan structure | Preserve current parser and Run-readiness behavior; do not silently reject it for not being v2 Beat-first. |
 | Missing/unsupported/mixed/malformed markers, duplicate IDs, orphan/invalid edges, or no runnable structure under the existing readiness rule | Fail closed before partial Run creation; no inferred headings or auto-added markers. |
 | Existing Run opened after Plan edit/discard | Reads its exact historical Plan revision; never substitutes the latest Plan. |
@@ -139,10 +159,11 @@ The implementation PR must prove, at the owning boundaries:
 Required evidence includes:
 
 - APP-STATE PostgreSQL transaction tests for exact Plan admission, owner/kind,
-  current-revision and clean-working-copy fences for a new Run, atomic
-  Run+manifest creation, same-binding replay after current Plan state changes
-  without rewriting the original receipt, conflict on changed binding, and
-  exact pinned historical reads after later Plan saves.
+  the supported API's no-retag invariant, current-revision and
+  clean-working-copy fences for a new Run, atomic Run+manifest creation,
+  same-binding replay after current Plan state changes without rewriting the
+  original receipt, conflict on changed binding, and exact pinned historical
+  reads after later Plan saves and discard.
 - Server/API tests for explicit World scoping, stale/dirty/unsupported Plan
   failure behavior, and no fallback to Campaign or Runbook routes.
 - Mounted UI tests proving selected Plan identity is retained through Start
@@ -268,8 +289,9 @@ database.
 Before merge, PRIME independently reviews one exact implementation head and
 requires all of §3 evidence. Block and return to design if:
 
-- WorkObject kind is not immutable or exact Plan source kind cannot be proven
-  from durable identity;
+- a supported Content writer can retag WorkObject kind, or exact Plan source
+  kind cannot be proven from the stable WorkObject identity; privileged
+  out-of-contract direct SQL alone is not a stop condition;
 - a WorkRevision is not retained/readable by exact ID after later edits;
 - storage cannot atomically bind the Run and manifest to the Plan revision;
 - Plan structure cannot be validated through the existing owning parser;
