@@ -1102,11 +1102,11 @@ def test_request_validation_rejects_unknown_or_contradictory_fields() -> None:
         },
         "client_work_state": "saved_clean",
         "playable_target": {
-            "schema": "dmb_plan_playable_target_v1", "kind": "scene", "id": "scene:arrival"
+            "schema": "dmb_plan_playable_target_v1", "kind": "beat", "id": "beat:a"
         },
     })
     assert accepted_target.playable_target is not None
-    assert accepted_target.playable_target.id == "scene:arrival"
+    assert accepted_target.playable_target.id == "beat:a"
 
 
 def test_plan_resolver_reads_exact_committed_world_revision_and_returns_basis(

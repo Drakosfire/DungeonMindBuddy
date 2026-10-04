@@ -218,6 +218,57 @@ The keeper waits below the black arch.
     assert request.model_dump_json(by_alias=True).find("The keeper waits") == -1
 
 
+@pytest.mark.parametrize(
+    ("grammar", "marker"),
+    [
+        ("v1", "<!-- dmb-playable-element:v1 kind=beat id=beat:a -->"),
+        ("v2", "<!-- dmb-playable-element:v2 kind=beat id=beat:a beat_kind=spine -->"),
+    ],
+)
+def test_targeted_plan_service_accepts_shortest_canonical_beat_id(
+    tmp_path: Path, grammar: str, marker: str
+) -> None:
+    heading = "###" if grammar == "v1" else "##"
+    prior_scene = (
+        "<!-- dmb-playable-element:v1 kind=scene id=scene:s -->\n## S\n\n"
+        if grammar == "v1"
+        else ""
+    )
+    markdown = f"# Saved Plan\n\n{prior_scene}{marker}\n{heading} A\nA one-character beat ID.\n"
+    request = _pinned_plan_request().model_copy(update={
+        "playable_target": SubmittedPlanPlayableTargetV1(
+            schema="dmb_plan_playable_target_v1", kind="beat", id="beat:a"
+        )
+    })
+    runtime = FakeRuntime()
+    execute_agent_turn(
+        request,
+        root=tmp_path,
+        pointer_store=HermesSessionPointerStore(tmp_path / "pointers"),
+        owner_resolver=lambda _request: {
+            "kind": "world", "id": "world:one", "name": "The Glass Orchard"
+        },
+        work_resolver=lambda _request, _owner: _pinned_plan_work(markdown),
+        graph_resolver=lambda *_args: pytest.fail("Targeted Plan Ask must not resolve Graph"),
+        runtime=runtime,
+    )
+
+    _prefix, payload = runtime.invocations[0].message.split("\n", maxsplit=1)
+    assert json.loads(payload)["focus_metadata"] == {
+        "playable_target": {
+            "kind": "beat",
+            "id": "beat:a",
+            "marker_grammar_version": grammar,
+        },
+        "work_revision": {
+            "work_revision_id": "work-revision-4",
+            "revision_n": 4,
+            "content_sha256": "b" * 64,
+            "object_revision": 7,
+        },
+    }
+
+
 def test_completed_targeted_retry_replays_frozen_receipt_without_resolving_or_dispatching(
     tmp_path: Path,
 ) -> None:

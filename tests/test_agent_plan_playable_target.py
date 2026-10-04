@@ -3,7 +3,12 @@ from __future__ import annotations
 import pytest
 from pydantic import ValidationError
 
-from application_state.agent_conversation.types import SubmittedPlanPlayableTargetV1
+from application_state.agent_conversation.types import (
+    PlanPlayableTargetReceiptV1,
+    SubmittedPlanPlayableTargetV1,
+    decode_plan_playable_target_reference,
+    encode_plan_playable_target_reference,
+)
 from apps.live_control_server.services.agent_plan_playable_target import (
     AgentPlanPlayableTargetError,
     resolve_agent_plan_playable_target,
@@ -57,6 +62,37 @@ def test_resolves_target_kind_id_and_grammar_from_pinned_markdown(
     assert resolved.kind == kind
     assert resolved.id == element_id
     assert resolved.marker_grammar_version == grammar
+
+
+@pytest.mark.parametrize(
+    ("grammar", "markdown"),
+    [
+        (
+            "v1",
+            "# Plan\n\n<!-- dmb-playable-element:v1 kind=scene id=scene:s -->\n## S\n\n"
+            "<!-- dmb-playable-element:v1 kind=beat id=beat:a -->\n### A\n",
+        ),
+        (
+            "v2",
+            "# Plan\n\n<!-- dmb-playable-element:v2 kind=beat id=beat:a beat_kind=spine -->\n## A\n",
+        ),
+    ],
+)
+def test_shortest_beat_identity_resolves_and_round_trips_receipt_codec(
+    grammar: str, markdown: str
+) -> None:
+    submitted = target("beat", "beat:a")
+    receipt = resolve_agent_plan_playable_target(submitted, markdown)
+
+    assert receipt is not None
+    assert receipt == PlanPlayableTargetReceiptV1(
+        schema="dmb_plan_playable_target_receipt_v1",
+        kind="beat",
+        id="beat:a",
+        marker_grammar_version=grammar,
+    )
+    encoded = encode_plan_playable_target_reference(receipt)
+    assert decode_plan_playable_target_reference(encoded) == receipt
 
 
 def test_no_target_does_not_scan_or_change_the_ordinary_ask_path() -> None:

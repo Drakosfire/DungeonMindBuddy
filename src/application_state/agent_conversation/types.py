@@ -159,7 +159,7 @@ class SubmittedPlanPlayableTargetV1(StrictModel):
 
     schema_: Literal["dmb_plan_playable_target_v1"] = Field(alias="schema")
     kind: PlanPlayableKind
-    id: str = Field(min_length=7, max_length=135, pattern=_PLAN_PLAYABLE_ID_PATTERN)
+    id: str = Field(min_length=6, max_length=135, pattern=_PLAN_PLAYABLE_ID_PATTERN)
 
     @model_validator(mode="after")
     def validate_target(self) -> "SubmittedPlanPlayableTargetV1":
@@ -173,7 +173,7 @@ class PlanPlayableTargetReceiptV1(StrictModel):
 
     schema_: Literal["dmb_plan_playable_target_receipt_v1"] = Field(alias="schema")
     kind: PlanPlayableKind
-    id: str = Field(min_length=7, max_length=135, pattern=_PLAN_PLAYABLE_ID_PATTERN)
+    id: str = Field(min_length=6, max_length=135, pattern=_PLAN_PLAYABLE_ID_PATTERN)
     marker_grammar_version: PlayableMarkerGrammarVersion
 
     @model_validator(mode="after")
