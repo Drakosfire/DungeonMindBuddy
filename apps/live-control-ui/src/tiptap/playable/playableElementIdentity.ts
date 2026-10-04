@@ -320,7 +320,7 @@ export type PlayableOptionItemValidation =
   | { status: "canonical"; identity: PlayableElementIdentity };
 
 function isCanonicalEdgeIdList(value: unknown): value is string[] {
-  if (!Array.isArray(value)) return false;
+  if (!Array.isArray(value) || new Set(value).size !== value.length) return false;
   return value.every(
     (entry) => typeof entry === "string"
       && PLAYABLE_ID_PATTERN.test(entry)
