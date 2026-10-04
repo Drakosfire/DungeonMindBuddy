@@ -623,14 +623,15 @@ export function WorldPlanAgentConversation({
       documentId: agent.scope.documentId ?? null,
     } : null,
   });
-  const [question, setQuestion] = useState("");
+  const [composerMessage, setComposerMessage] = useState("");
+  const [composerIntent, setComposerIntent] = useState<"discuss" | "propose">("discuss");
   const [graphCredential, setGraphCredential] = useState("");
   const [graphCredentialStatus, setGraphCredentialStatus] = useState<string | null>(null);
-  const [editInstruction, setEditInstruction] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [composing, setComposing] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [traceVisible, setTraceVisible] = useState(false);
   const [history, setHistory] = useState<WorldAgentConversationHistoryResponseV1 | null>(null);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -871,7 +872,8 @@ export function WorldPlanAgentConversation({
     setSending(false);
     setNewConversationSending(false);
     setTraceVisible(false);
-    setQuestion("");
+    setComposerMessage("");
+    setComposerIntent("discuss");
     setError(null);
     setConversationNotice(null);
   }, [scopeKey]);
@@ -984,7 +986,7 @@ export function WorldPlanAgentConversation({
         throw new Error("Browser storage did not preserve the exact command envelope.");
       }
       refreshPendingCommandList();
-      setQuestion("");
+      setComposerMessage("");
       setError(null);
       setNewConversationError(null);
       void sendNewConversationCommand({ storageKey, envelope, error: null });
@@ -1075,7 +1077,7 @@ export function WorldPlanAgentConversation({
         ? `The server confirmed this Ask under conversation ${validation.value.conversationId}. It was not inserted into the currently active conversation; refreshing World history.`
         : "The server confirmed this Ask. Refreshing World history.");
       setHistoryRefreshNonce((current) => current + 1);
-      setQuestion("");
+      setComposerMessage("");
     } catch (reason) {
       if (isCurrent()) {
         setError(localOperatorCredentialFailure(reason, "retry the saved Ask; its exact request and turn ID are preserved")
@@ -1093,9 +1095,9 @@ export function WorldPlanAgentConversation({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const message = question.trim();
+    const message = composerMessage.trim();
     const pointerSnapshot = historySnapshotRef.current;
-    if (!planReady || !scopeMatches || !namespace || !documentId || !surfaceInstanceId
+    if (composerIntent !== "discuss" || !planReady || !scopeMatches || !namespace || !documentId || !surfaceInstanceId
       || !isPositiveRevision(revision) || saveInFlight || !message || sending || requestRef.current
       || historyLoading || historyError || !pointerSnapshot) return;
 
@@ -1183,6 +1185,14 @@ export function WorldPlanAgentConversation({
         setError(reason instanceof Error ? reason.message : "The Ask could not be prepared.");
       }
     }
+  }
+
+  function submitComposer(event: FormEvent<HTMLFormElement>) {
+    if (composerIntent === "propose") {
+      void composeEdit(event);
+      return;
+    }
+    void submit(event);
   }
 
   async function loadOlderTurns() {
@@ -1417,8 +1427,8 @@ export function WorldPlanAgentConversation({
 
   async function composeEdit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const instruction = editInstruction.trim();
-    if (!planReady || !scopeMatches || !namespace || !documentId || !editBridge
+    const instruction = composerMessage.trim();
+    if (composerIntent !== "propose" || !planReady || !scopeMatches || !namespace || !documentId || !editBridge
       || !isPositiveRevision(revision) || saveInFlight || !instruction
       || composing || sending || requestRef.current || proposalRequestRef.current) return;
 
@@ -1529,7 +1539,8 @@ export function WorldPlanAgentConversation({
       };
       editReviewRef.current = nextReview;
       setEditReview(nextReview);
-      setEditInstruction("");
+      setComposerMessage("");
+      setComposerIntent("discuss");
       proposalIntentRef.current = null;
       void getWorldPlanDocumentEditActions(worldId, documentId)
         .then((page) => {
@@ -1606,22 +1617,24 @@ export function WorldPlanAgentConversation({
     && editReview.threadId === activeThread?.threadId
     ? editReview
     : null;
+  const authorizationBlocked = [historyError, error, editError].some((message) =>
+    message?.includes("local operator Agent/Graph credential is missing or was rejected"));
+  const intentBusy = sending || composing || saveInFlight || !scopeMatches || currentReview !== null;
+  const composerBusy = intentBusy || (composerIntent === "discuss"
+    && (historyLoading || !history || Boolean(historyError)));
+  const messageLimit = composerIntent === "discuss" ? 8000 : 4000;
+  const messageTooLong = composerMessage.length > messageLimit;
 
   return createPortal(
     <section className="world-plan-agent-conversation" aria-label="Saved World Plan conversation">
       <header className="world-plan-agent-conversation__header">
         <div>
-          <h2>Ask DungeonBuddy</h2>
-          <p>World: {worldName} · Saved Plan · Conversation only</p>
+          <h2>Plan conversation</h2>
+          <p>{worldName} · Saved Plan</p>
         </div>
         <div className="world-plan-agent-conversation__actions">
-          <button
-            type="button"
-            aria-pressed={traceVisible}
-            disabled={sending || composing || requestRef.current !== null || proposalRequestRef.current !== null}
-            onClick={toggleTraceVisibility}
-          >
-            {traceVisible ? "Advanced diagnostics: On" : "Advanced diagnostics: Off"}
+          <button type="button" aria-expanded={settingsOpen} aria-controls="world-plan-agent-settings" onClick={() => setSettingsOpen((open) => !open)}>
+            {settingsOpen ? "Close settings" : "Settings"}
           </button>
           <button
             type="button"
@@ -1633,9 +1646,15 @@ export function WorldPlanAgentConversation({
           </button>
         </div>
       </header>
-      <section aria-label="Local operator Agent and Graph authorization">
+      {authorizationBlocked ? (
+        <section className="world-plan-agent-conversation__auth-notice" role="alert">
+          <p>Local authorization was rejected. Check the credential in Settings, then refresh history or retry the saved request.</p>
+          <button type="button" onClick={() => setSettingsOpen(true)}>Open Settings</button>
+        </section>
+      ) : null}
+      <section id="world-plan-agent-settings" className="world-plan-agent-conversation__settings" aria-label="Local operator Agent and Graph authorization" hidden={!settingsOpen}>
         <form onSubmit={(event) => { void saveGraphCredential(event); }}>
-          <label htmlFor="world-plan-agent-graph-credential">Local operator credential for Agent and Graph</label>
+          <label htmlFor="world-plan-agent-graph-credential">Local operator credential</label>
           <input
             id="world-plan-agent-graph-credential"
             type="password"
@@ -1644,158 +1663,38 @@ export function WorldPlanAgentConversation({
             onChange={(event) => setGraphCredential(event.currentTarget.value)}
             maxLength={4096}
           />
-          <button type="submit">Set Agent and Graph authorization</button>
-          <button type="button" onClick={clearGraphCredential}>Clear Agent and Graph authorization</button>
+          <button type="submit">Set authorization</button>
+          <button type="button" onClick={clearGraphCredential}>Clear authorization</button>
         </form>
-        <p role="note">The credential stays in memory only. It authorizes local Agent access and is also sent with native Graph requests. Plan Ask remains graphless; setting this credential does not request or enable Graph. It is never included in request bodies, saved recovery envelopes, or exports.</p>
+        <p role="note">This credential stays in this tab’s memory. Local Agent requests use it, and other surfaces may use it for native Graph requests. Plan Ask does not request Graph data. It is never stored in recovery data or exports.</p>
         {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
       </section>
       <p className="world-plan-agent-conversation__notice" role="note">
-        Ask sends this Plan’s exact committed text and your question to the configured model. Unsaved editor changes are excluded; the turn records which committed revision it used and whether a divergent working copy existed. Compose or Revise below sends the selected text and current mounted draft to the configured model. New proposal requests do not include earlier conversation turns. Nothing changes until you review and apply a proposal.
+        Talk through the saved Plan, or choose Propose edit to request a change. You’ll review it before it touches the draft.
       </p>
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
       ) : null}
-      {editBridge ? (
-        <section className="world-plan-agent-conversation__compose" aria-label="Compose or revise Plan text">
-          <h3>Compose or revise Plan text</h3>
-          <form onSubmit={(event) => { void composeEdit(event); }}>
-            <label htmlFor="world-plan-agent-edit-instruction">What should DungeonBuddy change?</label>
-            <textarea
-              id="world-plan-agent-edit-instruction"
-              value={editInstruction}
-              onChange={(event) => setEditInstruction(event.currentTarget.value)}
-              maxLength={4000}
-              disabled={composing || sending || saveInFlight || !scopeMatches || currentReview !== null}
-            />
-            <div role="group" aria-label="Target a Plan section">
-              <label htmlFor="world-plan-agent-plan-section">Plan heading section</label>
-              <select
-                id="world-plan-agent-plan-section"
-                value={selectedSectionTargetId}
-                disabled={composing || sending || saveInFlight || !scopeMatches || currentReview !== null || sectionTargets.length === 0}
-                onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
-              >
-                <option value="">Select a heading section</option>
-                {sectionTargets.map((target) => (
-                  <option
-                    key={target.id}
-                    value={target.id}
-                    disabled={Boolean(target.unavailableReason)}
-                    title={target.unavailableReason ?? undefined}
-                  >
-                    {target.unavailableReason
-                      ? `${target.label} — unavailable (Markdown round-trip not safe)`
-                      : target.label}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => { void refreshPlanSections(); }}
-                disabled={composing || sending || saveInFlight || !scopeMatches || currentReview !== null}
-              >
-                Refresh section list
-              </button>
-              <p role="note">A section pick selects text in the editor. Compose uses the editor’s current selection; direct edits or selections take precedence.</p>
-              {sectionTargetStatus ? (
-                <p role={sectionTargetStatus.kind === "error" ? "alert" : "status"}>{sectionTargetStatus.message}</p>
-              ) : null}
-            </div>
-            {editError ? <p role="alert">{editError}</p> : null}
-            <button
-              type="submit"
-              disabled={composing || sending || saveInFlight || !scopeMatches || !editInstruction.trim() || currentReview !== null}
-            >
-              {composing ? "Composing…" : "Compose proposal"}
-            </button>
-          </form>
-          <section aria-label="Plan edit action status">
-            <h4>Recent Plan edit actions</h4>
-            <button type="button" onClick={() => { void refreshActionHistory(); }} disabled={!scopeMatches || composing}>
-              Refresh action status
-            </button>
-            {actionHistoryError ? <p role="alert">{actionHistoryError}</p> : null}
-            {actionHistory.length ? (
-              <ol>
-                {actionHistory.map((action) => (
-                  <li key={action.action_id}>
-                    <strong>{action.status}</strong> · {action.instruction}
-                    {action.status === "completed" && action.assistant_summary
-                      ? <p>{action.assistant_summary}</p>
-                      : action.status === "pending"
-                        ? <p>This action is still running; it will not be dispatched again.</p>
-                        : action.status === "indeterminate"
-                          ? <p>The outcome is unknown. Start a new edit action if you still want to try again.</p>
-                          : action.status === "failed"
-                            ? <p>This action failed. Start a new edit action to try again.</p>
-                            : null}
-                    {action.status !== "pending" ? (
-                      <button
-                        type="button"
-                        disabled={composing || currentReview !== null}
-                        onClick={() => {
-                          proposalIntentRef.current = null;
-                          setEditInstruction(action.instruction);
-                          setEditError(null);
-                        }}
-                      >
-                        Start a new edit attempt
-                      </button>
-                    ) : null}
-                </li>
-                ))}
-              </ol>
-            ) : null}
-          </section>
-      {currentReview ? (
-            <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
-              <h4>Review proposal</h4>
-              <p>{currentReview.admitted.response.summary}</p>
-              {currentReview.admitted.response.assumptions.length ? (
-                <ul>{currentReview.admitted.response.assumptions.map((assumption, index) => <li key={`${index}:${assumption}`}>{assumption}</li>)}</ul>
-              ) : null}
-              <div className="world-plan-agent-conversation__preview">
-                <div>
-                  <h5>Before</h5>
-                  <pre>{currentReview.captured.request.selected_text || "Nothing selected · proposal will insert at the captured caret."}</pre>
-                </div>
-                <div>
-                  <h5>After</h5>
-                  <pre>{currentReview.admitted.canonicalMarkdown}</pre>
-                </div>
-              </div>
-              <div className="world-plan-agent-conversation__review-actions">
-                <button type="button" onClick={discardEditReview}>Discard</button>
-                <button type="button" onClick={() => { void applyEditReview(currentReview); }}>Apply to mounted draft</button>
-              </div>
-            </section>
-          ) : null}
-        </section>
-      ) : null}
       <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
-        <h3>World conversation</h3>
+        <h3>Conversation</h3>
         {historyLoading ? <p role="status">Loading the latest World conversation page…</p> : null}
         {historyError ? (
           <div role="group" aria-label="World history unavailable">
-            <p>{historyError}</p>
+            {authorizationBlocked
+              ? null
+              : <p>{historyError}</p>}
             <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
           </div>
         ) : null}
         {history ? (
           <>
             <p role="note">
-              {history.next_before_sequence !== null && history.turns.length <= WORLD_HISTORY_PAGE_SIZE
-                ? `Showing the latest bounded page of up to ${WORLD_HISTORY_PAGE_SIZE} World turns. Older turns are not loaded.`
-                : history.next_before_sequence !== null
-                  ? `Showing ${history.turns.length} World turns. Older turns remain available.`
-                  : history.turns.length
-                    ? `Showing all ${history.turns.length} currently available World turns.`
-                    : "This World has no visible conversation turns yet."}
+              {history.next_before_sequence !== null
+                ? "Recent messages. Older turns are available below."
+                : history.turns.length
+                  ? "You’re all caught up."
+                  : "No messages here yet. Start with a question about the saved Plan."}
             </p>
-            {history.conversation_state === "absent" ? (
-              <p>No World conversation is active. Ask starts the first server-owned conversation.</p>
-            ) : null}
             {history.turns.length ? history.turns.map((turn) => (
               <article key={turn.turn_id} data-sequence={turn.sequence}>
                 <p className="world-plan-agent-conversation__context">
@@ -1818,6 +1717,44 @@ export function WorldPlanAgentConversation({
             ) : null}
           </>
         ) : null}
+        {proposalThreadForDisplay?.turns.length ? [...proposalThreadForDisplay.turns].reverse().map((turn) => (
+          <article key={turn.turnId} className="world-plan-agent-conversation__proposal-event" data-proposal-turn-id={turn.turnId}>
+            <p className="world-plan-agent-conversation__context">
+              Plan proposal · {turn.planEdit?.applied
+                ? "Applied to your draft"
+                : currentReview?.turnId === turn.turnId ? "Ready for review" : "Not applied"}
+            </p>
+            <p><strong>You:</strong> {turn.question}</p>
+            <p><strong>DungeonBuddy:</strong> {turn.answer}</p>
+            {turn.planEdit?.applied ? (
+              <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
+            ) : null}
+            {currentReview?.turnId === turn.turnId ? (
+              <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
+                <h4>Review this proposal</h4>
+                <p>{currentReview.admitted.response.summary}</p>
+                {currentReview.admitted.response.assumptions.length ? (
+                  <ul>{currentReview.admitted.response.assumptions.map((assumption, index) => <li key={`${index}:${assumption}`}>{assumption}</li>)}</ul>
+                ) : null}
+                <div className="world-plan-agent-conversation__preview">
+                  <div>
+                    <h5>Before</h5>
+                    <pre>{currentReview.captured.request.selected_text || "Nothing selected · text will be inserted at the captured caret."}</pre>
+                  </div>
+                  <div>
+                    <h5>After</h5>
+                    <pre>{currentReview.admitted.canonicalMarkdown}</pre>
+                  </div>
+                </div>
+                <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
+                <div className="world-plan-agent-conversation__review-actions">
+                  <button type="button" onClick={discardEditReview}>Discard proposal</button>
+                  <button type="button" onClick={() => { void applyEditReview(currentReview); }}>Apply changes</button>
+                </div>
+              </section>
+            ) : null}
+          </article>
+        )) : null}
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
       </section>
       {newConversationError ? <p role="alert">{newConversationError}</p> : null}
@@ -1875,67 +1812,181 @@ export function WorldPlanAgentConversation({
             ))}
         </section>
       ) : null}
-      {legacyThreadForDisplay?.turns.length ? (
-        <section aria-label="Local-only legacy Plan history">
-          <h3>Local-only legacy Plan history</h3>
-          <p>This browser copy is not server-confirmed, is never used for Ask or proposal context, and remains separate from the World transcript.</p>
-          <button type="button" onClick={exportLegacyLocalHistory}>Export local history JSON</button>
-          <ol>
-            {[...legacyThreadForDisplay.turns].reverse().map((turn) => (
-              <li key={turn.turnId}>
-                <p><strong>You:</strong> {turn.question}</p>
-                <p><strong>Local response{turn.planEdit ? " · Plan proposal" : ""}:</strong> {turn.answer}</p>
-                {turn.planEdit ? (
-                  <p className="world-plan-agent-conversation__context">
-                    Plan proposal · {turn.planEdit.applied ? "Applied to the local draft" : "Not applied"}
-                  </p>
+      <details className="world-plan-agent-conversation__advanced">
+        <summary>Advanced details</summary>
+        <div className="world-plan-agent-conversation__advanced-content">
+          <button
+            type="button"
+            aria-pressed={traceVisible}
+            disabled={sending || composing || requestRef.current !== null || proposalRequestRef.current !== null}
+            onClick={toggleTraceVisibility}
+          >
+            {traceVisible ? "Hide trace details" : "Show trace details"}
+          </button>
+          <section aria-label="Plan edit action status">
+            <h3>Plan edit activity</h3>
+            <button type="button" onClick={() => { void refreshActionHistory(); }} disabled={!scopeMatches || composing}>
+              Refresh action status
+            </button>
+            {actionHistoryError ? <p role="alert">{actionHistoryError}</p> : null}
+            {actionHistory.length ? (
+              <ol>
+                {actionHistory.map((action) => (
+                  <li key={action.action_id}>
+                    <strong>{action.status}</strong> · {action.instruction}
+                    {action.status === "completed" && action.assistant_summary
+                      ? <p>{action.assistant_summary}</p>
+                      : action.status === "pending"
+                        ? <p>This action is still running; it will not be dispatched again.</p>
+                        : action.status === "indeterminate"
+                          ? <p>The outcome is unknown. Start a new edit action if you still want to try again.</p>
+                          : action.status === "failed"
+                            ? <p>This action failed. Start a new edit action to try again.</p>
+                            : null}
+                    {action.status !== "pending" ? (
+                      <button
+                        type="button"
+                        disabled={composing || currentReview !== null}
+                        onClick={() => {
+                          proposalIntentRef.current = null;
+                          setComposerMessage(action.instruction);
+                          setComposerIntent("propose");
+                          setEditError(null);
+                        }}
+                      >
+                        Continue with a new edit
+                      </button>
+                    ) : null}
+                  </li>
+                ))}
+              </ol>
+            ) : <p>No recent Plan edit actions.</p>}
+          </section>
+          {legacyThreadForDisplay?.turns.length ? (
+            <section aria-label="Local-only legacy Plan history">
+              <h3>Older local-only Plan history</h3>
+              <p>This browser copy is not server-confirmed and is never used as conversation or proposal context.</p>
+              <button type="button" onClick={exportLegacyLocalHistory}>Export local history JSON</button>
+              <ol>
+                {[...legacyThreadForDisplay.turns].reverse().map((turn) => (
+                  <li key={turn.turnId}>
+                    <p><strong>You:</strong> {turn.question}</p>
+                    <p><strong>Local response{turn.planEdit ? " · Plan proposal" : ""}:</strong> {turn.answer}</p>
+                    {turn.planEdit ? (
+                      <p className="world-plan-agent-conversation__context">
+                        Plan proposal · {turn.planEdit.applied ? "Applied to the local draft" : "Not applied"}
+                      </p>
+                    ) : null}
+                    {turn.agentTurnResolved?.surfaceId === "plan" ? (
+                      <p className="world-plan-agent-conversation__context">
+                        Legacy local summary · committed revision {turn.agentTurnResolved.revisionUsed}; not part of server history.
+                      </p>
+                    ) : null}
+                    {turn.trace && traceVisible ? <AgentTraceInspector trace={turn.trace} /> : null}
+                  </li>
+                ))}
+              </ol>
+            </section>
+          ) : null}
+          {proposalThreadForDisplay?.turns.some((turn) => turn.trace) ? (
+            <section aria-label="Proposal trace details">
+              <h3>Proposal traces</h3>
+              {[...proposalThreadForDisplay.turns].reverse().filter((turn) => turn.trace && traceVisible).map((turn) => (
+                <div key={turn.turnId}>
+                  <p>{turn.question}</p>
+                  <AgentTraceInspector trace={turn.trace!} />
+                </div>
+              ))}
+            </section>
+          ) : null}
+        </div>
+      </details>
+      {editBridge ? (
+        <section className="world-plan-agent-conversation__composer" aria-label="Conversation composer">
+          <form onSubmit={submitComposer}>
+            <fieldset className="world-plan-agent-conversation__intent" disabled={intentBusy}>
+              <legend>What would you like to do?</legend>
+              <label>
+                <input
+                  type="radio"
+                  name="world-plan-agent-intent"
+                  value="discuss"
+                  checked={composerIntent === "discuss"}
+                  onChange={() => { setComposerIntent("discuss"); setError(null); setEditError(null); }}
+                />
+                Discuss
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="world-plan-agent-intent"
+                  value="propose"
+                  checked={composerIntent === "propose"}
+                  onChange={() => { setComposerIntent("propose"); setError(null); setEditError(null); }}
+                />
+                Propose edit
+              </label>
+            </fieldset>
+            {composerIntent === "propose" ? (
+              <div className="world-plan-agent-conversation__target" role="group" aria-label="Choose where the proposed edit applies">
+                <label htmlFor="world-plan-agent-plan-section">Plan section (optional)</label>
+                <select
+                  id="world-plan-agent-plan-section"
+                  value={selectedSectionTargetId}
+                  disabled={intentBusy || sectionTargets.length === 0}
+                  onChange={(event) => { void selectPlanSection(event.currentTarget.value); }}
+                >
+                  <option value="">Use the editor selection or caret</option>
+                  {sectionTargets.map((target) => (
+                    <option
+                      key={target.id}
+                      value={target.id}
+                      disabled={Boolean(target.unavailableReason)}
+                      title={target.unavailableReason ?? undefined}
+                    >
+                      {target.unavailableReason
+                        ? `${target.label} — unavailable (Markdown round-trip not safe)`
+                        : target.label}
+                    </option>
+                  ))}
+                </select>
+                <button type="button" onClick={() => { void refreshPlanSections(); }} disabled={intentBusy}>
+                  Refresh sections
+                </button>
+                <p role="note">Choosing a section selects it in the editor. A direct editor selection takes precedence. With no selected text, the proposal inserts at the caret.</p>
+                {sectionTargetStatus ? (
+                  <p role={sectionTargetStatus.kind === "error" ? "alert" : "status"}>{sectionTargetStatus.message}</p>
                 ) : null}
-                {turn.agentTurnResolved?.surfaceId === "plan" ? (
-                  <p className="world-plan-agent-conversation__context">
-                    Legacy local summary · committed revision {turn.agentTurnResolved.revisionUsed}; not part of server history.
-                  </p>
-                ) : null}
-                {turn.trace && traceVisible ? <AgentTraceInspector trace={turn.trace} /> : null}
-              </li>
-            ))}
-          </ol>
+              </div>
+            ) : null}
+            <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
+            <textarea
+              id="world-plan-agent-message"
+              value={composerMessage}
+              onChange={(event) => setComposerMessage(event.currentTarget.value)}
+              maxLength={messageLimit}
+              disabled={composerBusy}
+              placeholder={composerIntent === "discuss" ? "Ask about this Plan…" : "Describe the change you want…"}
+            />
+            {messageTooLong ? <p role="alert">Edit requests can be at most 4,000 characters. Shorten this message to continue.</p> : null}
+            {composerIntent === "discuss" && error && !authorizationBlocked ? <p role="alert">{error}</p> : null}
+            {composerIntent === "propose" && editError && !authorizationBlocked ? <p role="alert">{editError}</p> : null}
+            <div className="world-plan-agent-conversation__composer-footer">
+              <p className="world-plan-agent-conversation__context">For proposed edits, Apply changes your draft. Save keeps the changes.</p>
+              <button type="submit" disabled={composerBusy || !composerMessage.trim() || messageTooLong}>
+                {sending ? "Sending…" : composing ? "Preparing proposal…" : saveInFlight ? "Saving…" : composerIntent === "discuss" ? "Send message" : "Propose edit"}
+              </button>
+            </div>
+          </form>
         </section>
-      ) : null}
-      {proposalThreadForDisplay?.turns.length ? (
-        <section aria-label="Local-only Plan proposal activity">
-          <h3>Local-only Plan proposal activity</h3>
-          <p>This browser activity is separate from the World transcript and is never used as proposal context.</p>
-          <ol>
-            {[...proposalThreadForDisplay.turns].reverse().map((turn) => (
-              <li key={turn.turnId}>
-                <p><strong>You:</strong> {turn.question}</p>
-                <p><strong>Local response · Plan proposal:</strong> {turn.answer}</p>
-                {turn.planEdit ? (
-                  <p className="world-plan-agent-conversation__context">
-                    Plan proposal · {turn.planEdit.applied ? "Applied to the local draft" : "Not applied"}
-                  </p>
-                ) : null}
-                {turn.trace && traceVisible ? <AgentTraceInspector trace={turn.trace} /> : null}
-              </li>
-            ))}
-          </ol>
-        </section>
-      ) : null}
-      <form onSubmit={(event) => { void submit(event); }}>
-        <label htmlFor="world-plan-agent-question">Your question</label>
-        <textarea
-          id="world-plan-agent-question"
-          value={question}
-          onChange={(event) => setQuestion(event.currentTarget.value)}
-          maxLength={8000}
-          disabled={sending || composing || saveInFlight || !scopeMatches || historyLoading || !history || Boolean(historyError)}
-        />
-        {error ? <p role="alert">{error}</p> : null}
-        <button type="submit" disabled={sending || composing || saveInFlight || !scopeMatches
-          || historyLoading || !history || Boolean(historyError) || !question.trim()}>
-          {sending ? "Asking…" : saveInFlight ? "Saving…" : "Ask"}
-        </button>
-      </form>
+      ) : (
+        <form className="world-plan-agent-conversation__composer" onSubmit={submitComposer}>
+          <label htmlFor="world-plan-agent-message">Message DungeonBuddy</label>
+          <textarea id="world-plan-agent-message" value={composerMessage} onChange={(event) => setComposerMessage(event.currentTarget.value)} maxLength={8000} disabled={composerBusy} />
+          {error ? <p role="alert">{error}</p> : null}
+          <button type="submit" disabled={composerBusy || !composerMessage.trim()}>{sending ? "Sending…" : "Send message"}</button>
+        </form>
+      )}
     </section>,
     askSlot.hostElement,
   );

@@ -61,6 +61,11 @@ Before requesting PRIME review:
 
 ## Execution record
 
-- Authority handoff commit: pending initial commit.
-- Implementation PR/head: pending.
-- Verification/screenshots: pending.
+- Authority handoff commit: `219a9762caabb761443f5b4fe64efd516ba7c4f5`.
+- Implementation PR/head: pending implementation commit and PR creation.
+- Verification:
+  - `rtk npm test -- --reporter=dot --maxWorkers=1 src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx` — 22 passed.
+  - `rtk npm exec vite build` — passed (Vite reports the existing large-chunk advisory).
+  - `rtk npm run typecheck -- --pretty false` — blocked by `TS2503: Cannot find namespace 'JSX'` at `src/statblocks/publication/ThreatPublicationPanel.tsx:553`, outside this lease and unchanged by this branch.
+  - `git diff --check` — passed.
+- Desktop/mobile evidence: captured and inspected the shared composer at 1310×900 and 390×844 in a separate preview on port 54123. Both show the same one-field Discuss/Propose composer, collapsed Settings and Advanced details, and a visible actionable authorization state. The credential field was not populated; no Plan content was edited or saved. The viewport override was reset, and ports 5202/5203 were not contacted.

@@ -290,7 +290,7 @@ function setHarness() {
       documentId,
     },
     paneState: { isOpen: true },
-    updateThread: vi.fn(),
+    updateThread: vi.fn((nextThread: AgentInteractionThread) => { harness.agent.activeThread = nextThread; }),
     createThread: vi.fn(),
   };
   return thread;
@@ -411,7 +411,7 @@ describe("World Plan conversation consumer", () => {
 
     mountComponent();
     expect(await screen.findByText("Newest question")).toBeInTheDocument();
-    expect(screen.getByText(/latest bounded page/)).toBeInTheDocument();
+    expect(screen.getByText(/Recent messages. Older turns are available below./)).toBeInTheDocument();
     expect(screen.getByText(/Historical surface: build/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Older turns" }));
@@ -507,13 +507,14 @@ describe("World Plan conversation consumer", () => {
     });
 
     const first = mountComponent();
+    fireEvent.click(screen.getByText("Advanced details"));
     expect(await screen.findByRole("region", { name: "Local-only legacy Plan history" })).toBeInTheDocument();
     expect(screen.getByText("Legacy only fact")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Export local history JSON" }));
     expect(createObjectUrl).toHaveBeenCalledWith(expect.objectContaining({ type: "application/json" }));
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:legacy-export");
-    fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "What is the plan?" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "What is the plan?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(await screen.findByText(/Ask outcome is uncertain/)).toBeInTheDocument();
 
     const storedKey = pendingAskKeys()[0]!;
@@ -578,12 +579,107 @@ describe("World Plan conversation consumer", () => {
     });
 
     mountComponent();
-    await screen.findByText(/no visible conversation turns yet/i);
-    fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Do not lose this request" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByText(/No messages here yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Do not lose this request" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByText(/Ask was not sent because its recovery envelope could not be saved/)).toBeInTheDocument();
     expect(postAsk).not.toHaveBeenCalled();
+  });
+
+  it("uses one message field for discussion and inline Plan proposals", async () => {
+    const api = setupApi(history("conversation-a", 4, []));
+    const askRequests: WorldPlanAgentTurnRequestV1[] = [];
+    const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
+      askRequests.push(request);
+      api.setCurrent(history("conversation-a", 5, [
+        makeTurn(1, request.turn_id, request.message, "The saved Plan currently has one opening scene."),
+      ]));
+      return agentResponse(request, "conversation-a", "The saved Plan currently has one opening scene.") as any;
+    });
+    const proposalRequest = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
+      schema_version: "dmb_world_plan_document_edit_proposal_v1",
+      action_id: "00000000-0000-4000-8000-000000000099",
+      idempotency_key: request.idempotency_key,
+      document_id: request.document_id,
+      world_id: request.world_id,
+      base_revision: request.base_revision,
+      base_content_sha256: request.base_content_sha256,
+      draft_sha256: request.draft_sha256,
+      target_kind: request.target_kind,
+      selected_text_sha256: await sha256Hex(request.selected_text),
+      replacement_markdown: "A lantern shines at the arch.",
+      summary: "Add a lantern to the opening.",
+      assumptions: [],
+      model: "test-model",
+      model_observed: false,
+      model_latency_ms: 0,
+      wall_latency_ms: 0,
+      usage: null,
+    }) as any);
+    const captured = {
+      editor: { isDestroyed: false },
+      request: {
+        document_id: documentId,
+        world_id: worldId,
+        session: 1,
+        base_revision: 7,
+        base_content_sha256: contentSha256,
+        draft_markdown: "# Draft Plan",
+        draft_sha256: "d".repeat(64),
+        target_kind: "insert_at_caret" as const,
+        selected_text: "",
+      },
+      from: 1,
+      to: 1,
+      editorJson: "{}",
+      selectionJson: "[]",
+      draftGeneration: 0,
+      selectionGeneration: 0,
+    };
+    const bridge = {
+      capture: vi.fn(async () => captured),
+      apply: vi.fn(async () => undefined),
+    };
+
+    mountComponent(7, bridge);
+    await screen.findByText(/No messages here yet/i);
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    const messageBox = screen.getByLabelText("Message DungeonBuddy");
+    expect(screen.getByRole("button", { name: "Settings" })).toBeInTheDocument();
+    fireEvent.change(messageBox, { target: { value: "What is in the opening?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByText("The saved Plan currently has one opening scene.")).toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(askRequests[0]).toMatchObject({
+      message: "What is in the opening?",
+      graph_request: { mode: "none" },
+      graph_selection: null,
+      primary_work: { object_id: documentId, expected_revision: 7 },
+    });
+
+    fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+    expect(screen.getByLabelText("Message DungeonBuddy")).toBe(messageBox);
+    fireEvent.change(messageBox, { target: { value: "Add a lantern to the opening." } });
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+    const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
+    expect(screen.getAllByRole("textbox")).toHaveLength(1);
+    expect(proposalRequest).toHaveBeenCalledTimes(1);
+    expect(proposalRequest.mock.calls[0]![0]).toMatchObject({
+      instruction: "Add a lantern to the opening.",
+      base_revision: 7,
+      target_kind: "insert_at_caret",
+    });
+    expect(postAsk).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("region", { name: "World conversation transcript" })).toContainElement(review);
+    expect(review).toHaveTextContent("A lantern shines at the arch.");
+    expect(bridge.apply).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+    await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+    expect(screen.getByText("Apply changes your draft. Save keeps the changes.")).toBeInTheDocument();
+    expect(postAsk).toHaveBeenCalledTimes(1);
   });
 
   it("keeps an auth-rejected Ask pending until the operator sets a credential and explicitly retries", async () => {
@@ -599,20 +695,25 @@ describe("World Plan conversation consumer", () => {
     });
 
     mountComponent();
-    await screen.findByText(/no visible conversation turns yet/i);
-    fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Keep this exact ask" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByText(/No messages here yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this exact ask" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
-    expect(await screen.findByText(/local operator Agent\/Graph credential is missing or was rejected \(HTTP 401\)/)).toBeInTheDocument();
+    expect(await screen.findByText(/Local authorization was rejected/)).toBeInTheDocument();
     expect(pendingAskKeys()).toHaveLength(1);
     expect(postAsk).toHaveBeenCalledTimes(1);
     const savedRequest = JSON.parse(localStorage.getItem(pendingAskKeys()[0]!)!).request;
 
-    fireEvent.change(screen.getByLabelText("Local operator credential for Agent and Graph"), {
+    expect(screen.getByRole("button", { name: "Open Settings" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Local operator credential")).not.toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Open Settings" }));
+    expect(screen.getByLabelText("Local operator credential")).toBeVisible();
+
+    fireEvent.change(screen.getByLabelText("Local operator credential"), {
       target: { value: "test-only-local-operator-credential-value" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Set Agent and Graph authorization" }));
-    expect(await screen.findByText(/authorizes local Agent access and is also sent with native Graph requests/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Set authorization" }));
+    expect(await screen.findByText(/This credential stays in this tab’s memory/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
 
     expect(await screen.findByText("Authorized retry answer")).toBeInTheDocument();
@@ -653,7 +754,7 @@ describe("World Plan conversation consumer", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Retry saved New Conversation command" }));
-    expect(await screen.findByText("This World has no visible conversation turns yet.")).toBeInTheDocument();
+    expect(await screen.findByText(/No messages here yet/)).toBeInTheDocument();
     expect(requests[1]).toEqual(requests[0]);
     expect(postNew).toHaveBeenCalledTimes(2);
     expect(pendingCommandKeys()).toHaveLength(0);
@@ -681,14 +782,14 @@ describe("World Plan conversation consumer", () => {
     });
 
     mountComponent();
-    await screen.findByText(/no visible conversation turns yet/i);
-    fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Keep this in conversation A" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByText(/No messages here yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Keep this in conversation A" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
     expect(await screen.findByText(/Ask outcome is uncertain/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
     await waitFor(() => expect(screen.getByText(/New World conversation confirmed/)).toBeInTheDocument());
-    await screen.findByText(/no visible conversation turns yet/i);
+    await screen.findByText(/No messages here yet/i);
     fireEvent.click(screen.getByRole("button", { name: "Retry saved Ask" }));
 
     expect(await screen.findByText(/not inserted into the currently active conversation/)).toBeInTheDocument();
@@ -711,9 +812,9 @@ describe("World Plan conversation consumer", () => {
     });
 
     mountComponent();
-    await screen.findByText(/no visible conversation turns yet/i);
-    fireEvent.change(screen.getByLabelText("Your question"), { target: { value: "Do not accept this result" } });
-    fireEvent.click(screen.getByRole("button", { name: "Ask" }));
+    await screen.findByText(/No messages here yet/i);
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), { target: { value: "Do not accept this result" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(/did not match this saved Plan|could not be verified/i);
     expect(requests).toHaveLength(1);
@@ -811,16 +912,18 @@ describe("World Plan conversation consumer", () => {
 
       let view = renderRealProvider();
       expect(await screen.findByText("Legacy question 20")).toBeInTheDocument();
+      fireEvent.click(screen.getByText("Advanced details"));
       expect(screen.getByRole("region", { name: "Local-only legacy Plan history" })).toBeInTheDocument();
       fireEvent.click(screen.getByRole("button", { name: "Export local history JSON" }));
       expect(await readBlob(createdBlobs[0]!)).toBe(legacyBytes);
 
-      fireEvent.change(screen.getByLabelText("What should DungeonBuddy change?"), {
+      fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+      fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
         target: { value: "Add a distant bell." },
       });
-      fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+      fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
       expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
+      fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
       await waitFor(() => expect(bridge.apply).toHaveBeenCalledTimes(1));
 
       const activeThreadId = localStorage.getItem(activeThreadStorageKey(namespace, "plan", documentId));
@@ -835,7 +938,7 @@ describe("World Plan conversation consumer", () => {
       expect(proposalThread.turns).toHaveLength(1);
       expect(localStorage.getItem(legacyKey)).toBe(legacyBytes);
       expect(JSON.parse(legacyBytes!).turns).toHaveLength(AGENT_TURN_HISTORY_CAP);
-      expect(await screen.findByRole("region", { name: "Local-only Plan proposal activity" })).toBeInTheDocument();
+      expect(await screen.findByRole("region", { name: "World conversation transcript" })).toBeInTheDocument();
       expect(screen.getByRole("region", { name: "Local-only legacy Plan history" })).toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("button", { name: "Export local history JSON" }));
@@ -846,7 +949,8 @@ describe("World Plan conversation consumer", () => {
       harness.host = document.createElement("div");
       document.body.appendChild(harness.host);
       view = renderRealProvider();
-      expect(await screen.findByRole("region", { name: "Local-only Plan proposal activity" })).toBeInTheDocument();
+      expect(await screen.findByRole("region", { name: "World conversation transcript" })).toBeInTheDocument();
+      fireEvent.click(screen.getByText("Advanced details"));
       expect(await screen.findByRole("region", { name: "Local-only legacy Plan history" })).toBeInTheDocument();
       expect(localStorage.getItem(legacyKey)).toBe(legacyBytes);
       expect(JSON.parse(localStorage.getItem(proposalKey) ?? "null").turns[0].planEdit.applied).toBe(true);
@@ -900,11 +1004,12 @@ describe("World Plan conversation consumer", () => {
     };
 
     const view = mountComponent(7, bridge);
-    await screen.findByText(/no visible conversation turns yet/i);
-    fireEvent.change(screen.getByLabelText("What should DungeonBuddy change?"), {
+    await screen.findByText(/No messages here yet/i);
+    fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+    fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
       target: { value: "Revise this excerpt" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
     await waitFor(() => expect(proposalSpy).toHaveBeenCalledTimes(1));
     const originalRequest = proposalSpy.mock.calls[0]![0];
     expect(originalRequest.conversation_history).toEqual([]);
@@ -927,7 +1032,7 @@ describe("World Plan conversation consumer", () => {
     );
     await waitFor(() => expect(screen.getByRole("button", { name: "New conversation" })).toBeEnabled());
     fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
-    await screen.findByText("This World has no visible conversation turns yet.");
+    await screen.findByText(/No messages here yet/);
 
     expect(proposalSpy).toHaveBeenCalledTimes(1);
     expect(proposalSpy.mock.calls[0]![0]).toEqual(originalRequest);
