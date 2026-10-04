@@ -334,12 +334,13 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
   fireEvent.mouseUp(proseMirror);
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
   expect(await screen.findByRole("region", { name: "Saved World Plan conversation" })).toBeInTheDocument();
-  expect(screen.getByText(/Ask sends this Plan’s exact committed text and your question to the configured model/)).toBeInTheDocument();
+  expect(screen.getByText(/Talk through the saved Plan, or choose Propose edit to request a change/)).toBeInTheDocument();
 
-  fireEvent.change(screen.getByLabelText("What should DungeonBuddy change?"), {
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
     target: { value: "Add a warm light source to the opening." },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
   await screen.findByRole("region", { name: "Review proposed Plan edit" }).catch(() => {
     const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
     throw new Error(`Section proposal was rejected. Alerts: ${alerts || "none"}`);
@@ -365,7 +366,7 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 
-  fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
   await waitFor(() => {
     expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedVisibleSource);
     expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedAppliedText);
@@ -401,9 +402,10 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
   expect(await screen.findByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedVisibleSource);
   expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedAppliedText);
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  expect(await screen.findByText("Plan proposal · Applied to the local draft")).toBeInTheDocument();
+  expect(await screen.findByText("Local proposal · Applied to your draft")).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Local Plan proposal activity" })).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Apply to mounted draft" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
 });
 
 const session29SectionCases = [
@@ -497,8 +499,9 @@ it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply with
   await waitFor(() => expect(editorSurface).toHaveTextContent("The Hours They Bought"));
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
 
-  fireEvent.click(screen.getByRole("button", { name: "Refresh section list" }));
-  const sectionSelect = await screen.findByRole("combobox", { name: "Plan heading section" }) as HTMLSelectElement;
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh sections" }));
+  const sectionSelect = await screen.findByRole("combobox", { name: "Plan section (optional)" }) as HTMLSelectElement;
   await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
   const option = Array.from(sectionSelect.options).find((candidate) => candidate.textContent?.includes(sectionCase.heading));
   expect(option).toBeDefined();
@@ -528,10 +531,11 @@ it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply with
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 
-  fireEvent.change(screen.getByLabelText("What should DungeonBuddy change?"), {
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
     target: { value: `Revise ${sectionCase.heading} with one reviewed detail.` },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
   await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1), { timeout: 3_000 }).catch(() => {
     const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
     throw new Error(`Section proposal was not sent. Alerts: ${alerts || "none"}`);
@@ -549,7 +553,7 @@ it.each(session29SectionCases)("targets a Session 29 $label and keeps Apply with
   expect(commit).not.toHaveBeenCalled();
 
   await screen.findByRole("region", { name: "Review proposed Plan edit" });
-  fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
   await waitFor(() => expect(editorSurface).toHaveTextContent("reviewed section detail")).catch(() => {
     const alerts = screen.queryAllByRole("alert").map((element) => element.textContent).filter(Boolean).join(" | ");
     throw new Error(`Section Apply failed. Alerts: ${alerts || "none"}`);
@@ -678,24 +682,26 @@ it("reviews, applies, saves, and reloads rich content inside one selected World 
   const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
   const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  const sectionSelect = await screen.findByRole("combobox", { name: "Plan heading section" }) as HTMLSelectElement;
-  fireEvent.click(screen.getByRole("button", { name: "Refresh section list" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  const sectionSelect = await screen.findByRole("combobox", { name: "Plan section (optional)" }) as HTMLSelectElement;
+  fireEvent.click(screen.getByRole("button", { name: "Refresh sections" }));
   await waitFor(() => expect(sectionSelect.options.length).toBeGreaterThan(1));
   const option = Array.from(sectionSelect.options).find((candidate) => candidate.textContent?.includes("Mireward"));
   expect(option).toBeDefined();
   fireEvent.change(sectionSelect, { target: { value: option!.value } });
   await waitFor(() => expect(screen.getByRole("status")).toHaveTextContent(`${option!.textContent} selected`));
-  fireEvent.change(screen.getByLabelText("What should DungeonBuddy change?"), {
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
     target: { value: "Add the reviewed multi-paragraph witnesses, read-aloud, and decision consequence." },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
   await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
   await screen.findByRole("region", { name: "Review proposed Plan edit" });
   expect(screen.getByTestId("world-owned-plan-markdown-editor")).not.toHaveTextContent("The watcher");
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 
-  fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
   await waitFor(() => expect(editorSurface).toHaveTextContent("second witness answers from the river"));
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
@@ -736,10 +742,11 @@ it("drops a delayed proposal that completes after the mounted Plan conversation 
   const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
   expect(await screen.findByTestId("world-owned-plan-markdown-editor")).toBeInTheDocument();
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.change(await screen.findByLabelText("What should DungeonBuddy change?"), {
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
     target: { value: "Add a lantern." },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
   await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
   const request: WorldPlanDocumentEditProposalRequest = proposal.mock.calls[0][0];
   const namespace = `world-plan-agent:world:${encodeURIComponent(worldId)}:document:${encodeURIComponent(documentId)}`;
@@ -799,10 +806,11 @@ it("keeps an indeterminate late action out of Review and offers an explicit fres
   const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
   const originalText = editorSurface.textContent;
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.change(await screen.findByLabelText("What should DungeonBuddy change?"), {
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
     target: { value: "Add a distant bell." },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
   await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
   expect(proposal.mock.calls[0][0].idempotency_key).toMatch(/^[0-9a-f-]{36}$/i);
 
@@ -823,12 +831,13 @@ it("keeps an indeterminate late action out of Review and offers an explicit fres
   });
   expect(await screen.findByRole("alert")).toHaveTextContent("indeterminate");
   expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Apply to mounted draft" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
 
+  fireEvent.click(screen.getByText("Advanced details"));
   fireEvent.click(screen.getByRole("button", { name: "Refresh action status" }));
   expect(await screen.findByText("indeterminate", { exact: true })).toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Start a new edit attempt" }));
-  expect(screen.getByLabelText("What should DungeonBuddy change?")).toHaveValue("Add a distant bell.");
+  fireEvent.click(screen.getByRole("button", { name: "Continue with a new edit" }));
+  expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Add a distant bell.");
   expect(editorSurface.textContent).toBe(originalText);
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
@@ -864,14 +873,15 @@ it("reuses the same action key after a network-uncertain retry of an identical i
   render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
   await screen.findByTestId("world-owned-plan-markdown-editor");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.change(await screen.findByLabelText("What should DungeonBuddy change?"), {
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
     target: { value: "Add a distant bell." },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
   await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
   const firstKey = proposal.mock.calls[0][0].idempotency_key;
   await screen.findByRole("alert");
-  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
   expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
   expect(proposal).toHaveBeenCalledTimes(2);
   expect(proposal.mock.calls[1][0].idempotency_key).toBe(firstKey);
@@ -906,14 +916,15 @@ it("rejects a proposal response that is not correlated to the submitted action k
   render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
   await screen.findByTestId("world-owned-plan-markdown-editor");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.change(await screen.findByLabelText("What should DungeonBuddy change?"), {
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
     target: { value: "Add a distant bell." },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
   await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
   expect(await screen.findByRole("alert")).toHaveTextContent("did not match this edit request");
   expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
-  expect(screen.queryByRole("button", { name: "Apply to mounted draft" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
   expect(prepare).not.toHaveBeenCalled();
   expect(commit).not.toHaveBeenCalled();
 });
@@ -947,10 +958,11 @@ it("rejects a thread switch during deferred Apply without changing the mounted e
   render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
   const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  fireEvent.change(await screen.findByLabelText("What should DungeonBuddy change?"), {
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
     target: { value: "Add a lantern." },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Compose proposal" }));
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
   expect(await screen.findByRole("region", { name: "Review proposed Plan edit" })).toBeInTheDocument();
   const editorTextBefore = editorSurface.textContent;
 
@@ -961,7 +973,7 @@ it("rejects a thread switch during deferred Apply without changing the mounted e
     await gate;
     return originalDigest(...args);
   });
-  fireEvent.click(screen.getByRole("button", { name: "Apply to mounted draft" }));
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
   await waitFor(() => expect(digest).toHaveBeenCalledTimes(1));
   fireEvent.click(screen.getByRole("button", { name: "Switch Agent thread" }));
   await waitFor(() => expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument());
