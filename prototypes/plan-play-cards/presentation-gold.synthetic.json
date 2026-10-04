@@ -1,0 +1,11 @@
+{
+  "status": "synthetic development fixture; no imported source claims",
+  "blocks": [
+    {"type":"heading","level":2,"text":"The Quiet Observatory"},
+    {"type":"paragraph","text":"A narrow stair opens into a **circular chamber**. This is an authored test of hierarchy and emphasis."},
+    {"type":"read_aloud","text":"Cold light moves across the empty benches. Somewhere above you, a bell rings once."},
+    {"type":"gm_note","text":"The bell is a proposed clue. Do not turn preparation into a played event."},
+    {"type":"list","items":["Inspect the brass doors.","Speak to the keeper.","Leave a note and return later."]}
+  ],
+  "expected": {"headings":1,"paragraphs":3,"readAloudBoxes":1,"gmBoxes":1,"listItems":3,"strong":1,"sourceClaims":0}
+}
