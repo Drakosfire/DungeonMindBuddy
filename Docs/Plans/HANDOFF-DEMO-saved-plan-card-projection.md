@@ -1,7 +1,7 @@
 ---
 title: First production card projection from a saved World Plan
 document_class: implementation_handoff
-status: ACTIVE
+status: SETTLED
 created_at: "2026-10-04"
 workstream: DEMO
 design_authority: "../Plans/STEWARDS-HANDOFF-demo.md"
@@ -11,23 +11,27 @@ activation_base: "Buddy main e7b1464af6474e64a0f36c8a2fc57927b85db190"
 pr_topology: serial
 implementation_branch: codex/demo-first-saved-plan-card-projection
 implementation_pr: "https://github.com/Drakosfire/DungeonMindBuddy/pull/909"
+reviewed_head: "662b1e221617c7e900320f37fd27ee80d0858fe6"
+merge_commit: "79611f775c98eadc6695fda0314f057f71801eb2"
 ---
 
 # HANDOFF — DEMO: saved World Plan card projection
 
-> ACTIVE implementation handoff, pinned to Buddy `main@e7b1464af6474e64a0f36c8a2fc57927b85db190` by PRIME on 2026-10-04. The design base was `4efada56aa93d529bf49128d82ba2d097b074af1`; the Page lease from #886 is released. PRIME accepted RAKE PR #908 at exact reviewed head `fb866cd707ffc622b6be053822b0ffb03e0901b7`, merged as `e7b1464af6474e64a0f36c8a2fc57927b85db190`, and activated this bounded card slice with the path/resource lease below.
+> SETTLED implementation handoff. PRIME merged PR #909 at `79611f775c98eadc6695fda0314f057f71801eb2` from exact reviewed head `662b1e221617c7e900320f37fd27ee80d0858fe6` on 2026-10-04. The design base was `4efada56aa93d529bf49128d82ba2d097b074af1`; the Page lease from #886 was released before activation. PRIME accepted RAKE PR #908 at exact reviewed head `fb866cd707ffc622b6be053822b0ffb03e0901b7`, merged as `e7b1464af6474e64a0f36c8a2fc57927b85db190`, and activated this bounded card slice. The lease below closed with #909's merge.
 
 
 PRIME reviewed and accepted this initial boundary on 2026-10-04: the Cards view
 is a GM-only read-only lens over the same Plan editor draft; supported edits stay
 in the existing Document editor and use ordinary Save/fresh reopen. The boundary is independently useful but is not the completed Plan/Play
-experience. This handoff now activates its implementation.
+experience. PR #909 delivered this bounded implementation; no operator acceptance is implied.
 
 ## Status and activation record
 
-**Status: ACTIVE.** PRIME authorized one serial production card projection PR on
-Buddy `main@e7b1464af6474e64a0f36c8a2fc57927b85db190` and pinned the exact
-exclusive write lease below. The implementation branch is
+**Status: SETTLED.** PRIME authorized one serial production card projection PR on
+Buddy `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`, reviewed exact head
+`662b1e221617c7e900320f37fd27ee80d0858fe6`, and merged it at
+`79611f775c98eadc6695fda0314f057f71801eb2`. The exclusive write lease below
+closed at merge. The implementation branch was
 `codex/demo-first-saved-plan-card-projection` in the isolated `/tmp` checkout.
 
 Re-anchor and collision audit at activation:
@@ -268,9 +272,10 @@ Required owning-boundary evidence after activation:
    closed. Use a synthetic fixture for tests and isolated preview; do not copy
    private DOGFOOD corpora or touch ports 5202/5203.
 
-## ACTIVE exclusive write lease
+## Exclusive write lease (closed at merge)
 
-Only this lane may write the following ten paths while ACTIVE:
+These ten paths were exclusively leased to this lane while ACTIVE. The lease
+closed when PR #909 merged; this list is retained as the implementation record:
 
 1. `Docs/Plans/HANDOFF-DEMO-saved-plan-card-projection.md` — this activation,
    acceptance evidence, and final settlement.
@@ -301,7 +306,7 @@ editing them.
 
 ## Topology and resources
 
-**Topology: serial; one implementation PR.** Base: Buddy `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`. Branch: `codex/demo-first-saved-plan-card-projection`, isolated checkout `/tmp/dmb-demo-first-saved-plan-card-projection`. PRIME owns independent review and merge. Opening/updating the one assigned PR is part of this ACTIVE implementation authority.
+**Topology: serial; one implementation PR, completed.** Base: Buddy `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`. Branch: `codex/demo-first-saved-plan-card-projection`, isolated checkout `/tmp/dmb-demo-first-saved-plan-card-projection`. PRIME independently reviewed and merged the assigned PR. No successor was activated by this handoff.
 
 The implementation uses mocked World/document APIs and synthetic source only.
 No provider, database, credential, real World/Plan, private corpus, Graph read/write,
@@ -329,12 +334,12 @@ Return to PRIME before writing code if:
   Run, player visibility, Agent targeting, or another PR.
 
 No acceptance claim may exceed the exact mounted Save/reopen tests, isolated
-preview, and operator use actually completed. This ACTIVE lease does not close
-J1–J6 or the operator acceptance gate.
+preview, and operator use actually completed. This completed code slice does
+not close J1–J6 or the operator acceptance gate.
 
 ## DEMO implementation verification — 2026-10-04
 
-The following evidence is on the active serial branch and uses only synthetic
+The following evidence was produced on the serial implementation branch and uses only synthetic
 World/Plan data:
 
 - `WorldPlanCardProjection.model.test.ts` and
@@ -383,7 +388,10 @@ World/Plan data:
   `/api/live/query` route does not establish canonical World conversation or
   Graph provenance. No clean-draft Graph basis is adopted by this slice.
 
-The implementation is delivered in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909)
-against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`. The PR is open for
-PRIME's independent review; its current exact implementation head is recorded
-in the PR metadata. The ACTIVE lease remains in review and PRIME owns merge.
+The implementation was delivered in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909)
+against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`. PRIME independently
+accepted exact head `662b1e221617c7e900320f37fd27ee80d0858fe6` and merged it at
+`79611f775c98eadc6695fda0314f057f71801eb2`. PRIME reports an independent
+20/20 card-test review and a 71/71 Page/Card/EditHost rerun on the exact clean
+head. The lease is closed. No operator acceptance or J1–J6 completion is
+claimed.

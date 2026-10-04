@@ -140,7 +140,7 @@ unleased; the independent Agent composer usability slice merged as #904 and its
 lease is closed. See the execution ledger entry below for the Graph witness and
 owner/resource questions.
 
-**Serial settlement update (2026-10-04):** Buddy `origin/main` is
+**Serial settlement at #909 activation (2026-10-04):** Buddy `origin/main` was
 `e7b1464af6474e64a0f36c8a2fc57927b85db190`. PR #904 merged at
 `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` from reviewed head
 `c355234d1486d8cbc46aa9afa611d6d1340b812c`; its Agent composer lease is closed.
@@ -193,12 +193,13 @@ lease is released. The inherited UI typecheck failure at
 - Operator UI 5202/API 8000 and DOGFOOD 5203 remain reserved; no dispatch
   authorizes replacing those runtimes.
 
-**Saved-Plan card projection — ACTIVE (2026-10-04):** DEMO delivered the single
+**Saved-Plan card projection — MERGED (2026-10-04):** DEMO delivered the single
 serial card/document projection in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909),
 opened against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190` from
 `codex/demo-first-saved-plan-card-projection`. Its initial implementation head
-is `ffd83e424bb238dc2331cf55ab6237993bc0762e`; its current exact head is
-authoritative in GitHub metadata. The view is a read-only lens
+is `ffd83e424bb238dc2331cf55ab6237993bc0762e`; its exact reviewed head is
+`662b1e221617c7e900320f37fd27ee80d0858fe6`, merged at
+`79611f775c98eadc6695fda0314f057f71801eb2`. The view is a read-only lens
 over the same mounted editor draft; supported edits stay in Document and use
 ordinary Save plus a fresh reopen. It adds no card store, parser admission,
 Run, Graph, or J1–J6 acceptance. Focused suites pass 242/242: the model,
@@ -215,9 +216,28 @@ large-chunk advisory. The UI typecheck still reports only
 On the isolated synthetic preview, desktop 1280×800 had no horizontal overflow
 (document width 1265px); mobile 390×844 had body width 375px and a 335px card
 region with 20px side insets. The mobile heading/grid styles applied. The
-cumulative diff is in PRIME's independent review at the exact head in PR
-metadata. No merge or J1–J6 acceptance is claimed. Ports 5202, 8000, and 5203
-remain untouched.
+PRIME reports an independent 20/20 card-test review and a 71/71 Page/Card/EditHost
+rerun on the exact clean head. The implementation lease is closed. No operator
+acceptance or J1–J6 completion is claimed. Ports 5202, 8000, and 5203 remain
+untouched.
+
+**Next bounded candidate — card-targeted Plan collaboration (not ACTIVE):**
+After #909, attach the existing server-owned World conversation to a selected
+Playable card and prove proposal → inline review → Apply → ordinary Save → fresh
+reopen. Preserve the World/document conversation identity, current committed
+revision and existing editor draft/selection fences; use stable marker-backed
+element ID and kind, and the existing `WorldPlanEditBridge` for editor changes.
+Before activation, confirm that the identity-only
+`SurfaceInteractionPublication.agentContext` pointer contract has a
+server-consumed path on the canonical Plan Agent turn and can carry the selected
+element identity without sending Plan Markdown or Graph data to graphless Ask.
+The current Plan Page publishes `agentContext: null`, and its separate ambient
+Plan context does not include card selection. If the existing contract cannot
+carry and validate the target, settle the owning shared/server contract before
+code. This candidate has no active write lease or successor PR. Graph-backed
+Plan Ask remains a separate blocked design pending the APP-STATE durable receipt,
+Buddy managed-binding adapter/admission, and DungeonMind source-evidence
+contracts; it is not enabled by card targeting.
 
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
