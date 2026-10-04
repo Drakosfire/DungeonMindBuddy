@@ -4,8 +4,8 @@
 
 **Status: ACTIVE.** This bounded implementation is authorized by the operator’s DEMO appointment and PRIME’s direct assignment/correction in the current task. The operator’s correction supersedes the earlier two-flow suggestion: one conversation composer, with proposed edits represented as conversation events and reviewed inline.
 
-- Pinned base: DungeonMindBuddy `origin/main` at `707ffdfa6da742e3503323908ad4826f692b12fd`.
-- Implementation branch: `codex/demo-plan-agent-panel-usability`, based directly on that main commit.
+- Pinned base: DungeonMindBuddy `origin/main` at `d9b7d1e1ef9c1ad4401e107694260ad4f19455b6`.
+- Implementation branch: `codex/demo-plan-agent-panel-usability`, rebased onto that main commit before final review.
 - This handoff is the authority for the lease on this branch. Commit it before implementation edits; record that handoff commit here after pinning.
 - Assigned PR: create one DEMO implementation PR for PRIME review. No merge authority is granted here.
 - Scope: one independently useful Agent conversation composer usability capability.
@@ -41,11 +41,12 @@ Do not edit `PlanSurfacePage.tsx`, `PlanSurfacePage.test.tsx`, global styles, AP
 
 ## Re-anchor and collision audit
 
-At activation, remote `main` is `707ffdfa6da742e3503323908ad4826f692b12fd`; this checkout is clean and based on it. The Git fetch command could not write the shared worktree `FETCH_HEAD`, so the exact current main SHA and open PR state were verified through GitHub read APIs. The open PR inventory was checked for file collisions. PR #886 remains draft/HOLD on separate Plan navigation-shell paths and is the only concurrent Buddy implementation lane relevant to this UI surface; its tests do not own the Agent conversation component. The PRs for the World conversation cutover and proposal-context merger are merged and their leases released. An older dirty #900 worktree is historical and must not be copied, reset, cleaned, or edited.
+At initial activation this lane was based on `main@707ffdfa6da742e3503323908ad4826f692b12fd`. After PRIME published the operator-adopted card roadmap on 2026-10-03, a fresh fetch pinned `origin/main` at `d9b7d1e1ef9c1ad4401e107694260ad4f19455b6`. The intervening main diff contains only `Docs/Roadmaps/ROADMAP-demo.md` and `Docs/Plans/STEWARDS-HANDOFF-demo.md`, outside this lease. The current open PR inventory was rechecked, and this branch was rebased onto the new main before final review. The merged World conversation cutover/proposal-context predecessors remain released. An older dirty #900 worktree is historical and must not be copied, reset, cleaned, or edited.
 
 ### Topology: parallel-independent
 
-- Concurrent lane: PR #886, exact remote head `717727c33fe70fc154aee291e4397e2d53ac425c`, base `8dc639f` at audit time; navigation-shell paths and its own geometry tests. This slice uses the exact main base, does not depend on #886’s unmerged behavior, and has no shared file/runtime ownership. Keep #886 Draft/HOLD until its own geometry gate is satisfied.
+- Concurrent lane: PR #886, exact remote head `717727c33fe70fc154aee291e4397e2d53ac425c`, base `8dc639f06e05cf1809f42ecaba4c791ef21af66b`; navigation-shell paths and its own geometry tests. This slice does not depend on #886’s unmerged behavior and has no shared file/runtime ownership. Keep #886 Draft/HOLD until its own geometry gate is satisfied.
+- PR #887 remains the DOGFOOD prototype on its separate prototype path and reserved port 5203; this slice did not use that runtime. PR #869 remains a separate statblock movement-reference lane.
 - This lane owns the five paths listed above. The component boundary isolates the work from #886’s shell ownership.
 - 5202 and 5203 are operator/runtime lanes rather than implementation branches; both are excluded from this slice’s runtime activity.
 
@@ -61,11 +62,11 @@ Before requesting PRIME review:
 
 ## Execution record
 
-- Authority handoff commit: `219a9762caabb761443f5b4fe64efd516ba7c4f5`.
+- Authority handoff commit on the rebased branch: `079767ab3ccd8f193fd5ead831e6c71f14b48654`.
 - Implementation PR: [#904](https://github.com/Drakosfire/DungeonMindBuddy/pull/904).
-- Implementation code commit and PR-creation head: `1cad2f07598872824406c7e7e3407ae0ef3a8469`. The later handoff receipt is documentation-only; use PR #904 metadata for its final branch head.
+- Implementation code commit on the rebased branch: `8a5bc6809fea70886208ab7ae9a6a421ecaf2772`. The later handoff receipt is documentation-only; PR #904 metadata records the final branch head.
 - Verification:
-  - `rtk npm test -- --reporter=dot --maxWorkers=1 src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx` — 22 passed.
+  - `rtk npm test -- --reporter=dot --maxWorkers=1 src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx` — 22 passed, rerun after the rebase onto `d9b7d1e1`.
   - `rtk npm exec vite build` — passed (Vite reports the existing large-chunk advisory).
   - `rtk npm run typecheck -- --pretty false` — blocked by `TS2503: Cannot find namespace 'JSX'` at `src/statblocks/publication/ThreatPublicationPanel.tsx:553`, outside this lease and unchanged by this branch.
   - `git diff --check` — passed.
