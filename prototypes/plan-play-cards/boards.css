@@ -2,3 +2,5 @@ header{gap:10px;flex-wrap:wrap}header a{font-size:12px;color:#adc0c8}.source-sta
 .board-table .table-row{display:flex;gap:12px;min-width:400px}.board-table .table-row span{min-width:50px}.source-item:has(.board-table) p:empty{display:none}
 #index>details{margin:12px 0}#index>details>summary{font-size:12px;color:#c7ac76;cursor:pointer;padding:5px 0}.source-item .source-status{letter-spacing:0}.focused-block{min-height:160px}
 .related small{color:#605d4f;letter-spacing:0;font-size:11px;margin-top:3px}
+
+.passage-source{font-size:11px;color:#655d4a;margin-top:8px}.passage-source summary{cursor:pointer}.passage-source p{font-size:12px}.scene-notes textarea{min-height:100px}.scene-notes summary{font-weight:600}
