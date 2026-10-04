@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
 
-import { getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, setNativeGraphAccessToken } from "../../api/liveApi";
+import { getWorldAgentConversationHistory, getWorldOwnedPlanCommittedRevision, getWorldPlanDocumentEditActions, postWorldAgentNewConversation, postWorldPlanAgentTurn, postWorldPlanDocumentEditProposal, setNativeGraphAccessToken, LiveApiError } from "../../api/liveApi";
 import type {
   AgentInteractionThread,
   AgentInteractionTurn,
@@ -10,6 +10,9 @@ import type {
   WorldPlanAgentTurnRequestV1,
   WorldPlanAgentTurnResolvedSummary,
   WorldPlanActionProjection,
+  WorldAgentConversationHistoryResponseV1,
+  WorldAgentConversationHistoryTurnV1,
+  WorldAgentNewConversationRequestV1,
 } from "../../api/types";
 import { AgentTraceInspector } from "../../agentInteraction/trace/AgentTraceInspector";
 import { useAskPluginSlotOptional, useRegisterAskPluginPresence } from "../../agentInteraction/AskPluginSlot";
@@ -28,7 +31,6 @@ import { planSectionTargets, type PlanSectionTarget } from "../agentEdit/planSec
 import {
   AGENT_TURN_HISTORY_CAP,
   createAgentInteractionThread,
-  safeTraceForPersistence,
   threadTitleFromQuestion,
 } from "./agentInteractionHistory";
 import "./WorldPlanAgentConversation.css";
@@ -51,6 +53,7 @@ interface ValidatedWorldPlanResponse {
   answer: string;
   trace: Record<string, unknown>;
   summary: WorldPlanAgentTurnResolvedSummary;
+  conversationId: string | null;
 }
 
 interface WorldPlanEditReview {
@@ -84,6 +87,202 @@ type ValidationResult =
 const RESPONSE_MISMATCH = "DungeonBuddy's response did not match this saved Plan. Try again.";
 const POINTER_STATUSES = ["absent", "accepted", "recovered", "rejected", "reused"] as const;
 
+const WORLD_HISTORY_PAGE_SIZE = 50;
+const PENDING_ASK_STORAGE_PREFIX = "dmb:world-plan-pending-ask:v1:";
+const PENDING_NEW_CONVERSATION_STORAGE_PREFIX = "dmb:world-agent-new-conversation:v1:";
+
+interface WorldPlanPendingAskOrigin {
+  worldId: string;
+  documentId: string;
+  objectRevision: number;
+  workRevisionId: string;
+  revisionN: number;
+  contentSha256: string;
+  pointerRevision: number;
+  conversationId: string | null;
+}
+
+interface WorldPlanPendingAskEnvelope {
+  schema: "dmb_world_plan_pending_ask_v1";
+  request: WorldPlanAgentTurnRequestV1;
+  origin: WorldPlanPendingAskOrigin;
+  createdAt: string;
+}
+
+interface StoredPendingAsk {
+  storageKey: string;
+  envelope: WorldPlanPendingAskEnvelope | null;
+  error: string | null;
+}
+
+interface WorldPlanPendingNewConversation {
+  schema: "dmb_world_pending_new_conversation_v1";
+  worldId: string;
+  documentId: string;
+  request: WorldAgentNewConversationRequestV1;
+}
+
+interface StoredPendingNewConversation {
+  storageKey: string;
+  envelope: WorldPlanPendingNewConversation | null;
+  error: string | null;
+}
+
+function pendingAskPrefix(worldId: string, documentId: string): string {
+  return `${PENDING_ASK_STORAGE_PREFIX}${encodeURIComponent(worldId)}:${encodeURIComponent(documentId)}:`;
+}
+
+function pendingAskStorageKey(
+  worldId: string,
+  documentId: string,
+  origin: WorldPlanPendingAskOrigin,
+  turnId: string,
+): string {
+  const basis = [
+    origin.objectRevision,
+    origin.workRevisionId,
+    origin.revisionN,
+    origin.contentSha256,
+    turnId,
+  ].join("|");
+  return `${pendingAskPrefix(worldId, documentId)}${encodeURIComponent(basis)}`;
+}
+
+function pendingNewConversationPrefix(worldId: string): string {
+  return `${PENDING_NEW_CONVERSATION_STORAGE_PREFIX}${encodeURIComponent(worldId)}:`;
+}
+
+function pendingNewConversationStorageKey(worldId: string, commandId: string): string {
+  return `${pendingNewConversationPrefix(worldId)}${encodeURIComponent(commandId)}`;
+}
+
+function readPrefixedStorage(prefix: string): Array<{ storageKey: string; raw: string }> {
+  const storage = window.localStorage;
+  const matches: Array<{ storageKey: string; raw: string }> = [];
+  for (let index = 0; index < storage.length; index += 1) {
+    const storageKey = storage.key(index);
+    if (!storageKey?.startsWith(prefix)) continue;
+    const raw = storage.getItem(storageKey);
+    if (raw !== null) matches.push({ storageKey, raw });
+  }
+  return matches;
+}
+
+function parsePendingAsk(
+  storageKey: string,
+  raw: string,
+  worldId: string,
+  documentId: string,
+): StoredPendingAsk {
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!isRecord(value) || value.schema !== "dmb_world_plan_pending_ask_v1"
+      || !isRecord(value.request) || !isRecord(value.origin)) {
+      throw new Error("This saved Ask envelope is malformed and cannot be replayed safely.");
+    }
+    const request = value.request;
+    const origin = value.origin;
+    const primary = request.primary_work;
+    if (request.schema !== "dmb_agent_turn_request_v1"
+      || typeof request.client_thread_id !== "string"
+      || typeof request.turn_id !== "string"
+      || !isRecord(request.surface) || request.surface.surface_id !== "plan"
+      || !isRecord(request.owner_scope) || request.owner_scope.kind !== "world"
+      || request.owner_scope.world_id !== worldId
+      || !isRecord(primary) || primary.kind !== "plan"
+      || typeof primary.object_id !== "string" || primary.object_id !== documentId
+      || !isRecord(request.graph_request) || request.graph_request.mode !== "none"
+      || request.graph_selection !== null || typeof request.message !== "string"
+      || origin.worldId !== worldId || origin.documentId !== documentId
+      || !Number.isSafeInteger(origin.objectRevision)
+      || typeof origin.workRevisionId !== "string"
+      || !Number.isSafeInteger(origin.revisionN)
+      || typeof origin.contentSha256 !== "string"
+      || !Number.isSafeInteger(origin.pointerRevision)
+      || !(origin.conversationId === null || typeof origin.conversationId === "string")
+      || primary.expected_revision !== origin.objectRevision
+      || primary.expected_revision_n !== origin.revisionN
+      || primary.expected_content_sha256 !== origin.contentSha256
+      || storageKey !== pendingAskStorageKey(worldId, documentId, origin as unknown as WorldPlanPendingAskOrigin, request.turn_id)) {
+      throw new Error("This saved Ask envelope does not match its World, Plan, basis, or storage key.");
+    }
+    return {
+      storageKey,
+      envelope: value as unknown as WorldPlanPendingAskEnvelope,
+      error: null,
+    };
+  } catch (reason) {
+    return {
+      storageKey,
+      envelope: null,
+      error: reason instanceof Error ? reason.message : "This saved Ask envelope is malformed.",
+    };
+  }
+}
+
+function readPendingAsks(worldId: string, documentId: string): StoredPendingAsk[] {
+  return readPrefixedStorage(pendingAskPrefix(worldId, documentId))
+    .map(({ storageKey, raw }) => parsePendingAsk(storageKey, raw, worldId, documentId));
+}
+
+function parsePendingNewConversation(
+  storageKey: string,
+  raw: string,
+  worldId: string,
+): StoredPendingNewConversation {
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (!isRecord(value) || value.schema !== "dmb_world_pending_new_conversation_v1"
+      || value.worldId !== worldId || typeof value.documentId !== "string"
+      || !isRecord(value.request) || value.request.schema !== "dmb_agent_new_conversation_v1"
+      || typeof value.request.command_id !== "string"
+      || !Number.isSafeInteger(value.request.expected_pointer_revision)
+      || !(value.request.expected_active_conversation_id === null
+        || typeof value.request.expected_active_conversation_id === "string")
+      || storageKey !== pendingNewConversationStorageKey(worldId, value.request.command_id)) {
+      throw new Error("This saved New Conversation command is malformed and cannot be replayed safely.");
+    }
+    return {
+      storageKey,
+      envelope: value as unknown as WorldPlanPendingNewConversation,
+      error: null,
+    };
+  } catch (reason) {
+    return {
+      storageKey,
+      envelope: null,
+      error: reason instanceof Error ? reason.message : "This saved New Conversation command is malformed.",
+    };
+  }
+}
+
+function readPendingNewConversations(worldId: string): StoredPendingNewConversation[] {
+  return readPrefixedStorage(pendingNewConversationPrefix(worldId))
+    .map(({ storageKey, raw }) => parsePendingNewConversation(storageKey, raw, worldId));
+}
+
+function sameHistoryPointer(
+  left: WorldAgentConversationHistoryResponseV1 | null,
+  right: WorldAgentConversationHistoryResponseV1,
+): boolean {
+  return Boolean(left
+    && left.world_id === right.world_id
+    && left.pointer_revision === right.pointer_revision
+    && left.active_conversation_id === right.active_conversation_id
+    && left.conversation_id === right.conversation_id);
+}
+
+function mergeHistoryTurns(
+  existing: WorldAgentConversationHistoryTurnV1[],
+  incoming: WorldAgentConversationHistoryTurnV1[],
+): WorldAgentConversationHistoryTurnV1[] {
+  const byId = new Map<string, WorldAgentConversationHistoryTurnV1>();
+  for (const turn of [...existing, ...incoming]) {
+    if (!byId.has(turn.turn_id)) byId.set(turn.turn_id, turn);
+  }
+  return [...byId.values()].sort((left, right) => left.sequence - right.sequence);
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -100,6 +299,11 @@ function isNullableString(value: unknown): value is string | null {
 
 function isPositiveRevision(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 1;
+}
+
+function localOperatorCredentialFailure(reason: unknown, nextStep: string): string | null {
+  if (!(reason instanceof LiveApiError) || (reason.status !== 401 && reason.status !== 403)) return null;
+  return `The local operator Agent/Graph credential is missing or was rejected (HTTP ${reason.status}). Set or verify it above, then ${nextStep}.`;
 }
 
 function readCommittedPlanBasis(
@@ -250,11 +454,16 @@ function validateWorldPlanResponse(
   }
 
   const conversation = value.conversation;
-  if (!hasExactKeys(conversation, ["client_thread_id", "turn_id", "pointer_status", "pointer_id"])
+  const conversationKeys = isRecord(conversation) && Object.prototype.hasOwnProperty.call(conversation, "conversation_id")
+    ? ["client_thread_id", "turn_id", "pointer_status", "pointer_id", "conversation_id"]
+    : ["client_thread_id", "turn_id", "pointer_status", "pointer_id"];
+  if (!hasExactKeys(conversation, conversationKeys)
     || conversation.client_thread_id !== request.client_thread_id
     || conversation.turn_id !== request.turn_id
     || !POINTER_STATUSES.includes(conversation.pointer_status as (typeof POINTER_STATUSES)[number])
-    || !isNullableString(conversation.pointer_id)) {
+    || !isNullableString(conversation.pointer_id)
+    || (Object.prototype.hasOwnProperty.call(conversation, "conversation_id")
+      && !isNullableString(conversation.conversation_id))) {
     return { ok: false, message: RESPONSE_MISMATCH };
   }
 
@@ -297,7 +506,7 @@ function validateWorldPlanResponse(
     graphStatus: "not_requested",
     pointerStatus: conversation.pointer_status as WorldPlanAgentTurnResolvedSummary["pointerStatus"],
   };
-  return { ok: true, value: { answer: answer.text, trace: answer.trace, summary } };
+  return { ok: true, value: { answer: answer.text, trace: answer.trace, summary, conversationId: typeof conversation.conversation_id === "string" ? conversation.conversation_id : null } };
 }
 
 function isScopedPlanThread(
@@ -356,7 +565,6 @@ export function WorldPlanAgentConversation({
   const activeThread = isScopedPlanThread(agent.activeThread, namespace ?? "", documentId ?? "")
     ? agent.activeThread
     : null;
-  const traceVisible = activeThread?.uiState?.traceVisible ?? false;
   const scopeKey = `${worldId}\u001f${documentId ?? ""}`;
   const requestFenceKey = JSON.stringify({
     worldId: verifiedWorldId,
@@ -388,19 +596,34 @@ export function WorldPlanAgentConversation({
   const [editError, setEditError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [composing, setComposing] = useState(false);
+  const [traceVisible, setTraceVisible] = useState(false);
+  const [history, setHistory] = useState<WorldAgentConversationHistoryResponseV1 | null>(null);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [olderLoading, setOlderLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
+  const [pendingAsks, setPendingAsks] = useState<StoredPendingAsk[]>([]);
+  const [pendingAskLoadError, setPendingAskLoadError] = useState<string | null>(null);
+  const [pendingCommands, setPendingCommands] = useState<StoredPendingNewConversation[]>([]);
+  const [pendingCommandLoadError, setPendingCommandLoadError] = useState<string | null>(null);
+  const [newConversationSending, setNewConversationSending] = useState(false);
+  const [newConversationError, setNewConversationError] = useState<string | null>(null);
+  const [conversationNotice, setConversationNotice] = useState<string | null>(null);
   const [editReview, setEditReview] = useState<WorldPlanEditReview | null>(null);
   const [sectionTargets, setSectionTargets] = useState<PlanSectionOption[]>([]);
   const [selectedSectionTargetId, setSelectedSectionTargetId] = useState("");
   const [sectionTargetStatus, setSectionTargetStatus] = useState<PlanSectionTargetStatus | null>(null);
   const [actionHistory, setActionHistory] = useState<WorldPlanActionProjection[]>([]);
   const [actionHistoryError, setActionHistoryError] = useState<string | null>(null);
-  const requestRef = useRef<{ token: symbol; threadId: string; fenceKey: string } | null>(null);
+  const requestRef = useRef<{ token: symbol; scopeKey: string; fenceKey: string } | null>(null);
+  const newConversationRef = useRef<symbol | null>(null);
+  const historySnapshotRef = useRef<WorldAgentConversationHistoryResponseV1 | null>(null);
+  const historyGenerationRef = useRef(0);
   const proposalRequestRef = useRef<{ token: symbol; threadId: string; fenceKey: string; providerThreadId: string | null } | null>(null);
   const proposalIntentRef = useRef<{ fingerprint: string; idempotencyKey: string } | null>(null);
   const editReviewRef = useRef<WorldPlanEditReview | null>(null);
   const sectionScanRef = useRef<PlanSectionScan | null>(null);
   const sectionOperationRef = useRef<symbol | null>(null);
-  const sanitizedPointerRef = useRef<string | null>(null);
   const latestRef = useRef({
     fenceKey: requestFenceKey,
     proposalFenceKey,
@@ -440,6 +663,8 @@ export function WorldPlanAgentConversation({
     return () => {
       latestRef.current.mounted = false;
       requestRef.current = null;
+      newConversationRef.current = null;
+      historyGenerationRef.current += 1;
       proposalRequestRef.current = null;
       editReviewRef.current = null;
       sectionScanRef.current = null;
@@ -475,11 +700,6 @@ export function WorldPlanAgentConversation({
   }, [scopeMatches, verifiedWorldId, documentId, revision]);
 
   useLayoutEffect(() => {
-    requestRef.current = null;
-    setSending(false);
-  }, [requestFenceKey]);
-
-  useLayoutEffect(() => {
     proposalRequestRef.current = null;
     editReviewRef.current = null;
     setComposing(false);
@@ -487,13 +707,76 @@ export function WorldPlanAgentConversation({
     setEditError(null);
   }, [proposalFenceKey]);
 
-  useLayoutEffect(() => {
-    const pending = requestRef.current;
-    if (pending && latestRef.current.providerThreadId !== pending.threadId) {
-      requestRef.current = null;
-      setSending(false);
+  useEffect(() => {
+    let active = true;
+    const generation = ++historyGenerationRef.current;
+    historySnapshotRef.current = null;
+    setHistory(null);
+    setHistoryError(null);
+    if (!scopeMatches || !verifiedWorldId || !documentId) {
+      setHistoryLoading(false);
+      return () => { active = false; };
     }
-  }, [agent.activeThread?.threadId]);
+
+    setHistoryLoading(true);
+    void getWorldAgentConversationHistory(verifiedWorldId, { limit: WORLD_HISTORY_PAGE_SIZE })
+      .then((page) => {
+        if (!active || generation !== historyGenerationRef.current) return;
+        const validState = page.world_id === verifiedWorldId
+          && page.schema === "dmb_agent_conversation_history_v1"
+          && (page.conversation_state === "absent"
+            ? page.conversation_id === null && page.active_conversation_id === null && page.turns.length === 0
+            : typeof page.conversation_id === "string" && page.active_conversation_id === page.conversation_id);
+        if (!validState) {
+          setHistoryError("The World conversation response did not match the selected World. Refresh history before continuing.");
+          return;
+        }
+        historySnapshotRef.current = page;
+        setHistory(page);
+      })
+      .catch((reason: unknown) => {
+        if (active && generation === historyGenerationRef.current) {
+          setHistoryError(localOperatorCredentialFailure(reason, "refresh World history")
+            ?? (reason instanceof Error ? reason.message : "Could not load the World conversation."));
+        }
+      })
+      .finally(() => {
+        if (active && generation === historyGenerationRef.current) setHistoryLoading(false);
+      });
+    return () => { active = false; };
+  }, [scopeKey, scopeMatches, verifiedWorldId, documentId, historyRefreshNonce]);
+
+  useEffect(() => {
+    if (!scopeMatches || !verifiedWorldId || !documentId) {
+      setPendingAsks([]);
+      setPendingAskLoadError(null);
+      return;
+    }
+    try {
+      setPendingAsks(readPendingAsks(verifiedWorldId, documentId));
+      setPendingAskLoadError(null);
+    } catch (reason) {
+      setPendingAskLoadError(reason instanceof Error
+        ? reason.message
+        : "Browser storage is unavailable for pending Ask recovery.");
+    }
+  }, [scopeKey, scopeMatches, verifiedWorldId, documentId]);
+
+  useEffect(() => {
+    if (!scopeMatches || !verifiedWorldId || !documentId) {
+      setPendingCommands([]);
+      setPendingCommandLoadError(null);
+      return;
+    }
+    try {
+      setPendingCommands(readPendingNewConversations(verifiedWorldId));
+      setPendingCommandLoadError(null);
+    } catch (reason) {
+      setPendingCommandLoadError(reason instanceof Error
+        ? reason.message
+        : "Browser storage is unavailable for New Conversation recovery.");
+    }
+  }, [scopeKey, scopeMatches, verifiedWorldId, documentId]);
 
   useLayoutEffect(() => {
     const pending = proposalRequestRef.current;
@@ -509,35 +792,135 @@ export function WorldPlanAgentConversation({
   }, [activeThread?.threadId, agent.activeThread?.threadId]);
 
   useLayoutEffect(() => {
+    requestRef.current = null;
+    newConversationRef.current = null;
+    historyGenerationRef.current += 1;
+    historySnapshotRef.current = null;
+    setSending(false);
+    setNewConversationSending(false);
+    setTraceVisible(false);
     setQuestion("");
     setError(null);
+    setConversationNotice(null);
   }, [scopeKey]);
 
-  useEffect(() => {
-    if (!activeThread?.hermesSession) {
-      sanitizedPointerRef.current = null;
-      return;
+  function refreshPendingAskList() {
+    if (!verifiedWorldId || !documentId) return;
+    try {
+      setPendingAsks(readPendingAsks(verifiedWorldId, documentId));
+      setPendingAskLoadError(null);
+    } catch (reason) {
+      setPendingAskLoadError(reason instanceof Error
+        ? reason.message
+        : "Browser storage is unavailable for pending Ask recovery.");
     }
-    const pointerKey = `${activeThread.threadId}:${activeThread.hermesSession.sessionId}`;
-    if (sanitizedPointerRef.current === pointerKey) return;
-    sanitizedPointerRef.current = pointerKey;
-    // The generic endpoint owns its continuity pointer; never carry a legacy provider pointer into it.
-    agent.updateThread({ ...activeThread, hermesSession: null });
-  }, [activeThread, agent.updateThread]);
+  }
+
+  function refreshPendingCommandList() {
+    if (!verifiedWorldId || !documentId) return;
+    try {
+      setPendingCommands(readPendingNewConversations(verifiedWorldId));
+      setPendingCommandLoadError(null);
+    } catch (reason) {
+      setPendingCommandLoadError(reason instanceof Error
+        ? reason.message
+        : "Browser storage is unavailable for New Conversation recovery.");
+    }
+  }
+
+  async function sendNewConversationCommand(stored: StoredPendingNewConversation) {
+    const envelope = stored.envelope;
+    if (!envelope || !scopeMatches || verifiedWorldId !== envelope.worldId
+      || newConversationRef.current !== null) return;
+    const token = Symbol("world-agent-new-conversation");
+    newConversationRef.current = token;
+    setNewConversationSending(true);
+    setNewConversationError(null);
+    setConversationNotice(null);
+    const stillCurrent = () => latestRef.current.mounted
+      && latestRef.current.scopeMatches
+      && latestRef.current.verifiedWorldId === envelope.worldId
+      && newConversationRef.current === token;
+    try {
+      const response = await postWorldAgentNewConversation(envelope.worldId, envelope.request);
+      if (!stillCurrent()) return;
+      if (response.schema !== "dmb_agent_new_conversation_response_v1"
+        || response.world_id !== envelope.worldId
+        || typeof response.conversation_id !== "string"
+        || !response.conversation_id
+        || !Number.isSafeInteger(response.pointer_revision)
+        || !(response.active_conversation_id === null || typeof response.active_conversation_id === "string")) {
+        throw new Error("The New Conversation response did not match its saved command.");
+      }
+      try {
+        window.localStorage.removeItem(stored.storageKey);
+        refreshPendingCommandList();
+      } catch (reason) {
+        setPendingCommandLoadError(reason instanceof Error
+          ? reason.message
+          : "The command succeeded, but its local recovery envelope could not be cleared. Retrying remains safe.");
+      }
+      setConversationNotice("New World conversation confirmed. Refreshing the server transcript.");
+      setHistoryRefreshNonce((current) => current + 1);
+    } catch (reason) {
+      if (!stillCurrent()) return;
+      if (reason instanceof LiveApiError && reason.status === 409) {
+        try {
+          window.localStorage.removeItem(stored.storageKey);
+          refreshPendingCommandList();
+        } catch {
+          setPendingCommandLoadError("The pointer changed. The old command was rejected; clear its saved recovery item before starting a deliberate new command.");
+        }
+        setNewConversationError("The World conversation pointer changed. Current server history is being refreshed; review it, then deliberately start a new conversation if you still want one.");
+        setHistoryRefreshNonce((current) => current + 1);
+      } else {
+        setNewConversationError(localOperatorCredentialFailure(reason, "retry the saved command; its ID and pointer snapshot are preserved")
+          ?? (reason instanceof Error
+            ? `The command outcome is uncertain. Retry the saved command to use the same command ID and pointer snapshot. ${reason.message}`
+            : "The command outcome is uncertain. Retry the saved command to use the same command ID and pointer snapshot."));
+      }
+    } finally {
+      if (newConversationRef.current === token) {
+        newConversationRef.current = null;
+        setNewConversationSending(false);
+      }
+    }
+  }
 
   function startNewConversation() {
-    if (!scopeMatches) return;
-    requestRef.current = null;
-    proposalRequestRef.current = null;
-    editReviewRef.current = null;
-    setEditReview(null);
-    setComposing(false);
-    const next = agent.createThread("New World Plan conversation");
-    latestRef.current.threadId = next.threadId;
-    setQuestion("");
-    setError(null);
-    setEditError(null);
-    setSending(false);
+    const pointer = historySnapshotRef.current;
+    if (!scopeMatches || !verifiedWorldId || !documentId || !pointer
+      || historyLoading || sending || composing || newConversationSending
+      || pendingCommands.some((item) => item.envelope !== null)) return;
+    const request: WorldAgentNewConversationRequestV1 = {
+      schema: "dmb_agent_new_conversation_v1",
+      command_id: crypto.randomUUID(),
+      expected_pointer_revision: pointer.pointer_revision,
+      expected_active_conversation_id: pointer.active_conversation_id,
+    };
+    const envelope: WorldPlanPendingNewConversation = {
+      schema: "dmb_world_pending_new_conversation_v1",
+      worldId: verifiedWorldId,
+      documentId,
+      request,
+    };
+    const storageKey = pendingNewConversationStorageKey(verifiedWorldId, request.command_id);
+    const serialized = JSON.stringify(envelope);
+    try {
+      window.localStorage.setItem(storageKey, serialized);
+      if (window.localStorage.getItem(storageKey) !== serialized) {
+        throw new Error("Browser storage did not preserve the exact command envelope.");
+      }
+      refreshPendingCommandList();
+      setQuestion("");
+      setError(null);
+      setNewConversationError(null);
+      void sendNewConversationCommand({ storageKey, envelope, error: null });
+    } catch (reason) {
+      setNewConversationError(reason instanceof Error
+        ? `The command was not sent because its recovery envelope could not be saved. ${reason.message}`
+        : "The command was not sent because browser storage is unavailable.");
+    }
   }
 
   function saveGraphCredential(event: FormEvent<HTMLFormElement>) {
@@ -546,66 +929,125 @@ export function WorldPlanAgentConversation({
     setNativeGraphAccessToken(credential || null);
     setGraphCredential("");
     setGraphCredentialStatus(credential
-      ? "Credential is held in this tab's memory and checked by the server on native Graph requests."
-      : "Native Graph credential cleared.");
+      ? "Credential is held in this tab's memory and checked by the server for local Agent and Graph requests."
+      : "Local operator Agent/Graph credential cleared.");
   }
 
   function clearGraphCredential() {
     setNativeGraphAccessToken(null);
     setGraphCredential("");
-    setGraphCredentialStatus("Native Graph credential cleared.");
+    setGraphCredentialStatus("Local operator Agent/Graph credential cleared.");
   }
 
   function toggleTraceVisibility() {
     if (!scopeMatches || sending || composing || requestRef.current || proposalRequestRef.current) return;
-    const thread = activeThread ?? agent.createThread("New World Plan conversation");
-    agent.updateThread({
-      ...thread,
-      uiState: {
-        ...thread.uiState,
-        traceVisible: !traceVisible,
-      },
-    });
+    setTraceVisible((current) => !current);
+  }
+
+  async function sendPendingAsk(stored: StoredPendingAsk) {
+    const envelope = stored.envelope;
+    if (!envelope || !scopeMatches || verifiedWorldId !== envelope.origin.worldId
+      || documentId !== envelope.origin.documentId || requestRef.current) return;
+    const token = Symbol("world-plan-agent-turn");
+    const originScopeKey = `${envelope.origin.worldId}\u001f${envelope.origin.documentId}`;
+    requestRef.current = { token, scopeKey: originScopeKey, fenceKey: requestFenceKey };
+    setSending(true);
+    setError(null);
+    setConversationNotice(null);
+    const isCurrent = () => latestRef.current.mounted
+      && latestRef.current.scopeMatches
+      && latestRef.current.verifiedWorldId === envelope.origin.worldId
+      && latestRef.current.documentId === envelope.origin.documentId
+      && requestRef.current?.token === token;
+
+    try {
+      const response: unknown = await postWorldPlanAgentTurn(envelope.request);
+      if (!isCurrent()) return;
+      const validation = validateWorldPlanResponse(response, envelope.request);
+      if (!validation.ok) throw new Error(validation.message);
+      if (!validation.value.conversationId
+        || validation.value.summary.contentBasis?.worldId !== envelope.origin.worldId
+        || validation.value.summary.contentBasis?.documentId !== envelope.origin.documentId
+        || validation.value.summary.contentBasis?.objectRevision !== envelope.origin.objectRevision
+        || validation.value.summary.contentBasis?.workRevisionId !== envelope.origin.workRevisionId
+        || validation.value.summary.contentBasis?.revisionN !== envelope.origin.revisionN
+        || validation.value.summary.contentBasis?.contentSha256 !== envelope.origin.contentSha256) {
+        throw new Error("The durable Ask result did not identify its original World conversation and committed basis. The saved request remains available for exact recovery.");
+      }
+
+      try {
+        window.localStorage.removeItem(stored.storageKey);
+        refreshPendingAskList();
+      } catch (reason) {
+        setPendingAskLoadError(reason instanceof Error
+          ? reason.message
+          : "The Ask completed, but its local recovery envelope could not be cleared. Retrying the same request remains safe.");
+      }
+      const currentlyActiveConversationId = historySnapshotRef.current?.active_conversation_id ?? null;
+      const belongsToPreviousConversation = Boolean(
+        (envelope.origin.conversationId && envelope.origin.conversationId !== validation.value.conversationId)
+        || (currentlyActiveConversationId && currentlyActiveConversationId !== validation.value.conversationId),
+      );
+      setConversationNotice(belongsToPreviousConversation
+        ? `The server confirmed this Ask under conversation ${validation.value.conversationId}. It was not inserted into the currently active conversation; refreshing World history.`
+        : "The server confirmed this Ask. Refreshing World history.");
+      setHistoryRefreshNonce((current) => current + 1);
+      setQuestion("");
+    } catch (reason) {
+      if (isCurrent()) {
+        setError(localOperatorCredentialFailure(reason, "retry the saved Ask; its exact request and turn ID are preserved")
+          ?? (reason instanceof Error
+            ? `The Ask outcome is uncertain. Retry the saved request to reuse its exact turn ID and intent. ${reason.message}`
+            : "The Ask outcome is uncertain. Retry the saved request to reuse its exact turn ID and intent."));
+      }
+    } finally {
+      if (requestRef.current?.token === token) {
+        requestRef.current = null;
+        setSending(false);
+      }
+    }
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const message = question.trim();
+    const pointerSnapshot = historySnapshotRef.current;
     if (!planReady || !scopeMatches || !namespace || !documentId || !surfaceInstanceId
-      || !isPositiveRevision(revision) || saveInFlight || !message || sending || requestRef.current) return;
+      || !isPositiveRevision(revision) || saveInFlight || !message || sending || requestRef.current
+      || historyLoading || historyError || !pointerSnapshot) return;
 
-    // Keep a first-turn candidate in memory only. A failed or mismatched response
-    // must not create a persisted empty thread, turn summary, or question title.
-    const currentThread = activeThread ?? createAgentInteractionThread(
-      namespace,
-      null,
-      "plan",
-      "hermes",
-      threadTitleFromQuestion(message),
-      documentId,
-    );
-    const providerThreadId = agent.activeThread?.threadId ?? null;
-    const token = Symbol("world-plan-agent-turn");
-    requestRef.current = { token, threadId: currentThread.threadId, fenceKey: requestFenceKey };
+    const startingFenceKey = requestFenceKey;
     setSending(true);
     setError(null);
-    const isCurrent = () => latestRef.current.mounted
-      && latestRef.current.fenceKey === requestFenceKey
-      && latestRef.current.scopeMatches
-      && latestRef.current.providerThreadId === providerThreadId
-      && (providerThreadId === null || latestRef.current.threadId === currentThread.threadId)
-      && requestRef.current?.token === token;
+    setConversationNotice(null);
+    const preparationToken = Symbol("world-plan-agent-turn-preparation");
+    requestRef.current = {
+      token: preparationToken,
+      scopeKey,
+      fenceKey: startingFenceKey,
+    };
+    const stillPreparing = () => {
+      const currentPointer = historySnapshotRef.current;
+      return latestRef.current.mounted
+        && latestRef.current.scopeMatches
+        && latestRef.current.verifiedWorldId === worldId
+        && latestRef.current.documentId === documentId
+        && latestRef.current.fenceKey === startingFenceKey
+        && currentPointer !== null
+        && sameHistoryPointer(pointerSnapshot, currentPointer)
+        && requestRef.current?.token === preparationToken;
+    };
 
     try {
       const committedRevision: unknown = await getWorldOwnedPlanCommittedRevision(documentId);
-      if (!isCurrent()) return;
+      if (!stillPreparing()) return;
       const contentBasis = readCommittedPlanBasis(committedRevision, worldId, documentId, revision);
       if (!contentBasis) {
         throw new Error("The committed Plan changed or could not be verified. Refresh the Plan before asking.");
       }
       const request: WorldPlanAgentTurnRequestV1 = {
         schema: "dmb_agent_turn_request_v1",
-        client_thread_id: currentThread.threadId,
+        client_thread_id: crypto.randomUUID(),
         turn_id: crypto.randomUUID(),
         surface: { surface_id: "plan", instance_id: surfaceInstanceId },
         owner_scope: { kind: "world", world_id: worldId },
@@ -621,46 +1063,108 @@ export function WorldPlanAgentConversation({
         graph_selection: null,
         message,
       };
-      const response: unknown = await postWorldPlanAgentTurn(request);
-      if (!isCurrent()) return;
-      const validation = validateWorldPlanResponse(response, request);
-      if (!validation.ok) throw new Error(validation.message);
-
+      const origin: WorldPlanPendingAskOrigin = {
+        worldId,
+        documentId,
+        objectRevision: revision,
+        workRevisionId: contentBasis.work_revision_id,
+        revisionN: contentBasis.revision_n,
+        contentSha256: contentBasis.content_sha256,
+        pointerRevision: pointerSnapshot.pointer_revision,
+        conversationId: pointerSnapshot.active_conversation_id,
+      };
+      const envelope: WorldPlanPendingAskEnvelope = {
+        schema: "dmb_world_plan_pending_ask_v1",
+        request,
+        origin,
+        createdAt: new Date().toISOString(),
+      };
+      const storageKey = pendingAskStorageKey(worldId, documentId, origin, request.turn_id);
+      const serialized = JSON.stringify(envelope);
+      try {
+        window.localStorage.setItem(storageKey, serialized);
+        if (window.localStorage.getItem(storageKey) !== serialized) {
+          throw new Error("Browser storage did not preserve the exact Ask envelope.");
+        }
+      } catch (reason) {
+        throw new Error(`The Ask was not sent because its recovery envelope could not be saved. ${reason instanceof Error ? reason.message : "Browser storage is unavailable."}`);
+      }
+      refreshPendingAskList();
       requestRef.current = null;
       setSending(false);
-      const now = new Date().toISOString();
-      const turn: AgentInteractionTurn = {
-        turnId: request.turn_id,
-        askedAt: now,
-        completedAt: now,
-        question: message,
-        answer: validation.value.answer,
-        backend: "hermes",
-        status: "ok",
-        trace: safeTraceForPersistence(validation.value.trace),
-        agentTurnResolved: validation.value.summary,
-      };
-      agent.updateThread({
-        ...currentThread,
-        campaignId: namespace,
-        session: null,
-        documentId,
-        surfaceId: "plan",
-        activeBackend: "hermes",
-        hermesSession: null,
-        title: currentThread.turns.length ? currentThread.title : threadTitleFromQuestion(message),
-        updatedAt: now,
-        turns: [turn, ...currentThread.turns].slice(0, AGENT_TURN_HISTORY_CAP),
-      });
-      setQuestion("");
+      await sendPendingAsk({ storageKey, envelope, error: null });
     } catch (reason) {
-      if (isCurrent()) setError(reason instanceof Error ? reason.message : "The Agent turn failed. Try again.");
-    } finally {
-      if (isCurrent()) {
+      if (requestRef.current?.token === preparationToken) {
         requestRef.current = null;
         setSending(false);
+        setError(reason instanceof Error ? reason.message : "The Ask could not be prepared.");
       }
     }
+  }
+
+  async function loadOlderTurns() {
+    const current = historySnapshotRef.current;
+    if (!current || !current.next_before_sequence || olderLoading || historyLoading) return;
+    const cursor = current.next_before_sequence;
+    const generation = historyGenerationRef.current;
+    setOlderLoading(true);
+    setHistoryError(null);
+    try {
+      const page = await getWorldAgentConversationHistory(current.world_id, {
+        limit: WORLD_HISTORY_PAGE_SIZE,
+        beforeSequence: cursor,
+      });
+      const latest = historySnapshotRef.current;
+      if (generation !== historyGenerationRef.current) return;
+      if (!latest || !sameHistoryPointer(current, latest)
+        || !sameHistoryPointer(latest, page)
+        || page.world_id !== current.world_id) {
+        setHistoryError("The World conversation pointer changed while older turns were loading. The stale page was discarded.");
+        setHistoryRefreshNonce((nonce) => nonce + 1);
+        return;
+      }
+      const merged: WorldAgentConversationHistoryResponseV1 = {
+        ...latest,
+        turns: mergeHistoryTurns(page.turns, latest.turns),
+        next_before_sequence: page.next_before_sequence,
+      };
+      historySnapshotRef.current = merged;
+      setHistory(merged);
+    } catch (reason) {
+      if (generation === historyGenerationRef.current) {
+        setHistoryError(localOperatorCredentialFailure(reason, "refresh World history")
+          ?? (reason instanceof Error ? reason.message : "Could not load older World turns."));
+      }
+    } finally {
+      if (generation === historyGenerationRef.current) setOlderLoading(false);
+    }
+  }
+
+  function refreshWorldHistory() {
+    setHistoryRefreshNonce((nonce) => nonce + 1);
+  }
+
+  function exportLegacyLocalHistory() {
+    if (!activeThread) return;
+    const exportFile = new Blob([JSON.stringify(activeThread, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(exportFile);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `world-plan-local-history-${encodeURIComponent(worldId)}-${encodeURIComponent(documentId ?? "plan")}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function historyTurnProvenanceLabel(turn: WorldAgentConversationHistoryTurnV1): string {
+    const surface = turn.provenance.surface_id ?? "unknown surface";
+    const work = turn.provenance.primary_work;
+    if (work.object_id) {
+      const revision = work.revision_n === null ? "" : ` · revision ${work.revision_n}`;
+      return `Historical surface: ${surface} · ${work.kind ?? "work"} ${work.object_id}${revision}`;
+    }
+    return `Historical surface: ${surface} · no primary work identity`;
   }
 
   function getLiveEditAgentBinding() {
@@ -843,10 +1347,7 @@ export function WorldPlanAgentConversation({
     try {
       const captured = await editBridge.capture();
       if (!isCurrent()) return;
-      const conversationHistory = currentThread.turns.slice(0, 6).reverse().flatMap((turn) => [
-        { role: "user" as const, content: turn.question.slice(0, 4000) },
-        { role: "assistant" as const, content: turn.answer.slice(0, 4000) },
-      ]);
+      const conversationHistory: WorldPlanDocumentEditProposalRequest["conversation_history"] = [];
       const requestWithoutKey = {
         ...captured.request,
         instruction,
@@ -1010,7 +1511,14 @@ export function WorldPlanAgentConversation({
           >
             {traceVisible ? "Advanced diagnostics: On" : "Advanced diagnostics: Off"}
           </button>
-          <button type="button" onClick={startNewConversation} disabled={sending || composing}>New conversation</button>
+          <button
+            type="button"
+            onClick={startNewConversation}
+            disabled={sending || composing || historyLoading || !history || newConversationSending
+              || pendingCommands.some((item) => item.envelope !== null)}
+          >
+            {newConversationSending ? "Starting…" : "New conversation"}
+          </button>
         </div>
       </header>
       <section aria-label="Native Graph access">
@@ -1027,11 +1535,11 @@ export function WorldPlanAgentConversation({
           <button type="submit">Set Graph access</button>
           <button type="button" onClick={clearGraphCredential}>Clear Graph access</button>
         </form>
-        <p role="note">The credential stays in memory only. It is sent only with native Graph reads and graph-enabled Agent turns; ordinary Plan Ask remains graphless.</p>
+        <p role="note">This local operator credential stays in memory only and authorizes Agent and native Graph requests. Plan Ask stays graphless but still requires local operator authorization. It is never included in request bodies, saved recovery envelopes, or exports.</p>
         {graphCredentialStatus ? <p role="status">{graphCredentialStatus}</p> : null}
       </section>
       <p className="world-plan-agent-conversation__notice" role="note">
-        Ask sends this Plan’s exact committed text and your question to the configured model. Unsaved editor changes are excluded; the turn records which committed revision it used and whether a divergent working copy existed. Compose or Revise below sends the selected text and current mounted draft to the configured model. Nothing changes until you review and apply a proposal.
+        Ask sends this Plan’s exact committed text and your question to the configured model. Unsaved editor changes are excluded; the turn records which committed revision it used and whether a divergent working copy existed. Compose or Revise below sends the selected text and current mounted draft to the configured model. Slice A sends no conversation history with a new proposal. Nothing changes until you review and apply a proposal.
       </p>
       {saveInFlight ? (
         <p className="world-plan-agent-conversation__saving" role="status">Conversation paused while the Plan is saving.</p>
@@ -1153,46 +1661,134 @@ export function WorldPlanAgentConversation({
           ) : null}
         </section>
       ) : null}
-      <div className="world-plan-agent-conversation__turns" aria-live="polite">
-        {activeThread?.turns.length ? [...activeThread.turns].reverse().map((turn) => (
-          <article key={turn.turnId}>
-            <p><strong>You:</strong> {turn.question}</p>
-            <p><strong>DungeonBuddy{turn.planEdit ? " · Plan proposal" : ""}:</strong> {turn.answer}</p>
-            {turn.planEdit ? (
-              <p className="world-plan-agent-conversation__context">
-                Plan proposal · {turn.planEdit.applied ? "Applied to the local draft" : "Not applied"}
-              </p>
+      <section className="world-plan-agent-conversation__turns" aria-label="World conversation transcript" aria-live="polite">
+        <h3>World conversation</h3>
+        {historyLoading ? <p role="status">Loading the latest World conversation page…</p> : null}
+        {historyError ? (
+          <div role="group" aria-label="World history unavailable">
+            <p>{historyError}</p>
+            <button type="button" onClick={refreshWorldHistory} disabled={historyLoading}>Refresh World history</button>
+          </div>
+        ) : null}
+        {history ? (
+          <>
+            <p role="note">
+              {history.next_before_sequence !== null && history.turns.length <= WORLD_HISTORY_PAGE_SIZE
+                ? `Showing the latest bounded page of up to ${WORLD_HISTORY_PAGE_SIZE} World turns. Older turns are not loaded.`
+                : history.next_before_sequence !== null
+                  ? `Showing ${history.turns.length} World turns. Older turns remain available.`
+                  : history.turns.length
+                    ? `Showing all ${history.turns.length} currently available World turns.`
+                    : "This World has no visible conversation turns yet."}
+            </p>
+            {history.conversation_state === "absent" ? (
+              <p>No World conversation is active. Ask starts the first server-owned conversation.</p>
             ) : null}
-            {turn.agentTurnResolved?.surfaceId === "plan" ? (
-              <>
+            {history.turns.length ? history.turns.map((turn) => (
+              <article key={turn.turn_id} data-sequence={turn.sequence}>
                 <p className="world-plan-agent-conversation__context">
-                  {turn.agentTurnResolved.contentBasis
-                    ? `Answered from committed Plan revision ${turn.agentTurnResolved.contentBasis.revisionN} (object revision ${turn.agentTurnResolved.contentBasis.objectRevision}).`
-                    : `Saved Plan revision ${turn.agentTurnResolved.revisionUsed}.`}
-                  {" "}Editor was {turn.agentTurnResolved.clientWorkState === "saved_dirty" ? "edited since save" : "unchanged"} when asked.
+                  Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
                 </p>
-                {turn.agentTurnResolved.contentBasis ? (
-                  <details className="world-plan-agent-conversation__context-basis">
-                    <summary>Exact committed content basis</summary>
-                    <dl>
-                      <dt>World</dt><dd>{turn.agentTurnResolved.contentBasis.worldId}</dd>
-                      <dt>Plan</dt><dd>{turn.agentTurnResolved.contentBasis.documentId}</dd>
-                      <dt>WorkRevision</dt><dd>{turn.agentTurnResolved.contentBasis.workRevisionId}</dd>
-                      <dt>Revision number</dt><dd>{turn.agentTurnResolved.contentBasis.revisionN}</dd>
-                      <dt>Content SHA-256</dt><dd><code>{turn.agentTurnResolved.contentBasis.contentSha256}</code></dd>
-                      <dt>Status</dt><dd>{turn.agentTurnResolved.contentBasis.committedStatus}</dd>
-                      <dt>Divergent working copy</dt><dd>{turn.agentTurnResolved.contentBasis.hasDivergentWorkingCopy ? "Present · excluded" : "None"}</dd>
-                    </dl>
-                  </details>
-                ) : null}
-              </>
+                <p><strong>You:</strong> {turn.user_text}</p>
+                {turn.assistant_text ? (
+                  <p><strong>DungeonBuddy:</strong> {turn.assistant_text}</p>
+                ) : (
+                  <p role="status">{turn.lifecycle_status === "failed" || turn.lifecycle_status === "interrupted"
+                    ? "This server turn did not complete."
+                    : "DungeonBuddy is still working on this server turn."}</p>
+                )}
+              </article>
+            )) : null}
+            {history.next_before_sequence !== null ? (
+              <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
+                {olderLoading ? "Loading older turns…" : "Older turns"}
+              </button>
             ) : null}
-            {turn.trace && traceVisible ? <AgentTraceInspector trace={turn.trace} /> : null}
-          </article>
-        )) : (
-          <p>Ask a general question to start a conversation associated with this Plan.</p>
-        )}
-      </div>
+          </>
+        ) : null}
+        {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
+      </section>
+      {newConversationError ? <p role="alert">{newConversationError}</p> : null}
+      {pendingCommandLoadError ? <p role="alert">{pendingCommandLoadError}</p> : null}
+      {pendingCommands.some((item) => item.error) ? (
+        <section aria-label="Unreadable New Conversation recovery">
+          <h3>Saved New Conversation command needs attention</h3>
+          {pendingCommands.filter((item) => item.error).map((item) => (
+            <p key={item.storageKey} role="alert">{item.error}</p>
+          ))}
+        </section>
+      ) : null}
+      {pendingCommands.some((item) => item.envelope) ? (
+        <section aria-label="Pending New Conversation recovery">
+          <h3>Pending New Conversation</h3>
+          <p>A prior command has an uncertain outcome. Retry keeps its original command ID and pointer snapshot.</p>
+          {pendingCommands.filter((item): item is StoredPendingNewConversation & { envelope: WorldPlanPendingNewConversation } => item.envelope !== null)
+            .map((item) => (
+              <button
+                key={item.storageKey}
+                type="button"
+                disabled={newConversationSending || sending || composing}
+                onClick={() => { void sendNewConversationCommand(item); }}
+              >
+                Retry saved New Conversation command
+              </button>
+            ))}
+        </section>
+      ) : null}
+      {pendingAskLoadError ? <p role="alert">{pendingAskLoadError}</p> : null}
+      {pendingAsks.some((item) => item.error) ? (
+        <section aria-label="Unreadable Ask recovery">
+          <h3>Saved Ask needs attention</h3>
+          {pendingAsks.filter((item) => item.error).map((item) => (
+            <p key={item.storageKey} role="alert">{item.error} The original bytes remain in browser storage.</p>
+          ))}
+        </section>
+      ) : null}
+      {pendingAsks.some((item) => item.envelope) ? (
+        <section aria-label="Pending Ask recovery">
+          <h3>Pending Ask recovery</h3>
+          <p>These saved requests are not transcript turns. Retry sends the exact original request and keeps each result tied to its server conversation.</p>
+          {pendingAsks.filter((item): item is StoredPendingAsk & { envelope: WorldPlanPendingAskEnvelope } => item.envelope !== null)
+            .map((item) => (
+              <div key={item.storageKey}>
+                <p>Turn {item.envelope.request.turn_id} · committed revision {item.envelope.origin.revisionN} · origin conversation {item.envelope.origin.conversationId ?? "not yet active"}</p>
+                <button
+                  type="button"
+                  disabled={sending || composing || requestRef.current !== null}
+                  onClick={() => { void sendPendingAsk(item); }}
+                >
+                  Retry saved Ask
+                </button>
+              </div>
+            ))}
+        </section>
+      ) : null}
+      {activeThread?.turns.length ? (
+        <section aria-label="Local-only legacy Plan history">
+          <h3>Local-only legacy and Plan proposal history</h3>
+          <p>This browser copy is not server-confirmed, is never used for Ask or proposal context, and remains separate from the World transcript.</p>
+          <button type="button" onClick={exportLegacyLocalHistory}>Export local history JSON</button>
+          <ol>
+            {[...activeThread.turns].reverse().map((turn) => (
+              <li key={turn.turnId}>
+                <p><strong>You:</strong> {turn.question}</p>
+                <p><strong>Local response{turn.planEdit ? " · Plan proposal" : ""}:</strong> {turn.answer}</p>
+                {turn.planEdit ? (
+                  <p className="world-plan-agent-conversation__context">
+                    Plan proposal · {turn.planEdit.applied ? "Applied to the local draft" : "Not applied"}
+                  </p>
+                ) : null}
+                {turn.agentTurnResolved?.surfaceId === "plan" ? (
+                  <p className="world-plan-agent-conversation__context">
+                    Legacy local summary · committed revision {turn.agentTurnResolved.revisionUsed}; not part of server history.
+                  </p>
+                ) : null}
+                {turn.trace && traceVisible ? <AgentTraceInspector trace={turn.trace} /> : null}
+              </li>
+            ))}
+          </ol>
+        </section>
+      ) : null}
       <form onSubmit={(event) => { void submit(event); }}>
         <label htmlFor="world-plan-agent-question">Your question</label>
         <textarea
@@ -1200,10 +1796,11 @@ export function WorldPlanAgentConversation({
           value={question}
           onChange={(event) => setQuestion(event.currentTarget.value)}
           maxLength={8000}
-          disabled={sending || composing || saveInFlight || !scopeMatches}
+          disabled={sending || composing || saveInFlight || !scopeMatches || historyLoading || !history || Boolean(historyError)}
         />
         {error ? <p role="alert">{error}</p> : null}
-        <button type="submit" disabled={sending || composing || saveInFlight || !scopeMatches || !question.trim()}>
+        <button type="submit" disabled={sending || composing || saveInFlight || !scopeMatches
+          || historyLoading || !history || Boolean(historyError) || !question.trim()}>
           {sending ? "Asking…" : saveInFlight ? "Saving…" : "Ask"}
         </button>
       </form>

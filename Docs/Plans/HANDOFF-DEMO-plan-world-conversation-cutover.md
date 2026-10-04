@@ -1,328 +1,163 @@
-# HANDOFF — DEMO: cut over Plan conversation to World history
+# HANDOFF — DEMO: cut over Plan conversation to World history (Slice A)
 
-**Status:** BLOCKED — design only; AGENT-INTERACTION runtime, Plan-owned action projections, and a separate APP-STATE exact-basis Ask projection are predecessors; no Plan consumer implementation, provider, database, service, or runtime lease.
+**Status:** ACTIVE — PRIME adopted the pinned Slice A design and issued the serial implementation lease. No provider, database, service, port, or runtime is leased.
 
-**Steward:** DEMO task `01a0efc8-f3a8-7be2-a556-33eb338338e8`
+**Steward:** DEMO task 01a0efc8-f3a8-7be2-a556-33eb338338e8
 
-**Repository:** `Drakosfire/DungeonMindBuddy`
+**Repository:** Drakosfire/DungeonMindBuddy
 
-**Design base:** Buddy `main@c0c1247ecc4fdb76553ba81d62abfeaf9f156e2c`.
+**Authority base:** Buddy main at 402390ca051553a09e844ea57ddf8be3f6217fef (2026-10-03; PR #898 merge). PRIME re-anchored main, open PRs, active leases, and runtime ownership before activation. The adopted design is pinned at b1a2babeb0fff109d3625e30ca6785749ab8f332 (PR #899; merge is not an activation gate).
 
-**Current amendment base:** Buddy `main@e4d02ca03003877064f7a323a20b8230325d11cf`.
+**Topology:** serial. Slice A below → Slice B proposal-context merger → later automatic Plan/Graph context. There is no independent parallel Plan consumer lane.
 
-**Topology:** serial by default — APP-STATE World conversation storage/receipts (#822/#827 complete) → AGENT-INTERACTION production runtime adoption (#865) → separate Plan-owned action-dialogue projection capability (#859) → separate APP-STATE exact-basis Ask projection → this DEMO Plan consumer cutover. PRIME owns activation and each exact implementation lease. Session 29 Graph retrieval and Play adoption remain later, separately bounded work.
+**Assigned implementation PR title:** DEMO: cut over Plan conversation to World history
 
-**Future implementation PR title:** `DEMO: cut over Plan conversation to World history`.
+**Current branch / approval state:** PRIME explicitly adopted the pinned handoff head and issued ACTIVE in the task message. Implementation runs from base 402390ca051553a09e844ea57ddf8be3f6217fef on branch codex/demo-plan-world-conversation-slice-a. One serial implementation PR is authorized: DEMO: cut over Plan conversation to World history. PRIME retains independent review and merge authority.
 
-## One user-visible capability
+## Accepted predecessor state
 
-From a saved Plan in a verified managed World, the operator continues the
-World's canonical Agent conversation. Plan Ask turns have durable, exact
-committed-content provenance and remain visible after reload, Plan switching,
-or returning from another World surface. Each new turn resolves the selected
-World, saved Plan, committed WorkRevision, and content digest again. A Plan
-switch or committed content change starts the provider segment required by the
-accepted runtime contract. A delayed result remains attached to its originating
-turn and Plan basis.
+The prior #857 handoff treated several dependencies as pending. They are now delivered and must not be represented as open blockers:
 
-This cutover preserves current Plan behavior: Ask sends the question and exact
-committed Plan content through the configured provider, never the mounted editor
-draft; Compose/Revise still uses the mounted draft and captured selection and
-produces a reviewable Plan-owned proposal; Apply remains an editor-draft action,
-and ordinary Save remains the commit boundary. Ask explicitly requests
-`graph_request.mode="none"`. This slice does not add Graph retrieval,
-citations, proposal auto-apply, a new conversation engine, or J1–J6 acceptance.
+- Buddy #857 accepted the original DEMO consumer design at merge 41fe2944468327da852a987685992fc50f91f059, from reviewed head de08a3cc2f24406d1440b771f047ba0b8398a6e8.
+- Buddy #859 accepted the separate Plan action-dialogue design at merge 43c4c4daa8e1c17b22953681fe817e6881242b36, from reviewed head c78feb94f37f7612200e2d0962d26d0f5a1326cf.
+- Buddy #865 adopted the production World conversation runtime and merged at 1c0320d18c53037308cd7412719fb3e2f0610d99.
+- Buddy #897 delivered the Plan-owned exact-basis action/status and completed-context projection and merged at d5de2072f90c27b031f9f55157504915f98a189f, from reviewed head 7da39e47327d8dd941ecb7eb1074a2c8ec028544. Its future cross-source order is accepted_at, source rank Ask=0 / PlanAction=1, source-specific sequence, source record UUID. Each source filters exact-basis eligibility before its own cap; the proposal boundary applies the total cap of six after merge.
+- Buddy #898 delivered the APP-STATE exact-basis completed Ask projection and merged at 402390ca051553a09e844ea57ddf8be3f6217fef, from reviewed head 5b8daaa6c8d8fcc825da626de3c0499539cafadd. Its 8 PostgreSQL projection tests and 2 adjacent regressions passed; PRIME independently reran the 8 projection tests and accepted the review.
+- Existing APP-STATE World conversation identity, visible turn storage, idempotency receipts, and the accepted #865 retry/replay contract remain the owner authority. Browser thread IDs are correlation values, not conversation identity.
 
-## Current evidence and boundary
+These are code-integration facts, not J1–J6, live-demo, or operator acceptance. Slice A consumes these accepted capabilities. It adds no APP-STATE, AGENT-INTERACTION, proposal-service, route, schema, or migration behavior.
 
-- Buddy #822/#827 completed APP-STATE World conversation storage, durable
-  ordered turn receipts, typed per-turn provenance, and idempotency. The
-  accepted contract has one server-generated conversation per verified World;
-  browser keys and client thread IDs are not conversation authority.
-- The current APP-STATE `AgentConversationService.list_turns` read filters by
-  World, conversation, and sequence paging only; it does not filter by exact
-  Plan/basis. PRIME assigned a separate APP-STATE eligible-Ask projection that
-  must filter completed visible Ask pairs by the full server-resolved basis
-  before limiting. It follows #865 and precedes this cutover; it is excluded
-  from #865 and is not an active implementation lease here.
-- The AGENT-INTERACTION runtime adoption (#865) is an immediate serial
-  predecessor and is currently blocked pending direct operator authorization.
-  Its production route, service, assembler, runtime, models, and tests remain
-  outside this DEMO handoff's write lease. The consumer must use the exact
-  accepted runtime API; this amendment grants no runtime implementation
-  authority.
-- Buddy #805 introduced the saved managed-World Plan Ask surface. Buddy #833
-  moved Ask to exact committed Plan content: the server pins the WorkObject
-  revision, WorkRevision ID/number, and SHA-256, reads current World-owned Plan
-  content atomically, excludes the editor draft, returns a compact receipt,
-  and requests no Graph. Its configured-provider witness proved one saved
-  content turn and reload only; it did not prove World-wide conversation
-  continuity.
-- Buddy #828/#829 own the current Compose/Revise/Apply path. The Plan editor
-  review and ordinary Save remain Plan/Content-owned. Buddy #847 corrected a
-  witness assertion; it did not move proposal/action state into conversation
-  storage.
-- At this design base, `WorldPlanAgentConversation.tsx` stores Plan threads in
-  browser `localStorage`. Compose/Revise builds `conversation_history` from up
-  to six `currentThread.turns`, including `plan_edit` entries, and sends that
-  client-supplied array to the proposal endpoint. The same browser turn model
-  can contain proposal replacement bytes and an `applied` flag. Those action
-  records are not eligible APP-STATE conversation turns and the client array
-  cannot be authoritative context after cutover.
-- PRIME's contract ruling preserves the existing six-item Compose/Revise
-  dialogue behavior. A separate Plan-owned typed visible action-dialogue read/
-  projection must expose only the instruction and user-visible assistant
-  summary, with exact World/Plan/committed-basis provenance and stable order.
-  It excludes proposal bytes, Apply/Save receipts, and hidden provider state.
-  The consumer must combine this projection with eligible APP-STATE Ask turns;
-  it may not silently narrow to Ask-only.
+## Slice A — one bounded capability
 
-The existing Plan Ask/edit flows remain the user-visible surfaces. A successful
-cutover uses one World conversation identity and visible transcript, not a
-Plan-private provider history. Each visible turn retains its original surface
-and exact historical work/content basis. The runtime alone decides bounded
-provider replay under the accepted segment rules; visible World history is not
-permission to reuse unrelated turns as current Plan context.
+A saved Plan in a verified managed World displays and continues the server-owned World conversation. The UI can start a New Conversation using the existing server command/CAS contract. An Ask whose response is uncertain can be resumed after reload by replaying its exact original durable request identity and intent.
 
-## Ownership and request contract
+The client consumes these existing routes and their currently accepted wire contracts:
 
-- **APP-STATE** owns canonical conversation identity/lifecycle, visible
-  user/assistant turns, ordering, idempotency receipts, typed historical
-  provenance, and its stable-key legacy import contract.
-- **AGENT-INTERACTION** owns production turn orchestration, fresh World/Plan
-  resolution, bounded provider replay, exact provider-segment selection, and
-  completion/retry correlation.
-- **DEMO** owns the Plan UI cutover, invoking the approved legacy importer,
-  presentation of visible historical turns, and the configured-provider Plan
-  acceptance witness.
-- **Plan/Content** owns mounted drafts, selection/caret snapshots, Compose/
-  Revise proposals, replacement Markdown, review state, Apply-to-editor state,
-  ordinary Save, and committed-work receipts. None is a generic conversation
-  turn or APP-STATE action receipt.
+- GET /api/live/agent/worlds/{world_id}/conversation
+- POST /api/live/agent/worlds/{world_id}/conversation/new
+- POST /api/live/agent/turn
 
-For every new Plan Ask turn, the server independently verifies the managed
-World and saved Plan, resolves the exact committed content basis, and rejects
-foreign, removed, unavailable, stale, or contradictory bindings before
-provider work. The basis includes the World ID, document ID, object revision,
-WorkRevision ID and number, and content SHA-256. The question and this exact
-committed Plan content go to the configured provider under the existing #833
-disclosure. Editor draft bytes are excluded even when the UI reports
-`saved_dirty`. Keep `graph_request.mode="none"` and no graph selection.
+The first two paths include the existing Agent router prefix. At activation, read the exact current route schemas and reuse them. Do not invent a second conversation API or derive server authority from a browser key. The server-issued conversation ID and durable turn receipt remain canonical. The accepted Plan Ask contract continues to resolve the verified World, saved Plan, committed WorkRevision, and exact content digest on the server; mounted draft bytes stay excluded and Graph remains not requested.
 
-Use the server-assigned APP-STATE conversation ID as canonical identity. A
-client thread ID may be retained only as a request/import correlation value if
-the merged runtime contract still requires it; it cannot select a conversation
-or provider segment. On Plan document or committed basis change, the runtime
-uses a fresh segment bound to the verified World, Plan surface/instance,
-document, and exact basis. It must not replay hidden provider state or treat
-older Plan content as the current basis. Use the exact landed runtime request
-and response schema; this design does not freeze a new public API.
+### Local operator Agent/Graph authorization
 
-The visible transcript may include turns from other surfaces in the same World
-conversation. Render their historical provenance clearly. Compose/Revise must
-not inherit the whole World transcript as context. Its bounded context may
-contain only eligible visible turns whose server-resolved World, Plan document,
-and committed content basis/segment exactly match the current Plan action.
-Enforce the six-turn cap at the authoritative server boundary, not by trusting
-client `conversation_history`.
+Implementation inspection confirmed that the existing #865 server boundary applies `enforce_native_graph_gm` to `POST /api/live/agent/turn`, World conversation history reads, and New Conversation commands. This authorization is required for graphless Plan Ask as well as Graph-enabled requests. Keep the token in module memory only; attach it only to the matching protected Agent, World conversation, and existing Graph routes. Retain loopback destination validation before fetch and `redirect: error` for protected calls. Do not inject bearer headers globally or include the token in request bodies, recovery envelopes, URLs, logs, history, or exports. A missing or rejected credential must give an actionable UI message and preserve the exact pending Ask/command for explicit retry. The graphless request contract remains unchanged (`graph_request.mode = none`, `graph_selection = null`); local operator authorization does not imply Graph use.
 
-### Compose/Revise context requirement
+### Canonical history and New Conversation
 
-Preserve the existing six-item dialogue behavior. Before this consumer can
-activate, both source capabilities must be delivered under separate reviewed
-PRs:
+- On entry to a verified World Plan, load the latest bounded visible World transcript page from the server. Render its accepted surface and work provenance; do not flatten turns from another surface into Plan-owned turns.
+- Use the existing limit, before_sequence, and next_before_sequence paging fields. Clearly identify that only the latest page is loaded and offer an Older turns action when next_before_sequence is present. Older-page reads use that cursor. Merge by server sequence and deduplicate by durable server turn identity. Do not claim the page is the full transcript while older turns remain.
+- Fence each history-page response against the current World, active server conversation pointer/revision, and mounted request generation. A pointer change while an older page is loading discards that stale page. Switching Plans within the same World does not relabel World-wide history as Plan-owned.
+- New Conversation sends the existing expected pointer revision, expected active conversation identity, and durable command ID required by the server CAS contract. Persist and replay the exact command envelope after an uncertain transport result. Do not silently mint a replacement command ID. On a pointer conflict, retain visible current state, fetch the current server state, and require a deliberate new command.
+- A confirmed new conversation hydrates from the server response or a fresh server history read. It does not create a parallel browser conversation or clear unrelated pending envelopes.
 
-- The Plan-owned capability in
-  [HANDOFF-DEMO-plan-action-dialogue-projection.md](HANDOFF-DEMO-plan-action-dialogue-projection.md)
-  supplies two reads. Its status/recovery projection exposes bounded truthful
-  statuses for the UI. Its completed-context projection filters to completed
-  instruction/summary pairs on the exact World, Plan document, object revision,
-  WorkRevision ID/number, and content SHA-256 **before** applying its own
-  maximum-six eligible-pair limit. Newer unresolved actions cannot crowd older
-  eligible pairs out of model context.
-- APP-STATE supplies a separate eligible-Ask projection, outside #865. It
-  returns only completed visible Ask pairs matching that same full
-  server-resolved basis, filtered before its limit. Existing
-  `AgentConversationService.list_turns` is chronological paging and does not
-  provide this exact-basis behavior.
+### Ask and durable uncertain retry
 
-The authoritative Plan proposal boundary obtains both context projections,
-merges their eligible pairs in stable accepted-time/sequence order, and applies
-the total six-turn cap after the merge. The status/recovery projection is not a
-model-context source. No client `conversation_history` can add, remove, or
-reorder authoritative context. If either owner projection needs another API,
-storage, or runtime capability, that owner delivers it under its own reviewed
-capability/PR before this consumer cutover; do not expand this consumer lease.
+- Resolve the current committed Plan basis using the existing server read before preparing a turn.
+- Persist the exact normalized wire request plus its separate local origin metadata before dispatch. The current WorldPlanAgentTurnRequestV1 wire body keeps its accepted fields: client_thread_id, turn_id, surface, owner_scope, primary_work (object_id, expected_revision, expected_revision_n, expected_content_sha256), client_work_state, graph_request=none, graph_selection=null, and message. Do not add a WorkRevision UUID or other field to the public request. Store the server-read WorkRevision ID and full basis tuple (World, document, object revision, WorkRevision ID, revision number, content digest) only as local origin metadata.
+- Key pending envelopes by verified World, Plan document, full local basis tuple, and original durable turn identity. Keep distinct envelopes for other Worlds, Plans, bases, or turns. Store any server-issued origin conversation/pointer ID as metadata; never treat a client thread ID as canonical conversation identity.
+- If exact request persistence fails or browser storage is unavailable, show an actionable error and do not dispatch the turn. A malformed pending envelope is not repaired by minting a new request.
+- After an uncertain result or reload, show an explicit recovery action and replay the exact stored wire request. Do not automatically create a fresh turn ID, client thread ID, or changed intent. A deliberate new user question gets a new durable turn identity.
+- Reconcile a confirmed result under its originating conversation only. Navigation, basis advance, or New Conversation cannot overwrite the pending envelope or place an old receipt in the newly active conversation. If the accepted server contract cannot retrieve or resolve an old pending receipt after a pointer change, stop and return the contract gap to PRIME; do not expand the Buddy client lease into server changes.
+- Remove a pending envelope only after the durable server receipt/result is confirmed. An unavailable history service or ambiguous result has an actionable pending/error state; it never falls back to browser transcript as canonical history.
 
-When the mounted draft is dirty, the Plan action record keeps a separate
-request-input witness (dirty/clean status and server-computed draft digest,
-plus selection identity/range or digest when it affected the proposal); it
-must not label that draft as committed Plan content or expose its bytes. The
-projection excludes replacement Markdown, proposal bytes, Apply/Save receipts,
-and provider state. Existing `plan_edit` localStorage rows lack exact
-committed-basis provenance and are not safe input by themselves.
+This envelope is local transport-recovery state, not a second conversation store: it contains only the exact outbound request and separate origin key, is not rendered as a completed transcript, and is not sent as extra context.
 
-For each submitted Ask, preserve the original idempotency key and normalized
-intent, including its originating Plan/basis request snapshot, through an
-uncertain response and reload. Never silently create a fresh key for an
-automatic retry; reusing the key with changed intent conflicts. APP-STATE PR
-#867 guarantees durable turn identity and honest recovery, but explicitly does
-not promise exactly-once provider invocation across crashes:
+The existing Plan action request remains an independent durable operation. Empty history applies only when preparing a new Slice A proposal. If a proposal request is already in flight, preserve its captured request body, original idempotency key, and retry intent across conversation changes. Do not rewrite that submitted request or automatically redispatch it.
 
-- Replaying a completed durable receipt returns the original result without a
-  provider dispatch.
-- Replaying while a claim is still valid does not start a second provider
-  dispatch; return or resume the pending state according to the accepted
-  runtime contract.
-- Retrying persistence after the provider output is known reuses that output
-  and does not dispatch the provider again.
-- If the provider outcome was lost or remains indeterminate, or an expired /
-  fenced claim is reclaimed, follow the accepted runtime recovery contract.
-  Provider re-dispatch may occur and must be reported honestly; never describe
-  it as impossible or exactly-once. A new key is reserved for a deliberate new
-  user intent, not an automatic retry.
+### Legacy browser history
 
-If the World or committed Plan basis changes while the request is pending,
-keep its eventual response tied to the originating turn and out of the newly
-selected context. Compose/Revise retains its current user-entered instruction,
-mounted draft, selection/caret, proposal validation, review, Apply-to-editor,
-and ordinary Save behavior.
+Existing browser-local Plan conversation bytes may contain turns without exact server provenance and Plan edit rows with proposal data. Preserve those bytes unchanged and exportable. Clearly mark any surfaced copy as legacy and local-only. Keep it separate from server history; never use it for current Ask or Compose/Revise model context.
 
-## Legacy Plan history cutover
+This slice does not delete rows, auto-import, dual-write transcript turns, or fall back to local history when a server read fails. Do not call the APP-STATE legacy importer. A local export is a copy for user recovery; exporting does not change storage.
 
-The consumer may invoke the APP-STATE legacy importer only for visible Ask
-turns with complete, unambiguous per-turn evidence: stored `ownerId` exactly
-matches the independently verified World, and the complete `contentBasis`
-matches that turn's saved Plan document and committed WorkRevision/revision/hash
-basis. Preserve visible order, source-turn identity, and historical
-provenance. Import is idempotent by the accepted stable source-turn key.
+### Compose/Revise during Slice A
 
-Skip or quarantine missing, malformed, ambiguous, mismatched, unbound, or
-legacy campaign rows. A browser namespace, currently selected route, Plan
-name, local thread ID, provider pointer, or Hermes handle cannot establish
-ownership. Import no `plan_edit` question/answer rows, proposal replacement
-Markdown, `applied` flag, draft text, review state, traces, provider internals,
-or action/Apply/Save receipt. Keep local bytes until APP-STATE confirms the
-exact import; after confirmation use the server transcript as authority and do
-not dual-write or silently fall back to localStorage when the service is
-unavailable.
+Preserve the current Compose/Revise instruction, mounted-draft and selection capture, proposal validation, Review, Apply-to-editor, and ordinary Save behavior. Slice A does not implement a context merger. Until Slice B, send an empty conversation_history to the proposal boundary; do not pass any legacy local rows, local Ask turns, or the World transcript. This temporarily pauses conversational carry-over for Compose/Revise while keeping the editing action usable. State this behavior clearly in the Plan UI.
 
-## Failure cases to preserve
+Slice B remains a distinct later capability. It may restore the existing six-pair behavior only through the authoritative proposal boundary by merging the exact-basis completed Plan-action projection from #897 with the exact-basis Ask projection from #898, filtering each source before its cap, applying the accepted deterministic cross-source order, and enforcing six total pairs after merge. Client history cannot add, remove, or reorder that context. Do not begin Slice B in the Slice A branch or PR.
 
-- Foreign, removed, unavailable, malformed, or changed World/Plan/basis fails
-  closed before provider dispatch. A pending save or unresolved WorkRevision
-  cannot be presented as committed.
-- Ask never includes mounted draft text, even when dirty. A changed committed
-  basis is shown truthfully and uses a fresh provider segment.
-- Plan A → Plan B and back never crosses the exact Plan context filter. The
-  World transcript may remain visible, with provenance, but unrelated turns
-  are not fed into Plan Ask replay or Compose/Revise context.
-- Duplicate import/retry returns the original durable receipt; conflicting
-  stable source keys do not duplicate or relabel a turn. Incomplete history is
-  skipped/quarantined without deleting local bytes.
-- A late Ask result remains on its originating durable turn and frozen Plan
-  basis. It cannot populate a newly selected Plan's current response or
-  proposal review.
-- A deferred Ask response after a managed-World switch or same-Plan
-  committed-basis advance remains tied to the originating turn and never
-  enters the new World/basis context or current response.
-- An uncertain Ask retry after reload retains the original idempotency key
-  and normalized intent; changed intent with that key conflicts. Completed
-  receipt replay, a still-valid pending claim, and persistence retry with known
-  output do not dispatch again. Lost/indeterminate provider outcome or
-  expired/fenced claim recovery follows APP-STATE #867's at-least-once contract
-  and may re-dispatch; report that possibility honestly rather than promising
-  exactly-once invocation.
-- APP-STATE/runtime unavailability produces an explicit error. No browser
-  localStorage fallback can create a second authority or an unreceipted turn.
-- Compose/Revise still requires review before Apply; Apply changes only the
-  editor draft, and ordinary Save is still required to commit.
-- Graph remains `not_requested`; no citation, retrieval, graph-grounding, or
-  J3 claim appears.
+### Explicit exclusions
 
-## Future owning-boundary witness
+No browser-to-server legacy import; no deletion, migration, or dual-write of old conversation bytes; no proposal-context merger; no new route, backend schema, database migration, provider runtime, Agent framework, Graph request, automatic Plan/Graph context, visual/card redesign, PlanSurfacePage/AppChrome work, CSS refresh, J1–J6 claim, or product-acceptance claim. No edits to the #886 navigation shell paths.
 
-After runtime merge and a new exact PRIME lease, exercise the real Plan page,
-Ask plugin, Agent transport, and approved proposal boundary against the landed
-runtime/API. Use isolated tests/fakes for UI cases and only the provider/DB
-fixtures explicitly named by that lease. Prove:
+## ACTIVE implementation lane and exact write set
 
-1. Two Plan Ask turns use the server World conversation and stable durable
-   receipts; each turn records exact Plan document and committed content
-   basis. Reload restores visible turns from APP-STATE, not localStorage.
-2. Index/Plan or another already-supported surface can observe the same
-   World-global visible history with per-turn provenance, while Plan Ask
-   replay starts a fresh provider segment when Plan document or committed
-   basis changes.
-3. Plan A → B → A preserves only exact historical provenance and never sends
-   B's context as A's current basis. Deferred Ask responses after a managed-
-   World switch or same-Plan committed-basis advance remain attached to their
-   originating turns and out of the newly selected context.
-4. Legacy Ask import accepts only complete matching `ownerId` plus
-   `contentBasis`, preserves order, is idempotent, quarantines invalid rows,
-   and leaves local bytes until confirmed. Exercise the actual importer path
-   through its owner boundary and prove retry returns the original import
-   receipt, invalid rows are quarantined/skipped, and local bytes are retained
-   until confirmed; documentation or a client-only filtering test is not this
-   witness. `plan_edit`, proposal payload, editor draft, trace, and provider
-   state are not imported.
-5. Compose/Revise tests combine eligible APP-STATE Ask turns and the Plan-owned
-   completed-context projection in stable order, filter each source before its
-   per-source limit, and enforce the total six-item cap after merge at the
-   authoritative boundary. Six newer unresolved actions remain visible in the
-   separate status/recovery read without hiding older completed context.
-6. Ask retry evidence preserves the same key and original normalized intent
-   across uncertain response and reload, and conflicts if that key is reused
-   with changed intent. Distinguish (a) completed durable receipt replay, (b)
-   a still-valid pending claim, and (c) persistence retry with known provider
-   output, each of which avoids another provider dispatch, from lost or
-   indeterminate provider output and expired/fenced claim recovery. For the
-   latter, exercise the accepted APP-STATE #867 recovery behavior and report
-   possible provider re-dispatch; do not assert exactly-once invocation or
-   silently mint a new key. World-switch and basis-advance deferred responses
-   remain fenced to their originating turn.
-7. Preserve the #828/#829 proposal, review, Apply-to-draft, ordinary Save, and
-   stale-thread fences. Service/runtime failures, protocol mismatch, pending
-   save, and changed Plan/World/basis fail safely without duplicate durable
-   turn records, mislabeled results, or cross-Plan results.
+PRIME adopted the pinned design at `b1a2babeb0fff109d3625e30ca6785749ab8f332`, re-anchored Buddy main and open PRs/leases, and issued the serial ACTIVE lease from base `402390ca051553a09e844ea57ddf8be3f6217fef`. The isolated lane is branch `codex/demo-plan-world-conversation-slice-a`. One implementation PR is authorized; do not develop on local `main`, dispatch Slice B, or merge without separate authority.
 
-A configured-provider witness is required for the Plan consumer acceptance
-only under PRIME's exact provider/model/spend authorization. No production
-database, shared service, provider, port, real Graph, or product state is
-leased by this BLOCKED design. Mocked tests alone do not establish a live
-provider result or operator acceptance.
+The initial exclusive source write set was:
 
-## Activation gates and future lease
+1. apps/live-control-ui/src/api/types.ts — typed shapes for the existing World conversation and New Conversation responses.
+2. apps/live-control-ui/src/api/liveApi.ts — typed GET/POST wrappers for the existing routes.
+3. apps/live-control-ui/src/api/liveApi.worldConversation.test.ts — new route/method/body/response wrapper tests.
+4. apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx — server transcript hydration, New Conversation, durable pending Ask recovery, isolated legacy export/presentation, and empty Slice A proposal history.
+5. apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx — new mounted consumer tests for history, scope fences, retries, New Conversation, and legacy/context boundaries.
 
-This handoff stays BLOCKED until PRIME:
+PRIME subsequently amended this ACTIVE lease to add one path for the confirmed #865 authorization boundary and its regression evidence:
 
-1. Accepts the exact runtime PR/base/head and its owning-boundary evidence.
-2. Completes the separate Plan-owned action-dialogue projection capability
-   and its own reviewed PR, with status/recovery and completed-context reads;
-   completed exact-basis pairs are filtered before the context limit.
-3. Completes the separate APP-STATE exact-basis Ask projection after #865 and
-   before this consumer, with completed visible Ask pairs filtered by full
-   server-resolved basis before limiting. This capability is not part of #865.
-   Do not activate this consumer while either source projection is missing.
-4. Re-anchors current Buddy main and inspects open PRs and active leases for
-   collisions. Do not edit AGENT-INTERACTION routes/services/models/tests
-   without a separate exact owner lease or explicit transfer.
-5. Pins one exact exclusive Plan UI/consumer allowlist, proposal boundary,
-   isolated test/provider/database/runtime fixtures, verification evidence,
-   and one serial PR. Candidate source files are investigation hints only and
-   are not an implementation lease.
+6. apps/live-control-ui/src/api/liveApi.test.ts — correct obsolete graphless/remote expectations and cover in-memory Agent/World conversation credentials, loopback rejection, token clearing, and no bearer leakage to unrelated routes. This addition does not change server authorization policy.
 
-The future consumer must stop and return to PRIME before editing any path or
-contract outside the pinned lease. No Plan implementation, runtime/service,
-provider, database, Graph, port, shared external state, or product mutation is
-authorized by this design. Visual acceptance and the connected J1–J6 journey
-remain separate open gates.
+The ACTIVE documentation write set for the implementation PR is:
 
-## Design review and merge settlement
+- Docs/Plans/HANDOFF-DEMO-plan-world-conversation-cutover.md — sync this handoff to the authorized ACTIVE lease, actual merged predecessor facts, exact implementation evidence, and actual current status. Never pre-mark Slice A complete or invent a merge SHA.
 
-Buddy PR #857 merged at main `41fe2944468327da852a987685992fc50f91f059`
-from reviewed head `de08a3cc2f24406d1440b771f047ba0b8398a6e8` after PRIME's
-exact-diff review. This accepts the BLOCKED design only. The
-AGENT-INTERACTION runtime, separate Plan action-dialogue projection, and
-separate APP-STATE exact-basis Ask projection remain predecessors. No Plan
-consumer implementation/provider/database lease is active.
+Docs/Roadmaps/ROADMAP-demo.md is not in the Slice A write set. Its predecessor/status truth-sync is deferred to a separately cleared path lease after the current #869 roadmap edit settles. That unrelated documentation collision does not block the client capability.
+
+No other paths are included. In particular, do not edit routes/agent.py, APP-STATE storage/projection code, Plan action service code, migrations, shared Agent providers, PlanSurfacePage.tsx or its tests, AppChrome, shared CSS, or any path owned by another lane. If source inspection shows the exact client implementation needs an unlisted path or an owner contract change, stop before editing and return to PRIME for a transfer or split.
+
+### Current collision check
+
+At activation, open PR filenames and active leases were checked against this source set and the handoff path. Before implementation PR creation, remote main and the assigned branch were rechecked at `402390ca051553a09e844ea57ddf8be3f6217fef`. Open PR #899 remains the pinned design artifact at `b1a2babeb0fff109d3625e30ca6785749ab8f332` and shares only this handoff path; this implementation carries the accepted design into its current ACTIVE record without making #899 merge a gate. Current open PRs #886, #887, #869, #844, #826, #798, #781, #765, #764, #763, #761, and #760 have no changed-file overlap with the six source paths or this handoff. PR #886 touches PlanSurfacePage/AppChrome/shell paths; PR #887 is isolated to DOGFOOD; PR #869 edits ROADMAP-demo.md, which remains explicitly excluded. Re-anchor before opening/updating the assigned PR; this record is not permanent clearance.
+
+## Verification and acceptance plan
+
+The implementation owning boundary is the Plan UI consumer of the existing server APIs. This slice changes no server owner behavior. Wrapper tests prove exact endpoint/method/body handling; mounted tests prove the visible consumer behavior and scope fencing. They do not replace the already accepted server-owned storage/runtime tests or prove product acceptance.
+
+Required focused evidence for the implementation PR:
+
+- Run apps/live-control-ui/src/api/liveApi.worldConversation.test.ts and apps/live-control-ui/src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx with the repository Vitest runner.
+- Run apps/live-control-ui/src/api/liveApi.test.ts for the amended authorization path. Prove graphless Plan Ask, World history, New Conversation, and existing Graph calls use the in-memory bearer credential and loopback-only transport; prove non-loopback rejection happens before fetch, clearing removes the token, and unrelated endpoints receive no bearer header. Prove an HTTP 401/403 gives actionable recovery guidance without replacing or automatically replaying the pending request.
+- Prove the wrappers call the exact /api/live/agent/worlds/{world_id}/conversation and /api/live/agent/worlds/{world_id}/conversation/new routes with the accepted limit/before_sequence and CAS command fields.
+- Prove the latest page is clearly identified, older-page retrieval uses next_before_sequence, turns remain in server order without duplicates, and a pointer change during paging fences the stale response.
+- Prove server history is the sole source of canonical visible turns after reload/remount; each turn retains historical provenance.
+- Prove New Conversation uses the current server pointer/CAS command and hydrates server state. An uncertain command retry reuses the same command identity and expected pointer snapshot.
+- Prove Ask pending-envelope persistence precedes dispatch and reload recovery sends byte-for-byte equivalent normalized wire intent, client_thread_id, turn_id, and accepted committed-basis fields. Verify the WorkRevision UUID stays in local origin metadata and is not added to the request body. A changed intent cannot reuse the old key.
+- Simulate unavailable or throwing local recovery storage and prove no Ask dispatch occurs.
+- Prove World A → World B → World A, Plan/basis changes, and deferred responses cannot cross the visible active conversation. A completed old receipt is reconciled only to its origin.
+- Prove history/API failure does not show local history as canonical or dispatch a local-history fallback.
+- Prove pre-existing local bytes are unchanged, explicitly labelled local-only and exportable; neither Ask nor proposal requests contain legacy rows. Prove every newly prepared Slice A proposal request has empty conversation_history while Review/Apply/Save behavior remains.
+- Hold an existing PlanAction request across a conversation change. Prove its captured body and idempotency key are unchanged, no automatic second dispatch occurs, and the existing same-key uncertain retry reuses the original request.
+- Run targeted TypeScript validation and cumulative base-to-head diff checks. Report the known inherited full-app TS2503 error at ThreatPublicationPanel.tsx:553 if it remains; do not modify outside the lease to clear it.
+- Report test commands, exact base/head, all failures and whether they are inherited. Do not describe mocked client tests as a live backend or configured-provider witness.
+
+### Current implementation evidence
+
+- Exact implementation base: `402390ca051553a09e844ea57ddf8be3f6217fef`. The assigned remote branch was still at that base during the final pre-PR re-anchor; the implementation commit/head is recorded by its PR metadata.
+- From `apps/live-control-ui`, `/home/drakosfire/.local/bin/rtk npm test -- src/api/liveApi.test.ts src/api/liveApi.worldConversation.test.ts src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx` passed: 4 files, 122 tests.
+- `/home/drakosfire/.local/bin/rtk npm run typecheck` reports only the inherited `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): error TS2503: Cannot find namespace 'JSX'.` No out-of-lease file was changed to address it.
+- API and mounted-consumer tests use deterministic fakes. They establish client transport and UI behavior only; they are not a live server, configured-provider, or product-acceptance witness.
+
+## Runtime, database, and provider resources
+
+No runtime resource is leased or required for the Slice A acceptance plan. Focused wrapper and mounted consumer tests use deterministic API fakes and do not start services, databases, or providers. The already accepted server-owned storage/runtime tests remain the evidence for server persistence/idempotency behavior. This client slice does not claim a live backend, configured-provider witness, or product acceptance. Do not use persistent ports 54330 or 54331 or start/stop/repoint any shared service. Configured-provider and full live-demo acceptance remain separate DEMO gates after Slice A.
+
+## Failure cases Slice A must preserve
+
+- A removed, foreign, changed, unavailable, or contradictory World/Plan binding fails closed before Ask dispatch.
+- Editor draft bytes remain excluded from Ask; only the exact server-resolved committed basis is submitted.
+- A delayed history or Ask response from the old World/Plan/basis cannot overwrite the current selection or enter a new conversation.
+- New Conversation pointer conflicts never silently clear or replace current history.
+- An uncertain retry reuses the exact envelope; it never silently mints a new turn or command identity.
+- A pending request for another World, Plan, basis, or conversation remains recoverable without overwriting the active origin.
+- Server history unavailability is visible and actionable. Local browser rows are never an implicit transcript fallback.
+- Legacy data remains byte-preserved and exportable, with no import, delete, or transcript dual-write.
+- Compose/Revise can still produce a reviewable proposal against the captured draft/selection, but receives no conversation history in Slice A. Apply still edits only the draft; ordinary Save remains the commit boundary.
+- Graph remains not_requested. No graph retrieval/citation or J1–J6 completion is implied.
+
+## Activation and implementation record
+
+PRIME owns independent review and merge coordination. The design acceptance, authority re-anchor, exact source allowlist, deterministic fake-test plan, and serial ACTIVE lease are satisfied. Implementation remains ACTIVE while its assigned PR is open; it is not recorded as complete or merged. Merge authority is separate and remains with PRIME/user process. No runtime, database, provider, or service resources are leased or required.
+
+Implementation evidence is recorded here only after it has been run against the final cumulative tree. The in-flight slice must not be pre-marked complete, and no future Slice B or live-demo acceptance is implied.
+
+The existing main source/design remains useful history if this amendment is superseded. Slice B is not dispatched by Slice A completion; PRIME must re-anchor and grant its own later lease.
