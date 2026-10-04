@@ -36,9 +36,13 @@ re-anchoring:
    is Graph selection and may not be reused. No schema change is authorized by
    this handoff while the owner decision is pending.
 3. Buddy's Agent/server owner approves the typed request field/version and the
-   exact committed-Plan membership resolver, including v1/v2 marker grammar,
-   duplicate/malformed membership, and proof that target validation does not
-   invoke Run admission/readiness or mutate Run behavior.
+   exact committed-Plan membership resolver. The request carries only
+   `{kind, id}` plus the target-envelope schema version; the server selects
+   v1/v2 marker parsing from the exact pinned WorkRevision. Client-supplied
+   marker grammar versions or unknown envelope versions are rejected. The
+   owner also approves duplicate, malformed, dangling, and wrong-kind
+   membership behavior and proves validation does not invoke Run
+   admission/readiness or mutate Run behavior.
 4. DEMO accepts the mounted Cards selection affordance and the dirty-editor
    behavior: same `{kind, id}` means Ask against the pinned committed Plan with
    explicit disclosure; draft-only, missing, changed-kind, ambiguous, or
@@ -166,10 +170,12 @@ Required owning-boundary proof after activation:
   proves that exact identity and current Plan basis reach the typed turn
   request while no card/source Markdown is in the request.
 - Buddy server tests prove exact membership against the committed
-  `get_current_world_plan_revision` result; v1/v2 canonical grammar; wrong kind,
-  duplicate, absent, draft-only, malformed, stale, foreign, and unmatched
-  identities fail before runtime dispatch; existing committed Plan context is
-  preserved; Graph resolution is not called.
+  `get_current_world_plan_revision` result; v1/v2 canonical grammar is selected
+  from that pinned source; wrong kind, duplicate, absent, draft-only,
+  malformed, dangling, stale, foreign, and unmatched identities fail before
+  runtime dispatch. Unknown envelope versions and client-supplied marker
+  grammar versions are rejected rather than ignored. Existing committed Plan
+  context is preserved; Graph resolution is not called.
 - APP-STATE tests prove the target participates in submitted-intent matching,
   persists as non-Graph provenance tied to exact primary WorkRevision, rejects
   same-key/different-target replay, replays exact target/answer without
@@ -307,8 +313,10 @@ The implementation is merge-ready only when all are true:
   and exact existing World/Plan pins. The server resolves actual WorkRevision
   ID, `revision_n`, and digest; registry `loaded_revision` is never substituted.
 - Server target membership is unique, canonical, kind-matching, and checked
-  against the exact committed Plan basis used for Ask. Validation does not
-  change Run admission or silently use draft text.
+  using the marker grammar of the exact committed Plan basis used for Ask. The
+  target does not claim marker grammar version; unknown target-schema versions
+  and extra version fields fail closed. Validation does not change Run
+  admission or silently use draft text.
 - Dirty-basis behavior is visible and truthful; draft-only, deleted from the
   committed basis, mismatched-kind, duplicate, stale, unknown, or unresolved
   target states fail closed before runtime dispatch.

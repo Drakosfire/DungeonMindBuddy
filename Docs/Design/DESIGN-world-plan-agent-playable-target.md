@@ -132,13 +132,21 @@ The proposed canonical turn field is a nullable, versioned identity reference:
       id: canonical kind-prefixed PlayableElementId
     }
 
-The envelope is a contract version, not the marker grammar version. The server
-derives whether the marker is v1 or v2 from the exact committed Plan. The
-canonical ID grammar and equality rules are owned by
+The envelope is a contract version, not the marker grammar version. The target
+intentionally carries no marker-grammar-version field: old v1 and newer v2
+elements use the same canonical `{kind, id}` identity shape, and the server
+chooses the parser from the exact committed Plan WorkRevision. The server never
+trusts a UI pointer or client claim about whether that source is v1 or v2. The
+target schema must be exactly `dmb_selected_playable_target_v1`; unknown schema
+versions and extra fields (including a client-supplied marker version) are
+rejected, not ignored. The canonical ID grammar and equality rules are owned by
 `playableElementIdentity.ts` plus the server-side committed-source validator:
 `id` must be canonical, its prefix must match `kind`, and the exact pinned Plan
 must contain one and only one identity with that pair. No title, body, source
-span, excerpt, or Graph reference belongs in the target object.
+span, excerpt, or Graph reference belongs in the target object. An unknown,
+dangling, malformed, wrong-kind, duplicate, or source-grammar-incompatible
+identity fails before provider dispatch; it is never rebound to a nearby
+element or a different grammar version.
 
 The target is meaningful only alongside the request's existing primary-work
 pin:
@@ -159,10 +167,10 @@ semantics; this design does not use `loaded_revision` as content identity.
 
 On a non-targeted turn, the target is absent/null and behavior is unchanged. On
 a targeted turn, server admission resolves the same committed Plan basis as
-today, then validates target membership against that exact source. A missing,
-malformed, duplicate, wrong-kind, foreign, or absent target fails closed before
-provider dispatch. A newer revision is never substituted for a stale expected
-basis.
+today, selects the marker parser from that exact source, then validates target
+membership against its parsed identities. A missing, malformed, duplicate,
+wrong-kind, foreign, dangling, or absent target fails closed before provider
+dispatch. A newer revision is never substituted for a stale expected basis.
 
 ## Dirty editor behavior
 
