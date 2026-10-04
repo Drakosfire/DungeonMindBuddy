@@ -1,5 +1,8 @@
 import { useMemo } from "react";
-import type { JSONContent } from "@tiptap/core";
+import { generateHTML, mergeAttributes, type JSONContent } from "@tiptap/core";
+import { DEFAULT_MARKDOWN_EDITOR_EXTENSIONS } from "../../tiptap/MarkdownEditorCore";
+import { GraphNodeReferenceNode } from "../../tiptap/extensions/GraphNodeReferenceNode";
+import { classifyImageUrl, classifyLinkUrl } from "../../markdownReader/markdownReaderUrlPolicy";
 import {
   indexPlayableStructure,
   indexPlayableStructureV2,
@@ -32,7 +35,9 @@ export type WorldPlanCardNode = {
   id: string;
   kind: "scene" | "beat" | "choice" | "option";
   title: string;
+  titleContent: JSONContent[];
   bodyText: string;
+  bodyContent: JSONContent[];
   order: number;
   parentId: string | null;
   children: WorldPlanCardNode[];
@@ -41,6 +46,92 @@ export type WorldPlanCardNode = {
   activates?: string[];
   suppresses?: string[];
 };
+
+const StaticGraphNodeReferenceNode = GraphNodeReferenceNode.extend({
+  renderHTML({ node, HTMLAttributes }) {
+    const attrs = node.attrs as { nodeId?: unknown; label?: unknown };
+    const nodeId = typeof attrs.nodeId === "string" ? attrs.nodeId : "";
+    const label = typeof attrs.label === "string" && attrs.label.length > 0 ? attrs.label : nodeId;
+    return [
+      "span",
+      mergeAttributes(HTMLAttributes, {
+        class: "graph-node-reference-pill recap-node-token",
+        "data-graph-node-id": nodeId,
+        "data-plan-card-reference": "graph",
+        contenteditable: "false",
+      }),
+      label,
+    ];
+  },
+});
+
+const PLAN_CARD_SCHEMA_EXTENSIONS = DEFAULT_MARKDOWN_EDITOR_EXTENSIONS.map((extension) => (
+  extension.name === GraphNodeReferenceNode.name ? StaticGraphNodeReferenceNode : extension
+));
+
+function unsupportedCardContentReason(content: JSONContent): string | null {
+  const inspect = (node: unknown): string | null => {
+    if (node == null || typeof node !== "object" || Array.isArray(node)) return "malformed content";
+    const record = node as { type?: unknown; attrs?: unknown; marks?: unknown; content?: unknown };
+    const type = typeof record.type === "string" ? record.type : "";
+    const attrs = record.attrs != null && typeof record.attrs === "object"
+      ? record.attrs as Record<string, unknown>
+      : {};
+
+    if (["image", "video", "audio", "iframe", "embed"].includes(type)) {
+      const src = typeof attrs.src === "string" ? attrs.src : "";
+      return classifyImageUrl(src) === "unsafe"
+        ? "unsafe embedded media"
+        : "embedded media is not supported in Cards";
+    }
+    if ("src" in attrs || "href" in attrs) return "unsupported URL-bearing node";
+
+    if (Array.isArray(record.marks)) {
+      for (const mark of record.marks) {
+        if (mark == null || typeof mark !== "object" || Array.isArray(mark)) return "malformed mark";
+        const markRecord = mark as { type?: unknown; attrs?: unknown };
+        const markAttrs = markRecord.attrs != null && typeof markRecord.attrs === "object"
+          ? markRecord.attrs as Record<string, unknown>
+          : {};
+        if (markRecord.type === "link") {
+          if (typeof markAttrs.href !== "string") return "malformed link";
+          const linkKind = classifyLinkUrl(markAttrs.href);
+          if (linkKind === "unsafe" || linkKind === "relative_visible") {
+            return "link destination is not safe to navigate from Cards";
+          }
+        } else if ("href" in markAttrs || "src" in markAttrs) {
+          return "unsupported URL-bearing mark";
+        }
+      }
+    }
+
+    if (Array.isArray(record.content)) {
+      for (const child of record.content) {
+        const reason = inspect(child);
+        if (reason) return reason;
+      }
+    }
+    return null;
+  };
+
+  return inspect(content);
+}
+
+function cardContentDocument(node: WorldPlanCardNode): JSONContent {
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "heading",
+        attrs: { level: 3 },
+        content: node.titleContent.length > 0
+          ? node.titleContent
+          : [{ type: "text", text: node.title || "Untitled marked element" }],
+      },
+      ...node.bodyContent,
+    ],
+  };
+}
 
 export type WorldPlanCardProjectionModel =
   | { status: "empty" }
@@ -124,7 +215,9 @@ function createNodes(
       id: element.id,
       kind: element.kind,
       title: slice.title,
+      titleContent: slice.titleContent,
       bodyText: slice.bodyText,
+      bodyContent: slice.bodyContent,
       order: element.order,
       parentId: null,
       children: [],
@@ -218,6 +311,8 @@ export function buildWorldPlanCardProjectionModel(input: {
 
 function CardNodeView({
   node,
+  worldId,
+  documentId,
   selectableTargetKeys,
   editableTargetKeys,
   selectedTarget,
@@ -226,6 +321,8 @@ function CardNodeView({
   onSelectEditTarget,
 }: {
   node: WorldPlanCardNode;
+  worldId: string;
+  documentId: string;
   selectableTargetKeys: ReadonlySet<string>;
   editableTargetKeys: ReadonlySet<string>;
   selectedTarget: WorldPlanCardTarget | null;
@@ -233,6 +330,30 @@ function CardNodeView({
   onSelectTarget?: (target: WorldPlanCardTarget) => void;
   onSelectEditTarget?: (target: WorldPlanCardTarget) => void;
 }) {
+  const semanticContent = useMemo(() => cardContentDocument(node), [node]);
+  const contentKey = useMemo(() => JSON.stringify([
+    worldId,
+    documentId,
+    node.kind,
+    node.id,
+    semanticContent,
+  ]), [worldId, documentId, node.kind, node.id, semanticContent]);
+  const renderedContent = useMemo(() => {
+    if (unsupportedCardContentReason(semanticContent)) return null;
+    try {
+      const content = semanticContent.content ?? [];
+      const titleContent = content[0];
+      if (!titleContent) return null;
+      return {
+        titleHtml: generateHTML({ type: "doc", content: [titleContent] }, PLAN_CARD_SCHEMA_EXTENSIONS),
+        bodyHtml: content.length > 1
+          ? generateHTML({ type: "doc", content: content.slice(1) }, PLAN_CARD_SCHEMA_EXTENSIONS)
+          : "",
+      };
+    } catch {
+      return null;
+    }
+  }, [contentKey, semanticContent]);
   const target = { kind: node.kind, id: node.id };
   const selected = selectedTarget?.kind === target.kind && selectedTarget.id === target.id;
   const selectedForEdit = selectedEditTarget?.kind === target.kind && selectedEditTarget.id === target.id;
@@ -243,35 +364,59 @@ function CardNodeView({
       <article className="world-plan-card">
         <header className="world-plan-card__header">
           <p className="world-plan-card__kind">{node.kind}{node.beatKind ? ` · ${node.beatKind}` : ""}</p>
-          <h3>{node.title || "Untitled marked element"}</h3>
           <code>{node.id}</code>
-          <button
-            type="button"
-            className="world-plan-card__ask-target"
-            data-target-kind={node.kind}
-            data-target-id={node.id}
-            aria-pressed={selected}
-            disabled={!selectable || !onSelectTarget}
-            title={selectable ? "Use this exact card from the committed Plan for Ask" : "A unique matching card is not available in both the saved Plan and this view"}
-            onClick={() => onSelectTarget?.(target)}
-          >
-            {selected ? "Selected for Ask" : "Select for Ask"}
-          </button>
-          <button
-            type="button"
-            className="world-plan-card__edit-target"
-            data-edit-target-kind={node.kind}
-            data-edit-target-id={node.id}
-            aria-pressed={selectedForEdit}
-            disabled={!editable || !onSelectEditTarget}
-            title={editable ? "Use this exact current card body for a Compose proposal" : "This card is not a unique editable target in the current Plan draft"}
-            onClick={() => onSelectEditTarget?.(target)}
-          >
-            {selectedForEdit ? "Selected for Edit" : "Select for Edit"}
-          </button>
+          {renderedContent === null ? null : (
+            <div
+              className="world-plan-card__title"
+              data-testid={`world-plan-card-title-${node.kind}-${node.id}`}
+              dangerouslySetInnerHTML={{ __html: renderedContent.titleHtml }}
+            />
+          )}
+          <div className="world-plan-card__actions">
+            <button
+              type="button"
+              className="world-plan-card__ask-target"
+              data-target-kind={node.kind}
+              data-target-id={node.id}
+              aria-pressed={selected}
+              disabled={!selectable || !onSelectTarget}
+              title={selectable ? "Use this exact card from the committed Plan for Ask" : "A unique matching card is not available in both the saved Plan and this view"}
+              onClick={() => onSelectTarget?.(target)}
+            >
+              {selected ? "Selected for Ask" : "Select for Ask"}
+            </button>
+            <button
+              type="button"
+              className="world-plan-card__edit-target"
+              data-edit-target-kind={node.kind}
+              data-edit-target-id={node.id}
+              aria-pressed={selectedForEdit}
+              disabled={!editable || !onSelectEditTarget}
+              title={editable ? "Use this exact current card body for a Compose proposal" : "This card is not a unique editable target in the current Plan draft"}
+              onClick={() => onSelectEditTarget?.(target)}
+            >
+              {selectedForEdit ? "Selected for Edit" : "Select for Edit"}
+            </button>
+          </div>
         </header>
         {node.sceneId ? <p className="world-plan-card__relationship">Associated scene: <code>{node.sceneId}</code></p> : null}
-        {node.bodyText ? <p className="world-plan-card__body">{node.bodyText}</p> : null}
+        {renderedContent === null ? (
+          <p
+            className="world-plan-card__content-unavailable"
+            data-testid={`world-plan-card-content-unavailable-${node.kind}-${node.id}`}
+            role="status"
+          >
+            This card contains content Cards cannot display safely. Open Document to view it.
+          </p>
+        ) : (
+          renderedContent.bodyHtml ? (
+            <div
+              className="world-plan-card__content"
+              data-testid={`world-plan-card-content-${node.kind}-${node.id}`}
+              dangerouslySetInnerHTML={{ __html: renderedContent.bodyHtml }}
+            />
+          ) : null
+        )}
         {node.activates?.length || node.suppresses?.length ? (
           <ul className="world-plan-card__edges" aria-label="Authored relationships">
             {node.activates?.map((target) => <li key={`activates:${target}`}>Authored activates: <code>{target}</code></li>)}
@@ -285,6 +430,8 @@ function CardNodeView({
             <CardNodeView
               key={child.id}
               node={child}
+              worldId={worldId}
+              documentId={documentId}
               selectableTargetKeys={selectableTargetKeys}
               editableTargetKeys={editableTargetKeys}
               selectedTarget={selectedTarget}
@@ -402,6 +549,8 @@ export function WorldPlanCardProjection({
           <CardNodeView
             key={node.id}
             node={node}
+            worldId={worldId}
+            documentId={documentId}
             selectableTargetKeys={selectableTargetKeys}
             editableTargetKeys={editableTargetKeys}
             selectedTarget={selectedTarget}

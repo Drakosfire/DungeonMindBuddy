@@ -130,13 +130,37 @@
   border-top: 3px solid var(--accent, #c58b49);
 }
 
-.world-plan-card__header h3 {
-  margin: 0.1rem 0 0.35rem;
-}
-
 .world-plan-card__ask-target {
   justify-self: start;
-  margin-top: 0.6rem;
+}
+
+.world-plan-card__header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 0.3rem 0.75rem;
+}
+
+.world-plan-card__title,
+.world-plan-card__actions {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.world-plan-card__title {
+  overflow-wrap: anywhere;
+}
+
+.world-plan-card__title h3 {
+  margin: 0.05rem 0 0.1rem;
+  font-size: 1.12rem;
+  line-height: 1.3;
+}
+
+.world-plan-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
 }
 
 .world-plan-card__ask-target:disabled {
@@ -162,12 +186,70 @@
 }
 
 .world-plan-card__relationship,
-.world-plan-card__body {
+.world-plan-card__content,
+.world-plan-card__content-unavailable {
   margin: 0.65rem 0 0;
 }
 
-.world-plan-card__body {
-  white-space: pre-wrap;
+.world-plan-card__content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+
+.world-plan-card__content > :first-child {
+  margin-top: 0;
+}
+
+.world-plan-card__content > :last-child {
+  margin-bottom: 0;
+}
+
+.world-plan-card__content p {
+  margin: 0.55rem 0 0;
+}
+
+.world-plan-card__content ul,
+.world-plan-card__content ol {
+  margin: 0.5rem 0;
+  padding-left: 1.3rem;
+}
+
+.world-plan-card__content li + li {
+  margin-top: 0.2rem;
+}
+
+.world-plan-card__content li > ul,
+.world-plan-card__content li > ol {
+  margin: 0.2rem 0;
+}
+
+.world-plan-card__content blockquote {
+  margin: 0.6rem 0;
+  padding: 0.2rem 0 0.2rem 0.85rem;
+  border-left: 3px solid var(--accent, #c58b49);
+  color: var(--text-secondary, #bec9c2);
+}
+
+.world-plan-card__content .md-callout {
+  margin: 0.6rem 0;
+  padding: 0.65rem 0.8rem;
+  border: 1px solid var(--surface-border, #53635d);
+  border-radius: 0.55rem;
+  background: var(--surface-raised, #18211e);
+}
+
+.world-plan-card__content .graph-node-reference-pill {
+  cursor: default;
+  pointer-events: none;
+  user-select: text;
+}
+
+.world-plan-card__content-unavailable {
+  padding: 0.6rem 0.75rem;
+  border-left: 3px solid #d28b6e;
+  color: var(--text-secondary, #bec9c2);
+  background: var(--surface-raised, #18211e);
 }
 
 .world-plan-card__edges {

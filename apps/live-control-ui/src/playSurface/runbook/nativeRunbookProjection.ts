@@ -270,12 +270,34 @@ function isOrdinaryRootInstructionHeading(node: unknown): boolean {
   return level === 1 || level === 2;
 }
 
-type AuthoredSlice = {
+export type PlayableBodySlice = {
   kind: PlayableElementKind;
   id: string;
   title: string;
+  titleContent: JSONContent[];
   bodyText: string;
+  bodyContent: JSONContent[];
 };
+
+const UNSUPPORTED_BODY_NODE = "unsupportedPlayableBodyNode";
+
+function asJsonContent(node: unknown): JSONContent {
+  if (node == null || typeof node !== "object" || Array.isArray(node)) {
+    return { type: UNSUPPORTED_BODY_NODE };
+  }
+  if (typeof (node as { type?: unknown }).type !== "string") {
+    return { type: UNSUPPORTED_BODY_NODE };
+  }
+  return node as JSONContent;
+}
+
+function jsonContentChildren(node: unknown): JSONContent[] {
+  if (node == null || typeof node !== "object") return [];
+  const content = (node as { content?: unknown }).content;
+  if (content === undefined) return [];
+  if (!Array.isArray(content)) return [{ type: UNSUPPORTED_BODY_NODE }];
+  return content.map(asJsonContent);
+}
 
 function playableOptionListItemIdentity(node: unknown): { id: string } | null {
   if (node == null || typeof node !== "object") return null;
@@ -288,10 +310,12 @@ function playableOptionListItemIdentity(node: unknown): { id: string } | null {
   return { id: validated.identity.id };
 }
 
-function optionSliceFromListItem(node: unknown, id: string): AuthoredSlice {
+function optionSliceFromListItem(node: unknown, id: string): PlayableBodySlice {
   const record = node as { content?: unknown };
   const children = Array.isArray(record.content) ? record.content : [];
   const title = collectNodeText(children[0]).replace(/\s+/g, " ").trim();
+  const titleContent = jsonContentChildren(children[0]);
+  const bodyContent = children.slice(1).map(asJsonContent);
   const bodyText = children
     .slice(1)
     .map((child) => collectNodeText(child).replace(/\s+/g, " ").trim())
@@ -301,7 +325,9 @@ function optionSliceFromListItem(node: unknown, id: string): AuthoredSlice {
     kind: "option",
     id,
     title: title.length > 0 ? title : id,
+    titleContent,
     bodyText,
+    bodyContent,
   };
 }
 
@@ -324,14 +350,20 @@ function authoredTextFromNodes(nodes: unknown[]): string {
  * boundary: those items become Option slices, and they are excluded from
  * the preceding Choice (or other heading) body.
  */
-export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlice> {
-  const slices = new Map<string, AuthoredSlice>();
+export function slicePlayableBodies(document: unknown): Map<string, PlayableBodySlice> {
+  const slices = new Map<string, PlayableBodySlice>();
   if (document == null || typeof document !== "object") return slices;
   const content = (document as { content?: unknown }).content;
   if (!Array.isArray(content)) return slices;
 
-  let current: { kind: PlayableElementKind; id: string; title: string; bodyNodes: unknown[] } | null =
-    null;
+  let current: {
+    kind: PlayableElementKind;
+    id: string;
+    title: string;
+    titleContent: JSONContent[];
+    bodyNodes: unknown[];
+    bodyContentNodes: JSONContent[];
+  } | null = null;
 
   const flush = () => {
     if (!current) return;
@@ -339,7 +371,9 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
       kind: current.kind,
       id: current.id,
       title: current.title,
+      titleContent: [...current.titleContent],
       bodyText: authoredTextFromNodes(current.bodyNodes),
+      bodyContent: [...current.bodyContentNodes],
     });
   };
 
@@ -351,7 +385,9 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
         kind: identity.kind,
         id: identity.id,
         title: collectNodeText(node).replace(/\s+/g, " ").trim(),
+        titleContent: jsonContentChildren(node),
         bodyNodes: [],
+        bodyContentNodes: [],
       };
       continue;
     }
@@ -380,12 +416,21 @@ export function slicePlayableBodies(document: unknown): Map<string, AuthoredSlic
         if (sawOption) {
           if (current && unmarkedItems.length > 0) {
             current.bodyNodes.push(...unmarkedItems);
+            const listNode = asJsonContent(node);
+            const retainedItems = unmarkedItems.map(asJsonContent);
+            if (retainedItems.length > 0) {
+              current.bodyContentNodes.push({ ...listNode, content: retainedItems });
+            }
           }
           continue;
         }
       }
     }
-    if (current) current.bodyNodes.push(node);
+    if (current) {
+      current.bodyNodes.push(node);
+      const contentNode = asJsonContent(node);
+      current.bodyContentNodes.push(contentNode);
+    }
   }
   flush();
   return slices;
@@ -519,7 +564,7 @@ function snapshotFromCommitted(
 
 function projectScenes(
   structure: PlayableStructureIndex,
-  slices: Map<string, AuthoredSlice>,
+  slices: Map<string, PlayableBodySlice>,
 ): NativeRunbookScene[] {
   const choiceById = new Map(structure.choices.map((choice) => [choice.choiceId, choice]));
   return structure.scenes.map((scene) => {
@@ -632,7 +677,7 @@ export function overlayRuntimeOnDeck(
 
 function projectV2Beats(
   structure: PlayableStructureIndexV2,
-  slices: Map<string, AuthoredSlice>,
+  slices: Map<string, PlayableBodySlice>,
   relevanceByTargetId: Record<string, AuthoredRelevance>,
 ): NativeRunbookBeatV2[] {
   const choiceById = new Map(structure.choices.map((choice) => [choice.choiceId, choice]));

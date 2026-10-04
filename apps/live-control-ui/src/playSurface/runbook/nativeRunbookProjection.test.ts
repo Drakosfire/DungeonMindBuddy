@@ -202,6 +202,103 @@ describe("slicePlayableBodies", () => {
     expect(slices.get("choice:y")?.bodyText).toBe("Choice Y unique prose.");
     expect(slices.get("choice:y")?.bodyText).not.toContain("Option Y1 unique text");
   });
+
+  it("retains inline title and structured body content without changing the legacy text slice", () => {
+    const markdown = [
+      "<!-- dmb-playable-element:v1 kind=scene id=scene:gate -->",
+      "## The **Gate** [Arrival](dmb-node:node:gate)",
+      "",
+      "First paragraph with **bold** and _emphasis_, plus [Captain](#dmb-ref:npc:captain).",
+      "",
+      "Second paragraph.",
+      "",
+      "- First item",
+      "  - Nested item",
+      "",
+      "> [!GM-NOTE]",
+      "> Preserve the exact pressure.",
+    ].join("\n");
+    const imported = markdownToTiptapDoc(markdown);
+    expect(imported.diagnostics).toEqual([]);
+
+    const slice = slicePlayableBodies(imported.doc).get("scene:gate");
+    expect(slice).toBeDefined();
+    expect(slice?.titleContent).toEqual([
+      { type: "text", text: "The " },
+      { type: "text", text: "Gate", marks: [{ type: "bold" }] },
+      { type: "text", text: " " },
+      { type: "graphNodeReference", attrs: { nodeId: "node:gate", label: "Arrival" } },
+    ]);
+    expect(slice?.bodyContent.map((node) => node.type)).toEqual([
+      "paragraph",
+      "paragraph",
+      "bulletList",
+      "callout",
+    ]);
+    expect(slice?.bodyContent[0]?.content).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: "text", text: "bold", marks: [{ type: "bold" }] }),
+      expect.objectContaining({ type: "text", text: "emphasis", marks: [{ type: "italic" }] }),
+      expect.objectContaining({ type: "runbookReference", attrs: expect.objectContaining({ refId: "captain", label: "Captain" }) }),
+    ]));
+    expect(slice?.bodyContent[2]?.content?.[0]?.content?.[1]).toMatchObject({
+      type: "bulletList",
+      content: [expect.objectContaining({ type: "listItem" })],
+    });
+    expect(slice?.bodyContent[3]).toMatchObject({ type: "callout", attrs: { kind: "gm-note" } });
+    expect(slice?.bodyText).toBe(
+      "First paragraph with bold and emphasis, plus .\n\nSecond paragraph.\n\nFirst itemNested item\n\nPreserve the exact pressure.",
+    );
+    expect(slice?.bodyText).not.toContain("Captain");
+  });
+
+  it("keeps unmarked siblings inside their original list wrapper around v2 Option boundaries", () => {
+    const document = {
+      type: "doc",
+      content: [
+        {
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "beat", playableElementId: "beat:arrival" },
+          content: [{ type: "text", text: "Arrival" }],
+        },
+        {
+          type: "bulletList",
+          content: [
+            { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Stay together" }] }] },
+            {
+              type: "listItem",
+              attrs: { playableElementKind: "option", playableElementVersion: "v2", playableElementId: "option:advance" },
+              content: [
+                { type: "paragraph", content: [{ type: "text", text: "Advance" }] },
+                { type: "paragraph", content: [{ type: "text", text: "Option-only body." }] },
+              ],
+            },
+            { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Hold the line" }] }] },
+          ],
+        },
+        {
+          type: "heading",
+          attrs: { level: 2, playableElementKind: "beat", playableElementId: "beat:aftermath" },
+          content: [{ type: "text", text: "Aftermath" }],
+        },
+      ],
+    };
+
+    const slices = slicePlayableBodies(document);
+    const beat = slices.get("beat:arrival");
+    expect(beat?.bodyText).toBe("Stay together\n\nHold the line");
+    expect(beat?.bodyContent).toEqual([{
+      type: "bulletList",
+      content: [
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Stay together" }] }] },
+        { type: "listItem", content: [{ type: "paragraph", content: [{ type: "text", text: "Hold the line" }] }] },
+      ],
+    }]);
+    expect(slices.get("option:advance")?.title).toBe("Advance");
+    expect(slices.get("option:advance")?.bodyText).toBe("Option-only body.");
+    expect(slices.get("option:advance")?.bodyContent).toEqual([
+      { type: "paragraph", content: [{ type: "text", text: "Option-only body." }] },
+    ]);
+  });
 });
 
 describe("admitNativeRunbook", () => {

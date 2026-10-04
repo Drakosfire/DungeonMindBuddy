@@ -1,5 +1,6 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
+import type { JSONContent } from "@tiptap/core";
 
 import * as liveApi from "../api/liveApi";
 import type { WorldOwnedPlanRecordV2 } from "../api/types";
@@ -59,6 +60,11 @@ const initialV2Markdown = [
 ].join("\n") + "\n";
 const initialDigest = "a".repeat(64);
 const committedDigest = "b".repeat(64);
+
+function visitJsonNodes(node: JSONContent, visitor: (node: JSONContent) => void) {
+  visitor(node);
+  for (const child of node.content ?? []) visitJsonNodes(child, visitor);
+}
 
 const record: WorldOwnedPlanRecordV2 = {
   schema_version: "dmb_world_owned_plan_record_v2",
@@ -237,6 +243,161 @@ it("keeps current-draft Edit selection separate from committed-Plan Ask selectio
   fireEvent.click(askButton!);
   expect(selectForAsk).toHaveBeenCalledWith({ kind: "scene", id: "scene:arrival" });
   expect(selectForEdit).toHaveBeenCalledTimes(1);
+});
+
+it("serializes authored Plan content inertly, escapes reference labels, and fails closed on media", () => {
+  const markdown = [
+    "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+    "## Arrival [Warehouse](dmb-node:node:warehouse)",
+    "First paragraph with **bold** and _emphasis_, plus [Captain](#dmb-ref:npc:captain).",
+    "",
+    "Second paragraph.",
+    "",
+    "- First item",
+    "  - Nested item",
+    "",
+    "> [!GM-NOTE]",
+    "> Keep the gate pressure visible.",
+    "",
+    "[Warehouse](dmb-node:node:warehouse)",
+  ].join("\n");
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics).toEqual([]);
+  const documentWithMarkupLikeLabel = JSON.parse(JSON.stringify(imported.doc)) as JSONContent;
+  visitJsonNodes(documentWithMarkupLikeLabel, (node) => {
+    if (node.type === "graphNodeReference" && node.attrs?.nodeId === "node:warehouse") {
+      node.attrs = { ...node.attrs, label: '<img src=x onerror="alert(1)">' };
+    }
+  });
+  const originalDocument = JSON.stringify(documentWithMarkupLikeLabel);
+  const fetchSpy = vi.spyOn(globalThis, "fetch");
+  const importedModel = buildWorldPlanCardProjectionModel({
+    document: documentWithMarkupLikeLabel,
+    markdown,
+    sourceWarnings: [],
+  });
+  expect(importedModel.status).toBe("ready");
+  if (importedModel.status !== "ready") return;
+  const scene = importedModel.roots[0]!;
+  const mounted = render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={documentWithMarkupLikeLabel}
+      markdown={markdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: committedDigest }}
+      isDirty={false}
+      onReturnToDocument={vi.fn()}
+    />,
+  );
+
+  const card = screen.getByTestId(`world-plan-card-content-scene-${scene.id}`);
+  const article = screen.getByTestId(`world-plan-card-title-scene-${scene.id}`).closest("article")!;
+  expect(screen.getByTestId(`world-plan-card-title-scene-${scene.id}`).querySelector("h3"))
+    .toHaveTextContent('<img src=x onerror="alert(1)">');
+  expect(card.querySelectorAll("p").length).toBeGreaterThanOrEqual(3);
+  expect(card.querySelector("strong")).toHaveTextContent("bold");
+  expect(card.querySelector("em")).toHaveTextContent("emphasis");
+  expect(card.querySelector("ul ul")).toHaveTextContent("Nested item");
+  expect(card.querySelector('[data-md-callout="gm-note"]')).toHaveTextContent("Keep the gate pressure visible.");
+  expect(article.querySelectorAll('[data-graph-node-id="node:warehouse"]')).toHaveLength(2);
+  expect(card.querySelector('[data-md-ref-id="captain"]')).toHaveTextContent("Captain");
+  expect(article.querySelector("img")).toBeNull();
+  expect(article.querySelector(".ProseMirror, [contenteditable='true'], [data-node-view-wrapper]")).toBeNull();
+  const graphReference = article.querySelector<HTMLElement>('[data-plan-card-reference="graph"]')!;
+  expect(graphReference.tagName).toBe("SPAN");
+  expect(graphReference.closest("a, button")).toBeNull();
+  fireEvent.mouseEnter(graphReference);
+  fireEvent.click(graphReference);
+  expect(fetchSpy).not.toHaveBeenCalled();
+  expect(JSON.stringify(documentWithMarkupLikeLabel)).toBe(originalDocument);
+
+  mounted.unmount();
+
+  const mediaDocument = JSON.parse(JSON.stringify(imported.doc)) as JSONContent;
+  let insertedMedia = false;
+  visitJsonNodes(mediaDocument, (node) => {
+    if (!insertedMedia && node.type === "paragraph") {
+      node.content = [
+        ...(node.content ?? []),
+        { type: "image", attrs: { src: "javascript:alert(1)", alt: "unsafe" } },
+      ];
+      insertedMedia = true;
+    }
+  });
+  const mediaRender = render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={mediaDocument}
+      markdown={markdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: committedDigest }}
+      isDirty={false}
+      onReturnToDocument={vi.fn()}
+    />,
+  );
+  expect(screen.getByTestId("world-plan-card-content-unavailable-scene-scene:arrival")).toHaveTextContent(
+    "This card contains content Cards cannot display safely.",
+  );
+  expect(screen.queryByRole("img")).toBeNull();
+  expect(fetchSpy).not.toHaveBeenCalled();
+  mediaRender.unmount();
+
+  const unsafeLinkDocument = JSON.parse(JSON.stringify(imported.doc)) as JSONContent;
+  let markedUnsafeLink = false;
+  visitJsonNodes(unsafeLinkDocument, (node) => {
+    if (!markedUnsafeLink && node.type === "text" && node.text === "First paragraph with ") {
+      node.marks = [...(node.marks ?? []), { type: "link", attrs: { href: "javascript:alert(1)" } }];
+      markedUnsafeLink = true;
+    }
+  });
+  expect(markedUnsafeLink).toBe(true);
+  const unsafeLinkRender = render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={unsafeLinkDocument}
+      markdown={markdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: committedDigest }}
+      isDirty={false}
+      onReturnToDocument={vi.fn()}
+    />,
+  );
+  expect(screen.getByTestId("world-plan-card-content-unavailable-scene-scene:arrival")).toBeInTheDocument();
+  expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
+  expect(fetchSpy).not.toHaveBeenCalled();
+  unsafeLinkRender.unmount();
+});
+
+it("renders a representative 20-card synthetic Plan projection", () => {
+  const markdown = Array.from({ length: 20 }, (_, index) => [
+    `<!-- dmb-playable-element:v1 kind=scene id=scene:synthetic-${index + 1} -->`,
+    `## Synthetic scene ${index + 1}`,
+    `A representative paragraph for scene ${index + 1}.`,
+  ].join("\n")).join("\n");
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics).toEqual([]);
+  const startedAt = performance.now();
+  const mounted = render(
+    <WorldPlanCardProjection
+      worldId={worldId}
+      documentId={documentId}
+      document={imported.doc}
+      markdown={markdown}
+      sourceWarnings={[]}
+      basis={{ status: "verified", revision: 4, contentSha256: committedDigest }}
+      isDirty={false}
+      onReturnToDocument={vi.fn()}
+    />,
+  );
+  const elapsedMs = performance.now() - startedAt;
+  expect(screen.getAllByTestId(/^world-plan-card-content-scene-scene:synthetic-/)).toHaveLength(20);
+  expect(document.querySelectorAll(".ProseMirror, [data-node-view-wrapper]")).toHaveLength(0);
+  console.info(`Synthetic Plan projection: 20 cards mounted in ${elapsedMs.toFixed(1)} ms (jsdom).`);
+  mounted.unmount();
 });
 
 it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the exact committed revision", async () => {

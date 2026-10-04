@@ -86,6 +86,69 @@ describe("buildWorldPlanCardProjectionModel", () => {
     expect(JSON.stringify(model)).not.toContain("These instructions stay in Document");
   });
 
+  it("retains inline atoms, marks, paragraphs, and nested lists in v1 and v2 card slices", () => {
+    const v1 = project([
+      "<!-- dmb-playable-element:v1 kind=scene id=scene:arrival -->",
+      "## Arrival [Gate](dmb-node:node:gate)",
+      "First paragraph with **bold** and [Captain](#dmb-ref:npc:captain).",
+      "",
+      "Second paragraph.",
+      "",
+      "- First item",
+      "  - Nested item",
+    ].join("\n"));
+    expect(v1.status).toBe("ready");
+    if (v1.status !== "ready") return;
+    const scene = v1.roots[0]!;
+    expect(scene.titleContent).toContainEqual(
+      expect.objectContaining({ type: "graphNodeReference", attrs: { nodeId: "node:gate", label: "Gate" } }),
+    );
+    expect(scene.bodyContent.map((node) => node.type)).toEqual([
+      "paragraph",
+      "paragraph",
+      "bulletList",
+    ]);
+    expect(scene.bodyContent[0]?.content).toContainEqual(
+      expect.objectContaining({ type: "text", text: "bold", marks: [{ type: "bold" }] }),
+    );
+    expect(scene.bodyContent[0]?.content).toContainEqual(
+      expect.objectContaining({ type: "runbookReference", attrs: expect.objectContaining({ refId: "captain", label: "Captain" }) }),
+    );
+    expect(scene.bodyContent[2]?.content?.[0]?.content?.[1]).toMatchObject({ type: "bulletList" });
+
+    const v2Markdown = [
+      "<!-- dmb-playable-element:v2 kind=beat id=beat:arrival beat_kind=spine -->",
+      "## Arrival",
+      "<!-- dmb-playable-element:v2 kind=choice id=choice:route -->",
+      "### Choose a route",
+      "The party reaches the gate.",
+      "<!-- dmb-playable-element:v2 kind=option id=option:open -->",
+      "- [Open the gate](#dmb-ref:citation:gate-key) **now**",
+      "",
+      "  The group advances.",
+      "",
+      "  - Keep the lantern raised.",
+      "## GM instructions",
+      "This remains outside the cards.",
+    ].join("\n");
+    const importedV2 = markdownToTiptapDoc(v2Markdown);
+    expect(importedV2.diagnostics).toEqual([]);
+    const v2 = buildWorldPlanCardProjectionModel({ document: importedV2.doc, markdown: v2Markdown, sourceWarnings: [] });
+    expect(v2.status).toBe("ready");
+    if (v2.status !== "ready") return;
+    const option = v2.roots[0]!.children[0]!.children[0]!;
+    expect(option.titleContent).toContainEqual(
+      expect.objectContaining({ type: "runbookReference", attrs: expect.objectContaining({ refId: "gate-key", label: "Open the gate" }) }),
+    );
+    expect(option.titleContent).toContainEqual(
+      expect.objectContaining({ type: "text", text: "now", marks: [{ type: "bold" }] }),
+    );
+    expect(option.bodyContent.map((node) => node.type)).toEqual(["paragraph", "bulletList"]);
+    expect(option.bodyContent[1]).toMatchObject({ type: "bulletList" });
+    expect(JSON.stringify(option.bodyContent[1])).toContain("Keep the lantern raised.");
+    expect(JSON.stringify(v2)).not.toContain("This remains outside the cards.");
+  });
+
   it("leaves unmarked Plan prose unclassified and gives an empty projection", () => {
     const model = project("# Prep\n\n## A heading that looks like a scene\n\nNo marker was authored.\n");
     expect(model).toEqual({ status: "empty" });
