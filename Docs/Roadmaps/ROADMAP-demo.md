@@ -141,7 +141,7 @@ lease is closed. See the execution ledger entry below for the Graph witness and
 owner/resource questions.
 
 **Serial settlement update (2026-10-04):** Buddy `origin/main` is
-`4efada56aa93d529bf49128d82ba2d097b074af1`. PR #904 merged at
+`e7b1464af6474e64a0f36c8a2fc57927b85db190`. PR #904 merged at
 `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` from reviewed head
 `c355234d1486d8cbc46aa9afa611d6d1340b812c`; its Agent composer lease is closed.
 PR #886 merged at `4efada56aa93d529bf49128d82ba2d097b074af1` from tested head
@@ -151,21 +151,40 @@ lease is released. The inherited UI typecheck failure at
 `ThreatPublicationPanel.tsx:553` remains present on main and was not changed by
 #886.
 
-- The first saved-Plan card projection remains **BLOCKED**. ARCHITECTURE found
-  that the editor accepts duplicate v2 effect targets which the canonical
-  server parser rejects. PRIME assigned RAKE the identity-validator/index
-  repair and shared-fixture conformance proof through editor Markdown
-  import/index/serialization and the existing Python parser. The validator correction changes editor admission to reject the observed
-  duplicates; the cross-parser comparison runs only in tests: the UI does not call the server parser at runtime
-  and no Run is started. RAKE owns those parser/test paths; DEMO has no write
-  lease for them. After its independent review passes, PRIME must pin a fresh
-  ACTIVE card implementation handoff with exact paths, resources, and authority
-  synchronization.
+- RAKE PR #908 closed the bounded duplicate-v2-effect-target mismatch and
+  merged at `e7b1464af6474e64a0f36c8a2fc57927b85db190` from reviewed head
+  `fb866cd707ffc622b6be053822b0ffb03e0901b7`. Its UI identity/index/conformance
+  suites passed 53/53 and Python passed 7/7. The shared fixture covers seven
+  effect-target cases only; it does not establish full grammar parity for
+  unknown versions, mixed grammars, or orphan Choice/Option structures.
+  PRIME activated the serial DEMO card slice on that exact main with the
+  exclusive lease in
+  [HANDOFF-DEMO-saved-plan-card-projection.md](../Plans/HANDOFF-DEMO-saved-plan-card-projection.md).
+  Its own model tests must fail closed for malformed, mixed, unknown, and orphan
+  structures. No full parser equivalence or Run admission is claimed.
+- **Future Graph-backed Plan Ask remains a separate blocked contract.** The
+  canonical World Plan conversation uses `/api/live/agent/turn` with Graph
+  disabled. The legacy Plan `/api/live/query` path has client-supplied history
+  and is not canonical World conversation or durable Graph provenance. #905's
+  Graph adapter and APP-STATE's receipt/provenance/atomic Ask-context contract
+  remain unsettled. Before that successor is designed, its owners must define
+  server-owned pins for the active native World binding/version, exact Graph
+  revision actually read, exact saved Plan basis, conversation, and immutable
+  Graph receipt; drift must fail closed and a receipt must not replay under a
+  different revision. The committed/saved Plan revision is the only authorized
+  Plan content basis for Graph evidence or provider context; dirty editor text
+  must not be silently substituted. Graph identity/locator data does not prove
+  opened source text or source-body citation. Product behavior when a draft is
+  dirty remains a design decision: block Ask, or explicitly allow an Ask against
+  the committed revision with clear disclosure. Sequence this after the
+  saved-Plan card slice, APP-STATE's contract, and #905's adapter gate. Owners:
+  DEMO for the Plan product/route, APP-STATE for durable receipt/idempotency,
+  and DungeonMind for Graph identity/revision and source evidence.
 - ARCHITECTURE's Plan-to-Run design (#907) and SERVER's managed Graph adapter
   handoff (#905) are merged; their implementation handoffs remain BLOCKED on
   their explicit contract, sequencing, and path/resource gates. APP-STATE's
-  evidence-receipt design is prepared but publication awaits the exact-file
-  authorization requested by automatic approval review.
+  durable evidence-receipt and Plan Ask context contract remains unpublished;
+  it is a prerequisite for the separate Graph-backed Plan Ask successor.
 - #887 remains DOGFOOD's prototype-only evidence lane. Its private corpus,
   media, and state snapshots are not production data or sources to copy.
 - #869, head `23d76f4d4f4f223b62067024e152e8cb2dde37b8`, remains
@@ -173,6 +192,32 @@ lease is released. The inherited UI typecheck failure at
   runtime evidence below is historical; a fresh isolated lane is still needed.
 - Operator UI 5202/API 8000 and DOGFOOD 5203 remain reserved; no dispatch
   authorizes replacing those runtimes.
+
+**Saved-Plan card projection — ACTIVE (2026-10-04):** DEMO delivered the single
+serial card/document projection in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909),
+opened against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190` from
+`codex/demo-first-saved-plan-card-projection`. Its initial implementation head
+is `ffd83e424bb238dc2331cf55ab6237993bc0762e`; its current exact head is
+authoritative in GitHub metadata. The view is a read-only lens
+over the same mounted editor draft; supported edits stay in Document and use
+ordinary Save plus a fresh reopen. It adds no card store, parser admission,
+Run, Graph, or J1–J6 acceptance. Focused suites pass 242/242: the model,
+mounted tests, Plan Page/EditHost, and Playable index/conformance pass 109/109;
+Markdown ingress and Plan Save tests pass 133/133. Mounted evidence now includes
+the v2 editor-to-Cards-to-Save-to-reopen writer path and a pending/uncertain-save
+regression that keeps the revision/digest pair unavailable until verified. A
+reopened persisted server draft with no local pending write remains readable in
+Document and is labeled uncommitted in Cards until ordinary Save and fresh
+committed reopen; an unknown snapshot status keeps the saved basis unavailable.
+A production Vite build to `/tmp` passes with the repository's existing
+large-chunk advisory. The UI typecheck still reports only
+`ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`.
+On the isolated synthetic preview, desktop 1280×800 had no horizontal overflow
+(document width 1265px); mobile 390×844 had body width 375px and a 335px card
+region with 20px side insets. The mobile heading/grid styles applied. The
+cumulative diff is in PRIME's independent review at the exact head in PR
+metadata. No merge or J1–J6 acceptance is claimed. Ports 5202, 8000, and 5203
+remain untouched.
 
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at

@@ -1,67 +1,79 @@
 ---
 title: First production card projection from a saved World Plan
 document_class: implementation_handoff
-status: BLOCKED
+status: ACTIVE
 created_at: "2026-10-04"
 workstream: DEMO
 design_authority: "../Plans/STEWARDS-HANDOFF-demo.md"
 roadmap_authority: "../Roadmaps/ROADMAP-demo.md"
 design_base: "Buddy main 4efada56aa93d529bf49128d82ba2d097b074af1"
+activation_base: "Buddy main e7b1464af6474e64a0f36c8a2fc57927b85db190"
 pr_topology: serial
-implementation_branch: not_assigned
-implementation_pr: not_authorized_until_activation
+implementation_branch: codex/demo-first-saved-plan-card-projection
+implementation_pr: "https://github.com/Drakosfire/DungeonMindBuddy/pull/909"
 ---
 
 # HANDOFF — DEMO: saved World Plan card projection
 
-> This is a concrete product design, currently BLOCKED. It grants no runtime or
-> implementation write lease. PR #886 merged at
-> `4efada56aa93d529bf49128d82ba2d097b074af1` from tested head
-> `502b54d713e32e48f160182170c87b4f41fca990`; its geometry gate passed and its
-> Page lease is released. PRIME assigned RAKE the parser-conformance repair.
-> Card implementation remains blocked until that gate passes review and PRIME
-> pins a fresh ACTIVE handoff.
+> ACTIVE implementation handoff, pinned to Buddy `main@e7b1464af6474e64a0f36c8a2fc57927b85db190` by PRIME on 2026-10-04. The design base was `4efada56aa93d529bf49128d82ba2d097b074af1`; the Page lease from #886 is released. PRIME accepted RAKE PR #908 at exact reviewed head `fb866cd707ffc622b6be053822b0ffb03e0901b7`, merged as `e7b1464af6474e64a0f36c8a2fc57927b85db190`, and activated this bounded card slice with the path/resource lease below.
+
 
 PRIME reviewed and accepted this initial boundary on 2026-10-04: the Cards view
 is a GM-only read-only lens over the same Plan editor draft; supported edits stay
-in the existing Document editor and use ordinary Save/fresh reopen. The boundary
-is independently useful, but it is not the completed Plan/Play experience and
-does not change this handoff's BLOCKED status.
+in the existing Document editor and use ordinary Save/fresh reopen. The boundary is independently useful but is not the completed Plan/Play
+experience. This handoff now activates its implementation.
 
-## Status and activation gate
+## Status and activation record
 
-**Status: BLOCKED on RAKE's parser-conformance repair/review and PRIME's exact implementation path activation.**
+**Status: ACTIVE.** PRIME authorized one serial production card projection PR on
+Buddy `main@e7b1464af6474e64a0f36c8a2fc57927b85db190` and pinned the exact
+exclusive write lease below. The implementation branch is
+`codex/demo-first-saved-plan-card-projection` in the isolated `/tmp` checkout.
 
-Buddy `origin/main` is re-anchored at
-`4efada56aa93d529bf49128d82ba2d097b074af1`. Current relevant work is:
+Re-anchor and collision audit at activation:
 
-- PR #886 merged at
-  `4efada56aa93d529bf49128d82ba2d097b074af1` from tested head
-  `502b54d713e32e48f160182170c87b4f41fca990`. Its focused suite passed 187/187,
-  isolated desktop/mobile geometry passed 1/1, and its production Plan
-  Page/shell lease is closed.
+- PR #886 merged at `4efada56aa93d529bf49128d82ba2d097b074af1` from tested head
+  `502b54d713e32e48f160182170c87b4f41fca990`; its Page/shell lease is closed.
 - PR #904 merged at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` from reviewed
-  head `c355234d1486d8cbc46aa9afa611d6d1340b812c`. Its six-path lease is settled.
+  head `c355234d1486d8cbc46aa9afa611d6d1340b812c`; its six-path Agent composer
+  lease is settled.
 - RAKE PR #906 merged at `6feb3059b2da4d2ec29966ce9723f0effc70108f`; its
   mounted-test repair lease is closed.
 - PR #907's Plan-to-Playable design merged at
-  `d8e861661716d2fa8c1fb1e3e56ef08268d32da8`. It defines a later Plan-to-Run
-  contract and its card projection predecessor tests; it does not activate Run
-  implementation.
-- PRIME assigned RAKE a bounded editor/server parser-conformance repair after
-  ARCHITECTURE found that the editor accepts duplicate targets within a v2
-  `activates` or `suppresses` list while the existing server parser rejects
-  them. RAKE owns the identity-validator/index regression, shared fixtures, and
-  Python parser test. Its exact implementation handoff and review are pending;
-  DEMO owns no parser or conformance-test paths.
-- PR #887 remains DOGFOOD's prototype-only evidence lane. Its private
-  corpus/media/state snapshots are not production data or sources to copy.
+  `d8e861661716d2fa8c1fb1e3e56ef08268d32da8`; it is a later contract, not Run
+  implementation authority.
+- RAKE PR #908 merged at this activation base from exact reviewed head
+  `fb866cd707ffc622b6be053822b0ffb03e0901b7`. Its owning UI/index and Python
+  conformance suites passed 53/53 and 7/7, respectively. The seven shared cases
+  cover valid v1, distinct v2 targets, cross-Option target reuse, duplicate
+  activates, duplicate suppresses, cross-list overlap, and dangling targets.
+  This is bounded effect-target evidence, not full grammar equivalence. The
+  fixture does not establish shared cross-parser parity for unknown versions,
+  mixed grammars, or orphan Choice/Option cases. PRIME's activation keeps this
+  card slice moving without changing parser paths: this projection's own model
+  tests must independently fail closed for malformed, mixed, unknown, and orphan
+  structures. No claim of full parser equivalence or Run admission is made.
+- Open Buddy PRs rechecked at activation: #887, #869, #844, #826, #798, #781,
+  #765, #764, #763, #761, and #760. Their current path leases do not overlap the
+  ten-path card lease below. #887 remains prototype-only; its private
+  corpus/media/state is not production data or a source to copy.
 
-Before activation, re-fetch Buddy `main` and all open PRs; verify RAKE's
-conformance repair and PRIME review; then have PRIME pin exact code/test/style
-paths, resource owners, and cumulative authority-sync paths. This BLOCKED
-handoff authorizes no implementation branch, code, schema, route, provider,
-database, corpus, or runtime changes.
+The card user action remains bounded: open a saved World Plan in a GM-only,
+read-only card view, switch to the existing Document editor for supported text
+edits, explicitly Save through the ordinary Plan writer, and freshly reopen the
+same World/document to verify the projection at the exact committed revision.
+This slice has no card-native editing controls and does not complete the broader
+Plan/Play experience.
+
+The same World-owned Plan and mounted `MarkdownEditorCore` remain the sole
+content authority. The projection consumes the current Tiptap document and
+existing Playable indexes; it does not copy Markdown, create a card store, or
+mint identities. Cards and Document view show the same mounted draft. Card view
+is read-only; text edits happen only in Document and use the existing Save.
+After Save, the test reopens the same World/document from the committed mock
+snapshot and compares IDs, hierarchy, associations, edges, source order,
+revision, and digest. The initial projection is GM-only. Viewing/saving does not
+publish Graph canon or authorize Run admission.
 
 ## User action and observable gap
 
@@ -156,24 +168,22 @@ are available.
   can be shown as current. There are no card actions that can mutate a stale
   replacement document.
 
-### Newly discovered conformance blocker
+### Settled duplicate-edge mismatch and accepted evidence boundary
 
-ARCHITECTURE found a concrete v2 mismatch: the editor-side
-`validatePlayableOptionItemAttrs` validates edge IDs and activate/suppress
-overlap but does not reject a duplicate target within one `activates` or
-`suppresses` list. `indexPlayableStructureV2` consequently accepts that Plan,
-while the existing server `derive_play_run_reference_elements_v2` rejects the
-same duplicate effect target. The current editor index can therefore accept a
-structure that the canonical server parser rejects, which conflicts with this
-handoff's proposed canonical, fail-closed card projection.
+ARCHITECTURE found that `validatePlayableOptionItemAttrs` did not reject a
+repeated target inside one v2 `activates` or `suppresses` list, while the
+canonical server parser rejects that duplicate. RAKE repaired the UI validator
+and published PR #908, merged at `e7b1464af6474e64a0f36c8a2fc57927b85db190`.
+Its exact reviewed head was `fb866cd707ffc622b6be053822b0ffb03e0901b7`; UI
+identity/index/conformance suites passed 53/53 and Python passed 7/7.
 
-PRIME chose to retain the canonical, fail-closed card projection and require a
-bounded duplicate-edge validator repair plus a shared-fixture conformance witness through editor Markdown
-import/index/serialization and the existing Python parser. RAKE owns the
-validator and cross-parser proof; the server parser is not called by the UI at
-runtime and no Run is started. This card handoff remains BLOCKED until that
-repair passes independent review and PRIME pins the separate card implementation
-lease. No parser or conformance-test path is authorized to DEMO by this document.
+The shared fixture proves seven bounded cases recorded in the RAKE handoff; it
+does not prove shared unknown-version, mixed-grammar, or orphan Choice/Option
+parity. PRIME explicitly activated this card slice with that limitation recorded.
+The card model owns fail-closed projection coverage for those structures. DEMO
+owns no parser/index/conformance fixture path and does not claim full grammar
+parity or Run admission. Any broader Run/conformance requirement is a separate
+steward decision after this slice.
 
 ### First-slice boundary
 
@@ -190,7 +200,7 @@ exact gap to PRIME before implementation.
 
 ## Owning evidence and failure cases
 
-Current source evidence at `4efada56aa93d529bf49128d82ba2d097b074af1`:
+Current source evidence at activation `e7b1464af6474e64a0f36c8a2fc57927b85db190`:
 
 - `apps/live-control-ui/src/tiptap/playable/playableElementIdentity.ts` parses
   canonical v1 and v2 identities and rejects malformed marker forms. Its
@@ -246,72 +256,69 @@ Required owning-boundary evidence after activation:
    and Save-fidelity tests run on the exact cumulative base-to-head diff. A
    synthetic browser check covers the card lens at desktop/mobile sizes; it does
    not replace the mounted exact Save/reopen witness. This slice never calls the
-   server Run manifest parser at runtime or invokes Run admission. Before card
-   activation, RAKE's validator repair and shared-fixture conformance proof through editor Markdown
-   import/index/serialization and the existing Python parser must pass review,
-   including valid v1/v2 identity, membership, edge and order parity plus shared
-   rejection of the duplicate-edge, unknown/mixed/orphan cases. The first-card
-   implementation consumes that accepted conformance result; it does not own
-   the parser repair or Python test.
-   Full Plan-to-Run runtime and APP-STATE admission remain later work; the
-   existing `admit_playable_revision` rejects WorkObjects whose kind is not
-   `runbook`.
+   server Run manifest parser at runtime or invokes Run admission. The card model
+   tests independently fail closed for unknown versions, mixed grammar, malformed
+   markers and orphan Choice/Option, in addition to the bounded edge cases. The
+   shared #908 fixture proves its seven recorded cases only; it is not full
+   parser/grammar equivalence. Full Plan-to-Run runtime and APP-STATE admission
+   remain later work; the existing `admit_playable_revision` rejects WorkObjects
+   whose kind is not `runbook`.
 5. Session 29 remains the intended operator acceptance example after the code
    merges. Until operator use succeeds, no J1–J6 or connected-demo gate is
    closed. Use a synthetic fixture for tests and isolated preview; do not copy
    private DOGFOOD corpora or touch ports 5202/5203.
 
-## Candidate implementation paths — not a write lease
+## ACTIVE exclusive write lease
 
-PRIME approved the following candidate implementation paths after the RAKE
-conformance gate passes. This remains a design allowlist, not an ACTIVE write
-lease; PRIME must re-anchor and pin the exact lease before code starts:
+Only this lane may write the following ten paths while ACTIVE:
 
-- `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx` — mount the view
-  switch/projection beside the same World-owned editor and pass current identity,
-  draft/editor transaction, and Save state. #886 merged and released this path;
-  a fresh card lease is still required.
-- `apps/live-control-ui/src/planSurface/components/WorldPlanCardProjection.tsx`
-  — new marker-derived view component consuming existing indexes.
-- `apps/live-control-ui/src/planSurface/components/WorldPlanCardProjection.css`
-  — local component styling; do not add global shell/layout rules.
-- `apps/live-control-ui/src/planSurface/WorldPlanCardProjection.model.test.ts`
-  — new focused projection/failure-matrix tests, if the model is factored out.
-- `apps/live-control-ui/src/planSurface/WorldPlanCardProjection.integration.test.tsx`
-  — new mounted Save/reopen equivalence witness using synthetic APIs.
-- `Docs/Plans/HANDOFF-DEMO-saved-plan-card-projection.md`,
-  `Docs/Plans/HANDOFF-DEMO-plan-agent-panel-usability.md`,
-  `Docs/Plans/HANDOFF-DEMO-plan-navigation-shell.md`, and
-  `Docs/Roadmaps/ROADMAP-demo.md` — record the settled #904/#886 predecessors
-  and current serial gate backward-looking in the eventual card implementation
-  PR.
+1. `Docs/Plans/HANDOFF-DEMO-saved-plan-card-projection.md` — this activation,
+   acceptance evidence, and final settlement.
+2. `apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx` — integrate the
+   view switch and pass current World/document/revision/digest, editor draft, and
+   ordinary Save state.
+3. `apps/live-control-ui/src/planSurface/components/WorldPlanCardProjection.tsx`
+   — new read-only projection component.
+4. `apps/live-control-ui/src/planSurface/components/WorldPlanCardProjection.css`
+   — local component styling only; no global shell/layout rules.
+5. `apps/live-control-ui/src/planSurface/WorldPlanCardProjection.model.test.ts`
+   — new focused projection and failure-matrix tests.
+6. `apps/live-control-ui/src/planSurface/WorldPlanCardProjection.integration.test.tsx`
+   — new mounted Save/reopen equivalence witness using synthetic APIs.
+7. `Docs/Roadmaps/ROADMAP-demo.md` — record this active lease, exact evidence,
+   and the remaining demo gate.
+8. `Docs/Plans/HANDOFF-DEMO-plan-agent-panel-usability.md` — settle only the
+   accepted/merged #904 predecessor state for this successor.
+9. `Docs/Plans/HANDOFF-DEMO-plan-navigation-shell.md` — settle only the
+   accepted/merged #886 predecessor state for this successor.
+10. `Docs/Plans/HANDOFF-RAKE-playable-edge-conformance.md` — settle only
+    #908's merged status, closed lease, and bounded evidence pin.
 
-Do not modify the existing Playable parsers/indexes or RAKE-owned conformance
-paths, API types/routes, database, Graph contracts, generic editor semantics,
-shared UI package, or any path outside the candidate list before PRIME pins the
-fresh ACTIVE card lease. If new source access or a new public contract is
-required, pause and return the exact owner/path/capability question to PRIME.
+No other path is leased. The merged predecessor Page/shell work is released;
+this handoff grants a new, exclusive `PlanSurfacePage.tsx` lease for the card
+integration only. If required paths exceed the ten above, return to PRIME before
+editing them.
 
 ## Topology and resources
 
-**Topology: serial.** One card implementation PR after RAKE's conformance repair
-passes PRIME review and PRIME activates the fresh exact-path lease. #886 has
-merged, but no card code PR is authorized before that gate. No stacked or
-parallel code PR is authorized.
-The #887 prototype remains separate. #907's Plan-to-Run design is an accepted
-contract reference, not an active implementation dependency. Keep the current
-operator UI/API 5202/8000 and DOGFOOD 5203 reserved. The card implementation
-uses mounted mocked tests and a separate synthetic preview; no database,
-provider, credentials, private corpus, Graph, or user Plan state is required.
+**Topology: serial; one implementation PR.** Base: Buddy `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`. Branch: `codex/demo-first-saved-plan-card-projection`, isolated checkout `/tmp/dmb-demo-first-saved-plan-card-projection`. PRIME owns independent review and merge. Opening/updating the one assigned PR is part of this ACTIVE implementation authority.
+
+The implementation uses mocked World/document APIs and synthetic source only.
+No provider, database, credential, real World/Plan, private corpus, Graph read/write,
+Run, API/schema, or server runtime is leased. A synthetic browser preview may use
+UI port 54126 and mock API port 54127 only after confirming both are free and
+have no existing owner. If either port is occupied or assigned, return the
+resource collision to PRIME; do not reuse the listener. Operator ports 5202/8000
+and DOGFOOD 5203 remain untouched.
 
 ## Stop conditions
 
 Return to PRIME before writing code if:
 
-- RAKE's parser-conformance repair has not passed independent review, or any
-  proposed card path is still leased;
-- the current editor/parser contract cannot project supported v1/v2 identities
-  without changing its public/admission contract;
+- a card path is found to be actively leased by another lane, or a required
+  resource has an existing owner;
+- the editor/parser contract cannot project supported v1/v2 identities without
+  changing its public/admission contract;
 - the projection cannot reflect the same Tiptap draft and survive supported
   Document edits plus ordinary Save/reopen without adding a second content
   store, identity system, or public API;
@@ -322,4 +329,61 @@ Return to PRIME before writing code if:
   Run, player visibility, Agent targeting, or another PR.
 
 No acceptance claim may exceed the exact mounted Save/reopen tests, isolated
-preview, and operator use actually completed.
+preview, and operator use actually completed. This ACTIVE lease does not close
+J1–J6 or the operator acceptance gate.
+
+## DEMO implementation verification — 2026-10-04
+
+The following evidence is on the active serial branch and uses only synthetic
+World/Plan data:
+
+- `WorldPlanCardProjection.model.test.ts` and
+  `WorldPlanCardProjection.integration.test.tsx`, together with
+  `PlanSurfacePage.test.tsx`, `WorldPlanEditHost.integration.test.tsx`,
+  `playableStructureIndex.test.ts`, and `playableEdgeConformance.test.ts`:
+  **107/107 passed** across six files. Mounted witnesses confirm the same
+  editor node and selection survive view switching; the card lens reflects its
+  dirty draft; and no prepare/commit runs before explicit Save. The v1 witness
+  verifies exact marker order through the ordinary writer and fresh reopen at
+  revision 6 with its returned digest. A v2 witness edits Document, opens Cards,
+  saves while Cards remains active, then freshly reopens and checks exact ID
+  order, Beat→Scene/Choice siblings, Choice→Option containment, Scene
+  association, authored `activates`/`suppresses`, both preserved `dmb-ref`
+  links, revision, and digest. A pending/uncertain commit witness confirms the
+  card basis is unavailable instead of combining a prepared revision with an
+  older digest; the dirty draft and pending recovery record remain, and no
+  duplicate prepare/commit occurs. Mounted snapshot-status regressions confirm
+  that a persisted server working copy with `content_status=draft` stays readable
+  in Document and is labeled uncommitted in Cards until ordinary Save and fresh
+  committed reopen; an unknown status keeps the basis unavailable. A further
+  mounted test confirms document/World changes retire the old projection.
+- `markdownIngressCorpus.test.ts` and `usePlanMarkdownSave.test.ts`:
+  **133/133 passed** across two files.
+- Final focused evidence is **242/242** across eight files (the 109 tests above
+  plus 133 Markdown ingress/save-fidelity tests).
+- `node_modules/.bin/vite build --configLoader=runner --outDir
+  /tmp/dmb-demo-card-build-final-draft-basis` succeeds. Vite emits the repository's
+  existing advisory about a JavaScript chunk above 500 kB. The standard
+  `npm run build` typecheck step remains blocked by the inherited JSX namespace
+  error below and its attempt to write build metadata through the read-only
+  `node_modules` symlink; the standalone Vite production build is green.
+- `tsc -p tsconfig.app.json --noEmit --pretty false
+  --tsBuildInfoFile /tmp/dmb-demo-card-tsbuildinfo-final-draft-basis` reports only the inherited
+  `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503 Cannot
+  find namespace 'JSX'` error, outside this ten-path lease.
+- Earlier synthetic browser preview on UI/API ports 54126/54127 used no live service;
+  the later saved-basis and snapshot-status fixes did not change CSS. No screenshot
+  from that preview was retained.
+  At desktop 1280×800, the card region measures 608px wide and the document
+  width is 1265px. At mobile 390×844, body width is 375px, the card region is
+  335px wide at a 20px inset, the one-column heading/grid styles apply, and the
+  document does not overflow the viewport. Operator UI/API 5202/8000 and
+  DOGFOOD 5203 were not opened or contacted; no Save was performed in preview.
+- The separate graphless Ask path was not exercised or changed. The legacy
+  `/api/live/query` route does not establish canonical World conversation or
+  Graph provenance. No clean-draft Graph basis is adopted by this slice.
+
+The implementation is delivered in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909)
+against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`. The PR is open for
+PRIME's independent review; its current exact implementation head is recorded
+in the PR metadata. The ACTIVE lease remains in review and PRIME owns merge.

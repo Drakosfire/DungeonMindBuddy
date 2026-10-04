@@ -1,0 +1,189 @@
+.world-plan-view-switch {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+
+.world-plan-view-switch button,
+.world-plan-cards button {
+  min-height: 2.5rem;
+  border: 1px solid var(--surface-border, #53635d);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.85rem;
+  color: var(--text-primary, #f5f4ec);
+  background: var(--surface-raised, #18211e);
+  font: inherit;
+}
+
+.world-plan-view-switch button[aria-pressed="true"] {
+  border-color: var(--accent, #c58b49);
+  box-shadow: inset 0 -2px 0 var(--accent, #c58b49);
+}
+
+.world-plan-view-switch button:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
+.world-plan-document-view[hidden] {
+  display: none !important;
+}
+
+.world-plan-cards {
+  display: grid;
+  gap: 1rem;
+  max-width: 76rem;
+  margin: 0 auto;
+  padding: 1rem;
+  color: var(--text-primary, #f5f4ec);
+}
+
+.world-plan-cards__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.world-plan-cards__heading h2,
+.world-plan-cards--blocked h2,
+.world-plan-cards > header h2 {
+  margin: 0;
+}
+
+.world-plan-cards__state {
+  margin: 0;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid var(--surface-border, #53635d);
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.world-plan-cards__basis {
+  border: 1px solid var(--surface-border, #53635d);
+  border-radius: 0.65rem;
+  padding: 0.75rem 1rem;
+  background: var(--surface-raised, #18211e);
+}
+
+.world-plan-cards__basis summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.world-plan-cards__basis dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.35rem 0.8rem;
+  margin: 0.8rem 0 0;
+}
+
+.world-plan-cards__basis dd {
+  min-width: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.world-plan-cards__source-note {
+  margin: 0;
+  color: var(--text-secondary, #bec9c2);
+}
+
+.world-plan-card-roots,
+.world-plan-card-children {
+  display: grid;
+  gap: 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.world-plan-card-children {
+  margin: 0.7rem 0 0 0.8rem;
+  padding-left: 0.8rem;
+  border-left: 2px solid var(--surface-border, #53635d);
+}
+
+.world-plan-card {
+  border: 1px solid var(--surface-border, #53635d);
+  border-radius: 0.8rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface-raised, #18211e);
+  box-shadow: 0 0.3rem 1rem rgb(0 0 0 / 12%);
+}
+
+.world-plan-card-node--scene > .world-plan-card,
+.world-plan-card-node--beat > .world-plan-card {
+  border-top: 3px solid var(--accent, #c58b49);
+}
+
+.world-plan-card__header h3 {
+  margin: 0.1rem 0 0.35rem;
+}
+
+.world-plan-card__kind {
+  margin: 0;
+  color: var(--text-secondary, #bec9c2);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.world-plan-card__header code,
+.world-plan-card__relationship code,
+.world-plan-card__edges code {
+  overflow-wrap: anywhere;
+  color: var(--text-secondary, #bec9c2);
+  font-size: 0.82em;
+}
+
+.world-plan-card__relationship,
+.world-plan-card__body {
+  margin: 0.65rem 0 0;
+}
+
+.world-plan-card__body {
+  white-space: pre-wrap;
+}
+
+.world-plan-card__edges {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0.7rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--text-secondary, #bec9c2);
+}
+
+.world-plan-cards--blocked {
+  border-left: 3px solid #d28b6e;
+}
+
+.world-plan-cards--blocked > ul {
+  margin: 0;
+  padding-left: 1.2rem;
+}
+
+@media (max-width: 600px) {
+  .world-plan-cards {
+    padding: 0.6rem;
+  }
+
+  .world-plan-cards__heading {
+    display: grid;
+  }
+
+  .world-plan-cards__basis dl {
+    grid-template-columns: 1fr;
+  }
+
+  .world-plan-cards__basis dd + dt {
+    margin-top: 0.45rem;
+  }
+
+  .world-plan-card-children {
+    margin-left: 0.25rem;
+    padding-left: 0.55rem;
+  }
+}
