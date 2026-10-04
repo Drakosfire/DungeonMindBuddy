@@ -16,6 +16,18 @@ import {
   worldPlanCardTargetKeys,
 } from "./components/WorldPlanCardProjection";
 
+type GenerateHtml = typeof import("@tiptap/core").generateHTML;
+const { generateHtmlMock, originalGenerateHtml } = vi.hoisted(() => ({
+  generateHtmlMock: vi.fn<GenerateHtml>(),
+  originalGenerateHtml: { current: null as GenerateHtml | null },
+}));
+vi.mock("@tiptap/core", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@tiptap/core")>();
+  originalGenerateHtml.current = actual.generateHTML;
+  generateHtmlMock.mockImplementation((...args) => originalGenerateHtml.current!(...args));
+  return { ...actual, generateHTML: generateHtmlMock };
+});
+
 vi.mock("./components/WorldPlanAgentConversation", () => ({
   WorldPlanAgentConversation: () => null,
 }));
@@ -183,6 +195,7 @@ function installApiMocks(
 
 afterEach(() => {
   vi.restoreAllMocks();
+  generateHtmlMock.mockImplementation((...args) => originalGenerateHtml.current!(...args));
   localStorage.clear();
   window.history.replaceState({}, "", "/");
 });
@@ -370,6 +383,54 @@ it("serializes authored Plan content inertly, escapes reference labels, and fail
   expect(document.querySelector('a[href^="javascript:"]')).toBeNull();
   expect(fetchSpy).not.toHaveBeenCalled();
   unsafeLinkRender.unmount();
+});
+
+it("reuses static card HTML for equivalent documents and unrelated selection renders", () => {
+  const markdown = [
+    "<!-- dmb-playable-element:v1 kind=scene id=scene:stable -->",
+    "## Stable scene",
+    "Original body.",
+  ].join("\n");
+  const imported = markdownToTiptapDoc(markdown);
+  expect(imported.diagnostics).toEqual([]);
+  generateHtmlMock.mockClear();
+  const props = {
+    worldId,
+    documentId,
+    markdown,
+    sourceWarnings: [] as string[],
+    basis: { status: "verified" as const, revision: 4, contentSha256: committedDigest },
+    isDirty: false,
+    onReturnToDocument: vi.fn(),
+  };
+  const mounted = render(<WorldPlanCardProjection {...props} document={imported.doc} />);
+  expect(generateHtmlMock).toHaveBeenCalledTimes(2);
+
+  const equivalentDocument = JSON.parse(JSON.stringify(imported.doc)) as JSONContent;
+  mounted.rerender(
+    <WorldPlanCardProjection
+      {...props}
+      document={equivalentDocument}
+      selectedTarget={{ kind: "scene", id: "scene:stable" }}
+    />,
+  );
+  expect(generateHtmlMock).toHaveBeenCalledTimes(2);
+
+  const changedMarkdown = markdown.replace("Original body.", "Updated body.");
+  const changedDocument = JSON.parse(JSON.stringify(equivalentDocument)) as JSONContent;
+  visitJsonNodes(changedDocument, (node) => {
+    if (node.type === "text" && node.text === "Original body.") node.text = "Updated body.";
+  });
+  mounted.rerender(
+    <WorldPlanCardProjection
+      {...props}
+      markdown={changedMarkdown}
+      document={changedDocument}
+      selectedTarget={{ kind: "scene", id: "scene:stable" }}
+    />,
+  );
+  expect(generateHtmlMock).toHaveBeenCalledTimes(4);
+  expect(screen.getByText("Updated body.")).toBeInTheDocument();
 });
 
 it("renders a representative 20-card synthetic Plan projection", () => {

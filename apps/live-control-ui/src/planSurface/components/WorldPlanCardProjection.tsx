@@ -353,7 +353,9 @@ function CardNodeView({
     } catch {
       return null;
     }
-  }, [contentKey, semanticContent]);
+  // The serialized key is the exact semantic identity. A fresh JSON object for
+  // unchanged editor content must not regenerate the card HTML.
+  }, [contentKey]);
   const target = { kind: node.kind, id: node.id };
   const selected = selectedTarget?.kind === target.kind && selectedTarget.id === target.id;
   const selectedForEdit = selectedEditTarget?.kind === target.kind && selectedEditTarget.id === target.id;
