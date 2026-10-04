@@ -31,10 +31,13 @@ re-anchoring:
 2. APP-STATE approves how the selected Playable reference enters
    `SubmittedTurnIntentV1` and durable `TurnProvenance` (or demonstrates an
    existing typed receipt with equivalent semantics). The decision must cover
-   intent fingerprints, durable history/replay identity, compatibility for
-   no-target turns, and any storage/migration paths. Current `selected_object`
-   is Graph selection and may not be reused. No schema change is authorized by
-   this handoff while the owner decision is pending.
+   intent fingerprints, durable history/replay identity, persisted
+   server-resolved marker grammar version, compatibility for no-target turns,
+   and any storage/migration paths. APP-STATE's audit confirms the fingerprint
+   is persisted but the original submitted-intent payload is not. Current
+   `selected_object` is Graph selection and may not be reused. No storage or
+   schema change is authorized by this BLOCKED handoff; a migration requires
+   owner approval and a finalized ACTIVE allowlist.
 3. Buddy's Agent/server owner approves the typed request field/version and the
    exact committed-Plan membership resolver. The request carries only
    `{kind, id}` plus the target-envelope schema version; the server selects
@@ -43,10 +46,13 @@ re-anchoring:
    owner also approves duplicate, malformed, dangling, and wrong-kind
    membership behavior and proves validation does not invoke Run
    admission/readiness or mutate Run behavior.
-4. DEMO accepts the mounted Cards selection affordance and the dirty-editor
+4. DEMO accepts the mounted Cards selection affordance and dirty-editor
    behavior: same `{kind, id}` means Ask against the pinned committed Plan with
-   explicit disclosure; draft-only, missing, changed-kind, ambiguous, or
-   otherwise unprovable target/basis fails closed.
+   explicit disclosure. World/document/committed-basis replacement clears the
+   target; a draft-generation change revalidates against the already available
+   verified saved baseline and retains only the same unique provable identity.
+   Draft-only, missing, changed-kind, ambiguous, or otherwise unprovable
+   target/basis clears or shows stale/unavailable and fails closed.
 5. PRIME fetches current `main`, inspects open PRs and active leases again,
    records the final Buddy and APP-STATE path owners, and confirms the complete
    future path allowlist and runtime/state ownership. PR #887 was prototype-only
@@ -73,6 +79,12 @@ and existing turn/conversation identity must form one immutable submitted
 intent and durable receipt. Same-turn retries with a different target conflict;
 same-target replay returns the original receipt/answer without provider
 redispatch or silent re-resolution against a newer Plan revision.
+
+The server-authored validated `{kind, id}` and actual pinned WorkRevision
+identity must also reach the model-facing focus metadata in the existing
+canonical Plan turn context. Preserving the old committed Plan context while
+only validating or persisting the target is not sufficient evidence of a
+targeted Ask.
 
 Non-targeted Plan Ask remains unchanged. The feature must fail closed rather
 than substitute a card, document, World, or revision.
@@ -117,13 +129,21 @@ Design-time facts at main `5b1322d9719b4ee2bf64c28c2ee22ce071cee43f`:
   and supplies its server-resolved Markdown through `_plan_message`. Preserve
   that authorized committed Plan context. The new request carries no client
   card/source/draft bytes and no additional card excerpt. The target identity
-  is focus metadata, not a citation or Graph reference.
+  is focus metadata, not a citation or Graph reference. The accepted target
+  must be added as server-authored focus metadata to the model-facing context
+  on this same turn path; a deterministic service/runtime test must inspect
+  the final runtime input and prove the target plus actual WorkRevision ID,
+  `revision_n`, and digest arrive alongside the unchanged committed Plan and
+  question.
 - `SubmittedTurnIntentV1` currently binds the Plan kind/document/object
   revision/expected `revision_n`/content SHA but not target identity.
   `TurnProvenance.primary_work` contains the server-resolved WorkRevision ID,
   `revision_n`, and SHA; `selected_object` is Graph selection. A request-only
   target cannot make a different-target retry conflict or identify the target
-  in durable history.
+  in durable history. APP-STATE's read-only audit confirms only the request
+  fingerprint is persisted, not the original submitted-intent payload; its
+  recommendation is to persist server-resolved marker grammar version in the
+  durable target provenance, tied to the exact WorkRevision.
 - The existing Play Run parser in
   `apps/live_control_server/services/play_run_reference_manifest.py` is useful
   marker-grammar evidence but belongs to Run reference admission. Reuse it only
@@ -155,11 +175,14 @@ Owner boundaries:
 | --- | --- |
 | Clean Plan; user selects one canonical card in the mounted Cards view | The UI publishes only the versioned `{kind, id}` identity and captures the existing World/document/editor/request fences. It does not use `selectedCardViewIdentity` or Tiptap `selectionGeneration` as the Playable identity. |
 | Targeted Ask submitted | Canonical `/api/live/agent/turn` request retains existing World owner, Plan object revision, expected WorkRevision `revision_n` and content SHA, client thread/turn identity, `graph_request=none`, and `graph_selection=null`, with one typed target and no client source bytes. |
-| Server admission | Server independently resolves the exact current committed World Plan and actual WorkRevision ID, validates one matching canonical target in that same source, and only then forms the runtime request with existing committed Plan content and the normalized target focus. No Graph resolver runs. |
+| Server admission | Server independently resolves the exact current committed World Plan and actual WorkRevision ID, validates one matching canonical target in that same source, derives marker grammar version from that source, and forms server-resolved target provenance. No Graph resolver runs. |
+| Model-facing runtime boundary | The existing canonical Plan turn input contains the validated `{kind, id}` and actual pinned WorkRevision ID, `revision_n`, and digest as server-authored focus metadata alongside the unchanged committed Plan content and question. No client card/source bytes or new card excerpt is added. |
 | Same-ID body/title changed in a dirty editor; target kind/ID still exactly matches committed basis | Ask may proceed only with explicit UI disclosure that the answer uses the committed revision, not unsaved edits. The durable result reports that actual basis. |
+| World/document/committed-basis replacement; or a draft-generation change | Replacement clears target. A draft change revalidates against the already available verified saved baseline and retains only the same unique provable `{kind, id}`; otherwise clear/show stale or unavailable and fail closed. |
 | New/draft-only target, target absent from pinned committed basis, duplicate/malformed marker, wrong kind, stale basis, or UI cannot prove correspondence | Fail closed before provider dispatch; visible unavailable/stale-target state; never fall forward, use another card, or treat the request as an un-targeted success. |
 | Retry same World/turn ID, exact target and exact submitted Plan basis | Return the original completed receipt and answer; do not call the provider again or re-resolve a newer current target/basis. |
 | Retry same World/turn ID and same other fields but changed target | Durable idempotency conflict before provider dispatch. The target must participate in submitted-intent fingerprint and resolved provenance/replay identity. |
+| Completed receipt/history replay | Display the original target and exact actual WorkRevision basis (including server-resolved marker grammar version in durable provenance); later selection/draft changes do not rewrite them. |
 | Ordinary un-targeted Plan Ask | Existing request, committed context, conversation identity, and behavior remain unchanged. |
 | Any targeted Plan Ask | Graph stays `none`, Graph selection stays null, no Graph retrieval/citation/auth path is invoked, and no Graph write occurs. |
 
@@ -174,16 +197,26 @@ Required owning-boundary proof after activation:
   from that pinned source; wrong kind, duplicate, absent, draft-only,
   malformed, dangling, stale, foreign, and unmatched identities fail before
   runtime dispatch. Unknown envelope versions and client-supplied marker
-  grammar versions are rejected rather than ignored. Existing committed Plan
-  context is preserved; Graph resolution is not called.
+  grammar versions are rejected rather than ignored. A deterministic
+  service/runtime-boundary test captures the final model-facing input and
+  proves the validated `{kind, id}` plus actual pinned WorkRevision ID,
+  `revision_n`, and digest reach it with the full unchanged committed Plan and
+  question; it proves no client bytes or card excerpt are added. Graph
+  resolution is not called.
 - APP-STATE tests prove the target participates in submitted-intent matching,
-  persists as non-Graph provenance tied to exact primary WorkRevision, rejects
-  same-key/different-target replay, replays exact target/answer without
-  provider dispatch, and preserves the historic no-target fingerprint.
+  persists as non-Graph provenance with server-derived marker grammar version
+  tied to exact primary WorkRevision, rejects same-key/different-target replay,
+  replays exact target/answer/basis without provider dispatch, and preserves
+  the historic no-target fingerprint. Tests respect that the fingerprint is
+  persisted while the original submitted-intent payload is not.
 - UI tests prove target state clears/fails closed on World/document/revision
   replacement, Card projection basis loss, target deletion/type change, and
-  selection invalidation; a dirty matching target is labeled as committed
-  basis, never draft grounding.
+  selection invalidation; draft-generation changes revalidate against the
+  verified saved baseline and retain only a same unique identity. A dirty
+  matching target is labeled as committed basis, never draft grounding.
+- Mounted conversation/history and receipt tests prove the submitted target
+  and exact actual WorkRevision basis are displayed from the immutable returned
+  receipt, unaffected by later selection or draft changes.
 - Existing no-target Ask, conversation continuity/history, and current
   document-selection proposal suites still pass. These tests do not prove
   selected-card Compose/Review/Apply; that belongs to the serial successor.
@@ -218,10 +251,12 @@ write set to revalidate and finalize at activation:
 - new `tests/test_agent_plan_playable_target.py` only if the new resolver file
   is needed.
 
-**APP-STATE paths — conditional and unapproved**
+**APP-STATE paths — conditional, unapproved, and not authorized while BLOCKED**
 
-The following paths may be required only after APP-STATE names and approves the
-storage contract; none is currently leased:
+The BLOCKED handoff authorizes no APP-STATE storage or database change. The
+following paths may be considered only after APP-STATE names and approves the
+storage contract and PRIME records them in the finalized ACTIVE write
+allowlist; none is currently leased:
 
 - `src/application_state/agent_conversation/types.py`
 - `src/application_state/agent_conversation/service.py`
@@ -229,7 +264,8 @@ storage contract; none is currently leased:
 - `tests/application_state/test_agent_conversation_service.py`
 - `tests/application_state/test_agent_conversation_postgres.py`
 - `tests/application_state/test_agent_conversation_provenance_migration.py`
-- any migration path explicitly named by APP-STATE before activation.
+- any migration path explicitly named by APP-STATE and included in the
+  finalized ACTIVE allowlist.
 
 If APP-STATE requires additional paths, a different schema version, a separate
 co-owned PR, or a changed identity model, stop and return to PRIME. Do not
@@ -245,9 +281,17 @@ implement from this candidate list as if it were an active lease.
 - No client card/source/draft Markdown, excerpt, title, or body text added to
   the selected-target field or request. Preserve the current server-resolved
   committed Plan context only.
-- No Run/Playable admission or readiness change, Run schema, database change,
-  marker authoring or mutation, GenerationEngine/provider behavior, credentials,
-  dependency, lockfile, or prototype import.
+- No Run/Playable admission or readiness change, Run schema/database change,
+  marker authoring or mutation, credentials, dependency, lockfile, or prototype
+  import.
+- No database/storage migration is authorized while this handoff is BLOCKED. If
+  APP-STATE approves a required target-provenance migration, it may be added
+  only to a finalized ACTIVE write allowlist. This does not authorize any Run
+  schema, Run database, or Run admission change.
+- No GenerationEngine, provider adapter, or model-selection behavior change.
+  This exclusion does not omit the Buddy-owned validated target and exact
+  WorkRevision focus metadata required in the existing model-facing Plan turn
+  context.
 - No generic `/api/live/query` pointer route, `AgentSurfaceContextRequestV1`
   widening, or reuse of Graph `graph_selection`/`selected_object` for a Plan
   element.
@@ -317,12 +361,21 @@ The implementation is merge-ready only when all are true:
   target does not claim marker grammar version; unknown target-schema versions
   and extra version fields fail closed. Validation does not change Run
   admission or silently use draft text.
-- Dirty-basis behavior is visible and truthful; draft-only, deleted from the
-  committed basis, mismatched-kind, duplicate, stale, unknown, or unresolved
-  target states fail closed before runtime dispatch.
+- The deterministic service/runtime-boundary witness proves the validated
+  `{kind, id}` and actual pinned WorkRevision ID, `revision_n`, and digest reach
+  model-facing focus metadata on the existing Plan turn path, alongside the
+  unchanged committed Plan and question, with no client bytes or added excerpt.
+- World/document/committed-basis replacement clears selection. Draft-generation
+  changes revalidate against the already available verified saved baseline and
+  retain only the same unique provable `{kind, id}`; otherwise the UI clears or
+  shows stale/unavailable and fails closed before dispatch. No proof means no
+  targeted Ask; the server is final authority.
 - Same-key/different-target replay conflicts; same-key/same-target replay
-  returns the immutable original target and basis without provider redispatch.
-  APP-STATE has approved the storage/fingerprint compatibility contract.
+  returns the immutable original target, server-resolved grammar version, and
+  basis without provider redispatch. History/receipt display proves those
+  original values remain visible and unchanged after later selection or draft
+  changes. APP-STATE has approved the storage/fingerprint compatibility
+  contract, including no-target fingerprint compatibility.
 - The same server-owned World conversation identity and existing committed
   Plan provider context remain intact. Graph stays off and no new source bytes
   cross the request boundary.

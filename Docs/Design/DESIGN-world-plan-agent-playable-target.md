@@ -34,6 +34,11 @@ resolved target with the turn's existing WorkObject/WorkRevision provenance.
 The provider continues receiving the already-authorized server-resolved
 committed Plan context. This design adds the selected identity as focus only;
 it does not add a card excerpt, a second Plan context path, or a Graph payload.
+Buddy must convey the server-validated `{kind, id}` and actual resolved primary
+WorkRevision as focus metadata in the model-facing context on this same
+canonical Plan Ask path. Deterministic service/runtime-boundary evidence must
+prove this reaches the final runtime input; validation or persistence alone is
+insufficient. This changes no provider, adapter, or model-selection behavior.
 
 Non-targeted Plan Ask remains unchanged. Selected-card Compose, Review, Apply,
 and Save are a **serial successor**, not part of this slice. Existing
@@ -102,7 +107,10 @@ The current code leaves these seams separate:
   binds the Plan locator and expected content basis but has no Playable target;
   `TurnProvenance.selected_object` is the Graph-selection reference and must
   not be reused for a Plan element. The durable provenance and intent
-  fingerprint need an APP-STATE-approved target reference.
+  fingerprint need an APP-STATE-approved target reference. APP-STATE's
+  read-only audit confirms the request fingerprint is persisted but the
+  original submitted-intent payload is not; it recommends persisting the
+  server-resolved marker grammar version in provenance as well.
 
 Existing owning evidence includes:
 
@@ -157,7 +165,7 @@ pin:
 | Plan WorkObject | `primary_work.object_id` | exact active World-owned Plan ID |
 | Registry object revision | `primary_work.expected_revision` | actual object revision |
 | WorkRevision content | `expected_revision_n` + content SHA-256 | actual WorkRevision ID + revision number + digest |
-| Selected target | versioned `{kind, id}` only | validated target identity + exact `primary_work` basis |
+| Selected target | versioned `{kind, id}` only | validated `{kind, id}` + server-derived marker grammar version, bound to exact `primary_work` basis |
 | Turn/conversation | existing client thread and turn IDs | existing server-owned conversation and durable turn receipt |
 
 `expected_revision` is the registry/object revision. It is not
@@ -172,6 +180,14 @@ membership against its parsed identities. A missing, malformed, duplicate,
 wrong-kind, foreign, dangling, or absent target fails closed before provider
 dispatch. A newer revision is never substituted for a stale expected basis.
 
+Validation is not enough: Buddy must place the accepted `{kind, id}` together
+with the actual server-resolved WorkRevision identity (`id`, `revision_n`, and
+content digest) in server-authored focus metadata in the model-facing context
+of that same Plan turn. The complete existing committed Plan and user question
+remain the context; no client card/source bytes or selected-card excerpt is
+added. The deterministic service/runtime-boundary witness must inspect the
+final runtime input and prove both focus and exact basis reached it.
+
 ## Dirty editor behavior
 
 The Cards lens reflects the mounted editor draft, while canonical Ask uses the
@@ -182,6 +198,12 @@ that distinction:
   the current selected `{kind, id}` corresponds to exactly one element in the
   committed revision being requested. The server independently verifies
   membership against that exact committed source.
+- World, document, or committed-basis replacement clears the target. On an
+  editor draft-generation change, the UI revalidates against its already
+  available verified saved baseline and retains the target only if the same
+  unique `{kind, id}` is still provable there; otherwise it clears the target
+  or presents a stale/unavailable state. If the UI cannot prove correspondence,
+  no targeted turn is submitted and the server remains final authority.
 - If a draft edits the body/title but preserves the same canonical target, Ask
   is still about the committed Plan. The visible result must disclose the
   committed WorkRevision used and that unsaved changes were not used.
@@ -193,6 +215,10 @@ that distinction:
 - A response is immutably about the target submitted with its turn. Later UI
   selection changes do not rewrite the turn's target or server history. A
   later new turn captures a new target and current exact Plan basis.
+- Submission captures one immutable target and Plan pin. Later selection or
+  draft changes cannot mutate the in-flight turn, receipt, or history. History
+  and replay receipt presentation must show the original target together with
+  its actual WorkRevision basis, not the current selection or latest revision.
 
 The server's full existing committed Plan context remains authorized and
 unchanged. The selected identity tells the runtime which existing element the
@@ -208,31 +234,39 @@ Current code has no existing safe binding for the target:
    `SubmittedTurnIntentV1` from the message, surface, client work state,
    primary-work pin, graph request, and Graph selection only.
 3. APP-STATE fingerprints the submitted intent and uses the World + turn ID
-   idempotency key. Two otherwise-equal requests with different Playable
-   targets are currently indistinguishable to that intent fingerprint.
+   idempotency key. Its read-only audit confirms the request fingerprint is
+   persisted while the original submitted-intent payload is not. Two
+   otherwise-equal requests with different Playable targets are currently
+   indistinguishable to that intent fingerprint.
 4. `TurnProvenance.primary_work` stores the exact Plan basis, but
    `selected_object` represents Graph selection. There is no independent
    durable Plan-target reference for the completed transcript/replay receipt.
 
-Therefore the slice requires APP-STATE to co-own a versioned logical
-selected-Playable reference in both submitted intent and durable turn
-provenance (or to identify an existing typed receipt that provides identical
-semantics; current code evidence shows none). The target is bound to the
-same-record `primary_work` WorkRevision. This does not prescribe a SQL column,
-migration, or field name before APP-STATE approval.
+Therefore the slice requires APP-STATE to co-own the versioned logical
+selected-Playable identity in submitted intent and durable turn provenance (or
+to identify an existing typed receipt that provides identical semantics;
+current code evidence shows none). The submitted identity and its fingerprint
+contain only the client target envelope, `{kind, id}`, plus the existing exact
+Plan expectation; marker grammar version is never supplied or trusted from the
+client. After validation, durable server-resolved provenance must preserve
+`{kind, id}`, the parser's marker grammar version, and the same-record actual
+`primary_work` WorkRevision (`id`, `revision_n`, digest). This design follows
+APP-STATE's recommendation to persist the resolved grammar version while
+leaving the storage shape to APP-STATE. This does not prescribe a field or
+migration before owner approval.
 
 Required semantics:
 
-- The submitted-intent fingerprint includes a non-null selected target. Reuse
-  of the same world/turn ID with a different target conflicts before provider
-  dispatch.
-- The durable receipt preserves the server-resolved target and exact primary
-  WorkRevision for history display and completed replay. Do not overload the
-  Graph-selected-object slot.
+- The submitted-intent fingerprint includes a non-null client target identity
+  (`schema`, `kind`, `id`), not a client marker-grammar claim. Reuse of the same
+  world/turn ID with a different target conflicts before provider dispatch.
+- The durable receipt preserves the validated target, server-derived marker
+  grammar version, and exact primary WorkRevision for history display and
+  completed replay. Do not overload the Graph-selected-object slot.
 - A replay of the same turn, target, and original basis returns the original
-  answer/receipt without provider redispatch or target re-resolution against a
-  newer current revision. A distinct new turn resolves its own current pinned
-  basis.
+  answer/receipt, target, grammar version, and basis without provider
+  redispatch or target re-resolution against a newer current revision. A
+  distinct new turn resolves its own current pinned basis.
 - APP-STATE decides storage shape, request/turn fingerprint compatibility, and
   any migration. In particular, adding nullable fields must preserve the
   repository's historical fingerprint compatibility behavior for turns with
@@ -249,8 +283,8 @@ identity.
   document, revision, and draft changes, and disclosing committed-basis
   behavior.
 - **Buddy Agent/server** owns typed per-turn admission, canonical target
-  validation against the exact server-resolved Plan, provider-context assembly,
-  and fail-closed errors.
+  validation against the exact server-resolved Plan, model-facing focus metadata
+  assembly in the existing Plan turn context, and fail-closed errors.
 - **APP-STATE** owns the durable submitted-intent/provenance/replay contract and
   any storage/migration it requires. Approval is a pre-activation gate, not an
   implied schema change.
@@ -260,10 +294,15 @@ identity.
   but it is not changed or invoked by this Ask slice.
 
 This design does not authorize Graph retrieval, citation, source-anchor reads,
-card/source Markdown in the request, new provider behavior, proposal targeting,
-Review/Apply, Run/Play changes, marker mutation, credentials, or a new durable
-card store. Graph-backed Plan Ask remains a separate blocked design with its
-own APP-STATE receipt, managed-binding, and DungeonMind source-evidence gates.
+card/source Markdown in the request, provider/adapter/model-selection changes,
+proposal targeting, Review/Apply, Run/Play changes, marker mutation,
+credentials, or a new durable card store. The provider-behavior exclusion does
+not omit Buddy-owned focus metadata from the accepted model-facing Plan turn
+context. No database/storage migration is authorized while the handoff is
+BLOCKED; any APP-STATE-approved migration requires owner approval and an
+explicit path in the finalized ACTIVE handoff allowlist. Graph-backed Plan Ask
+remains a separate blocked design with its own APP-STATE receipt,
+managed-binding, and DungeonMind source-evidence gates.
 
 ## Named successor and design-review disposition
 
