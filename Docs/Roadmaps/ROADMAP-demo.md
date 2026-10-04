@@ -98,8 +98,9 @@ production implementation or independently frozen gold.
 - J5: cards/lenses/maps/choices make preparation a playable instrument.
 - J6: choices, rolls, combat state and outcomes survive navigation/restart/resume.
 
-No J1–J6 gate is closed by prototype screenshots or this reprioritization. Existing
-#886 geometry, #869 movement and independent Graph/auth acceptance holds remain.
+No J1–J6 gate is closed by prototype screenshots or this reprioritization. The
+#886 geometry repair is merged and its bounded technical gate passed; #869
+movement and independent Graph/auth acceptance holds remain.
 The operator's live 5202 session is reserved; coordinate any replacement with
 SERVER and PRIME rather than restarting it for a fixture.
 
@@ -135,36 +136,43 @@ canonical World conversation for visible history/Ask recovery, and Compose/Revis
 proposal context is assembled server-side from exact-basis completed Ask and
 PlanAction pairs. This is code integration, not the missing live Graph-backed
 Plan witness or full J2 acceptance. The Graph-backed product witness remains
-unleased; the independent Agent usability slice is ACTIVE in #904. See the
-execution ledger entry below for the Graph witness and owner/resource questions.
+unleased; the independent Agent composer usability slice merged as #904 and its
+lease is closed. See the execution ledger entry below for the Graph witness and
+owner/resource questions.
 
-**Parallel work allocation (2026-10-04):** re-anchored Buddy main
-`d9b7d1e1ef9c1ad4401e107694260ad4f19455b6` and open PRs before dispatch.
+**Serial settlement update (2026-10-04):** Buddy `origin/main` is
+`4efada56aa93d529bf49128d82ba2d097b074af1`. PR #904 merged at
+`fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` from reviewed head
+`c355234d1486d8cbc46aa9afa611d6d1340b812c`; its Agent composer lease is closed.
+PR #886 merged at `4efada56aa93d529bf49128d82ba2d097b074af1` from tested head
+`502b54d713e32e48f160182170c87b4f41fca990`. Its focused suite passed 187/187,
+the isolated desktop/mobile geometry gate passed 1/1, and its Plan Page/shell
+lease is released. The inherited UI typecheck failure at
+`ThreatPublicationPanel.tsx:553` remains present on main and was not changed by
+#886.
 
-- #904, head `b59abf0784301d71d00cf002c2a3b697f0216a46`, remains open;
-  DEMO is correcting proposal/conversation ordering and supplying inspectable
-  desktop/mobile evidence before PRIME review. Its branch-pinned handoff is
-  ACTIVE; absence from main is not an activation gate.
-- #886, remote head `717727c33fe70fc154aee291e4397e2d53ac425c`, remains
-  Draft/HOLD for geometry evidence. #889 merged and its guard lease is released.
-  #886 owns Page runtime/shell paths. PRIME transfers only
-  `PlanSurfacePage.test.tsx` to the PRIME-assigned RAKE repair worker for the
-  bounded missing history/action API mock repair, under `HANDOFF-RAKE-plan-mounted-harness-repair.md`; this does
-  not grant product code or geometry acceptance.
+- The first saved-Plan card projection remains **BLOCKED**. ARCHITECTURE found
+  that the editor accepts duplicate v2 effect targets which the canonical
+  server parser rejects. PRIME assigned RAKE the identity-validator/index
+  repair and shared-fixture conformance proof through editor Markdown
+  import/index/serialization and the existing Python parser. The validator correction changes editor admission to reject the observed
+  duplicates; the cross-parser comparison runs only in tests: the UI does not call the server parser at runtime
+  and no Run is started. RAKE owns those parser/test paths; DEMO has no write
+  lease for them. After its independent review passes, PRIME must pin a fresh
+  ACTIVE card implementation handoff with exact paths, resources, and authority
+  synchronization.
+- ARCHITECTURE's Plan-to-Run design (#907) and SERVER's managed Graph adapter
+  handoff (#905) are merged; their implementation handoffs remain BLOCKED on
+  their explicit contract, sequencing, and path/resource gates. APP-STATE's
+  evidence-receipt design is prepared but publication awaits the exact-file
+  authorization requested by automatic approval review.
+- #887 remains DOGFOOD's prototype-only evidence lane. Its private corpus,
+  media, and state snapshots are not production data or sources to copy.
 - #869, head `23d76f4d4f4f223b62067024e152e8cb2dde37b8`, remains
   Draft/HOLD for real movement preview/edit/Save/reload. Prior temporary
   runtime evidence below is historical; a fresh isolated lane is still needed.
-- ARCHITECTURE prepares `DESIGN-world-plan-playable-adoption.md` and
-  `HANDOFF-world-plan-playable-adoption.md`; APP-STATE prepares
-  `DESIGN-world-agent-graph-evidence-receipt.md` and
-  `HANDOFF-APP-STATE-world-agent-graph-evidence-receipt.md`; SERVER prepares
-  `HANDOFF-SERVER-managed-world-agent-graph-adapter.md`. These independent
-  design/document scopes permit no code, schema, provider or runtime changes.
-  Future implementation remains BLOCKED pending exact contract review and lease.
-
-The first production card implementation still needs its own bounded activation
-and disjoint write set or explicit #886 handback. Operator UI 5202/API 8000 and
-DOGFOOD 5203 remain reserved; no dispatch authorizes replacing those runtimes.
+- Operator UI 5202/API 8000 and DOGFOOD 5203 remain reserved; no dispatch
+  authorizes replacing those runtimes.
 
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at

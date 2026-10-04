@@ -2,12 +2,12 @@
 
 ## Status and authority
 
-**Status: ACTIVE.** This bounded implementation is authorized by the operator’s DEMO appointment and PRIME’s direct assignment/correction in the current task. The operator’s correction supersedes the earlier two-flow suggestion: one conversation composer, with proposed edits represented as conversation events and reviewed inline.
+**Status: SETTLED.** PR #904 merged at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` from reviewed head `c355234d1486d8cbc46aa9afa611d6d1340b812c`; its six-path implementation lease is closed. This document retains the accepted contract and execution evidence as history.
 
-- Pinned base: DungeonMindBuddy `origin/main` at `6feb3059b2da4d2ec29966ce9723f0effc70108f`.
-- Implementation branch: `codex/demo-plan-agent-panel-usability`, rebased onto that main commit after #906 merged.
-- This handoff is the authority for the lease on this branch. Commit it before implementation edits; record that handoff commit here after pinning.
-- Assigned PR: create one DEMO implementation PR for PRIME review. No merge authority is granted here.
+- Historical pinned base: DungeonMindBuddy `origin/main` at `6feb3059b2da4d2ec29966ce9723f0effc70108f`.
+- Historical implementation branch: `codex/demo-plan-agent-panel-usability`, rebased onto that main commit after #906 merged.
+- The implementation lease is closed; this document no longer grants write authority.
+- Assigned PR: [#904](https://github.com/Drakosfire/DungeonMindBuddy/pull/904), merged as recorded above.
 - Scope: one independently useful Agent conversation composer usability capability.
 
 ## User outcome
@@ -42,13 +42,13 @@ Do not edit `PlanSurfacePage.tsx`, global styles, API/types, server/auth code, r
 
 ## Re-anchor and collision audit
 
-At initial activation this lane was based on `main@707ffdfa6da742e3503323908ad4826f692b12fd`. After PRIME published the operator-adopted card roadmap on 2026-10-03, a fresh fetch pinned `origin/main` at `d9b7d1e1ef9c1ad4401e107694260ad4f19455b6`. The 2026-10-04 authority reconciliation advanced `origin/main` to `0f42fec0812655bb37c87b6be9a7fe5741d7f25f`; the exact intervening diff was limited to three authority documents outside this lease. PR #904 was then pushed at `573f338312f77f1315b0069ad13fd542f9708f87`. On 2026-10-04, RAKE PR #906 merged at `6feb3059b2da4d2ec29966ce9723f0effc70108f` after its independently reviewed 50/50 PlanSurfacePage mounted-test repair. That merge released the temporary test-file lease; PRIME explicitly extended this #904 lane to `PlanSurfacePage.test.tsx` for UI-only expectation updates. #886 remains Draft/HOLD at head `717727c33fe70fc154aee291e4397e2d53ac425c` and retains Plan runtime/shell paths. #887 remains isolated at `4b91c09d8a50188dfb1c9ce795358b32d17c02d7`. This branch was rebased onto `6feb3059` before touching the extended test path. The merged World conversation cutover/proposal-context predecessors remain released. An older dirty #900 worktree is historical and must not be copied, reset, cleaned, or edited.
+At initial activation this lane was based on `main@707ffdfa6da742e3503323908ad4826f692b12fd`. After PRIME published the operator-adopted card roadmap on 2026-10-03, a fresh fetch pinned `origin/main` at `d9b7d1e1ef9c1ad4401e107694260ad4f19455b6`. The 2026-10-04 authority reconciliation advanced `origin/main` to `0f42fec0812655bb37c87b6be9a7fe5741d7f25f`; the exact intervening diff was limited to three authority documents outside this lease. PR #904 was then pushed at `573f338312f77f1315b0069ad13fd542f9708f87`. On 2026-10-04, RAKE PR #906 merged at `6feb3059b2da4d2ec29966ce9723f0effc70108f` after its independently reviewed 50/50 PlanSurfacePage mounted-test repair. That merge released the temporary test-file lease; PRIME explicitly extended this #904 lane to `PlanSurfacePage.test.tsx` for UI-only expectation updates. At the dispatch baseline, #886 was Draft at `717727c33fe70fc154aee291e4397e2d53ac425c`; it later merged at `4efada56aa93d529bf49128d82ba2d097b074af1` from tested head `502b54d713e32e48f160182170c87b4f41fca990`, releasing its Plan Page/shell paths. #887 remains isolated at `4b91c09d8a50188dfb1c9ce795358b32d17c02d7`. This branch was rebased onto `6feb3059` before touching the extended test path. The merged World conversation cutover/proposal-context predecessors remain released. An older dirty #900 worktree is historical and must not be copied, reset, cleaned, or edited.
 
 ### Topology: parallel-independent
 
-- Concurrent lane: PR #886, exact remote head `717727c33fe70fc154aee291e4397e2d53ac425c`, base `8dc639f06e05cf1809f42ecaba4c791ef21af66b`; navigation-shell paths and its own geometry tests. This slice does not depend on #886’s unmerged behavior and has no shared file/runtime ownership. Keep #886 Draft/HOLD until its own geometry gate is satisfied.
+- Historical concurrent lane: PR #886, exact remote head `717727c33fe70fc154aee291e4397e2d53ac425c`, base `8dc639f06e05cf1809f42ecaba4c791ef21af66b`; navigation-shell paths and its own geometry tests. This slice did not depend on #886’s unmerged behavior and had no shared file/runtime ownership. #886 later merged as recorded above.
 - PR #887 remains the DOGFOOD prototype on its separate prototype path and reserved port 5203; this slice did not use that runtime. PR #869 remains a separate statblock movement-reference lane.
-- This lane owns the five paths listed above. The component boundary isolates the work from #886’s shell ownership.
+- This historical lane owned the six paths listed above; its lease is closed. The component boundary isolates the work from #886’s shell ownership.
 - 5202 and 5203 are operator/runtime lanes rather than implementation branches; both are excluded from this slice’s runtime activity.
 
 ## Verification and delivery gates

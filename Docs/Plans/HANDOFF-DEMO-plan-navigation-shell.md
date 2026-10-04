@@ -1,40 +1,40 @@
 # HANDOFF — DEMO: Plan navigation shell
 
-**Status:** ACTIVE — the local #886 candidate is rebased on `origin/main@de9e2a1ea16adb2703353f54813758ade33857ab`; its focused suite passes 187/187 and the isolated desktop/mobile geometry gate passes 1/1. At the last remote check, PR #886 was Draft at `717727c33fe70fc154aee291e4397e2d53ac425c`; PRIME review remains pending on the exact published head.
+**Status:** SETTLED — PR #886 merged at `4efada56aa93d529bf49128d82ba2d097b074af1` from reviewed/tested head `502b54d713e32e48f160182170c87b4f41fca990`. The focused suite passed 187/187, the isolated desktop/mobile geometry gate passed 1/1, and the Page/shell lease is closed.
 **Owner:** DEMO.
 **Original activation base:** Buddy `origin/main@1ded2275349f4e9ada1b67a6ab4f6061f9c2465e` (merged #885).
 **Current branch/worktree:** `codex/demo-plan-nav-shell-geometry-head` at `/home/drakosfire/.codex/worktrees/plan-nav-shell-restack/DungeonMindBuddy`.
 **Assigned PR:** #886, `DEMO: stabilize Plan navigation and Edit shell`.
-**PR topology:** serial. PRIME reviews and merges #886 before any successor implementation acquires released Page paths. The first saved-Plan card projection remains BLOCKED.
+**PR topology:** serial. PRIME reviewed and merged #886 before successor work; the first saved-Plan card projection remains BLOCKED on RAKE's parser-conformance gate and a fresh ACTIVE handoff.
 
 ## 2026-10-04 lease reconciliation
 
 The earlier #889 fidelity-guard freeze ended when #889 merged at
-`8dc639f06e05cf1809f42ecaba4c791ef21af66b`; #886 again owns the bounded Page
-and shell geometry slice. Current Buddy main is `de9e2a1ea16adb2703353f54813758ade33857ab`.
+`8dc639f06e05cf1809f42ecaba4c791ef21af66b`; #886 then owned the bounded Page
+and shell geometry slice. Current Buddy main is
+`4efada56aa93d529bf49128d82ba2d097b074af1`.
 It includes #904 at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0`, #906 at
 `6feb3059b2da4d2ec29966ce9723f0effc70108f`, #907 at
 `d8e861661716d2fa8c1fb1e3e56ef08268d32da8`, and #905 plus its follow-up
 authority sync at `cafbe54c` and `de9e2a1e`. #904's six-path lease is settled;
 #906's mounted-test repair is merged and its lease is closed.
 
-PRIME's 2026-10-04 sequencing decision is serial: no Page handback now. Rebase
-#886 onto current main, drop the duplicate #906 blank-Plan wait repair, preserve
-the #904 composer integration, and prove real desktop/mobile geometry on the
-isolated synthetic Ladle story. The current candidate does that. `PlanSurfacePage.tsx`
-remains in #886's shell lease; `PlanSurfacePage.test.tsx` is no longer changed
-by this lane. Only after PRIME accepts the exact merge-ready #886 head and it
-merges may the first-card implementation acquire Page plus any necessary mounted
-test/CSS paths under its own freshly pinned ACTIVE handoff. Its current handoff
-is BLOCKED; no card code or Page handback is active.
+PRIME's 2026-10-04 sequencing decision was serial: rebase #886 onto current main,
+drop the duplicate #906 blank-Plan wait repair, preserve the #904 composer
+integration, and prove desktop/mobile geometry on the isolated synthetic Ladle
+story. #886 merged at `4efada56aa93d529bf49128d82ba2d097b074af1` from tested
+head `502b54d713e32e48f160182170c87b4f41fca990`. The focused eight-file suite
+passed 187/187 and the mounted geometry gate passed 1/1. `PlanSurfacePage.tsx`
+and the shell/test paths are released from this lease. The first-card handoff is
+still BLOCKED: PRIME assigned RAKE the editor/server parser-conformance repair
+after a v2 duplicate-edge mismatch was found; no card code is active.
 
-At the start of this refresh, remote #886 was rechecked as Draft at
-`717727c33fe70fc154aee291e4397e2d53ac425c`; its existing PR body still described
-the earlier candidate and pending geometry gate. This publication replaces that
-packet with the exact current head and evidence below. No allocation here
-authorizes use of the operator's UI 5202/API 8000 or DOGFOOD 5203. SERVER owns
-the operator runtime; all geometry evidence below is from an isolated synthetic
-preview.
+At the start of final publication, remote #886 was Draft at
+`717727c33fe70fc154aee291e4397e2d53ac425c` and its body described an earlier
+candidate. The body was replaced with exact-head evidence before PRIME's review
+and merge. No allocation here authorizes use of the operator's UI 5202/API 8000
+or DOGFOOD 5203. SERVER owns the operator runtime; all geometry evidence below
+is from an isolated synthetic preview.
 
 ## Blocked action and reproduction
 
@@ -48,7 +48,11 @@ DOGFOOD also reports repeated Plan identity on saved document `d96904d1-d20d-4b7
 
 The primary navbar and surface context/subnav stay horizontally stable when Edit opens. The Plan workspace below that shared chrome reserves exactly the docked EditHost width and starts at the rendered chrome boundary. Navigation/context wrapping may change the measured drawer top, but must not move the navbar or leave a stale offset after the header scrolls above the viewport. Tools and inspectors remain within their host bounds and do not cover the chrome. On narrow screens Edit overlays the workspace, which retains its full width. The document’s canonical content and accessible page title remain; redundant visible page-level and editor-frame titles are removed, while the context bar carries the World/document selector and existing actions. Save/local-draft meaning stays visible and accurate. Existing route, World/document identity, graph and navigation contracts remain unchanged.
 
-## Exclusive write lease
+## Historical exclusive write lease — closed at merge
+
+The following paths were exclusive during #886. The lease ended when #886
+merged at `4efada56aa93d529bf49128d82ba2d097b074af1`; this list grants no
+current write authority.
 
 Modify only the paths needed from this allowlist:
 
@@ -71,8 +75,9 @@ PRIME approved the Graph integration harness path and, on 2026-10-03, the two vi
 #906 repair is merged, and this branch drops the duplicate wait assertion rather
 than retaining a second copy of that fix.
 
-The current open-PR list was refreshed after fetching main. Adjacent file lists
-were checked: #887 remains prototype-only under `prototypes/plan-play-cards/`;
+Before #886 publication, the open-PR list was refreshed after fetching main.
+That inventory is historical and must be refreshed before a successor lane.
+Adjacent file lists were checked: #887 remains prototype-only under `prototypes/plan-play-cards/`;
 #869 changes statblock editor/workbench paths; #781 changes semantic-action
 projection paths; #844, #760, and #761 are handoff/design docs; #826 is
 WorldSpace server/lockfile code; #798 is backlog-only; #765 and #763 are Rules
@@ -98,4 +103,4 @@ shared UI package. No port, database, provider, or runtime is shared here.
 - `npx tsc --noEmit --pretty false -p tsconfig.app.json` reports one error on both this head and a detached checkout of exact current main: `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): error TS2503: Cannot find namespace 'JSX'.` This path is outside the #886 diff; no new type error was reported. The Playwright/Ladle build completed successfully.
 - No DOGFOOD route, operator Plan, API, or user state was opened or changed. Ports 5202, 8000, and 5203 were not used. All responsive evidence came from the isolated synthetic story and local browser automation.
 
-No API, schema, graph/state mutation, Plan conversation, shared UI package, shared contract redesign or runtime restart is in scope. If the fix needs a path outside this lease, return the exact path and reason to PRIME before editing it.
+No API, schema, graph/state mutation, Plan conversation, shared UI package, shared contract redesign or runtime restart was in scope. This #886 lease is settled and grants no current write authority; a successor needs its own pinned ACTIVE handoff.
