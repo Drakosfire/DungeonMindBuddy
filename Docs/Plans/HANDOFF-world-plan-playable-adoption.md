@@ -18,8 +18,10 @@ implementation_pr: not_authorized
 
 ## Status and activation gate
 
-**Status: BLOCKED — PRIME design review, product-sequence gate, and
-implementation resource/path ownership are outstanding.**
+**Status: BLOCKED — PRIME accepted the design premise at reviewed PR #907 head
+be84bf001a1f810524f913bbfd2507269afa8b2c. The updated PR head still needs final
+review; product-sequence and implementation resource/path gates are
+outstanding.**
 
 This handoff was prepared against Buddy main
 0f42fec0812655bb37c87b6be9a7fe5741d7f25f. Re-anchor against live main and
@@ -28,8 +30,11 @@ design-time reference, not an implementation pin.
 
 Implementation may be activated only after all of the following are true:
 
-1. PRIME has reviewed and accepted the companion design's source identity,
-   admission, revision, audience, and Runtime ownership decisions.
+1. PRIME's acceptance of the companion design's source identity, admission,
+   revision, audience, and Runtime ownership decisions is recorded at reviewed
+   PR #907 head be84bf001a1f810524f913bbfd2507269afa8b2c. The current updated
+   PR head must receive final review before this handoff can move from BLOCKED
+   to ACTIVE. That review does not itself activate implementation.
 2. PRIME has re-anchored the Demo roadmap and confirmed the prerequisites and
    ordering for the saved-Plan card projection and shared World-conversation
    work. The current roadmap places same-content-to-Run after those steps; do
@@ -48,11 +53,13 @@ Implementation may be activated only after all of the following are true:
    These are card-projection predecessor proofs, not card implementation work
    or paths leased by this handoff.
 3. Re-anchor current UI ownership before allocating any Plan/Play entry path.
-   #906's mounted-harness repair lease is closed. The mounted
-   PlanSurfacePage.test.tsx path now belongs to #904's successor UI-integration
-   lease; #886 retains production Plan Page/shell paths pending its own
-   accepted settlement or explicit handback. Neither path is available to this
-   implementation by implication; PRIME must resolve a nonoverlapping lease.
+   #906's mounted-harness repair lease is closed. Buddy PR #904 merged at
+   fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0; its temporary
+   UI-integration/mounted-test lease is in post-merge settlement. #886 retains
+   production Plan Page/shell paths pending its own accepted settlement or
+   explicit handback. Do not infer that a path is available merely because
+   #904 merged; PRIME must re-check active PRs and resolve a nonoverlapping
+   lease.
 4. Preserve the APP-STATE-confirmed supported Content mutation invariant:
    WorkObject kind is fixed at creation, mutation guards check the locked kind,
    and supported update SQL does not write kind. The implementation must
@@ -215,11 +222,12 @@ met with current durable fields and PRIME re-reviews the changed contract.
 
 The final ACTIVE handoff must replace this candidate inventory with an exact
 exclusive write allowlist and explicitly name any transferred/shared paths.
-#906's mounted-harness repair lease is closed. **PlanSurfacePage.test.tsx**
-belongs to #904's successor UI-integration lease. #886 retains production Plan
+#906's mounted-harness repair lease is closed. #904 merged at
+fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0, placing its temporary mounted-test
+lease in post-merge settlement; re-check the current owner of
+**PlanSurfacePage.test.tsx** at activation. #886 retains production Plan
 Page/shell paths pending its own accepted settlement or explicit handback.
-Re-anchor both leases again at activation, and do not rely on Git conflicts to
-arbitrate either path.
+Do not rely on Git conflicts to arbitrate either path.
 
 ## §5 PR topology and state-authority sync
 

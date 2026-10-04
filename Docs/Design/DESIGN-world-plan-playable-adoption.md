@@ -1,11 +1,13 @@
 ---
 title: Saved World Plan as a Playable Run source
 document_class: design
-status: proposed_for_review
+status: accepted_design_premise
 version: 0.1
 created_at: "2026-10-04"
 workstream: DEMO
 design_base: "Buddy main 0f42fec0812655bb37c87b6be9a7fe5741d7f25f"
+accepted_reviewed_head: "PR #907 be84bf001a1f810524f913bbfd2507269afa8b2c"
+final_pr_review: pending_updated_head
 companion_handoff: "../Plans/HANDOFF-world-plan-playable-adoption.md"
 ---
 
@@ -180,10 +182,19 @@ World identity, Graph knowledge, and governed evidence authority. This design
 does not call a model/provider, move credentials, copy private corpora, or
 change the separate GenerationEngine parity workstream.
 
+## Design review disposition
+
+PRIME accepted the design premise at PR #907 reviewed head
+**be84bf001a1f810524f913bbfd2507269afa8b2c**: supported Content API kind
+stability is sufficient without a database trigger or extra Run/manifest
+source-kind field, and exact historical replay/read remains distinct from
+current active admission. This records acceptance of the contract decisions,
+not approval of the subsequently updated PR head and not implementation
+activation.
+
 ## Review and next gate
 
-This document proposes the contract for PRIME review. It does not amend the
-active product roadmap or authorize implementation. The companion handoff is
-BLOCKED. It requires re-anchoring, review of the product sequencing
-prerequisites, APP-STATE confirmation of WorkObject-kind immutability, and an
-explicit path/owner/runtime-resource lease before any executable work.
+This document does not amend the active product roadmap or authorize
+implementation. The companion handoff remains BLOCKED on the updated-head
+review, product sequencing prerequisites, and an explicit
+path/owner/runtime-resource lease before any executable work.
