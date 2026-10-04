@@ -1,16 +1,18 @@
 # HANDOFF — DEMO: cut over Plan conversation to World history (Slice A)
 
-**Status:** COMPLETE — Slice A merged in PR #900 at `f8712198848598c5ce83248eb66a54d93c1fd044`, from reviewed head `30f4f36549ece68c173fd577c119a2ab88ceebed`; its seven-path lease is released. **Successor:** Slice B is ACTIVE under PRIME's separate dispatch, with the exact lease and evidence below. Code integration is not configured-provider, live-demo, or J1–J6 acceptance.
+**Status:** The Slice A and Slice B implementations are merged in PRs #900 and #902; both implementation leases are released. This records code integration only. It does not assert J1–J6 or operator/product acceptance.
 
 **Steward:** DEMO task 01a0efc8-f3a8-7be2-a556-33eb338338e8
 
 **Repository:** Drakosfire/DungeonMindBuddy
 
-**Settlement base:** Buddy main at `f8712198848598c5ce83248eb66a54d93c1fd044` (PR #900 merge). PRIME reviewed Slice A head `30f4f36549ece68c173fd577c119a2ab88ceebed`. The accepted Slice A design remains pinned at `b1a2babeb0fff109d3625e30ca6785749ab8f332` (PR #899, closed as superseded). The Slice B design is pinned in PR #901 at `eb5b7a679c0aad71eb71582649a3f193dd295fa2`; its design handoff remains unchanged while PRIME's later ACTIVE dispatch governs implementation.
+**Settlement base:** Buddy main at `3d27a0550cb0ffa74fb7ce9cb301435fcaef1eb2` (PR #902 merge). PR #902 merged from independently reviewed head `c5d96dd2ad066fe30e9dcbc90fac7263e8a70ce4`; PR #900 remains recorded at `f8712198848598c5ce83248eb66a54d93c1fd044`. The Slice B design pin is PR #901 head `eb5b7a679c0aad71eb71582649a3f193dd295fa2`, now closed as superseded; its committed design remains preserved at that exact head.
 
-**Topology:** serial. Slice A is complete → Slice B proposal-context merger is ACTIVE in branch `codex/demo-plan-proposal-context-merger` from `f8712198848598c5ce83248eb66a54d93c1fd044` → later automatic Plan/Graph context. No independent parallel Plan consumer lane is authorized.
+**Topology:** serial. Slice A and the Slice B proposal-context merger are integrated → the next Plan/Graph product acceptance remains a separate, unleased capability recorded in the DEMO roadmap. No implementation or runtime lane is currently active for it.
 
 **Completed Slice A PR:** DEMO: cut over Plan conversation to World history (#900)
+
+**Completed Slice B PR:** DEMO: merge server-owned Plan proposal context (#902)
 
 **Slice A settlement:** PRIME cleared the final review holds on `30f4f36549ece68c173fd577c119a2ab88ceebed` and merged PR #900 at `f8712198848598c5ce83248eb66a54d93c1fd044`. The Slice A branch and seven-path write lease are released. No runtime, provider, database, service, or port was leased for Slice A.
 
@@ -24,6 +26,7 @@ The prior #857 handoff treated several dependencies as pending. They are now del
 - Buddy #897 delivered the Plan-owned exact-basis action/status and completed-context projection and merged at d5de2072f90c27b031f9f55157504915f98a189f, from reviewed head 7da39e47327d8dd941ecb7eb1074a2c8ec028544. Its future cross-source order is accepted_at, source rank Ask=0 / PlanAction=1, source-specific sequence, source record UUID. Each source filters exact-basis eligibility before its own cap; the proposal boundary applies the total cap of six after merge.
 - Buddy #898 delivered the APP-STATE exact-basis completed Ask projection and merged at 402390ca051553a09e844ea57ddf8be3f6217fef, from reviewed head 5b8daaa6c8d8fcc825da626de3c0499539cafadd. Its 8 PostgreSQL projection tests and 2 adjacent regressions passed; PRIME independently reran the 8 projection tests and accepted the review.
 - Buddy #900 completed the DEMO Plan consumer cutover and merged at `f8712198848598c5ce83248eb66a54d93c1fd044`, from reviewed head `30f4f36549ece68c173fd577c119a2ab88ceebed`. Its seven-path lease is released; the Slice A evidence is recorded below and does not claim product acceptance.
+- Buddy #902 delivered the server-owned merger of exact-basis completed Plan-action and Ask pairs, with typed receipt compatibility, a six-pair cap and fail-closed context reads. PRIME independently reviewed and merged head `c5d96dd2ad066fe30e9dcbc90fac7263e8a70ce4` at `3d27a0550cb0ffa74fb7ce9cb301435fcaef1eb2`. The three-path lease is released. PRIME reports 39 proposal tests and 16 owner-projection regressions passed; no provider, live product or Graph acceptance is claimed.
 - Existing APP-STATE World conversation identity, visible turn storage, idempotency receipts, and the accepted #865 retry/replay contract remain the owner authority. Browser thread IDs are correlation values, not conversation identity.
 
 These are code-integration facts, not J1–J6, live-demo, or operator acceptance. Slice A consumes these accepted capabilities. It adds no APP-STATE, AGENT-INTERACTION, proposal-service, route, schema, or migration behavior.
@@ -76,7 +79,7 @@ This slice does not delete rows, auto-import, dual-write transcript turns, or fa
 
 Preserve the current Compose/Revise instruction, mounted-draft and selection capture, proposal validation, Review, Apply-to-editor, and ordinary Save behavior. Slice A does not implement a context merger. Until Slice B, send an empty conversation_history to the proposal boundary; do not pass any legacy local rows, local Ask turns, or the World transcript. This temporarily pauses conversational carry-over for Compose/Revise while keeping the editing action usable. State this behavior clearly in the Plan UI.
 
-Slice B restores the six-pair behavior only through the authoritative proposal boundary: merge the exact-basis completed Plan-action projection from #897 with the exact-basis Ask projection from #898; filter each source before its cap; sort by accepted time, source rank (Ask=0, PlanAction=1), source-local sequence and source UUID; then enforce six total pairs. Client history cannot add, remove, or reorder that context. PRIME's separate ACTIVE dispatch authorizes this bounded implementation in its own branch and PR; the Slice A branch and PR remain complete and unchanged.
+Slice B restores the six-pair behavior only through the authoritative proposal boundary: merge the exact-basis completed Plan-action projection from #897 with the exact-basis Ask projection from #898; filter each source before its cap; sort by accepted time, source rank (Ask=0, PlanAction=1), source-local sequence and source UUID; then enforce six total pairs. Client history cannot add, remove, or reorder that context. This capability is integrated in #902; the merge does not establish a live provider, Graph retrieval, or end-to-end Plan acceptance witness.
 
 ### Explicit exclusions
 
@@ -110,15 +113,15 @@ No other paths are included. In particular, do not edit routes/agent.py, APP-STA
 
 At Slice A activation, the source paths and handoff were checked against open PRs and active leases. Before PR #900 creation, remote main and its branch were rechecked at `402390ca051553a09e844ea57ddf8be3f6217fef`. PR #899 was the pinned design artifact at `b1a2babeb0fff109d3625e30ca6785749ab8f332` and shared only this handoff path; its merge was not an activation gate. The then-open PRs #886, #887, #869, #844, #826, #798, #781, #765, #764, #763, #761, and #760 had no source-path overlap. This is historical clearance, not current PR clearance.
 
-### Slice B ACTIVE lease and current collision check
+### Slice B implementation lease (released at merge) and collision settlement
 
-PRIME accepted the design contract in PR #901 at head `eb5b7a679c0aad71eb71582649a3f193dd295fa2`, then explicitly issued a separate ACTIVE implementation lease from refreshed `origin/main` `f8712198848598c5ce83248eb66a54d93c1fd044`. The lane is branch `codex/demo-plan-proposal-context-merger` in checkout `/home/drakosfire/.codex/worktrees/demo-plan-proposal-context-merger/DungeonMindBuddy`; its one implementation PR is titled `DEMO: merge server-owned Plan proposal context`. The exact exclusive write set is:
+PRIME accepted the design contract in PR #901 at head `eb5b7a679c0aad71eb71582649a3f193dd295fa2`, then issued the Slice B ACTIVE implementation lease from `origin/main` `f8712198848598c5ce83248eb66a54d93c1fd044`. The isolated lane was branch `codex/demo-plan-proposal-context-merger`; PR #902 merged at `3d27a0550cb0ffa74fb7ce9cb301435fcaef1eb2`, releasing this lease. The exact former write set was:
 
 1. `apps/live_control_server/services/plan_document_edit_proposal.py`
 2. `tests/test_world_plan_edit_proposal.py`
 3. `Docs/Plans/HANDOFF-DEMO-plan-world-conversation-cutover.md` — this backward-looking record of the completed Slice A and current Slice B lease.
 
-PR #901 remains open and design-only at its pinned head; it also touches this handoff to settle Slice A history and pin the BLOCKED Slice B design. This ACTIVE lease intentionally updates only the separately leased handoff path to record Slice B's later authorization and current evidence. PR #901's files and head remain unchanged; its merge is not an implementation gate. The refreshed open-PR list included #901, #887, #886, #869, #844, #826, #798, #781, #765, #764, #763, #761 and #760. No code/test path overlaps this lease; #901 is the known handoff-path overlap. PRIME also rechecked active leases before dispatch; re-anchor again before PR opening/updating and report any change.
+PR #901 was closed as superseded after #902 merged; its exact design head remains preserved as the pin. It shared this handoff path, and #902 settled the current predecessor and implementation status here. At settlement, PR #869 remains open at head `1a720db429f5e6d1e13181cd19f6f02f78e3480e` and adds 33 roadmap lines for movement/J4. PRIME has placed that work on HOLD and serialized roadmap ownership for this settlement. The exact 33-line addition is preserved in the roadmap; PR #869 must be restacked on the settlement merge and drop its already-integrated roadmap hunk before any later review or merge. No #869 source files were edited. Other refreshed open PRs were #887, #886, #844, #826, #798, #781, #765, #764, #763, #761 and #760; none overlaps the former Slice B source/test paths. No new implementation lane is active.
 
 ## Slice A verification and acceptance record
 
@@ -157,7 +160,7 @@ PRIME first returned HOLD on `dde188505056f73373165c462aaf485971ac832e` for comp
 
 ## Runtime, database, and provider resources
 
-Slice A leased no runtime resource. Its wrapper and mounted tests used deterministic fakes; it did not claim a live backend, configured-provider witness, or product acceptance. Slice B uses only PRIME's pinned disposable Postgres fixture: PostgreSQL 16.15 container `prime-plan-context-merger-pg-20261003` (ID `d419513cc93a4c68c0a9ca92c3ba2663c45f30189e2919b1d21c73319811b2db`), loopback port 55461, temporary admin role with CREATEDB, and `/tmp/prime-plan-context-merger-20261003/application-state-test.dsn` (mode 600). The owner fixture creates a unique `dungeonbuddy_app_state_test_<uuid12>` database, migrates it, and drops it during teardown. No provider, application service, shared database, or persistent port is used; do not use ports 54330, 54331 or 55460. Resource cleanup belongs to SERVER after DEMO and PRIME completion; leave it running until PRIME explicitly releases it.
+Slice A leased no runtime resource. Slice B used PRIME's disposable PostgreSQL 16.15 fixture at loopback port 55461 for tests only; the owner fixture created/migrated/dropped unique test databases. PRIME released the fixture after the independent review; SERVER owns container cleanup. Do not use port 55461 again. No provider or live application service was used by #902. Persistent ports 54330, 54331 and 55460 remain outside this lane.
 
 ## Failure cases Slice A must preserve
 
@@ -174,10 +177,10 @@ Slice A leased no runtime resource. Its wrapper and mounted tests used determini
 - Compose/Revise can still produce a reviewable proposal against the captured draft/selection, but receives no conversation history in Slice A. Apply still edits only the draft; ordinary Save remains the commit boundary.
 - Graph remains not_requested. No graph retrieval/citation or J1–J6 completion is implied.
 
-## Slice A settlement and Slice B implementation record
+## Slice A and Slice B implementation settlement
 
-PRIME independently reviewed and merged Slice A PR #900 as recorded above. For Slice B, the design is pinned at PR #901 head `eb5b7a679c0aad71eb71582649a3f193dd295fa2`; PRIME's later task message explicitly superseded its BLOCKED status with an ACTIVE lease. The current branch is `codex/demo-plan-proposal-context-merger`, based on `f8712198848598c5ce83248eb66a54d93c1fd044`, with the three-path write set above. One implementation PR is authorized; it has not yet been opened. PRIME owns independent review and merge coordination. No merge is authorized by this record.
+PRIME independently reviewed and merged Slice A PR #900 at `f8712198848598c5ce83248eb66a54d93c1fd044`. PRIME then reviewed Slice B head `c5d96dd2ad066fe30e9dcbc90fac7263e8a70ce4` and merged PR #902 at `3d27a0550cb0ffa74fb7ce9cb301435fcaef1eb2`. The Slice B implementation lease is released. PR #901 was closed as superseded, retaining design head `eb5b7a679c0aad71eb71582649a3f193dd295fa2` as immutable history. No merge claims product acceptance.
 
-The Slice B focused proposal suite passed 39 tests against the pinned disposable PostgreSQL fixture; Ruff passed for the service and test files. These checks ran on the current working tree before commit and PR creation, so they are not final-head review evidence. Do not record Slice B as complete or merged, invent a PR number/head/review result, or imply live-demo acceptance.
+PRIME reports that its independent review passed 39 proposal tests and 16 owner-projection regressions; the author run also passed Ruff and cumulative diff checks. These are code-level witnesses. No provider call, live active-surface conversation, Graph retrieval/citation, reviewed Apply→ordinary Save→reload flow, or J1–J6/operator acceptance was performed for #902.
 
-Slice B's proposal-context contract remains in the design-only handoff pinned by open [PR #901](https://github.com/Drakosfire/DungeonMindBuddy/pull/901). Any later automatic Plan/Graph context remains a separate capability requiring its own re-anchor and lease.
+The Slice B design remains preserved at closed [PR #901](https://github.com/Drakosfire/DungeonMindBuddy/pull/901), head `eb5b7a679c0aad71eb71582649a3f193dd295fa2`. The next product acceptance slice and its missing Graph/runtime contracts are recorded in the DEMO roadmap; that work has no implementation or runtime lease.
