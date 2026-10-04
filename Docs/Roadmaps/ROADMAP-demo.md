@@ -228,8 +228,10 @@ DEMO's serial follow-up preserves inline reference identity, title marks,
 paragraphs, nested lists and semantic blocks in the existing v1/v2 Plan card
 projection. It adds no new editor, parser grammar, API or runtime authority.
 Focused Runbook slicer, Plan Card model and mounted integration suites pass
-63/63; the production Vite build passes. The synthetic 20-card mount measured
-228.7 ms in jsdom. The UI typecheck retains the unchanged
+64/64; the production Vite build passes. The synthetic 20-card mount measured
+229.7 ms in jsdom. A call-count regression proves equivalent fresh JSON and
+selection-only rerenders reuse generated HTML while a same-card content edit
+regenerates it. The UI typecheck retains the unchanged
 `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'` error.
 The required synthetic desktop and narrow screenshot review remains a HOLD:
 the available browser surface rejected the local preview URL and disallowed
