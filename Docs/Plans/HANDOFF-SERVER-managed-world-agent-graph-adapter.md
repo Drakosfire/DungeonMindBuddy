@@ -8,14 +8,15 @@
 
 ## Re-anchored basis
 
-- DungeonMindBuddy main: `0f42fec0812655bb37c87b6be9a7fe5741d7f25f`.
+- DungeonMindBuddy main: `d8e861661716d2fa8c1fb1e3e56ef08268d32da8` (includes merged #904 at `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0` and merged #907).
 - DungeonOverMind architecture and ownership authorities were refreshed at `9a80ab328a687039519569855c2b25a4ee7df07b`.
 - Open Buddy PRs rechecked for collisions:
-  - #904 Agent composer owns its handoff and `WorldPlanAgentConversation*` UI component/test paths. It preserves graphless exact-basis Plan Ask.
-  - #886 Plan navigation owns `PlanSurfacePage.tsx`; its `PlanSurfacePage.test.tsx` is assigned to the mounted-harness repair worker.
-  - #826 managed World/KnowledgeSpace binding owns provisioning, registry, and binding implementation paths.
-  - Merged #898 is an APP-STATE Plan Ask projection and does not change the Graph receipt contract.
-- The proposed handoff path was absent on current Buddy main. Recheck all heads, leases, and path collisions before activation.
+  - #886 remains open and owns Plan navigation/shell paths; `PlanSurfacePage.test.tsx` belongs to its mounted-harness repair follow-up. No path overlap with this handoff.
+  - #826 remains open and owns managed World/KnowledgeSpace provisioning, registry, and binding implementation paths. No path overlap with this handoff.
+  - #904 Agent composer merged as `fb1c48d622c9d8d404b1dddb5d5f618e03cc7ef0`; it preserves graphless exact-basis Plan Ask.
+  - #907 Plan-to-Playable design merged at current main `d8e861661716d2fa8c1fb1e3e56ef08268d32da8`; it does not alter Graph receipt ownership or replay semantics.
+  - Merged #898 remains an APP-STATE Plan Ask projection and does not change the Graph receipt contract.
+- This proposed handoff file is still absent from main. Recheck current heads, leases, and path collisions before activation.
 
 ## Primary question
 
@@ -46,7 +47,18 @@ Keep those fields in server-owned durable provenance. Do not expose native autho
 - **Pending or interrupted retry:** before any Graph source read or provider call, revalidate the recorded managed/native/binding/revision authority. If that authority no longer matches, stop with an explicit stale-authority outcome. Never silently substitute a current binding or a newer graph revision into the interrupted turn.
 - **Initial execution:** resolve the active binding from verified managed ownership, preserve the requested revision pin and supported scope, use the existing before/after binding fence, and persist the exact authority/revision used with the durable answer.
 - Keep response/product ownership and turn invariants anchored to the managed World ID.
-- Resolve exact atomicity and interrupted-turn state transition with APP-STATE. Do not imply that a route-only in-memory receipt is durable across process restart.
+- APP-STATE owns durable receipt representation and atomicity. Its proposed two-document receipt design has not been published: the APP-STATE thread reports its exact-file publication was blocked by review pending direct authorization. Treat the receipt shape below as this handoff's proposal, not as an APP-STATE accepted contract. Do not imply that a route-only in-memory receipt is durable across process restart.
+
+## DungeonMind source-read and retention boundary
+
+Re-checked DungeonMind main `619329c2c8586572ffd04558a79b3555c2ca3764`:
+
+- The legacy World Graph retrieval path can pin and return an exact graph projection revision. Its admitted source anchors carry evidence/source identity and locator metadata; they do not open or return source bodies. See [`world_graph_retrieval.py`](https://github.com/DrakosFire/DungeonMind/blob/619329c2c8586572ffd04558a79b3555c2ca3764/src/dungeonmind/application/world_graph_retrieval.py#L212-L230).
+- DungeonMind's `SourceRepository` is an identity store; its contract explicitly allows bodies to live elsewhere. Evidence metadata and locators may be durable while the referenced body is external. See [`repositories.py`](https://github.com/DrakosFire/DungeonMind/blob/619329c2c8586572ffd04558a79b3555c2ca3764/src/dungeonmind/application/repositories.py#L412-L443) and [`evidence.py`](https://github.com/DrakosFire/DungeonMind/blob/619329c2c8586572ffd04558a79b3555c2ca3764/src/dungeonmind/contracts/evidence.py#L17-L22).
+- DungeonMind's R.2 handoff explicitly leaves opening source bodies to a later product-owned opener after anchor validation. It does not promise historical body retention. See [`HANDOFF-cutover-direct-world-graph-retrieval.md`](https://github.com/DrakosFire/DungeonMind/blob/619329c2c8586572ffd04558a79b3555c2ca3764/Docs/Handoffs/HANDOFF-cutover-direct-world-graph-retrieval.md#L86-L86).
+- A separate vNext native-source admission path persists exact admitted body bytes and can reopen text with pinned-revision, span-proof, digest, and active-source checks. That API belongs to the KnowledgeSpace/vNext path; it is not wired to this legacy World Graph Agent adapter. Do not claim DungeonMind has no source reopening capability at all.
+
+Therefore completed-answer replay can be fully historical by returning the stored answer and its Graph receipt, without reopening citations. If a future product requirement needs reopening the cited source itself after completion, the legacy Graph receipt alone is insufficient: the product opener needs an explicit source-body identity and retention/revalidation contract. That is a separate blocker and must not be smuggled into this adapter slice.
 
 ## Required product invariants
 
@@ -88,7 +100,7 @@ Before proposing code readiness, inspect the exact cumulative Buddy base-to-head
 
 This handoff remains **BLOCKED** until:
 
-1. APP-STATE confirms the durable receipt vocabulary and how original Graph authority/revision is committed with a completed answer, plus the pending/interrupted retry transition when authority is stale.
+1. APP-STATE publishes and confirms the durable receipt vocabulary and how original Graph authority/revision is committed with a completed answer, plus the pending/interrupted retry transition when authority is stale. Its current proposed two-document design is not published and is not an accepted dependency yet.
 2. PRIME reviews this Buddy-owned design and explicitly activates the implementation lease after fresh PR/path collision checks.
 3. The adapter mapping is confirmed for currently supported campaign/focus/selection fields and revision semantics, with a fake-owner test witness.
 
