@@ -29,9 +29,9 @@ The committed basis selects historical context. The current mounted draft, caret
 
 ## Current baseline and owner boundary
 
-PR #897 provides `PlanActionDialogueService.completed_context(basis, limit=6)`. It returns only completed actions with a safe assistant summary and exact World, Plan document, object revision, WorkRevision ID, revision number and content digest. It returns the newest eligible rows in chronological order. Pending, failed and indeterminate actions do not consume the source cap.
+PR #897 provides `PlanActionDialogueService.completed_context(basis, limit=6)`. Each returned action carries its full basis plus a safe assistant summary, source sequence, accepted time and action identity. The proposal boundary checks each returned action basis against the exact requested basis before use. The owner projection returns only completed eligible rows in chronological order; pending, failed and indeterminate actions do not consume the source cap.
 
-PR #898 provides `AgentConversationService.list_completed_plan_ask_context(verified_world_id, basis, limit=6)`. It reads only completed visible Ask pairs from the active World conversation, requires the same full committed Plan basis, filters eligibility before its own cap, and returns them in chronological source order. The projection contains no hidden provider history.
+PR #898 provides `AgentConversationService.list_completed_plan_ask_context(verified_world_id, basis, limit=6)`. Pass the full `PlanAskContextBasis` constructed from the same server-resolved basis and verified World. The owner query requires that basis, filters eligibility before its own cap and returns visible completed Ask pairs in chronological source order. `CompletedPlanAskPair` contains source kind, sequence, record ID, accepted time, question and answer; it does not carry a basis field. The proposal boundary proves it supplied the exact basis to the owner projection, and relies on that owner's filtering contract rather than checking a nonexistent basis on each Ask pair. The projection contains no hidden provider history.
 
 The existing World Plan proposal service already reserves a durable Plan action before provider dispatch and checks an existing idempotency key before rebinding to current committed Plan content. The current request model still accepts `conversation_history`, and the current action fingerprint and provider prompt include it. Slice B changes that behavior at the Plan proposal service boundary: client history remains syntactically accepted for current wire compatibility, but the server neither trusts it as context nor treats it as part of submitted intent.
 
@@ -39,7 +39,7 @@ No owner projection, APP-STATE schema, Plan-action schema, public route, request
 
 ## Submitted intent and receipt-first retries
 
-The submitted proposal intent is identified by the idempotency key and a fingerprint of explicit action inputs:
+For a newly reserved action, the idempotency key and fingerprint identify explicit action inputs:
 
 - server-resolved full basis: World ID, Plan document ID, object revision, WorkRevision ID and number, and content SHA-256;
 - action type and target kind;
@@ -47,11 +47,15 @@ The submitted proposal intent is identified by the idempotency key and a fingerp
 - captured draft SHA-256; and
 - selected-text SHA-256 (the existing empty-text digest for a caret target).
 
-The new fingerprint excludes `conversation_history`, projection results, active conversation pointer, timestamps, provider state, and other mutable history. The fingerprint does not contain draft or selected-text bytes; their existing digests and request validation remain the input witness. Same key plus the same explicit intent is the same action even if client history changes. Reusing the key with a changed instruction, draft/selection digest, target or basis conflicts before context reads or provider work.
+For a new action, the service resolves the full basis before reservation. The request carries World ID, Plan document ID, object revision and content digest; WorkRevision UUID and revision number remain server-owned. A receipt hit compares those incoming wire fields to the saved basis and uses that receipt's WorkRevision UUID/revision number, without resolving the current Plan.
 
-**Legacy receipt compatibility:** #897 rows may have a stored fingerprint produced by the old algorithm, which included client history. On any existing-key hit, compare the incoming explicit intent directly with the receipt's persisted typed basis, action type, target kind, instruction, draft digest and selected-text digest. Do not require a new history-free fingerprint to equal an old history-bearing fingerprint. This preserves pending and terminal receipts when a retry's mutable history differs, without a schema change or source read. If a receipt lacks or contradicts a field needed for that comparison, return the existing conflict/error path before context reads or provider work; do not guess from unavailable original history. New reservations use the new history-free fingerprint.
+The new fingerprint excludes `conversation_history`, projection results, active conversation pointer, timestamps, provider state, and other mutable history. The fingerprint does not contain draft or selected-text bytes; their existing digests and request validation remain the input witness. Same key plus the same explicit intent is the same action even if client history changes. Reusing the key with a changed instruction, draft/selection digest, target or wire basis conflicts before context reads or provider work.
 
-On a retry, the service first looks up the existing action receipt and compares the explicit intent against its persisted typed fields as described above. It does not read either context projection or call the provider on an idempotency hit:
+**Receipt-first compatibility across fingerprint versions:** #897 rows may have a stored fingerprint produced by the old algorithm, which included client history. On any existing-key hit, use the saved receipt basis for its immutable WorkRevision UUID and revision number, then compare incoming wire World ID, document ID, object revision and content digest with that saved basis. The request has no WorkRevision UUID or revision-number field; do not resolve current Plan content or require client values for those saved coordinates on a receipt hit. Compare remaining explicit intent directly with persisted typed action type, target kind, instruction and draft digest.
+
+Selection comparison follows the target's persisted representation. For `replace_selection`, require the validated selected-text digest to equal the receipt's persisted `selected_text_sha256`. For `insert_at_caret`, require the validated selected text to be empty and the receipt's persisted `selected_text_sha256` to be `None`; #897 intentionally stores no digest for a caret target even though the old fingerprint included SHA-256 of the empty string. Treat `None` as the empty selection only for `insert_at_caret`, never as a wildcard or a match for nonempty selection. Do not require a new history-free fingerprint to equal an old history-bearing fingerprint. This preserves pending and terminal receipts when a retry's mutable history differs, without schema change, current-Plan read or context read. If a receipt lacks or contradicts a field needed for the comparison, return the existing conflict/error path before context reads or provider work; do not guess from unavailable original history. New reservations use the new history-free fingerprint.
+
+On a retry, the service first looks up the existing action receipt and compares the explicit intent against its saved basis and persisted typed fields as described above. It does not resolve current committed Plan content, read either context projection or call the provider on an idempotency hit:
 
 - `pending`: report pending, do not redispatch;
 - `completed`: preserve the accepted #897 completed-action response semantics; the proposal payload is not replayable;
@@ -67,7 +71,7 @@ After resolving the verified World and exact current committed Plan basis, and a
 1. Call `PlanActionDialogueService.completed_context(basis, limit=6)`.
 2. Build `PlanAskContextBasis` from that same server-resolved basis and call `AgentConversationService.list_completed_plan_ask_context(world_id, ask_basis, limit=6)`.
 
-Each owner projection applies its own exact-basis/completed/visible eligibility before its maximum-six source cap. Do not query the status/recovery projection for model context. Do not pass local legacy rows, the full World transcript, non-Plan Ask turns, client-provided pairs, replacement Markdown, Apply/Save receipts, provider traces or hidden state.
+Each owner projection applies its own completed/visible eligibility before its maximum-six source cap. PlanAction rows carry basis and must be checked against the requested full basis. Ask context basis is enforced by the exact `PlanAskContextBasis` input and the #898 owner query; returned Ask pairs do not repeat it. Do not query the status/recovery projection for model context. Do not pass local legacy rows, the full World transcript, non-Plan Ask turns, client-provided pairs, replacement Markdown, Apply/Save receipts, provider traces or hidden state.
 
 Tag each eligible pair for sorting:
 
@@ -78,7 +82,7 @@ Sort the combined rows by this tuple in ascending order. The source rank is Ask=
 
 Convert the six pairs to at most twelve existing `PlanEditHistoryMessage` role/content messages. Leave messages of 4,000 or fewer Python Unicode code points unchanged. For a longer message, retain the longest leading prefix that fits with the visible suffix ` …[truncated]`, so the complete output is at most 4,000 code points. Apply the same deterministic rule to Ask questions/answers and PlanAction instructions/summaries, without changing any stored source record. The server-built list replaces client `conversation_history` for provider input. No source metadata or idempotency fields are sent as dialogue text.
 
-The accepted cross-source ordering comes from #897: `(accepted_at, source rank Ask=0 / PlanAction=1, source-specific sequence, source record UUID)`. Each owner projection uses its own database unit of work. The reads are independent exact-basis reads; the combined context is not a globally atomic cross-owner snapshot. This is accepted for generation context, which is not authoritative state. A future requirement for “newest six as of one instant” needs a shared snapshot or watermark and is a separate capability. If either read fails or returns a basis mismatch, fail the reserved action before provider dispatch; never generate from one source alone or fall back to client history.
+The accepted cross-source ordering comes from #897: `(accepted_at, source rank Ask=0 / PlanAction=1, source-specific sequence, source record UUID)`. Each owner projection uses its own database unit of work. The reads are independent exact-basis reads; the combined context is not a globally atomic cross-owner snapshot. This is accepted for generation context, which is not authoritative state. A future requirement for “newest six as of one instant” needs a shared snapshot or watermark and is a separate capability. If either read fails, if the server-built Ask basis differs from the exact resolved basis, or if a returned PlanAction row carries a different basis, fail the reserved action before provider dispatch; never generate from one source alone or fall back to client history.
 
 ## Surface, work and response origin
 
@@ -92,12 +96,12 @@ The operator is evaluating Of Conks & Cons / A Wild Sheep Chase through the exis
 
 The implementation must prove at the Plan proposal service/route boundary:
 
-1. Both source readers receive the same exact server-resolved committed basis and `limit=6`; the merged prompt uses no source outside those readers.
+1. The PlanAction reader receives the exact server-resolved basis and `limit=6`; every returned PlanAction row is checked against that basis. The Ask reader receives a `PlanAskContextBasis` exactly matching that basis and `limit=6`. Its returned `CompletedPlanAskPair` has no basis field, so verify the call argument and preserve the #898 owner projection boundary instead of asserting a nonexistent result field. The merged prompt uses no source outside those readers.
 2. Equal timestamps, source-rank ties, source-local sequence ties and UUID tie-breaks produce the accepted deterministic order.
 3. The merger retains the newest six pairs after merging up to six eligible pairs from each source, emits at most twelve chronological messages, and enforces the existing 4,000-code-point message bound. Overlong Ask and PlanAction fields receive the exact visible suffix ` …[truncated]`; source records remain unchanged.
 4. A request carrying a validly shaped poisoned `conversation_history` sentinel cannot add, remove or reorder provider context; the sentinel is absent and provider input equals only the server-projected merge. Empty source projections result in empty provider history even when the client supplies poison.
-5. Same-key retries with changed client history but unchanged explicit intent are receipt-first: no source reads, no provider call, and no conflict due to history. Include a legacy #897 receipt whose stored fingerprint includes prior client history; a retry with changed or empty history but identical persisted typed fields returns the same truthful receipt/status. Changed explicit intent conflicts before source reads/provider work. Completed, pending, failed and indeterminate outcomes retain #897 semantics.
-6. Duplicate reservation losers do not read either source or dispatch. Either projection read failure or a returned basis mismatch dispatches no provider request and records a truthful failure for the reserved action; persistence ambiguity cannot cause automatic redispatch.
+5. Same-key retries with changed client history but unchanged explicit intent are receipt-first: no current-Plan read, source read, provider call or history-based conflict. Cover both legacy history-bearing and new history-free fingerprints. For each, unchanged typed intent returns the same truthful receipt/status; changes to instruction, draft digest, wire basis, target or selection conflict. For `insert_at_caret`, prove an empty validated selection matches persisted `selected_text_sha256=None`, while nonempty selection does not; for `replace_selection`, compare the computed selected-text digest. Completed, pending, failed and indeterminate outcomes retain #897 semantics.
+6. Same-key reservation losers do not read either source or dispatch; identical typed intent with different client history reconciles to the winner's receipt, while changed typed intent conflicts. Either projection read failure, an Ask input-basis construction mismatch, or a returned PlanAction row with mismatched basis dispatches no provider request and records a truthful failure for the reserved action; persistence ambiguity cannot cause automatic redispatch.
 7. A newer ineligible/pending/failed/indeterminate source record cannot crowd an older eligible pair out before that source's limit. #897/#898 already prove their owner projections filter before limiting; the merger calls those completed-context methods rather than the status read or general history.
 8. Existing proposal response/action correlation, exact Plan-basis validation, tool/authorization behavior, Review/Apply/Save, and late-response surface fencing continue to pass.
 
@@ -105,12 +109,13 @@ Use deterministic fake provider inputs for the focused service tests and an owni
 
 ## Proposed future implementation paths — not an active lease
 
-The bounded expected code write set is:
+The bounded expected future write set is:
 
 - `apps/live_control_server/services/plan_document_edit_proposal.py` — exclude mutable client history from the World action fingerprint; build prompt history from the two exact-basis completed-context projections after receipt lookup and new reservation; merge, total-cap and bound the server-owned pairs.
 - `tests/test_world_plan_edit_proposal.py` — prove merge order/caps, poisoned client history, receipt-first retry identity, duplicate reservation behavior, projection failure and route/service/provider boundary behavior.
+- `Docs/Plans/HANDOFF-DEMO-plan-world-conversation-cutover.md` — include in the future activation write lease for a truthful transition record: retain Slice A's COMPLETE facts and record Slice B's actual ACTIVE lane/PR metadata when authorized, without marking the in-flight slice complete. At later settlement, record only actual merge/review/evidence facts.
 
-No UI/API wrapper, request model, route, APP-STATE projection, PlanAction repository/service, migration, shared unit-of-work, global fixture, lockfile, roadmap, card, or provider/runtime path is in this proposed set. If implementation inspection requires any other path or owner contract, stop before editing and return the exact expansion to PRIME. PRIME must issue a separate exclusive ACTIVE lease before either proposed source path may be edited.
+No UI/API wrapper, request model, route, APP-STATE projection, PlanAction repository/service, migration, shared unit-of-work, global fixture, lockfile, roadmap, card, or provider/runtime path is in this proposed set. If implementation inspection requires any other path or owner contract, stop before editing and return the exact expansion to PRIME. PRIME must issue a separate exclusive three-path ACTIVE lease before any proposed path may be edited.
 
 ## Test resources
 
@@ -125,8 +130,8 @@ At authority base `f8712198848598c5ce83248eb66a54d93c1fd044`, PR #900 is merged 
 This handoff remains BLOCKED until all applicable gates are satisfied:
 
 1. ARCHITECTURE's ruling is recorded: independent exact-basis reads are acceptable generation context, are not globally atomic, and need no new shared snapshot/watermark. A future strict same-instant recency requirement is a separate capability.
-2. PRIME adopts the exact design head, confirms the settled #897/#898/#900 owner contracts and legacy typed-field receipt comparison still apply, re-anchors current main/open PRs/active leases/resources, and issues the exclusive two-path ACTIVE lease.
-3. The implementation verifies the current server request/fingerprint and response-receipt behavior against the exact activation base. If typed fields cannot safely compare legacy receipts, stop before editing and return the compatibility gap to PRIME rather than expanding schema or introducing a migration within this slice.
+2. PRIME adopts the exact design head, confirms the settled #897/#898/#900 owner contracts and typed-field receipt comparison still apply, re-anchors current main/open PRs/active leases/resources, and issues the exclusive three-path ACTIVE lease for the service, owning-boundary tests and Slice A handoff sync.
+3. The implementation verifies the current server request/fingerprint and response-receipt behavior against the exact activation base. It must use the saved receipt basis for WorkRevision UUID/number, compare incoming wire World/document/object-revision/content-digest against that basis, and apply the target-aware caret/selection rule above without resolving current Plan content. If these typed fields cannot safely compare legacy or new receipts, stop before editing and return the compatibility gap to PRIME rather than expanding schema or introducing a migration within this slice.
 4. Required disposable database evidence and no-shared-service setup are assigned in the implementation lease.
 
 No implementation activation, merge, configured-provider run, visual/operator acceptance, or J1–J6 completion is implied by this prepared contract.
