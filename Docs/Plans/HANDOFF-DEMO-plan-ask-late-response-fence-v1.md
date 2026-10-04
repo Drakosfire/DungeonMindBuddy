@@ -10,7 +10,7 @@
 
 **Topology:** `parallel-independent` from open draft PR #914. PRIME checked all 12 currently open PRs and found zero path overlap with the two UI/test files below. PR #914 remains on the same base and owns card/runbook projection files, its handoff and roadmap; it has no behavioral dependency on this slice and retains its independent visual review hold. No shared service, database, provider, port or external state is used.
 
-**PR topology:** One implementation PR for this capability. No PR number was preassigned; open one from this branch after implementation and exact cumulative review. DEMO does not merge. PRIME owns review/merge coordination.
+**PR topology:** One implementation PR for this capability: [PR #915](https://github.com/Drakosfire/DungeonMindBuddy/pull/915), opened from this branch after implementation and exact cumulative review. Implementation commit: `efaa86da`. DEMO does not merge. PRIME owns review/merge coordination.
 
 **Activation record:** PRIME’s explicit activation names the base, branch, parallel-independent topology, exact write lease, handoff-first commit, acceptance witnesses, one-PR limit and exclusions. The reviewed pre-activation design draft SHA-256 was `39d3e9ed0c7b3b56378056a6ff4a4f4381eed41f26490e3d1d5cc39fda8d16c5`.
 
