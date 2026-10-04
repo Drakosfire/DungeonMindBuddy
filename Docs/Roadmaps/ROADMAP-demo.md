@@ -46,6 +46,16 @@ PDF parsing itself is outside scope; parsed Markdown is the agreed input.
 The end-to-end demo remains unaccepted. Several integration and rehearsal steps
 are now proven; J1–J6 have not passed as a connected journey.
 
+**Plan conversation integration update (2026-10-03):** Buddy #900 and #902 are
+merged at `f8712198848598c5ce83248eb66a54d93c1fd044` and
+`3d27a0550cb0ffa74fb7ce9cb301435fcaef1eb2`. Saved-World Plan now consumes the
+canonical World conversation for visible history/Ask recovery, and Compose/Revise
+proposal context is assembled server-side from exact-basis completed Ask and
+PlanAction pairs. This is code integration, not the missing live Graph-backed
+Plan witness or full J2 acceptance. The next product gate is unleased; see the
+execution ledger entry below for the proposed witness and its owner/resource
+questions.
+
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at
 `f8b923875f9444a1addfb2472a2b8fab35eceb4c`, reviewed code head
@@ -1184,6 +1194,33 @@ that their foundations are absent. Historical slices retain their IDs.
   witness. A separate page-bootstrap World Graph projection still returned
   503; no graph write or read-after-write was attempted, and graph readiness
   remains unproven.
+- **DEMO-J2 Plan conversation/context integration (#900/#902; 2026-10-03):**
+  Buddy #900 merged at `f8712198848598c5ce83248eb66a54d93c1fd044` from reviewed
+  head `30f4f36549ece68c173fd577c119a2ab88ceebed`. It moved saved-World Plan
+  conversation display, New Conversation and uncertain Ask recovery onto the
+  canonical server-owned World history contract. Its focused UI/API tests passed
+  124/124; typecheck retained only the inherited
+  `ThreatPublicationPanel.tsx:553` JSX namespace error. Buddy #902 merged at
+  `3d27a0550cb0ffa74fb7ce9cb301435fcaef1eb2` from reviewed head
+  `c5d96dd2ad066fe30e9dcbc90fac7263e8a70ce4`. The server now merges exact-basis
+  completed Ask and PlanAction pairs, enforces the total six-pair cap and ignores
+  browser-supplied history. PRIME reports 39 proposal tests and 16 owner-projection
+  regressions passed; the author run also passed Ruff and cumulative diff checks.
+  These are implementation/code witnesses only: no configured-provider call,
+  live active-surface Graph turn, citation, reviewed Apply → ordinary Save →
+  reload witness, or J1–J6/operator acceptance was performed. Plan still sends
+  `graph_request=none`. The prior page-bootstrap Graph projection returned 503,
+  and the prior surface witness reported Graph authentication unavailable; these
+  are historical observations that require exact recheck before any new lane.
+  The next proposed product witness remains unleased: on one selected saved
+  managed-World Plan, ask an ordinary question against an already accepted Graph
+  fact and preserve exact source/node citation; compose/revise from that evidence,
+  Review, Apply to the same draft, Save through the ordinary writer, then reload
+  and inspect content revision plus conversation/provenance. It performs no
+  Graph write; J3 authoring/publication remains separate. Before activation,
+  verify the current read/citation contract and owner, identify a usable accepted
+  fact/source, and allocate a fresh isolated World/runtime. The Slice B
+  disposable database at port 55461 was released to SERVER and must not be reused.
 - **DEMO-J3 post-#784 product checkpoint:** read-only rehearsal on integrated
   `main@c19a6c2bf51ae01337b2ad8a3188d45ad6f0fd64`, same isolated World
   and disposable saved Plan. Unlocking and selecting Stacy in the mounted
@@ -1210,6 +1247,39 @@ that their foundations are absent. Historical slices retain their IDs.
   Accepted inspected pins: WorldKeeper
   `49a8620f066ce7ef8972a699020c012f50af9158`, DungeonMind
   `0f709d76fdc53bac9c9258d1751463ae2c76ca71`. No J3 implementation is active.
+- **DEMO-J4 movement-control checkpoint (2026-10-02):** draft Buddy PR #869,
+  `DEMO: typed movement reference editing`, adds candidate-local movement key,
+  kind, distance and qualifier controls plus explicit references in every
+  direct movement-effect array from the generated v1 contract (composite,
+  passive, phase-transition, attack hit/miss and save success/failure). The
+  exact-head ARCHITECTURE review initially held code head
+  `7ad826d144b3116dbfc460b01d1073ce26e53ad6` because the attack/save arrays
+  were protected; those typed controls and editor/mounted regressions are on
+  code head `fa7b27e6cf1682bfbdbffd1e9abc792c845366f3`, which ARCHITECTURE
+  reviewed PASS. ARCHITECTURE confirmed that PASS also carries to cumulative PR
+  head `9e7647053df6dbf51a842c0b6b914d2f2af18d45`: that later commit changed
+  only this roadmap, and the three UI files are byte-identical. The two
+  owning Vitest files pass **150/150**; cumulative diff check passes. UI
+  typecheck still reports only the inherited `ThreatPublicationPanel.tsx:553`
+  `TS2503` JSX namespace error. PRIME allocated a fresh disposable J4 lane at
+  `/tmp/j4-dms-buddy-pr869-20261002`. SERVER's isolated DMS/PostgreSQL packet is
+  live: DMS main `a79a52123c1d72caa87be3eec10b6b9a6da7df22`, PostgreSQL migrated
+  through Alembic head `20261002_0012`, and the Firestore emulator health check
+  passed. DMS authenticated readiness returned `ready` with read routes enabled,
+  generation disabled, and no readiness errors. No provider call or candidate/
+  revision write occurred. The Buddy API and UI were started from PR head
+  `2f47b3e6816094367ae53e6a9dd399ce826edb4a` on the reserved lane ports 17861 and
+  15202; `syntheticWorld` was registered and the Workbench layout survived save
+  and reload in the isolated DB. The surrounding legacy surface still reports
+  graph authentication unavailable, so this does not prove graph behavior.
+  At the DMS validator boundary, a synthetic `swim` reference with no matching
+  local movement mode returned `UNKNOWN_MOVEMENT_REFERENCE`; changing only the
+  reference to existing local key `hover` returned no issues. This is validator
+  evidence only: a real Buddy UI preview → explicit edit → preview → save → reload
+  witness, including the saved revision/readback, remains pending. Generation is
+  disabled under PRIME's current runtime direction. The retained candidate body
+  is not in checked-in evidence, so a synthetic same-schema witness cannot be
+  called its repair or full J4 acceptance. This checkpoint does not close J4.
 - **DEMO-J4 prepared-checkpoint scope defect:** opening Plan Tools → Statblock
   in Of Conks displays `eldyrwild · longmont-c2` creation defaults. Code
   inspection confirms `LIVE_CONTROL_CREATE_CONTEXT` drives projection
