@@ -107,3 +107,7 @@ Replaced the single Meat Mind toolbar shortcut with Threats: scene threats are d
 ## Creature notes
 
 Meat Mind, Fleshborn Hybrid and Lysandra creature views now offer creature-specific autosaved notes shared across scenes. The maps and save timestamps are serialized with existing full-session backups; storage failures display a copy-your-note warning. Notes remain outside imported statblocks and preparation. Browser verified Hybrid notes are visible without touching operator data. Syntax, model and fixture checks passed.
+
+## Private full-adventure board witness
+
+Added generic private dataset loader/board renderer and loopback allowlisted server within the prototype lane. Source-derived bytes remain ignored. Source-safe handling, retention counts, verification and pending review tasks are recorded in PRIVATE-BOARDS.md. Existing Session29 and exact design-v1 CSS remain unchanged. The two datasets are development candidates, not frozen gold or production integration.
