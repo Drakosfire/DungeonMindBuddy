@@ -4,8 +4,8 @@
 
 **Status: ACTIVE.** This bounded implementation is authorized by the operator’s DEMO appointment and PRIME’s direct assignment/correction in the current task. The operator’s correction supersedes the earlier two-flow suggestion: one conversation composer, with proposed edits represented as conversation events and reviewed inline.
 
-- Pinned base: DungeonMindBuddy `origin/main` at `d9b7d1e1ef9c1ad4401e107694260ad4f19455b6`.
-- Implementation branch: `codex/demo-plan-agent-panel-usability`, rebased onto that main commit before final review.
+- Pinned base: DungeonMindBuddy `origin/main` at `0f42fec0812655bb37c87b6be9a7fe5741d7f25f`.
+- Implementation branch: `codex/demo-plan-agent-panel-usability`, rebased onto that main commit before the latest review correction.
 - This handoff is the authority for the lease on this branch. Commit it before implementation edits; record that handoff commit here after pinning.
 - Assigned PR: create one DEMO implementation PR for PRIME review. No merge authority is granted here.
 - Scope: one independently useful Agent conversation composer usability capability.
@@ -41,7 +41,7 @@ Do not edit `PlanSurfacePage.tsx`, `PlanSurfacePage.test.tsx`, global styles, AP
 
 ## Re-anchor and collision audit
 
-At initial activation this lane was based on `main@707ffdfa6da742e3503323908ad4826f692b12fd`. After PRIME published the operator-adopted card roadmap on 2026-10-03, a fresh fetch pinned `origin/main` at `d9b7d1e1ef9c1ad4401e107694260ad4f19455b6`. The intervening main diff contains only `Docs/Roadmaps/ROADMAP-demo.md` and `Docs/Plans/STEWARDS-HANDOFF-demo.md`, outside this lease. The current open PR inventory was rechecked, and this branch was rebased onto the new main before final review. The merged World conversation cutover/proposal-context predecessors remain released. An older dirty #900 worktree is historical and must not be copied, reset, cleaned, or edited.
+At initial activation this lane was based on `main@707ffdfa6da742e3503323908ad4826f692b12fd`. After PRIME published the operator-adopted card roadmap on 2026-10-03, a fresh fetch pinned `origin/main` at `d9b7d1e1ef9c1ad4401e107694260ad4f19455b6`. The 2026-10-04 authority reconciliation advanced `origin/main` to `0f42fec0812655bb37c87b6be9a7fe5741d7f25f`; the exact intervening diff is limited to `Docs/Plans/HANDOFF-DEMO-plan-navigation-shell.md`, `Docs/Plans/STEWARDS-HANDOFF-demo.md`, and `Docs/Roadmaps/ROADMAP-demo.md`, all outside this lease. Rechecked open PRs: #904 was open at `b59abf0784301d71d00cf002c2a3b697f0216a46`; #886 remained Draft/HOLD at `717727c33fe70fc154aee291e4397e2d53ac425c`; #887 remained on its separate prototype paths at `4b91c09d8a50188dfb1c9ce795358b32d17c02d7`. #886's `PlanSurfacePage.test.tsx` lease is transferred to PRIME's mounted-harness repair worker; this lane did not touch it. This branch was rebased onto `0f42fec0` before the latest correction. The merged World conversation cutover/proposal-context predecessors remain released. An older dirty #900 worktree is historical and must not be copied, reset, cleaned, or edited.
 
 ### Topology: parallel-independent
 
@@ -62,12 +62,14 @@ Before requesting PRIME review:
 
 ## Execution record
 
-- Authority handoff commit on the rebased branch: `079767ab3ccd8f193fd5ead831e6c71f14b48654`.
+- Authority handoff commit on the latest rebased branch: `cea37b3a131b27f926f599758ab86e8dbc3b6abc`.
 - Implementation PR: [#904](https://github.com/Drakosfire/DungeonMindBuddy/pull/904).
-- Implementation code commit on the rebased branch: `8a5bc6809fea70886208ab7ae9a6a421ecaf2772`. The later handoff receipt is documentation-only; PR #904 metadata records the final branch head.
+- Initial implementation code commit on the latest rebased branch: `0363c939ed11e8132c212a2f35315b3217f73b9f`.
+- Review correction commit on the latest rebased branch: `36790d89228424df418f84c823b7edb6e5abf46f`. It orders local proposal events at their verified World conversation sequence boundary, detaches events when that conversation cannot be verified, labels them as local proposals, and lets the narrow panel scroll when Settings is expanded.
+- The later handoff receipt is documentation-only; PR #904 metadata records the final branch head.
 - Verification:
-  - `rtk npm test -- --reporter=dot --maxWorkers=1 src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx` — 22 passed, rerun after the rebase onto `d9b7d1e1`.
-  - `rtk npm exec vite build` — passed (Vite reports the existing large-chunk advisory).
+  - `rtk npm test -- --reporter=dot --maxWorkers=1 src/planSurface/WorldPlanAgentConversation.worldHistory.test.tsx src/planSurface/WorldPlanAgentReviewedEdit.integration.test.tsx` — 22 passed after the review correction; the only later rebase change was the three authority documents listed above.
+  - `rtk npm exec vite build -- --outDir /tmp/dmb-demo-pr904-build-20261004` — passed (Vite reports the existing large-chunk advisory). The default output directory could not be cleared because the worktree's existing `dist/assets` is read-only (`EROFS`); the build was directed to fresh `/tmp` output.
   - `rtk npm run typecheck -- --pretty false` — blocked by `TS2503: Cannot find namespace 'JSX'` at `src/statblocks/publication/ThreatPublicationPanel.tsx:553`, outside this lease and unchanged by this branch.
   - `git diff --check` — passed.
-- Desktop/mobile evidence: captured and inspected the shared composer at 1310×900 and 390×844 in a separate preview on port 54123. Both show the same one-field Discuss/Propose composer, collapsed Settings and Advanced details, and a visible actionable authorization state. The credential field was not populated; no Plan content was edited or saved. The viewport override was reset, and ports 5202/5203 were not contacted.
+- Desktop/mobile evidence: captured and inspected a separate synthetic preview on UI port 54124 with a loopback-only mock API on 54125; it used a synthetic World/Plan and an authorization-rejected response. At 1310×900, expanded Settings and the full composer fit in the viewport (composer bottom at y=884). At 390×844 with Settings expanded, the panel reports `overflow-y: auto`; scrolling 239px exposes the full composer and disabled Send button (composer y=541–832, button y=781–818). Screenshots were captured and inspected in the browser session but were not saved as shareable files, so no screenshot path is available. No credential was entered, no user Plan was edited or saved, and the live API or ports 5202/5203 were not contacted.
