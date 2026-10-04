@@ -223,6 +223,21 @@ rerun on the exact clean head. The implementation lease is closed. No operator
 acceptance or J1–J6 completion is claimed. Ports 5202, 8000, and 5203 remain
 untouched.
 
+**Plan Cards semantic-content fidelity — ACTIVE, draft PR #914 (2026-10-04):**
+DEMO's serial follow-up preserves inline reference identity, title marks,
+paragraphs, nested lists and semantic blocks in the existing v1/v2 Plan card
+projection. It adds no new editor, parser grammar, API or runtime authority.
+Focused Runbook slicer, Plan Card model and mounted integration suites pass
+63/63; the production Vite build passes. The synthetic 20-card mount measured
+228.7 ms in jsdom. The UI typecheck retains the unchanged
+`ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'` error.
+The required synthetic desktop and narrow screenshot review remains a HOLD:
+the available browser surface rejected the local preview URL and disallowed
+alternate browser routes. No visual acceptance or merge is claimed. The active
+contract and write lease are in
+[HANDOFF-DEMO-plan-card-projection-fidelity.md](../Plans/HANDOFF-DEMO-plan-card-projection-fidelity.md);
+the PR remains draft pending the visual gate.
+
 **Merged — selected committed-card Plan Ask:**
 After #909, add the selected committed Playable-card identity to the existing
 server-owned World conversation's canonical Plan Ask. Do not include proposal,

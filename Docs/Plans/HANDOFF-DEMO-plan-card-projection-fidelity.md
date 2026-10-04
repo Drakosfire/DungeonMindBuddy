@@ -60,3 +60,9 @@ No directory-wide lease. `PlanSurfacePage`, Markdown editor core/extensions, Age
 ## 5. Exclusions and stop conditions
 
 No full prototype visual redesign, focused scene/lens workflow, chronological/session routing, Run decisions/rolls/notes, card editing changes, Graph grounding/media, ingestion, auth, migration or server rollout. The eventual common prepare/run interface is evaluated across both Conks prototypes, Sheep and personal campaign sessions; this repair supplies faithful content for that adoption. A new capability, path collision, loss of atom identity or changed Runbook text behavior requires PRIME to split/revise scope.
+
+## Implementation status — PR #914 (2026-10-04)
+
+The six-path implementation is published from `codex/demo-plan-card-projection-fidelity` in draft [PR #914](https://github.com/Drakosfire/DungeonMindBuddy/pull/914). Code commit `93d7d0c7` is based on the pinned amendment `47fcb50b1a392be89b19eb51032adac705f9c13b`. Focused Runbook slicer, Plan Card model and mounted integration suites pass 63/63; the production Vite build passes. A synthetic 20-card mount took 228.7 ms in jsdom. `tsc -b --pretty false` retains the unchanged main error at `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`.
+
+The required synthetic desktop and narrow screenshot review is still an acceptance hold. The available browser surface rejected the local preview URL and disallowed alternate browser routes, so no screenshot or visual acceptance is claimed. Keep this handoff ACTIVE and the PR draft until the visual gate is reviewed through an approved preview environment. No merge is authorized here.
