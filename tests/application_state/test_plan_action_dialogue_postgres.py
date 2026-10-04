@@ -98,14 +98,22 @@ def test_reservation_idempotency_live_pending_and_privacy(application_state_dsn:
     assert "Add a quiet warning." in serialized
 
 
-def test_playable_target_receipt_survives_reservation_and_projection(application_state_dsn: str) -> None:
+@pytest.mark.parametrize(
+    ("marker_grammar_version", "body_scope"),
+    [("v1", "heading_body"), ("v2", "option_item_content")],
+)
+def test_playable_target_receipt_survives_reservation_and_projection(
+    application_state_dsn: str,
+    marker_grammar_version: str,
+    body_scope: str,
+) -> None:
     service = PlanActionDialogueService()
     receipt = PlanActionPlayableTargetReceipt(
         schema_version="dmb_plan_playable_target_receipt_v1",
         kind="option",
         id="option:go",
-        marker_grammar_version="v2",
-        body_scope="option_item_content",
+        marker_grammar_version=marker_grammar_version,
+        body_scope=body_scope,
         range_semantics_version="plan-playable-ranges-v1",
         body_serialization_version="plan-playable-body-markdown-v1",
         target_body_sha256="e" * 64,

@@ -81,13 +81,31 @@ _CARD_DRAFT = (
 )
 
 
-def _playable_request(*, target_id: str = "scene:first", idempotency_key: str | None = None):
+_V1_OPTION_DRAFT = (
+    "<!-- dmb-playable-element:v1 kind=scene id=scene:first -->\n"
+    "## First\n"
+    "A scene body.\n\n"
+    "<!-- dmb-playable-element:v1 kind=choice id=choice:route -->\n"
+    "### Route\n"
+    "Choose a path.\n\n"
+    "<!-- dmb-playable-element:v1 kind=option id=option:go -->\n"
+    "#### Go\n"
+    "Take the covered bridge.\n"
+)
+
+
+def _playable_request(
+    *,
+    target_id: str = "scene:first",
+    idempotency_key: str | None = None,
+    draft_markdown: str = _CARD_DRAFT,
+):
     kind = target_id.split(":", 1)[0]
-    resolved = resolve_playable_body_target(_CARD_DRAFT, PlayableTarget(kind=kind, id=target_id))
+    resolved = resolve_playable_body_target(draft_markdown, PlayableTarget(kind=kind, id=target_id))
     return _request(
         idempotency_key=idempotency_key or str(uuid4()),
-        draft_markdown=_CARD_DRAFT,
-        draft_sha256=_sha(_CARD_DRAFT),
+        draft_markdown=draft_markdown,
+        draft_sha256=_sha(draft_markdown),
         target_kind="replace_playable_body",
         selected_text="",
         playable_target={"kind": kind, "id": target_id},
@@ -461,11 +479,22 @@ def test_world_proposal_uses_only_explicit_draft_context_and_returns_exact_ident
     ), 6)]
 
 
+@pytest.mark.parametrize(
+    ("draft_markdown", "target_id", "expected_kind"),
+    [
+        (_CARD_DRAFT, "scene:first", "scene"),
+        (_V1_OPTION_DRAFT, "option:go", "option"),
+    ],
+)
 def test_playable_body_proposal_persists_and_echoes_exact_target_receipt(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    draft_markdown: str,
+    target_id: str,
+    expected_kind: str,
 ) -> None:
     snapshot = _authority(monkeypatch)
-    request = _playable_request()
+    request = _playable_request(target_id=target_id, draft_markdown=draft_markdown)
     fake = _FakeGenerationClient("A reviewed body replacement.")
     action_store = _FakeActionStore()
     ask_reader = _FakeAskContextService()
@@ -491,12 +520,12 @@ def test_playable_body_proposal_persists_and_echoes_exact_target_receipt(
     assert result.range_semantics_version == "plan-playable-ranges-v1"
     assert result.body_serialization_version == "plan-playable-body-markdown-v1"
     receipt = action_store.reservations[0].playable_target_receipt
-    assert receipt.kind == "scene" and receipt.id == "scene:first"
+    assert receipt.kind == expected_kind and receipt.id == target_id
     assert receipt.target_body_sha256 == request.target_body_sha256
     assert receipt.marker_grammar_version == "v1"
     assert receipt.body_scope == "heading_body"
     context = json.loads(fake.requests[0].user_prompt)
-    assert context["playable_target"] == {"kind": "scene", "id": "scene:first"}
+    assert context["playable_target"] == {"kind": expected_kind, "id": target_id}
     assert context["target_body_markdown"] == request.target_body_markdown
     assert result.base_content_sha256 == snapshot.content_sha256
     assert ask_reader.calls

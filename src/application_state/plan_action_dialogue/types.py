@@ -42,9 +42,11 @@ class PlanActionPlayableTargetReceipt(StrictModel):
     def validate_typed_scope(self):
         if self.id.split(":", 1)[0] != self.kind:
             raise ValueError("Playable target receipt kind must match its ID prefix")
-        if self.kind == "option":
-            valid_scope = self.marker_grammar_version == "v2" and self.body_scope == "option_item_content"
-        elif self.kind == "beat" and self.marker_grammar_version == "v2":
+        if self.marker_grammar_version == "v1":
+            valid_scope = self.body_scope == "heading_body"
+        elif self.kind == "option":
+            valid_scope = self.body_scope == "option_item_content"
+        elif self.kind == "beat":
             valid_scope = self.body_scope == "beat_direct_body"
         else:
             valid_scope = self.body_scope == "heading_body"

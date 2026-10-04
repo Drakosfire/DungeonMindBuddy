@@ -1836,6 +1836,7 @@ export function WorldPlanAgentConversation({
       });
       discardEditReview();
     } catch (reason) {
+      setComposerIntent("propose");
       setEditError(reason instanceof Error ? reason.message : "The proposal could not be applied to this mounted Plan.");
     }
   }
