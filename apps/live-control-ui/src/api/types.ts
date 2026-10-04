@@ -826,6 +826,7 @@ export interface WorldPlanAgentTurnResponseV1 {
     turn_id: string;
     pointer_status: "absent" | "accepted" | "recovered" | "rejected" | "reused";
     pointer_id: string | null;
+    conversation_id?: string | null;
   };
   answer: {
     status: "ok" | "error";
@@ -835,6 +836,69 @@ export interface WorldPlanAgentTurnResponseV1 {
     graph_grounded: boolean;
     trace: Record<string, unknown>;
   };
+}
+
+export interface AgentConversationHistoryReferenceV1 {
+  resolution: "resolved" | "absent" | "unresolved" | "unavailable";
+  kind: string | null;
+  object_id: string | null;
+  revision: string | null;
+  content_sha256: string | null;
+  object_revision: number | null;
+  work_revision_id: string | null;
+  revision_n: number | null;
+}
+
+export interface AgentConversationTurnProvenanceV1 {
+  world_id: string;
+  surface_resolution: "resolved" | "absent" | "unresolved" | "unavailable";
+  surface_id: string | null;
+  surface_instance_id: string | null;
+  primary_work: AgentConversationHistoryReferenceV1;
+  supporting_work: AgentConversationHistoryReferenceV1[];
+  selected_object: AgentConversationHistoryReferenceV1;
+}
+
+export type AgentConversationTurnLifecycleV1 =
+  | "accepted"
+  | "running"
+  | "completed"
+  | "failed"
+  | "interrupted";
+
+export interface WorldAgentConversationHistoryTurnV1 {
+  turn_id: string;
+  sequence: number;
+  lifecycle_status: AgentConversationTurnLifecycleV1;
+  user_text: string;
+  assistant_text: string | null;
+  provenance: AgentConversationTurnProvenanceV1;
+}
+
+export interface WorldAgentConversationHistoryResponseV1 {
+  schema: "dmb_agent_conversation_history_v1";
+  world_id: string;
+  conversation_state: "active" | "absent";
+  conversation_id: string | null;
+  active_conversation_id: string | null;
+  pointer_revision: number;
+  turns: WorldAgentConversationHistoryTurnV1[];
+  next_before_sequence: number | null;
+}
+
+export interface WorldAgentNewConversationRequestV1 {
+  schema: "dmb_agent_new_conversation_v1";
+  command_id: string;
+  expected_pointer_revision: number;
+  expected_active_conversation_id: string | null;
+}
+
+export interface WorldAgentNewConversationResponseV1 {
+  schema: "dmb_agent_new_conversation_response_v1";
+  world_id: string;
+  conversation_id: string;
+  active_conversation_id: string | null;
+  pointer_revision: number;
 }
 
 export interface PlanDocumentEditProposalRequest {
@@ -944,6 +1008,8 @@ export interface AgentInteractionThread {
   surfaceId: "plan" | "play" | "build" | string;
   activeBackend: LiveQueryBackend;
   hermesSession?: HermesSessionHandle | null;
+  /** Identifies isolated local Plan proposal history; never server conversation context. */
+  worldPlanProposalHistory?: "world_plan_proposals_v1";
   turns: AgentInteractionTurn[];
   uiState?: {
     traceVisible: boolean;

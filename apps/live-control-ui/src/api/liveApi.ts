@@ -17,6 +17,9 @@ import type {
   IndexAgentTurnResponseV1,
   WorldPlanAgentTurnRequestV1,
   WorldPlanAgentTurnResponseV1,
+  WorldAgentConversationHistoryResponseV1,
+  WorldAgentNewConversationRequestV1,
+  WorldAgentNewConversationResponseV1,
   LiveQueryBackend,
   LiveQueryOptions,
   PlanDocumentEditProposalRequest,
@@ -201,18 +204,15 @@ function requiresNativeGraphAuthorization(path: string, body: BodyInit | null | 
   if (/^\/api\/live\/threat-drafts\/[^/]+\/publication-operations\/[^/]+\/identity-candidates\/prepare$/.test(pathname)) {
     return true;
   }
-  if (pathname === "/api/live/world-graph/projection"
+  if (/^\/api\/live\/agent\/worlds\/[^/]+\/conversation(?:\/new)?$/.test(pathname)
+    || pathname === "/api/live/agent/turn"
+    || pathname === "/api/live/world-graph/projection"
     || pathname === "/api/live/world-graph/managed-projection"
     || pathname === "/api/live/world-graph/recap-projection"
     || pathname.startsWith("/api/live/world-graph/retrieval/")
     || pathname === "/api/live/threats/query-hydration") return true;
 
   const payload = requestBodyRecord(body);
-  if (pathname === "/api/live/agent/turn") {
-    const graphRequest = payload?.graph_request;
-    return typeof graphRequest === "object" && graphRequest !== null
-      && (graphRequest as Record<string, unknown>).mode !== "none";
-  }
   return pathname === "/api/live/query" && payload?.world_graph_context != null;
 }
 
@@ -238,7 +238,7 @@ function apiRequestTarget(
   const localGraphRequest = requiresNativeGraphAuthorization(path, body);
   if (localGraphRequest && !isLoopbackApiDestination(url)) {
     throw new LiveApiError(
-      "Native Graph requests are blocked unless the configured API destination is loopback.",
+      "Local operator Agent/Graph requests are blocked unless the configured API destination is loopback.",
       0,
     );
   }
@@ -1358,6 +1358,37 @@ export async function postWorldPlanAgentTurn(
     method: "POST",
     body: JSON.stringify(request),
   });
+}
+
+export interface WorldAgentConversationHistoryOptions {
+  limit?: number;
+  beforeSequence?: number;
+}
+
+export async function getWorldAgentConversationHistory(
+  worldId: string,
+  options: WorldAgentConversationHistoryOptions = {},
+): Promise<WorldAgentConversationHistoryResponseV1> {
+  const query = new URLSearchParams();
+  if (options.limit !== undefined) query.set("limit", String(options.limit));
+  if (options.beforeSequence !== undefined) query.set("before_sequence", String(options.beforeSequence));
+  const suffix = query.size ? `?${query.toString()}` : "";
+  return apiFetch<WorldAgentConversationHistoryResponseV1>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation${suffix}`,
+  );
+}
+
+export async function postWorldAgentNewConversation(
+  worldId: string,
+  request: WorldAgentNewConversationRequestV1,
+): Promise<WorldAgentNewConversationResponseV1> {
+  return apiFetch<WorldAgentNewConversationResponseV1>(
+    `/api/live/agent/worlds/${encodeURIComponent(worldId)}/conversation/new`,
+    {
+      method: "POST",
+      body: JSON.stringify(request),
+    },
+  );
 }
 
 export async function postLiveQuery(

@@ -196,8 +196,12 @@ describe("World Plan Agent turn transport", () => {
     expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("/api/live/agent/turn");
     expect(fetchSpy.mock.calls[0]?.[1]?.method).toBe("POST");
     expect(JSON.parse(String(fetchSpy.mock.calls[0]?.[1]?.body))).toEqual(request);
-    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBeNull();
+    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBe(
+      "Bearer test-only-local-operator-credential-value",
+    );
+    expect(fetchSpy.mock.calls[0]?.[1]?.redirect).toBe("error");
     expect(JSON.stringify(request)).not.toContain("local-plan:");
+    expect(String(fetchSpy.mock.calls[0]?.[1]?.body)).not.toContain("test-only-local-operator-credential-value");
   });
 });
 
@@ -377,20 +381,116 @@ describe("local operator API destination policy", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("keeps graph:none turns credential-free even with a non-loopback API base", async () => {
+  it("blocks graph:none Agent turns at a non-loopback API base before fetch", async () => {
     const api = await importLiveApiForBaseUrl("https://api.example.invalid");
     api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      mockJsonResponse({ schema: "dmb_agent_turn_response_v1" }),
-    );
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
 
-    await api.postIndexAgentTurn(
+    await expect(api.postIndexAgentTurn(
       graphTurnRequest("none") as unknown as Parameters<DynamicLiveApi["postIndexAgentTurn"]>[0],
+    )).rejects.toMatchObject({ name: "LiveApiError", status: 0, message: expect.stringContaining("loopback") });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("blocks graph:none World Plan Ask at a non-loopback API base before fetch", async () => {
+    const api = await importLiveApiForBaseUrl("https://api.example.invalid");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    await expect(api.postWorldPlanAgentTurn({
+      schema: "dmb_agent_turn_request_v1",
+      client_thread_id: "thread-plan-auth",
+      turn_id: "turn-plan-auth",
+      surface: { surface_id: "plan", instance_id: "plan-instance" },
+      owner_scope: { kind: "world", world_id: "world-a" },
+      primary_work: {
+        kind: "plan",
+        object_id: "document-a",
+        expected_revision: 4,
+        expected_revision_n: 7,
+        expected_content_sha256: "a".repeat(64),
+      },
+      client_work_state: "saved_clean",
+      graph_request: { mode: "none" },
+      graph_selection: null,
+      message: "Summarize this plan.",
+    })).rejects.toMatchObject({
+      name: "LiveApiError",
+      status: 0,
+      message: expect.stringContaining("loopback"),
+    });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("protects World Agent history and New Conversation with the in-memory credential", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }),
     );
 
-    expect(String(fetchSpy.mock.calls[0]?.[0])).toBe("https://api.example.invalid/api/live/agent/turn");
+    await api.getWorldAgentConversationHistory("world-a", { limit: 50 });
+    await api.postWorldAgentNewConversation("world-a", {
+      schema: "dmb_agent_new_conversation_v1",
+      command_id: "command-a",
+      expected_pointer_revision: 4,
+      expected_active_conversation_id: "conversation-a",
+    });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+    for (const [, init] of fetchSpy.mock.calls) {
+      expect(new Headers(init?.headers).get("Authorization")).toBe(
+        "Bearer test-only-local-operator-credential-value",
+      );
+      expect(init?.redirect).toBe("error");
+    }
+    expect(String(fetchSpy.mock.calls[0]?.[0])).toContain("/api/live/agent/worlds/world-a/conversation?");
+    expect(String(fetchSpy.mock.calls[1]?.[0])).toBe("/api/live/agent/worlds/world-a/conversation/new");
+    expect(String(fetchSpy.mock.calls[1]?.[1]?.body)).not.toContain("test-only-local-operator-credential-value");
+  });
+
+  it("blocks World Agent history and New Conversation at a non-loopback API base", async () => {
+    const api = await importLiveApiForBaseUrl("https://api.example.invalid");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+
+    await expect(api.getWorldAgentConversationHistory("world-a", { limit: 50 }))
+      .rejects.toMatchObject({ name: "LiveApiError", status: 0, message: expect.stringContaining("loopback") });
+    await expect(api.postWorldAgentNewConversation("world-a", {
+      schema: "dmb_agent_new_conversation_v1",
+      command_id: "command-b",
+      expected_pointer_revision: 4,
+      expected_active_conversation_id: "conversation-a",
+    })).rejects.toMatchObject({ name: "LiveApiError", status: 0, message: expect.stringContaining("loopback") });
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("never injects the local credential into unrelated API requests", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema_version: "0.1.0", capabilities: [] }),
+    );
+
+    await api.getCapabilities({ target_type: "event", target_id: "evt-1" });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
     expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBeNull();
-    expect(fetchSpy.mock.calls[0]?.[1]?.redirect).toBeUndefined();
+  });
+
+  it("clears the in-memory credential before the next protected request", async () => {
+    const api = await importLiveApiForBaseUrl("");
+    api.setNativeGraphAccessToken("test-only-local-operator-credential-value");
+    api.setNativeGraphAccessToken(null);
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      mockJsonResponse({ schema: "dmb_agent_conversation_history_v1" }),
+    );
+
+    await api.getWorldAgentConversationHistory("world-a", { limit: 50 });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(new Headers(fetchSpy.mock.calls[0]?.[1]?.headers).get("Authorization")).toBeNull();
+    expect(fetchSpy.mock.calls[0]?.[1]?.redirect).toBe("error");
   });
 });
 
