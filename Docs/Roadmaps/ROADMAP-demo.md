@@ -215,7 +215,7 @@ large-chunk advisory. The UI typecheck still reports only
 `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`.
 On the isolated synthetic preview, desktop 1280×800 had no horizontal overflow
 (document width 1265px); mobile 390×844 had body width 375px and a 335px card
-region with 20px side insets. The mobile heading/grid styles applied. The
+region with 20px side insets. The mobile heading/grid styles applied.
 PRIME reports an independent 20/20 card-test review and a 71/71 Page/Card/EditHost
 rerun on the exact clean head. The implementation lease is closed. No operator
 acceptance or J1–J6 completion is claimed. Ports 5202, 8000, and 5203 remain
@@ -230,7 +230,9 @@ element ID and kind, and the existing `WorldPlanEditBridge` for editor changes.
 Before activation, confirm that the identity-only
 `SurfaceInteractionPublication.agentContext` pointer contract has a
 server-consumed path on the canonical Plan Agent turn and can carry the selected
-element identity without sending Plan Markdown or Graph data to graphless Ask.
+element identity without placing Plan Markdown or Graph data in that identity
+pointer or silently enabling Graph. Preserve the existing authorized committed
+Plan context in graphless Ask.
 The current Plan Page publishes `agentContext: null`, and its separate ambient
 Plan context does not include card selection. If the existing contract cannot
 carry and validate the target, settle the owning shared/server contract before
