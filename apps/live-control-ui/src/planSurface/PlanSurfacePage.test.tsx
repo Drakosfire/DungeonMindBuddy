@@ -1137,7 +1137,7 @@ it("saves a blank managed World Plan through the exact World-scoped V2 contract"
     </SelectedWorldProvider>,
   );
   expect(await screen.findByTestId("world-owned-plan")).toBeInTheDocument();
-  expect(await screen.findByTestId("world-plan-surface-context")).toBeInTheDocument();
+  expect(screen.getByTestId("world-plan-surface-context")).toBeInTheDocument();
   await waitFor(() => expect(screen.getByRole("button", { name: "Bold" })).toBeEnabled());
   expect(screen.getByRole("button", { name: "Read aloud" })).toBeEnabled();
   expect(screen.getByTestId("world-owned-plan-editor")).toHaveClass("plan-surface-canvas");
