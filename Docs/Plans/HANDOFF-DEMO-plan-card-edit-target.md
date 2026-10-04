@@ -28,16 +28,22 @@ ARCHITECTURE determined that selected identity must bind proposal request,
 response, Apply and durable action history. The current fingerprint binds exact
 saved basis, draft digest, target kind and selected-text digest only. Two cards
 with identical bodies in the same draft therefore alias unless identity is
-added to request fingerprint and durable target provenance. PRIME expanded this
-design packet to name that one APP-STATE-owned target contract, but did not
-authorize its implementation or migration.
+added to request fingerprint and durable target provenance. APP-STATE's
+storage ruling on original packet head `8f023095ef3a6b26ddf35f831a0282b31f8edbbc`
+accepts one nullable typed receipt on the existing `plan_action.action` row,
+with no new table or Agent-conversation change. SERVER reviewed head
+`649b87df28ea209bca9cb23e54a6a4bf437e28e2` and required server-owned
+fingerprinting and conflict checks before current Plan/provider work. This
+amendment records the exact nullable receipt fields and candidate migration;
+final owner review of this exact version and implementation activation remain
+pending.
 
-Before activation, PRIME must receive SERVER and APP-STATE acceptance of the
-target request/response and durable action identity, including legacy
-no-target compatibility and pending/completed/uncertain behavior; approve the
-exact path allowlist and any version/migration; and re-anchor main, open PRs,
-active leases and test/runtime state. PRIME may then publish a fresh ACTIVE
-handoff. Until then, no implementation branch, code PR or migration is
+Before activation, PRIME must record final SERVER and APP-STATE acceptance of
+this exact target request/response and durable action identity, including
+legacy no-target compatibility and pending/completed/uncertain behavior;
+approve the exact helper/test/path allowlist and migration; and re-anchor main,
+open PRs, active leases and test/runtime state. PRIME may then publish a fresh
+ACTIVE handoff. Until then, no implementation branch, code PR or migration is
 authorized under this document.
 
 The intended topology after all gates resolve is **serial**, with one
@@ -155,12 +161,39 @@ both at early existing-receipt lookup and concurrent-reservation-race readback
 before any provider dispatch. Same-key/different-ID requests conflict even
 when body and draft digests match.
 
-APP-STATE owns durable action reservation/receipt storage, record codec,
-target persistence, history projection and historic-row compatibility. It
-persists and exposes semantic target, server-computed fingerprint, versions,
-scope and body digest bound to existing basis/draft; it does not construct the
-canonical server fingerprint. Do not persist editor offsets, root indexes,
-raw body bytes or marker bytes. Do not reuse selected-text digest as card ID.
+APP-STATE's design ruling on the original packet accepts one nullable,
+versioned target receipt on the existing `plan_action.action` record. The
+proposed nullable JSONB field is named `playable_target_receipt`; it is the
+only new durable semantic field. It contains exactly:
+
+```text
+schema_version: "dmb_plan_playable_target_receipt_v1"
+kind: "scene" | "beat" | "choice" | "option"
+id: canonical kind-prefixed Playable ID
+marker_grammar_version: "v1" | "v2"
+body_scope: "heading_body" | "beat_direct_body" | "option_item_content"
+range_semantics_version: "plan-playable-ranges-v1"
+body_serialization_version: "plan-playable-body-markdown-v1"
+target_body_sha256: lowercase hex SHA-256
+```
+
+The action's `target_kind` is `replace_playable_body`; its existing
+`selected_text_sha256` remains null. Constraint/codec changes must require one
+valid nullable receipt for this target kind and keep a null receipt plus
+current digest rules for historical/current no-target modes. The existing
+`request_fingerprint` stores the SERVER-computed fingerprint. The allowlisted
+`PlanActionProjection` includes a nullable receipt, with historic no-target
+rows decoding and projecting null. A fresh-service read must expose the
+original target and both versions. Do not create a new table or change Agent
+conversation storage/behavior. Do not persist editor offsets, root indexes,
+raw body bytes or marker bytes; do not reuse selected-text digest as card ID.
+
+APP-STATE accepts one candidate migration only at the current chain head:
+`src/application_state/migrations/versions/20261004_0015_plan_action_playable_target.py`
+with `down_revision = "20261003_0014"`. Fresh activation must confirm main
+still ends at 0014; if not, stop and return to PRIME. The migration adds only
+the nullable target receipt and constraints needed for the new target mode.
+It does not add conversation behavior, another table or unrelated storage.
 
 The existing service does not replay a completed proposal payload. Preserve
 that behavior: a pending same-key action is not dispatched again; completed
@@ -169,12 +202,11 @@ same key conflicts; failed or indeterminate outcomes need a visible explicit
 recovery action and a new key. A lost response must not be shown as Applied or
 cause an automatic second provider call.
 
-The exact field codec, schema version and migration necessity belong to
-APP-STATE. The current repository's latest migration is
-20261003_0014_plan_action_dialogue.py. A new sequential migration under
-src/application_state/migrations/versions is a candidate only if APP-STATE
-chooses a schema change after re-anchoring. Do not edit migration 0014 or
-assume a new column, table or storage role before owner approval.
+APP-STATE accepts the one nullable `playable_target_receipt` extension and the
+candidate `0015` migration stated above, conditional on a fresh activation
+re-anchor confirming the migration head is still `20261003_0014`. No
+implementation or migration is active. No Agent-conversation schema or
+behavior change is part of this Plan-action receipt.
 
 ## 4. Owner boundaries
 
@@ -185,15 +217,19 @@ assume a new column, table or storage role before owner approval.
   server-derived grammar/scope, canonical action-fingerprint construction,
   `_matches_world_action_receipt`, action/idempotency response binding and
   same-key checks at existing-receipt and reservation-race readback boundaries.
-- **APP-STATE:** durable identity/fingerprint-value storage and codec,
-  reservation/receipt persistence, history projection, historic row
-  compatibility, status/recovery semantics and any migration.
+- **APP-STATE:** accepted one nullable typed receipt on the existing action
+  row; owns its durable storage/codec, target projection, historic no-target
+  compatibility, and conditional migration. SERVER constructs and matches the
+  canonical fingerprint.
 - **ARCHITECTURE:** cross-boundary contract acceptance.
 - **PRIME:** active path arbitration, cross-owner sequencing, final lease and
   PR topology.
 
-SERVER and APP-STATE acceptance is not recorded in this BLOCKED packet. No
-owner may treat this design proposal as authority to implement its component.
+APP-STATE accepted the storage shape on original packet head
+`8f023095ef3a6b26ddf35f831a0282b31f8edbbc`; SERVER reviewed head
+`649b87df28ea209bca9cb23e54a6a4bf437e28e2`. Final owner acceptance of this
+exact amendment is still pending. No owner may treat this design proposal as
+authority to implement its component.
 
 ## 5. Candidate implementation paths for PRIME review
 
@@ -206,8 +242,9 @@ active PR before activation and narrow or amend the list with each owner.
 - apps/live-control-ui/src/planSurface/PlanSurfacePage.tsx
 - apps/live-control-ui/src/planSurface/components/WorldPlanAgentConversation.tsx
 - apps/live-control-ui/src/planSurface/agentEdit/planAgentEditProposal.ts
-- apps/live-control-ui/src/planSurface/agentEdit/planSectionTarget.ts, or a
-  new narrowly scoped Playable-body range helper if review prefers it
+- apps/live-control-ui/src/planSurface/agentEdit/planPlayableBodyTarget.ts
+- apps/live-control-ui/src/planSurface/agentEdit/planPlayableBodyTarget.test.ts
+- apps/live-control-ui/src/planSurface/agentEdit/planSectionTarget.ts
 - apps/live-control-ui/src/api/types.ts
 - apps/live-control-ui/src/api/liveApi.ts
 - apps/live-control-ui/src/planSurface/PlanSurfacePage.test.tsx
@@ -220,9 +257,8 @@ active PR before activation and narrow or amend the list with each owner.
 
 - apps/live_control_server/models/plan_document_edit_proposal.py
 - apps/live_control_server/services/plan_document_edit_proposal.py
-- a minimal identity-only resolver under apps/live_control_server/services if
-  current parsing cannot prove unique membership without importing Run
-  admission/readiness
+- apps/live_control_server/services/plan_playable_body_target.py
+- tests/test_plan_playable_body_target.py
 - tests/test_world_plan_edit_proposal.py
 - tests/test_plan_document_edit_proposal.py
 - tests/fixtures/plan_playable_body_codec_v1.json, proposed shared UI/SERVER
@@ -235,11 +271,18 @@ active PR before activation and narrow or amend the list with each owner.
 - src/application_state/plan_action_dialogue/repository.py
 - tests/application_state/test_plan_action_dialogue_postgres.py
 - src/application_state/migrations/versions/20261004_0015_plan_action_playable_target.py,
-  only if APP-STATE approves a migration and fresh main still ends at revision 0014
+  only if fresh main still ends at revision 0014
+- tests/application_state/test_agent_conversation_postgres.py:146, update only
+  its migration-head assertion if 0015 is activated
+- tests/application_state/test_agent_conversation_service.py:781-782, update
+  only its migration-head assertion if 0015 is activated
 
-No exact APP-STATE schema or migration has been accepted. The path list is
-provisional and must become an exact exclusive lease before any write. Do not
-touch migration 0014 or add a new one before that decision.
+APP-STATE accepted the nullable typed receipt storage direction. The candidate
+migration and head-assertion paths above are conditional, not an active lease.
+If migration head or exact test paths change at activation, return to PRIME.
+Do not modify migration 0014 or acquire conversation behavior paths; the two
+head assertions are the only allowed conversation-test changes if 0015 is
+activated.
 
 **Mutable authority paths for activation and settlement**
 
@@ -273,13 +316,16 @@ at activation; this is not a standing collision clearance.
 2. **SERVER tests:** validate target membership, canonical body bytes and
    digest against the exact request draft; reject duplicate/missing/wrong-kind/
    stale inputs; bind action_id, idempotency_key, exact in-flight target/base/
-   draft/body/versions; conflict on same-key/different-ID both at existing
-   receipt lookup and concurrent-reservation-race readback before provider
-   dispatch. Prove no provider redispatch.
-3. **APP-STATE tests:** read old no-target actions unchanged; persist and freshly
-   reload target and server-computed fingerprint values with exact basis/draft;
-   prove same-key conflict and pending/completed/failed/indeterminate behavior.
-   A completed lost proposal payload remains explicitly non-replayable.
+   draft/body/versions; conflict on same-key/different-ID targets with
+   identical body/draft digests both at existing receipt lookup—before any
+   current Plan read or provider call—and concurrent-reservation-race readback
+   before dispatch. Prove no provider redispatch.
+3. **APP-STATE tests:** read old no-target actions unchanged; persist target and
+   server-computed fingerprint values with exact basis/draft; fresh-service
+   readback exposes the exact nullable receipt; prove same-key/different-ID
+   conflict when body/draft digests match, plus pending/completed/failed/
+   indeterminate behavior. A completed lost proposal payload remains explicitly
+   non-replayable.
 4. **Mounted UI witness:** select a current card, Compose, inspect exact target
    identity/body/basis, Review, then deliver a late same-target response to a
    newer request/capture and make a stale draft/range/target or conversation
