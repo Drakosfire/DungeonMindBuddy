@@ -94,19 +94,73 @@ marker, list wrapper, edges and siblings.
 
 ## 3. Proposed contract and recovery
 
-For targeted mode, the client submits canonical kind/ID with existing exact
-World/document/saved-base and current-draft fields. It sends no editor offsets
-or claimed grammar version. SERVER independently resolves identity and body
-from that exact submitted draft, validates uniqueness and digest, derives the
-grammar version, and returns a response bound to target, server-derived body
-scope, range-semantics version, body digest, draft digest and saved basis.
+The exact proposed card-mode request fields are `target_kind:
+"replace_playable_body"`, `playable_target: { kind, id }` where `kind` is one
+of `scene|beat|choice|option`, `body_serialization_version:
+"plan-playable-body-markdown-v1"`, `target_body_markdown`, and
+`target_body_sha256`. The target ID matches
+`^(scene|beat|choice|option):[a-z0-9][a-z0-9._-]{0,127}$` and its prefix must
+equal `kind`. The body string is non-empty and limited to 8,000 Unicode scalar
+values; its digest is exactly 64 lowercase hex characters. Reuse current exact
+World/document/saved-base and full-draft fields. Do not send editor offsets,
+root indexes or claimed marker grammar; do not overload `selected_text`. The
+client declares the codec version it used; SERVER rejects unsupported versions
+and independently derives the body. Existing no-target fields and fingerprint
+behavior stay unchanged.
 
-APP-STATE must fingerprint the target identity and server-derived grammar,
-body scope, range semantics and body fingerprint with its exact basis and
-current draft digest, and make the semantic target visible in the durable
-action record and allowlisted history projection. This distinguishes same-body
-cards for same-key conflict detection and fresh-service readback. Historic no-target document-selection actions retain current
-compatibility. Do not reuse the selected-text digest as a card ID.
+`plan-playable-body-markdown-v1` serializes exactly the resolved body-node
+fragment as a synthetic Tiptap doc with the existing
+`tiptapJsonToSemanticMarkdown` contract. It includes that serializer's single
+terminal LF, is UTF-8 without BOM, is not trimmed again, and preserves Unicode
+code points. A heading target serializes its authored root body blocks. A v2
+Option serializes the marked top-level list item's child blocks, excluding the
+outer item, marker and edge attributes while retaining nested child blocks.
+`target_body_sha256` is lowercase-hex SHA-256 over exactly those UTF-8 bytes.
+The server parses the exact submitted draft, independently derives and
+serializes the same body, and requires exact string plus digest equality. Its
+full-draft SHA remains over the exact UTF-8 encoding of the submitted
+`draft_markdown` string with current behavior.
+Round-trip warnings, unsupported nodes, or UI/server byte mismatch disable
+that target; do not broaden the parser to make it pass. Any serializer change
+needs a new version.
+
+UI and SERVER must run the same golden vectors (or equivalent parity tests)
+for the exact submitted draft, target, canonical body string and digest. Cover
+LF/CRLF/CR, heading boundaries and unmarked nested headings, escaping, links,
+inline marks, code, hard breaks, and v2 Option inline, multi-paragraph and
+nested-list bodies. Unsupported/non-round-tripping fragments remain out of
+scope. `range_semantics_version` is exactly
+`"plan-playable-ranges-v1"`; response `body_scope` is one of
+`heading_body|beat_direct_body|option_item_content`, with server-derived
+`marker_grammar_version` `v1|v2`.
+
+Card responses use
+`schema_version: "dmb_world_plan_document_edit_proposal_v2"` and bind the
+existing `action_id` plus the exact request `idempotency_key`, target, grammar,
+body scope, range and serialization versions, body digest, saved basis and
+full-draft digest. The UI accepts it only for the exact in-flight request and
+capture/conversation binding; it verifies echoed idempotency key and all
+request/target/base/draft/body/version fields before Review and Apply. A
+non-empty `action_id` is associated only with that correlated response. A late
+same-target response cannot attach to a newer capture.
+
+SERVER constructs the canonical action fingerprint and owns
+`_matches_world_action_receipt` semantics. Fingerprint target-mode input
+includes exact saved basis and raw-draft digest, target kind and typed
+Playable kind/ID, server-derived marker grammar, body scope, range and
+serialization versions, target-body digest and instruction; mutable
+conversation history remains excluded. Keep the existing no-target fingerprint
+algorithm for historic/document-selection actions. Check complete typed target
+both at early existing-receipt lookup and concurrent-reservation-race readback
+before any provider dispatch. Same-key/different-ID requests conflict even
+when body and draft digests match.
+
+APP-STATE owns durable action reservation/receipt storage, record codec,
+target persistence, history projection and historic-row compatibility. It
+persists and exposes semantic target, server-computed fingerprint, versions,
+scope and body digest bound to existing basis/draft; it does not construct the
+canonical server fingerprint. Do not persist editor offsets, root indexes,
+raw body bytes or marker bytes. Do not reuse selected-text digest as card ID.
 
 The existing service does not replay a completed proposal payload. Preserve
 that behavior: a pending same-key action is not dispatched again; completed
@@ -124,13 +178,16 @@ assume a new column, table or storage role before owner approval.
 
 ## 4. Owner boundaries
 
-- **DEMO:** Plan card action, mounted-draft position mapping, target-aware
-  capture/review, WorldPlanEditBridge Apply, stale-state behavior and
-  Save/reopen mounted proof.
-- **Buddy SERVER:** exact-draft identity/body validation, server-derived grammar
-  and request/response binding.
-- **APP-STATE:** durable identity codec, idempotency fingerprint and action
-  history, historic row compatibility, status/recovery semantics, any migration.
+- **DEMO:** Plan card action, mounted-draft position mapping and canonical body
+  bytes, exact in-flight response/conversation correlation, target-aware
+  capture/review, WorldPlanEditBridge Apply and Save/reopen proof.
+- **Buddy SERVER:** exact-draft identity/body validation, canonical body codec,
+  server-derived grammar/scope, canonical action-fingerprint construction,
+  `_matches_world_action_receipt`, action/idempotency response binding and
+  same-key checks at existing-receipt and reservation-race readback boundaries.
+- **APP-STATE:** durable identity/fingerprint-value storage and codec,
+  reservation/receipt persistence, history projection, historic row
+  compatibility, status/recovery semantics and any migration.
 - **ARCHITECTURE:** cross-boundary contract acceptance.
 - **PRIME:** active path arbitration, cross-owner sequencing, final lease and
   PR topology.
@@ -168,6 +225,8 @@ active PR before activation and narrow or amend the list with each owner.
   admission/readiness
 - tests/test_world_plan_edit_proposal.py
 - tests/test_plan_document_edit_proposal.py
+- tests/fixtures/plan_playable_body_codec_v1.json, proposed shared UI/SERVER
+  golden vectors; PRIME must confirm this exact path in the ACTIVE lease
 
 **APP-STATE**
 
@@ -182,6 +241,19 @@ No exact APP-STATE schema or migration has been accepted. The path list is
 provisional and must become an exact exclusive lease before any write. Do not
 touch migration 0014 or add a new one before that decision.
 
+**Mutable authority paths for activation and settlement**
+
+The future ACTIVE handoff must include these authority paths in its exact
+write lease so the successor can synchronize them coherently when the
+implementation completes:
+
+- Docs/Design/DESIGN-world-plan-card-edit-target.md
+- Docs/Plans/HANDOFF-DEMO-plan-card-edit-target.md
+- Docs/Roadmaps/ROADMAP-demo.md
+
+Do not mark the in-flight slice complete early. Record actual reviewed head,
+merge commit, owner decisions and evidence only after they exist.
+
 The 2026-10-04 PR census found #887 limited to prototypes/plan-play-cards/**;
 #869 to statblock editor/workbench; #844 to an Ingest handoff; #826 to
 World-space binding; #781 to semantic-action projection; #764 to PlanSurface
@@ -192,23 +264,26 @@ at activation; this is not a standing collision clearance.
 
 ## 6. Required owning-boundary evidence after activation
 
-1. **UI range tests:** prove every v1/v2 range in the design matrix, sibling
-   headings, unmarked nested notes, unmarked root boundaries, v2 Beat direct
-   body, v2 list-item Options, duplicates, malformed/mixed grammar, empty
-   bodies and non-contiguous Choice bodies.
-2. **SERVER tests:** validate target membership and body digest against the
-   exact request draft, reject duplicate/missing/wrong-kind/stale inputs, bind
-   target/base/draft/body in the response, conflict when the same idempotency
-   key switches between two same-body card IDs, and prove no provider
-   redispatch.
-3. **APP-STATE tests:** read old no-target actions unchanged; persist and
-   freshly reload the new semantic target and exact basis/draft; prove
-   target-sensitive fingerprints, same-key conflict and pending/completed/
-   failed/indeterminate behavior. A completed lost proposal payload remains
-   explicitly non-replayable.
+1. **UI range/codec tests:** prove every v1/v2 range in the design matrix,
+   sibling headings, unmarked nested notes, unmarked root boundaries, v2 Beat
+   direct body, v2 list-item Options, duplicates, malformed/mixed grammar,
+   empty bodies and non-contiguous Choice bodies. Run golden body-codec vectors
+   shared with SERVER and assert exact UTF-8 bytes/digests, including Option
+   inline, multi-paragraph and nested-list cases.
+2. **SERVER tests:** validate target membership, canonical body bytes and
+   digest against the exact request draft; reject duplicate/missing/wrong-kind/
+   stale inputs; bind action_id, idempotency_key, exact in-flight target/base/
+   draft/body/versions; conflict on same-key/different-ID both at existing
+   receipt lookup and concurrent-reservation-race readback before provider
+   dispatch. Prove no provider redispatch.
+3. **APP-STATE tests:** read old no-target actions unchanged; persist and freshly
+   reload target and server-computed fingerprint values with exact basis/draft;
+   prove same-key conflict and pending/completed/failed/indeterminate behavior.
+   A completed lost proposal payload remains explicitly non-replayable.
 4. **Mounted UI witness:** select a current card, Compose, inspect exact target
-   identity/body/basis, Review, then make a stale draft/range/target or
-   conversation change and prove Apply refuses without editor mutation. Repeat
+   identity/body/basis, Review, then deliver a late same-target response to a
+   newer request/capture and make a stale draft/range/target or conversation
+   change; prove correlation or Apply refuses without editor mutation. Repeat
    with fresh capture and Apply only the intended body.
 5. Prove Apply did not Save. Use ordinary Save, unmount, freshly reopen, and
    verify intended body plus unchanged sibling content, marker identity, option
