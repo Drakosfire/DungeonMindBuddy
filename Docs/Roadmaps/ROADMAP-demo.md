@@ -809,10 +809,19 @@ state-sync/admission slice and its own future resolver/request lease. PR #781
 covers semantic-action UI only. No Build implementation lease is active, and
 no overlapping Build Agent implementation is dispatched.
 
-The next Play-specific owner gate is AGENT-INTERACTION's production shared-
-conversation runtime adoption; DEMO surface cutover follows it. Ingest and
-Combat Agent adoption remain open after Play. Campaign-owner/campaign-lens stays
-fail-closed. The visual rejection remains open and is not waived by Agent work.
+The next Play-specific owner gate is SERVER's separate World V2 Run-
+authority/admission route and service, reusing the strict Play context resolver,
+plus APP-STATE's exact Run-moment provenance/idempotency and fail-closed retry
+contract and AGENT-INTERACTION's invocation/segment/completion evidence.
+AGENT-INTERACTION's production conversation runtime (#865) is complete and
+released; do not reopen it. If a pending retry's original Run revision is no
+longer resolvable, reject before provider dispatch; preserving old mutable Run
+history requires a separate APP-STATE contract only if the product requires it.
+After these producer gates merge, DEMO Play UI cutover follows. Graph-backed
+Plan planning remains prioritized first; no Run/Play implementation lease is
+active. Ingest and Combat Agent adoption remain open after Play.
+Campaign-owner/campaign-lens stays fail-closed. The visual rejection remains
+open and is not waived by Agent work.
 J1–J6 remain unaccepted until connected product witnesses pass.
 
 **Current operator direction (2026-09-27, relayed by PRIME):** the knowledge
