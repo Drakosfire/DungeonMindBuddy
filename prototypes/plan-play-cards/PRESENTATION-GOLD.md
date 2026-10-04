@@ -39,3 +39,13 @@ The synthetic Observatory fixture pins expected heading/emphasis/list/callout st
 Composer now exposes prose/list/caption fields, heading level, selected source media, Add/remove/reorder/undo and collapsed advanced JSON import. Unapplied drafts save separately and reopen without changing the displayed preparation. Apply/restore archive prior presentation state into local backup history; source data and played notes remain separate.
 
 Concrete Sheep task: open compound Situation; emphasize its existing conditional-conflict sentence; add media; select the compound map; caption it; Preview; Apply. Eight control interactions from opening the composer, with no JSON editing. Three existing choices and the conditional retreat link remained accessible; map kept GM/player-review labeling. Reorder and undo were observed. Test adaptation was restored afterwards, with history retained. This is an agent-run interaction witness, not operator speed/ease acceptance or source-style extraction.
+
+## Iteration 4 — live construction pane and recovery
+
+Style and Compose now use a nonmodal docked pane. The canvas adjusts to its width; pointer dragging and arrow keys resize the divider. Valid style configuration and typed composition blocks preview on the canvas before Apply. Closing resets unapplied preview; composition drafts remain distinct from applied preparation. Switching tools clears the prior pane synchronously and ignores its queued close event.
+
+Browser evidence: Style preset changed the live canvas; keyboard resize produced a 460px pane and the dialog was nonmodal. Direct Style→Compose switching retained the docked pane. Typing a synthetic sentence showed “Live preview · not applied” on the canvas; Restore returned the original projection. Private screenshot evidence remains outside Git.
+
+Back up / restore offers downloadable or copyable JSON plus local-file/paste review. It validates board/source revision, preserves unmatched writing, archives the current state before replacement, and restores earlier revisions into their original revision key. Browser paste review/restore roundtripped the existing state. File chooser/download transport has not been independently proven in this iteration. Model tests cover writing, decisions, themes/compositions, invalid targets, and earlier revision handling.
+
+The target remains a candidate: source/operator acceptance and the native World presentation edit contract remain outstanding.
