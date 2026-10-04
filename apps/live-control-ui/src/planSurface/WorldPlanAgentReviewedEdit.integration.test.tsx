@@ -402,7 +402,8 @@ it.each(liveApplyScenarios)("composes, reviews, applies, saves, and reloads a li
   expect(await screen.findByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedVisibleSource);
   expect(screen.getByTestId("world-owned-plan-markdown-editor")).toHaveTextContent(expectedAppliedText);
   fireEvent.click(await screen.findByRole("button", { name: "Open" }));
-  expect(await screen.findByText("Plan proposal · Applied to your draft")).toBeInTheDocument();
+  expect(await screen.findByText("Local proposal · Applied to your draft")).toBeInTheDocument();
+  expect(screen.getByRole("region", { name: "Local Plan proposal activity" })).toBeInTheDocument();
   expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
   expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
 });

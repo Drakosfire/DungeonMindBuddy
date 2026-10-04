@@ -592,14 +592,32 @@ describe("World Plan conversation consumer", () => {
     const askRequests: WorldPlanAgentTurnRequestV1[] = [];
     const postAsk = vi.spyOn(liveApi, "postWorldPlanAgentTurn").mockImplementation(async (request) => {
       askRequests.push(request);
-      api.setCurrent(history("conversation-a", 5, [
-        makeTurn(1, request.turn_id, request.message, "The saved Plan currently has one opening scene."),
-      ]));
-      return agentResponse(request, "conversation-a", "The saved Plan currently has one opening scene.") as any;
+      const answer = askRequests.length === 1
+        ? "The saved Plan currently has one opening scene."
+        : "The saved Plan discussion continues after the proposals.";
+      const currentTurn = makeTurn(
+        askRequests.length,
+        request.turn_id,
+        request.message,
+        answer,
+      );
+      if (askRequests.length === 2) {
+        api.setOlder(history("conversation-a", 6, [
+          makeTurn(1, askRequests[0]!.turn_id, askRequests[0]!.message, "The saved Plan currently has one opening scene."),
+        ]));
+      }
+      api.setCurrent(history(
+        "conversation-a",
+        4 + askRequests.length,
+        [currentTurn],
+        askRequests.length === 1 ? null : 2,
+      ));
+      return agentResponse(request, "conversation-a", answer) as any;
     });
+    let proposalCount = 0;
     const proposalRequest = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal").mockImplementation(async (request) => ({
       schema_version: "dmb_world_plan_document_edit_proposal_v1",
-      action_id: "00000000-0000-4000-8000-000000000099",
+      action_id: `00000000-0000-4000-8000-${String(++proposalCount).padStart(12, "0")}`,
       idempotency_key: request.idempotency_key,
       document_id: request.document_id,
       world_id: request.world_id,
@@ -617,6 +635,18 @@ describe("World Plan conversation consumer", () => {
       wall_latency_ms: 0,
       usage: null,
     }) as any);
+    vi.spyOn(liveApi, "postWorldAgentNewConversation").mockImplementation(async (_world, request) => {
+      api.setCurrent(history("conversation-b", request.expected_pointer_revision + 1, [
+        makeTurn(1, "conversation-b-turn-1", "A fresh conversation question", "A fresh conversation answer"),
+      ]));
+      return {
+        schema: "dmb_agent_new_conversation_response_v1",
+        world_id: worldId,
+        conversation_id: "conversation-b",
+        active_conversation_id: "conversation-b",
+        pointer_revision: request.expected_pointer_revision + 1,
+      } as any;
+    });
     const captured = {
       editor: { isDestroyed: false },
       request: {
@@ -642,7 +672,7 @@ describe("World Plan conversation consumer", () => {
       apply: vi.fn(async () => undefined),
     };
 
-    mountComponent(7, bridge);
+    const mounted = mountComponent(7, bridge);
     await screen.findByText(/No messages here yet/i);
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
     const messageBox = screen.getByLabelText("Message DungeonBuddy");
@@ -680,6 +710,52 @@ describe("World Plan conversation consumer", () => {
     expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
     expect(screen.getByText("Apply changes your draft. Save keeps the changes.")).toBeInTheDocument();
     expect(postAsk).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+    fireEvent.change(messageBox, { target: { value: "Add a second detail to the opening." } });
+    fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+    await screen.findByRole("region", { name: "Review proposed Plan edit" });
+    fireEvent.click(screen.getByRole("button", { name: "Discard proposal" }));
+    fireEvent.change(messageBox, { target: { value: "What follows the opening now?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send message" }));
+    expect(await screen.findByText("The saved Plan discussion continues after the proposals.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Older turns" }));
+    expect(await screen.findByText("What is in the opening?")).toBeInTheDocument();
+
+    const transcriptArticles = Array.from(screen.getByRole("region", { name: "World conversation transcript" }).querySelectorAll("article"));
+    expect(transcriptArticles.map((article) => article.hasAttribute("data-sequence")
+      ? `world:${article.getAttribute("data-sequence")}`
+      : `proposal:${article.querySelector("strong")?.parentElement?.textContent?.replace("You:", "").trim()}`)).toEqual([
+      "world:1",
+      "proposal:Add a lantern to the opening.",
+      "proposal:Add a second detail to the opening.",
+      "world:2",
+    ]);
+    expect(transcriptArticles.filter((article) => article.hasAttribute("data-proposal-turn-id"))
+      .map((article) => article.getAttribute("data-after-sequence"))).toEqual(["1", "1"]);
+
+    mounted.unmount();
+    mountComponent(7, bridge);
+    expect(await screen.findByText("The saved Plan discussion continues after the proposals.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Older turns" }));
+    expect(await screen.findByText("What is in the opening?")).toBeInTheDocument();
+    const reloadedArticles = Array.from(screen.getByRole("region", { name: "World conversation transcript" }).querySelectorAll("article"));
+    expect(reloadedArticles.map((article) => article.hasAttribute("data-sequence")
+      ? `world:${article.getAttribute("data-sequence")}`
+      : `proposal:${article.querySelector("strong")?.parentElement?.textContent?.replace("You:", "").trim()}`)).toEqual([
+      "world:1",
+      "proposal:Add a lantern to the opening.",
+      "proposal:Add a second detail to the opening.",
+      "world:2",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "New conversation" }));
+    expect(await screen.findByText("A fresh conversation question")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "World conversation transcript" })
+      .querySelectorAll("[data-proposal-turn-id]")).toHaveLength(0);
+    expect(screen.getByRole("region", { name: "Local Plan proposal activity" })).toHaveTextContent(
+      "different World conversation",
+    );
   });
 
   it("keeps an auth-rejected Ask pending until the operator sets a credential and explicitly retries", async () => {

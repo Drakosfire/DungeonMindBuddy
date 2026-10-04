@@ -93,8 +93,26 @@ const POINTER_STATUSES = ["absent", "accepted", "recovered", "rejected", "reused
 
 const WORLD_HISTORY_PAGE_SIZE = 50;
 const WORLD_PLAN_LOCAL_PROPOSAL_HISTORY = "world_plan_proposals_v1" as const;
+const WORLD_PLAN_LOCAL_PROPOSAL_ORDER_SCHEMA = "dmb_world_plan_local_proposal_order_v1" as const;
+const WORLD_PLAN_LOCAL_PROPOSAL_ORDER_PREFIX = "dmb:world-plan-local-proposal-order:v1:";
 const PENDING_ASK_STORAGE_PREFIX = "dmb:world-plan-pending-ask:v1:";
 const PENDING_NEW_CONVERSATION_STORAGE_PREFIX = "dmb:world-agent-new-conversation:v1:";
+
+interface WorldPlanLocalProposalPosition {
+  turnId: string;
+  conversationId: string | null;
+  afterSequence: number;
+  ordinal: number;
+}
+
+interface WorldPlanLocalProposalOrderEnvelope {
+  schema: typeof WORLD_PLAN_LOCAL_PROPOSAL_ORDER_SCHEMA;
+  positions: WorldPlanLocalProposalPosition[];
+}
+
+type WorldConversationDisplayEvent =
+  | { kind: "world"; turn: WorldAgentConversationHistoryTurnV1 }
+  | { kind: "proposal"; turn: AgentInteractionTurn; position: WorldPlanLocalProposalPosition };
 
 interface WorldPlanPendingAskOrigin {
   worldId: string;
@@ -290,6 +308,97 @@ function mergeHistoryTurns(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function localProposalOrderStorageKey(namespace: string, threadId: string): string {
+  return `${WORLD_PLAN_LOCAL_PROPOSAL_ORDER_PREFIX}${encodeURIComponent(namespace)}:${encodeURIComponent(threadId)}`;
+}
+
+function readLocalProposalOrder(storageKey: string): WorldPlanLocalProposalOrderEnvelope {
+  const empty: WorldPlanLocalProposalOrderEnvelope = {
+    schema: WORLD_PLAN_LOCAL_PROPOSAL_ORDER_SCHEMA,
+    positions: [],
+  };
+  try {
+    const raw = window.localStorage.getItem(storageKey);
+    if (!raw) return empty;
+    const parsed: unknown = JSON.parse(raw);
+    if (!isRecord(parsed) || parsed.schema !== WORLD_PLAN_LOCAL_PROPOSAL_ORDER_SCHEMA || !Array.isArray(parsed.positions)) {
+      return empty;
+    }
+    const positions = parsed.positions.filter((value): value is WorldPlanLocalProposalPosition =>
+      isRecord(value)
+      && typeof value.turnId === "string" && value.turnId.length > 0
+      && (value.conversationId === null || (typeof value.conversationId === "string" && value.conversationId.length > 0))
+      && Number.isSafeInteger(value.afterSequence) && (value.afterSequence as number) >= 0
+      && Number.isSafeInteger(value.ordinal) && (value.ordinal as number) >= 0,
+    );
+    return { schema: WORLD_PLAN_LOCAL_PROPOSAL_ORDER_SCHEMA, positions };
+  } catch {
+    return empty;
+  }
+}
+
+function appendLocalProposalPosition(
+  storageKey: string,
+  turnId: string,
+  conversationId: string,
+  afterSequence: number,
+): boolean {
+  try {
+    const current = readLocalProposalOrder(storageKey);
+    if (current.positions.some((position) => position.turnId === turnId)) return true;
+    const ordinal = current.positions.reduce((largest, position) => Math.max(largest, position.ordinal), -1) + 1;
+    const positions = [...current.positions, { turnId, conversationId, afterSequence, ordinal }]
+      .slice(-AGENT_TURN_HISTORY_CAP);
+    window.localStorage.setItem(storageKey, JSON.stringify({
+      schema: WORLD_PLAN_LOCAL_PROPOSAL_ORDER_SCHEMA,
+      positions,
+    } satisfies WorldPlanLocalProposalOrderEnvelope));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function buildWorldConversationDisplayEvents(
+  history: WorldAgentConversationHistoryResponseV1 | null,
+  proposalTurns: AgentInteractionTurn[],
+  positions: WorldPlanLocalProposalPosition[],
+): { events: WorldConversationDisplayEvent[]; localActivity: AgentInteractionTurn[] } {
+  const positionByTurnId = new Map(positions.map((position) => [position.turnId, position]));
+  const proposals = [...proposalTurns]
+    .filter((turn) => turn.planEdit)
+    .reverse();
+  const conversationId = history?.conversation_id ?? null;
+  const inline: Array<{ turn: AgentInteractionTurn; position: WorldPlanLocalProposalPosition }> = [];
+  const localActivity: AgentInteractionTurn[] = [];
+  for (const turn of proposals) {
+    const position = positionByTurnId.get(turn.turnId);
+    if (position && conversationId && position.conversationId === conversationId) {
+      inline.push({ turn, position });
+    } else {
+      localActivity.push(turn);
+    }
+  }
+  inline.sort((left, right) => left.position.ordinal - right.position.ordinal);
+
+  const events: WorldConversationDisplayEvent[] = [];
+  const inserted = new Set<string>();
+  for (const turn of history?.turns ?? []) {
+    for (const proposal of inline) {
+      if (!inserted.has(proposal.turn.turnId) && proposal.position.afterSequence < turn.sequence) {
+        events.push({ kind: "proposal", turn: proposal.turn, position: proposal.position });
+        inserted.add(proposal.turn.turnId);
+      }
+    }
+    events.push({ kind: "world", turn });
+  }
+  for (const proposal of inline) {
+    if (inserted.has(proposal.turn.turnId)) continue;
+    events.push({ kind: "proposal", turn: proposal.turn, position: proposal.position });
+  }
+  return { events, localActivity };
 }
 
 function hasExactKeys(value: unknown, keys: readonly string[]): value is Record<string, unknown> {
@@ -638,6 +747,7 @@ export function WorldPlanAgentConversation({
   const [olderLoading, setOlderLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyRefreshNonce, setHistoryRefreshNonce] = useState(0);
+  const [proposalOrderRevision, setProposalOrderRevision] = useState(0);
   const [pendingAsks, setPendingAsks] = useState<StoredPendingAsk[]>([]);
   const [pendingAskLoadError, setPendingAskLoadError] = useState<string | null>(null);
   const [pendingCommands, setPendingCommands] = useState<StoredPendingNewConversation[]>([]);
@@ -711,6 +821,21 @@ export function WorldPlanAgentConversation({
   const proposalThreadForDisplay = activeThread?.worldPlanProposalHistory === WORLD_PLAN_LOCAL_PROPOSAL_HISTORY
     ? activeThread
     : null;
+  const proposalOrderKeyForDisplay = namespace && proposalThreadForDisplay
+    ? localProposalOrderStorageKey(namespace, proposalThreadForDisplay.threadId)
+    : null;
+  const proposalOrderForDisplay = useMemo(
+    () => proposalOrderKeyForDisplay ? readLocalProposalOrder(proposalOrderKeyForDisplay) : null,
+    [proposalOrderKeyForDisplay, proposalOrderRevision],
+  );
+  const conversationDisplay = useMemo(
+    () => buildWorldConversationDisplayEvents(
+      history,
+      proposalThreadForDisplay?.turns ?? [],
+      proposalOrderForDisplay?.positions ?? [],
+    ),
+    [history, proposalOrderForDisplay, proposalThreadForDisplay?.turns],
+  );
 
   latestRef.current.fenceKey = requestFenceKey;
   latestRef.current.proposalFenceKey = proposalFenceKey;
@@ -1432,6 +1557,20 @@ export function WorldPlanAgentConversation({
       || !isPositiveRevision(revision) || saveInFlight || !instruction
       || composing || sending || requestRef.current || proposalRequestRef.current) return;
 
+    const dispatchHistory = historySnapshotRef.current;
+    const canAnchorProposal = !historyLoading && !historyError
+      && dispatchHistory?.world_id === worldId
+      && typeof dispatchHistory.conversation_id === "string"
+      && dispatchHistory.conversation_id.length > 0
+      && dispatchHistory.active_conversation_id === dispatchHistory.conversation_id
+      && sameHistoryPointer(history, dispatchHistory);
+    const proposalAnchor = canAnchorProposal && dispatchHistory
+      ? {
+        conversationId: dispatchHistory.conversation_id!,
+        afterSequence: dispatchHistory.turns.reduce((max, turn) => Math.max(max, turn.sequence), 0),
+      }
+      : null;
+
     const providerThreadId = agent.activeThread?.threadId ?? null;
     if (activeThread?.worldPlanProposalHistory !== WORLD_PLAN_LOCAL_PROPOSAL_HISTORY) {
       let rawBytes: string | null = null;
@@ -1510,6 +1649,17 @@ export function WorldPlanAgentConversation({
           targetKind: captured.request.target_kind,
         },
       };
+      if (proposalAnchor) {
+        const orderStorageKey = localProposalOrderStorageKey(namespace, currentThread.threadId);
+        if (appendLocalProposalPosition(
+          orderStorageKey,
+          turnId,
+          proposalAnchor.conversationId,
+          proposalAnchor.afterSequence,
+        )) {
+          setProposalOrderRevision((current) => current + 1);
+        }
+      }
       proposalRequestRef.current = null;
       setComposing(false);
       agent.updateThread({
@@ -1624,6 +1774,65 @@ export function WorldPlanAgentConversation({
     && (historyLoading || !history || Boolean(historyError)));
   const messageLimit = composerIntent === "discuss" ? 8000 : 4000;
   const messageTooLong = composerMessage.length > messageLimit;
+  const localProposalPositionsByTurnId = new Map(
+    (proposalOrderForDisplay?.positions ?? []).map((position) => [position.turnId, position]),
+  );
+  const renderProposalEvent = (
+    turn: AgentInteractionTurn,
+    position: WorldPlanLocalProposalPosition | null,
+    detached: boolean,
+  ) => (
+    <article
+      key={turn.turnId}
+      className="world-plan-agent-conversation__proposal-event"
+      data-proposal-turn-id={turn.turnId}
+      data-asked-at={turn.askedAt}
+      data-after-sequence={position?.afterSequence}
+      data-world-conversation-id={position?.conversationId ?? undefined}
+    >
+      <p className="world-plan-agent-conversation__context">
+        Local proposal · {turn.planEdit?.applied
+          ? "Applied to your draft"
+          : currentReview?.turnId === turn.turnId ? "Ready for review" : "Not applied"}
+      </p>
+      {detached ? (
+        <p className="world-plan-agent-conversation__context">
+          {position && history?.conversation_id !== position.conversationId
+            ? "This proposal belongs to a different World conversation and stays in local activity."
+            : "This proposal has no verified position in the active World conversation and stays in local activity."}
+        </p>
+      ) : null}
+      <p><strong>You:</strong> {turn.question}</p>
+      <p><strong>DungeonBuddy:</strong> {turn.answer}</p>
+      {turn.planEdit?.applied ? (
+        <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
+      ) : null}
+      {currentReview?.turnId === turn.turnId ? (
+        <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
+          <h4>Review this proposal</h4>
+          <p>{currentReview.admitted.response.summary}</p>
+          {currentReview.admitted.response.assumptions.length ? (
+            <ul>{currentReview.admitted.response.assumptions.map((assumption, index) => <li key={`${index}:${assumption}`}>{assumption}</li>)}</ul>
+          ) : null}
+          <div className="world-plan-agent-conversation__preview">
+            <div>
+              <h5>Before</h5>
+              <pre>{currentReview.captured.request.selected_text || "Nothing selected · text will be inserted at the captured caret."}</pre>
+            </div>
+            <div>
+              <h5>After</h5>
+              <pre>{currentReview.admitted.canonicalMarkdown}</pre>
+            </div>
+          </div>
+          <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
+          <div className="world-plan-agent-conversation__review-actions">
+            <button type="button" onClick={discardEditReview}>Discard proposal</button>
+            <button type="button" onClick={() => { void applyEditReview(currentReview); }}>Apply changes</button>
+          </div>
+        </section>
+      ) : null}
+    </article>
+  );
 
   return createPortal(
     <section className="world-plan-agent-conversation" aria-label="Saved World Plan conversation">
@@ -1695,21 +1904,6 @@ export function WorldPlanAgentConversation({
                   ? "You’re all caught up."
                   : "No messages here yet. Start with a question about the saved Plan."}
             </p>
-            {history.turns.length ? history.turns.map((turn) => (
-              <article key={turn.turn_id} data-sequence={turn.sequence}>
-                <p className="world-plan-agent-conversation__context">
-                  Turn {turn.sequence} · {turn.lifecycle_status} · {historyTurnProvenanceLabel(turn)}
-                </p>
-                <p><strong>You:</strong> {turn.user_text}</p>
-                {turn.assistant_text ? (
-                  <p><strong>DungeonBuddy:</strong> {turn.assistant_text}</p>
-                ) : (
-                  <p role="status">{turn.lifecycle_status === "failed" || turn.lifecycle_status === "interrupted"
-                    ? "This server turn did not complete."
-                    : "DungeonBuddy is still working on this server turn."}</p>
-                )}
-              </article>
-            )) : null}
             {history.next_before_sequence !== null ? (
               <button type="button" onClick={() => { void loadOlderTurns(); }} disabled={olderLoading || historyLoading}>
                 {olderLoading ? "Loading older turns…" : "Older turns"}
@@ -1717,46 +1911,36 @@ export function WorldPlanAgentConversation({
             ) : null}
           </>
         ) : null}
-        {proposalThreadForDisplay?.turns.length ? [...proposalThreadForDisplay.turns].reverse().map((turn) => (
-          <article key={turn.turnId} className="world-plan-agent-conversation__proposal-event" data-proposal-turn-id={turn.turnId}>
+        {conversationDisplay.events.map((event) => event.kind === "world" ? (
+          <article key={`world:${event.turn.turn_id}`} data-sequence={event.turn.sequence}>
             <p className="world-plan-agent-conversation__context">
-              Plan proposal · {turn.planEdit?.applied
-                ? "Applied to your draft"
-                : currentReview?.turnId === turn.turnId ? "Ready for review" : "Not applied"}
+              Turn {event.turn.sequence} · {event.turn.lifecycle_status} · {historyTurnProvenanceLabel(event.turn)}
             </p>
-            <p><strong>You:</strong> {turn.question}</p>
-            <p><strong>DungeonBuddy:</strong> {turn.answer}</p>
-            {turn.planEdit?.applied ? (
-              <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
-            ) : null}
-            {currentReview?.turnId === turn.turnId ? (
-              <section className="world-plan-agent-conversation__review" aria-label="Review proposed Plan edit">
-                <h4>Review this proposal</h4>
-                <p>{currentReview.admitted.response.summary}</p>
-                {currentReview.admitted.response.assumptions.length ? (
-                  <ul>{currentReview.admitted.response.assumptions.map((assumption, index) => <li key={`${index}:${assumption}`}>{assumption}</li>)}</ul>
-                ) : null}
-                <div className="world-plan-agent-conversation__preview">
-                  <div>
-                    <h5>Before</h5>
-                    <pre>{currentReview.captured.request.selected_text || "Nothing selected · text will be inserted at the captured caret."}</pre>
-                  </div>
-                  <div>
-                    <h5>After</h5>
-                    <pre>{currentReview.admitted.canonicalMarkdown}</pre>
-                  </div>
-                </div>
-                <p className="world-plan-agent-conversation__context">Apply changes your draft. Save keeps the changes.</p>
-                <div className="world-plan-agent-conversation__review-actions">
-                  <button type="button" onClick={discardEditReview}>Discard proposal</button>
-                  <button type="button" onClick={() => { void applyEditReview(currentReview); }}>Apply changes</button>
-                </div>
-              </section>
-            ) : null}
+            <p><strong>You:</strong> {event.turn.user_text}</p>
+            {event.turn.assistant_text ? (
+              <p><strong>DungeonBuddy:</strong> {event.turn.assistant_text}</p>
+            ) : (
+              <p role="status">{event.turn.lifecycle_status === "failed" || event.turn.lifecycle_status === "interrupted"
+                ? "This server turn did not complete."
+                : "DungeonBuddy is still working on this server turn."}</p>
+            )}
           </article>
-        )) : null}
+        ) : renderProposalEvent(event.turn, event.position, false))}
         {conversationNotice ? <p role="status">{conversationNotice}</p> : null}
       </section>
+      {conversationDisplay.localActivity.length ? (
+        <section className="world-plan-agent-conversation__local-activity" aria-label="Local Plan proposal activity">
+          <h3>Local proposal activity</h3>
+          <p className="world-plan-agent-conversation__context">
+            These proposal events are stored in this browser and are not server World-history turns. Their position could not be matched safely to the active conversation.
+          </p>
+          {conversationDisplay.localActivity.map((turn) => renderProposalEvent(
+            turn,
+            localProposalPositionsByTurnId.get(turn.turnId) ?? null,
+            true,
+          ))}
+        </section>
+      ) : null}
       {newConversationError ? <p role="alert">{newConversationError}</p> : null}
       {pendingCommandLoadError ? <p role="alert">{pendingCommandLoadError}</p> : null}
       {pendingCommands.some((item) => item.error) ? (
