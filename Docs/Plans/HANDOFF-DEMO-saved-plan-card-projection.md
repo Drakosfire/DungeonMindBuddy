@@ -352,23 +352,28 @@ World/Plan data:
   links, revision, and digest. A pending/uncertain commit witness confirms the
   card basis is unavailable instead of combining a prepared revision with an
   older digest; the dirty draft and pending recovery record remain, and no
-  duplicate prepare/commit occurs. A further mounted test confirms
-  document/World changes retire the old projection.
+  duplicate prepare/commit occurs. Mounted snapshot-status regressions confirm
+  that a persisted server working copy with `content_status=draft` stays readable
+  in Document and is labeled uncommitted in Cards until ordinary Save and fresh
+  committed reopen; an unknown status keeps the basis unavailable. A further
+  mounted test confirms document/World changes retire the old projection.
 - `markdownIngressCorpus.test.ts` and `usePlanMarkdownSave.test.ts`:
   **133/133 passed** across two files.
-- Final focused evidence is **240/240** across eight files (the 107 tests above
+- Final focused evidence is **242/242** across eight files (the 109 tests above
   plus 133 Markdown ingress/save-fidelity tests).
 - `node_modules/.bin/vite build --configLoader=runner --outDir
-  /tmp/dmb-demo-card-build-final-review` succeeds. Vite emits the repository's
+  /tmp/dmb-demo-card-build-final-draft-basis` succeeds. Vite emits the repository's
   existing advisory about a JavaScript chunk above 500 kB. The standard
   `npm run build` typecheck step remains blocked by the inherited JSX namespace
   error below and its attempt to write build metadata through the read-only
   `node_modules` symlink; the standalone Vite production build is green.
 - `tsc -p tsconfig.app.json --noEmit --pretty false
-  --tsBuildInfoFile /tmp/dmb-demo-card-tsbuildinfo-prime-review` reports only the inherited
+  --tsBuildInfoFile /tmp/dmb-demo-card-tsbuildinfo-final-draft-basis` reports only the inherited
   `src/statblocks/publication/ThreatPublicationPanel.tsx(553,77): TS2503 Cannot
   find namespace 'JSX'` error, outside this ten-path lease.
-- Synthetic browser preview on UI/API ports 54126/54127 uses no live service.
+- Earlier synthetic browser preview on UI/API ports 54126/54127 used no live service;
+  the later saved-basis and snapshot-status fixes did not change CSS. No screenshot
+  from that preview was retained.
   At desktop 1280×800, the card region measures 608px wide and the document
   width is 1265px. At mobile 390×844, body width is 375px, the card region is
   335px wide at a 20px inset, the one-column heading/grid styles apply, and the
@@ -380,6 +385,5 @@ World/Plan data:
 
 The implementation is delivered in [PR #909](https://github.com/Drakosfire/DungeonMindBuddy/pull/909)
 against `main@e7b1464af6474e64a0f36c8a2fc57927b85db190`. The PR is open for
-PRIME's independent review; its exact final implementation head is recorded in
-the PR metadata after this verification update. The ACTIVE lease remains in
-review and PRIME owns merge.
+PRIME's independent review; its current exact implementation head is recorded
+in the PR metadata. The ACTIVE lease remains in review and PRIME owns merge.

@@ -83,10 +83,16 @@ function renderPlan(selectedWorldId = worldId) {
   );
 }
 
-function installApiMocks(initialSource = initialMarkdown) {
+type FixtureContentStatus = WorldOwnedPlanRecordV2["content_status"] | "unknown";
+
+function installApiMocks(
+  initialSource = initialMarkdown,
+  initialContentStatus: FixtureContentStatus = "committed",
+) {
   let savedMarkdown = initialSource;
   let savedRevision = 4;
   let savedDigest = initialDigest;
+  let savedContentStatus = initialContentStatus;
   const listWorlds = vi.spyOn(liveApi, "listWorldContainers").mockResolvedValue({
     schema_version: "dmb_world_container_registry_v1",
     records: [{
@@ -112,11 +118,11 @@ function installApiMocks(initialSource = initialMarkdown) {
     schema_version: "dmb_workspace_document_registry_v2",
     scope_mode: "world",
     world_id: worldId,
-    records: [{ ...record, revision: savedRevision }],
+    records: [{ ...record, content_status: savedContentStatus as WorldOwnedPlanRecordV2["content_status"], revision: savedRevision }],
   }));
   vi.spyOn(liveApi, "getWorldOwnedPlanSnapshot").mockImplementation(async () => ({
     schema_version: "dmb_workspace_document_snapshot_v2",
-    record: { ...record, revision: savedRevision },
+    record: { ...record, content_status: savedContentStatus as WorldOwnedPlanRecordV2["content_status"], revision: savedRevision },
     markdown: savedMarkdown,
     content_sha256: savedDigest,
     file_fingerprint: "postgres",
@@ -142,6 +148,7 @@ function installApiMocks(initialSource = initialMarkdown) {
     savedMarkdown = request.markdown;
     savedRevision = request.expected_revision + 1;
     savedDigest = committedDigest;
+    savedContentStatus = "committed";
     return {
       schema_version: "dmb_tiptap_markdown_write_commit_v2",
       scope_mode: "world",
@@ -152,7 +159,7 @@ function installApiMocks(initialSource = initialMarkdown) {
       target_display_path: record.target_relpath!,
       registry_revision: savedRevision,
       committed_revision: savedRevision,
-      committed_record: { ...record, revision: savedRevision },
+      committed_record: { ...record, content_status: "committed", revision: savedRevision },
       normalized_content_sha256: committedDigest,
       writer_ok: true,
       writer_phase: "commit",
@@ -246,12 +253,75 @@ it("keeps one editor draft through Cards, ordinary Save, and fresh reopen at the
   await waitFor(() => expect(reopenedCardsButton).toBeEnabled());
   fireEvent.click(reopenedCardsButton);
   expect(screen.getByText("Saved Plan")).toBeInTheDocument();
-  fireEvent.click(screen.getByText("Saved revision details"));
+  fireEvent.click(screen.getByText("Plan basis details"));
   expect(screen.getByText("6", { selector: "dd" })).toBeInTheDocument();
   expect(screen.getByText(committedDigest)).toBeInTheDocument();
   expect(within(screen.getByTestId("world-plan-cards")).getByText("Scene overview revised.")).toBeInTheDocument();
   expect(screen.getByTestId("world-owned-plan-markdown-editor").querySelector(".ProseMirror")).not.toBe(editorElement);
   expect(apis.commit).toHaveBeenCalledTimes(1);
+});
+
+it("keeps a persisted server draft uncommitted until ordinary Save and fresh reopen", async () => {
+  const serverDraftMarkdown = initialMarkdown.replace("Scene overview.", "Persisted server draft prose.");
+  const apis = installApiMocks(serverDraftMarkdown, "draft");
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  const mounted = renderPlan();
+  const page = await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(within(page).getByRole("button", { name: "Cards" })).toBeEnabled());
+  expect(within(screen.getByTestId("world-plan-document-view")).getByText("Persisted server draft prose.")).toBeInTheDocument();
+  expect(apis.prepare).not.toHaveBeenCalled();
+  expect(apis.commit).not.toHaveBeenCalled();
+
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+  const cards = screen.getByTestId("world-plan-cards");
+  expect(within(cards).getByText("Server draft / uncommitted")).toBeInTheDocument();
+  expect(cards).toHaveTextContent("Uncommitted server draft");
+  expect(within(cards).getAllByText("Unavailable")).toHaveLength(2);
+  expect(within(cards).getByText("Persisted server draft prose.")).toBeInTheDocument();
+  expect(within(cards).queryByText("Saved Plan")).not.toBeInTheDocument();
+
+  const editHost = await screen.findByTestId("surface-edit-host");
+  const saveButton = await within(editHost).findByRole("button", { name: "Save Plan" });
+  await waitFor(() => expect(saveButton).toBeEnabled());
+  fireEvent.click(saveButton);
+  await screen.findByText("Saved to this World.");
+  expect(apis.prepare).toHaveBeenCalledTimes(1);
+  expect(apis.commit).toHaveBeenCalledTimes(1);
+  expect(apis.commit.mock.calls[0]?.[0].markdown).toContain("Persisted server draft prose.");
+
+  mounted.unmount();
+  localStorage.removeItem(`dmb:world-plan-local-draft:v2:${worldId}`);
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  renderPlan();
+  const reopenedPage = await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(within(reopenedPage).getByRole("button", { name: "Cards" })).toBeEnabled());
+  fireEvent.click(within(reopenedPage).getByRole("button", { name: "Cards" }));
+  const reopenedCards = screen.getByTestId("world-plan-cards");
+  expect(within(reopenedCards).getByText("Saved Plan")).toBeInTheDocument();
+  fireEvent.click(within(reopenedCards).getByText("Plan basis details"));
+  expect(within(reopenedCards).getByText("Committed snapshot")).toBeInTheDocument();
+  expect(within(reopenedCards).getByText("6", { selector: "dd" })).toBeInTheDocument();
+  expect(within(reopenedCards).getByText(committedDigest)).toBeInTheDocument();
+  expect(apis.commit).toHaveBeenCalledTimes(1);
+});
+
+it("keeps the card basis unavailable when the loaded snapshot status is unknown", async () => {
+  const apis = installApiMocks(initialMarkdown, "unknown");
+  window.history.replaceState({}, "", `/plan?world=${worldId}&documentId=${documentId}`);
+  renderPlan();
+  const page = await screen.findByTestId("world-owned-plan");
+  await waitFor(() => expect(within(page).getByRole("button", { name: "Cards" })).toBeEnabled());
+  fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
+
+  const cards = screen.getByTestId("world-plan-cards");
+  expect(within(cards).getByText("Saved basis unavailable")).toBeInTheDocument();
+  expect(within(cards).queryByText("Saved Plan")).not.toBeInTheDocument();
+  fireEvent.click(within(cards).getByText("Plan basis details"));
+  expect(within(cards).getByText("Basis", { selector: "dt" }).nextElementSibling).toHaveTextContent("Unavailable");
+  expect(within(cards).getByText("Revision", { selector: "dt" }).nextElementSibling).toHaveTextContent("Unavailable");
+  expect(within(cards).getByText("Content SHA-256", { selector: "dt" }).nextElementSibling).toHaveTextContent("Unavailable");
+  expect(apis.prepare).not.toHaveBeenCalled();
+  expect(apis.commit).not.toHaveBeenCalled();
 });
 
 it("round-trips the mounted v2 writer boundary from Document edit through Cards, Save, and fresh reopen", async () => {
@@ -334,7 +404,7 @@ it("round-trips the mounted v2 writer boundary from Document edit through Cards,
   expect(reopenedOption).toHaveTextContent("Authored activates: scene:gate-line");
   expect(reopenedOption).toHaveTextContent("Authored suppresses: beat:panic-breaks");
   expect(reopenedCards).toHaveTextContent("The queue is moving.");
-  fireEvent.click(within(reopenedCards).getByText("Saved revision details"));
+  fireEvent.click(within(reopenedCards).getByText("Plan basis details"));
   expect(within(reopenedCards).getByText("6", { selector: "dd" })).toBeInTheDocument();
   expect(within(reopenedCards).getByText(committedDigest)).toBeInTheDocument();
   expect(apis.commit).toHaveBeenCalledTimes(1);
@@ -355,7 +425,7 @@ it("hides the saved basis while a commit is uncertain and preserves the draft wi
   await waitFor(() => expect(within(screen.getByTestId("world-plan-document-view")).getByText("Scene overview pending.")).toBeInTheDocument());
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
   const cards = screen.getByTestId("world-plan-cards");
-  const detailsSummary = within(cards).getByText("Saved revision details");
+  const detailsSummary = within(cards).getByText("Plan basis details");
   fireEvent.click(detailsSummary);
   expect(within(cards).getByText(initialDigest)).toBeInTheDocument();
 
@@ -364,13 +434,13 @@ it("hides the saved basis while a commit is uncertain and preserves the draft wi
   await waitFor(() => expect(apis.commit).toHaveBeenCalledTimes(1));
   expect(apis.prepare).toHaveBeenCalledTimes(1);
   expect(within(cards).getByText("Draft / unsaved")).toBeInTheDocument();
-  expect(within(cards).getAllByText("Unavailable")).toHaveLength(2);
+  expect(within(cards).getAllByText("Unavailable")).toHaveLength(3);
 
   fireEvent.click(within(page).getByRole("button", { name: "Document" }));
   fireEvent.click(within(page).getByRole("button", { name: "Cards" }));
   const pendingCards = screen.getByTestId("world-plan-cards");
-  fireEvent.click(within(pendingCards).getByText("Saved revision details"));
-  expect(within(pendingCards).getAllByText("Unavailable")).toHaveLength(2);
+  fireEvent.click(within(pendingCards).getByText("Plan basis details"));
+  expect(within(pendingCards).getAllByText("Unavailable")).toHaveLength(3);
   expect(within(pendingCards).getByText("Scene overview pending.")).toBeInTheDocument();
   const localDraft = JSON.parse(localStorage.getItem(`dmb:world-plan-local-draft:v2:${worldId}`) ?? "null");
   expect(localDraft).toMatchObject({ pending_write: { phase: "commit", base_revision: 4, prepared_revision: 5 } });
@@ -476,7 +546,7 @@ it("invalidates the selected card projection when the saved document or World ch
   fireEvent.click(within(otherWorldPage).getByRole("button", { name: "Cards" }));
   const otherWorldCards = screen.getByTestId("world-plan-cards");
   expect(within(otherWorldCards).getByText("Other World prose.")).toBeInTheDocument();
-  fireEvent.click(within(otherWorldCards).getByText("Saved revision details"));
+  fireEvent.click(within(otherWorldCards).getByText("Plan basis details"));
   expect(within(otherWorldCards).getByText(secondWorldId)).toBeInTheDocument();
   expect(within(otherWorldCards).getByText(thirdDocumentId)).toBeInTheDocument();
   expect(within(otherWorldCards).getByText("21", { selector: "dd" })).toBeInTheDocument();

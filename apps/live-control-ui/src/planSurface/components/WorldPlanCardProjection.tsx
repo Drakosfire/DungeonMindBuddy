@@ -16,6 +16,11 @@ import { slicePlayableBodies } from "../../playSurface/runbook/nativeRunbookProj
 type ProjectionVersion = "v1" | "v2";
 type ProjectionDiagnostic = { code: string; message: string };
 
+export type WorldPlanCardBasis =
+  | { status: "verified"; revision: number; contentSha256: string }
+  | { status: "server-draft" }
+  | { status: "unavailable" };
+
 export type WorldPlanCardNode = {
   id: string;
   kind: "scene" | "beat" | "choice" | "option";
@@ -223,8 +228,7 @@ export function WorldPlanCardProjection({
   document,
   markdown,
   sourceWarnings,
-  revision,
-  contentSha256,
+  basis,
   isDirty,
   onReturnToDocument,
 }: {
@@ -233,8 +237,7 @@ export function WorldPlanCardProjection({
   document: JSONContent;
   markdown: string;
   sourceWarnings: readonly string[];
-  revision: number | null;
-  contentSha256: string | null;
+  basis: WorldPlanCardBasis;
   isDirty: boolean;
   onReturnToDocument: () => void;
 }) {
@@ -258,19 +261,32 @@ export function WorldPlanCardProjection({
       </section>
     );
   }
+  const cardState = isDirty
+    ? "Draft / unsaved"
+    : basis.status === "verified"
+      ? "Saved Plan"
+      : basis.status === "server-draft"
+        ? "Server draft / uncommitted"
+        : "Saved basis unavailable";
+  const basisLabel = basis.status === "verified"
+    ? "Committed snapshot"
+    : basis.status === "server-draft"
+      ? "Uncommitted server draft"
+      : "Unavailable";
   return (
     <section className="world-plan-cards" data-testid="world-plan-cards" aria-label="Plan cards">
       <header className="world-plan-cards__heading">
         <div><p className="world-plan-card__kind">Read-only Cards · {model.version}</p><h2>Plan cards</h2></div>
-        <p className="world-plan-cards__state">{isDirty ? "Draft / unsaved" : "Saved Plan"}</p>
+        <p className="world-plan-cards__state">{cardState}</p>
       </header>
       <details className="world-plan-cards__basis">
-        <summary>Saved revision details</summary>
+        <summary>Plan basis details</summary>
         <dl>
           <dt>World</dt><dd><code>{worldId}</code></dd>
           <dt>Document</dt><dd><code>{documentId}</code></dd>
-          <dt>Revision</dt><dd>{revision ?? "Unavailable"}</dd>
-          <dt>Content SHA-256</dt><dd><code>{contentSha256 ?? "Unavailable"}</code></dd>
+          <dt>Basis</dt><dd>{basisLabel}</dd>
+          <dt>Revision</dt><dd>{basis.status === "verified" ? basis.revision : "Unavailable"}</dd>
+          <dt>Content SHA-256</dt><dd><code>{basis.status === "verified" ? basis.contentSha256 : "Unavailable"}</code></dd>
         </dl>
       </details>
       <p className="world-plan-cards__source-note">Only marked elements appear as cards. Unmarked Plan prose stays in Document.</p>

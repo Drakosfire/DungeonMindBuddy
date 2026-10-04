@@ -201,19 +201,23 @@ is `ffd83e424bb238dc2331cf55ab6237993bc0762e`; its current exact head is
 authoritative in GitHub metadata. The view is a read-only lens
 over the same mounted editor draft; supported edits stay in Document and use
 ordinary Save plus a fresh reopen. It adds no card store, parser admission,
-Run, Graph, or J1–J6 acceptance. Focused suites pass 240/240: the model,
-mounted tests, Plan Page/EditHost, and Playable index/conformance pass 107/107;
+Run, Graph, or J1–J6 acceptance. Focused suites pass 242/242: the model,
+mounted tests, Plan Page/EditHost, and Playable index/conformance pass 109/109;
 Markdown ingress and Plan Save tests pass 133/133. Mounted evidence now includes
 the v2 editor-to-Cards-to-Save-to-reopen writer path and a pending/uncertain-save
 regression that keeps the revision/digest pair unavailable until verified. A
-production Vite build to `/tmp` passes with the repository's existing large-chunk
-advisory. The UI typecheck still reports only
+reopened persisted server draft with no local pending write remains readable in
+Document and is labeled uncommitted in Cards until ordinary Save and fresh
+committed reopen; an unknown snapshot status keeps the saved basis unavailable.
+A production Vite build to `/tmp` passes with the repository's existing
+large-chunk advisory. The UI typecheck still reports only
 `ThreatPublicationPanel.tsx(553,77): TS2503 Cannot find namespace 'JSX'`.
 On the isolated synthetic preview, desktop 1280×800 had no horizontal overflow
 (document width 1265px); mobile 390×844 had body width 375px and a 335px card
 region with 20px side insets. The mobile heading/grid styles applied. The
-cumulative diff is ready for PRIME's independent review. No merge or J1–J6
-acceptance is claimed. Ports 5202, 8000, and 5203 remain untouched.
+cumulative diff is in PRIME's independent review at the exact head in PR
+metadata. No merge or J1–J6 acceptance is claimed. Ports 5202, 8000, and 5203
+remain untouched.
 
 **Prior DEMO lane checkpoint (2026-09-28):** three bounded predecessors are now merged.
 #785 / J4 World-scoped statblock drafts merged at

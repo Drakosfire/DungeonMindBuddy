@@ -13,7 +13,7 @@ import {
   listWorldOwnedPlans,
   prepareTiptapMarkdownWrite,
 } from "../api/liveApi";
-import type { PlanViewProjection, WorldOwnedPlanRecordV2 } from "../api/types";
+import type { PlanViewProjection, WorldOwnedPlanRecordV2, WorldOwnedPlanSnapshotV2 } from "../api/types";
 import { MarkdownEditorCore } from "../tiptap/MarkdownEditorCore";
 import { defaultMarkdownDocumentAdapter } from "../tiptap/MarkdownDocumentAdapter";
 import { AppChrome, type AppChromeToolsGeneration } from "../chrome/AppChrome";
@@ -24,7 +24,7 @@ import { useSelectedWorld } from "../selectedWorld/SelectedWorldContext";
 import { WorldPlanSurfaceContext } from "./components/PlanSurfaceContext";
 import { PlanSurfaceCanvasFrame } from "./components/PlanSurfaceCanvas";
 import { WorldPlanAgentConversation } from "./components/WorldPlanAgentConversation";
-import { WorldPlanCardProjection } from "./components/WorldPlanCardProjection";
+import { WorldPlanCardProjection, type WorldPlanCardBasis } from "./components/WorldPlanCardProjection";
 import "./components/WorldPlanCardProjection.css";
 import {
   applyWorldPlanEditProposal,
@@ -274,6 +274,22 @@ function persistWorldPlanLocalDraft(
   }
 }
 
+function worldPlanCardBasisFromSnapshot(
+  snapshot: WorldOwnedPlanSnapshotV2,
+  hasPendingWrite = false,
+): WorldPlanCardBasis {
+  if (hasPendingWrite) return { status: "unavailable" };
+  if (snapshot.record.content_status === "committed") {
+    return {
+      status: "verified",
+      revision: snapshot.loaded_revision,
+      contentSha256: snapshot.content_sha256,
+    };
+  }
+  if (snapshot.record.content_status === "draft") return { status: "server-draft" };
+  return { status: "unavailable" };
+}
+
 function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName: string }) {
   const [localDraft] = useState(() => {
     const existing = readWorldPlanLocalDraft(worldId);
@@ -300,7 +316,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
   const [localDraftId, setLocalDraftId] = useState(() => localDraft?.local_draft_id ?? createWorldPlanLocalDraftId(worldId));
   const [title, setTitle] = useState(localDraft?.title ?? "Plan");
   const [markdown, setMarkdown] = useState(localDraft?.markdown ?? "");
-  const [savedBasis, setSavedBasis] = useState<{ revision: number; contentSha256: string } | null>(null);
+  const [savedBasis, setSavedBasis] = useState<WorldPlanCardBasis>({ status: "unavailable" });
   const [createUncertain, setCreateUncertain] = useState(localDraft?.create_uncertain ?? false);
   const [uncertainCreateDraft, setUncertainCreateDraft] = useState(localDraft?.uncertain_create_draft ?? null);
   const [recoveryConflict, setRecoveryConflict] = useState(false);
@@ -309,6 +325,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     markdown: string;
     revision: number;
     contentSha256: string;
+    contentStatus: WorldOwnedPlanRecordV2["content_status"];
   } | null>(null);
   const [editorGeneration, setEditorGeneration] = useState(0);
   const [selectionGeneration, setSelectionGeneration] = useState(0);
@@ -531,9 +548,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           serverTitleRef.current = snapshot.record.title;
           serverMarkdownRef.current = snapshot.markdown;
           serverDigestRef.current = snapshot.content_sha256;
-          setSavedBasis(recoverLocal && localDraft.pending_write
-            ? null
-            : { revision: snapshot.loaded_revision, contentSha256: snapshot.content_sha256 });
+          setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot, recoverLocal && Boolean(localDraft.pending_write)));
           pendingWriteRef.current = recoverLocal ? localDraft.pending_write ?? null : null;
           setTitle(nextTitle);
           setMarkdown(nextMarkdown);
@@ -545,6 +560,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               markdown: snapshot.markdown,
               revision: snapshot.loaded_revision,
               contentSha256: snapshot.content_sha256,
+              contentStatus: snapshot.record.content_status,
             });
             setError("The saved Plan changed since this local draft. Your draft is preserved; choose which version to keep before saving.");
           }
@@ -568,7 +584,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           documentIdRef.current = null;
           revisionRef.current = null;
           serverDigestRef.current = null;
-          setSavedBasis(null);
+          setSavedBasis({ status: "unavailable" });
           persistWorldPlanLocalDraft(worldId, localDraft);
         }
         if (!cancelled) setStatus("ready");
@@ -588,7 +604,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     const priorDocumentId = documentIdRef.current;
     // Close the outgoing edit lease before React paints the loading state.
     switchingDocumentRef.current = true;
-    setSavedBasis(null);
+    setSavedBasis({ status: "unavailable" });
     editorRef.current?.setEditable(false);
     editorIdentityRef.current = `${worldId}:${nextDocumentId}:${editorGeneration + 1}`;
     editorRef.current = null;
@@ -614,7 +630,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       serverTitleRef.current = snapshot.record.title;
       serverMarkdownRef.current = snapshot.markdown;
       serverDigestRef.current = snapshot.content_sha256;
-      setSavedBasis({ revision: snapshot.loaded_revision, contentSha256: snapshot.content_sha256 });
+      setSavedBasis(worldPlanCardBasisFromSnapshot(snapshot));
       pendingWriteRef.current = null;
       uncertainCreateDraftRef.current = preservedUncertainDraft;
       setUncertainCreateDraft(preservedUncertainDraft);
@@ -661,7 +677,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     serverTitleRef.current = "";
     serverMarkdownRef.current = "";
     serverDigestRef.current = null;
-    setSavedBasis(null);
+    setSavedBasis({ status: "unavailable" });
     pendingWriteRef.current = null;
     setRecoveryConflict(false);
     setServerDraft(null);
@@ -709,7 +725,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     let submittedGeneration = editGenerationRef.current;
     savingRef.current = true;
     setSaving(true);
-    if (isCurrent()) setSavedBasis(null);
+    if (isCurrent()) setSavedBasis({ status: "unavailable" });
     setError(null);
     setMessage(null);
     try {
@@ -812,7 +828,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
           serverTitleRef.current = created.title;
           serverMarkdownRef.current = "";
           serverDigestRef.current = null;
-          setSavedBasis(null);
+          setSavedBasis({ status: "unavailable" });
           setCreateUncertain(false);
           setUncertainCreateDraft(null);
           setDocumentId(exactId);
@@ -874,6 +890,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
               markdown: snapshot.markdown,
               revision: snapshot.loaded_revision,
               contentSha256: snapshot.content_sha256,
+              contentStatus: snapshot.record.content_status,
             });
             setError("The previous save outcome cannot be proven against the current World revision. Your local draft is preserved and saving is blocked until you choose a version.");
           }
@@ -885,9 +902,9 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
         serverMarkdownRef.current = committed ? committedMarkdown ?? snapshot.markdown : snapshot.markdown;
         serverDigestRef.current = snapshot.content_sha256;
         if (isCurrent()) {
-          setSavedBasis(committed
-            ? { revision: snapshot.loaded_revision, contentSha256: snapshot.content_sha256 }
-            : null);
+          setSavedBasis(committed && snapshot.record.content_status === "committed"
+            ? worldPlanCardBasisFromSnapshot(snapshot)
+            : { status: "unavailable" });
         }
         pendingWriteRef.current = null;
         const latest = readWorldPlanLocalDraft(worldId);
@@ -1007,7 +1024,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
       serverMarkdownRef.current = submittedMarkdown;
       serverDigestRef.current = committed.normalized_content_sha256;
       if (isCurrent()) {
-        setSavedBasis({ revision: committed.registry_revision, contentSha256: committed.normalized_content_sha256 });
+        setSavedBasis({
+          status: "verified",
+          revision: committed.registry_revision,
+          contentSha256: committed.normalized_content_sha256,
+        });
       }
       pendingWriteRef.current = null;
       const latest = readWorldPlanLocalDraft(worldId);
@@ -1082,7 +1103,11 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
     serverMarkdownRef.current = serverDraft.markdown;
     serverDigestRef.current = serverDraft.contentSha256;
     revisionRef.current = serverDraft.revision;
-    setSavedBasis({ revision: serverDraft.revision, contentSha256: serverDraft.contentSha256 });
+    setSavedBasis(serverDraft.contentStatus === "committed"
+      ? { status: "verified", revision: serverDraft.revision, contentSha256: serverDraft.contentSha256 }
+      : serverDraft.contentStatus === "draft"
+        ? { status: "server-draft" }
+        : { status: "unavailable" });
     pendingWriteRef.current = null;
     const generation = ++editGenerationRef.current;
     setTitle(serverDraft.title);
@@ -1352,8 +1377,7 @@ function WorldOwnedPlanPage({ worldId, worldName }: { worldId: string; worldName
             document={cardProjectionDocument}
             markdown={markdown}
             sourceWarnings={fidelityWarnings}
-            revision={savedBasis?.revision ?? null}
-            contentSha256={savedBasis?.contentSha256 ?? null}
+            basis={savedBasis}
             isDirty={cardProjectionDirty}
             onReturnToDocument={() => setSelectedCardViewIdentity(null)}
           />
