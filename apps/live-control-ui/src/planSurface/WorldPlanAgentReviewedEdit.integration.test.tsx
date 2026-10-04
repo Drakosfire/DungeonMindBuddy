@@ -1093,6 +1093,87 @@ it("drops a delayed card-body proposal after a new Option target is selected", a
   view.unmount();
 });
 
+it("drops a late same-card response when a newer capture is current", async () => {
+  savedMarkdown = v2OptionPlanMarkdown;
+  setupWorldApi();
+  let releaseFirst!: (value: WorldPlanDocumentEditProposalResponse) => void;
+  let releaseSecond!: (value: WorldPlanDocumentEditProposalResponse) => void;
+  const firstPending = new Promise<WorldPlanDocumentEditProposalResponse>((resolve) => { releaseFirst = resolve; });
+  const secondPending = new Promise<WorldPlanDocumentEditProposalResponse>((resolve) => { releaseSecond = resolve; });
+  const proposal = vi.spyOn(liveApi, "postWorldPlanDocumentEditProposal")
+    .mockImplementationOnce(() => firstPending)
+    .mockImplementationOnce(() => secondPending);
+  const prepare = vi.spyOn(liveApi, "prepareTiptapMarkdownWrite");
+  const commit = vi.spyOn(liveApi, "commitWorldOwnedPlanMarkdownWrite");
+  const location = `/plan?world=${worldId}&documentId=${documentId}`;
+  window.history.replaceState({}, "", location);
+  const view = render(<StrictMode><SelectedWorldProvider locationSnapshot={location}><IntegrationPage /></SelectedWorldProvider></StrictMode>);
+  const editorSurface = await screen.findByTestId("world-owned-plan-markdown-editor");
+  await waitFor(() => expect(editorSurface).toHaveTextContent("Wait by the gate."));
+  const originalEditorText = editorSurface.textContent;
+  fireEvent.click(await screen.findByRole("button", { name: "Cards" }));
+  const cards = screen.getByTestId("world-plan-cards");
+  const exploreCard = cards.querySelector('[data-element-id="option:explore"]');
+  expect(exploreCard).not.toBeNull();
+  fireEvent.click(within(exploreCard as HTMLElement).getByRole("button", { name: "Select for Edit" }));
+  fireEvent.click(await screen.findByRole("button", { name: "Open" }));
+  fireEvent.click(screen.getByRole("radio", { name: "Propose edit" }));
+  fireEvent.change(await screen.findByLabelText("Message DungeonBuddy"), {
+    target: { value: "Add the stale guide response." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(1));
+  const firstRequest = proposal.mock.calls[0]?.[0];
+  expect(firstRequest).toMatchObject({
+    target_kind: "replace_playable_body",
+    playable_target: { kind: "option", id: "option:explore" },
+  });
+
+  fireEvent.click(within(exploreCard as HTMLElement).getByRole("button", { name: "Selected for Edit" }));
+  await waitFor(() => expect(screen.getByLabelText("Message DungeonBuddy")).not.toBeDisabled());
+  fireEvent.change(screen.getByLabelText("Message DungeonBuddy"), {
+    target: { value: "Use the newer guide response." },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Propose edit" }));
+  await waitFor(() => expect(proposal).toHaveBeenCalledTimes(2));
+  const secondRequest = proposal.mock.calls[1]?.[0];
+  expect(secondRequest).toMatchObject({
+    target_kind: "replace_playable_body",
+    playable_target: { kind: "option", id: "option:explore" },
+    instruction: "Use the newer guide response.",
+  });
+  expect(secondRequest?.idempotency_key).not.toBe(firstRequest?.idempotency_key);
+
+  await act(async () => {
+    releaseFirst(v2OptionProposalResponse(firstRequest!, "00000000-0000-4000-8000-000000000043", "A stale guide leads [Aldric](dmb-node:node:captain-lysandra-ironveil) forward."));
+    await firstPending;
+  });
+  expect(screen.queryByRole("region", { name: "Review proposed Plan edit" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Apply changes" })).not.toBeInTheDocument();
+  expect(screen.getByLabelText("Message DungeonBuddy")).toHaveValue("Use the newer guide response.");
+  expect(editorSurface.textContent).toBe(originalEditorText);
+  expect(savedMarkdown).toBe(v2OptionPlanMarkdown);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+
+  await act(async () => {
+    releaseSecond(v2OptionProposalResponse(secondRequest!, "00000000-0000-4000-8000-000000000044", "A fresh guide leads [Aldric](dmb-node:node:captain-lysandra-ironveil) forward."));
+    await secondPending;
+  });
+  const review = await screen.findByRole("region", { name: "Review proposed Plan edit" });
+  expect(review).toHaveTextContent("A fresh guide leads");
+  expect(review).not.toHaveTextContent("A stale guide leads");
+  fireEvent.click(screen.getByRole("button", { name: "Apply changes" }));
+  await waitFor(() => {
+    expect(editorSurface).toHaveTextContent("A fresh guide leads");
+    expect(editorSurface).not.toHaveTextContent("A stale guide leads");
+  });
+  expect(savedMarkdown).toBe(v2OptionPlanMarkdown);
+  expect(prepare).not.toHaveBeenCalled();
+  expect(commit).not.toHaveBeenCalled();
+  view.unmount();
+});
+
 it("refuses card-body Apply when the selected target changes during recapture", async () => {
   savedMarkdown = v2OptionPlanMarkdown;
   setupWorldApi();
