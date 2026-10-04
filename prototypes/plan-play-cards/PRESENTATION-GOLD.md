@@ -65,3 +65,9 @@ Audit reconciled the reviewed C045 source package with the Conks candidate. Its 
 Browser checked the corrected statblock and its disclosure/readback. Model checks reject missing units, mismatched original text/source PDF, missing reviewer and invalid package digest; overlays do not change authored adaptations or contextual multi-span text. Both private boards validate; seven test files and Session29 fixture checks pass. This reconciles those two reviewed corrections only, not full source or gold acceptance.
 
 Completion audit remains partial: design-v1/Session29 and observed construction/style/recovery invariants have direct evidence; source hierarchy/media/identity coverage still needs wider review; native agent presentation integration is outside the current prototype contract; operator task acceptance and downloaded-file transport are not proven. Candidate remains active for those requirements.
+
+## Recovery transport completion check
+
+A current browser Download JSON produced a file on disk with exact byte equality to the captured export snapshot. The downloaded file was then selected through the browser’s local file chooser, reviewed and restored. A fresh export contained identical serialized play state, including presentation history. The older prior-revision download was kept separate and was not overwritten. This closes the previously unproven downloaded-file transport for the observed desktop browser. Race and nonempty-writing coverage remain in the model/UI tests; no production durability claim follows.
+
+The remaining completion gates are independent full-source/presentation review, operator task acceptance, and a native World presentation edit target. The rejected independent delegation was not delivered or forwarded; reporting to PRIME remains authorized. Do not keep widening the prototype to substitute for those gates.

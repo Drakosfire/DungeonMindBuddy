@@ -4,3 +4,5 @@ const board={pdfHash:'pdf',units:[{id:'unit',text:correction.originalText}],sour
 assert.deepEqual(validateSourceCorrections(board),[]);const original={text:correction.originalText,refs:['unit'],status:'source_supported'};const revised=correctedItem(original,board);assert.equal(revised.text,correction.text);assert.equal(revised.status,'reviewed_inference');assert.equal(original.text,correction.originalText);assert.equal(board.units[0].text,correction.originalText);assert.equal(revised.sourceReview.packageHash,correction.packageHash);
 for(const item of [{...original,status:'proposed_connective'},{...original,text:'Authored adaptation'},{...original,refs:['unit','other']}])assert.equal(correctedItem(item,board),item);
 for(const patch of [{originalText:'wrong basis'},{sourcePdfHash:'wrong source'},{packageHash:'unknown'},{reviewer:''}])assert.equal(validateSourceCorrections({...board,sourceCorrections:{unit:{...correction,...patch}}}).length,1);
+
+for(const sourceCorrections of [null,[],false,{unit:null},{unit:4}])assert.equal(validateSourceCorrections({...board,sourceCorrections}).length,1);
