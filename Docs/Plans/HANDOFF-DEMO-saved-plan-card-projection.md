@@ -223,6 +223,9 @@ Required owning-boundary evidence after activation:
    parentage/order/IDs/edges, unmarked content with no minted IDs, malformed
    marker handling, mixed versions, duplicate/orphan identities, invalid
    associations/edges, and unknown structure failure without partial cards.
+   Assert existing `slicePlayableBodies` boundaries: a body stops at the next
+   marked element or document-root H1/H2; ordinary H3/H4 remain prose; trailing
+   unmarked Plan instructions beyond those boundaries are not absorbed.
 2. A mounted World Plan integration test uses synthetic mocked World/document
    APIs. It loads a saved Plan at an exact revision/digest, switches Document ↔
    Cards without changing source, edits an existing marked title/body once in
@@ -232,10 +235,13 @@ Required owning-boundary evidence after activation:
    markers/refs/order and the changed prose. It reopens the same World/document
    from the committed mock snapshot and compares card/document structure and the
    exact returned revision/digest.
-3. The same test proves a World/document switch during an edit cannot apply a
-   retained stale card command, failed/uncertain Save preserves the existing
-   draft/recovery behavior, and unmarked/malformed Plans remain readable in
-   Document view with no false playable cards.
+3. While Cards is active, changing World/document/revision invalidates the
+   prior projection. The new projection is not labeled current until indexed
+   from the exact selected editor snapshot. Switching Cards/Document never
+   writes. Failed/uncertain Save preserves existing draft/recovery behavior;
+   test stale ordinary Document Save callbacks only where the mounted surface
+   retains such callbacks. Unmarked/malformed Plans remain readable in Document
+   view with no false playable cards.
 4. Focused `PlanSurfacePage`, Markdown import/export, Playable identity/index,
    and Save-fidelity tests run on the exact cumulative base-to-head diff. A
    synthetic browser check covers the card lens at desktop/mobile sizes; it does
